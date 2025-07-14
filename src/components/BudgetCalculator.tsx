@@ -54,33 +54,44 @@ const BudgetCalculator = () => {
       try {
         const parsed = JSON.parse(savedData);
         
-        // Check if this is old data format (with budgetGroups instead of costGroups/savingsGroups)
+        // Handle migration from old data format
         if (parsed.budgetGroups && !parsed.costGroups) {
-          console.log('Migrating old budget data format');
-          // Clear old data and use defaults
-          localStorage.removeItem('budgetCalculatorData');
-          return;
+          console.log('Migrating old budget data format to new format');
+          // Migrate old budgetGroups to new costGroups format
+          const migratedCostGroups = parsed.budgetGroups.map((group: any) => ({
+            ...group,
+            type: 'cost'
+          }));
+          setCostGroups(migratedCostGroups);
+        } else {
+          // Use new format costGroups
+          setCostGroups(parsed.costGroups || [
+            { id: '1', name: 'Hyra', amount: 15000, type: 'cost' },
+            { id: '2', name: 'Mat & Kläder', amount: 8000, type: 'cost' },
+            { id: '3', name: 'Transport', amount: 2000, type: 'cost', subCategories: [] }
+          ]);
         }
         
+        // Load all saved values with backward compatibility
         setAndreasSalary(parsed.andreasSalary || 45000);
         setAndreasförsäkringskassan(parsed.andreasförsäkringskassan || 0);
         setSusannaSalary(parsed.susannaSalary || 40000);
+        // Migrate old försäkringskassan to susannaförsäkringskassan if needed
         setSusannaförsäkringskassan(parsed.susannaförsäkringskassan || parsed.försäkringskassan || 5000);
-        setCostGroups(parsed.costGroups || [
-          { id: '1', name: 'Hyra', amount: 15000, type: 'cost' },
-          { id: '2', name: 'Mat & Kläder', amount: 8000, type: 'cost' },
-          { id: '3', name: 'Transport', amount: 2000, type: 'cost', subCategories: [] }
-        ]);
+        
         setSavingsGroups(parsed.savingsGroups || []);
         setDailyTransfer(parsed.dailyTransfer || 300);
         setWeekendTransfer(parsed.weekendTransfer || 540);
+        
         if (parsed.results) {
           setResults(parsed.results);
         }
+        
+        console.log('Successfully loaded saved budget data');
       } catch (error) {
         console.error('Error loading saved data:', error);
-        // Clear corrupted data
-        localStorage.removeItem('budgetCalculatorData');
+        // Only clear corrupted data, don't lose user data on migration
+        console.warn('Using default values due to corrupted data');
       }
     }
   }, []);
