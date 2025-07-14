@@ -448,19 +448,25 @@ const BudgetCalculator = () => {
                           {/* Sub-categories */}
                           {group.subCategories && group.subCategories.length > 0 && (
                             <div className="ml-4 space-y-1">
-                              {group.subCategories.map((sub) => (
-                                <div key={sub.id} className="flex items-center gap-2">
+                              {group.subCategories.map((sub, index) => (
+                                <div key={`${group.id}-${sub.id}-${index}`} className="flex items-center gap-2">
                                   <Input
                                     placeholder="Underkategori"
-                                    value={sub.name}
-                                    onChange={(e) => updateSubCategory(group.id, sub.id, 'name', e.target.value)}
+                                    value={sub.name || ''}
+                                    onChange={(e) => {
+                                      console.log('Updating subcategory name:', e.target.value);
+                                      updateSubCategory(group.id, sub.id, 'name', e.target.value);
+                                    }}
                                     className="flex-1 h-8 text-sm"
                                   />
                                   <Input
                                     type="number"
                                     placeholder="Belopp"
                                     value={sub.amount || ''}
-                                    onChange={(e) => updateSubCategory(group.id, sub.id, 'amount', Number(e.target.value))}
+                                    onChange={(e) => {
+                                      console.log('Updating subcategory amount:', e.target.value);
+                                      updateSubCategory(group.id, sub.id, 'amount', Number(e.target.value));
+                                    }}
                                     className="w-20 h-8 text-sm"
                                   />
                                   <Button
