@@ -3,18 +3,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Calculator, DollarSign, TrendingUp, Users } from 'lucide-react';
+import { Calculator, DollarSign, TrendingUp, Users, Calendar } from 'lucide-react';
 
 const BudgetCalculator = () => {
   const [susannaSalary, setSusannaSalary] = useState<number>(0);
   const [andreasSalary, setAndreasSalary] = useState<number>(0);
   const [monthlyExpenses, setMonthlyExpenses] = useState<number>(0);
+  const [dailyTransfer, setDailyTransfer] = useState<number>(300);
+  const [weekendTransfer, setWeekendTransfer] = useState<number>(540);
   const [results, setResults] = useState<{
     totalSalary: number;
     totalDailyBudget: number;
     balanceLeft: number;
     susannaShare: number;
     andreasShare: number;
+    daysUntil25th: number;
+    weekdayCount: number;
+    fridayCount: number;
   } | null>(null);
 
   const calculateDailyBudget = () => {
@@ -34,7 +39,21 @@ const BudgetCalculator = () => {
       endDate.setFullYear(nextYear, adjustedMonth, 24);
     }
     
+    // Calculate days until 25th
+    const date25th = new Date(currentYear, currentMonth, 25);
+    if (currentDay > 25) {
+      const nextMonth = currentMonth + 1;
+      const nextYear = nextMonth > 11 ? currentYear + 1 : currentYear;
+      const adjustedMonth = nextMonth > 11 ? 0 : nextMonth;
+      date25th.setFullYear(nextYear, adjustedMonth, 25);
+    }
+    
+    const timeDiff = date25th.getTime() - currentDate.getTime();
+    const daysUntil25th = Math.ceil(timeDiff / (1000 * 3600 * 24));
+    
     let totalBudget = 0;
+    let weekdayCount = 0;
+    let fridayCount = 0;
     let currentDatePointer = new Date(currentDate);
     
     while (currentDatePointer <= endDate) {
@@ -42,23 +61,25 @@ const BudgetCalculator = () => {
       
       // Monday = 1, Tuesday = 2, ..., Friday = 5
       if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-        totalBudget += 300; // 300 every Monday to Friday
+        totalBudget += dailyTransfer; // Custom daily transfer amount
+        weekdayCount++;
         
         if (dayOfWeek === 5) { // Friday
-          totalBudget += 540; // Additional 540 every Friday
+          totalBudget += weekendTransfer; // Custom weekend transfer amount
+          fridayCount++;
         }
       }
       
       currentDatePointer.setDate(currentDatePointer.getDate() + 1);
     }
     
-    return totalBudget;
+    return { totalBudget, weekdayCount, fridayCount, daysUntil25th };
   };
 
   const calculateBudget = () => {
     const totalSalary = susannaSalary + andreasSalary;
-    const totalDailyBudget = calculateDailyBudget();
-    const balanceLeft = totalSalary - totalDailyBudget - monthlyExpenses;
+    const budgetData = calculateDailyBudget();
+    const balanceLeft = totalSalary - budgetData.totalBudget - monthlyExpenses;
     
     let susannaShare = 0;
     let andreasShare = 0;
@@ -70,10 +91,13 @@ const BudgetCalculator = () => {
     
     setResults({
       totalSalary,
-      totalDailyBudget,
+      totalDailyBudget: budgetData.totalBudget,
       balanceLeft,
       susannaShare,
-      andreasShare
+      andreasShare,
+      daysUntil25th: budgetData.daysUntil25th,
+      weekdayCount: budgetData.weekdayCount,
+      fridayCount: budgetData.fridayCount
     });
   };
 
@@ -147,6 +171,30 @@ const BudgetCalculator = () => {
                 />
               </div>
               
+              <div className="space-y-2">
+                <Label htmlFor="daily-transfer">Daglig överföring</Label>
+                <Input
+                  id="daily-transfer"
+                  type="number"
+                  placeholder="Enter daily transfer amount"
+                  value={dailyTransfer || ''}
+                  onChange={(e) => setDailyTransfer(Number(e.target.value))}
+                  className="text-lg"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="weekend-transfer">Extra helgöverföring</Label>
+                <Input
+                  id="weekend-transfer"
+                  type="number"
+                  placeholder="Enter Friday transfer amount"
+                  value={weekendTransfer || ''}
+                  onChange={(e) => setWeekendTransfer(Number(e.target.value))}
+                  className="text-lg"
+                />
+              </div>
+              
               <Button 
                 onClick={calculateBudget} 
                 className="w-full bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary transition-all duration-300"
@@ -185,6 +233,27 @@ const BudgetCalculator = () => {
                   <div className="bg-gradient-to-r from-success/10 to-success/5 rounded-lg p-4 border border-success/20">
                     <p className="text-sm font-medium text-success">Balance Left</p>
                     <p className="text-3xl font-bold text-success">{formatCurrency(results.balanceLeft)}</p>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <h3 className="font-semibold flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Time & Transfer Details
+                    </h3>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-muted rounded-lg p-3">
+                        <p className="text-xs font-medium text-muted-foreground">Days until 25th</p>
+                        <p className="text-xl font-bold text-primary">{results.daysUntil25th}</p>
+                      </div>
+                      <div className="bg-muted rounded-lg p-3">
+                        <p className="text-xs font-medium text-muted-foreground">Weekdays</p>
+                        <p className="text-xl font-bold text-accent">{results.weekdayCount}</p>
+                      </div>
+                      <div className="bg-muted rounded-lg p-3">
+                        <p className="text-xs font-medium text-muted-foreground">Fridays</p>
+                        <p className="text-xl font-bold text-secondary">{results.fridayCount}</p>
+                      </div>
+                    </div>
                   </div>
                   
                   <div className="space-y-3">
