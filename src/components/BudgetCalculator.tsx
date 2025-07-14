@@ -14,6 +14,7 @@ interface BudgetGroup {
 const BudgetCalculator = () => {
   const [andreasSalary, setAndreasSalary] = useState<number>(45000);
   const [susannaSalary, setSusannaSalary] = useState<number>(40000);
+  const [försäkringskassan, setFörsäkringskassan] = useState<number>(5000);
   const [budgetGroups, setBudgetGroups] = useState<BudgetGroup[]>([
     { id: '1', name: 'Hyra', amount: 15000 },
     { id: '2', name: 'Mat & Kläder', amount: 8000 },
@@ -44,6 +45,7 @@ const BudgetCalculator = () => {
         const parsed = JSON.parse(savedData);
         setAndreasSalary(parsed.andreasSalary || 45000);
         setSusannaSalary(parsed.susannaSalary || 40000);
+        setFörsäkringskassan(parsed.försäkringskassan || 5000);
         setBudgetGroups(parsed.budgetGroups || [
           { id: '1', name: 'Hyra', amount: 15000 },
           { id: '2', name: 'Mat & Kläder', amount: 8000 },
@@ -65,6 +67,7 @@ const BudgetCalculator = () => {
     const dataToSave = {
       andreasSalary,
       susannaSalary,
+      försäkringskassan,
       budgetGroups,
       dailyTransfer,
       weekendTransfer,
@@ -76,7 +79,7 @@ const BudgetCalculator = () => {
   // Save data whenever key values change
   useEffect(() => {
     saveToLocalStorage();
-  }, [andreasSalary, susannaSalary, budgetGroups, dailyTransfer, weekendTransfer, results]);
+  }, [andreasSalary, susannaSalary, försäkringskassan, budgetGroups, dailyTransfer, weekendTransfer, results]);
 
   const calculateDailyBudget = () => {
     const currentDate = new Date();
@@ -172,7 +175,8 @@ const BudgetCalculator = () => {
   };
 
   const calculateBudget = () => {
-    const totalSalary = susannaSalary + andreasSalary;
+    const susannaTotalIncome = susannaSalary + försäkringskassan;
+    const totalSalary = susannaTotalIncome + andreasSalary;
     const budgetData = calculateDailyBudget();
     const totalMonthlyExpenses = budgetGroups.reduce((sum, group) => sum + group.amount, 0);
     const balanceLeft = totalSalary - budgetData.totalBudget - totalMonthlyExpenses;
@@ -183,9 +187,9 @@ const BudgetCalculator = () => {
     let andreasPercentage = 0;
     
     if (totalSalary > 0) {
-      susannaPercentage = (susannaSalary / totalSalary) * 100;
+      susannaPercentage = (susannaTotalIncome / totalSalary) * 100;
       andreasPercentage = (andreasSalary / totalSalary) * 100;
-      susannaShare = (susannaSalary / totalSalary) * balanceLeft;
+      susannaShare = (susannaTotalIncome / totalSalary) * balanceLeft;
       andreasShare = (andreasSalary / totalSalary) * balanceLeft;
     }
     
@@ -278,6 +282,18 @@ const BudgetCalculator = () => {
                   placeholder="Ange månadslön"
                   value={susannaSalary || ''}
                   onChange={(e) => setSusannaSalary(Number(e.target.value))}
+                  className="text-lg"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="forsakringskassan">Försäkringskassan</Label>
+                <Input
+                  id="forsakringskassan"
+                  type="number"
+                  placeholder="Ange försäkringskassan"
+                  value={försäkringskassan || ''}
+                  onChange={(e) => setFörsäkringskassan(Number(e.target.value))}
                   className="text-lg"
                 />
               </div>
