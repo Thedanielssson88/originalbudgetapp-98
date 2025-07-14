@@ -40,6 +40,7 @@ const BudgetCalculator = () => {
     totalSalary: number;
     totalDailyBudget: number;
     remainingDailyBudget: number;
+    holidayDaysBudget: number;
     balanceLeft: number;
     susannaShare: number;
     andreasShare: number;
@@ -49,7 +50,98 @@ const BudgetCalculator = () => {
     weekdayCount: number;
     fridayCount: number;
     totalMonthlyExpenses: number;
+    holidayDays: string[];
   } | null>(null);
+
+  // Swedish holiday calculation
+  const getSwedishHolidays = (year: number) => {
+    const holidays = [];
+    
+    // Fixed holidays
+    holidays.push(new Date(year, 0, 1));   // New Year's Day
+    holidays.push(new Date(year, 0, 6));   // Epiphany
+    holidays.push(new Date(year, 4, 1));   // May Day
+    holidays.push(new Date(year, 5, 6));   // National Day
+    holidays.push(new Date(year, 11, 24)); // Christmas Eve
+    holidays.push(new Date(year, 11, 25)); // Christmas Day
+    holidays.push(new Date(year, 11, 26)); // Boxing Day
+    holidays.push(new Date(year, 11, 31)); // New Year's Eve
+    
+    // Calculate Easter and related holidays
+    const easter = calculateEaster(year);
+    holidays.push(new Date(easter.getTime() - 2 * 24 * 60 * 60 * 1000)); // Good Friday
+    holidays.push(new Date(easter.getTime() + 24 * 60 * 60 * 1000));     // Easter Monday
+    holidays.push(new Date(easter.getTime() + 39 * 24 * 60 * 60 * 1000)); // Ascension Day
+    holidays.push(new Date(easter.getTime() + 50 * 24 * 60 * 60 * 1000)); // Whit Monday
+    
+    // Midsummer's Eve (Friday between June 19-25)
+    const midsummer = getMidsummerEve(year);
+    holidays.push(midsummer);
+    
+    // All Saints' Day (Saturday between October 31 - November 6)
+    const allSaints = getAllSaintsDay(year);
+    holidays.push(allSaints);
+    
+    return holidays;
+  };
+
+  const calculateEaster = (year: number) => {
+    const a = year % 19;
+    const b = Math.floor(year / 100);
+    const c = year % 100;
+    const d = Math.floor(b / 4);
+    const e = b % 4;
+    const f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4);
+    const k = c % 4;
+    const l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7 * m + 114) / 31);
+    const day = ((h + l - 7 * m + 114) % 31) + 1;
+    return new Date(year, month - 1, day);
+  };
+
+  const getMidsummerEve = (year: number) => {
+    // Friday between June 19-25
+    for (let day = 19; day <= 25; day++) {
+      const date = new Date(year, 5, day); // June
+      if (date.getDay() === 5) { // Friday
+        return date;
+      }
+    }
+    return new Date(year, 5, 24); // Fallback
+  };
+
+  const getAllSaintsDay = (year: number) => {
+    // Saturday between October 31 - November 6
+    for (let day = 31; day >= 25; day--) {
+      const date = new Date(year, 9, day); // October
+      if (date.getDay() === 6) { // Saturday
+        return date;
+      }
+    }
+    // Check early November
+    for (let day = 1; day <= 6; day++) {
+      const date = new Date(year, 10, day); // November
+      if (date.getDay() === 6) { // Saturday
+        return date;
+      }
+    }
+    return new Date(year, 10, 1); // Fallback
+  };
+
+  const isSwedishHoliday = (date: Date) => {
+    const year = date.getFullYear();
+    const holidays = getSwedishHolidays(year);
+    
+    return holidays.some(holiday => 
+      holiday.getDate() === date.getDate() &&
+      holiday.getMonth() === date.getMonth() &&
+      holiday.getFullYear() === date.getFullYear()
+    );
+  };
 
   // Load saved values from localStorage on component mount
   useEffect(() => {
@@ -161,7 +253,11 @@ const BudgetCalculator = () => {
     const timeDiff = date25th.getTime() - currentDate.getTime();
     const daysUntil25th = Math.ceil(timeDiff / (1000 * 3600 * 24));
     
-    // Calculate remaining budget (today to 24th)
+    // Collect holiday days from current date to 25th
+    const holidayDays: string[] = [];
+    let holidayBudget = 0;
+    
+    // Calculate remaining budget (today to 24th) excluding holidays
     let remainingBudget = 0;
     let remainingWeekdayCount = 0;
     let remainingFridayCount = 0;
@@ -169,22 +265,36 @@ const BudgetCalculator = () => {
     
     while (currentDatePointer <= remainingEndDate) {
       const dayOfWeek = currentDatePointer.getDay();
+      const isHoliday = isSwedishHoliday(currentDatePointer);
       
-      // Monday = 1, Tuesday = 2, ..., Friday = 5
-      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-        remainingBudget += dailyTransfer;
-        remainingWeekdayCount++;
+      if (isHoliday) {
+        const holidayName = getHolidayName(currentDatePointer);
+        holidayDays.push(`${currentDatePointer.getDate()}/${currentDatePointer.getMonth() + 1} - ${holidayName}`);
         
-        if (dayOfWeek === 5) { // Friday
-          remainingBudget += weekendTransfer;
-          remainingFridayCount++;
+        // If it's a weekday holiday, add to holiday budget
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+          holidayBudget += dailyTransfer;
+          if (dayOfWeek === 5) { // Friday
+            holidayBudget += weekendTransfer;
+          }
+        }
+      } else {
+        // Monday = 1, Tuesday = 2, ..., Friday = 5
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+          remainingBudget += dailyTransfer;
+          remainingWeekdayCount++;
+          
+          if (dayOfWeek === 5) { // Friday
+            remainingBudget += weekendTransfer;
+            remainingFridayCount++;
+          }
         }
       }
       
       currentDatePointer.setDate(currentDatePointer.getDate() + 1);
     }
     
-    // Calculate total budget (25th previous month to 24th current month)
+    // Calculate total budget (25th previous month to 24th current month) excluding holidays
     let totalBudget = 0;
     let totalWeekdayCount = 0;
     let totalFridayCount = 0;
@@ -192,15 +302,18 @@ const BudgetCalculator = () => {
     
     while (totalDatePointer <= totalEndDate) {
       const dayOfWeek = totalDatePointer.getDay();
+      const isHoliday = isSwedishHoliday(totalDatePointer);
       
-      // Monday = 1, Tuesday = 2, ..., Friday = 5
-      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-        totalBudget += dailyTransfer;
-        totalWeekdayCount++;
-        
-        if (dayOfWeek === 5) { // Friday
-          totalBudget += weekendTransfer;
-          totalFridayCount++;
+      if (!isHoliday) {
+        // Monday = 1, Tuesday = 2, ..., Friday = 5
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+          totalBudget += dailyTransfer;
+          totalWeekdayCount++;
+          
+          if (dayOfWeek === 5) { // Friday
+            totalBudget += weekendTransfer;
+            totalFridayCount++;
+          }
         }
       }
       
@@ -210,12 +323,49 @@ const BudgetCalculator = () => {
     return { 
       totalBudget, 
       remainingBudget, 
+      holidayBudget,
       weekdayCount: remainingWeekdayCount, 
       fridayCount: remainingFridayCount, 
       daysUntil25th,
       totalWeekdayCount,
-      totalFridayCount
+      totalFridayCount,
+      holidayDays
     };
+  };
+
+  const getHolidayName = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const day = date.getDate();
+    
+    // Fixed holidays
+    if (month === 0 && day === 1) return "Nyårsdagen";
+    if (month === 0 && day === 6) return "Trettondedag jul";
+    if (month === 4 && day === 1) return "Första maj";
+    if (month === 5 && day === 6) return "Nationaldagen";
+    if (month === 11 && day === 24) return "Julafton";
+    if (month === 11 && day === 25) return "Juldagen";
+    if (month === 11 && day === 26) return "Annandag jul";
+    if (month === 11 && day === 31) return "Nyårsafton";
+    
+    // Easter-related holidays
+    const easter = calculateEaster(year);
+    const easterTime = easter.getTime();
+    const dateTime = date.getTime();
+    
+    if (dateTime === easterTime - 2 * 24 * 60 * 60 * 1000) return "Långfredag";
+    if (dateTime === easterTime + 24 * 60 * 60 * 1000) return "Annandag påsk";
+    if (dateTime === easterTime + 39 * 24 * 60 * 60 * 1000) return "Kristi himmelfärd";
+    if (dateTime === easterTime + 50 * 24 * 60 * 60 * 1000) return "Annandag pingst";
+    
+    // Variable holidays
+    const midsummer = getMidsummerEve(year);
+    if (date.getTime() === midsummer.getTime()) return "Midsommarafton";
+    
+    const allSaints = getAllSaintsDay(year);
+    if (date.getTime() === allSaints.getTime()) return "Alla helgons dag";
+    
+    return "Helgdag";
   };
 
   const calculateBudget = () => {
@@ -252,6 +402,7 @@ const BudgetCalculator = () => {
       totalSalary,
       totalDailyBudget: budgetData.totalBudget,
       remainingDailyBudget: budgetData.remainingBudget,
+      holidayDaysBudget: budgetData.holidayBudget,
       balanceLeft,
       susannaShare,
       andreasShare,
@@ -260,7 +411,8 @@ const BudgetCalculator = () => {
       daysUntil25th: budgetData.daysUntil25th,
       weekdayCount: budgetData.weekdayCount,
       fridayCount: budgetData.fridayCount,
-      totalMonthlyExpenses
+      totalMonthlyExpenses,
+      holidayDays: budgetData.holidayDays
     });
   };
 
@@ -518,6 +670,11 @@ const BudgetCalculator = () => {
                   <div className="bg-muted rounded-lg p-4">
                     <p className="text-sm font-medium text-muted-foreground">Återstående Daglig Budget</p>
                     <p className="text-2xl font-bold text-primary">{formatCurrency(results.remainingDailyBudget)}</p>
+                  </div>
+                  
+                  <div className="bg-red-50 dark:bg-red-950/20 rounded-lg p-4 border border-red-200 dark:border-red-800">
+                    <p className="text-sm font-medium text-red-700 dark:text-red-300">Daglig Budget Röda Dagar</p>
+                    <p className="text-2xl font-bold text-red-700 dark:text-red-300">{formatCurrency(results.holidayDaysBudget)}</p>
                   </div>
                   
                   <div className="bg-gradient-to-r from-success/10 to-success/5 rounded-lg p-4 border border-success/20">
@@ -943,6 +1100,38 @@ const BudgetCalculator = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Swedish Holiday Days Section */}
+        {results && results.holidayDays.length > 0 && (
+          <div className="mt-6">
+            <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-red-600" />
+                  Svenska Röda Dagar
+                </CardTitle>
+                <CardDescription>
+                  Helgdagar från idag till den 25:e som inte ingår i den totala dagliga budgeten
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {results.holidayDays.map((holiday, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
+                      <Calendar className="h-4 w-4 text-red-600" />
+                      <span className="text-red-700 dark:text-red-300 font-medium">{holiday}</span>
+                    </div>
+                  ))}
+                  {results.holidayDays.length === 0 && (
+                    <div className="text-center py-4 text-muted-foreground">
+                      Inga svenska helgdagar från idag till den 25:e
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
       </div>
     </div>
