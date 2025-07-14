@@ -1102,7 +1102,7 @@ const BudgetCalculator = () => {
         </div>
 
         {/* Swedish Holiday Days Section */}
-        {results && results.holidayDays.length > 0 && (
+        {results && results.holidayDays && results.holidayDays.length > 0 && (
           <div className="mt-6">
             <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
               <CardHeader>
