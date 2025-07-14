@@ -21,8 +21,9 @@ interface BudgetGroup {
 
 const BudgetCalculator = () => {
   const [andreasSalary, setAndreasSalary] = useState<number>(45000);
+  const [andreasförsäkringskassan, setAndreasförsäkringskassan] = useState<number>(0);
   const [susannaSalary, setSusannaSalary] = useState<number>(40000);
-  const [försäkringskassan, setFörsäkringskassan] = useState<number>(5000);
+  const [susannaförsäkringskassan, setSusannaförsäkringskassan] = useState<number>(5000);
   const [costGroups, setCostGroups] = useState<BudgetGroup[]>([
     { id: '1', name: 'Hyra', amount: 15000, type: 'cost' },
     { id: '2', name: 'Mat & Kläder', amount: 8000, type: 'cost' },
@@ -62,8 +63,9 @@ const BudgetCalculator = () => {
         }
         
         setAndreasSalary(parsed.andreasSalary || 45000);
+        setAndreasförsäkringskassan(parsed.andreasförsäkringskassan || 0);
         setSusannaSalary(parsed.susannaSalary || 40000);
-        setFörsäkringskassan(parsed.försäkringskassan || 5000);
+        setSusannaförsäkringskassan(parsed.susannaförsäkringskassan || parsed.försäkringskassan || 5000);
         setCostGroups(parsed.costGroups || [
           { id: '1', name: 'Hyra', amount: 15000, type: 'cost' },
           { id: '2', name: 'Mat & Kläder', amount: 8000, type: 'cost' },
@@ -87,8 +89,9 @@ const BudgetCalculator = () => {
   const saveToLocalStorage = () => {
     const dataToSave = {
       andreasSalary,
+      andreasförsäkringskassan,
       susannaSalary,
-      försäkringskassan,
+      susannaförsäkringskassan,
       costGroups,
       savingsGroups,
       dailyTransfer,
@@ -101,7 +104,7 @@ const BudgetCalculator = () => {
   // Save data whenever key values change
   useEffect(() => {
     saveToLocalStorage();
-  }, [andreasSalary, susannaSalary, försäkringskassan, costGroups, savingsGroups, dailyTransfer, weekendTransfer, results]);
+  }, [andreasSalary, andreasförsäkringskassan, susannaSalary, susannaförsäkringskassan, costGroups, savingsGroups, dailyTransfer, weekendTransfer, results]);
 
   const calculateDailyBudget = () => {
     const currentDate = new Date();
@@ -197,8 +200,9 @@ const BudgetCalculator = () => {
   };
 
   const calculateBudget = () => {
-    const susannaTotalIncome = susannaSalary + försäkringskassan;
-    const totalSalary = susannaTotalIncome + andreasSalary;
+    const andreasTotalIncome = andreasSalary + andreasförsäkringskassan;
+    const susannaTotalIncome = susannaSalary + susannaförsäkringskassan;
+    const totalSalary = andreasTotalIncome + susannaTotalIncome;
     const budgetData = calculateDailyBudget();
     
     // Calculate total costs (only from subcategories, main categories are calculated automatically)
@@ -220,9 +224,9 @@ const BudgetCalculator = () => {
     
     if (totalSalary > 0) {
       susannaPercentage = (susannaTotalIncome / totalSalary) * 100;
-      andreasPercentage = (andreasSalary / totalSalary) * 100;
+      andreasPercentage = (andreasTotalIncome / totalSalary) * 100;
       susannaShare = (susannaTotalIncome / totalSalary) * balanceLeft;
-      andreasShare = (andreasSalary / totalSalary) * balanceLeft;
+      andreasShare = (andreasTotalIncome / totalSalary) * balanceLeft;
     }
     
     setResults({
@@ -350,40 +354,82 @@ const BudgetCalculator = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="andreas">Andreas Lön</Label>
-                <Input
-                  id="andreas"
-                  type="number"
-                  placeholder="Ange månadslön"
-                  value={andreasSalary || ''}
-                  onChange={(e) => setAndreasSalary(Number(e.target.value))}
-                  className="text-lg"
-                />
+              {/* Andreas Income Section */}
+              <div className="p-4 bg-muted/50 rounded-lg border">
+                <h3 className="text-lg font-semibold mb-3 text-primary">Andreas Inkomst</h3>
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="andreas">Lön</Label>
+                    <Input
+                      id="andreas"
+                      type="number"
+                      placeholder="Ange månadslön"
+                      value={andreasSalary || ''}
+                      onChange={(e) => setAndreasSalary(Number(e.target.value))}
+                      className="text-lg"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="andreas-forsakringskassan">Försäkringskassan</Label>
+                    <Input
+                      id="andreas-forsakringskassan"
+                      type="number"
+                      placeholder="Ange försäkringskassan"
+                      value={andreasförsäkringskassan || ''}
+                      onChange={(e) => setAndreasförsäkringskassan(Number(e.target.value))}
+                      className="text-lg"
+                    />
+                  </div>
+                  
+                  <div className="pt-2 border-t">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Total Andreas:</span>
+                      <span className="text-lg font-bold text-primary">
+                        {formatCurrency(andreasSalary + andreasförsäkringskassan)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="susanna">Susannas Lön</Label>
-                <Input
-                  id="susanna"
-                  type="number"
-                  placeholder="Ange månadslön"
-                  value={susannaSalary || ''}
-                  onChange={(e) => setSusannaSalary(Number(e.target.value))}
-                  className="text-lg"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="forsakringskassan">Försäkringskassan</Label>
-                <Input
-                  id="forsakringskassan"
-                  type="number"
-                  placeholder="Ange försäkringskassan"
-                  value={försäkringskassan || ''}
-                  onChange={(e) => setFörsäkringskassan(Number(e.target.value))}
-                  className="text-lg"
-                />
+
+              {/* Susanna Income Section */}
+              <div className="p-4 bg-muted/50 rounded-lg border">
+                <h3 className="text-lg font-semibold mb-3 text-primary">Susannas Inkomst</h3>
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="susanna">Lön</Label>
+                    <Input
+                      id="susanna"
+                      type="number"
+                      placeholder="Ange månadslön"
+                      value={susannaSalary || ''}
+                      onChange={(e) => setSusannaSalary(Number(e.target.value))}
+                      className="text-lg"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="susanna-forsakringskassan">Försäkringskassan</Label>
+                    <Input
+                      id="susanna-forsakringskassan"
+                      type="number"
+                      placeholder="Ange försäkringskassan"
+                      value={susannaförsäkringskassan || ''}
+                      onChange={(e) => setSusannaförsäkringskassan(Number(e.target.value))}
+                      className="text-lg"
+                    />
+                  </div>
+                  
+                  <div className="pt-2 border-t">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Total Susanna:</span>
+                      <span className="text-lg font-bold text-primary">
+                        {formatCurrency(susannaSalary + susannaförsäkringskassan)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
               
               <div className="space-y-6">
