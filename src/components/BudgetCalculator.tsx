@@ -24,6 +24,7 @@ const BudgetCalculator = () => {
   const [results, setResults] = useState<{
     totalSalary: number;
     totalDailyBudget: number;
+    remainingDailyBudget: number;
     balanceLeft: number;
     susannaShare: number;
     andreasShare: number;
@@ -83,16 +84,23 @@ const BudgetCalculator = () => {
     const currentYear = currentDate.getFullYear();
     const currentDay = currentDate.getDate();
     
-    // Calculate from current date to 24th of same month
-    let endDate = new Date(currentYear, currentMonth, 24);
+    // Calculate remaining budget: from current date to 24th of same month
+    let remainingEndDate = new Date(currentYear, currentMonth, 24);
     
     if (currentDay > 24) {
       // If current day is after 24th, calculate for next month
       const nextMonth = currentMonth + 1;
       const nextYear = nextMonth > 11 ? currentYear + 1 : currentYear;
       const adjustedMonth = nextMonth > 11 ? 0 : nextMonth;
-      endDate.setFullYear(nextYear, adjustedMonth, 24);
+      remainingEndDate.setFullYear(nextYear, adjustedMonth, 24);
     }
+    
+    // Calculate total budget: from 25th of previous month to 24th of current month
+    const prevMonth = currentMonth - 1;
+    const prevYear = prevMonth < 0 ? currentYear - 1 : currentYear;
+    const adjustedPrevMonth = prevMonth < 0 ? 11 : prevMonth;
+    const totalStartDate = new Date(prevYear, adjustedPrevMonth, 25);
+    const totalEndDate = new Date(currentYear, currentMonth, 24);
     
     // Calculate days until 25th
     let date25th = new Date(currentYear, currentMonth, 25);
@@ -106,29 +114,61 @@ const BudgetCalculator = () => {
     const timeDiff = date25th.getTime() - currentDate.getTime();
     const daysUntil25th = Math.ceil(timeDiff / (1000 * 3600 * 24));
     
-    let totalBudget = 0;
-    let weekdayCount = 0;
-    let fridayCount = 0;
+    // Calculate remaining budget (today to 24th)
+    let remainingBudget = 0;
+    let remainingWeekdayCount = 0;
+    let remainingFridayCount = 0;
     let currentDatePointer = new Date(currentDate);
     
-    while (currentDatePointer <= endDate) {
+    while (currentDatePointer <= remainingEndDate) {
       const dayOfWeek = currentDatePointer.getDay();
       
       // Monday = 1, Tuesday = 2, ..., Friday = 5
       if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-        totalBudget += dailyTransfer; // Custom daily transfer amount
-        weekdayCount++;
+        remainingBudget += dailyTransfer;
+        remainingWeekdayCount++;
         
         if (dayOfWeek === 5) { // Friday
-          totalBudget += weekendTransfer; // Custom weekend transfer amount
-          fridayCount++;
+          remainingBudget += weekendTransfer;
+          remainingFridayCount++;
         }
       }
       
       currentDatePointer.setDate(currentDatePointer.getDate() + 1);
     }
     
-    return { totalBudget, weekdayCount, fridayCount, daysUntil25th };
+    // Calculate total budget (25th previous month to 24th current month)
+    let totalBudget = 0;
+    let totalWeekdayCount = 0;
+    let totalFridayCount = 0;
+    let totalDatePointer = new Date(totalStartDate);
+    
+    while (totalDatePointer <= totalEndDate) {
+      const dayOfWeek = totalDatePointer.getDay();
+      
+      // Monday = 1, Tuesday = 2, ..., Friday = 5
+      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        totalBudget += dailyTransfer;
+        totalWeekdayCount++;
+        
+        if (dayOfWeek === 5) { // Friday
+          totalBudget += weekendTransfer;
+          totalFridayCount++;
+        }
+      }
+      
+      totalDatePointer.setDate(totalDatePointer.getDate() + 1);
+    }
+    
+    return { 
+      totalBudget, 
+      remainingBudget, 
+      weekdayCount: remainingWeekdayCount, 
+      fridayCount: remainingFridayCount, 
+      daysUntil25th,
+      totalWeekdayCount,
+      totalFridayCount
+    };
   };
 
   const calculateBudget = () => {
@@ -152,6 +192,7 @@ const BudgetCalculator = () => {
     setResults({
       totalSalary,
       totalDailyBudget: budgetData.totalBudget,
+      remainingDailyBudget: budgetData.remainingBudget,
       balanceLeft,
       susannaShare,
       andreasShare,
@@ -352,9 +393,14 @@ const BudgetCalculator = () => {
                       <p className="text-2xl font-bold text-primary">{formatCurrency(results.totalSalary)}</p>
                     </div>
                     <div className="bg-muted rounded-lg p-4">
-                      <p className="text-sm font-medium text-muted-foreground">Daglig Budget</p>
+                      <p className="text-sm font-medium text-muted-foreground">Total Daglig Budget</p>
                       <p className="text-2xl font-bold text-accent">{formatCurrency(results.totalDailyBudget)}</p>
                     </div>
+                  </div>
+                  
+                  <div className="bg-muted rounded-lg p-4">
+                    <p className="text-sm font-medium text-muted-foreground">Återstående Daglig Budget</p>
+                    <p className="text-2xl font-bold text-primary">{formatCurrency(results.remainingDailyBudget)}</p>
                   </div>
                   
                   <div className="bg-gradient-to-r from-success/10 to-success/5 rounded-lg p-4 border border-success/20">
