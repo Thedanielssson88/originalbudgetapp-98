@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2 } from 'lucide-react';
+import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X } from 'lucide-react';
 
 interface SubCategory {
   id: string;
@@ -34,6 +34,8 @@ const BudgetCalculator = () => {
   const [savingsGroups, setSavingsGroups] = useState<BudgetGroup[]>([]);
   const [dailyTransfer, setDailyTransfer] = useState<number>(300);
   const [weekendTransfer, setWeekendTransfer] = useState<number>(540);
+  const [isEditingCategories, setIsEditingCategories] = useState<boolean>(false);
+  const [isEditingTransfers, setIsEditingTransfers] = useState<boolean>(false);
   const [results, setResults] = useState<{
     totalSalary: number;
     totalDailyBudget: number;
@@ -583,105 +585,276 @@ const BudgetCalculator = () => {
         <div className="mt-8">
           <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calculator className="h-5 w-5 text-primary" />
-                Budgetkategorier
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calculator className="h-5 w-5 text-primary" />
+                  Budgetkategorier
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditingCategories(!isEditingCategories)}
+                  className="flex items-center gap-2"
+                >
+                  {isEditingCategories ? (
+                    <>
+                      <Save className="h-4 w-4" />
+                      Spara
+                    </>
+                  ) : (
+                    <>
+                      <Edit className="h-4 w-4" />
+                      Redigera
+                    </>
+                  )}
+                </Button>
               </CardTitle>
               <CardDescription>
-                Översikt över alla budgetkategorier
+                {isEditingCategories ? 'Hantera era budgetkategorier' : 'Översikt över alla budgetkategorier'}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {/* Income Section */}
-                <div className="space-y-3">
-                  <h3 className="text-lg font-semibold text-primary">Inkomster</h3>
-                  <div className="grid gap-2">
-                    <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-                      <span className="font-medium">Andreas Total</span>
-                      <span className="text-lg font-bold text-green-700 dark:text-green-300">
-                        {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-                      <span className="font-medium">Susanna Total</span>
-                      <span className="text-lg font-bold text-green-700 dark:text-green-300">
-                        {formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
-                      <span className="font-medium text-primary">Total Inkomst</span>
-                      <span className="text-lg font-bold text-primary">
-                        {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
-                      </span>
+              {!isEditingCategories ? (
+                <div className="space-y-4">
+                  {/* Income Section */}
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-semibold text-primary">Inkomster</h3>
+                    <div className="grid gap-2">
+                      <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                        <span className="font-medium">Andreas Total</span>
+                        <span className="text-lg font-bold text-green-700 dark:text-green-300">
+                          {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                        <span className="font-medium">Susanna Total</span>
+                        <span className="text-lg font-bold text-green-700 dark:text-green-300">
+                          {formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
+                        <span className="font-medium text-primary">Total Inkomst</span>
+                        <span className="text-lg font-bold text-primary">
+                          {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Costs Section */}
-                <div className="space-y-3">
-                  <h3 className="text-lg font-semibold text-primary">Kostnader</h3>
-                  <div className="grid gap-2">
-                    {costGroups.map((group) => {
-                      const subCategoriesTotal = group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0;
-                      return subCategoriesTotal > 0 ? (
-                        <div key={group.id} className="space-y-2">
-                          <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
-                            <span className="font-medium">{group.name || 'Namnlös kategori'}</span>
-                            <span className="text-lg font-bold text-red-700 dark:text-red-300">
-                              {formatCurrency(subCategoriesTotal)}
+                  {/* Costs Section */}
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-semibold text-primary">Kostnader</h3>
+                    <div className="grid gap-2">
+                      {costGroups.map((group) => {
+                        const subCategoriesTotal = group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0;
+                        return subCategoriesTotal > 0 ? (
+                          <div key={group.id} className="space-y-2">
+                            <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
+                              <span className="font-medium">{group.name || 'Namnlös kategori'}</span>
+                              <span className="text-lg font-bold text-red-700 dark:text-red-300">
+                                {formatCurrency(subCategoriesTotal)}
+                              </span>
+                            </div>
+                            {group.subCategories && group.subCategories.length > 0 && (
+                              <div className="ml-4 space-y-1">
+                                {group.subCategories.map((sub) => 
+                                  sub.amount > 0 ? (
+                                    <div key={sub.id} className="flex justify-between items-center p-2 bg-muted/50 rounded text-sm">
+                                      <span>{sub.name || 'Namnlös underkategori'}</span>
+                                      <span className="font-medium">{formatCurrency(sub.amount)}</span>
+                                    </div>
+                                  ) : null
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ) : null;
+                      })}
+                      <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
+                        <span className="font-medium text-primary">Totala Kostnader</span>
+                        <span className="text-lg font-bold text-primary">
+                          {formatCurrency(costGroups.reduce((sum, group) => {
+                            const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                            return sum + subCategoriesTotal;
+                          }, 0))}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Savings Section */}
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-semibold text-primary">Sparande</h3>
+                    <div className="grid gap-2">
+                      {savingsGroups.map((group) => 
+                        group.amount > 0 ? (
+                          <div key={group.id} className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <span className="font-medium">{group.name || 'Namnlös sparande'}</span>
+                            <span className="text-lg font-bold text-blue-700 dark:text-blue-300">
+                              {formatCurrency(group.amount)}
                             </span>
                           </div>
-                          {group.subCategories && group.subCategories.length > 0 && (
-                            <div className="ml-4 space-y-1">
-                              {group.subCategories.map((sub) => 
-                                sub.amount > 0 ? (
-                                  <div key={sub.id} className="flex justify-between items-center p-2 bg-muted/50 rounded text-sm">
-                                    <span>{sub.name || 'Namnlös underkategori'}</span>
-                                    <span className="font-medium">{formatCurrency(sub.amount)}</span>
-                                  </div>
-                                ) : null
-                              )}
+                        ) : null
+                      )}
+                      <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
+                        <span className="font-medium text-primary">Totalt Sparande</span>
+                        <span className="text-lg font-bold text-primary">
+                          {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Cost Groups Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label>Kostnader</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addCostGroup}
+                        className="flex items-center gap-2"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Lägg till kostnad
+                      </Button>
+                    </div>
+                    
+                    {costGroups.length === 0 ? (
+                      <div className="text-center py-4 text-muted-foreground">
+                        Inga kostnader har lagts till än.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {costGroups.map((group) => (
+                          <div key={group.id} className="space-y-2 p-3 bg-muted rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <Input
+                                placeholder="Kostnadskategori"
+                                value={group.name}
+                                onChange={(e) => updateCostGroup(group.id, 'name', e.target.value)}
+                                className="flex-1"
+                              />
+                              <Input
+                                type="number"
+                                placeholder="Beräknat från underkategorier"
+                                value={group.subCategories?.reduce((sum, sub) => sum + (sub.amount || 0), 0) || 0}
+                                readOnly
+                                className="w-32 bg-muted text-muted-foreground cursor-not-allowed"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => addSubCategory(group.id)}
+                                className="px-2"
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeCostGroup(group.id)}
+                                className="text-destructive hover:text-destructive px-2"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
-                          )}
-                        </div>
-                      ) : null;
-                    })}
-                    <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
-                      <span className="font-medium text-primary">Totala Kostnader</span>
-                      <span className="text-lg font-bold text-primary">
-                        {formatCurrency(costGroups.reduce((sum, group) => {
-                          const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                          return sum + subCategoriesTotal;
-                        }, 0))}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Savings Section */}
-                <div className="space-y-3">
-                  <h3 className="text-lg font-semibold text-primary">Sparande</h3>
-                  <div className="grid gap-2">
-                    {savingsGroups.map((group) => 
-                      group.amount > 0 ? (
-                        <div key={group.id} className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                          <span className="font-medium">{group.name || 'Namnlös sparande'}</span>
-                          <span className="text-lg font-bold text-blue-700 dark:text-blue-300">
-                            {formatCurrency(group.amount)}
-                          </span>
-                        </div>
-                      ) : null
+                            
+                            {/* Sub-categories */}
+                            {group.subCategories && group.subCategories.length > 0 && (
+                              <div className="ml-4 space-y-1">
+                                {group.subCategories.map((sub, index) => (
+                                  <div key={`${group.id}-${sub.id}-${index}`} className="flex items-center gap-2">
+                                    <Input
+                                      placeholder="Underkategori"
+                                      value={sub.name || ''}
+                                      onChange={(e) => updateSubCategory(group.id, sub.id, 'name', e.target.value)}
+                                      className="flex-1 h-8 text-sm"
+                                    />
+                                    <Input
+                                      type="number"
+                                      placeholder="Belopp"
+                                      value={sub.amount || ''}
+                                      onChange={(e) => updateSubCategory(group.id, sub.id, 'amount', Number(e.target.value))}
+                                      className="w-20 h-8 text-sm"
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => removeSubCategory(group.id, sub.id)}
+                                      className="text-destructive hover:text-destructive px-1 h-8"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     )}
-                    <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
-                      <span className="font-medium text-primary">Totalt Sparande</span>
-                      <span className="text-lg font-bold text-primary">
-                        {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
-                      </span>
+                  </div>
+
+                  {/* Savings Groups Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label>Sparande</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addSavingsGroup}
+                        className="flex items-center gap-2"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Lägg till sparande
+                      </Button>
                     </div>
+                    
+                    {savingsGroups.length === 0 ? (
+                      <div className="text-center py-4 text-muted-foreground">
+                        Inga sparanden har lagts till än.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {savingsGroups.map((group) => (
+                          <div key={group.id} className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                            <Input
+                              placeholder="Sparandekategori"
+                              value={group.name}
+                              onChange={(e) => updateSavingsGroup(group.id, 'name', e.target.value)}
+                              className="flex-1"
+                            />
+                            <Input
+                              type="number"
+                              placeholder="Belopp"
+                              value={group.amount || ''}
+                              onChange={(e) => updateSavingsGroup(group.id, 'amount', Number(e.target.value))}
+                              className="w-24"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeSavingsGroup(group.id)}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -690,245 +863,64 @@ const BudgetCalculator = () => {
         <div className="mt-6">
           <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-accent" />
-                Budgetöverföringar
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-accent" />
+                  Budgetöverföringar
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditingTransfers(!isEditingTransfers)}
+                  className="flex items-center gap-2"
+                >
+                  {isEditingTransfers ? (
+                    <>
+                      <Save className="h-4 w-4" />
+                      Spara
+                    </>
+                  ) : (
+                    <>
+                      <Edit className="h-4 w-4" />
+                      Redigera
+                    </>
+                  )}
+                </Button>
               </CardTitle>
               <CardDescription>
-                Dagliga överföringar och helgtillägg
+                {isEditingTransfers ? 'Justera era överföringsinställningar' : 'Dagliga överföringar och helgtillägg'}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4">
-                <div className="flex justify-between items-center p-4 bg-accent/10 rounded-lg border border-accent/20">
-                  <div>
-                    <span className="font-medium text-accent">Daglig överföring</span>
-                    <p className="text-sm text-muted-foreground">Måndag till fredag</p>
+              {!isEditingTransfers ? (
+                <div className="grid gap-4">
+                  <div className="flex justify-between items-center p-4 bg-accent/10 rounded-lg border border-accent/20">
+                    <div>
+                      <span className="font-medium text-accent">Daglig överföring</span>
+                      <p className="text-sm text-muted-foreground">Måndag till fredag</p>
+                    </div>
+                    <span className="text-2xl font-bold text-accent">
+                      {formatCurrency(dailyTransfer)}
+                    </span>
                   </div>
-                  <span className="text-2xl font-bold text-accent">
-                    {formatCurrency(dailyTransfer)}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center p-4 bg-primary/10 rounded-lg border border-primary/20">
-                  <div>
-                    <span className="font-medium text-primary">Fredagsöverföring</span>
-                    <p className="text-sm text-muted-foreground">Extra helgtillägg</p>
+                  <div className="flex justify-between items-center p-4 bg-primary/10 rounded-lg border border-primary/20">
+                    <div>
+                      <span className="font-medium text-primary">Fredagsöverföring</span>
+                      <p className="text-sm text-muted-foreground">Extra helgtillägg</p>
+                    </div>
+                    <span className="text-2xl font-bold text-primary">
+                      {formatCurrency(weekendTransfer)}
+                    </span>
                   </div>
-                  <span className="text-2xl font-bold text-primary">
-                    {formatCurrency(weekendTransfer)}
-                  </span>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Budgetinställningar Section */}
-        <div className="mt-6">
-          <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calculator className="h-5 w-5 text-accent" />
-                Budgetinställningar
-              </CardTitle>
-              <CardDescription>
-                Hantera era budgetkategorier och överföringsinställningar
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Cost Groups Section */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label>Kostnader</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addCostGroup}
-                    className="flex items-center gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Lägg till kostnad
-                  </Button>
-                </div>
-                
-                {costGroups.length === 0 ? (
-                  <div className="text-center py-4 text-muted-foreground">
-                    Inga kostnader har lagts till än.
-                  </div>
-                ) : (
+              ) : (
+                <div className="space-y-4">
                   <div className="space-y-2">
-                    {costGroups.map((group) => (
-                      <div key={group.id} className="space-y-2 p-3 bg-muted rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <Input
-                            placeholder="Kostnadskategori"
-                            value={group.name}
-                            onChange={(e) => updateCostGroup(group.id, 'name', e.target.value)}
-                            className="flex-1"
-                          />
-                          <Input
-                            type="number"
-                            placeholder="Beräknat från underkategorier"
-                            value={group.subCategories?.reduce((sum, sub) => sum + (sub.amount || 0), 0) || 0}
-                            readOnly
-                            className="w-32 bg-muted text-muted-foreground cursor-not-allowed"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => addSubCategory(group.id)}
-                            className="px-2"
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeCostGroup(group.id)}
-                            className="text-destructive hover:text-destructive px-2"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        
-                        {/* Sub-categories */}
-                        {group.subCategories && group.subCategories.length > 0 && (
-                          <div className="ml-4 space-y-1">
-                            {group.subCategories.map((sub, index) => (
-                              <div key={`${group.id}-${sub.id}-${index}`} className="flex items-center gap-2">
-                                <Input
-                                  placeholder="Underkategori"
-                                  value={sub.name || ''}
-                                  onChange={(e) => {
-                                    console.log('Updating subcategory name:', e.target.value);
-                                    updateSubCategory(group.id, sub.id, 'name', e.target.value);
-                                  }}
-                                  className="flex-1 h-8 text-sm"
-                                />
-                                <Input
-                                  type="number"
-                                  placeholder="Belopp"
-                                  value={sub.amount || ''}
-                                  onChange={(e) => {
-                                    console.log('Updating subcategory amount:', e.target.value);
-                                    updateSubCategory(group.id, sub.id, 'amount', Number(e.target.value));
-                                  }}
-                                  className="w-20 h-8 text-sm"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeSubCategory(group.id, sub.id)}
-                                  className="text-destructive hover:text-destructive px-1 h-8"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Savings Groups Section */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label>Sparande</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addSavingsGroup}
-                    className="flex items-center gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Lägg till sparande
-                  </Button>
-                </div>
-                
-                {savingsGroups.length === 0 ? (
-                  <div className="text-center py-4 text-muted-foreground">
-                    Inga sparanden har lagts till än.
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {savingsGroups.map((group) => (
-                      <div key={group.id} className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
-                        <Input
-                          placeholder="Sparandekategori"
-                          value={group.name}
-                          onChange={(e) => updateSavingsGroup(group.id, 'name', e.target.value)}
-                          className="flex-1"
-                        />
-                        <Input
-                          type="number"
-                          placeholder="Belopp"
-                          value={group.amount || ''}
-                          onChange={(e) => updateSavingsGroup(group.id, 'amount', Number(e.target.value))}
-                          className="w-24"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeSavingsGroup(group.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Total Summary */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
-                  <span className="font-medium text-red-700 dark:text-red-300">Totala kostnader</span>
-                  <span className="text-lg font-bold text-red-700 dark:text-red-300">
-                    {formatCurrency(costGroups.reduce((sum, group) => {
-                      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                      return sum + subCategoriesTotal;
-                    }, 0))}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-                  <span className="font-medium text-green-700 dark:text-green-300">Totalt sparande</span>
-                  <span className="text-lg font-bold text-green-700 dark:text-green-300">
-                    {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
-                  <span className="font-medium text-primary">Totala månatliga utgifter</span>
-                  <span className="text-lg font-bold text-primary">
-                    {formatCurrency(
-                      costGroups.reduce((sum, group) => {
-                        const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                        return sum + subCategoriesTotal;
-                      }, 0) + savingsGroups.reduce((sum, group) => sum + group.amount, 0)
-                    )}
-                  </span>
-                </div>
-              </div>
-              
-              {/* Transfer Settings */}
-              <div className="space-y-4 pt-4 border-t">
-                <h3 className="text-lg font-semibold text-primary">Överföringsinställningar</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="daily-transfer">Daglig överföring</Label>
+                    <Label htmlFor="daily-transfer">Daglig överföring (måndag-fredag)</Label>
                     <Input
                       id="daily-transfer"
                       type="number"
-                      placeholder="Ange daglig överföring"
+                      placeholder="Daglig överföring"
                       value={dailyTransfer || ''}
                       onChange={(e) => setDailyTransfer(Number(e.target.value))}
                       className="text-lg"
@@ -936,21 +928,22 @@ const BudgetCalculator = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="weekend-transfer">Extra helgöverföring</Label>
+                    <Label htmlFor="weekend-transfer">Fredagsöverföring (helgtillägg)</Label>
                     <Input
                       id="weekend-transfer"
                       type="number"
-                      placeholder="Ange fredagsöverföring"
+                      placeholder="Helgtillägg"
                       value={weekendTransfer || ''}
                       onChange={(e) => setWeekendTransfer(Number(e.target.value))}
                       className="text-lg"
                     />
                   </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </div>
+
       </div>
     </div>
   );
