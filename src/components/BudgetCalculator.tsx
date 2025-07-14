@@ -52,6 +52,15 @@ const BudgetCalculator = () => {
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
+        
+        // Check if this is old data format (with budgetGroups instead of costGroups/savingsGroups)
+        if (parsed.budgetGroups && !parsed.costGroups) {
+          console.log('Migrating old budget data format');
+          // Clear old data and use defaults
+          localStorage.removeItem('budgetCalculatorData');
+          return;
+        }
+        
         setAndreasSalary(parsed.andreasSalary || 45000);
         setSusannaSalary(parsed.susannaSalary || 40000);
         setFörsäkringskassan(parsed.försäkringskassan || 5000);
@@ -68,6 +77,8 @@ const BudgetCalculator = () => {
         }
       } catch (error) {
         console.error('Error loading saved data:', error);
+        // Clear corrupted data
+        localStorage.removeItem('budgetCalculatorData');
       }
     }
   }, []);
