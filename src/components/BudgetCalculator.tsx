@@ -503,9 +503,14 @@ const BudgetCalculator = () => {
                       <p className="text-2xl font-bold text-primary">{formatCurrency(results.totalSalary)}</p>
                     </div>
                     <div className="bg-muted rounded-lg p-4">
-                      <p className="text-sm font-medium text-muted-foreground">Total Daglig Budget</p>
-                      <p className="text-2xl font-bold text-accent">{formatCurrency(results.totalDailyBudget)}</p>
+                      <p className="text-sm font-medium text-muted-foreground">Total Kostnader/Sparande</p>
+                      <p className="text-2xl font-bold text-destructive">{formatCurrency(results.totalMonthlyExpenses)}</p>
                     </div>
+                  </div>
+                  
+                  <div className="bg-muted rounded-lg p-4">
+                    <p className="text-sm font-medium text-muted-foreground">Total Daglig Budget</p>
+                    <p className="text-2xl font-bold text-accent">{formatCurrency(results.totalDailyBudget)}</p>
                   </div>
                   
                   <div className="bg-muted rounded-lg p-4">
