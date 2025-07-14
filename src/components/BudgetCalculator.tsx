@@ -22,8 +22,10 @@ interface BudgetGroup {
 const BudgetCalculator = () => {
   const [andreasSalary, setAndreasSalary] = useState<number>(45000);
   const [andreasförsäkringskassan, setAndreasförsäkringskassan] = useState<number>(0);
+  const [andreasbarnbidrag, setAndreasbarnbidrag] = useState<number>(0);
   const [susannaSalary, setSusannaSalary] = useState<number>(40000);
   const [susannaförsäkringskassan, setSusannaförsäkringskassan] = useState<number>(5000);
+  const [susannabarnbidrag, setSusannabarnbidrag] = useState<number>(0);
   const [costGroups, setCostGroups] = useState<BudgetGroup[]>([
     { id: '1', name: 'Hyra', amount: 15000, type: 'cost' },
     { id: '2', name: 'Mat & Kläder', amount: 8000, type: 'cost' },
@@ -75,9 +77,11 @@ const BudgetCalculator = () => {
         // Load all saved values with backward compatibility
         setAndreasSalary(parsed.andreasSalary || 45000);
         setAndreasförsäkringskassan(parsed.andreasförsäkringskassan || 0);
+        setAndreasbarnbidrag(parsed.andreasbarnbidrag || 0);
         setSusannaSalary(parsed.susannaSalary || 40000);
         // Migrate old försäkringskassan to susannaförsäkringskassan if needed
         setSusannaförsäkringskassan(parsed.susannaförsäkringskassan || parsed.försäkringskassan || 5000);
+        setSusannabarnbidrag(parsed.susannabarnbidrag || 0);
         
         setSavingsGroups(parsed.savingsGroups || []);
         setDailyTransfer(parsed.dailyTransfer || 300);
@@ -101,8 +105,10 @@ const BudgetCalculator = () => {
     const dataToSave = {
       andreasSalary,
       andreasförsäkringskassan,
+      andreasbarnbidrag,
       susannaSalary,
       susannaförsäkringskassan,
+      susannabarnbidrag,
       costGroups,
       savingsGroups,
       dailyTransfer,
@@ -115,7 +121,7 @@ const BudgetCalculator = () => {
   // Save data whenever key values change
   useEffect(() => {
     saveToLocalStorage();
-  }, [andreasSalary, andreasförsäkringskassan, susannaSalary, susannaförsäkringskassan, costGroups, savingsGroups, dailyTransfer, weekendTransfer, results]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, results]);
 
   const calculateDailyBudget = () => {
     const currentDate = new Date();
@@ -211,8 +217,8 @@ const BudgetCalculator = () => {
   };
 
   const calculateBudget = () => {
-    const andreasTotalIncome = andreasSalary + andreasförsäkringskassan;
-    const susannaTotalIncome = susannaSalary + susannaförsäkringskassan;
+    const andreasTotalIncome = andreasSalary + andreasförsäkringskassan + andreasbarnbidrag;
+    const susannaTotalIncome = susannaSalary + susannaförsäkringskassan + susannabarnbidrag;
     const totalSalary = andreasTotalIncome + susannaTotalIncome;
     const budgetData = calculateDailyBudget();
     
@@ -393,11 +399,23 @@ const BudgetCalculator = () => {
                     />
                   </div>
                   
+                  <div className="space-y-2">
+                    <Label htmlFor="andreas-barnbidrag">Barnbidrag</Label>
+                    <Input
+                      id="andreas-barnbidrag"
+                      type="number"
+                      placeholder="Ange barnbidrag"
+                      value={andreasbarnbidrag || ''}
+                      onChange={(e) => setAndreasbarnbidrag(Number(e.target.value))}
+                      className="text-lg"
+                    />
+                  </div>
+                  
                   <div className="pt-2 border-t">
                     <div className="flex justify-between items-center">
                       <span className="font-medium">Total Andreas:</span>
                       <span className="text-lg font-bold text-primary">
-                        {formatCurrency(andreasSalary + andreasförsäkringskassan)}
+                        {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}
                       </span>
                     </div>
                   </div>
@@ -432,11 +450,23 @@ const BudgetCalculator = () => {
                     />
                   </div>
                   
+                  <div className="space-y-2">
+                    <Label htmlFor="susanna-barnbidrag">Barnbidrag</Label>
+                    <Input
+                      id="susanna-barnbidrag"
+                      type="number"
+                      placeholder="Ange barnbidrag"
+                      value={susannabarnbidrag || ''}
+                      onChange={(e) => setSusannabarnbidrag(Number(e.target.value))}
+                      className="text-lg"
+                    />
+                  </div>
+                  
                   <div className="pt-2 border-t">
                     <div className="flex justify-between items-center">
                       <span className="font-medium">Total Susanna:</span>
                       <span className="text-lg font-bold text-primary">
-                        {formatCurrency(susannaSalary + susannaförsäkringskassan)}
+                        {formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
                       </span>
                     </div>
                   </div>
