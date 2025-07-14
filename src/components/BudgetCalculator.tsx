@@ -28,8 +28,10 @@ const BudgetCalculator = () => {
     const currentYear = currentDate.getFullYear();
     const currentDay = currentDate.getDate();
     
+    console.log(`Current date: ${currentDate.toDateString()}, Current day: ${currentDay}`);
+    
     // Calculate from current date to 24th of same month
-    const endDate = new Date(currentYear, currentMonth, 24);
+    let endDate = new Date(currentYear, currentMonth, 24);
     
     if (currentDay > 24) {
       // If current day is after 24th, calculate for next month
@@ -39,8 +41,10 @@ const BudgetCalculator = () => {
       endDate.setFullYear(nextYear, adjustedMonth, 24);
     }
     
+    console.log(`End date (24th): ${endDate.toDateString()}`);
+    
     // Calculate days until 25th
-    const date25th = new Date(currentYear, currentMonth, 25);
+    let date25th = new Date(currentYear, currentMonth, 25);
     if (currentDay > 25) {
       const nextMonth = currentMonth + 1;
       const nextYear = nextMonth > 11 ? currentYear + 1 : currentYear;
@@ -51,6 +55,8 @@ const BudgetCalculator = () => {
     const timeDiff = date25th.getTime() - currentDate.getTime();
     const daysUntil25th = Math.ceil(timeDiff / (1000 * 3600 * 24));
     
+    console.log(`Days until 25th: ${daysUntil25th}`);
+    
     let totalBudget = 0;
     let weekdayCount = 0;
     let fridayCount = 0;
@@ -58,6 +64,7 @@ const BudgetCalculator = () => {
     
     while (currentDatePointer <= endDate) {
       const dayOfWeek = currentDatePointer.getDay();
+      console.log(`Date: ${currentDatePointer.toDateString()}, Day of week: ${dayOfWeek}`);
       
       // Monday = 1, Tuesday = 2, ..., Friday = 5
       if (dayOfWeek >= 1 && dayOfWeek <= 5) {
@@ -67,12 +74,14 @@ const BudgetCalculator = () => {
         if (dayOfWeek === 5) { // Friday
           totalBudget += weekendTransfer; // Custom weekend transfer amount
           fridayCount++;
+          console.log(`Found Friday! Total Fridays: ${fridayCount}`);
         }
       }
       
       currentDatePointer.setDate(currentDatePointer.getDate() + 1);
     }
     
+    console.log(`Final counts - Weekdays: ${weekdayCount}, Fridays: ${fridayCount}, Days until 25th: ${daysUntil25th}`);
     return { totalBudget, weekdayCount, fridayCount, daysUntil25th };
   };
 
