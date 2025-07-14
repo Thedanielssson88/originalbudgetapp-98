@@ -782,6 +782,150 @@ const BudgetCalculator = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Budgetkategorier Section */}
+        <div className="mt-8">
+          <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calculator className="h-5 w-5 text-primary" />
+                Budgetkategorier
+              </CardTitle>
+              <CardDescription>
+                Översikt över alla budgetkategorier
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Income Section */}
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-primary">Inkomster</h3>
+                  <div className="grid gap-2">
+                    <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                      <span className="font-medium">Andreas Total</span>
+                      <span className="text-lg font-bold text-green-700 dark:text-green-300">
+                        {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                      <span className="font-medium">Susanna Total</span>
+                      <span className="text-lg font-bold text-green-700 dark:text-green-300">
+                        {formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
+                      <span className="font-medium text-primary">Total Inkomst</span>
+                      <span className="text-lg font-bold text-primary">
+                        {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Costs Section */}
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-primary">Kostnader</h3>
+                  <div className="grid gap-2">
+                    {costGroups.map((group) => {
+                      const subCategoriesTotal = group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0;
+                      return subCategoriesTotal > 0 ? (
+                        <div key={group.id} className="space-y-2">
+                          <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
+                            <span className="font-medium">{group.name || 'Namnlös kategori'}</span>
+                            <span className="text-lg font-bold text-red-700 dark:text-red-300">
+                              {formatCurrency(subCategoriesTotal)}
+                            </span>
+                          </div>
+                          {group.subCategories && group.subCategories.length > 0 && (
+                            <div className="ml-4 space-y-1">
+                              {group.subCategories.map((sub) => 
+                                sub.amount > 0 ? (
+                                  <div key={sub.id} className="flex justify-between items-center p-2 bg-muted/50 rounded text-sm">
+                                    <span>{sub.name || 'Namnlös underkategori'}</span>
+                                    <span className="font-medium">{formatCurrency(sub.amount)}</span>
+                                  </div>
+                                ) : null
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : null;
+                    })}
+                    <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
+                      <span className="font-medium text-primary">Totala Kostnader</span>
+                      <span className="text-lg font-bold text-primary">
+                        {formatCurrency(costGroups.reduce((sum, group) => {
+                          const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                          return sum + subCategoriesTotal;
+                        }, 0))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Savings Section */}
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-primary">Sparande</h3>
+                  <div className="grid gap-2">
+                    {savingsGroups.map((group) => 
+                      group.amount > 0 ? (
+                        <div key={group.id} className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                          <span className="font-medium">{group.name || 'Namnlös sparande'}</span>
+                          <span className="text-lg font-bold text-blue-700 dark:text-blue-300">
+                            {formatCurrency(group.amount)}
+                          </span>
+                        </div>
+                      ) : null
+                    )}
+                    <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
+                      <span className="font-medium text-primary">Totalt Sparande</span>
+                      <span className="text-lg font-bold text-primary">
+                        {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Budgetöverföringar Section */}
+        <div className="mt-6">
+          <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-accent" />
+                Budgetöverföringar
+              </CardTitle>
+              <CardDescription>
+                Dagliga överföringar och helgtillägg
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                <div className="flex justify-between items-center p-4 bg-accent/10 rounded-lg border border-accent/20">
+                  <div>
+                    <span className="font-medium text-accent">Daglig överföring</span>
+                    <p className="text-sm text-muted-foreground">Måndag till fredag</p>
+                  </div>
+                  <span className="text-2xl font-bold text-accent">
+                    {formatCurrency(dailyTransfer)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-4 bg-primary/10 rounded-lg border border-primary/20">
+                  <div>
+                    <span className="font-medium text-primary">Fredagsöverföring</span>
+                    <p className="text-sm text-muted-foreground">Extra helgtillägg</p>
+                  </div>
+                  <span className="text-2xl font-bold text-primary">
+                    {formatCurrency(weekendTransfer)}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
