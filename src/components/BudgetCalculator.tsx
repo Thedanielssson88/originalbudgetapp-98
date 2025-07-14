@@ -12,9 +12,13 @@ interface BudgetGroup {
 }
 
 const BudgetCalculator = () => {
-  const [susannaSalary, setSusannaSalary] = useState<number>(0);
-  const [andreasSalary, setAndreasSalary] = useState<number>(0);
-  const [budgetGroups, setBudgetGroups] = useState<BudgetGroup[]>([]);
+  const [andreasSalary, setAndreasSalary] = useState<number>(45000);
+  const [susannaSalary, setSusannaSalary] = useState<number>(40000);
+  const [budgetGroups, setBudgetGroups] = useState<BudgetGroup[]>([
+    { id: '1', name: 'Hyra', amount: 15000 },
+    { id: '2', name: 'Mat & Kläder', amount: 8000 },
+    { id: '3', name: 'Transport', amount: 2000 }
+  ]);
   const [dailyTransfer, setDailyTransfer] = useState<number>(300);
   const [weekendTransfer, setWeekendTransfer] = useState<number>(540);
   const [results, setResults] = useState<{
@@ -138,9 +142,9 @@ const BudgetCalculator = () => {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('sv-SE', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'SEK',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount);
@@ -151,10 +155,10 @@ const BudgetCalculator = () => {
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            Family Budget Calculator
+            Familjens Budgetkalkylator
           </h1>
           <p className="text-muted-foreground text-lg">
-            Calculate your shared expenses and individual contributions
+            Beräkna era gemensamma utgifter och individuella bidrag
           </p>
         </div>
 
@@ -164,40 +168,40 @@ const BudgetCalculator = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calculator className="h-5 w-5 text-primary" />
-                Income & Expenses
+                Inkomst & Utgifter
               </CardTitle>
               <CardDescription>
-                Enter your monthly income and expenses
+                Ange era månadsinkomster och utgifter
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="susanna">Susanna's Salary</Label>
-                <Input
-                  id="susanna"
-                  type="number"
-                  placeholder="Enter monthly salary"
-                  value={susannaSalary || ''}
-                  onChange={(e) => setSusannaSalary(Number(e.target.value))}
-                  className="text-lg"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="andreas">Andreas's Salary</Label>
+                <Label htmlFor="andreas">Andreas Lön</Label>
                 <Input
                   id="andreas"
                   type="number"
-                  placeholder="Enter monthly salary"
+                  placeholder="Ange månadslön"
                   value={andreasSalary || ''}
                   onChange={(e) => setAndreasSalary(Number(e.target.value))}
                   className="text-lg"
                 />
               </div>
               
+              <div className="space-y-2">
+                <Label htmlFor="susanna">Susannas Lön</Label>
+                <Input
+                  id="susanna"
+                  type="number"
+                  placeholder="Ange månadslön"
+                  value={susannaSalary || ''}
+                  onChange={(e) => setSusannaSalary(Number(e.target.value))}
+                  className="text-lg"
+                />
+              </div>
+              
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Budget Groups</Label>
+                  <Label>Budgetgrupper</Label>
                   <Button
                     type="button"
                     variant="outline"
@@ -206,27 +210,27 @@ const BudgetCalculator = () => {
                     className="flex items-center gap-2"
                   >
                     <Plus className="h-4 w-4" />
-                    Add Group
+                    Lägg till grupp
                   </Button>
                 </div>
                 
                 {budgetGroups.length === 0 ? (
                   <div className="text-center py-4 text-muted-foreground">
-                    No budget groups added yet. Click "Add Group" to start.
+                    Inga budgetgrupper har lagts till än. Klicka "Lägg till grupp" för att börja.
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {budgetGroups.map((group) => (
                       <div key={group.id} className="flex items-center gap-2 p-3 bg-muted rounded-lg">
                         <Input
-                          placeholder="Group name"
+                          placeholder="Gruppnamn"
                           value={group.name}
                           onChange={(e) => updateBudgetGroup(group.id, 'name', e.target.value)}
                           className="flex-1"
                         />
                         <Input
                           type="number"
-                          placeholder="Amount"
+                          placeholder="Belopp"
                           value={group.amount || ''}
                           onChange={(e) => updateBudgetGroup(group.id, 'amount', Number(e.target.value))}
                           className="w-24"
@@ -243,7 +247,7 @@ const BudgetCalculator = () => {
                       </div>
                     ))}
                     <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
-                      <span className="font-medium text-primary">Total Monthly Expenses</span>
+                      <span className="font-medium text-primary">Totala månatliga utgifter</span>
                       <span className="text-lg font-bold text-primary">
                         {formatCurrency(budgetGroups.reduce((sum, group) => sum + group.amount, 0))}
                       </span>
@@ -257,7 +261,7 @@ const BudgetCalculator = () => {
                 <Input
                   id="daily-transfer"
                   type="number"
-                  placeholder="Enter daily transfer amount"
+                  placeholder="Ange daglig överföring"
                   value={dailyTransfer || ''}
                   onChange={(e) => setDailyTransfer(Number(e.target.value))}
                   className="text-lg"
@@ -269,7 +273,7 @@ const BudgetCalculator = () => {
                 <Input
                   id="weekend-transfer"
                   type="number"
-                  placeholder="Enter Friday transfer amount"
+                  placeholder="Ange fredagsöverföring"
                   value={weekendTransfer || ''}
                   onChange={(e) => setWeekendTransfer(Number(e.target.value))}
                   className="text-lg"
@@ -281,7 +285,7 @@ const BudgetCalculator = () => {
                 className="w-full bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary transition-all duration-300"
                 size="lg"
               >
-                Calculate Budget
+                Beräkna Budget
               </Button>
             </CardContent>
           </Card>
@@ -291,10 +295,10 @@ const BudgetCalculator = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-accent" />
-                Budget Results
+                Budgetresultat
               </CardTitle>
               <CardDescription>
-                Your calculated budget breakdown
+                Era beräknade budgetfördelning
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -302,36 +306,36 @@ const BudgetCalculator = () => {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-muted rounded-lg p-4">
-                      <p className="text-sm font-medium text-muted-foreground">Total Salary</p>
+                      <p className="text-sm font-medium text-muted-foreground">Total Lön</p>
                       <p className="text-2xl font-bold text-primary">{formatCurrency(results.totalSalary)}</p>
                     </div>
                     <div className="bg-muted rounded-lg p-4">
-                      <p className="text-sm font-medium text-muted-foreground">Daily Budget</p>
+                      <p className="text-sm font-medium text-muted-foreground">Daglig Budget</p>
                       <p className="text-2xl font-bold text-accent">{formatCurrency(results.totalDailyBudget)}</p>
                     </div>
                   </div>
                   
                   <div className="bg-gradient-to-r from-success/10 to-success/5 rounded-lg p-4 border border-success/20">
-                    <p className="text-sm font-medium text-success">Balance Left</p>
+                    <p className="text-sm font-medium text-success">Kvar att fördela</p>
                     <p className="text-3xl font-bold text-success">{formatCurrency(results.balanceLeft)}</p>
                   </div>
                   
                   <div className="space-y-3">
                     <h3 className="font-semibold flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
-                      Time & Transfer Details
+                      Tid & Överföringsdetaljer
                     </h3>
                     <div className="grid grid-cols-3 gap-3">
                       <div className="bg-muted rounded-lg p-3">
-                        <p className="text-xs font-medium text-muted-foreground">Days until 25th</p>
+                        <p className="text-xs font-medium text-muted-foreground">Dagar tills 25:e</p>
                         <p className="text-xl font-bold text-primary">{results.daysUntil25th}</p>
                       </div>
                       <div className="bg-muted rounded-lg p-3">
-                        <p className="text-xs font-medium text-muted-foreground">Weekdays</p>
+                        <p className="text-xs font-medium text-muted-foreground">Vardagar</p>
                         <p className="text-xl font-bold text-accent">{results.weekdayCount}</p>
                       </div>
                       <div className="bg-muted rounded-lg p-3">
-                        <p className="text-xs font-medium text-muted-foreground">Fridays</p>
+                        <p className="text-xs font-medium text-muted-foreground">Fredagar</p>
                         <p className="text-xl font-bold text-primary">{results.fridayCount}</p>
                       </div>
                     </div>
@@ -340,21 +344,21 @@ const BudgetCalculator = () => {
                   <div className="space-y-3">
                     <h3 className="font-semibold flex items-center gap-2">
                       <Users className="h-4 w-4" />
-                      Individual Shares
+                      Individuella Andelar
                     </h3>
                      <div className="space-y-2">
                        <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                         <span className="font-medium">Susanna's Share</span>
-                         <div className="text-right">
-                           <span className="text-lg font-bold text-primary">{formatCurrency(results.susannaShare)}</span>
-                           <p className="text-sm text-muted-foreground">({results.susannaPercentage.toFixed(1)}%)</p>
-                         </div>
-                       </div>
-                       <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                         <span className="font-medium">Andreas's Share</span>
+                         <span className="font-medium">Andreas Andel</span>
                          <div className="text-right">
                            <span className="text-lg font-bold text-accent">{formatCurrency(results.andreasShare)}</span>
                            <p className="text-sm text-muted-foreground">({results.andreasPercentage.toFixed(1)}%)</p>
+                         </div>
+                       </div>
+                       <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
+                         <span className="font-medium">Susannas Andel</span>
+                         <div className="text-right">
+                           <span className="text-lg font-bold text-primary">{formatCurrency(results.susannaShare)}</span>
+                           <p className="text-sm text-muted-foreground">({results.susannaPercentage.toFixed(1)}%)</p>
                          </div>
                        </div>
                      </div>
@@ -364,7 +368,7 @@ const BudgetCalculator = () => {
                 <div className="text-center py-8">
                   <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">
-                    Enter your income and expenses to see the budget calculation
+                    Ange era inkomster och utgifter för att se budgetberäkningen
                   </p>
                 </div>
               )}
