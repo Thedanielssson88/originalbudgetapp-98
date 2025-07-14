@@ -35,6 +35,48 @@ const BudgetCalculator = () => {
     totalMonthlyExpenses: number;
   } | null>(null);
 
+  // Load saved values from localStorage on component mount
+  useEffect(() => {
+    const savedData = localStorage.getItem('budgetCalculatorData');
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        setAndreasSalary(parsed.andreasSalary || 45000);
+        setSusannaSalary(parsed.susannaSalary || 40000);
+        setBudgetGroups(parsed.budgetGroups || [
+          { id: '1', name: 'Hyra', amount: 15000 },
+          { id: '2', name: 'Mat & Kläder', amount: 8000 },
+          { id: '3', name: 'Transport', amount: 2000 }
+        ]);
+        setDailyTransfer(parsed.dailyTransfer || 300);
+        setWeekendTransfer(parsed.weekendTransfer || 540);
+        if (parsed.results) {
+          setResults(parsed.results);
+        }
+      } catch (error) {
+        console.error('Error loading saved data:', error);
+      }
+    }
+  }, []);
+
+  // Save data to localStorage whenever values change
+  const saveToLocalStorage = () => {
+    const dataToSave = {
+      andreasSalary,
+      susannaSalary,
+      budgetGroups,
+      dailyTransfer,
+      weekendTransfer,
+      results
+    };
+    localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
+  };
+
+  // Save data whenever key values change
+  useEffect(() => {
+    saveToLocalStorage();
+  }, [andreasSalary, susannaSalary, budgetGroups, dailyTransfer, weekendTransfer, results]);
+
   const calculateDailyBudget = () => {
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth();
