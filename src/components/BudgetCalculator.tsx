@@ -5,21 +5,30 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2 } from 'lucide-react';
 
+interface SubCategory {
+  id: string;
+  name: string;
+  amount: number;
+}
+
 interface BudgetGroup {
   id: string;
   name: string;
   amount: number;
+  type: 'cost' | 'savings';
+  subCategories?: SubCategory[];
 }
 
 const BudgetCalculator = () => {
   const [andreasSalary, setAndreasSalary] = useState<number>(45000);
   const [susannaSalary, setSusannaSalary] = useState<number>(40000);
   const [försäkringskassan, setFörsäkringskassan] = useState<number>(5000);
-  const [budgetGroups, setBudgetGroups] = useState<BudgetGroup[]>([
-    { id: '1', name: 'Hyra', amount: 15000 },
-    { id: '2', name: 'Mat & Kläder', amount: 8000 },
-    { id: '3', name: 'Transport', amount: 2000 }
+  const [costGroups, setCostGroups] = useState<BudgetGroup[]>([
+    { id: '1', name: 'Hyra', amount: 15000, type: 'cost' },
+    { id: '2', name: 'Mat & Kläder', amount: 8000, type: 'cost' },
+    { id: '3', name: 'Transport', amount: 2000, type: 'cost', subCategories: [] }
   ]);
+  const [savingsGroups, setSavingsGroups] = useState<BudgetGroup[]>([]);
   const [dailyTransfer, setDailyTransfer] = useState<number>(300);
   const [weekendTransfer, setWeekendTransfer] = useState<number>(540);
   const [results, setResults] = useState<{
@@ -46,11 +55,12 @@ const BudgetCalculator = () => {
         setAndreasSalary(parsed.andreasSalary || 45000);
         setSusannaSalary(parsed.susannaSalary || 40000);
         setFörsäkringskassan(parsed.försäkringskassan || 5000);
-        setBudgetGroups(parsed.budgetGroups || [
-          { id: '1', name: 'Hyra', amount: 15000 },
-          { id: '2', name: 'Mat & Kläder', amount: 8000 },
-          { id: '3', name: 'Transport', amount: 2000 }
+        setCostGroups(parsed.costGroups || [
+          { id: '1', name: 'Hyra', amount: 15000, type: 'cost' },
+          { id: '2', name: 'Mat & Kläder', amount: 8000, type: 'cost' },
+          { id: '3', name: 'Transport', amount: 2000, type: 'cost', subCategories: [] }
         ]);
+        setSavingsGroups(parsed.savingsGroups || []);
         setDailyTransfer(parsed.dailyTransfer || 300);
         setWeekendTransfer(parsed.weekendTransfer || 540);
         if (parsed.results) {
@@ -68,7 +78,8 @@ const BudgetCalculator = () => {
       andreasSalary,
       susannaSalary,
       försäkringskassan,
-      budgetGroups,
+      costGroups,
+      savingsGroups,
       dailyTransfer,
       weekendTransfer,
       results
@@ -79,7 +90,7 @@ const BudgetCalculator = () => {
   // Save data whenever key values change
   useEffect(() => {
     saveToLocalStorage();
-  }, [andreasSalary, susannaSalary, försäkringskassan, budgetGroups, dailyTransfer, weekendTransfer, results]);
+  }, [andreasSalary, susannaSalary, försäkringskassan, costGroups, savingsGroups, dailyTransfer, weekendTransfer, results]);
 
   const calculateDailyBudget = () => {
     const currentDate = new Date();
@@ -178,7 +189,17 @@ const BudgetCalculator = () => {
     const susannaTotalIncome = susannaSalary + försäkringskassan;
     const totalSalary = susannaTotalIncome + andreasSalary;
     const budgetData = calculateDailyBudget();
-    const totalMonthlyExpenses = budgetGroups.reduce((sum, group) => sum + group.amount, 0);
+    
+    // Calculate total costs (including subcategories)
+    const totalCosts = costGroups.reduce((sum, group) => {
+      const groupTotal = group.amount + (group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0);
+      return sum + groupTotal;
+    }, 0);
+    
+    // Calculate total savings
+    const totalSavings = savingsGroups.reduce((sum, group) => sum + group.amount, 0);
+    
+    const totalMonthlyExpenses = totalCosts + totalSavings;
     const balanceLeft = totalSalary - budgetData.totalBudget - totalMonthlyExpenses;
     
     let susannaShare = 0;
@@ -209,22 +230,78 @@ const BudgetCalculator = () => {
     });
   };
 
-  const addBudgetGroup = () => {
+  const addCostGroup = () => {
     const newGroup: BudgetGroup = {
+      id: Date.now().toString(),
+      name: '',
+      amount: 0,
+      type: 'cost',
+      subCategories: []
+    };
+    setCostGroups([...costGroups, newGroup]);
+  };
+
+  const addSavingsGroup = () => {
+    const newGroup: BudgetGroup = {
+      id: Date.now().toString(),
+      name: '',
+      amount: 0,
+      type: 'savings'
+    };
+    setSavingsGroups([...savingsGroups, newGroup]);
+  };
+
+  const removeCostGroup = (id: string) => {
+    setCostGroups(costGroups.filter(group => group.id !== id));
+  };
+
+  const removeSavingsGroup = (id: string) => {
+    setSavingsGroups(savingsGroups.filter(group => group.id !== id));
+  };
+
+  const updateCostGroup = (id: string, field: 'name' | 'amount', value: string | number) => {
+    setCostGroups(costGroups.map(group => 
+      group.id === id ? { ...group, [field]: value } : group
+    ));
+  };
+
+  const updateSavingsGroup = (id: string, field: 'name' | 'amount', value: string | number) => {
+    setSavingsGroups(savingsGroups.map(group => 
+      group.id === id ? { ...group, [field]: value } : group
+    ));
+  };
+
+  const addSubCategory = (groupId: string) => {
+    const newSubCategory: SubCategory = {
       id: Date.now().toString(),
       name: '',
       amount: 0
     };
-    setBudgetGroups([...budgetGroups, newGroup]);
+    setCostGroups(costGroups.map(group => 
+      group.id === groupId ? { 
+        ...group, 
+        subCategories: [...(group.subCategories || []), newSubCategory] 
+      } : group
+    ));
   };
 
-  const removeBudgetGroup = (id: string) => {
-    setBudgetGroups(budgetGroups.filter(group => group.id !== id));
+  const removeSubCategory = (groupId: string, subId: string) => {
+    setCostGroups(costGroups.map(group => 
+      group.id === groupId ? {
+        ...group,
+        subCategories: group.subCategories?.filter(sub => sub.id !== subId) || []
+      } : group
+    ));
   };
 
-  const updateBudgetGroup = (id: string, field: 'name' | 'amount', value: string | number) => {
-    setBudgetGroups(budgetGroups.map(group => 
-      group.id === id ? { ...group, [field]: value } : group
+  const updateSubCategory = (groupId: string, subId: string, field: 'name' | 'amount', value: string | number) => {
+    setCostGroups(costGroups.map(group => 
+      group.id === groupId ? {
+        ...group,
+        subCategories: group.subCategories?.map(sub => 
+          sub.id === subId ? { ...sub, [field]: value } : sub
+        ) || []
+      } : group
     ));
   };
 
@@ -298,61 +375,183 @@ const BudgetCalculator = () => {
                 />
               </div>
               
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label>Budgetgrupper</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addBudgetGroup}
-                    className="flex items-center gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Lägg till grupp
-                  </Button>
-                </div>
-                
-                {budgetGroups.length === 0 ? (
-                  <div className="text-center py-4 text-muted-foreground">
-                    Inga budgetgrupper har lagts till än. Klicka "Lägg till grupp" för att börja.
+              <div className="space-y-6">
+                {/* Cost Groups Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Kostnader</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addCostGroup}
+                      className="flex items-center gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Lägg till kostnad
+                    </Button>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    {budgetGroups.map((group) => (
-                      <div key={group.id} className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                        <Input
-                          placeholder="Gruppnamn"
-                          value={group.name}
-                          onChange={(e) => updateBudgetGroup(group.id, 'name', e.target.value)}
-                          className="flex-1"
-                        />
-                        <Input
-                          type="number"
-                          placeholder="Belopp"
-                          value={group.amount || ''}
-                          onChange={(e) => updateBudgetGroup(group.id, 'amount', Number(e.target.value))}
-                          className="w-24"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeBudgetGroup(group.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                    <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
-                      <span className="font-medium text-primary">Totala månatliga utgifter</span>
-                      <span className="text-lg font-bold text-primary">
-                        {formatCurrency(budgetGroups.reduce((sum, group) => sum + group.amount, 0))}
-                      </span>
+                  
+                  {costGroups.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground">
+                      Inga kostnader har lagts till än.
                     </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {costGroups.map((group) => (
+                        <div key={group.id} className="space-y-2 p-3 bg-muted rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Input
+                              placeholder="Kostnadskategori"
+                              value={group.name}
+                              onChange={(e) => updateCostGroup(group.id, 'name', e.target.value)}
+                              className="flex-1"
+                            />
+                            <Input
+                              type="number"
+                              placeholder="Belopp"
+                              value={group.amount || ''}
+                              onChange={(e) => updateCostGroup(group.id, 'amount', Number(e.target.value))}
+                              className="w-24"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => addSubCategory(group.id)}
+                              className="px-2"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeCostGroup(group.id)}
+                              className="text-destructive hover:text-destructive px-2"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          
+                          {/* Sub-categories */}
+                          {group.subCategories && group.subCategories.length > 0 && (
+                            <div className="ml-4 space-y-1">
+                              {group.subCategories.map((sub) => (
+                                <div key={sub.id} className="flex items-center gap-2">
+                                  <Input
+                                    placeholder="Underkategori"
+                                    value={sub.name}
+                                    onChange={(e) => updateSubCategory(group.id, sub.id, 'name', e.target.value)}
+                                    className="flex-1 h-8 text-sm"
+                                  />
+                                  <Input
+                                    type="number"
+                                    placeholder="Belopp"
+                                    value={sub.amount || ''}
+                                    onChange={(e) => updateSubCategory(group.id, sub.id, 'amount', Number(e.target.value))}
+                                    className="w-20 h-8 text-sm"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeSubCategory(group.id, sub.id)}
+                                    className="text-destructive hover:text-destructive px-1 h-8"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Savings Groups Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Sparande</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addSavingsGroup}
+                      className="flex items-center gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Lägg till sparande
+                    </Button>
                   </div>
-                )}
+                  
+                  {savingsGroups.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground">
+                      Inga sparanden har lagts till än.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {savingsGroups.map((group) => (
+                        <div key={group.id} className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                          <Input
+                            placeholder="Sparandekategori"
+                            value={group.name}
+                            onChange={(e) => updateSavingsGroup(group.id, 'name', e.target.value)}
+                            className="flex-1"
+                          />
+                          <Input
+                            type="number"
+                            placeholder="Belopp"
+                            value={group.amount || ''}
+                            onChange={(e) => updateSavingsGroup(group.id, 'amount', Number(e.target.value))}
+                            className="w-24"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeSavingsGroup(group.id)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Total Summary */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
+                    <span className="font-medium text-red-700 dark:text-red-300">Totala kostnader</span>
+                    <span className="text-lg font-bold text-red-700 dark:text-red-300">
+                      {formatCurrency(costGroups.reduce((sum, group) => {
+                        const groupTotal = group.amount + (group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0);
+                        return sum + groupTotal;
+                      }, 0))}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <span className="font-medium text-green-700 dark:text-green-300">Totalt sparande</span>
+                    <span className="text-lg font-bold text-green-700 dark:text-green-300">
+                      {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
+                    <span className="font-medium text-primary">Totala månatliga utgifter</span>
+                    <span className="text-lg font-bold text-primary">
+                      {formatCurrency(
+                        costGroups.reduce((sum, group) => {
+                          const groupTotal = group.amount + (group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0);
+                          return sum + groupTotal;
+                        }, 0) + savingsGroups.reduce((sum, group) => sum + group.amount, 0)
+                      )}
+                    </span>
+                  </div>
+                </div>
               </div>
               
               <div className="space-y-2">
