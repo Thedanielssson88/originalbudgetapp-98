@@ -3,12 +3,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Calculator, DollarSign, TrendingUp, Users, Calendar } from 'lucide-react';
+import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2 } from 'lucide-react';
+
+interface BudgetGroup {
+  id: string;
+  name: string;
+  amount: number;
+}
 
 const BudgetCalculator = () => {
   const [susannaSalary, setSusannaSalary] = useState<number>(0);
   const [andreasSalary, setAndreasSalary] = useState<number>(0);
-  const [monthlyExpenses, setMonthlyExpenses] = useState<number>(0);
+  const [budgetGroups, setBudgetGroups] = useState<BudgetGroup[]>([]);
   const [dailyTransfer, setDailyTransfer] = useState<number>(300);
   const [weekendTransfer, setWeekendTransfer] = useState<number>(540);
   const [results, setResults] = useState<{
@@ -17,9 +23,12 @@ const BudgetCalculator = () => {
     balanceLeft: number;
     susannaShare: number;
     andreasShare: number;
+    susannaPercentage: number;
+    andreasPercentage: number;
     daysUntil25th: number;
     weekdayCount: number;
     fridayCount: number;
+    totalMonthlyExpenses: number;
   } | null>(null);
 
   const calculateDailyBudget = () => {
@@ -79,12 +88,17 @@ const BudgetCalculator = () => {
   const calculateBudget = () => {
     const totalSalary = susannaSalary + andreasSalary;
     const budgetData = calculateDailyBudget();
-    const balanceLeft = totalSalary - budgetData.totalBudget - monthlyExpenses;
+    const totalMonthlyExpenses = budgetGroups.reduce((sum, group) => sum + group.amount, 0);
+    const balanceLeft = totalSalary - budgetData.totalBudget - totalMonthlyExpenses;
     
     let susannaShare = 0;
     let andreasShare = 0;
+    let susannaPercentage = 0;
+    let andreasPercentage = 0;
     
     if (totalSalary > 0) {
+      susannaPercentage = (susannaSalary / totalSalary) * 100;
+      andreasPercentage = (andreasSalary / totalSalary) * 100;
       susannaShare = (susannaSalary / totalSalary) * balanceLeft;
       andreasShare = (andreasSalary / totalSalary) * balanceLeft;
     }
@@ -95,10 +109,32 @@ const BudgetCalculator = () => {
       balanceLeft,
       susannaShare,
       andreasShare,
+      susannaPercentage,
+      andreasPercentage,
       daysUntil25th: budgetData.daysUntil25th,
       weekdayCount: budgetData.weekdayCount,
-      fridayCount: budgetData.fridayCount
+      fridayCount: budgetData.fridayCount,
+      totalMonthlyExpenses
     });
+  };
+
+  const addBudgetGroup = () => {
+    const newGroup: BudgetGroup = {
+      id: Date.now().toString(),
+      name: '',
+      amount: 0
+    };
+    setBudgetGroups([...budgetGroups, newGroup]);
+  };
+
+  const removeBudgetGroup = (id: string) => {
+    setBudgetGroups(budgetGroups.filter(group => group.id !== id));
+  };
+
+  const updateBudgetGroup = (id: string, field: 'name' | 'amount', value: string | number) => {
+    setBudgetGroups(budgetGroups.map(group => 
+      group.id === id ? { ...group, [field]: value } : group
+    ));
   };
 
   const formatCurrency = (amount: number) => {
@@ -159,16 +195,61 @@ const BudgetCalculator = () => {
                 />
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="expenses">Total Monthly Expenses</Label>
-                <Input
-                  id="expenses"
-                  type="number"
-                  placeholder="Enter total monthly expenses"
-                  value={monthlyExpenses || ''}
-                  onChange={(e) => setMonthlyExpenses(Number(e.target.value))}
-                  className="text-lg"
-                />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Budget Groups</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addBudgetGroup}
+                    className="flex items-center gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Group
+                  </Button>
+                </div>
+                
+                {budgetGroups.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">
+                    No budget groups added yet. Click "Add Group" to start.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {budgetGroups.map((group) => (
+                      <div key={group.id} className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                        <Input
+                          placeholder="Group name"
+                          value={group.name}
+                          onChange={(e) => updateBudgetGroup(group.id, 'name', e.target.value)}
+                          className="flex-1"
+                        />
+                        <Input
+                          type="number"
+                          placeholder="Amount"
+                          value={group.amount || ''}
+                          onChange={(e) => updateBudgetGroup(group.id, 'amount', Number(e.target.value))}
+                          className="w-24"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeBudgetGroup(group.id)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
+                      <span className="font-medium text-primary">Total Monthly Expenses</span>
+                      <span className="text-lg font-bold text-primary">
+                        {formatCurrency(budgetGroups.reduce((sum, group) => sum + group.amount, 0))}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div className="space-y-2">
@@ -261,16 +342,22 @@ const BudgetCalculator = () => {
                       <Users className="h-4 w-4" />
                       Individual Shares
                     </h3>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                        <span className="font-medium">Susanna's Share</span>
-                        <span className="text-lg font-bold text-primary">{formatCurrency(results.susannaShare)}</span>
-                      </div>
-                      <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                        <span className="font-medium">Andreas's Share</span>
-                        <span className="text-lg font-bold text-accent">{formatCurrency(results.andreasShare)}</span>
-                      </div>
-                    </div>
+                     <div className="space-y-2">
+                       <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
+                         <span className="font-medium">Susanna's Share</span>
+                         <div className="text-right">
+                           <span className="text-lg font-bold text-primary">{formatCurrency(results.susannaShare)}</span>
+                           <p className="text-sm text-muted-foreground">({results.susannaPercentage.toFixed(1)}%)</p>
+                         </div>
+                       </div>
+                       <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
+                         <span className="font-medium">Andreas's Share</span>
+                         <div className="text-right">
+                           <span className="text-lg font-bold text-accent">{formatCurrency(results.andreasShare)}</span>
+                           <p className="text-sm text-muted-foreground">({results.andreasPercentage.toFixed(1)}%)</p>
+                         </div>
+                       </div>
+                     </div>
                   </div>
                 </div>
               ) : (
