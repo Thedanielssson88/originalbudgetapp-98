@@ -473,215 +473,6 @@ const BudgetCalculator = () => {
                 </div>
               </div>
               
-              <div className="space-y-6">
-                {/* Cost Groups Section */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label>Kostnader</Label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={addCostGroup}
-                      className="flex items-center gap-2"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Lägg till kostnad
-                    </Button>
-                  </div>
-                  
-                  {costGroups.length === 0 ? (
-                    <div className="text-center py-4 text-muted-foreground">
-                      Inga kostnader har lagts till än.
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {costGroups.map((group) => (
-                        <div key={group.id} className="space-y-2 p-3 bg-muted rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <Input
-                              placeholder="Kostnadskategori"
-                              value={group.name}
-                              onChange={(e) => updateCostGroup(group.id, 'name', e.target.value)}
-                              className="flex-1"
-                            />
-                            <Input
-                              type="number"
-                              placeholder="Beräknat från underkategorier"
-                              value={group.subCategories?.reduce((sum, sub) => sum + (sub.amount || 0), 0) || 0}
-                              readOnly
-                              className="w-32 bg-muted text-muted-foreground cursor-not-allowed"
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => addSubCategory(group.id)}
-                              className="px-2"
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeCostGroup(group.id)}
-                              className="text-destructive hover:text-destructive px-2"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          
-                          {/* Sub-categories */}
-                          {group.subCategories && group.subCategories.length > 0 && (
-                            <div className="ml-4 space-y-1">
-                              {group.subCategories.map((sub, index) => (
-                                <div key={`${group.id}-${sub.id}-${index}`} className="flex items-center gap-2">
-                                  <Input
-                                    placeholder="Underkategori"
-                                    value={sub.name || ''}
-                                    onChange={(e) => {
-                                      console.log('Updating subcategory name:', e.target.value);
-                                      updateSubCategory(group.id, sub.id, 'name', e.target.value);
-                                    }}
-                                    className="flex-1 h-8 text-sm"
-                                  />
-                                  <Input
-                                    type="number"
-                                    placeholder="Belopp"
-                                    value={sub.amount || ''}
-                                    onChange={(e) => {
-                                      console.log('Updating subcategory amount:', e.target.value);
-                                      updateSubCategory(group.id, sub.id, 'amount', Number(e.target.value));
-                                    }}
-                                    className="w-20 h-8 text-sm"
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => removeSubCategory(group.id, sub.id)}
-                                    className="text-destructive hover:text-destructive px-1 h-8"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Savings Groups Section */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label>Sparande</Label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={addSavingsGroup}
-                      className="flex items-center gap-2"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Lägg till sparande
-                    </Button>
-                  </div>
-                  
-                  {savingsGroups.length === 0 ? (
-                    <div className="text-center py-4 text-muted-foreground">
-                      Inga sparanden har lagts till än.
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {savingsGroups.map((group) => (
-                        <div key={group.id} className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
-                          <Input
-                            placeholder="Sparandekategori"
-                            value={group.name}
-                            onChange={(e) => updateSavingsGroup(group.id, 'name', e.target.value)}
-                            className="flex-1"
-                          />
-                          <Input
-                            type="number"
-                            placeholder="Belopp"
-                            value={group.amount || ''}
-                            onChange={(e) => updateSavingsGroup(group.id, 'amount', Number(e.target.value))}
-                            className="w-24"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeSavingsGroup(group.id)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Total Summary */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
-                    <span className="font-medium text-red-700 dark:text-red-300">Totala kostnader</span>
-                    <span className="text-lg font-bold text-red-700 dark:text-red-300">
-                      {formatCurrency(costGroups.reduce((sum, group) => {
-                        const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                        return sum + subCategoriesTotal;
-                      }, 0))}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-                    <span className="font-medium text-green-700 dark:text-green-300">Totalt sparande</span>
-                    <span className="text-lg font-bold text-green-700 dark:text-green-300">
-                      {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
-                    <span className="font-medium text-primary">Totala månatliga utgifter</span>
-                    <span className="text-lg font-bold text-primary">
-                      {formatCurrency(
-                        costGroups.reduce((sum, group) => {
-                          const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                          return sum + subCategoriesTotal;
-                        }, 0) + savingsGroups.reduce((sum, group) => sum + group.amount, 0)
-                      )}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="daily-transfer">Daglig överföring</Label>
-                <Input
-                  id="daily-transfer"
-                  type="number"
-                  placeholder="Ange daglig överföring"
-                  value={dailyTransfer || ''}
-                  onChange={(e) => setDailyTransfer(Number(e.target.value))}
-                  className="text-lg"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="weekend-transfer">Extra helgöverföring</Label>
-                <Input
-                  id="weekend-transfer"
-                  type="number"
-                  placeholder="Ange fredagsöverföring"
-                  value={weekendTransfer || ''}
-                  onChange={(e) => setWeekendTransfer(Number(e.target.value))}
-                  className="text-lg"
-                />
-              </div>
-              
               <Button 
                 onClick={calculateBudget} 
                 className="w-full bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary transition-all duration-300"
@@ -921,6 +712,235 @@ const BudgetCalculator = () => {
                   <span className="text-2xl font-bold text-primary">
                     {formatCurrency(weekendTransfer)}
                   </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Budgetinställningar Section */}
+        <div className="mt-6">
+          <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calculator className="h-5 w-5 text-accent" />
+                Budgetinställningar
+              </CardTitle>
+              <CardDescription>
+                Hantera era budgetkategorier och överföringsinställningar
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Cost Groups Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Kostnader</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addCostGroup}
+                    className="flex items-center gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Lägg till kostnad
+                  </Button>
+                </div>
+                
+                {costGroups.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">
+                    Inga kostnader har lagts till än.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {costGroups.map((group) => (
+                      <div key={group.id} className="space-y-2 p-3 bg-muted rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            placeholder="Kostnadskategori"
+                            value={group.name}
+                            onChange={(e) => updateCostGroup(group.id, 'name', e.target.value)}
+                            className="flex-1"
+                          />
+                          <Input
+                            type="number"
+                            placeholder="Beräknat från underkategorier"
+                            value={group.subCategories?.reduce((sum, sub) => sum + (sub.amount || 0), 0) || 0}
+                            readOnly
+                            className="w-32 bg-muted text-muted-foreground cursor-not-allowed"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => addSubCategory(group.id)}
+                            className="px-2"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeCostGroup(group.id)}
+                            className="text-destructive hover:text-destructive px-2"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        
+                        {/* Sub-categories */}
+                        {group.subCategories && group.subCategories.length > 0 && (
+                          <div className="ml-4 space-y-1">
+                            {group.subCategories.map((sub, index) => (
+                              <div key={`${group.id}-${sub.id}-${index}`} className="flex items-center gap-2">
+                                <Input
+                                  placeholder="Underkategori"
+                                  value={sub.name || ''}
+                                  onChange={(e) => {
+                                    console.log('Updating subcategory name:', e.target.value);
+                                    updateSubCategory(group.id, sub.id, 'name', e.target.value);
+                                  }}
+                                  className="flex-1 h-8 text-sm"
+                                />
+                                <Input
+                                  type="number"
+                                  placeholder="Belopp"
+                                  value={sub.amount || ''}
+                                  onChange={(e) => {
+                                    console.log('Updating subcategory amount:', e.target.value);
+                                    updateSubCategory(group.id, sub.id, 'amount', Number(e.target.value));
+                                  }}
+                                  className="w-20 h-8 text-sm"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeSubCategory(group.id, sub.id)}
+                                  className="text-destructive hover:text-destructive px-1 h-8"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Savings Groups Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Sparande</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addSavingsGroup}
+                    className="flex items-center gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Lägg till sparande
+                  </Button>
+                </div>
+                
+                {savingsGroups.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">
+                    Inga sparanden har lagts till än.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {savingsGroups.map((group) => (
+                      <div key={group.id} className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                        <Input
+                          placeholder="Sparandekategori"
+                          value={group.name}
+                          onChange={(e) => updateSavingsGroup(group.id, 'name', e.target.value)}
+                          className="flex-1"
+                        />
+                        <Input
+                          type="number"
+                          placeholder="Belopp"
+                          value={group.amount || ''}
+                          onChange={(e) => updateSavingsGroup(group.id, 'amount', Number(e.target.value))}
+                          className="w-24"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeSavingsGroup(group.id)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Total Summary */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
+                  <span className="font-medium text-red-700 dark:text-red-300">Totala kostnader</span>
+                  <span className="text-lg font-bold text-red-700 dark:text-red-300">
+                    {formatCurrency(costGroups.reduce((sum, group) => {
+                      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                      return sum + subCategoriesTotal;
+                    }, 0))}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <span className="font-medium text-green-700 dark:text-green-300">Totalt sparande</span>
+                  <span className="text-lg font-bold text-green-700 dark:text-green-300">
+                    {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
+                  <span className="font-medium text-primary">Totala månatliga utgifter</span>
+                  <span className="text-lg font-bold text-primary">
+                    {formatCurrency(
+                      costGroups.reduce((sum, group) => {
+                        const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                        return sum + subCategoriesTotal;
+                      }, 0) + savingsGroups.reduce((sum, group) => sum + group.amount, 0)
+                    )}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Transfer Settings */}
+              <div className="space-y-4 pt-4 border-t">
+                <h3 className="text-lg font-semibold text-primary">Överföringsinställningar</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="daily-transfer">Daglig överföring</Label>
+                    <Input
+                      id="daily-transfer"
+                      type="number"
+                      placeholder="Ange daglig överföring"
+                      value={dailyTransfer || ''}
+                      onChange={(e) => setDailyTransfer(Number(e.target.value))}
+                      className="text-lg"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="weekend-transfer">Extra helgöverföring</Label>
+                    <Input
+                      id="weekend-transfer"
+                      type="number"
+                      placeholder="Ange fredagsöverföring"
+                      value={weekendTransfer || ''}
+                      onChange={(e) => setWeekendTransfer(Number(e.target.value))}
+                      className="text-lg"
+                    />
+                  </div>
                 </div>
               </div>
             </CardContent>
