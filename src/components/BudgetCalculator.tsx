@@ -201,10 +201,10 @@ const BudgetCalculator = () => {
     const totalSalary = susannaTotalIncome + andreasSalary;
     const budgetData = calculateDailyBudget();
     
-    // Calculate total costs (including subcategories)
+    // Calculate total costs (only from subcategories, main categories are calculated automatically)
     const totalCosts = costGroups.reduce((sum, group) => {
-      const groupTotal = group.amount + (group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0);
-      return sum + groupTotal;
+      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+      return sum + subCategoriesTotal;
     }, 0);
     
     // Calculate total savings
@@ -420,10 +420,10 @@ const BudgetCalculator = () => {
                             />
                             <Input
                               type="number"
-                              placeholder="Belopp"
-                              value={group.amount || ''}
-                              onChange={(e) => updateCostGroup(group.id, 'amount', Number(e.target.value))}
-                              className="w-24"
+                              placeholder="Beräknat från underkategorier"
+                              value={group.subCategories?.reduce((sum, sub) => sum + (sub.amount || 0), 0) || 0}
+                              readOnly
+                              className="w-32 bg-muted text-muted-foreground cursor-not-allowed"
                             />
                             <Button
                               type="button"
@@ -546,8 +546,8 @@ const BudgetCalculator = () => {
                     <span className="font-medium text-red-700 dark:text-red-300">Totala kostnader</span>
                     <span className="text-lg font-bold text-red-700 dark:text-red-300">
                       {formatCurrency(costGroups.reduce((sum, group) => {
-                        const groupTotal = group.amount + (group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0);
-                        return sum + groupTotal;
+                        const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                        return sum + subCategoriesTotal;
                       }, 0))}
                     </span>
                   </div>
@@ -562,8 +562,8 @@ const BudgetCalculator = () => {
                     <span className="text-lg font-bold text-primary">
                       {formatCurrency(
                         costGroups.reduce((sum, group) => {
-                          const groupTotal = group.amount + (group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0);
-                          return sum + groupTotal;
+                          const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                          return sum + subCategoriesTotal;
                         }, 0) + savingsGroups.reduce((sum, group) => sum + group.amount, 0)
                       )}
                     </span>
