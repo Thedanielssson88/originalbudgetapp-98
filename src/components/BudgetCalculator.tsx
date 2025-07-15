@@ -779,7 +779,7 @@ const BudgetCalculator = () => {
           </p>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-12">
           <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
             <TabsTrigger value="inkomster" className="w-full">Inkomster och Utgifter</TabsTrigger>
             <TabsTrigger value="sammanstallning" className="w-full">Sammanställning</TabsTrigger>
@@ -788,7 +788,7 @@ const BudgetCalculator = () => {
           </TabsList>
 
           {/* Tab 1: Inkomster och Utgifter */}
-          <TabsContent value="inkomster" className="mt-8">
+          <TabsContent value="inkomster" className="mt-12">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Input Section */}
               <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
@@ -938,7 +938,7 @@ const BudgetCalculator = () => {
           </TabsContent>
 
           {/* Tab 2: Sammanställning */}
-          <TabsContent value="sammanstallning" className="mt-8">
+          <TabsContent value="sammanstallning" className="mt-12">
             <div className="space-y-6">
               {/* Total Income Display */}
               <Card>
@@ -1448,7 +1448,7 @@ const BudgetCalculator = () => {
           </TabsContent>
 
           {/* Tab 3: Överföring */}
-          <TabsContent value="overforing" className="mt-8">
+          <TabsContent value="overforing" className="mt-12">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1527,7 +1527,7 @@ const BudgetCalculator = () => {
           </TabsContent>
 
           {/* Tab 4: Egen Budget */}
-          <TabsContent value="egen-budget" className="mt-8">
+          <TabsContent value="egen-budget" className="mt-12">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
