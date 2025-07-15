@@ -732,29 +732,28 @@ const BudgetCalculator = () => {
     return availableMonths;
   };
 
-  // Function to add a new month with empty data
-  const addNewBudgetMonth = (monthKey: string) => {
-    // Use current form values for current month, empty values for future months
-    const currentMonth = new Date().toISOString().substr(0, 7);
-    const isCurrentMonth = monthKey === currentMonth;
+  // Function to add a new month with data copied from current month
+  const addNewBudgetMonth = (monthKey: string, copyFromCurrent: boolean = true) => {
+    // Always copy from current form values when copyFromCurrent is true
+    // This ensures copying happens from the current month's data, not the last selected month
     
     const newMonthData = {
       month: monthKey,
       date: new Date().toISOString(),
-      andreasSalary: isCurrentMonth ? andreasSalary : 0,
-      andreasförsäkringskassan: isCurrentMonth ? andreasförsäkringskassan : 0,
-      andreasbarnbidrag: isCurrentMonth ? andreasbarnbidrag : 0,
-      susannaSalary: isCurrentMonth ? susannaSalary : 0,
-      susannaförsäkringskassan: isCurrentMonth ? susannaförsäkringskassan : 0,
-      susannabarnbidrag: isCurrentMonth ? susannabarnbidrag : 0,
-      totalSalary: isCurrentMonth ? andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag : 0,
-      costGroups: isCurrentMonth ? JSON.parse(JSON.stringify(costGroups)) : [],
-      savingsGroups: isCurrentMonth ? JSON.parse(JSON.stringify(savingsGroups)) : [],
+      andreasSalary: copyFromCurrent ? andreasSalary : 0,
+      andreasförsäkringskassan: copyFromCurrent ? andreasförsäkringskassan : 0,
+      andreasbarnbidrag: copyFromCurrent ? andreasbarnbidrag : 0,
+      susannaSalary: copyFromCurrent ? susannaSalary : 0,
+      susannaförsäkringskassan: copyFromCurrent ? susannaförsäkringskassan : 0,
+      susannabarnbidrag: copyFromCurrent ? susannabarnbidrag : 0,
+      totalSalary: copyFromCurrent ? andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag : 0,
+      costGroups: copyFromCurrent ? JSON.parse(JSON.stringify(costGroups)) : [],
+      savingsGroups: copyFromCurrent ? JSON.parse(JSON.stringify(savingsGroups)) : [],
       totalMonthlyExpenses: 0,
       totalCosts: 0,
       totalSavings: 0,
-      dailyTransfer: isCurrentMonth ? dailyTransfer : 300,
-      weekendTransfer: isCurrentMonth ? weekendTransfer : 540,
+      dailyTransfer: copyFromCurrent ? dailyTransfer : 300,
+      weekendTransfer: copyFromCurrent ? weekendTransfer : 540,
       balanceLeft: 0,
       susannaShare: 0,
       andreasShare: 0,
@@ -822,8 +821,9 @@ const BudgetCalculator = () => {
     if (historicalData[monthKey]) {
       loadDataFromSelectedMonth(monthKey);
     } else {
-      // If it's a new month, add it with empty data
-      addNewBudgetMonth(monthKey);
+      // If it's a new month, add it with data copied from current month (if user wants to copy)
+      // For now, don't copy automatically - let user choose via copy button
+      addNewBudgetMonth(monthKey, false);
     }
   };
 
@@ -1055,7 +1055,7 @@ const BudgetCalculator = () => {
         <div className="mb-4 p-4 bg-muted rounded-lg">
           <Label htmlFor="new-month">Lägg till historisk månad:</Label>
           <div className="text-sm text-muted-foreground mt-1 mb-2">
-            {selectedBudgetMonth ? `Kopierar värden från ${selectedBudgetMonth}` : 'Kopierar nuvarande värden'}
+            Kopierar värden från nuvarande månad
           </div>
           <div className="flex gap-2 mt-2">
             <input
@@ -1070,36 +1070,37 @@ const BudgetCalculator = () => {
               onClick={() => {
                 const currentMonth = new Date().toISOString().substr(0, 7);
                 if (newHistoricalMonth && newHistoricalMonth < currentMonth && !historicalData[newHistoricalMonth]) {
-                  // Copy ALL values from current budget month if available, otherwise use current form values
-                  const sourceData = selectedBudgetMonth && historicalData[selectedBudgetMonth] 
+                  // Always copy ALL values from current month data - check if current month exists in historical data first
+                  const currentMonthData = historicalData[currentMonth];
+                  const sourceData = currentMonthData 
                     ? {
-                        // Copy all fields from current budget month's historical data
-                        andreasSalary: historicalData[selectedBudgetMonth].andreasSalary || andreasSalary,
-                        andreasförsäkringskassan: historicalData[selectedBudgetMonth].andreasförsäkringskassan || andreasförsäkringskassan,
-                        andreasbarnbidrag: historicalData[selectedBudgetMonth].andreasbarnbidrag || andreasbarnbidrag,
-                        susannaSalary: historicalData[selectedBudgetMonth].susannaSalary || susannaSalary,
-                        susannaförsäkringskassan: historicalData[selectedBudgetMonth].susannaförsäkringskassan || susannaförsäkringskassan,
-                        susannabarnbidrag: historicalData[selectedBudgetMonth].susannabarnbidrag || susannabarnbidrag,
-                        totalSalary: historicalData[selectedBudgetMonth].totalSalary || 0,
-                        costGroups: JSON.parse(JSON.stringify(historicalData[selectedBudgetMonth].costGroups || [])),
-                        savingsGroups: JSON.parse(JSON.stringify(historicalData[selectedBudgetMonth].savingsGroups || [])),
-                        totalMonthlyExpenses: historicalData[selectedBudgetMonth].totalMonthlyExpenses || 0,
-                        totalCosts: historicalData[selectedBudgetMonth].totalCosts || 0,
-                        totalSavings: historicalData[selectedBudgetMonth].totalSavings || 0,
-                        dailyTransfer: historicalData[selectedBudgetMonth].dailyTransfer || dailyTransfer,
-                        weekendTransfer: historicalData[selectedBudgetMonth].weekendTransfer || weekendTransfer,
-                        balanceLeft: historicalData[selectedBudgetMonth].balanceLeft || 0,
-                        susannaShare: historicalData[selectedBudgetMonth].susannaShare || 0,
-                        andreasShare: historicalData[selectedBudgetMonth].andreasShare || 0,
-                        susannaPercentage: historicalData[selectedBudgetMonth].susannaPercentage || 0,
-                        andreasPercentage: historicalData[selectedBudgetMonth].andreasPercentage || 0,
-                        totalDailyBudget: historicalData[selectedBudgetMonth].totalDailyBudget || 0,
-                        remainingDailyBudget: historicalData[selectedBudgetMonth].remainingDailyBudget || 0,
-                        holidayDaysBudget: historicalData[selectedBudgetMonth].holidayDaysBudget || 0,
-                        daysUntil25th: historicalData[selectedBudgetMonth].daysUntil25th || 0
+                        // Copy all fields from current month's historical data
+                        andreasSalary: currentMonthData.andreasSalary || andreasSalary,
+                        andreasförsäkringskassan: currentMonthData.andreasförsäkringskassan || andreasförsäkringskassan,
+                        andreasbarnbidrag: currentMonthData.andreasbarnbidrag || andreasbarnbidrag,
+                        susannaSalary: currentMonthData.susannaSalary || susannaSalary,
+                        susannaförsäkringskassan: currentMonthData.susannaförsäkringskassan || susannaförsäkringskassan,
+                        susannabarnbidrag: currentMonthData.susannabarnbidrag || susannabarnbidrag,
+                        totalSalary: currentMonthData.totalSalary || 0,
+                        costGroups: JSON.parse(JSON.stringify(currentMonthData.costGroups || [])),
+                        savingsGroups: JSON.parse(JSON.stringify(currentMonthData.savingsGroups || [])),
+                        totalMonthlyExpenses: currentMonthData.totalMonthlyExpenses || 0,
+                        totalCosts: currentMonthData.totalCosts || 0,
+                        totalSavings: currentMonthData.totalSavings || 0,
+                        dailyTransfer: currentMonthData.dailyTransfer || dailyTransfer,
+                        weekendTransfer: currentMonthData.weekendTransfer || weekendTransfer,
+                        balanceLeft: currentMonthData.balanceLeft || 0,
+                        susannaShare: currentMonthData.susannaShare || 0,
+                        andreasShare: currentMonthData.andreasShare || 0,
+                        susannaPercentage: currentMonthData.susannaPercentage || 0,
+                        andreasPercentage: currentMonthData.andreasPercentage || 0,
+                        totalDailyBudget: currentMonthData.totalDailyBudget || 0,
+                        remainingDailyBudget: currentMonthData.remainingDailyBudget || 0,
+                        holidayDaysBudget: currentMonthData.holidayDaysBudget || 0,
+                        daysUntil25th: currentMonthData.daysUntil25th || 0
                       }
                     : {
-                        // Use current form values if no budget month is selected or no historical data exists
+                        // Use current form values if current month doesn't exist in historical data
                         andreasSalary,
                         andreasförsäkringskassan,
                         andreasbarnbidrag,
@@ -1419,10 +1420,18 @@ const BudgetCalculator = () => {
                       return newData;
                     });
                     
-                    // Reset to current month after deletion
+                    // Reset to current month after deletion and load current month data
                     const currentDate = new Date();
                     const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
                     setSelectedBudgetMonth(currentMonthKey);
+                    
+                    // Load current month data if it exists, otherwise create it with current form values
+                    if (historicalData[currentMonthKey]) {
+                      loadDataFromSelectedMonth(currentMonthKey);
+                    } else {
+                      // If current month doesn't exist in historical data, create it with current values
+                      addNewBudgetMonth(currentMonthKey, true);
+                    }
                   }}
                   variant="destructive"
                 >
