@@ -1517,11 +1517,11 @@ const BudgetCalculator = () => {
                       <div className="space-y-2">
                          <div className="flex justify-between">
                            <span>Belopp för Återstående daglig budget:</span>
-                           <span className="font-medium">{formatCurrency(results.remainingDailyBudget)}</span>
+                           <span className={`font-medium ${results.remainingDailyBudget < 0 ? 'text-red-600' : ''}`}>{formatCurrency(results.remainingDailyBudget)}</span>
                          </div>
                         <div className="flex justify-between pt-2 border-t">
                           <span>Individuella Andelar (Totalt belopp):</span>
-                          <span className="font-medium">{formatCurrency(results.andreasShare + results.susannaShare)}</span>
+                          <span className={`font-medium ${(results.andreasShare + results.susannaShare) < 0 ? 'text-red-600' : ''}`}>{formatCurrency(results.andreasShare + results.susannaShare)}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>Andreas andel:</span>
@@ -1543,6 +1543,7 @@ const BudgetCalculator = () => {
                     <div className="p-4 bg-blue-50 rounded-lg">
                       <h4 className="font-medium mb-3">Överföringsplan</h4>
                       <div className="space-y-1 text-sm">
+                         <div>Antal dagar till lön (den 25): {results.daysUntil25th} dagar</div>
                          <div>Vardagar ({results.remainingWeekdayCount} st): {formatCurrency(dailyTransfer)} per dag</div>
                          <div>Helgdagar ({results.remainingFridayCount} st): {formatCurrency(weekendTransfer)} per dag</div>
                          <div className="font-medium pt-2">
