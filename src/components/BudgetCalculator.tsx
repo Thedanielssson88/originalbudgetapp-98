@@ -1711,8 +1711,19 @@ const BudgetCalculator = () => {
                 </div>
                 <div className="mt-3 pt-3 border-t">
                   <div className="flex justify-between font-semibold">
-                    <span>Total inkomst:</span>
-                    <span>{formatCurrency(getCurrentPersonIncome())}</span>
+                    <span>Total andel:</span>
+                    <span className={`${
+                      (getCurrentPersonIncome() - 
+                       getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0) - 
+                       getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)) >= 0 
+                      ? 'text-green-600' : 'text-destructive'
+                    }`}>
+                      {formatCurrency(
+                        getCurrentPersonIncome() - 
+                        getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0) - 
+                        getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)
+                      )}
+                    </span>
                   </div>
                 </div>
               </div>
