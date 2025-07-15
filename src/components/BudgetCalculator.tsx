@@ -1745,8 +1745,8 @@ const BudgetCalculator = () => {
                             />
                             <Input
                               type="number"
-                              value={group.amount}
-                              onChange={(e) => updatePersonalCostGroup(group.id, 'amount', Number(e.target.value))}
+                              value={group.amount === 0 ? '' : group.amount}
+                              onChange={(e) => updatePersonalCostGroup(group.id, 'amount', Number(e.target.value) || 0)}
                               className="w-32"
                             />
                             <Button
@@ -1800,8 +1800,8 @@ const BudgetCalculator = () => {
                             />
                             <Input
                               type="number"
-                              value={group.amount}
-                              onChange={(e) => updatePersonalSavingsGroup(group.id, 'amount', Number(e.target.value))}
+                              value={group.amount === 0 ? '' : group.amount}
+                              onChange={(e) => updatePersonalSavingsGroup(group.id, 'amount', Number(e.target.value) || 0)}
                               className="w-32"
                             />
                             <Button
