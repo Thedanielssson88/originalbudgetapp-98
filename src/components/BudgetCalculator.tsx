@@ -734,10 +734,11 @@ const BudgetCalculator = () => {
   };
 
   const getCurrentPersonIncome = () => {
+    if (!results) return 0;
     if (selectedPerson === 'andreas') {
-      return andreasSalary + andreasförsäkringskassan + andreasbarnbidrag;
+      return results.andreasShare;
     } else {
-      return susannaSalary + susannaförsäkringskassan + susannabarnbidrag;
+      return results.susannaShare;
     }
   };
 
@@ -1675,39 +1676,22 @@ const BudgetCalculator = () => {
 
               {/* Personal Income Display */}
               <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-semibold mb-3">Mina Inkomster</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                  {selectedPerson === 'andreas' ? (
-                    <>
-                      <div>
-                        <span className="text-muted-foreground">Lön:</span>
-                        <div className="font-medium">{formatCurrency(andreasSalary)}</div>
+                <h4 className="font-semibold mb-3">Min Andel</h4>
+                <div className="grid grid-cols-1 gap-4 text-sm">
+                  <div className="text-center">
+                    <span className="text-muted-foreground">
+                      {selectedPerson === 'andreas' ? 'Andreas andel' : 'Susannas andel'} av gemensam budget:
+                    </span>
+                    <div className="font-medium text-lg mt-1">
+                      {results ? formatCurrency(selectedPerson === 'andreas' ? results.andreasShare : results.susannaShare) : 'Beräkna budget först'}
+                    </div>
+                    {results && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        ({selectedPerson === 'andreas' ? results.andreasPercentage : results.susannaPercentage}% av total)
                       </div>
-                      <div>
-                        <span className="text-muted-foreground">Försäkringskassan:</span>
-                        <div className="font-medium">{formatCurrency(andreasförsäkringskassan)}</div>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Barnbidrag:</span>
-                        <div className="font-medium">{formatCurrency(andreasbarnbidrag)}</div>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div>
-                        <span className="text-muted-foreground">Lön:</span>
-                        <div className="font-medium">{formatCurrency(susannaSalary)}</div>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Försäkringskassan:</span>
-                        <div className="font-medium">{formatCurrency(susannaförsäkringskassan)}</div>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Barnbidrag:</span>
-                        <div className="font-medium">{formatCurrency(susannabarnbidrag)}</div>
-                      </div>
-                    </>
-                  )}
+                    )}
+                  </div>
+                </div>
                 </div>
                 <div className="mt-3 pt-3 border-t">
                   <div className="flex justify-between font-semibold">
@@ -1718,11 +1702,11 @@ const BudgetCalculator = () => {
                        getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)) >= 0 
                       ? 'text-green-600' : 'text-destructive'
                     }`}>
-                      {formatCurrency(
+                      {results ? formatCurrency(
                         getCurrentPersonIncome() - 
                         getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0) - 
                         getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)
-                      )}
+                      ) : 'Beräkna budget först'}
                     </span>
                   </div>
                 </div>
@@ -1865,8 +1849,10 @@ const BudgetCalculator = () => {
                 <h5 className="font-medium mb-3">Sammanfattning - {selectedPerson === 'andreas' ? 'Andreas' : 'Susanna'}</h5>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span>Total inkomst:</span>
-                    <span className="font-medium">{formatCurrency(getCurrentPersonIncome())}</span>
+                    <span>Total andel:</span>
+                    <span className="font-medium">
+                      {results ? formatCurrency(getCurrentPersonIncome()) : 'Beräkna budget först'}
+                    </span>
                   </div>
                   <div className="flex justify-between text-destructive">
                     <span>Totala kostnader:</span>
@@ -1888,11 +1874,11 @@ const BudgetCalculator = () => {
                        getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)) >= 0 
                       ? 'text-green-600' : 'text-destructive'
                     }`}>
-                      {formatCurrency(
+                      {results ? formatCurrency(
                         getCurrentPersonIncome() - 
                         getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0) - 
                         getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)
-                      )}
+                      ) : 'Beräkna budget först'}
                     </span>
                   </div>
                 </div>
