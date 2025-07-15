@@ -1042,7 +1042,7 @@ const BudgetCalculator = () => {
           id="month-selector"
           value={selectedHistoricalMonth}
           onChange={(e) => setSelectedHistoricalMonth(e.target.value)}
-          className="w-full p-2 border rounded-md"
+          className="w-full p-2 border rounded-md mb-4"
         >
           <option value="">Välj en månad...</option>
           {allMonths.map(month => (
@@ -1052,30 +1052,49 @@ const BudgetCalculator = () => {
           ))}
         </select>
         
+        {/* Always visible create month section */}
+        <div className="mb-4 p-4 bg-muted rounded-lg">
+          <Label htmlFor="new-month">Lägg till historisk månad:</Label>
+          <div className="flex gap-2 mt-2">
+            <input
+              id="new-month"
+              type="month"
+              value={newHistoricalMonth}
+              onChange={(e) => setNewHistoricalMonth(e.target.value)}
+              max={currentMonth}
+              className="flex-1 p-2 border rounded-md"
+            />
+            <Button
+              onClick={() => {
+                const currentMonth = new Date().toISOString().substr(0, 7);
+                if (newHistoricalMonth && newHistoricalMonth < currentMonth && !historicalData[newHistoricalMonth]) {
+                  setHistoricalData(prev => ({
+                    ...prev,
+                    [newHistoricalMonth]: {
+                      totalSalary: 0,
+                      totalCosts: 0,
+                      totalSavings: 0,
+                      costGroups: [],
+                      savingsGroups: []
+                    }
+                  }));
+                  setNewHistoricalMonth('');
+                }
+              }}
+              disabled={!newHistoricalMonth || newHistoricalMonth >= currentMonth || historicalData[newHistoricalMonth]}
+              size="sm"
+            >
+              Lägg till
+            </Button>
+          </div>
+        </div>
+        
         {expandedSections.editMonths && renderHistoricalMonthsEditor()}
       </div>
     );
   };
 
   const renderHistoricalMonthsEditor = () => {
-    const currentMonth = new Date().toISOString().substr(0, 7);
-    
-    const addHistoricalMonth = () => {
-      if (newHistoricalMonth && newHistoricalMonth < currentMonth && !historicalData[newHistoricalMonth]) {
-        setHistoricalData(prev => ({
-          ...prev,
-          [newHistoricalMonth]: {
-            totalSalary: 0,
-            totalCosts: 0,
-            totalSavings: 0,
-            costGroups: [],
-            savingsGroups: []
-          }
-        }));
-        setNewHistoricalMonth('');
-      }
-    };
-    
     const deleteMonth = (month: string) => {
       setHistoricalData(prev => {
         const newData = { ...prev };
@@ -1089,47 +1108,24 @@ const BudgetCalculator = () => {
     
     return (
       <div className="mt-4 p-4 bg-muted rounded-lg">
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="new-month">Lägg till historisk månad:</Label>
-            <div className="flex gap-2 mt-2">
-              <input
-                id="new-month"
-                type="month"
-                value={newHistoricalMonth}
-                onChange={(e) => setNewHistoricalMonth(e.target.value)}
-                max={currentMonth}
-                className="flex-1 p-2 border rounded-md"
-              />
-              <Button
-                onClick={addHistoricalMonth}
-                disabled={!newHistoricalMonth || newHistoricalMonth >= currentMonth || historicalData[newHistoricalMonth]}
-                size="sm"
-              >
-                Lägg till
-              </Button>
-            </div>
-          </div>
-          
-          <div>
-            <Label>Sparade månader:</Label>
-            <div className="mt-2 space-y-2">
-              {Object.keys(historicalData).sort((a, b) => b.localeCompare(a)).map(month => (
-                <div key={month} className="flex items-center justify-between p-2 bg-background rounded border">
-                  <span>{month}</span>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => deleteMonth(month)}
-                  >
-                    Ta bort
-                  </Button>
-                </div>
-              ))}
-              {Object.keys(historicalData).length === 0 && (
-                <p className="text-muted-foreground text-sm">Inga sparade månader.</p>
-              )}
-            </div>
+        <div>
+          <Label>Hantera sparade månader:</Label>
+          <div className="mt-2 space-y-2">
+            {Object.keys(historicalData).sort((a, b) => b.localeCompare(a)).map(month => (
+              <div key={month} className="flex items-center justify-between p-2 bg-background rounded border">
+                <span>{month}</span>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => deleteMonth(month)}
+                >
+                  Ta bort
+                </Button>
+              </div>
+            ))}
+            {Object.keys(historicalData).length === 0 && (
+              <p className="text-muted-foreground text-sm">Inga sparade månader.</p>
+            )}
           </div>
         </div>
       </div>
