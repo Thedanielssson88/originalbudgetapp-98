@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X } from 'lucide-react';
 
 interface SubCategory {
@@ -57,6 +58,14 @@ const BudgetCalculator = () => {
   } | null>(null);
   const [standardValues, setStandardValues] = useState<any>(null);
   const [transferAccount, setTransferAccount] = useState<number>(0);
+  
+  // Personal budget states
+  const [selectedPerson, setSelectedPerson] = useState<'andreas' | 'susanna'>('andreas');
+  const [andreasPersonalCosts, setAndreasPersonalCosts] = useState<BudgetGroup[]>([]);
+  const [andreasPersonalSavings, setAndreasPersonalSavings] = useState<BudgetGroup[]>([]);
+  const [susannaPersonalCosts, setSusannaPersonalCosts] = useState<BudgetGroup[]>([]);
+  const [susannaPersonalSavings, setSusannaPersonalSavings] = useState<BudgetGroup[]>([]);
+  const [isEditingPersonalBudget, setIsEditingPersonalBudget] = useState<boolean>(false);
 
   // Swedish holiday calculation
   const getSwedishHolidays = (year: number) => {
@@ -194,6 +203,13 @@ const BudgetCalculator = () => {
         setWeekendTransfer(parsed.weekendTransfer || 540);
         setCustomHolidays(parsed.customHolidays || []);
         
+        // Load personal budget data
+        setSelectedPerson(parsed.selectedPerson || 'andreas');
+        setAndreasPersonalCosts(parsed.andreasPersonalCosts || []);
+        setAndreasPersonalSavings(parsed.andreasPersonalSavings || []);
+        setSusannaPersonalCosts(parsed.susannaPersonalCosts || []);
+        setSusannaPersonalSavings(parsed.susannaPersonalSavings || []);
+        
         if (parsed.results) {
           setResults(parsed.results);
         }
@@ -233,7 +249,12 @@ const BudgetCalculator = () => {
       dailyTransfer,
       weekendTransfer,
       customHolidays,
-      results
+      results,
+      selectedPerson,
+      andreasPersonalCosts,
+      andreasPersonalSavings,
+      susannaPersonalCosts,
+      susannaPersonalSavings
     };
     localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
   };
@@ -241,7 +262,7 @@ const BudgetCalculator = () => {
   // Save data whenever key values change
   useEffect(() => {
     saveToLocalStorage();
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, results]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, results, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings]);
 
   const calculateDailyBudget = () => {
     const currentDate = new Date();
@@ -643,6 +664,81 @@ const BudgetCalculator = () => {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount);
+  };
+
+  // Personal budget helper functions
+  const getCurrentPersonalCosts = () => {
+    return selectedPerson === 'andreas' ? andreasPersonalCosts : susannaPersonalCosts;
+  };
+
+  const getCurrentPersonalSavings = () => {
+    return selectedPerson === 'andreas' ? andreasPersonalSavings : susannaPersonalSavings;
+  };
+
+  const setCurrentPersonalCosts = (costs: BudgetGroup[]) => {
+    if (selectedPerson === 'andreas') {
+      setAndreasPersonalCosts(costs);
+    } else {
+      setSusannaPersonalCosts(costs);
+    }
+  };
+
+  const setCurrentPersonalSavings = (savings: BudgetGroup[]) => {
+    if (selectedPerson === 'andreas') {
+      setAndreasPersonalSavings(savings);
+    } else {
+      setSusannaPersonalSavings(savings);
+    }
+  };
+
+  const addPersonalCostGroup = () => {
+    const newGroup: BudgetGroup = {
+      id: Date.now().toString(),
+      name: 'Ny kostnad',
+      amount: 0,
+      type: 'cost',
+      subCategories: []
+    };
+    setCurrentPersonalCosts([...getCurrentPersonalCosts(), newGroup]);
+  };
+
+  const addPersonalSavingsGroup = () => {
+    const newGroup: BudgetGroup = {
+      id: Date.now().toString(),
+      name: 'Nytt sparande',
+      amount: 0,
+      type: 'savings',
+      subCategories: []
+    };
+    setCurrentPersonalSavings([...getCurrentPersonalSavings(), newGroup]);
+  };
+
+  const removePersonalCostGroup = (id: string) => {
+    setCurrentPersonalCosts(getCurrentPersonalCosts().filter(group => group.id !== id));
+  };
+
+  const removePersonalSavingsGroup = (id: string) => {
+    setCurrentPersonalSavings(getCurrentPersonalSavings().filter(group => group.id !== id));
+  };
+
+  const updatePersonalCostGroup = (id: string, field: 'name' | 'amount', value: string | number) => {
+    setCurrentPersonalCosts(getCurrentPersonalCosts().map(group => 
+      group.id === id ? { ...group, [field]: value } : group
+    ));
+  };
+
+  const updatePersonalSavingsGroup = (id: string, field: 'name' | 'amount', value: string | number) => {
+    setCurrentPersonalSavings(getCurrentPersonalSavings().map(group => 
+      group.id === id ? { ...group, [field]: value } : group
+    ));
+  };
+
+  const getCurrentPersonIncome = () => {
+    if (selectedPerson === 'andreas') {
+      return andreasSalary + andreasförsäkringskassan + andreasbarnbidrag;
+    } else {
+      return susannaSalary + susannaförsäkringskassan + susannabarnbidrag;
+    }
   };
 
   return (
@@ -1541,6 +1637,255 @@ const BudgetCalculator = () => {
                   </p>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Personal Budget Section */}
+        <div className="grid gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Min Budget
+              </CardTitle>
+              <CardDescription>
+                Hantera personlig budget för Andreas eller Susanna
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Person Selection */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Välj person</Label>
+                <RadioGroup 
+                  value={selectedPerson} 
+                  onValueChange={(value) => setSelectedPerson(value as 'andreas' | 'susanna')}
+                  className="flex gap-6"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="andreas" id="andreas" />
+                    <Label htmlFor="andreas">Andreas</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="susanna" id="susanna" />
+                    <Label htmlFor="susanna">Susanna</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {/* Personal Income Display */}
+              <div className="p-4 bg-muted rounded-lg">
+                <h4 className="font-semibold mb-3">Mina Inkomster</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  {selectedPerson === 'andreas' ? (
+                    <>
+                      <div>
+                        <span className="text-muted-foreground">Lön:</span>
+                        <div className="font-medium">{formatCurrency(andreasSalary)}</div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Försäkringskassan:</span>
+                        <div className="font-medium">{formatCurrency(andreasförsäkringskassan)}</div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Barnbidrag:</span>
+                        <div className="font-medium">{formatCurrency(andreasbarnbidrag)}</div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <span className="text-muted-foreground">Lön:</span>
+                        <div className="font-medium">{formatCurrency(susannaSalary)}</div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Försäkringskassan:</span>
+                        <div className="font-medium">{formatCurrency(susannaförsäkringskassan)}</div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Barnbidrag:</span>
+                        <div className="font-medium">{formatCurrency(susannabarnbidrag)}</div>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="mt-3 pt-3 border-t">
+                  <div className="flex justify-between font-semibold">
+                    <span>Total inkomst:</span>
+                    <span>{formatCurrency(getCurrentPersonIncome())}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Edit Toggle */}
+              <div className="flex justify-between items-center">
+                <h4 className="font-semibold">Budgetkategorier</h4>
+                <Button
+                  variant={isEditingPersonalBudget ? "destructive" : "outline"}
+                  size="sm"
+                  onClick={() => setIsEditingPersonalBudget(!isEditingPersonalBudget)}
+                >
+                  {isEditingPersonalBudget ? (
+                    <>
+                      <X className="w-4 h-4 mr-1" />
+                      Avbryt
+                    </>
+                  ) : (
+                    <>
+                      <Edit className="w-4 h-4 mr-1" />
+                      Redigera
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Personal Cost Categories */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h5 className="font-medium text-destructive">Kostnader</h5>
+                  {isEditingPersonalBudget && (
+                    <Button size="sm" variant="outline" onClick={addPersonalCostGroup}>
+                      <Plus className="w-4 h-4 mr-1" />
+                      Lägg till kostnad
+                    </Button>
+                  )}
+                </div>
+                
+                {getCurrentPersonalCosts().length === 0 ? (
+                  <p className="text-muted-foreground text-sm">
+                    Inga personliga kostnader tillagda än.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {getCurrentPersonalCosts().map((group) => (
+                      <div key={group.id} className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                        {isEditingPersonalBudget ? (
+                          <>
+                            <Input
+                              value={group.name}
+                              onChange={(e) => updatePersonalCostGroup(group.id, 'name', e.target.value)}
+                              className="flex-1"
+                            />
+                            <Input
+                              type="number"
+                              value={group.amount}
+                              onChange={(e) => updatePersonalCostGroup(group.id, 'amount', Number(e.target.value))}
+                              className="w-32"
+                            />
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => removePersonalCostGroup(group.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="flex-1">{group.name}</span>
+                            <span className="w-32 text-right font-medium">
+                              {formatCurrency(group.amount)}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Personal Savings Categories */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h5 className="font-medium text-green-600">Sparande</h5>
+                  {isEditingPersonalBudget && (
+                    <Button size="sm" variant="outline" onClick={addPersonalSavingsGroup}>
+                      <Plus className="w-4 h-4 mr-1" />
+                      Lägg till sparande
+                    </Button>
+                  )}
+                </div>
+                
+                {getCurrentPersonalSavings().length === 0 ? (
+                  <p className="text-muted-foreground text-sm">
+                    Inget personligt sparande tillagt än.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {getCurrentPersonalSavings().map((group) => (
+                      <div key={group.id} className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                        {isEditingPersonalBudget ? (
+                          <>
+                            <Input
+                              value={group.name}
+                              onChange={(e) => updatePersonalSavingsGroup(group.id, 'name', e.target.value)}
+                              className="flex-1"
+                            />
+                            <Input
+                              type="number"
+                              value={group.amount}
+                              onChange={(e) => updatePersonalSavingsGroup(group.id, 'amount', Number(e.target.value))}
+                              className="w-32"
+                            />
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => removePersonalSavingsGroup(group.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="flex-1">{group.name}</span>
+                            <span className="w-32 text-right font-medium text-green-600">
+                              {formatCurrency(group.amount)}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Personal Budget Summary */}
+              <div className="p-4 bg-muted rounded-lg">
+                <h5 className="font-medium mb-3">Sammanfattning - {selectedPerson === 'andreas' ? 'Andreas' : 'Susanna'}</h5>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span>Total inkomst:</span>
+                    <span className="font-medium">{formatCurrency(getCurrentPersonIncome())}</span>
+                  </div>
+                  <div className="flex justify-between text-destructive">
+                    <span>Totala kostnader:</span>
+                    <span className="font-medium">
+                      -{formatCurrency(getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0))}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-green-600">
+                    <span>Totalt sparande:</span>
+                    <span className="font-medium">
+                      -{formatCurrency(getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0))}
+                    </span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t font-semibold">
+                    <span>Kvar att spendera:</span>
+                    <span className={`font-semibold ${
+                      (getCurrentPersonIncome() - 
+                       getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0) - 
+                       getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)) >= 0 
+                      ? 'text-green-600' : 'text-destructive'
+                    }`}>
+                      {formatCurrency(
+                        getCurrentPersonIncome() - 
+                        getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0) - 
+                        getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
