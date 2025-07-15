@@ -732,7 +732,7 @@ const BudgetCalculator = () => {
     return availableMonths;
   };
 
-  // Function to add a new month with data copied from current month
+  // Function to add a new month with data copied from latest historical month
   const addNewBudgetMonth = (monthKey: string, copyFromCurrent: boolean = true) => {
     if (!copyFromCurrent) {
       // Create empty month
@@ -771,21 +771,22 @@ const BudgetCalculator = () => {
       return;
     }
 
-    // Copy from current month's historical data if it exists, otherwise from current form values
-    const currentMonth = new Date().toISOString().substr(0, 7);
-    const currentMonthData = historicalData[currentMonth];
+    // Find the latest month in historical data (should be today's month)
+    const historicalMonths = Object.keys(historicalData).sort((a, b) => b.localeCompare(a)); // Sort newest first
+    const latestMonth = historicalMonths[0]; // Get the most recent month
     
     let newMonthData;
     
-    if (currentMonthData) {
-      // Copy ALL data from current month's historical data
+    if (latestMonth && historicalData[latestMonth]) {
+      // Copy ALL data from the latest historical month
       newMonthData = {
-        ...JSON.parse(JSON.stringify(currentMonthData)), // Deep copy everything
+        ...JSON.parse(JSON.stringify(historicalData[latestMonth])), // Deep copy everything
         month: monthKey,
         date: new Date().toISOString()
       };
+      console.log(`Copying data from latest month: ${latestMonth} to new month: ${monthKey}`);
     } else {
-      // Copy from current form values if no historical data exists for current month
+      // Fallback: Copy from current form values if no historical data exists
       newMonthData = {
         month: monthKey,
         date: new Date().toISOString(),
@@ -813,6 +814,7 @@ const BudgetCalculator = () => {
         holidayDaysBudget: 0,
         daysUntil25th: 0
       };
+      console.log(`No historical data found, using current form values for new month: ${monthKey}`);
     }
     
     setHistoricalData(prev => ({
