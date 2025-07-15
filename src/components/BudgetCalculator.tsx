@@ -930,15 +930,15 @@ const BudgetCalculator = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex gap-2">
-                    <Button onClick={saveStandardValues} className="flex-1">
+                  <div className="flex flex-col gap-2">
+                    <Button onClick={saveStandardValues} className="w-full">
                       <Save className="mr-2 h-4 w-4" />
                       Spara nuvarande värden
                     </Button>
                     <Button 
                       onClick={loadStandardValues} 
                       variant="outline" 
-                      className="flex-1"
+                      className="w-full"
                       disabled={!standardValues}
                     >
                       Ladda sparade värden
