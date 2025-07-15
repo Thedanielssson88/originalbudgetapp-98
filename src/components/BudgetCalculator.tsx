@@ -821,9 +821,8 @@ const BudgetCalculator = () => {
     if (historicalData[monthKey]) {
       loadDataFromSelectedMonth(monthKey);
     } else {
-      // If it's a new month, add it with data copied from current month (if user wants to copy)
-      // For now, don't copy automatically - let user choose via copy button
-      addNewBudgetMonth(monthKey, false);
+      // If it's a new month, add it with data copied from current month
+      addNewBudgetMonth(monthKey, true);
     }
   };
 
