@@ -443,8 +443,8 @@ const BudgetCalculator = () => {
       totalBudget: totalBudget - holidayBudget, // Subtract holiday budget from total
       remainingBudget, 
       holidayBudget,
-      weekdayCount: remainingWeekdayCount, 
-      fridayCount: remainingFridayCount, 
+      weekdayCount: totalWeekdayCount, 
+      fridayCount: totalFridayCount, 
       daysUntil25th,
       totalWeekdayCount,
       totalFridayCount,
