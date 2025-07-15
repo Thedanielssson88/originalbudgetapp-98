@@ -4,7 +4,8 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface SubCategory {
   id: string;
@@ -58,6 +59,15 @@ const BudgetCalculator = () => {
   } | null>(null);
   const [standardValues, setStandardValues] = useState<any>(null);
   const [transferAccount, setTransferAccount] = useState<number>(0);
+  
+  // Tab and expandable sections state
+  const [activeTab, setActiveTab] = useState<string>("inkomster");
+  const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({
+    costCategories: false,
+    savingsCategories: false,
+    budgetTransfers: false,
+    redDays: false
+  });
   
   // Personal budget states
   const [selectedPerson, setSelectedPerson] = useState<'andreas' | 'susanna'>('andreas');
@@ -530,6 +540,9 @@ const BudgetCalculator = () => {
       holidayDays: budgetData.holidayDays,
       holidaysUntil25th: budgetData.holidaysUntil25th
     });
+    
+    // Switch to summary tab after calculation
+    setActiveTab("sammanstallning");
   };
 
   const addCostGroup = () => {
@@ -747,9 +760,16 @@ const BudgetCalculator = () => {
     }
   };
 
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background p-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
             Familjens Budgetkalkylator
@@ -759,454 +779,304 @@ const BudgetCalculator = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Input Section */}
-          <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calculator className="h-5 w-5 text-primary" />
-                Inkomst & Utgifter
-              </CardTitle>
-              <CardDescription>
-                Ange era månadsinkomster och utgifter
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Andreas Income Section */}
-              <div className="p-4 bg-muted/50 rounded-lg border">
-                <h3 className="text-lg font-semibold mb-3 text-primary">Andreas Inkomst</h3>
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="andreas">Lön</Label>
-                    <Input
-                      id="andreas"
-                      type="number"
-                      placeholder="Ange månadslön"
-                      value={andreasSalary || ''}
-                      onChange={(e) => setAndreasSalary(Number(e.target.value))}
-                      className="text-lg"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="andreas-forsakringskassan">Försäkringskassan</Label>
-                    <Input
-                      id="andreas-forsakringskassan"
-                      type="number"
-                      placeholder="Ange försäkringskassan"
-                      value={andreasförsäkringskassan || ''}
-                      onChange={(e) => setAndreasförsäkringskassan(Number(e.target.value))}
-                      className="text-lg"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="andreas-barnbidrag">Barnbidrag</Label>
-                    <Input
-                      id="andreas-barnbidrag"
-                      type="number"
-                      placeholder="Ange barnbidrag"
-                      value={andreasbarnbidrag || ''}
-                      onChange={(e) => setAndreasbarnbidrag(Number(e.target.value))}
-                      className="text-lg"
-                    />
-                  </div>
-                  
-                  <div className="pt-2 border-t">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">Total Andreas:</span>
-                      <span className="text-lg font-bold text-primary">
-                        {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="inkomster">Inkomster och Utgifter</TabsTrigger>
+            <TabsTrigger value="sammanstallning">Sammanställning</TabsTrigger>
+            <TabsTrigger value="overforing">Överföring</TabsTrigger>
+            <TabsTrigger value="egen-budget">Egen Budget</TabsTrigger>
+          </TabsList>
 
-              {/* Susanna Income Section */}
-              <div className="p-4 bg-muted/50 rounded-lg border">
-                <h3 className="text-lg font-semibold mb-3 text-primary">Susannas Inkomst</h3>
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="susanna">Lön</Label>
-                    <Input
-                      id="susanna"
-                      type="number"
-                      placeholder="Ange månadslön"
-                      value={susannaSalary || ''}
-                      onChange={(e) => setSusannaSalary(Number(e.target.value))}
-                      className="text-lg"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="susanna-forsakringskassan">Försäkringskassan</Label>
-                    <Input
-                      id="susanna-forsakringskassan"
-                      type="number"
-                      placeholder="Ange försäkringskassan"
-                      value={susannaförsäkringskassan || ''}
-                      onChange={(e) => setSusannaförsäkringskassan(Number(e.target.value))}
-                      className="text-lg"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="susanna-barnbidrag">Barnbidrag</Label>
-                    <Input
-                      id="susanna-barnbidrag"
-                      type="number"
-                      placeholder="Ange barnbidrag"
-                      value={susannabarnbidrag || ''}
-                      onChange={(e) => setSusannabarnbidrag(Number(e.target.value))}
-                      className="text-lg"
-                    />
-                  </div>
-                  
-                  <div className="pt-2 border-t">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">Total Susanna:</span>
-                      <span className="text-lg font-bold text-primary">
-                        {formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <Button 
-                onClick={calculateBudget} 
-                className="w-full bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary transition-all duration-300"
-                size="lg"
-              >
-                Beräkna Budget
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Results Section */}
-          <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-accent" />
-                Budgetresultat
-              </CardTitle>
-              <CardDescription>
-                Era beräknade budgetfördelning
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {results ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-muted rounded-lg p-4">
-                      <p className="text-sm font-medium text-muted-foreground">Total Lön</p>
-                      <p className="text-2xl font-bold text-primary">{formatCurrency(results.totalSalary)}</p>
-                    </div>
-                    <div className="bg-muted rounded-lg p-4">
-                      <p className="text-sm font-medium text-muted-foreground">Total Kostnader/Sparande</p>
-                      <p className="text-2xl font-bold text-destructive">{formatCurrency(results.totalMonthlyExpenses)}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-muted rounded-lg p-4">
-                    <p className="text-sm font-medium text-muted-foreground">Total Daglig Budget</p>
-                    <p className="text-2xl font-bold text-accent">{formatCurrency(results.totalDailyBudget)}</p>
-                  </div>
-                  
-                  <div className="bg-muted rounded-lg p-4">
-                    <p className="text-sm font-medium text-muted-foreground">Återstående Daglig Budget</p>
-                    <p className="text-2xl font-bold text-primary">{formatCurrency(results.remainingDailyBudget)}</p>
-                  </div>
-                  
-                  <div className="bg-red-50 dark:bg-red-950/20 rounded-lg p-4 border border-red-200 dark:border-red-800">
-                    <p className="text-sm font-medium text-red-700 dark:text-red-300">Budget som ej överförs (röda dagar)</p>
-                    <p className="text-2xl font-bold text-red-700 dark:text-red-300">
-                      {results.holidayDaysBudget > 0 ? formatCurrency(results.holidayDaysBudget) : '0 kronor'}
-                    </p>
-                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                      {results.holidayDaysBudget > 0 
-                        ? `Denna summa är redan borträknad från total daglig budget ovan`
-                        : 'Inga röda dagar påverkar budgeten fram till den 24:e'
-                      }
-                    </p>
-                  </div>
-                  
-                  <div className="bg-gradient-to-r from-success/10 to-success/5 rounded-lg p-4 border border-success/20">
-                    <p className="text-sm font-medium text-success">Kvar att fördela</p>
-                    <p className="text-3xl font-bold text-success">{formatCurrency(results.balanceLeft)}</p>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <h3 className="font-semibold flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      Tid & Överföringsdetaljer
-                    </h3>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="bg-muted rounded-lg p-3">
-                        <p className="text-xs font-medium text-muted-foreground">Dagar tills 25:e</p>
-                        <p className="text-xl font-bold text-primary">{results.daysUntil25th}</p>
+          {/* Tab 1: Inkomster och Utgifter */}
+          <TabsContent value="inkomster" className="mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Input Section */}
+              <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calculator className="h-5 w-5 text-primary" />
+                    Inkomst & Utgifter
+                  </CardTitle>
+                  <CardDescription>
+                    Ange era månadsinkomster och utgifter
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Andreas Income Section */}
+                  <div className="p-4 bg-muted/50 rounded-lg border">
+                    <h3 className="text-lg font-semibold mb-3 text-primary">Andreas Inkomst</h3>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="andreas">Lön</Label>
+                        <Input
+                          id="andreas"
+                          type="number"
+                          placeholder="Ange månadslön"
+                          value={andreasSalary || ''}
+                          onChange={(e) => setAndreasSalary(Number(e.target.value))}
+                          className="text-lg"
+                        />
                       </div>
-                      <div className="bg-muted rounded-lg p-3">
-                        <p className="text-xs font-medium text-muted-foreground">Vardagar</p>
-                        <p className="text-xl font-bold text-accent">{results.weekdayCount}</p>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="andreas-forsakringskassan">Försäkringskassan</Label>
+                        <Input
+                          id="andreas-forsakringskassan"
+                          type="number"
+                          placeholder="Ange försäkringskassan"
+                          value={andreasförsäkringskassan || ''}
+                          onChange={(e) => setAndreasförsäkringskassan(Number(e.target.value))}
+                          className="text-lg"
+                        />
                       </div>
-                      <div className="bg-muted rounded-lg p-3">
-                        <p className="text-xs font-medium text-muted-foreground">Fredagar</p>
-                        <p className="text-xl font-bold text-primary">{results.fridayCount}</p>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="andreas-barnbidrag">Barnbidrag</Label>
+                        <Input
+                          id="andreas-barnbidrag"
+                          type="number"
+                          placeholder="Ange barnbidrag"
+                          value={andreasbarnbidrag || ''}
+                          onChange={(e) => setAndreasbarnbidrag(Number(e.target.value))}
+                          className="text-lg"
+                        />
                       </div>
                     </div>
                   </div>
-                  
-                  <div className="space-y-3">
-                    <h3 className="font-semibold flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      Individuella Andelar
-                    </h3>
-                     <div className="space-y-2">
-                       <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                         <span className="font-medium">Andreas Andel</span>
-                         <div className="text-right">
-                           <span className="text-lg font-bold text-accent">{formatCurrency(results.andreasShare)}</span>
-                           <p className="text-sm text-muted-foreground">({results.andreasPercentage.toFixed(1)}%)</p>
-                         </div>
-                       </div>
-                       <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                         <span className="font-medium">Susannas Andel</span>
-                         <div className="text-right">
-                           <span className="text-lg font-bold text-primary">{formatCurrency(results.susannaShare)}</span>
-                           <p className="text-sm text-muted-foreground">({results.susannaPercentage.toFixed(1)}%)</p>
-                         </div>
-                       </div>
-                     </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">
-                    Ange era inkomster och utgifter för att se budgetberäkningen
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
 
-        {/* Budgetkategorier Section */}
-        <div className="mt-8">
-          <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Calculator className="h-5 w-5 text-primary" />
-                  Budgetkategorier
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsEditingCategories(!isEditingCategories)}
-                  className="flex items-center gap-2"
-                >
-                  {isEditingCategories ? (
-                    <>
-                      <Save className="h-4 w-4" />
-                      Spara
-                    </>
-                  ) : (
-                    <>
-                      <Edit className="h-4 w-4" />
-                      Redigera
-                    </>
+                  {/* Susanna Income Section */}
+                  <div className="p-4 bg-muted/50 rounded-lg border">
+                    <h3 className="text-lg font-semibold mb-3 text-primary">Susanna Inkomst</h3>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="susanna">Lön</Label>
+                        <Input
+                          id="susanna"
+                          type="number"
+                          placeholder="Ange månadslön"
+                          value={susannaSalary || ''}
+                          onChange={(e) => setSusannaSalary(Number(e.target.value))}
+                          className="text-lg"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="susanna-forsakringskassan">Försäkringskassan</Label>
+                        <Input
+                          id="susanna-forsakringskassan"
+                          type="number"
+                          placeholder="Ange försäkringskassan"
+                          value={susannaförsäkringskassan || ''}
+                          onChange={(e) => setSusannaförsäkringskassan(Number(e.target.value))}
+                          className="text-lg"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="susanna-barnbidrag">Barnbidrag</Label>
+                        <Input
+                          id="susanna-barnbidrag"
+                          type="number"
+                          placeholder="Ange barnbidrag"
+                          value={susannabarnbidrag || ''}
+                          onChange={(e) => setSusannabarnbidrag(Number(e.target.value))}
+                          className="text-lg"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Calculate Button */}
+                  <Button onClick={calculateBudget} className="w-full" size="lg">
+                    <Calculator className="mr-2 h-4 w-4" />
+                    Beräkna Budget
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Saved Values Section */}
+              <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Save className="h-5 w-5 text-primary" />
+                    Sparade värden
+                  </CardTitle>
+                  <CardDescription>
+                    Spara och ladda standardvärden
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-2">
+                    <Button onClick={saveStandardValues} className="flex-1">
+                      <Save className="mr-2 h-4 w-4" />
+                      Spara nuvarande värden
+                    </Button>
+                    <Button 
+                      onClick={loadStandardValues} 
+                      variant="outline" 
+                      className="flex-1"
+                      disabled={!standardValues}
+                    >
+                      Ladda sparade värden
+                    </Button>
+                  </div>
+                  
+                  {standardValues && (
+                    <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                      <p className="font-medium mb-2">Sparade värden innehåller:</p>
+                      <ul className="space-y-1 text-muted-foreground">
+                        <li>• Alla inkomster</li>
+                        <li>• Budgetkategorier</li>
+                        <li>• Överföringsinställningar</li>
+                        <li>• Anpassade helgdagar</li>
+                      </ul>
+                    </div>
                   )}
-                </Button>
-              </CardTitle>
-              <CardDescription>
-                {isEditingCategories ? 'Hantera era budgetkategorier' : 'Översikt över alla budgetkategorier'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {!isEditingCategories ? (
-                <div className="space-y-4">
-                  {/* Income Section */}
-                  <div className="space-y-3">
-                    <h3 className="text-lg font-semibold text-primary">Inkomster</h3>
-                    <div className="grid gap-2">
-                      <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-                        <span className="font-medium">Andreas Total</span>
-                        <span className="text-lg font-bold text-green-700 dark:text-green-300">
-                          {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}
-                        </span>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Tab 2: Sammanställning */}
+          <TabsContent value="sammanstallning" className="mt-6">
+            <div className="space-y-6">
+              {/* Total Income Display */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Inkomstöversikt</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-primary/10 rounded-lg">
+                      <div className="text-sm text-muted-foreground">Andreas totala inkomst</div>
+                      <div className="text-2xl font-bold text-primary">
+                        {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}
                       </div>
-                      <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-                        <span className="font-medium">Susanna Total</span>
-                        <span className="text-lg font-bold text-green-700 dark:text-green-300">
-                          {formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
-                        </span>
+                    </div>
+                    <div className="p-4 bg-primary/10 rounded-lg">
+                      <div className="text-sm text-muted-foreground">Susannas totala inkomst</div>
+                      <div className="text-2xl font-bold text-primary">
+                        {formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
                       </div>
-                      <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
-                        <span className="font-medium text-primary">Total Inkomst</span>
-                        <span className="text-lg font-bold text-primary">
-                          {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
-                        </span>
+                    </div>
+                    <div className="p-4 bg-primary/20 rounded-lg">
+                      <div className="text-sm text-muted-foreground">Total inkomst</div>
+                      <div className="text-2xl font-bold text-primary">
+                        {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
                       </div>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
 
-                  {/* Costs Section */}
-                  <div className="space-y-3">
-                    <h3 className="text-lg font-semibold text-primary">Kostnader</h3>
-                    <div className="grid gap-2">
-                      {costGroups.map((group) => {
-                        const subCategoriesTotal = group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0;
-                        return subCategoriesTotal > 0 ? (
-                          <div key={group.id} className="space-y-2">
-                            <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
-                              <span className="font-medium">{group.name || 'Namnlös kategori'}</span>
-                              <span className="text-lg font-bold text-red-700 dark:text-red-300">
-                                {formatCurrency(subCategoriesTotal)}
-                              </span>
-                            </div>
-                            {group.subCategories && group.subCategories.length > 0 && (
-                              <div className="ml-4 space-y-1">
-                                {group.subCategories.map((sub) => 
-                                  sub.amount > 0 ? (
-                                    <div key={sub.id} className="flex justify-between items-center p-2 bg-muted/50 rounded text-sm">
-                                      <span>{sub.name || 'Namnlös underkategori'}</span>
-                                      <span className="font-medium">{formatCurrency(sub.amount)}</span>
-                                    </div>
-                                  ) : null
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        ) : null;
-                      })}
-                      <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
-                        <span className="font-medium text-primary">Totala Kostnader</span>
-                        <span className="text-lg font-bold text-primary">
+              {/* Budget Categories */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Budgetöversikt</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Total Costs with Dropdown */}
+                  <div className="p-4 bg-destructive/10 rounded-lg">
+                    <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('costCategories')}>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Totala kostnader</div>
+                        <div className="text-2xl font-bold text-destructive">
                           {formatCurrency(costGroups.reduce((sum, group) => {
                             const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
                             return sum + subCategoriesTotal;
                           }, 0))}
-                        </span>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Savings Section */}
-                  <div className="space-y-3">
-                    <h3 className="text-lg font-semibold text-primary">Sparande</h3>
-                    <div className="grid gap-2">
-                      {savingsGroups.map((group) => 
-                        group.amount > 0 ? (
-                          <div key={group.id} className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                            <span className="font-medium">{group.name || 'Namnlös sparande'}</span>
-                            <span className="text-lg font-bold text-blue-700 dark:text-blue-300">
-                              {formatCurrency(group.amount)}
-                            </span>
-                          </div>
-                        ) : null
-                      )}
-                      <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
-                        <span className="font-medium text-primary">Totalt Sparande</span>
-                        <span className="text-lg font-bold text-primary">
-                          {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {/* Cost Groups Section */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label>Kostnader</Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={addCostGroup}
-                        className="flex items-center gap-2"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Lägg till kostnad
-                      </Button>
+                      {expandedSections.costCategories ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                     </div>
                     
-                    {costGroups.length === 0 ? (
-                      <div className="text-center py-4 text-muted-foreground">
-                        Inga kostnader har lagts till än.
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
+                    {expandedSections.costCategories && (
+                      <div className="mt-4 space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h4 className="font-semibold">Kostnadskategorier</h4>
+                          <div className="space-x-2">
+                            <Button size="sm" onClick={() => setIsEditingCategories(!isEditingCategories)}>
+                              {isEditingCategories ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
+                            </Button>
+                            {isEditingCategories && (
+                              <Button size="sm" onClick={addCostGroup}>
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        
                         {costGroups.map((group) => (
-                          <div key={group.id} className="space-y-2 p-3 bg-muted rounded-lg">
-                            <div className="flex items-center gap-2">
-                              <Input
-                                placeholder="Kostnadskategori"
-                                value={group.name}
-                                onChange={(e) => updateCostGroup(group.id, 'name', e.target.value)}
-                                className="flex-1"
-                              />
-                              <Input
-                                type="number"
-                                placeholder="Beräknat från underkategorier"
-                                value={group.subCategories?.reduce((sum, sub) => sum + (sub.amount || 0), 0) || 0}
-                                readOnly
-                                className="w-32 bg-muted text-muted-foreground cursor-not-allowed"
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => addSubCategory(group.id)}
-                                className="px-2"
-                              >
-                                <Plus className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeCostGroup(group.id)}
-                                className="text-destructive hover:text-destructive px-2"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                          <div key={group.id} className="space-y-2">
+                            <div className="flex gap-2 items-center">
+                              {isEditingCategories ? (
+                                <>
+                                  <Input
+                                    value={group.name}
+                                    onChange={(e) => updateCostGroup(group.id, 'name', e.target.value)}
+                                    className="flex-1"
+                                  />
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => removeCostGroup(group.id)}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <div className="flex-1 font-medium">{group.name}</div>
+                              )}
                             </div>
                             
-                            {/* Sub-categories */}
                             {group.subCategories && group.subCategories.length > 0 && (
-                              <div className="ml-4 space-y-1">
-                                {group.subCategories.map((sub, index) => (
-                                  <div key={`${group.id}-${sub.id}-${index}`} className="flex items-center gap-2">
-                                    <Input
-                                      placeholder="Underkategori"
-                                      value={sub.name || ''}
-                                      onChange={(e) => updateSubCategory(group.id, sub.id, 'name', e.target.value)}
-                                      className="flex-1 h-8 text-sm"
-                                    />
-                                    <Input
-                                      type="number"
-                                      placeholder="Belopp"
-                                      value={sub.amount || ''}
-                                      onChange={(e) => updateSubCategory(group.id, sub.id, 'amount', Number(e.target.value))}
-                                      className="w-20 h-8 text-sm"
-                                    />
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => removeSubCategory(group.id, sub.id)}
-                                      className="text-destructive hover:text-destructive px-1 h-8"
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
+                              <div className="pl-4 space-y-1">
+                                {group.subCategories.map((sub) => (
+                                  <div key={sub.id} className="flex gap-2 items-center text-sm">
+                                    {isEditingCategories ? (
+                                      <>
+                                        <Input
+                                          value={sub.name}
+                                          onChange={(e) => updateSubCategory(group.id, sub.id, 'name', e.target.value)}
+                                          className="flex-1"
+                                        />
+                                        <Input
+                                          type="number"
+                                          value={sub.amount === 0 ? '' : sub.amount}
+                                          onChange={(e) => updateSubCategory(group.id, sub.id, 'amount', Number(e.target.value) || 0)}
+                                          className="w-32"
+                                        />
+                                        <Button
+                                          size="sm"
+                                          variant="destructive"
+                                          onClick={() => removeSubCategory(group.id, sub.id)}
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <span className="flex-1">{sub.name}</span>
+                                        <span className="w-32 text-right font-medium text-destructive">
+                                          {formatCurrency(sub.amount)}
+                                        </span>
+                                      </>
+                                    )}
                                   </div>
                                 ))}
                               </div>
+                            )}
+                            
+                            {isEditingCategories && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="ml-4"
+                                onClick={() => addSubCategory(group.id)}
+                              >
+                                <Plus className="w-4 h-4 mr-1" />
+                                Lägg till underkategori
+                              </Button>
                             )}
                           </div>
                         ))}
@@ -1214,849 +1084,639 @@ const BudgetCalculator = () => {
                     )}
                   </div>
 
-                  {/* Savings Groups Section */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label>Sparande</Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={addSavingsGroup}
-                        className="flex items-center gap-2"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Lägg till sparande
-                      </Button>
+                  {/* Total Savings with Dropdown */}
+                  <div className="p-4 bg-green-50 rounded-lg">
+                    <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('savingsCategories')}>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Totalt sparande</div>
+                        <div className="text-2xl font-bold text-green-600">
+                          {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
+                        </div>
+                      </div>
+                      {expandedSections.savingsCategories ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                     </div>
                     
-                    {savingsGroups.length === 0 ? (
-                      <div className="text-center py-4 text-muted-foreground">
-                        Inga sparanden har lagts till än.
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {savingsGroups.map((group) => (
-                          <div key={group.id} className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
-                            <Input
-                              placeholder="Sparandekategori"
-                              value={group.name}
-                              onChange={(e) => updateSavingsGroup(group.id, 'name', e.target.value)}
-                              className="flex-1"
-                            />
-                            <Input
-                              type="number"
-                              placeholder="Belopp"
-                              value={group.amount || ''}
-                              onChange={(e) => updateSavingsGroup(group.id, 'amount', Number(e.target.value))}
-                              className="w-24"
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeSavingsGroup(group.id)}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
+                    {expandedSections.savingsCategories && (
+                      <div className="mt-4 space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h4 className="font-semibold">Sparandekategorier</h4>
+                          <div className="space-x-2">
+                            <Button size="sm" onClick={() => setIsEditingCategories(!isEditingCategories)}>
+                              {isEditingCategories ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
                             </Button>
+                            {isEditingCategories && (
+                              <Button size="sm" onClick={addSavingsGroup}>
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {savingsGroups.map((group) => (
+                          <div key={group.id} className="flex gap-2 items-center">
+                            {isEditingCategories ? (
+                              <>
+                                <Input
+                                  value={group.name}
+                                  onChange={(e) => updateSavingsGroup(group.id, 'name', e.target.value)}
+                                  className="flex-1"
+                                />
+                                <Input
+                                  type="number"
+                                  value={group.amount === 0 ? '' : group.amount}
+                                  onChange={(e) => updateSavingsGroup(group.id, 'amount', Number(e.target.value) || 0)}
+                                  className="w-32"
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => removeSavingsGroup(group.id)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <span className="flex-1">{group.name}</span>
+                                <span className="w-32 text-right font-medium text-green-600">
+                                  {formatCurrency(group.amount)}
+                                </span>
+                              </>
+                            )}
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
 
-        {/* Budgetöverföringar Section */}
-        <div className="mt-6">
-          <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-accent" />
-                  Budgetöverföringar
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsEditingTransfers(!isEditingTransfers)}
-                  className="flex items-center gap-2"
-                >
-                  {isEditingTransfers ? (
-                    <>
-                      <Save className="h-4 w-4" />
-                      Spara
-                    </>
-                  ) : (
-                    <>
-                      <Edit className="h-4 w-4" />
-                      Redigera
-                    </>
-                  )}
-                </Button>
-              </CardTitle>
-              <CardDescription>
-                {isEditingTransfers ? 'Justera era överföringsinställningar' : 'Dagliga överföringar och helgtillägg'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {!isEditingTransfers ? (
-                <div className="grid gap-4">
-                  <div className="flex justify-between items-center p-4 bg-accent/10 rounded-lg border border-accent/20">
-                    <div>
-                      <span className="font-medium text-accent">Daglig överföring</span>
-                      <p className="text-sm text-muted-foreground">Måndag till fredag</p>
-                    </div>
-                    <span className="text-2xl font-bold text-accent">
-                      {formatCurrency(dailyTransfer)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center p-4 bg-primary/10 rounded-lg border border-primary/20">
-                    <div>
-                      <span className="font-medium text-primary">Fredagsöverföring</span>
-                      <p className="text-sm text-muted-foreground">Extra helgtillägg</p>
-                    </div>
-                    <span className="text-2xl font-bold text-primary">
-                      {formatCurrency(weekendTransfer)}
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="daily-transfer">Daglig överföring (måndag-fredag)</Label>
-                    <Input
-                      id="daily-transfer"
-                      type="number"
-                      placeholder="Daglig överföring"
-                      value={dailyTransfer || ''}
-                      onChange={(e) => setDailyTransfer(Number(e.target.value))}
-                      className="text-lg"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="weekend-transfer">Fredagsöverföring (helgtillägg)</Label>
-                    <Input
-                      id="weekend-transfer"
-                      type="number"
-                      placeholder="Helgtillägg"
-                      value={weekendTransfer || ''}
-                      onChange={(e) => setWeekendTransfer(Number(e.target.value))}
-                      className="text-lg"
-                    />
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Swedish Holiday Days Section */}
-        {results && results.holidayDays && (
-          <div className="mt-6">
-            <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5 text-red-600" />
-                    Svenska Röda Dagar
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsEditingHolidays(!isEditingHolidays)}
-                    className="flex items-center gap-2"
-                  >
-                    {isEditingHolidays ? (
-                      <>
-                        <Save className="h-4 w-4" />
-                        Spara
-                      </>
-                    ) : (
-                      <>
-                        <Edit className="h-4 w-4" />
-                        Redigera
-                      </>
-                    )}
-                  </Button>
-                </CardTitle>
-                <CardDescription>
-                  {isEditingHolidays 
-                    ? 'Lägg till egna röda dagar som påverkar budgetberäkningen'
-                    : 'Visar nästa 5 svenska helgdagar eller alla helgdagar fram till den 25:e (beroende på vilket som är fler)'
-                  }
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {!isEditingHolidays ? (
-                  <div className="space-y-4">
-                    {/* Next Holiday Info */}
-                    {(() => {
-                      const nextHoliday = getNextHoliday();
-                      return (
-                        <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                          <p className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">
-                            Nästa svenska helgdag
-                          </p>
-                          {nextHoliday ? (
-                            <div className="flex items-center justify-between">
-                              <span className="text-blue-700 dark:text-blue-300 font-medium">
-                                {nextHoliday.name} ({nextHoliday.date.getDate()}/{nextHoliday.date.getMonth() + 1})
-                              </span>
-                              <span className="text-sm text-blue-600 dark:text-blue-400">
-                                om {nextHoliday.daysUntil} {nextHoliday.daysUntil === 1 ? 'dag' : 'dagar'}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-blue-700 dark:text-blue-300">
-                              Inga helgdagar hittades inom nästa år
-                            </span>
-                          )}
+                  {/* Total Daily Budget with Dropdown */}
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetTransfers')}>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Total daglig budget</div>
+                        <div className="text-2xl font-bold text-blue-600">
+                          {results ? formatCurrency(results.totalDailyBudget) : 'Beräkna budget först'}
                         </div>
-                      );
-                    })()}
-                    
-                    {/* Current Period Holidays */}
-                    <div className="space-y-2">
-                      <h4 className="font-medium">
-                        {results.holidaysUntil25th.length >= 5 ? "Helgdagar från idag till den 25:e" : "Nästa 5 svenska helgdagar"}
-                      </h4>
-                      {results.holidayDays.map((holiday, index) => (
-                        <div key={index} className="flex items-center gap-2 p-2 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
-                          <Calendar className="h-4 w-4 text-red-600" />
-                          <span className="text-red-700 dark:text-red-300 font-medium">{holiday}</span>
-                        </div>
-                      ))}
-                      {results.holidayDays.length === 0 && (
-                        <div className="text-center py-4 text-muted-foreground">
-                          Inga svenska helgdagar från idag till den 25:e
-                        </div>
-                      )}
+                      </div>
+                      {expandedSections.budgetTransfers ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                     </div>
                     
-                    {/* Custom Holidays Preview */}
-                    {customHolidays.length > 0 && (
-                      <div className="space-y-2">
-                        <h4 className="font-medium">Egna tillagda röda dagar</h4>
-                        {customHolidays.map((holiday, index) => (
-                          <div key={index} className="flex items-center gap-2 p-2 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                            <Calendar className="h-4 w-4 text-purple-600" />
-                            <span className="text-purple-700 dark:text-purple-300 font-medium">
-                              {holiday.date ? new Date(holiday.date).toLocaleDateString('sv-SE') : 'Ej angivet'} - {holiday.name || 'Namnlös'}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {/* Custom Holidays Editor */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium">Egna röda dagar</h4>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={addCustomHoliday}
-                          className="flex items-center gap-2"
-                        >
-                          <Plus className="h-4 w-4" />
-                          Lägg till dag
-                        </Button>
-                      </div>
-                      
-                      {customHolidays.map((holiday, index) => (
-                        <div key={index} className="flex items-center gap-2 p-3 bg-muted rounded-lg border">
-                          <div className="flex-1 grid grid-cols-2 gap-2">
-                            <Input
-                              type="date"
-                              placeholder="Datum"
-                              value={holiday.date}
-                              onChange={(e) => updateCustomHoliday(index, 'date', e.target.value)}
-                            />
-                            <Input
-                              type="text"
-                              placeholder="Namn på helgdag"
-                              value={holiday.name}
-                              onChange={(e) => updateCustomHoliday(index, 'name', e.target.value)}
-                            />
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removeCustomHoliday(index)}
-                            className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                          >
-                            <Trash2 className="h-4 w-4" />
+                    {expandedSections.budgetTransfers && (
+                      <div className="mt-4 space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h4 className="font-semibold">Budgetöverföringar</h4>
+                          <Button size="sm" onClick={() => setIsEditingTransfers(!isEditingTransfers)}>
+                            {isEditingTransfers ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
                           </Button>
                         </div>
-                      ))}
-                      
-                      {customHolidays.length === 0 && (
-                        <div className="text-center py-6 text-muted-foreground">
-                          <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p>Inga egna röda dagar tillagda</p>
-                          <p className="text-sm">Klicka "Lägg till dag" för att lägga till en egen röd dag</p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="daily-transfer">Daglig överföring (måndag-torsdag)</Label>
+                            <Input
+                              id="daily-transfer"
+                              type="number"
+                              value={dailyTransfer || ''}
+                              onChange={(e) => setDailyTransfer(Number(e.target.value))}
+                              disabled={!isEditingTransfers}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="weekend-transfer">Helgöverföring (fredag-söndag)</Label>
+                            <Input
+                              id="weekend-transfer"
+                              type="number"
+                              value={weekendTransfer || ''}
+                              onChange={(e) => setWeekendTransfer(Number(e.target.value))}
+                              disabled={!isEditingTransfers}
+                            />
+                          </div>
                         </div>
+                        
+                        {results && (
+                          <div className="text-sm text-muted-foreground">
+                            <div>Vardagar: {results.weekdayCount} × {formatCurrency(dailyTransfer)} = {formatCurrency(results.weekdayCount * dailyTransfer)}</div>
+                            <div>Helgdagar: {results.fridayCount} × {formatCurrency(weekendTransfer)} = {formatCurrency(results.fridayCount * weekendTransfer)}</div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Remaining Daily Budget */}
+                  <div className="p-4 bg-amber-50 rounded-lg">
+                    <div className="text-sm text-muted-foreground">Återstående daglig budget</div>
+                    <div className="text-2xl font-bold text-amber-600">
+                      {results ? formatCurrency(results.remainingDailyBudget) : 'Beräkna budget först'}
+                    </div>
+                  </div>
+
+                  {/* Summary of Total Costs, Savings, and Daily Budget */}
+                  <div className="p-4 bg-muted rounded-lg">
+                    <h5 className="font-medium mb-3">Summering totala gemensamma kostnader/sparande</h5>
+                    <div className="text-lg font-semibold text-center">
+                      {formatCurrency(
+                        (results ? results.totalDailyBudget : 0) +
+                        costGroups.reduce((sum, group) => {
+                          const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                          return sum + subCategoriesTotal;
+                        }, 0) +
+                        savingsGroups.reduce((sum, group) => sum + group.amount, 0)
                       )}
                     </div>
+                  </div>
+
+                  {/* Budget Not Transferred (Red Days) */}
+                  <div className="p-4 bg-red-50 rounded-lg">
+                    <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('redDays')}>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Budget som ej överförs (röda dagar)</div>
+                        <div className="text-2xl font-bold text-red-600">
+                          {results ? formatCurrency(results.holidayDaysBudget) : 'Beräkna budget först'}
+                        </div>
+                      </div>
+                      {expandedSections.redDays ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                    </div>
                     
-                    <div className="p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                      <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                        <strong>Tips:</strong> Dagar som faller fram till den 25:e kommer att påverka budgetberäkningen automatiskt.
-                      </p>
+                    {expandedSections.redDays && (
+                      <div className="mt-4 space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h4 className="font-semibold">Svenska röda dagar</h4>
+                          <Button size="sm" onClick={() => setIsEditingHolidays(!isEditingHolidays)}>
+                            {isEditingHolidays ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
+                          </Button>
+                        </div>
+                        
+                        {results && (
+                          <div className="text-sm space-y-1">
+                            <div>Röda dagar till 25:e: {results.holidaysUntil25th.length} st</div>
+                            <div className="text-xs text-muted-foreground">
+                              {results.holidaysUntil25th.join(', ')}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {isEditingHolidays && (
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <h5 className="font-medium">Anpassade helgdagar</h5>
+                              <Button size="sm" onClick={addCustomHoliday}>
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                            </div>
+                            
+                            {customHolidays.map((holiday, index) => (
+                              <div key={index} className="flex gap-2 items-center">
+                                <Input
+                                  type="date"
+                                  value={holiday.date}
+                                  onChange={(e) => updateCustomHoliday(index, 'date', e.target.value)}
+                                  className="flex-1"
+                                />
+                                <Input
+                                  value={holiday.name}
+                                  onChange={(e) => updateCustomHoliday(index, 'name', e.target.value)}
+                                  className="flex-1"
+                                  placeholder="Namn på helgdag"
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => removeCustomHoliday(index)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Remaining to Allocate */}
+                  <div className="p-4 bg-purple-50 rounded-lg">
+                    <div className="text-sm text-muted-foreground">Kvar att fördela</div>
+                    <div className={`text-2xl font-bold ${results && results.balanceLeft >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {results ? formatCurrency(results.balanceLeft) : 'Beräkna budget först'}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Individual Shares */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Individuella andelar</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <div className="text-sm text-muted-foreground">Andreas andel</div>
+                      <div className="text-lg font-semibold">
+                        {results ? `${results.andreasPercentage.toFixed(1)}%` : 'Beräkna budget först'}
+                      </div>
+                      <div className="text-2xl font-bold text-green-600">
+                        {results ? formatCurrency(results.andreasShare) : 'Beräkna budget först'}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-sm text-muted-foreground">Susanna andel</div>
+                      <div className="text-lg font-semibold">
+                        {results ? `${results.susannaPercentage.toFixed(1)}%` : 'Beräkna budget först'}
+                      </div>
+                      <div className="text-2xl font-bold text-green-600">
+                        {results ? formatCurrency(results.susannaShare) : 'Beräkna budget först'}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Time & Transfer Details */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Tid & överföringsdetaljer</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {results && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="p-3 bg-muted rounded-lg">
+                        <div className="text-sm text-muted-foreground">Dagar kvar till 25:e</div>
+                        <div className="text-xl font-semibold">{results.daysUntil25th} dagar</div>
+                      </div>
+                      <div className="p-3 bg-muted rounded-lg">
+                        <div className="text-sm text-muted-foreground">Vardagar</div>
+                        <div className="text-xl font-semibold">{results.weekdayCount} dagar</div>
+                      </div>
+                      <div className="p-3 bg-muted rounded-lg">
+                        <div className="text-sm text-muted-foreground">Helgdagar</div>
+                        <div className="text-xl font-semibold">{results.fridayCount} dagar</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Individual Breakdown */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Andreas Column */}
+                    <div className="space-y-4">
+                      <h5 className="font-medium text-lg">Andreas</h5>
+                      <div className="space-y-3">
+                        <div className="p-3 bg-primary/10 rounded-lg">
+                          <div className="text-sm text-muted-foreground">Procentuell fördelning</div>
+                          <div className="text-xl font-bold">
+                            {(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                              ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1)
+                              : '0'}%
+                          </div>
+                        </div>
+                        <div className="p-3 bg-destructive/10 rounded-lg">
+                          <div className="text-sm text-muted-foreground">Andel av gemensamma kostnader/sparande</div>
+                          <div className="text-xl font-bold text-destructive">
+                            {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                              ? ((results ? results.totalDailyBudget : 0) +
+                                costGroups.reduce((sum, group) => {
+                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                  return sum + subCategoriesTotal;
+                                }, 0) +
+                                savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                              : 0)}
+                          </div>
+                        </div>
+                        <div className="p-3 bg-green-50 rounded-lg">
+                          <div className="text-sm text-muted-foreground">Kvar efter gemensamma kostnader/sparande</div>
+                          <div className="text-xl font-bold text-green-600">
+                            {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) - 
+                              ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                                ? ((results ? results.totalDailyBudget : 0) +
+                                  costGroups.reduce((sum, group) => {
+                                    const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                    return sum + subCategoriesTotal;
+                                  }, 0) +
+                                  savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                                : 0))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Susanna Column */}
+                    <div className="space-y-4">
+                      <h5 className="font-medium text-lg">Susanna</h5>
+                      <div className="space-y-3">
+                        <div className="p-3 bg-primary/10 rounded-lg">
+                          <div className="text-sm text-muted-foreground">Procentuell fördelning</div>
+                          <div className="text-xl font-bold">
+                            {(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                              ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1)
+                              : '0'}%
+                          </div>
+                        </div>
+                        <div className="p-3 bg-destructive/10 rounded-lg">
+                          <div className="text-sm text-muted-foreground">Andel av gemensamma kostnader/sparande</div>
+                          <div className="text-xl font-bold text-destructive">
+                            {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                              ? ((results ? results.totalDailyBudget : 0) +
+                                costGroups.reduce((sum, group) => {
+                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                  return sum + subCategoriesTotal;
+                                }, 0) +
+                                savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                              : 0)}
+                          </div>
+                        </div>
+                        <div className="p-3 bg-green-50 rounded-lg">
+                          <div className="text-sm text-muted-foreground">Kvar efter gemensamma kostnader/sparande</div>
+                          <div className="text-xl font-bold text-green-600">
+                            {formatCurrency((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) - 
+                              ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                                ? ((results ? results.totalDailyBudget : 0) +
+                                  costGroups.reduce((sum, group) => {
+                                    const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                    return sum + subCategoriesTotal;
+                                  }, 0) +
+                                  savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                                : 0))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Tab 3: Överföring */}
+          <TabsContent value="overforing" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-primary" />
+                  Kontroll av belopp
+                </CardTitle>
+                <CardDescription>
+                  Kontrollera överföringsbelopp och saldo
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="transfer-account">Överföringskonto saldo</Label>
+                  <Input
+                    id="transfer-account"
+                    type="number"
+                    placeholder="Ange nuvarande saldo"
+                    value={transferAccount || ''}
+                    onChange={(e) => setTransferAccount(Number(e.target.value))}
+                    className="text-lg"
+                  />
+                </div>
+
+                {results && (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-muted rounded-lg">
+                      <h4 className="font-medium mb-3">Beloppssammanfattning</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span>Nuvarande saldo:</span>
+                          <span className="font-medium">{formatCurrency(transferAccount)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Daglig budget:</span>
+                          <span className="font-medium">{formatCurrency(results.totalDailyBudget)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Dagar kvar:</span>
+                          <span className="font-medium">{results.daysUntil25th} dagar</span>
+                        </div>
+                        <div className="flex justify-between pt-2 border-t">
+                          <span>Behövs totalt:</span>
+                          <span className="font-medium">{formatCurrency(results.totalDailyBudget * results.daysUntil25th)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Behöver överföra:</span>
+                          <span className={`font-semibold ${(results.totalDailyBudget * results.daysUntil25th - transferAccount) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {formatCurrency(Math.max(0, results.totalDailyBudget * results.daysUntil25th - transferAccount))}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-blue-50 rounded-lg">
+                      <h4 className="font-medium mb-3">Överföringsplan</h4>
+                      <div className="space-y-1 text-sm">
+                        <div>Vardagar ({results.weekdayCount} st): {formatCurrency(dailyTransfer)} per dag</div>
+                        <div>Helgdagar ({results.fridayCount} st): {formatCurrency(weekendTransfer)} per dag</div>
+                        <div className="font-medium pt-2">
+                          Total överföring: {formatCurrency(results.weekdayCount * dailyTransfer + results.fridayCount * weekendTransfer)}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
               </CardContent>
             </Card>
-          </div>
-        )}
+          </TabsContent>
 
-        {/* Amount Control Section */}
-        <div className="mt-8">
-          <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calculator className="h-5 w-5 text-orange-600" />
-                Kontroll av belopp
-              </CardTitle>
-              <CardDescription>
-                Kontrollera saldot på överföringskontot mot återstående budget
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="transferAccount">Överföringskontot</Label>
-                  <Input
-                    id="transferAccount"
-                    type="number"
-                    value={transferAccount === 0 ? '' : transferAccount}
-                    onChange={(e) => setTransferAccount(Number(e.target.value) || 0)}
-                    placeholder="Ange saldo på överföringskontot"
-                  />
-                </div>
-                
-                {results && (
-                  <div className="grid gap-4 mt-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-                        <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Återstående daglig budget</p>
-                        <p className="text-xl font-bold text-blue-700 dark:text-blue-300">{formatCurrency(results.remainingDailyBudget)}</p>
-                      </div>
-                      
-                      <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
-                        <p className="text-sm font-medium text-green-700 dark:text-green-300">Kvar att fördela</p>
-                        <p className="text-xl font-bold text-green-700 dark:text-green-300">{formatCurrency(results.balanceLeft)}</p>
-                      </div>
-                      
-                      <div className={`rounded-lg p-4 border ${
-                        transferAccount - results.remainingDailyBudget - results.balanceLeft >= 0 
-                          ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' 
-                          : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
-                      }`}>
-                        <p className={`text-sm font-medium ${
-                          transferAccount - results.remainingDailyBudget - results.balanceLeft >= 0 
-                            ? 'text-green-700 dark:text-green-300' 
-                            : 'text-red-700 dark:text-red-300'
-                        }`}>
-                          Differens
-                        </p>
-                        <p className={`text-xl font-bold ${
-                          transferAccount - results.remainingDailyBudget - results.balanceLeft >= 0 
-                            ? 'text-green-700 dark:text-green-300' 
-                            : 'text-red-700 dark:text-red-300'
-                        }`}>
-                          {formatCurrency(transferAccount - results.remainingDailyBudget - results.balanceLeft)}
-                        </p>
-                        <p className="text-xs mt-1 opacity-75">
-                          {transferAccount - results.remainingDailyBudget - results.balanceLeft >= 0 
-                            ? 'Överföringskontot har tillräckligt med medel' 
-                            : 'Överföringskontot har för lite medel'
-                          }
-                        </p>
-                      </div>
+          {/* Tab 4: Egen Budget */}
+          <TabsContent value="egen-budget" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  Min Budget
+                </CardTitle>
+                <CardDescription>
+                  Hantera personlig budget för Andreas och Susanna
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Person Selection */}
+                <div className="space-y-3">
+                  <Label>Välj person</Label>
+                  <RadioGroup value={selectedPerson} onValueChange={(value) => setSelectedPerson(value as 'andreas' | 'susanna')}>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="andreas" id="andreas-radio" />
+                      <Label htmlFor="andreas-radio">Andreas</Label>
                     </div>
-                    
-                    <div className="bg-gray-50 dark:bg-gray-950/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        <strong>Beräkning:</strong> Överföringskontot ({formatCurrency(transferAccount)}) - Återstående daglig budget ({formatCurrency(results.remainingDailyBudget)}) - Kvar att fördela ({formatCurrency(results.balanceLeft)}) = {formatCurrency(transferAccount - results.remainingDailyBudget - results.balanceLeft)}
-                      </p>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="susanna" id="susanna-radio" />
+                      <Label htmlFor="susanna-radio">Susanna</Label>
                     </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Standard Values Section */}
-        <div className="mt-8">
-          <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Save className="h-5 w-5 text-blue-600" />
-                Sparade värden
-              </CardTitle>
-              <CardDescription>
-                Spara alla nuvarande värden som standardvärden, eller ladda tidigare sparade standardvärden
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button 
-                  onClick={saveStandardValues}
-                  className="flex items-center gap-2"
-                  variant="default"
-                >
-                  <Save className="h-4 w-4" />
-                  Spara standardvärden
-                </Button>
-                <Button 
-                  onClick={loadStandardValues}
-                  disabled={!standardValues}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <DollarSign className="h-4 w-4" />
-                  Ladda standardvärden
-                </Button>
-              </div>
-              {standardValues && (
-                <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-                  <p className="text-sm text-green-700 dark:text-green-300">
-                    ✓ Standardvärden finns sparade och kan laddas när som helst
-                  </p>
+                  </RadioGroup>
                 </div>
-              )}
-              {!standardValues && (
-                <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-950/20 rounded-lg border border-gray-200 dark:border-gray-800">
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
-                    Inga standardvärden sparade än. Klicka "Spara standardvärden" för att spara alla nuvarande värden.
-                  </p>
+
+                {/* Personal Budget Controls */}
+                <div className="flex justify-between items-center">
+                  <h4 className="font-medium">Budget för {selectedPerson === 'andreas' ? 'Andreas' : 'Susanna'}</h4>
+                  <Button size="sm" onClick={() => setIsEditingPersonalBudget(!isEditingPersonalBudget)}>
+                    {isEditingPersonalBudget ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
+                  </Button>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
 
-        {/* Personal Budget Section */}
-        <div className="grid gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Min Budget
-              </CardTitle>
-              <CardDescription>
-                Hantera personlig budget för Andreas eller Susanna
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Person Selection */}
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">Välj person</Label>
-                <RadioGroup 
-                  value={selectedPerson} 
-                  onValueChange={(value) => setSelectedPerson(value as 'andreas' | 'susanna')}
-                  className="flex gap-6"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="andreas" id="andreas" />
-                    <Label htmlFor="andreas">Andreas</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="susanna" id="susanna" />
-                    <Label htmlFor="susanna">Susanna</Label>
-                  </div>
-                </RadioGroup>
-              </div>
-
-               {/* Personal Income Display */}
-              <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-semibold mb-3">Min Andel</h4>
-                <div className="grid grid-cols-1 gap-4 text-sm">
-                  <div className="text-center">
-                    <span className="text-muted-foreground">
-                      {selectedPerson === 'andreas' ? 'Andreas andel' : 'Susannas andel'} av gemensam budget:
-                    </span>
-                    <div className="font-medium text-lg mt-1">
-                      {results ? formatCurrency(selectedPerson === 'andreas' ? results.andreasShare : results.susannaShare) : 'Beräkna budget först'}
-                    </div>
-                    {results && (
-                      <div className="text-xs text-muted-foreground mt-1">
-                        ({selectedPerson === 'andreas' ? results.andreasPercentage : results.susannaPercentage}% av total)
-                      </div>
+                {/* Personal Costs */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h5 className="font-medium">Personliga kostnader</h5>
+                    {isEditingPersonalBudget && (
+                      <Button size="sm" onClick={addPersonalCostGroup}>
+                        <Plus className="w-4 h-4" />
+                      </Button>
                     )}
                   </div>
-                </div>
-              </div>
-
-              {/* Edit Toggle */}
-              <div className="flex justify-between items-center">
-                <h4 className="font-semibold">Budgetkategorier</h4>
-                <Button
-                  variant={isEditingPersonalBudget ? "destructive" : "outline"}
-                  size="sm"
-                  onClick={() => setIsEditingPersonalBudget(!isEditingPersonalBudget)}
-                >
-                  {isEditingPersonalBudget ? (
-                    <>
-                      <X className="w-4 h-4 mr-1" />
-                      Avbryt
-                    </>
+                  
+                  {getCurrentPersonalCosts().length > 0 ? (
+                    <div className="space-y-2">
+                      {getCurrentPersonalCosts().map((group) => (
+                        <div key={group.id} className="flex gap-2 items-center">
+                          {isEditingPersonalBudget ? (
+                            <>
+                              <Input
+                                value={group.name}
+                                onChange={(e) => updatePersonalCostGroup(group.id, 'name', e.target.value)}
+                                className="flex-1"
+                              />
+                              <Input
+                                type="number"
+                                value={group.amount === 0 ? '' : group.amount}
+                                onChange={(e) => updatePersonalCostGroup(group.id, 'amount', Number(e.target.value) || 0)}
+                                className="w-32"
+                              />
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => removePersonalCostGroup(group.id)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="flex-1">{group.name}</span>
+                              <span className="w-32 text-right font-medium text-destructive">
+                                {formatCurrency(group.amount)}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   ) : (
-                    <>
-                      <Edit className="w-4 h-4 mr-1" />
-                      Redigera
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              {/* Personal Cost Categories */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h5 className="font-medium text-destructive">Kostnader</h5>
-                  {isEditingPersonalBudget && (
-                    <Button size="sm" variant="outline" onClick={addPersonalCostGroup}>
-                      <Plus className="w-4 h-4 mr-1" />
-                      Lägg till kostnad
-                    </Button>
-                  )}
-                </div>
-                
-                {getCurrentPersonalCosts().length === 0 ? (
-                  <p className="text-muted-foreground text-sm">
-                    Inga personliga kostnader tillagda än.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {getCurrentPersonalCosts().map((group) => (
-                      <div key={group.id} className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                        {isEditingPersonalBudget ? (
-                          <>
-                            <Input
-                              value={group.name}
-                              onChange={(e) => updatePersonalCostGroup(group.id, 'name', e.target.value)}
-                              className="flex-1"
-                            />
-                            <Input
-                              type="number"
-                              value={group.amount === 0 ? '' : group.amount}
-                              onChange={(e) => updatePersonalCostGroup(group.id, 'amount', Number(e.target.value) || 0)}
-                              className="w-32"
-                            />
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => removePersonalCostGroup(group.id)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <span className="flex-1">{group.name}</span>
-                            <span className="w-32 text-right font-medium">
-                              {formatCurrency(group.amount)}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Personal Savings Categories */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h5 className="font-medium text-green-600">Sparande</h5>
-                  {isEditingPersonalBudget && (
-                    <Button size="sm" variant="outline" onClick={addPersonalSavingsGroup}>
-                      <Plus className="w-4 h-4 mr-1" />
-                      Lägg till sparande
-                    </Button>
-                  )}
-                </div>
-                
-                {getCurrentPersonalSavings().length === 0 ? (
-                  <p className="text-muted-foreground text-sm">
-                    Inget personligt sparande tillagt än.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {getCurrentPersonalSavings().map((group) => (
-                      <div key={group.id} className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                        {isEditingPersonalBudget ? (
-                          <>
-                            <Input
-                              value={group.name}
-                              onChange={(e) => updatePersonalSavingsGroup(group.id, 'name', e.target.value)}
-                              className="flex-1"
-                            />
-                            <Input
-                              type="number"
-                              value={group.amount === 0 ? '' : group.amount}
-                              onChange={(e) => updatePersonalSavingsGroup(group.id, 'amount', Number(e.target.value) || 0)}
-                              className="w-32"
-                            />
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => removePersonalSavingsGroup(group.id)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <span className="flex-1">{group.name}</span>
-                            <span className="w-32 text-right font-medium text-green-600">
-                              {formatCurrency(group.amount)}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Personal Budget Summary */}
-              <div className="p-4 bg-muted rounded-lg">
-                <h5 className="font-medium mb-3">Sammanfattning - {selectedPerson === 'andreas' ? 'Andreas' : 'Susanna'}</h5>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>Total andel:</span>
-                    <span className="font-medium">
-                      {results ? formatCurrency(getCurrentPersonIncome()) : 'Beräkna budget först'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-destructive">
-                    <span>Totala kostnader:</span>
-                    <span className="font-medium">
-                      -{formatCurrency(getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0))}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-green-600">
-                    <span>Totalt sparande:</span>
-                    <span className="font-medium">
-                      -{formatCurrency(getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0))}
-                    </span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t font-semibold">
-                    <span>Kvar att spendera:</span>
-                    <span className={`font-semibold ${
-                      (getCurrentPersonIncome() - 
-                       getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0) - 
-                       getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)) >= 0 
-                      ? 'text-green-600' : 'text-destructive'
-                    }`}>
-                      {results ? formatCurrency(
-                        getCurrentPersonIncome() - 
-                        getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0) - 
-                        getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)
-                      ) : 'Beräkna budget först'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Alternative Budget Section */}
-        <div className="space-y-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5" />
-                Alternativ budget
-              </CardTitle>
-              <CardDescription>
-                Visa totala inkomster och beräkna fördelning av gemensamma kostnader
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Total Income Display */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 bg-primary/10 rounded-lg">
-                  <div className="text-sm text-muted-foreground">Andreas totala inkomst</div>
-                  <div className="text-2xl font-bold text-primary">
-                    {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}
-                  </div>
-                </div>
-                <div className="p-4 bg-primary/10 rounded-lg">
-                  <div className="text-sm text-muted-foreground">Susannas totala inkomst</div>
-                  <div className="text-2xl font-bold text-primary">
-                    {formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
-                  </div>
-                </div>
-                <div className="p-4 bg-primary/20 rounded-lg">
-                  <div className="text-sm text-muted-foreground">Total inkomst</div>
-                  <div className="text-2xl font-bold text-primary">
-                    {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Budget Fields */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="alt-daily-budget">Total daglig budget</Label>
-                  <Input
-                    id="alt-daily-budget"
-                    type="number"
-                    value={results ? results.totalDailyBudget : 0}
-                    readOnly
-                    className="bg-muted cursor-not-allowed"
-                    placeholder="Beräkna budget först"
-                  />
-                  <p className="text-xs text-muted-foreground">Hämtas från Total Daglig Budget</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="alt-shared-costs">Total budget för gemensamma kostnader</Label>
-                  <Input
-                    id="alt-shared-costs"
-                    type="number"
-                    value={costGroups.reduce((sum, group) => {
-                      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                      return sum + subCategoriesTotal;
-                    }, 0)}
-                    readOnly
-                    className="bg-muted cursor-not-allowed"
-                    placeholder="0"
-                  />
-                  <p className="text-xs text-muted-foreground">Hämtas från Totala kostnader</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="alt-shared-savings">Total budget för gemensamt sparande</Label>
-                  <Input
-                    id="alt-shared-savings"
-                    type="number"
-                    value={savingsGroups.reduce((sum, group) => sum + group.amount, 0)}
-                    readOnly
-                    className="bg-muted cursor-not-allowed"
-                    placeholder="0"
-                  />
-                  <p className="text-xs text-muted-foreground">Hämtas från Totalt sparande</p>
-                </div>
-              </div>
-
-              {/* Summary */}
-              <div className="p-4 bg-muted rounded-lg">
-                <h5 className="font-medium mb-3">Summering totala gemensamma kostnader/sparande</h5>
-                <div className="text-lg font-semibold text-center">
-                  {formatCurrency(
-                    (results ? results.totalDailyBudget : 0) +
-                    costGroups.reduce((sum, group) => {
-                      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                      return sum + subCategoriesTotal;
-                    }, 0) +
-                    savingsGroups.reduce((sum, group) => sum + group.amount, 0)
-                  )}
-                </div>
-              </div>
-
-              {/* Percentage Distribution and Calculations */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Andreas Column */}
-                <div className="space-y-4">
-                  <h5 className="font-medium text-lg">Andreas</h5>
-                  <div className="space-y-3">
-                    <div className="p-3 bg-primary/10 rounded-lg">
-                      <div className="text-sm text-muted-foreground">Procentuell fördelning</div>
-                      <div className="text-xl font-bold">
-                        {(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                          ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1)
-                          : '0'}%
-                      </div>
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>Inga personliga kostnader tillagda</p>
+                      {isEditingPersonalBudget && (
+                        <Button size="sm" onClick={addPersonalCostGroup} className="mt-2">
+                          <Plus className="w-4 h-4 mr-1" />
+                          Lägg till kostnad
+                        </Button>
+                      )}
                     </div>
-                     <div className="p-3 bg-destructive/10 rounded-lg">
-                       <div className="text-sm text-muted-foreground">Andel av gemensamma kostnader/sparande</div>
-                       <div className="text-xl font-bold text-destructive">
-                         {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                           ? ((results ? results.totalDailyBudget : 0) +
-                             costGroups.reduce((sum, group) => {
-                               const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                               return sum + subCategoriesTotal;
-                             }, 0) +
-                             savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
-                           : 0)}
-                       </div>
-                     </div>
-                     <div className="p-3 bg-green-50 rounded-lg">
-                       <div className="text-sm text-muted-foreground">Kvar efter gemensamma kostnader/sparande</div>
-                       <div className="text-xl font-bold text-green-600">
-                         {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) - 
-                           ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                             ? ((results ? results.totalDailyBudget : 0) +
-                               costGroups.reduce((sum, group) => {
-                                 const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                 return sum + subCategoriesTotal;
-                               }, 0) +
-                               savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
-                             : 0))}
-                       </div>
-                     </div>
-                  </div>
+                  )}
                 </div>
 
-                {/* Susanna Column */}
+                {/* Personal Savings */}
                 <div className="space-y-4">
-                  <h5 className="font-medium text-lg">Susanna</h5>
-                  <div className="space-y-3">
-                    <div className="p-3 bg-primary/10 rounded-lg">
-                      <div className="text-sm text-muted-foreground">Procentuell fördelning</div>
-                      <div className="text-xl font-bold">
-                        {(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                          ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1)
-                          : '0'}%
-                      </div>
+                  <div className="flex justify-between items-center">
+                    <h5 className="font-medium">Personligt sparande</h5>
+                    {isEditingPersonalBudget && (
+                      <Button size="sm" onClick={addPersonalSavingsGroup}>
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {getCurrentPersonalSavings().length > 0 ? (
+                    <div className="space-y-2">
+                      {getCurrentPersonalSavings().map((group) => (
+                        <div key={group.id} className="flex gap-2 items-center">
+                          {isEditingPersonalBudget ? (
+                            <>
+                              <Input
+                                value={group.name}
+                                onChange={(e) => updatePersonalSavingsGroup(group.id, 'name', e.target.value)}
+                                className="flex-1"
+                              />
+                              <Input
+                                type="number"
+                                value={group.amount === 0 ? '' : group.amount}
+                                onChange={(e) => updatePersonalSavingsGroup(group.id, 'amount', Number(e.target.value) || 0)}
+                                className="w-32"
+                              />
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => removePersonalSavingsGroup(group.id)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="flex-1">{group.name}</span>
+                              <span className="w-32 text-right font-medium text-green-600">
+                                {formatCurrency(group.amount)}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                     <div className="p-3 bg-destructive/10 rounded-lg">
-                       <div className="text-sm text-muted-foreground">Andel av gemensamma kostnader/sparande</div>
-                       <div className="text-xl font-bold text-destructive">
-                         {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                           ? ((results ? results.totalDailyBudget : 0) +
-                             costGroups.reduce((sum, group) => {
-                               const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                               return sum + subCategoriesTotal;
-                             }, 0) +
-                             savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
-                           : 0)}
-                       </div>
-                     </div>
-                     <div className="p-3 bg-green-50 rounded-lg">
-                       <div className="text-sm text-muted-foreground">Kvar efter gemensamma kostnader/sparande</div>
-                       <div className="text-xl font-bold text-green-600">
-                         {formatCurrency((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) - 
-                           ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                             ? ((results ? results.totalDailyBudget : 0) +
-                               costGroups.reduce((sum, group) => {
-                                 const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                 return sum + subCategoriesTotal;
-                               }, 0) +
-                               savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
-                             : 0))}
-                       </div>
-                     </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>Inget personligt sparande tillagt</p>
+                      {isEditingPersonalBudget && (
+                        <Button size="sm" onClick={addPersonalSavingsGroup} className="mt-2">
+                          <Plus className="w-4 h-4 mr-1" />
+                          Lägg till sparande
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Personal Budget Summary */}
+                <div className="p-4 bg-muted rounded-lg">
+                  <h5 className="font-medium mb-3">Sammanfattning - {selectedPerson === 'andreas' ? 'Andreas' : 'Susanna'}</h5>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Total andel:</span>
+                      <span className="font-medium">
+                        {results ? formatCurrency(getCurrentPersonIncome()) : 'Beräkna budget först'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-destructive">
+                      <span>Totala kostnader:</span>
+                      <span className="font-medium">
+                        -{formatCurrency(getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0))}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-green-600">
+                      <span>Totalt sparande:</span>
+                      <span className="font-medium">
+                        -{formatCurrency(getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0))}
+                      </span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t font-semibold">
+                      <span>Kvar att spendera:</span>
+                      <span className={`font-semibold ${
+                        (getCurrentPersonIncome() - 
+                         getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0) - 
+                         getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)) >= 0 
+                        ? 'text-green-600' : 'text-destructive'
+                      }`}>
+                        {results ? formatCurrency(
+                          getCurrentPersonIncome() - 
+                          getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0) - 
+                          getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)
+                        ) : 'Beräkna budget först'}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
