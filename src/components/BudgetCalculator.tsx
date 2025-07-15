@@ -734,36 +734,86 @@ const BudgetCalculator = () => {
 
   // Function to add a new month with data copied from current month
   const addNewBudgetMonth = (monthKey: string, copyFromCurrent: boolean = true) => {
-    // Always copy from current form values when copyFromCurrent is true
-    // This ensures copying happens from the current month's data, not the last selected month
+    if (!copyFromCurrent) {
+      // Create empty month
+      const newMonthData = {
+        month: monthKey,
+        date: new Date().toISOString(),
+        andreasSalary: 0,
+        andreasförsäkringskassan: 0,
+        andreasbarnbidrag: 0,
+        susannaSalary: 0,
+        susannaförsäkringskassan: 0,
+        susannabarnbidrag: 0,
+        totalSalary: 0,
+        costGroups: [],
+        savingsGroups: [],
+        totalMonthlyExpenses: 0,
+        totalCosts: 0,
+        totalSavings: 0,
+        dailyTransfer: 300,
+        weekendTransfer: 540,
+        balanceLeft: 0,
+        susannaShare: 0,
+        andreasShare: 0,
+        susannaPercentage: 0,
+        andreasPercentage: 0,
+        totalDailyBudget: 0,
+        remainingDailyBudget: 0,
+        holidayDaysBudget: 0,
+        daysUntil25th: 0
+      };
+      
+      setHistoricalData(prev => ({
+        ...prev,
+        [monthKey]: newMonthData
+      }));
+      return;
+    }
+
+    // Copy from current month's historical data if it exists, otherwise from current form values
+    const currentMonth = new Date().toISOString().substr(0, 7);
+    const currentMonthData = historicalData[currentMonth];
     
-    const newMonthData = {
-      month: monthKey,
-      date: new Date().toISOString(),
-      andreasSalary: copyFromCurrent ? andreasSalary : 0,
-      andreasförsäkringskassan: copyFromCurrent ? andreasförsäkringskassan : 0,
-      andreasbarnbidrag: copyFromCurrent ? andreasbarnbidrag : 0,
-      susannaSalary: copyFromCurrent ? susannaSalary : 0,
-      susannaförsäkringskassan: copyFromCurrent ? susannaförsäkringskassan : 0,
-      susannabarnbidrag: copyFromCurrent ? susannabarnbidrag : 0,
-      totalSalary: copyFromCurrent ? andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag : 0,
-      costGroups: copyFromCurrent ? JSON.parse(JSON.stringify(costGroups)) : [],
-      savingsGroups: copyFromCurrent ? JSON.parse(JSON.stringify(savingsGroups)) : [],
-      totalMonthlyExpenses: 0,
-      totalCosts: 0,
-      totalSavings: 0,
-      dailyTransfer: copyFromCurrent ? dailyTransfer : 300,
-      weekendTransfer: copyFromCurrent ? weekendTransfer : 540,
-      balanceLeft: 0,
-      susannaShare: 0,
-      andreasShare: 0,
-      susannaPercentage: 0,
-      andreasPercentage: 0,
-      totalDailyBudget: 0,
-      remainingDailyBudget: 0,
-      holidayDaysBudget: 0,
-      daysUntil25th: 0
-    };
+    let newMonthData;
+    
+    if (currentMonthData) {
+      // Copy ALL data from current month's historical data
+      newMonthData = {
+        ...JSON.parse(JSON.stringify(currentMonthData)), // Deep copy everything
+        month: monthKey,
+        date: new Date().toISOString()
+      };
+    } else {
+      // Copy from current form values if no historical data exists for current month
+      newMonthData = {
+        month: monthKey,
+        date: new Date().toISOString(),
+        andreasSalary,
+        andreasförsäkringskassan,
+        andreasbarnbidrag,
+        susannaSalary,
+        susannaförsäkringskassan,
+        susannabarnbidrag,
+        totalSalary: andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag,
+        costGroups: JSON.parse(JSON.stringify(costGroups)),
+        savingsGroups: JSON.parse(JSON.stringify(savingsGroups)),
+        totalMonthlyExpenses: 0,
+        totalCosts: 0,
+        totalSavings: 0,
+        dailyTransfer,
+        weekendTransfer,
+        balanceLeft: 0,
+        susannaShare: 0,
+        andreasShare: 0,
+        susannaPercentage: 0,
+        andreasPercentage: 0,
+        totalDailyBudget: 0,
+        remainingDailyBudget: 0,
+        holidayDaysBudget: 0,
+        daysUntil25th: 0
+      };
+    }
     
     setHistoricalData(prev => ({
       ...prev,
