@@ -1035,7 +1035,8 @@ const BudgetCalculator = () => {
         month: monthKey,
         totalIncome: data.totalSalary || 0,
         totalCosts: totalCosts,
-        totalSavings: totalSavings
+        totalSavings: totalSavings,
+        totalDailyBudget: data.totalDailyBudget || 0
       };
     }).sort((a, b) => a.month.localeCompare(b.month));
 
@@ -1059,6 +1060,7 @@ const BudgetCalculator = () => {
             <Line type="monotone" dataKey="totalIncome" stroke="#22c55e" name="Totala Intäkter" />
             <Line type="monotone" dataKey="totalCosts" stroke="#ef4444" name="Totala Kostnader" />
             <Line type="monotone" dataKey="totalSavings" stroke="#3b82f6" name="Totalt Sparande" />
+            <Line type="monotone" dataKey="totalDailyBudget" stroke="#f59e0b" name="Total Daglig Budget" />
           </LineChart>
         </ResponsiveContainer>
       </div>
