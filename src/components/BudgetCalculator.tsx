@@ -595,6 +595,8 @@ const BudgetCalculator = () => {
       costGroups: [...costGroups],
       savingsGroups: [...savingsGroups],
       totalMonthlyExpenses,
+      totalCosts, // Add calculated total costs
+      totalSavings, // Add calculated total savings
       dailyTransfer,
       weekendTransfer,
       balanceLeft,
@@ -842,11 +844,22 @@ const BudgetCalculator = () => {
   const renderHistoricalCharts = () => {
     const chartData = Object.keys(historicalData).map(monthKey => {
       const data = historicalData[monthKey];
+      
+      // Use saved calculated totals if available, otherwise calculate from groups
+      const totalCosts = data.totalCosts !== undefined ? data.totalCosts : 
+        (data.costGroups?.reduce((sum: number, group: any) => {
+          const subCategoriesTotal = group.subCategories?.reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+          return sum + subCategoriesTotal;
+        }, 0) || 0);
+      
+      const totalSavings = data.totalSavings !== undefined ? data.totalSavings : 
+        (data.savingsGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0);
+      
       return {
         month: monthKey,
         totalIncome: data.totalSalary || 0,
-        totalCosts: data.totalMonthlyExpenses || 0,
-        totalSavings: (data.savingsGroups || []).reduce((sum: number, group: any) => sum + group.amount, 0)
+        totalCosts: totalCosts,
+        totalSavings: totalSavings
       };
     }).sort((a, b) => a.month.localeCompare(b.month));
 
@@ -911,8 +924,16 @@ const BudgetCalculator = () => {
     }
 
     const data = historicalData[selectedHistoricalMonth];
-    const totalCosts = data.costGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0;
-    const totalSavings = data.savingsGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0;
+    
+    // Use saved calculated totals if available, otherwise calculate from groups
+    const totalCosts = data.totalCosts !== undefined ? data.totalCosts : 
+      (data.costGroups?.reduce((sum: number, group: any) => {
+        const subCategoriesTotal = group.subCategories?.reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+        return sum + subCategoriesTotal;
+      }, 0) || 0);
+    
+    const totalSavings = data.totalSavings !== undefined ? data.totalSavings : 
+      (data.savingsGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0);
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -962,12 +983,23 @@ const BudgetCalculator = () => {
             <div className="space-y-2">
               <div className="mb-4">
                 <h4 className="font-medium mb-2">Kostnader:</h4>
-                {data.costGroups?.map((group: any) => (
-                  <div key={group.id} className="flex justify-between">
-                    <span>{group.name}:</span>
-                    <span className="font-medium">{formatCurrency(group.amount)}</span>
-                  </div>
-                ))}
+                {data.costGroups?.map((group: any) => {
+                  const groupTotal = group.subCategories?.reduce((sum: number, sub: any) => sum + sub.amount, 0) || 0;
+                  return (
+                    <div key={group.id}>
+                      <div className="flex justify-between">
+                        <span>{group.name}:</span>
+                        <span className="font-medium">{formatCurrency(groupTotal)}</span>
+                      </div>
+                      {group.subCategories?.map((sub: any) => (
+                        <div key={sub.id} className="ml-4 flex justify-between text-sm text-muted-foreground">
+                          <span>• {sub.name}:</span>
+                          <span>{formatCurrency(sub.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
                 <div className="flex justify-between pt-2 border-t font-semibold">
                   <span>Totala kostnader:</span>
                   <span>{formatCurrency(totalCosts)}</span>
