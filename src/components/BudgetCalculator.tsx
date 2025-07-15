@@ -66,6 +66,8 @@ const BudgetCalculator = () => {
   const [selectedHistoricalMonth, setSelectedHistoricalMonth] = useState<string>('');
   const [selectedBudgetMonth, setSelectedBudgetMonth] = useState<string>(''); // New state for budget month selector
   const [newHistoricalMonth, setNewHistoricalMonth] = useState<string>(''); // State for new month input
+  const [newMonthFromCopy, setNewMonthFromCopy] = useState<string>(''); // State for new month when copying from historical
+  const [selectedSourceMonth, setSelectedSourceMonth] = useState<string>(''); // State for source month to copy from
   const [standardValues, setStandardValues] = useState<any>(null);
   const [transferAccount, setTransferAccount] = useState<number>(0);
   
@@ -1497,6 +1499,91 @@ const BudgetCalculator = () => {
                 {historicalData[selectedBudgetMonth] ? 
                   ' - Data laddad från sparad historik' : 
                   ' - Ny månad med tomma fält'}
+              </div>
+            )}
+            
+            {/* Copy from Historical Month Section */}
+            {Object.keys(historicalData).length > 0 && (
+              <div className="mt-6 p-4 bg-muted/50 rounded-lg border">
+                <h4 className="text-sm font-medium mb-3">Kopiera från historisk månad</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <Label htmlFor="source-month">Välj månad att kopiera från</Label>
+                    <Select value={selectedSourceMonth} onValueChange={setSelectedSourceMonth}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Välj månad..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.keys(historicalData)
+                          .sort((a, b) => b.localeCompare(a))
+                          .map(month => (
+                            <SelectItem key={month} value={month}>
+                              {month}
+                            </SelectItem>
+                          ))
+                        }
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="new-month-copy">Ny månad</Label>
+                    <input
+                      id="new-month-copy"
+                      type="month"
+                      value={newMonthFromCopy}
+                      onChange={(e) => setNewMonthFromCopy(e.target.value)}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                  </div>
+                  
+                  <div className="flex items-end">
+                    <Button
+                      onClick={() => {
+                        if (selectedSourceMonth && newMonthFromCopy && !historicalData[newMonthFromCopy]) {
+                          // Copy ALL data from selected historical month to new month
+                          const sourceData = historicalData[selectedSourceMonth];
+                          if (sourceData) {
+                            setHistoricalData(prev => ({
+                              ...prev,
+                              [newMonthFromCopy]: {
+                                ...JSON.parse(JSON.stringify(sourceData)), // Deep copy everything
+                                month: newMonthFromCopy,
+                                date: new Date().toISOString()
+                              }
+                            }));
+                            
+                            // Clear the form
+                            setNewMonthFromCopy('');
+                            setSelectedSourceMonth('');
+                            
+                            // Switch to the newly created month
+                            setSelectedBudgetMonth(newMonthFromCopy);
+                            loadDataFromSelectedMonth(newMonthFromCopy);
+                          }
+                        }
+                      }}
+                      disabled={!selectedSourceMonth || !newMonthFromCopy || historicalData[newMonthFromCopy]}
+                      size="sm"
+                      className="w-full"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Lägg till
+                    </Button>
+                  </div>
+                </div>
+                
+                {newMonthFromCopy && historicalData[newMonthFromCopy] && (
+                  <div className="mt-2 text-sm text-destructive">
+                    Månad {newMonthFromCopy} finns redan
+                  </div>
+                )}
+                
+                {selectedSourceMonth && newMonthFromCopy && !historicalData[newMonthFromCopy] && (
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    Kopierar all data från {selectedSourceMonth} till {newMonthFromCopy}
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
