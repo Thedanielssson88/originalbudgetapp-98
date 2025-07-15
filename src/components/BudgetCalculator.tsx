@@ -1674,7 +1674,7 @@ const BudgetCalculator = () => {
                 </RadioGroup>
               </div>
 
-              {/* Personal Income Display */}
+               {/* Personal Income Display */}
               <div className="p-4 bg-muted rounded-lg">
                 <h4 className="font-semibold mb-3">Min Andel</h4>
                 <div className="grid grid-cols-1 gap-4 text-sm">
@@ -1690,24 +1690,6 @@ const BudgetCalculator = () => {
                         ({selectedPerson === 'andreas' ? results.andreasPercentage : results.susannaPercentage}% av total)
                       </div>
                     )}
-                  </div>
-                </div>
-                </div>
-                <div className="mt-3 pt-3 border-t">
-                  <div className="flex justify-between font-semibold">
-                    <span>Total andel:</span>
-                    <span className={`${
-                      (getCurrentPersonIncome() - 
-                       getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0) - 
-                       getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)) >= 0 
-                      ? 'text-green-600' : 'text-destructive'
-                    }`}>
-                      {results ? formatCurrency(
-                        getCurrentPersonIncome() - 
-                        getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0) - 
-                        getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)
-                      ) : 'Beräkna budget först'}
-                    </span>
                   </div>
                 </div>
               </div>
