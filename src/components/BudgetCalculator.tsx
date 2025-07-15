@@ -1279,6 +1279,55 @@ const BudgetCalculator = () => {
           </p>
         </div>
 
+        {/* Always visible month creation section */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              Snabbåtgärder
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row gap-4 items-end">
+              <div className="flex-1">
+                <Label htmlFor="quick-new-month">Lägg till historisk månad:</Label>
+                <input
+                  id="quick-new-month"
+                  type="month"
+                  value={newHistoricalMonth}
+                  onChange={(e) => setNewHistoricalMonth(e.target.value)}
+                  max={new Date().toISOString().substr(0, 7)}
+                  className="w-full p-2 border rounded-md mt-1"
+                />
+              </div>
+              <Button
+                onClick={() => {
+                  const currentMonth = new Date().toISOString().substr(0, 7);
+                  if (newHistoricalMonth && newHistoricalMonth < currentMonth && !historicalData[newHistoricalMonth]) {
+                    setHistoricalData(prev => ({
+                      ...prev,
+                      [newHistoricalMonth]: {
+                        totalSalary: 0,
+                        totalCosts: 0,
+                        totalSavings: 0,
+                        costGroups: [],
+                        savingsGroups: []
+                      }
+                    }));
+                    setNewHistoricalMonth('');
+                  }
+                }}
+                disabled={!newHistoricalMonth || newHistoricalMonth >= new Date().toISOString().substr(0, 7) || historicalData[newHistoricalMonth]}
+                size="sm"
+                className="shrink-0"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Lägg till månad
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Month Selector */}
         <Card className="mb-6">
           <CardHeader>
