@@ -74,7 +74,8 @@ const BudgetCalculator = () => {
     costCategories: false,
     savingsCategories: false,
     budgetTransfers: false,
-    redDays: false
+    redDays: false,
+    editMonths: false
   });
   
   // Personal budget states
