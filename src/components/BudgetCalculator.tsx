@@ -1014,16 +1014,38 @@ const BudgetCalculator = () => {
                     <span className="font-medium">{formatCurrency(group.amount)}</span>
                   </div>
                 ))}
-                <div className="flex justify-between pt-2 border-t font-semibold">
-                  <span>Totalt sparande:</span>
-                  <span>{formatCurrency(totalSavings)}</span>
-                </div>
+              <div className="flex justify-between pt-2 border-t font-semibold">
+                <span>Totalt sparande:</span>
+                <span>{formatCurrency(totalSavings)}</span>
+              </div>
               </div>
 
-              <div className="flex justify-between pt-2 border-t font-semibold">
-                <span>Kvar efter kostnader och sparande:</span>
-                <span>{formatCurrency((data.totalSalary || 0) - totalCosts - totalSavings)}</span>
+            <div className="mt-4 pt-4 border-t">
+              <div className="flex justify-between">
+                <span>Total daglig budget:</span>
+                <span className="font-medium">{formatCurrency(data.totalDailyBudget || 0)}</span>
               </div>
+              <div className="flex justify-between pt-2 border-t font-semibold">
+                <span>Kvar efter kostnader, sparande och daglig budget:</span>
+                <span>{formatCurrency((data.totalSalary || 0) - totalCosts - totalSavings - (data.totalDailyBudget || 0))}</span>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <h4 className="font-medium mb-2">Individuella Andelar:</h4>
+              <div className="flex justify-between">
+                <span>Andreas andel:</span>
+                <span className="font-medium">{formatCurrency(data.andreasShare || 0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Susannas andel:</span>
+                <span className="font-medium">{formatCurrency(data.susannaShare || 0)}</span>
+              </div>
+              <div className="flex justify-between text-sm text-muted-foreground mt-2">
+                <span>Andreas andel: {(data.andreasPercentage || 0).toFixed(1)}%</span>
+                <span>Susannas andel: {(data.susannaPercentage || 0).toFixed(1)}%</span>
+              </div>
+            </div>
             </div>
           </CardContent>
         </Card>
