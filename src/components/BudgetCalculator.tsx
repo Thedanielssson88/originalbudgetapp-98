@@ -1436,7 +1436,7 @@ const BudgetCalculator = () => {
                   <Input
                     id="transferAccount"
                     type="number"
-                    value={transferAccount}
+                    value={transferAccount === 0 ? '' : transferAccount}
                     onChange={(e) => setTransferAccount(Number(e.target.value) || 0)}
                     placeholder="Ange saldo på överföringskontot"
                   />
