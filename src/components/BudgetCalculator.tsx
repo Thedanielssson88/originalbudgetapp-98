@@ -734,23 +734,27 @@ const BudgetCalculator = () => {
 
   // Function to add a new month with empty data
   const addNewBudgetMonth = (monthKey: string) => {
+    // Use current form values for current month, empty values for future months
+    const currentMonth = new Date().toISOString().substr(0, 7);
+    const isCurrentMonth = monthKey === currentMonth;
+    
     const newMonthData = {
       month: monthKey,
       date: new Date().toISOString(),
-      andreasSalary: 0,
-      andreasförsäkringskassan: 0,
-      andreasbarnbidrag: 0,
-      susannaSalary: 0,
-      susannaförsäkringskassan: 0,
-      susannabarnbidrag: 0,
-      totalSalary: 0,
-      costGroups: [],
-      savingsGroups: [],
+      andreasSalary: isCurrentMonth ? andreasSalary : 0,
+      andreasförsäkringskassan: isCurrentMonth ? andreasförsäkringskassan : 0,
+      andreasbarnbidrag: isCurrentMonth ? andreasbarnbidrag : 0,
+      susannaSalary: isCurrentMonth ? susannaSalary : 0,
+      susannaförsäkringskassan: isCurrentMonth ? susannaförsäkringskassan : 0,
+      susannabarnbidrag: isCurrentMonth ? susannabarnbidrag : 0,
+      totalSalary: isCurrentMonth ? andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag : 0,
+      costGroups: isCurrentMonth ? JSON.parse(JSON.stringify(costGroups)) : [],
+      savingsGroups: isCurrentMonth ? JSON.parse(JSON.stringify(savingsGroups)) : [],
       totalMonthlyExpenses: 0,
       totalCosts: 0,
       totalSavings: 0,
-      dailyTransfer: 300,
-      weekendTransfer: 540,
+      dailyTransfer: isCurrentMonth ? dailyTransfer : 300,
+      weekendTransfer: isCurrentMonth ? weekendTransfer : 540,
       balanceLeft: 0,
       susannaShare: 0,
       andreasShare: 0,
