@@ -817,7 +817,11 @@ const BudgetCalculator = () => {
         totalDailyBudget: 0,
         remainingDailyBudget: 0,
         holidayDaysBudget: 0,
-        daysUntil25th: 0
+        daysUntil25th: 0,
+        andreasPersonalCosts: JSON.parse(JSON.stringify(andreasPersonalCosts)),
+        andreasPersonalSavings: JSON.parse(JSON.stringify(andreasPersonalSavings)),
+        susannaPersonalCosts: JSON.parse(JSON.stringify(susannaPersonalCosts)),
+        susannaPersonalSavings: JSON.parse(JSON.stringify(susannaPersonalSavings))
       };
       console.log(`No historical data found, using current form values for new month: ${monthKey}`);
     }
@@ -844,6 +848,12 @@ const BudgetCalculator = () => {
     setSavingsGroups(monthData.savingsGroups || []);
     setDailyTransfer(monthData.dailyTransfer || 300);
     setWeekendTransfer(monthData.weekendTransfer || 540);
+    
+    // Load personal budget data
+    setAndreasPersonalCosts(monthData.andreasPersonalCosts || []);
+    setAndreasPersonalSavings(monthData.andreasPersonalSavings || []);
+    setSusannaPersonalCosts(monthData.susannaPersonalCosts || []);
+    setSusannaPersonalSavings(monthData.susannaPersonalSavings || []);
     
     // Update results if available
     if (monthData.totalSalary !== undefined) {
@@ -873,6 +883,16 @@ const BudgetCalculator = () => {
   // Function to handle month selection change
   const handleBudgetMonthChange = (monthKey: string) => {
     setSelectedBudgetMonth(monthKey);
+    
+    // Check if switching away from current month while on Överföring tab
+    const currentDate = new Date();
+    const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    const isCurrentMonth = monthKey === currentMonthKey;
+    
+    // If switching to non-current month and currently on Överföring tab, switch to a valid tab
+    if (!isCurrentMonth && activeTab === 'overforing') {
+      setActiveTab('sammanstallning');
+    }
     
     // If the month exists in historical data, load it
     if (historicalData[monthKey]) {
@@ -1607,10 +1627,24 @@ const BudgetCalculator = () => {
         </Card>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1 h-auto p-1">
+          <TabsList className={`grid w-full ${(() => {
+            // Check if current selected month is the current month
+            const currentDate = new Date();
+            const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+            const isCurrentMonth = selectedBudgetMonth === currentMonthKey;
+            return isCurrentMonth ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4';
+          })()} gap-1 h-auto p-1`}>
             <TabsTrigger value="inkomster" className="w-full text-xs sm:text-sm">Inkomster och Utgifter</TabsTrigger>
             <TabsTrigger value="sammanstallning" className="w-full text-xs sm:text-sm">Sammanställning</TabsTrigger>
-            <TabsTrigger value="overforing" className="w-full text-xs sm:text-sm">Överföring</TabsTrigger>
+            {(() => {
+              // Only show Överföring tab for current month
+              const currentDate = new Date();
+              const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+              const isCurrentMonth = selectedBudgetMonth === currentMonthKey;
+              return isCurrentMonth ? (
+                <TabsTrigger value="overforing" className="w-full text-xs sm:text-sm">Överföring</TabsTrigger>
+              ) : null;
+            })()}
             <TabsTrigger value="egen-budget" className="w-full text-xs sm:text-sm">Egen Budget</TabsTrigger>
             <TabsTrigger value="historia" className="w-full text-xs sm:text-sm">Historia</TabsTrigger>
           </TabsList>
@@ -2553,6 +2587,27 @@ const BudgetCalculator = () => {
                         ) : 'Beräkna budget först'}
                       </span>
                     </div>
+                    {/* Daily Budget Fields for Personal Budget */}
+                    {results && (
+                      <>
+                        <div className="flex justify-between border-t pt-2">
+                          <span>Egen budget ({results.daysUntil25th} dagar):</span>
+                          <span className="font-medium">
+                            {formatCurrency((getCurrentPersonIncome() - 
+                              getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0) - 
+                              getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)) / results.daysUntil25th)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>.min budget ({results.daysUntil25th} dagar):</span>
+                          <span className="font-medium">
+                            {formatCurrency(Math.max(0, (getCurrentPersonIncome() - 
+                              getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0) - 
+                              getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)) / results.daysUntil25th))}
+                          </span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </CardContent>
