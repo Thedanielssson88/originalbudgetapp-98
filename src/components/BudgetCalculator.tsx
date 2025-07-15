@@ -333,6 +333,27 @@ const BudgetCalculator = () => {
     };
   };
 
+  
+  const getNextHoliday = () => {
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    
+    // Check holidays for current year and next year
+    for (let year = currentYear; year <= currentYear + 1; year++) {
+      const holidays = getSwedishHolidays(year);
+      for (const holiday of holidays) {
+        if (holiday > currentDate) {
+          return {
+            date: holiday,
+            name: getHolidayName(holiday),
+            daysUntil: Math.ceil((holiday.getTime() - currentDate.getTime()) / (1000 * 3600 * 24))
+          };
+        }
+      }
+    }
+    return null;
+  };
+
   const getHolidayName = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
@@ -1116,18 +1137,48 @@ const BudgetCalculator = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  {results.holidayDays.map((holiday, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
-                      <Calendar className="h-4 w-4 text-red-600" />
-                      <span className="text-red-700 dark:text-red-300 font-medium">{holiday}</span>
-                    </div>
-                  ))}
-                  {results.holidayDays.length === 0 && (
-                    <div className="text-center py-4 text-muted-foreground">
-                      Inga svenska helgdagar från idag till den 25:e
-                    </div>
-                  )}
+                <div className="space-y-4">
+                  {/* Next Holiday Info */}
+                  {(() => {
+                    const nextHoliday = getNextHoliday();
+                    return (
+                      <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <p className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">
+                          Nästa svenska helgdag
+                        </p>
+                        {nextHoliday ? (
+                          <div className="flex items-center justify-between">
+                            <span className="text-blue-700 dark:text-blue-300 font-medium">
+                              {nextHoliday.name} ({nextHoliday.date.getDate()}/{nextHoliday.date.getMonth() + 1})
+                            </span>
+                            <span className="text-sm text-blue-600 dark:text-blue-400">
+                              om {nextHoliday.daysUntil} {nextHoliday.daysUntil === 1 ? 'dag' : 'dagar'}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-blue-700 dark:text-blue-300">
+                            Inga helgdagar hittades inom nästa år
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  
+                  {/* Current Period Holidays */}
+                  <div className="space-y-2">
+                    <h4 className="font-medium">Helgdagar från idag till den 25:e</h4>
+                    {results.holidayDays.map((holiday, index) => (
+                      <div key={index} className="flex items-center gap-2 p-2 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
+                        <Calendar className="h-4 w-4 text-red-600" />
+                        <span className="text-red-700 dark:text-red-300 font-medium">{holiday}</span>
+                      </div>
+                    ))}
+                    {results.holidayDays.length === 0 && (
+                      <div className="text-center py-4 text-muted-foreground">
+                        Inga svenska helgdagar från idag till den 25:e
+                      </div>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
