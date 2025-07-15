@@ -1066,9 +1066,34 @@ const BudgetCalculator = () => {
               onClick={() => {
                 const currentMonth = new Date().toISOString().substr(0, 7);
                 if (newHistoricalMonth && newHistoricalMonth < currentMonth && !historicalData[newHistoricalMonth]) {
-                  // Copy values from selected month if available, otherwise use current form values
+                  // Copy ALL values from selected historical month if available, otherwise use current form values
                   const sourceData = selectedHistoricalMonth && historicalData[selectedHistoricalMonth] 
-                    ? historicalData[selectedHistoricalMonth] 
+                    ? {
+                        // Copy all fields from historical data
+                        andreasSalary: historicalData[selectedHistoricalMonth].andreasSalary || andreasSalary,
+                        andreasförsäkringskassan: historicalData[selectedHistoricalMonth].andreasförsäkringskassan || andreasförsäkringskassan,
+                        andreasbarnbidrag: historicalData[selectedHistoricalMonth].andreasbarnbidrag || andreasbarnbidrag,
+                        susannaSalary: historicalData[selectedHistoricalMonth].susannaSalary || susannaSalary,
+                        susannaförsäkringskassan: historicalData[selectedHistoricalMonth].susannaförsäkringskassan || susannaförsäkringskassan,
+                        susannabarnbidrag: historicalData[selectedHistoricalMonth].susannabarnbidrag || susannabarnbidrag,
+                        totalSalary: historicalData[selectedHistoricalMonth].totalSalary || 0,
+                        costGroups: JSON.parse(JSON.stringify(historicalData[selectedHistoricalMonth].costGroups || [])),
+                        savingsGroups: JSON.parse(JSON.stringify(historicalData[selectedHistoricalMonth].savingsGroups || [])),
+                        totalMonthlyExpenses: historicalData[selectedHistoricalMonth].totalMonthlyExpenses || 0,
+                        totalCosts: historicalData[selectedHistoricalMonth].totalCosts || 0,
+                        totalSavings: historicalData[selectedHistoricalMonth].totalSavings || 0,
+                        dailyTransfer: historicalData[selectedHistoricalMonth].dailyTransfer || dailyTransfer,
+                        weekendTransfer: historicalData[selectedHistoricalMonth].weekendTransfer || weekendTransfer,
+                        balanceLeft: historicalData[selectedHistoricalMonth].balanceLeft || 0,
+                        susannaShare: historicalData[selectedHistoricalMonth].susannaShare || 0,
+                        andreasShare: historicalData[selectedHistoricalMonth].andreasShare || 0,
+                        susannaPercentage: historicalData[selectedHistoricalMonth].susannaPercentage || 0,
+                        andreasPercentage: historicalData[selectedHistoricalMonth].andreasPercentage || 0,
+                        totalDailyBudget: historicalData[selectedHistoricalMonth].totalDailyBudget || 0,
+                        remainingDailyBudget: historicalData[selectedHistoricalMonth].remainingDailyBudget || 0,
+                        holidayDaysBudget: historicalData[selectedHistoricalMonth].holidayDaysBudget || 0,
+                        daysUntil25th: historicalData[selectedHistoricalMonth].daysUntil25th || 0
+                      }
                     : {
                         andreasSalary,
                         andreasförsäkringskassan,
