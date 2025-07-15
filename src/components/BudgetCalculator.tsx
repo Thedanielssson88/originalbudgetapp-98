@@ -56,6 +56,7 @@ const BudgetCalculator = () => {
     holidaysUntil25th: string[];
   } | null>(null);
   const [standardValues, setStandardValues] = useState<any>(null);
+  const [transferAccount, setTransferAccount] = useState<number>(0);
 
   // Swedish holiday calculation
   const getSwedishHolidays = (year: number) => {
@@ -1415,6 +1416,84 @@ const BudgetCalculator = () => {
             </Card>
           </div>
         )}
+
+        {/* Amount Control Section */}
+        <div className="mt-8">
+          <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calculator className="h-5 w-5 text-orange-600" />
+                Kontroll av belopp
+              </CardTitle>
+              <CardDescription>
+                Kontrollera saldot på överföringskontot mot återstående budget
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="transferAccount">Överföringskontot</Label>
+                  <Input
+                    id="transferAccount"
+                    type="number"
+                    value={transferAccount}
+                    onChange={(e) => setTransferAccount(Number(e.target.value) || 0)}
+                    placeholder="Ange saldo på överföringskontot"
+                  />
+                </div>
+                
+                {results && (
+                  <div className="grid gap-4 mt-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                        <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Återstående daglig budget</p>
+                        <p className="text-xl font-bold text-blue-700 dark:text-blue-300">{formatCurrency(results.remainingDailyBudget)}</p>
+                      </div>
+                      
+                      <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
+                        <p className="text-sm font-medium text-green-700 dark:text-green-300">Kvar att fördela</p>
+                        <p className="text-xl font-bold text-green-700 dark:text-green-300">{formatCurrency(results.balanceLeft)}</p>
+                      </div>
+                      
+                      <div className={`rounded-lg p-4 border ${
+                        transferAccount - results.remainingDailyBudget - results.balanceLeft >= 0 
+                          ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' 
+                          : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+                      }`}>
+                        <p className={`text-sm font-medium ${
+                          transferAccount - results.remainingDailyBudget - results.balanceLeft >= 0 
+                            ? 'text-green-700 dark:text-green-300' 
+                            : 'text-red-700 dark:text-red-300'
+                        }`}>
+                          Differens
+                        </p>
+                        <p className={`text-xl font-bold ${
+                          transferAccount - results.remainingDailyBudget - results.balanceLeft >= 0 
+                            ? 'text-green-700 dark:text-green-300' 
+                            : 'text-red-700 dark:text-red-300'
+                        }`}>
+                          {formatCurrency(transferAccount - results.remainingDailyBudget - results.balanceLeft)}
+                        </p>
+                        <p className="text-xs mt-1 opacity-75">
+                          {transferAccount - results.remainingDailyBudget - results.balanceLeft >= 0 
+                            ? 'Överföringskontot har tillräckligt med medel' 
+                            : 'Överföringskontot har för lite medel'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gray-50 dark:bg-gray-950/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        <strong>Beräkning:</strong> Överföringskontot ({formatCurrency(transferAccount)}) - Återstående daglig budget ({formatCurrency(results.remainingDailyBudget)}) - Kvar att fördela ({formatCurrency(results.balanceLeft)}) = {formatCurrency(transferAccount - results.remainingDailyBudget - results.balanceLeft)}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Standard Values Section */}
         <div className="mt-8">
