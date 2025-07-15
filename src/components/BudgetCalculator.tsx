@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface SubCategory {
   id: string;
@@ -60,6 +61,8 @@ const BudgetCalculator = () => {
     remainingWeekdayCount: number;
     remainingFridayCount: number;
   } | null>(null);
+  const [historicalData, setHistoricalData] = useState<{[key: string]: any}>({});
+  const [selectedHistoricalMonth, setSelectedHistoricalMonth] = useState<string>('');
   const [standardValues, setStandardValues] = useState<any>(null);
   const [transferAccount, setTransferAccount] = useState<number>(0);
   
@@ -228,6 +231,9 @@ const BudgetCalculator = () => {
         setSusannaPersonalCosts(parsed.susannaPersonalCosts || []);
         setSusannaPersonalSavings(parsed.susannaPersonalSavings || []);
         
+        // Load historical data
+        setHistoricalData(parsed.historicalData || {});
+        
         if (parsed.results) {
           setResults(parsed.results);
         }
@@ -272,7 +278,8 @@ const BudgetCalculator = () => {
       andreasPersonalCosts,
       andreasPersonalSavings,
       susannaPersonalCosts,
-      susannaPersonalSavings
+      susannaPersonalSavings,
+      historicalData
     };
     localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
   };
@@ -280,7 +287,7 @@ const BudgetCalculator = () => {
   // Save data whenever key values change
   useEffect(() => {
     saveToLocalStorage();
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, results, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, results, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, historicalData]);
 
   const calculateDailyBudget = () => {
     const currentDate = new Date();
@@ -571,6 +578,41 @@ const BudgetCalculator = () => {
       remainingFridayCount: budgetData.remainingFridayCount
     });
     
+    // Save historical data for current month
+    const currentDate = new Date();
+    const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    
+    const historicalSnapshot = {
+      month: monthKey,
+      date: currentDate.toISOString(),
+      andreasSalary,
+      andreasförsäkringskassan,
+      andreasbarnbidrag,
+      susannaSalary,
+      susannaförsäkringskassan,
+      susannabarnbidrag,
+      totalSalary,
+      costGroups: [...costGroups],
+      savingsGroups: [...savingsGroups],
+      totalMonthlyExpenses,
+      dailyTransfer,
+      weekendTransfer,
+      balanceLeft,
+      susannaShare,
+      andreasShare,
+      susannaPercentage,
+      andreasPercentage,
+      totalDailyBudget: budgetData.totalBudget,
+      remainingDailyBudget: budgetData.remainingBudget,
+      holidayDaysBudget: budgetData.holidayBudget,
+      daysUntil25th: budgetData.daysUntil25th
+    };
+    
+    setHistoricalData(prev => ({
+      ...prev,
+      [monthKey]: historicalSnapshot
+    }));
+    
     // Switch to summary tab after calculation
     setActiveTab("sammanstallning");
   };
@@ -797,6 +839,166 @@ const BudgetCalculator = () => {
     }));
   };
 
+  const renderHistoricalCharts = () => {
+    const chartData = Object.keys(historicalData).map(monthKey => {
+      const data = historicalData[monthKey];
+      return {
+        month: monthKey,
+        totalIncome: data.totalSalary || 0,
+        totalCosts: data.totalMonthlyExpenses || 0,
+        totalSavings: (data.savingsGroups || []).reduce((sum: number, group: any) => sum + group.amount, 0)
+      };
+    }).sort((a, b) => a.month.localeCompare(b.month));
+
+    if (chartData.length === 0) {
+      return (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground">Ingen historisk data tillgänglig. Beräkna budget för att spara data.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="h-96">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="month" />
+            <YAxis />
+            <Tooltip formatter={(value: number) => formatCurrency(value)} />
+            <Legend />
+            <Line type="monotone" dataKey="totalIncome" stroke="#22c55e" name="Totala Intäkter" />
+            <Line type="monotone" dataKey="totalCosts" stroke="#ef4444" name="Totala Kostnader" />
+            <Line type="monotone" dataKey="totalSavings" stroke="#3b82f6" name="Totalt Sparande" />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  };
+
+  const renderMonthSelector = () => {
+    const availableMonths = Object.keys(historicalData).sort((a, b) => b.localeCompare(a));
+
+    if (availableMonths.length === 0) {
+      return (
+        <div className="text-center py-4">
+          <p className="text-muted-foreground">Ingen sparad data tillgänglig.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="mb-6">
+        <Label htmlFor="month-selector">Välj månad:</Label>
+        <select
+          id="month-selector"
+          value={selectedHistoricalMonth}
+          onChange={(e) => setSelectedHistoricalMonth(e.target.value)}
+          className="mt-2 w-full p-2 border rounded-md"
+        >
+          <option value="">Välj en månad...</option>
+          {availableMonths.map(month => (
+            <option key={month} value={month}>{month}</option>
+          ))}
+        </select>
+      </div>
+    );
+  };
+
+  const renderHistoricalData = () => {
+    if (!selectedHistoricalMonth || !historicalData[selectedHistoricalMonth]) {
+      return null;
+    }
+
+    const data = historicalData[selectedHistoricalMonth];
+    const totalCosts = data.costGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0;
+    const totalSavings = data.savingsGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0;
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Inkomster ({selectedHistoricalMonth})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span>Andreas lön:</span>
+                <span className="font-medium">{formatCurrency(data.andreasSalary || 0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Andreas försäkringskassan:</span>
+                <span className="font-medium">{formatCurrency(data.andreasförsäkringskassan || 0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Andreas barnbidrag:</span>
+                <span className="font-medium">{formatCurrency(data.andreasbarnbidrag || 0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Susanna lön:</span>
+                <span className="font-medium">{formatCurrency(data.susannaSalary || 0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Susanna försäkringskassan:</span>
+                <span className="font-medium">{formatCurrency(data.susannaförsäkringskassan || 0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Susanna barnbidrag:</span>
+                <span className="font-medium">{formatCurrency(data.susannabarnbidrag || 0)}</span>
+              </div>
+              <div className="flex justify-between pt-2 border-t font-semibold">
+                <span>Total inkomst:</span>
+                <span>{formatCurrency(data.totalSalary || 0)}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Kostnader & Sparande ({selectedHistoricalMonth})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="mb-4">
+                <h4 className="font-medium mb-2">Kostnader:</h4>
+                {data.costGroups?.map((group: any) => (
+                  <div key={group.id} className="flex justify-between">
+                    <span>{group.name}:</span>
+                    <span className="font-medium">{formatCurrency(group.amount)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between pt-2 border-t font-semibold">
+                  <span>Totala kostnader:</span>
+                  <span>{formatCurrency(totalCosts)}</span>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <h4 className="font-medium mb-2">Sparande:</h4>
+                {data.savingsGroups?.map((group: any) => (
+                  <div key={group.id} className="flex justify-between">
+                    <span>{group.name}:</span>
+                    <span className="font-medium">{formatCurrency(group.amount)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between pt-2 border-t font-semibold">
+                  <span>Totalt sparande:</span>
+                  <span>{formatCurrency(totalSavings)}</span>
+                </div>
+              </div>
+
+              <div className="flex justify-between pt-2 border-t font-semibold">
+                <span>Kvar efter kostnader och sparande:</span>
+                <span>{formatCurrency((data.totalSalary || 0) - totalCosts - totalSavings)}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background p-4">
       <div className="max-w-6xl mx-auto">
@@ -810,11 +1012,12 @@ const BudgetCalculator = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-12">
-          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
             <TabsTrigger value="inkomster" className="w-full">Inkomster och Utgifter</TabsTrigger>
             <TabsTrigger value="sammanstallning" className="w-full">Sammanställning</TabsTrigger>
             <TabsTrigger value="overforing" className="w-full">Överföring</TabsTrigger>
             <TabsTrigger value="egen-budget" className="w-full">Egen Budget</TabsTrigger>
+            <TabsTrigger value="historia" className="w-full">Historia</TabsTrigger>
           </TabsList>
 
           {/* Tab 1: Inkomster och Utgifter */}
@@ -1758,6 +1961,41 @@ const BudgetCalculator = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Tab 5: Historia */}
+          <TabsContent value="historia" className="mt-32">
+            <div className="space-y-6">
+              {/* Charts Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <History className="h-5 w-5 text-primary" />
+                    Historisk Översikt
+                  </CardTitle>
+                  <CardDescription>
+                    Visa utvecklingen av intäkter, kostnader och sparande över tid
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {renderHistoricalCharts()}
+                </CardContent>
+              </Card>
+
+              {/* Month Selector and Data Display */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Välj Månad</CardTitle>
+                  <CardDescription>
+                    Visa detaljerad information för en specifik månad
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {renderMonthSelector()}
+                  {renderHistoricalData()}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
