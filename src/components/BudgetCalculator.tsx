@@ -51,6 +51,7 @@ const BudgetCalculator = () => {
     fridayCount: number;
     totalMonthlyExpenses: number;
     holidayDays: string[];
+    holidaysUntil25th: string[];
   } | null>(null);
 
   // Swedish holiday calculation
@@ -253,14 +254,11 @@ const BudgetCalculator = () => {
     const timeDiff = date25th.getTime() - currentDate.getTime();
     const daysUntil25th = Math.ceil(timeDiff / (1000 * 3600 * 24));
     
-    // Collect holiday days from current date to 25th
-    const holidayDays: string[] = [];
+    // Collect holiday days - show next 5 holidays or all until 25th (whichever is more)
     let holidayBudget = 0;
     
-    // Calculate remaining budget (today to 24th) excluding holidays
-    let remainingBudget = 0;
-    let remainingWeekdayCount = 0;
-    let remainingFridayCount = 0;
+    // First collect holidays until 25th of current/next month
+    const holidaysUntil25th: string[] = [];
     let currentDatePointer = new Date(currentDate);
     
     while (currentDatePointer <= remainingEndDate) {
@@ -269,7 +267,7 @@ const BudgetCalculator = () => {
       
       if (isHoliday) {
         const holidayName = getHolidayName(currentDatePointer);
-        holidayDays.push(`${currentDatePointer.getDate()}/${currentDatePointer.getMonth() + 1} - ${holidayName}`);
+        holidaysUntil25th.push(`${currentDatePointer.getDate()}/${currentDatePointer.getMonth() + 1} - ${holidayName}`);
         
         // If it's a weekday holiday, add to holiday budget
         if (dayOfWeek >= 1 && dayOfWeek <= 5) {
@@ -278,16 +276,54 @@ const BudgetCalculator = () => {
             holidayBudget += weekendTransfer;
           }
         }
-      } else {
-        // Monday = 1, Tuesday = 2, ..., Friday = 5
-        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-          remainingBudget += dailyTransfer;
-          remainingWeekdayCount++;
+      }
+      
+      currentDatePointer.setDate(currentDatePointer.getDate() + 1);
+    }
+    
+    // Collect next 5 holidays from today regardless of 25th limit
+    const allUpcomingHolidays: string[] = [];
+    const holidayYear = currentDate.getFullYear();
+    
+    // Check current year and next year for holidays
+    for (let year = holidayYear; year <= holidayYear + 1; year++) {
+      const holidays = getSwedishHolidays(year);
+      for (const holiday of holidays) {
+        if (holiday > currentDate) {
+          const holidayName = getHolidayName(holiday);
+          allUpcomingHolidays.push(`${holiday.getDate()}/${holiday.getMonth() + 1} - ${holidayName}`);
           
-          if (dayOfWeek === 5) { // Friday
-            remainingBudget += weekendTransfer;
-            remainingFridayCount++;
+          if (allUpcomingHolidays.length >= 5) {
+            break;
           }
+        }
+      }
+      if (allUpcomingHolidays.length >= 5) {
+        break;
+      }
+    }
+    
+    // Use whichever list is longer: holidays until 25th or next 5 holidays
+    const holidayDays = holidaysUntil25th.length >= 5 ? holidaysUntil25th : allUpcomingHolidays;
+    
+    // Calculate remaining budget (today to 24th) excluding holidays
+    let remainingBudget = 0;
+    let remainingWeekdayCount = 0;
+    let remainingFridayCount = 0;
+    currentDatePointer = new Date(currentDate);
+    
+    while (currentDatePointer <= remainingEndDate) {
+      const dayOfWeek = currentDatePointer.getDay();
+      const isHoliday = isSwedishHoliday(currentDatePointer);
+      
+      if (!isHoliday && dayOfWeek >= 1 && dayOfWeek <= 5) {
+        // Only count non-holiday weekdays for budget calculation
+        remainingBudget += dailyTransfer;
+        remainingWeekdayCount++;
+        
+        if (dayOfWeek === 5) { // Friday
+          remainingBudget += weekendTransfer;
+          remainingFridayCount++;
         }
       }
       
@@ -329,7 +365,8 @@ const BudgetCalculator = () => {
       daysUntil25th,
       totalWeekdayCount,
       totalFridayCount,
-      holidayDays
+      holidayDays,
+      holidaysUntil25th
     };
   };
 
@@ -434,7 +471,8 @@ const BudgetCalculator = () => {
       weekdayCount: budgetData.weekdayCount,
       fridayCount: budgetData.fridayCount,
       totalMonthlyExpenses,
-      holidayDays: budgetData.holidayDays
+      holidayDays: budgetData.holidayDays,
+      holidaysUntil25th: budgetData.holidaysUntil25th
     });
   };
 
@@ -1133,7 +1171,7 @@ const BudgetCalculator = () => {
                   Svenska Röda Dagar
                 </CardTitle>
                 <CardDescription>
-                  Helgdagar från idag till den 25:e som inte ingår i den totala dagliga budgeten
+                  Visar nästa 5 svenska helgdagar eller alla helgdagar fram till den 25:e (beroende på vilket som är fler)
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1166,7 +1204,9 @@ const BudgetCalculator = () => {
                   
                   {/* Current Period Holidays */}
                   <div className="space-y-2">
-                    <h4 className="font-medium">Helgdagar från idag till den 25:e</h4>
+                    <h4 className="font-medium">
+                      {results.holidaysUntil25th.length >= 5 ? "Helgdagar från idag till den 25:e" : "Nästa 5 svenska helgdagar"}
+                    </h4>
                     {results.holidayDays.map((holiday, index) => (
                       <div key={index} className="flex items-center gap-2 p-2 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
                         <Calendar className="h-4 w-4 text-red-600" />
