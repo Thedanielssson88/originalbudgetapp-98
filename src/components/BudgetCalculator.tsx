@@ -67,10 +67,10 @@ const BudgetCalculator = () => {
   const [susannaPersonalSavings, setSusannaPersonalSavings] = useState<BudgetGroup[]>([]);
   const [isEditingPersonalBudget, setIsEditingPersonalBudget] = useState<boolean>(false);
   
-  // Alternative budget states
-  const [altTotalDailyBudget, setAltTotalDailyBudget] = useState<number>(0);
-  const [altTotalSharedCosts, setAltTotalSharedCosts] = useState<number>(0);
-  const [altTotalSharedSavings, setAltTotalSharedSavings] = useState<number>(0);
+  // Alternative budget states - no longer needed for the read-only fields
+  // const [altTotalDailyBudget, setAltTotalDailyBudget] = useState<number>(0);
+  // const [altTotalSharedCosts, setAltTotalSharedCosts] = useState<number>(0);
+  // const [altTotalSharedSavings, setAltTotalSharedSavings] = useState<number>(0);
 
   // Swedish holiday calculation
   const getSwedishHolidays = (year: number) => {
@@ -1916,30 +1916,39 @@ const BudgetCalculator = () => {
                   <Input
                     id="alt-daily-budget"
                     type="number"
-                    value={altTotalDailyBudget === 0 ? '' : altTotalDailyBudget}
-                    onChange={(e) => setAltTotalDailyBudget(Number(e.target.value) || 0)}
-                    placeholder="0"
+                    value={results ? results.totalDailyBudget : 0}
+                    readOnly
+                    className="bg-muted cursor-not-allowed"
+                    placeholder="Beräkna budget först"
                   />
+                  <p className="text-xs text-muted-foreground">Hämtas från Total Daglig Budget</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="alt-shared-costs">Total budget för gemensamma kostnader</Label>
                   <Input
                     id="alt-shared-costs"
                     type="number"
-                    value={altTotalSharedCosts === 0 ? '' : altTotalSharedCosts}
-                    onChange={(e) => setAltTotalSharedCosts(Number(e.target.value) || 0)}
+                    value={costGroups.reduce((sum, group) => {
+                      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                      return sum + subCategoriesTotal;
+                    }, 0)}
+                    readOnly
+                    className="bg-muted cursor-not-allowed"
                     placeholder="0"
                   />
+                  <p className="text-xs text-muted-foreground">Hämtas från Totala kostnader</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="alt-shared-savings">Total budget för gemensamt sparande</Label>
                   <Input
                     id="alt-shared-savings"
                     type="number"
-                    value={altTotalSharedSavings === 0 ? '' : altTotalSharedSavings}
-                    onChange={(e) => setAltTotalSharedSavings(Number(e.target.value) || 0)}
+                    value={savingsGroups.reduce((sum, group) => sum + group.amount, 0)}
+                    readOnly
+                    className="bg-muted cursor-not-allowed"
                     placeholder="0"
                   />
+                  <p className="text-xs text-muted-foreground">Hämtas från Totalt sparande</p>
                 </div>
               </div>
 
@@ -1947,7 +1956,13 @@ const BudgetCalculator = () => {
               <div className="p-4 bg-muted rounded-lg">
                 <h5 className="font-medium mb-3">Summering totala gemensamma kostnader/sparande</h5>
                 <div className="text-lg font-semibold text-center">
-                  {formatCurrency(altTotalSharedCosts + altTotalSharedSavings)}
+                  {formatCurrency(
+                    costGroups.reduce((sum, group) => {
+                      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                      return sum + subCategoriesTotal;
+                    }, 0) +
+                    savingsGroups.reduce((sum, group) => sum + group.amount, 0)
+                  )}
                 </div>
               </div>
 
@@ -1965,23 +1980,31 @@ const BudgetCalculator = () => {
                           : '0'}%
                       </div>
                     </div>
-                    <div className="p-3 bg-destructive/10 rounded-lg">
-                      <div className="text-sm text-muted-foreground">Andel av gemensamma kostnader/sparande</div>
-                      <div className="text-xl font-bold text-destructive">
-                        {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                          ? (altTotalSharedCosts + altTotalSharedSavings) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
-                          : 0)}
-                      </div>
-                    </div>
-                    <div className="p-3 bg-green-50 rounded-lg">
-                      <div className="text-sm text-muted-foreground">Kvar efter gemensamma kostnader/sparande</div>
-                      <div className="text-xl font-bold text-green-600">
-                        {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) - 
-                          ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                            ? (altTotalSharedCosts + altTotalSharedSavings) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
-                            : 0))}
-                      </div>
-                    </div>
+                     <div className="p-3 bg-destructive/10 rounded-lg">
+                       <div className="text-sm text-muted-foreground">Andel av gemensamma kostnader/sparande</div>
+                       <div className="text-xl font-bold text-destructive">
+                         {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                           ? (costGroups.reduce((sum, group) => {
+                               const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                               return sum + subCategoriesTotal;
+                             }, 0) +
+                             savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                           : 0)}
+                       </div>
+                     </div>
+                     <div className="p-3 bg-green-50 rounded-lg">
+                       <div className="text-sm text-muted-foreground">Kvar efter gemensamma kostnader/sparande</div>
+                       <div className="text-xl font-bold text-green-600">
+                         {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) - 
+                           ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                             ? (costGroups.reduce((sum, group) => {
+                                 const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                 return sum + subCategoriesTotal;
+                               }, 0) +
+                               savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                             : 0))}
+                       </div>
+                     </div>
                   </div>
                 </div>
 
@@ -1997,23 +2020,31 @@ const BudgetCalculator = () => {
                           : '0'}%
                       </div>
                     </div>
-                    <div className="p-3 bg-destructive/10 rounded-lg">
-                      <div className="text-sm text-muted-foreground">Andel av gemensamma kostnader/sparande</div>
-                      <div className="text-xl font-bold text-destructive">
-                        {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                          ? (altTotalSharedCosts + altTotalSharedSavings) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
-                          : 0)}
-                      </div>
-                    </div>
-                    <div className="p-3 bg-green-50 rounded-lg">
-                      <div className="text-sm text-muted-foreground">Kvar efter gemensamma kostnader/sparande</div>
-                      <div className="text-xl font-bold text-green-600">
-                        {formatCurrency((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) - 
-                          ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                            ? (altTotalSharedCosts + altTotalSharedSavings) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
-                            : 0))}
-                      </div>
-                    </div>
+                     <div className="p-3 bg-destructive/10 rounded-lg">
+                       <div className="text-sm text-muted-foreground">Andel av gemensamma kostnader/sparande</div>
+                       <div className="text-xl font-bold text-destructive">
+                         {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                           ? (costGroups.reduce((sum, group) => {
+                               const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                               return sum + subCategoriesTotal;
+                             }, 0) +
+                             savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                           : 0)}
+                       </div>
+                     </div>
+                     <div className="p-3 bg-green-50 rounded-lg">
+                       <div className="text-sm text-muted-foreground">Kvar efter gemensamma kostnader/sparande</div>
+                       <div className="text-xl font-bold text-green-600">
+                         {formatCurrency((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) - 
+                           ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                             ? (costGroups.reduce((sum, group) => {
+                                 const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                 return sum + subCategoriesTotal;
+                               }, 0) +
+                               savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                             : 0))}
+                       </div>
+                     </div>
                   </div>
                 </div>
               </div>
