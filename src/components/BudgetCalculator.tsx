@@ -1016,10 +1016,12 @@ const BudgetCalculator = () => {
 
   const renderMonthSelector = () => {
     const currentMonth = new Date().toISOString().substr(0, 7); // YYYY-MM format
-    const availableMonths = Object.keys(historicalData).sort((a, b) => b.localeCompare(a));
+    const historicalMonths = Object.keys(historicalData)
+      .filter(month => month < currentMonth) // Only historical months (before current)
+      .sort((a, b) => b.localeCompare(a)); // Sort newest first
     
-    // Always include current month first, then historical months with data
-    const allMonths = [currentMonth, ...availableMonths.filter(month => month !== currentMonth)];
+    // Always include current month first, then only historical months with data
+    const allMonths = [currentMonth, ...historicalMonths];
 
     return (
       <div className="mb-6">
