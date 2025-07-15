@@ -36,6 +36,8 @@ const BudgetCalculator = () => {
   const [weekendTransfer, setWeekendTransfer] = useState<number>(540);
   const [isEditingCategories, setIsEditingCategories] = useState<boolean>(false);
   const [isEditingTransfers, setIsEditingTransfers] = useState<boolean>(false);
+  const [isEditingHolidays, setIsEditingHolidays] = useState<boolean>(false);
+  const [customHolidays, setCustomHolidays] = useState<{date: string, name: string}[]>([]);
   const [results, setResults] = useState<{
     totalSalary: number;
     totalDailyBudget: number;
@@ -137,11 +139,18 @@ const BudgetCalculator = () => {
     const year = date.getFullYear();
     const holidays = getSwedishHolidays(year);
     
-    return holidays.some(holiday => 
+    // Check official Swedish holidays
+    const isOfficialHoliday = holidays.some(holiday => 
       holiday.getDate() === date.getDate() &&
       holiday.getMonth() === date.getMonth() &&
       holiday.getFullYear() === date.getFullYear()
     );
+    
+    // Check custom holidays
+    const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const isCustomHoliday = customHolidays.some(holiday => holiday.date === dateString);
+    
+    return isOfficialHoliday || isCustomHoliday;
   };
 
   // Load saved values from localStorage on component mount
@@ -181,6 +190,7 @@ const BudgetCalculator = () => {
         setSavingsGroups(parsed.savingsGroups || []);
         setDailyTransfer(parsed.dailyTransfer || 300);
         setWeekendTransfer(parsed.weekendTransfer || 540);
+        setCustomHolidays(parsed.customHolidays || []);
         
         if (parsed.results) {
           setResults(parsed.results);
@@ -208,6 +218,7 @@ const BudgetCalculator = () => {
       savingsGroups,
       dailyTransfer,
       weekendTransfer,
+      customHolidays,
       results
     };
     localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
@@ -216,7 +227,7 @@ const BudgetCalculator = () => {
   // Save data whenever key values change
   useEffect(() => {
     saveToLocalStorage();
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, results]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, results]);
 
   const calculateDailyBudget = () => {
     const currentDate = new Date();
@@ -396,6 +407,11 @@ const BudgetCalculator = () => {
     const month = date.getMonth();
     const day = date.getDate();
     
+    // Check custom holidays first
+    const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const customHoliday = customHolidays.find(holiday => holiday.date === dateString);
+    if (customHoliday) return customHoliday.name;
+    
     // Fixed holidays
     if (month === 0 && day === 1) return "Nyårsdagen";
     if (month === 0 && day === 6) return "Trettondedag jul";
@@ -537,6 +553,24 @@ const BudgetCalculator = () => {
         ...group,
         subCategories: group.subCategories?.filter(sub => sub.id !== subId) || []
       } : group
+    ));
+  };
+
+  const addCustomHoliday = () => {
+    const newHoliday = {
+      date: '',
+      name: ''
+    };
+    setCustomHolidays([...customHolidays, newHoliday]);
+  };
+
+  const removeCustomHoliday = (index: number) => {
+    setCustomHolidays(customHolidays.filter((_, i) => i !== index));
+  };
+
+  const updateCustomHoliday = (index: number, field: 'date' | 'name', value: string) => {
+    setCustomHolidays(customHolidays.map((holiday, i) => 
+      i === index ? { ...holiday, [field]: value } : holiday
     ));
   };
 
@@ -1174,60 +1208,159 @@ const BudgetCalculator = () => {
           <div className="mt-6">
             <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-red-600" />
-                  Svenska Röda Dagar
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-red-600" />
+                    Svenska Röda Dagar
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditingHolidays(!isEditingHolidays)}
+                    className="flex items-center gap-2"
+                  >
+                    {isEditingHolidays ? (
+                      <>
+                        <Save className="h-4 w-4" />
+                        Spara
+                      </>
+                    ) : (
+                      <>
+                        <Edit className="h-4 w-4" />
+                        Redigera
+                      </>
+                    )}
+                  </Button>
                 </CardTitle>
                 <CardDescription>
-                  Visar nästa 5 svenska helgdagar eller alla helgdagar fram till den 25:e (beroende på vilket som är fler)
+                  {isEditingHolidays 
+                    ? 'Lägg till egna röda dagar som påverkar budgetberäkningen'
+                    : 'Visar nästa 5 svenska helgdagar eller alla helgdagar fram till den 25:e (beroende på vilket som är fler)'
+                  }
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {/* Next Holiday Info */}
-                  {(() => {
-                    const nextHoliday = getNextHoliday();
-                    return (
-                      <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                        <p className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">
-                          Nästa svenska helgdag
-                        </p>
-                        {nextHoliday ? (
-                          <div className="flex items-center justify-between">
-                            <span className="text-blue-700 dark:text-blue-300 font-medium">
-                              {nextHoliday.name} ({nextHoliday.date.getDate()}/{nextHoliday.date.getMonth() + 1})
+                {!isEditingHolidays ? (
+                  <div className="space-y-4">
+                    {/* Next Holiday Info */}
+                    {(() => {
+                      const nextHoliday = getNextHoliday();
+                      return (
+                        <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                          <p className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">
+                            Nästa svenska helgdag
+                          </p>
+                          {nextHoliday ? (
+                            <div className="flex items-center justify-between">
+                              <span className="text-blue-700 dark:text-blue-300 font-medium">
+                                {nextHoliday.name} ({nextHoliday.date.getDate()}/{nextHoliday.date.getMonth() + 1})
+                              </span>
+                              <span className="text-sm text-blue-600 dark:text-blue-400">
+                                om {nextHoliday.daysUntil} {nextHoliday.daysUntil === 1 ? 'dag' : 'dagar'}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-blue-700 dark:text-blue-300">
+                              Inga helgdagar hittades inom nästa år
                             </span>
-                            <span className="text-sm text-blue-600 dark:text-blue-400">
-                              om {nextHoliday.daysUntil} {nextHoliday.daysUntil === 1 ? 'dag' : 'dagar'}
+                          )}
+                        </div>
+                      );
+                    })()}
+                    
+                    {/* Current Period Holidays */}
+                    <div className="space-y-2">
+                      <h4 className="font-medium">
+                        {results.holidaysUntil25th.length >= 5 ? "Helgdagar från idag till den 25:e" : "Nästa 5 svenska helgdagar"}
+                      </h4>
+                      {results.holidayDays.map((holiday, index) => (
+                        <div key={index} className="flex items-center gap-2 p-2 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
+                          <Calendar className="h-4 w-4 text-red-600" />
+                          <span className="text-red-700 dark:text-red-300 font-medium">{holiday}</span>
+                        </div>
+                      ))}
+                      {results.holidayDays.length === 0 && (
+                        <div className="text-center py-4 text-muted-foreground">
+                          Inga svenska helgdagar från idag till den 25:e
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Custom Holidays Preview */}
+                    {customHolidays.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="font-medium">Egna tillagda röda dagar</h4>
+                        {customHolidays.map((holiday, index) => (
+                          <div key={index} className="flex items-center gap-2 p-2 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                            <Calendar className="h-4 w-4 text-purple-600" />
+                            <span className="text-purple-700 dark:text-purple-300 font-medium">
+                              {holiday.date ? new Date(holiday.date).toLocaleDateString('sv-SE') : 'Ej angivet'} - {holiday.name || 'Namnlös'}
                             </span>
                           </div>
-                        ) : (
-                          <span className="text-blue-700 dark:text-blue-300">
-                            Inga helgdagar hittades inom nästa år
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })()}
-                  
-                  {/* Current Period Holidays */}
-                  <div className="space-y-2">
-                    <h4 className="font-medium">
-                      {results.holidaysUntil25th.length >= 5 ? "Helgdagar från idag till den 25:e" : "Nästa 5 svenska helgdagar"}
-                    </h4>
-                    {results.holidayDays.map((holiday, index) => (
-                      <div key={index} className="flex items-center gap-2 p-2 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
-                        <Calendar className="h-4 w-4 text-red-600" />
-                        <span className="text-red-700 dark:text-red-300 font-medium">{holiday}</span>
-                      </div>
-                    ))}
-                    {results.holidayDays.length === 0 && (
-                      <div className="text-center py-4 text-muted-foreground">
-                        Inga svenska helgdagar från idag till den 25:e
+                        ))}
                       </div>
                     )}
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Custom Holidays Editor */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium">Egna röda dagar</h4>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={addCustomHoliday}
+                          className="flex items-center gap-2"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Lägg till dag
+                        </Button>
+                      </div>
+                      
+                      {customHolidays.map((holiday, index) => (
+                        <div key={index} className="flex items-center gap-2 p-3 bg-muted rounded-lg border">
+                          <div className="flex-1 grid grid-cols-2 gap-2">
+                            <Input
+                              type="date"
+                              placeholder="Datum"
+                              value={holiday.date}
+                              onChange={(e) => updateCustomHoliday(index, 'date', e.target.value)}
+                            />
+                            <Input
+                              type="text"
+                              placeholder="Namn på helgdag"
+                              value={holiday.name}
+                              onChange={(e) => updateCustomHoliday(index, 'name', e.target.value)}
+                            />
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeCustomHoliday(index)}
+                            className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      
+                      {customHolidays.length === 0 && (
+                        <div className="text-center py-6 text-muted-foreground">
+                          <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p>Inga egna röda dagar tillagda</p>
+                          <p className="text-sm">Klicka "Lägg till dag" för att lägga till en egen röd dag</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                      <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                        <strong>Tips:</strong> Dagar som faller fram till den 25:e kommer att påverka budgetberäkningen automatiskt.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
