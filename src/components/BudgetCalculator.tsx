@@ -1957,6 +1957,7 @@ const BudgetCalculator = () => {
                 <h5 className="font-medium mb-3">Summering totala gemensamma kostnader/sparande</h5>
                 <div className="text-lg font-semibold text-center">
                   {formatCurrency(
+                    (results ? results.totalDailyBudget : 0) +
                     costGroups.reduce((sum, group) => {
                       const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
                       return sum + subCategoriesTotal;
@@ -1984,7 +1985,8 @@ const BudgetCalculator = () => {
                        <div className="text-sm text-muted-foreground">Andel av gemensamma kostnader/sparande</div>
                        <div className="text-xl font-bold text-destructive">
                          {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                           ? (costGroups.reduce((sum, group) => {
+                           ? ((results ? results.totalDailyBudget : 0) +
+                             costGroups.reduce((sum, group) => {
                                const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
                                return sum + subCategoriesTotal;
                              }, 0) +
@@ -1997,7 +1999,8 @@ const BudgetCalculator = () => {
                        <div className="text-xl font-bold text-green-600">
                          {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) - 
                            ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                             ? (costGroups.reduce((sum, group) => {
+                             ? ((results ? results.totalDailyBudget : 0) +
+                               costGroups.reduce((sum, group) => {
                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
                                  return sum + subCategoriesTotal;
                                }, 0) +
@@ -2024,7 +2027,8 @@ const BudgetCalculator = () => {
                        <div className="text-sm text-muted-foreground">Andel av gemensamma kostnader/sparande</div>
                        <div className="text-xl font-bold text-destructive">
                          {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                           ? (costGroups.reduce((sum, group) => {
+                           ? ((results ? results.totalDailyBudget : 0) +
+                             costGroups.reduce((sum, group) => {
                                const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
                                return sum + subCategoriesTotal;
                              }, 0) +
@@ -2037,7 +2041,8 @@ const BudgetCalculator = () => {
                        <div className="text-xl font-bold text-green-600">
                          {formatCurrency((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) - 
                            ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                             ? (costGroups.reduce((sum, group) => {
+                             ? ((results ? results.totalDailyBudget : 0) +
+                               costGroups.reduce((sum, group) => {
                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
                                  return sum + subCategoriesTotal;
                                }, 0) +
