@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -63,6 +64,7 @@ const BudgetCalculator = () => {
   } | null>(null);
   const [historicalData, setHistoricalData] = useState<{[key: string]: any}>({});
   const [selectedHistoricalMonth, setSelectedHistoricalMonth] = useState<string>('');
+  const [selectedBudgetMonth, setSelectedBudgetMonth] = useState<string>(''); // New state for budget month selector
   const [standardValues, setStandardValues] = useState<any>(null);
   const [transferAccount, setTransferAccount] = useState<number>(0);
   
@@ -245,6 +247,11 @@ const BudgetCalculator = () => {
         console.warn('Using default values due to corrupted data');
       }
     }
+    
+    // Set current month as default selected budget month
+    const currentDate = new Date();
+    const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    setSelectedBudgetMonth(currentMonthKey);
 
     // Load standard values
     const savedStandardValues = localStorage.getItem('budgetCalculatorStandardValues');
@@ -291,33 +298,42 @@ const BudgetCalculator = () => {
 
   const calculateDailyBudget = () => {
     const currentDate = new Date();
-    const currentMonth = currentDate.getMonth();
-    const currentYear = currentDate.getFullYear();
+    
+    // Use selected budget month for calculations
+    let selectedYear = currentDate.getFullYear();
+    let selectedMonth = currentDate.getMonth();
+    
+    if (selectedBudgetMonth) {
+      const [yearStr, monthStr] = selectedBudgetMonth.split('-');
+      selectedYear = parseInt(yearStr);
+      selectedMonth = parseInt(monthStr) - 1; // Convert to 0-based month
+    }
+    
     const currentDay = currentDate.getDate();
     
-    // Calculate remaining budget: from current date to 24th of same month
-    let remainingEndDate = new Date(currentYear, currentMonth, 24);
+    // Calculate remaining budget: from current date to 24th of selected month
+    let remainingEndDate = new Date(selectedYear, selectedMonth, 24);
     
-    if (currentDay > 24) {
-      // If current day is after 24th, calculate for next month
-      const nextMonth = currentMonth + 1;
-      const nextYear = nextMonth > 11 ? currentYear + 1 : currentYear;
+    if (currentDay > 24 && selectedYear === currentDate.getFullYear() && selectedMonth === currentDate.getMonth()) {
+      // If current day is after 24th and we're looking at current month, calculate for next month
+      const nextMonth = selectedMonth + 1;
+      const nextYear = nextMonth > 11 ? selectedYear + 1 : selectedYear;
       const adjustedMonth = nextMonth > 11 ? 0 : nextMonth;
       remainingEndDate.setFullYear(nextYear, adjustedMonth, 24);
     }
     
-    // Calculate total budget: from 25th of previous month to 24th of current month
-    const prevMonth = currentMonth - 1;
-    const prevYear = prevMonth < 0 ? currentYear - 1 : currentYear;
+    // Calculate total budget: from 25th of previous month to 24th of selected month
+    const prevMonth = selectedMonth - 1;
+    const prevYear = prevMonth < 0 ? selectedYear - 1 : selectedYear;
     const adjustedPrevMonth = prevMonth < 0 ? 11 : prevMonth;
     const totalStartDate = new Date(prevYear, adjustedPrevMonth, 25);
-    const totalEndDate = new Date(currentYear, currentMonth, 24);
+    const totalEndDate = new Date(selectedYear, selectedMonth, 24);
     
-    // Calculate days until 25th
-    let date25th = new Date(currentYear, currentMonth, 25);
-    if (currentDay > 25) {
-      const nextMonth = currentMonth + 1;
-      const nextYear = nextMonth > 11 ? currentYear + 1 : currentYear;
+    // Calculate days until 25th of selected month
+    let date25th = new Date(selectedYear, selectedMonth, 25);
+    if (currentDay > 25 && selectedYear === currentDate.getFullYear() && selectedMonth === currentDate.getMonth()) {
+      const nextMonth = selectedMonth + 1;
+      const nextYear = nextMonth > 11 ? selectedYear + 1 : selectedYear;
       const adjustedMonth = nextMonth > 11 ? 0 : nextMonth;
       date25th.setFullYear(nextYear, adjustedMonth, 25);
     }
@@ -578,9 +594,9 @@ const BudgetCalculator = () => {
       remainingFridayCount: budgetData.remainingFridayCount
     });
     
-    // Save historical data for current month
+    // Save historical data for selected month
     const currentDate = new Date();
-    const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    const monthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     
     const historicalSnapshot = {
       month: monthKey,
@@ -699,6 +715,115 @@ const BudgetCalculator = () => {
     setCustomHolidays(customHolidays.map((holiday, i) => 
       i === index ? { ...holiday, [field]: value } : holiday
     ));
+  };
+
+  // Function to get available months (existing + future months)
+  const getAvailableMonths = () => {
+    const currentDate = new Date();
+    const availableMonths = new Set<string>();
+    
+    // Add existing historical months
+    Object.keys(historicalData).forEach(month => availableMonths.add(month));
+    
+    // Add current month and next 12 months
+    for (let i = 0; i <= 12; i++) {
+      const futureDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + i, 1);
+      const monthKey = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}`;
+      availableMonths.add(monthKey);
+    }
+    
+    return Array.from(availableMonths).sort((a, b) => b.localeCompare(a));
+  };
+
+  // Function to add a new month with empty data
+  const addNewBudgetMonth = (monthKey: string) => {
+    const newMonthData = {
+      month: monthKey,
+      date: new Date().toISOString(),
+      andreasSalary: 0,
+      andreasförsäkringskassan: 0,
+      andreasbarnbidrag: 0,
+      susannaSalary: 0,
+      susannaförsäkringskassan: 0,
+      susannabarnbidrag: 0,
+      totalSalary: 0,
+      costGroups: [],
+      savingsGroups: [],
+      totalMonthlyExpenses: 0,
+      totalCosts: 0,
+      totalSavings: 0,
+      dailyTransfer: 300,
+      weekendTransfer: 540,
+      balanceLeft: 0,
+      susannaShare: 0,
+      andreasShare: 0,
+      susannaPercentage: 0,
+      andreasPercentage: 0,
+      totalDailyBudget: 0,
+      remainingDailyBudget: 0,
+      holidayDaysBudget: 0,
+      daysUntil25th: 0
+    };
+    
+    setHistoricalData(prev => ({
+      ...prev,
+      [monthKey]: newMonthData
+    }));
+  };
+
+  // Function to load data from selected month into current form
+  const loadDataFromSelectedMonth = (monthKey: string) => {
+    const monthData = historicalData[monthKey];
+    if (!monthData) return;
+    
+    // Load all the form data from the selected month
+    setAndreasSalary(monthData.andreasSalary || 0);
+    setAndreasförsäkringskassan(monthData.andreasförsäkringskassan || 0);
+    setAndreasbarnbidrag(monthData.andreasbarnbidrag || 0);
+    setSusannaSalary(monthData.susannaSalary || 0);
+    setSusannaförsäkringskassan(monthData.susannaförsäkringskassan || 0);
+    setSusannabarnbidrag(monthData.susannabarnbidrag || 0);
+    setCostGroups(monthData.costGroups || []);
+    setSavingsGroups(monthData.savingsGroups || []);
+    setDailyTransfer(monthData.dailyTransfer || 300);
+    setWeekendTransfer(monthData.weekendTransfer || 540);
+    
+    // Update results if available
+    if (monthData.totalSalary !== undefined) {
+      setResults({
+        totalSalary: monthData.totalSalary,
+        totalDailyBudget: monthData.totalDailyBudget || 0,
+        remainingDailyBudget: monthData.remainingDailyBudget || 0,
+        holidayDaysBudget: monthData.holidayDaysBudget || 0,
+        balanceLeft: monthData.balanceLeft || 0,
+        susannaShare: monthData.susannaShare || 0,
+        andreasShare: monthData.andreasShare || 0,
+        susannaPercentage: monthData.susannaPercentage || 0,
+        andreasPercentage: monthData.andreasPercentage || 0,
+        weekdayCount: 0, // These will be recalculated when needed
+        fridayCount: 0,
+        daysUntil25th: monthData.daysUntil25th || 0,
+        totalMonthlyExpenses: monthData.totalMonthlyExpenses || 0,
+        holidayDays: [],
+        holidaysUntil25th: [],
+        nextTenHolidays: [],
+        remainingWeekdayCount: 0,
+        remainingFridayCount: 0
+      });
+    }
+  };
+
+  // Function to handle month selection change
+  const handleBudgetMonthChange = (monthKey: string) => {
+    setSelectedBudgetMonth(monthKey);
+    
+    // If the month exists in historical data, load it
+    if (historicalData[monthKey]) {
+      loadDataFromSelectedMonth(monthKey);
+    } else {
+      // If it's a new month, add it with empty data
+      addNewBudgetMonth(monthKey);
+    }
   };
 
   // Standard values functions
@@ -1065,7 +1190,56 @@ const BudgetCalculator = () => {
           </p>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-12">
+        {/* Month Selector */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              Välj Budget Månad
+            </CardTitle>
+            <CardDescription>
+              Välj vilken månad du vill arbeta med. Beräkningar baseras på period från 24:e föregående månad till 25:e valda månad.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-4 items-end">
+              <div className="flex-1">
+                <Label htmlFor="budget-month-selector">Månad för budget</Label>
+                <Select value={selectedBudgetMonth} onValueChange={handleBudgetMonthChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Välj månad..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getAvailableMonths().map(month => (
+                      <SelectItem key={month} value={month}>
+                        {month} {historicalData[month] ? '(Sparad data)' : '(Ny månad)'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {selectedBudgetMonth && !historicalData[selectedBudgetMonth] && (
+                <Button 
+                  onClick={() => handleBudgetMonthChange(selectedBudgetMonth)}
+                  variant="outline"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Skapa månad
+                </Button>
+              )}
+            </div>
+            {selectedBudgetMonth && (
+              <div className="mt-3 text-sm text-muted-foreground">
+                Arbetar med månad: <strong>{selectedBudgetMonth}</strong>
+                {historicalData[selectedBudgetMonth] ? 
+                  ' - Data laddad från sparad historik' : 
+                  ' - Ny månad med tomma fält'}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
           <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1 h-auto p-1">
             <TabsTrigger value="inkomster" className="w-full text-xs sm:text-sm">Inkomster och Utgifter</TabsTrigger>
             <TabsTrigger value="sammanstallning" className="w-full text-xs sm:text-sm">Sammanställning</TabsTrigger>
