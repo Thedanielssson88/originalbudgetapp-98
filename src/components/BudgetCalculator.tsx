@@ -57,6 +57,8 @@ const BudgetCalculator = () => {
     holidayDays: string[];
     holidaysUntil25th: string[];
     nextTenHolidays: string[];
+    remainingWeekdayCount: number;
+    remainingFridayCount: number;
   } | null>(null);
   const [standardValues, setStandardValues] = useState<any>(null);
   const [transferAccount, setTransferAccount] = useState<number>(0);
@@ -448,6 +450,8 @@ const BudgetCalculator = () => {
       daysUntil25th,
       totalWeekdayCount,
       totalFridayCount,
+      remainingWeekdayCount,
+      remainingFridayCount,
       holidayDays,
       holidaysUntil25th,
       nextTenHolidays
@@ -562,7 +566,9 @@ const BudgetCalculator = () => {
       totalMonthlyExpenses,
       holidayDays: budgetData.holidayDays,
       holidaysUntil25th: budgetData.holidaysUntil25th,
-      nextTenHolidays: budgetData.nextTenHolidays
+      nextTenHolidays: budgetData.nextTenHolidays,
+      remainingWeekdayCount: budgetData.remainingWeekdayCount,
+      remainingFridayCount: budgetData.remainingFridayCount
     });
     
     // Switch to summary tab after calculation
@@ -1509,18 +1515,10 @@ const BudgetCalculator = () => {
                     <div className="p-4 bg-muted rounded-lg">
                       <h4 className="font-medium mb-3">Beloppssammanfattning</h4>
                       <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span>Belopp för daglig budget:</span>
-                          <span className="font-medium">{formatCurrency(results.totalDailyBudget)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Belopp för Återstående daglig budget:</span>
-                          <span className="font-medium">{formatCurrency(results.remainingDailyBudget)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Dagar kvar till ny lön:</span>
-                          <span className="font-medium">{results.daysUntil25th} dagar</span>
-                        </div>
+                         <div className="flex justify-between">
+                           <span>Belopp för Återstående daglig budget:</span>
+                           <span className="font-medium">{formatCurrency(results.remainingDailyBudget)}</span>
+                         </div>
                         <div className="flex justify-between pt-2 border-t">
                           <span>Individuella Andelar (Totalt belopp):</span>
                           <span className="font-medium">{formatCurrency(results.andreasShare + results.susannaShare)}</span>
@@ -1545,11 +1543,11 @@ const BudgetCalculator = () => {
                     <div className="p-4 bg-blue-50 rounded-lg">
                       <h4 className="font-medium mb-3">Överföringsplan</h4>
                       <div className="space-y-1 text-sm">
-                        <div>Vardagar ({results.weekdayCount} st): {formatCurrency(dailyTransfer)} per dag</div>
-                        <div>Helgdagar ({results.fridayCount} st): {formatCurrency(weekendTransfer)} per dag</div>
-                        <div className="font-medium pt-2">
-                          Total överföring: {formatCurrency(results.weekdayCount * dailyTransfer + results.fridayCount * weekendTransfer)}
-                        </div>
+                         <div>Vardagar ({results.remainingWeekdayCount} st): {formatCurrency(dailyTransfer)} per dag</div>
+                         <div>Helgdagar ({results.remainingFridayCount} st): {formatCurrency(weekendTransfer)} per dag</div>
+                         <div className="font-medium pt-2">
+                           Total överföring: {formatCurrency(results.remainingWeekdayCount * dailyTransfer + results.remainingFridayCount * weekendTransfer)}
+                         </div>
                       </div>
                     </div>
                   </div>
