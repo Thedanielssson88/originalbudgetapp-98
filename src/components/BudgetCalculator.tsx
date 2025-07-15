@@ -1378,6 +1378,27 @@ const BudgetCalculator = () => {
                   Skapa månad
                 </Button>
               )}
+              {selectedBudgetMonth && historicalData[selectedBudgetMonth] && (
+                <Button 
+                  onClick={() => {
+                    const monthToDelete = selectedBudgetMonth;
+                    setHistoricalData(prev => {
+                      const newData = { ...prev };
+                      delete newData[monthToDelete];
+                      return newData;
+                    });
+                    
+                    // Reset to current month after deletion
+                    const currentDate = new Date();
+                    const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                    setSelectedBudgetMonth(currentMonthKey);
+                  }}
+                  variant="destructive"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Ta bort månad
+                </Button>
+              )}
             </div>
             {selectedBudgetMonth && (
               <div className="mt-3 text-sm text-muted-foreground">
