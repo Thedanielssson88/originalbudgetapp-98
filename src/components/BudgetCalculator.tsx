@@ -398,6 +398,7 @@ const BudgetCalculator = () => {
       andreasShare = (andreasTotalIncome / totalSalary) * balanceLeft;
     }
     
+    console.log('Holiday days calculated:', budgetData.holidayDays);
     setResults({
       totalSalary,
       totalDailyBudget: budgetData.totalBudget,
@@ -1102,7 +1103,7 @@ const BudgetCalculator = () => {
         </div>
 
         {/* Swedish Holiday Days Section */}
-        {results && results.holidayDays && results.holidayDays.length > 0 && (
+        {results && results.holidayDays && (
           <div className="mt-6">
             <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
               <CardHeader>
