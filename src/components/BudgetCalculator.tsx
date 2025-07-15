@@ -1478,25 +1478,33 @@ const BudgetCalculator = () => {
                       <h4 className="font-medium mb-3">Beloppssammanfattning</h4>
                       <div className="space-y-2">
                         <div className="flex justify-between">
-                          <span>Nuvarande saldo:</span>
-                          <span className="font-medium">{formatCurrency(transferAccount)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Daglig budget:</span>
+                          <span>Belopp för daglig budget:</span>
                           <span className="font-medium">{formatCurrency(results.totalDailyBudget)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Dagar kvar:</span>
+                          <span>Belopp för Återstående daglig budget:</span>
+                          <span className="font-medium">{formatCurrency(results.remainingDailyBudget)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Dagar kvar till ny lön:</span>
                           <span className="font-medium">{results.daysUntil25th} dagar</span>
                         </div>
                         <div className="flex justify-between pt-2 border-t">
-                          <span>Behövs totalt:</span>
-                          <span className="font-medium">{formatCurrency(results.totalDailyBudget * results.daysUntil25th)}</span>
+                          <span>Individuella Andelar (Totalt belopp):</span>
+                          <span className="font-medium">{formatCurrency(results.andreasShare + results.susannaShare)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Behöver överföra:</span>
-                          <span className={`font-semibold ${(results.totalDailyBudget * results.daysUntil25th - transferAccount) > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                            {formatCurrency(Math.max(0, results.totalDailyBudget * results.daysUntil25th - transferAccount))}
+                          <span>Andreas andel:</span>
+                          <span className="font-medium">{formatCurrency(results.andreasShare)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Susannas andel:</span>
+                          <span className="font-medium">{formatCurrency(results.susannaShare)}</span>
+                        </div>
+                        <div className="flex justify-between pt-2 border-t">
+                          <span>Differens:</span>
+                          <span className={`font-semibold ${(transferAccount - results.remainingDailyBudget - (results.andreasShare + results.susannaShare)) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {formatCurrency(transferAccount - results.remainingDailyBudget - (results.andreasShare + results.susannaShare))}
                           </span>
                         </div>
                       </div>
