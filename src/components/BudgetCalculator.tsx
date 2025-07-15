@@ -78,7 +78,8 @@ const BudgetCalculator = () => {
     savingsCategories: false,
     budgetTransfers: false,
     redDays: false,
-    editMonths: false
+    editMonths: false,
+    monthSelector: false
   });
   
   // Personal budget states
@@ -1377,54 +1378,6 @@ const BudgetCalculator = () => {
           </p>
         </div>
 
-        {/* Always visible month creation section */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-primary" />
-              Snabbåtgärder
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row gap-4 items-end">
-              <div className="flex-1">
-                <Label htmlFor="quick-new-month">Lägg till historisk månad:</Label>
-                <input
-                  id="quick-new-month"
-                  type="month"
-                  value={newHistoricalMonth}
-                  onChange={(e) => setNewHistoricalMonth(e.target.value)}
-                  max={new Date().toISOString().substr(0, 7)}
-                  className="w-full p-2 border rounded-md mt-1"
-                />
-              </div>
-              <Button
-                onClick={() => {
-                  const currentMonth = new Date().toISOString().substr(0, 7);
-                  if (newHistoricalMonth && newHistoricalMonth < currentMonth && !historicalData[newHistoricalMonth]) {
-                    setHistoricalData(prev => ({
-                      ...prev,
-                      [newHistoricalMonth]: {
-                        totalSalary: 0,
-                        totalCosts: 0,
-                        totalSavings: 0,
-                        costGroups: [],
-                        savingsGroups: []
-                      }
-                    }));
-                    setNewHistoricalMonth('');
-                  }
-                }}
-                disabled={!newHistoricalMonth || newHistoricalMonth >= new Date().toISOString().substr(0, 7) || historicalData[newHistoricalMonth]}
-                size="sm"
-                className="shrink-0"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Lägg till månad
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Month Selector */}
         <Card className="mb-6">
@@ -1434,158 +1387,198 @@ const BudgetCalculator = () => {
               Välj Budget Månad
             </CardTitle>
             <CardDescription>
-              Välj vilken månad du vill arbeta med. Beräkningar baseras på period från 24:e föregående månad till 25:e valda månad.
+              Beräkningar baseras på period från 24:e föregående månad till 25:e valda månad.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-4 items-end">
-              <div className="flex-1">
-                <Label htmlFor="budget-month-selector">Månad för budget</Label>
-                <Select value={selectedBudgetMonth} onValueChange={handleBudgetMonthChange}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Välj månad..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getAvailableMonths().map(month => (
-                      <SelectItem key={month} value={month}>
-                        {month} {historicalData[month] ? '(Sparad data)' : '(Ny månad)'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            {/* Current Month Display */}
+            <div className="mb-4">
+              <Label>Aktuell månad</Label>
+              <div className="text-lg font-medium text-primary mt-1">
+                {(() => {
+                  const monthNames = [
+                    'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
+                    'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
+                  ];
+                  const currentDate = new Date();
+                  return `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+                })()}
               </div>
-              {selectedBudgetMonth && !historicalData[selectedBudgetMonth] && (
-                <Button 
-                  onClick={() => handleBudgetMonthChange(selectedBudgetMonth)}
-                  variant="outline"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Skapa månad
-                </Button>
-              )}
-              {selectedBudgetMonth && historicalData[selectedBudgetMonth] && (
-                <Button 
-                  onClick={() => {
-                    const monthToDelete = selectedBudgetMonth;
-                    setHistoricalData(prev => {
-                      const newData = { ...prev };
-                      delete newData[monthToDelete];
-                      return newData;
-                    });
-                    
-                    // Reset to current month after deletion and load current month data
-                    const currentDate = new Date();
-                    const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-                    setSelectedBudgetMonth(currentMonthKey);
-                    
-                    // Load current month data if it exists, otherwise create it with current form values
-                    if (historicalData[currentMonthKey]) {
-                      loadDataFromSelectedMonth(currentMonthKey);
-                    } else {
-                      // If current month doesn't exist in historical data, create it with current values
-                      addNewBudgetMonth(currentMonthKey, true);
-                    }
-                  }}
-                  variant="destructive"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Ta bort månad
-                </Button>
+            </div>
+
+            {/* Expandable Advanced Options */}
+            <div className="border rounded-lg">
+              <Button
+                variant="ghost"
+                onClick={() => setExpandedSections(prev => ({
+                  ...prev,
+                  monthSelector: !prev.monthSelector
+                }))}
+                className="w-full justify-between p-4 h-auto"
+              >
+                <span className="text-sm font-medium">Avancerade månadsalternativ</span>
+                {expandedSections.monthSelector ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+              
+              {expandedSections.monthSelector && (
+                <div className="p-4 border-t space-y-4">
+                  {/* Original Month Selector */}
+                  <div className="flex gap-4 items-end">
+                    <div className="flex-1">
+                      <Label htmlFor="budget-month-selector">Månad för budget</Label>
+                      <Select value={selectedBudgetMonth} onValueChange={handleBudgetMonthChange}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Välj månad..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {getAvailableMonths().map(month => (
+                            <SelectItem key={month} value={month}>
+                              {month} {historicalData[month] ? '(Sparad data)' : '(Ny månad)'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {selectedBudgetMonth && !historicalData[selectedBudgetMonth] && (
+                      <Button 
+                        onClick={() => handleBudgetMonthChange(selectedBudgetMonth)}
+                        variant="outline"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Skapa månad
+                      </Button>
+                    )}
+                    {selectedBudgetMonth && historicalData[selectedBudgetMonth] && (
+                      <Button 
+                        onClick={() => {
+                          const monthToDelete = selectedBudgetMonth;
+                          setHistoricalData(prev => {
+                            const newData = { ...prev };
+                            delete newData[monthToDelete];
+                            return newData;
+                          });
+                          
+                          // Reset to current month after deletion and load current month data
+                          const currentDate = new Date();
+                          const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                          setSelectedBudgetMonth(currentMonthKey);
+                          
+                          // Load current month data if it exists, otherwise create it with current form values
+                          if (historicalData[currentMonthKey]) {
+                            loadDataFromSelectedMonth(currentMonthKey);
+                          } else {
+                            // If current month doesn't exist in historical data, create it with current values
+                            addNewBudgetMonth(currentMonthKey, true);
+                          }
+                        }}
+                        variant="destructive"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Ta bort månad
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {selectedBudgetMonth && (
+                    <div className="text-sm text-muted-foreground">
+                      Arbetar med månad: <strong>{selectedBudgetMonth}</strong>
+                      {historicalData[selectedBudgetMonth] ? 
+                        ' - Data laddad från sparad historik' : 
+                        ' - Ny månad med tomma fält'}
+                    </div>
+                  )}
+                  
+                  {/* Copy from Historical Month Section */}
+                  {Object.keys(historicalData).length > 0 && (
+                    <div className="p-4 bg-muted/50 rounded-lg border">
+                      <h4 className="text-sm font-medium mb-3">Kopiera från historisk månad</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <Label htmlFor="source-month">Välj månad att kopiera från</Label>
+                          <Select value={selectedSourceMonth} onValueChange={setSelectedSourceMonth}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Välj månad..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Object.keys(historicalData)
+                                .sort((a, b) => b.localeCompare(a))
+                                .map(month => (
+                                  <SelectItem key={month} value={month}>
+                                    {month}
+                                  </SelectItem>
+                                ))
+                              }
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="new-month-copy">Ny månad</Label>
+                          <input
+                            id="new-month-copy"
+                            type="month"
+                            value={newMonthFromCopy}
+                            onChange={(e) => setNewMonthFromCopy(e.target.value)}
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          />
+                        </div>
+                        
+                        <div className="flex items-end">
+                          <Button
+                            onClick={() => {
+                              if (selectedSourceMonth && newMonthFromCopy && !historicalData[newMonthFromCopy]) {
+                                // Copy ALL data from selected historical month to new month
+                                const sourceData = historicalData[selectedSourceMonth];
+                                if (sourceData) {
+                                  setHistoricalData(prev => ({
+                                    ...prev,
+                                    [newMonthFromCopy]: {
+                                      ...JSON.parse(JSON.stringify(sourceData)), // Deep copy everything
+                                      month: newMonthFromCopy,
+                                      date: new Date().toISOString()
+                                    }
+                                  }));
+                                  
+                                  // Clear the form
+                                  setNewMonthFromCopy('');
+                                  setSelectedSourceMonth('');
+                                  
+                                  // Switch to the newly created month
+                                  setSelectedBudgetMonth(newMonthFromCopy);
+                                  loadDataFromSelectedMonth(newMonthFromCopy);
+                                }
+                              }
+                            }}
+                            disabled={!selectedSourceMonth || !newMonthFromCopy || historicalData[newMonthFromCopy]}
+                            size="sm"
+                            className="w-full"
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Lägg till
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {newMonthFromCopy && historicalData[newMonthFromCopy] && (
+                        <div className="mt-2 text-sm text-destructive">
+                          Månad {newMonthFromCopy} finns redan
+                        </div>
+                      )}
+                      
+                      {selectedSourceMonth && newMonthFromCopy && !historicalData[newMonthFromCopy] && (
+                        <div className="mt-2 text-sm text-muted-foreground">
+                          Kopierar all data från {selectedSourceMonth} till {newMonthFromCopy}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
-            {selectedBudgetMonth && (
-              <div className="mt-3 text-sm text-muted-foreground">
-                Arbetar med månad: <strong>{selectedBudgetMonth}</strong>
-                {historicalData[selectedBudgetMonth] ? 
-                  ' - Data laddad från sparad historik' : 
-                  ' - Ny månad med tomma fält'}
-              </div>
-            )}
-            
-            {/* Copy from Historical Month Section */}
-            {Object.keys(historicalData).length > 0 && (
-              <div className="mt-6 p-4 bg-muted/50 rounded-lg border">
-                <h4 className="text-sm font-medium mb-3">Kopiera från historisk månad</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <Label htmlFor="source-month">Välj månad att kopiera från</Label>
-                    <Select value={selectedSourceMonth} onValueChange={setSelectedSourceMonth}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Välj månad..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.keys(historicalData)
-                          .sort((a, b) => b.localeCompare(a))
-                          .map(month => (
-                            <SelectItem key={month} value={month}>
-                              {month}
-                            </SelectItem>
-                          ))
-                        }
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="new-month-copy">Ny månad</Label>
-                    <input
-                      id="new-month-copy"
-                      type="month"
-                      value={newMonthFromCopy}
-                      onChange={(e) => setNewMonthFromCopy(e.target.value)}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    />
-                  </div>
-                  
-                  <div className="flex items-end">
-                    <Button
-                      onClick={() => {
-                        if (selectedSourceMonth && newMonthFromCopy && !historicalData[newMonthFromCopy]) {
-                          // Copy ALL data from selected historical month to new month
-                          const sourceData = historicalData[selectedSourceMonth];
-                          if (sourceData) {
-                            setHistoricalData(prev => ({
-                              ...prev,
-                              [newMonthFromCopy]: {
-                                ...JSON.parse(JSON.stringify(sourceData)), // Deep copy everything
-                                month: newMonthFromCopy,
-                                date: new Date().toISOString()
-                              }
-                            }));
-                            
-                            // Clear the form
-                            setNewMonthFromCopy('');
-                            setSelectedSourceMonth('');
-                            
-                            // Switch to the newly created month
-                            setSelectedBudgetMonth(newMonthFromCopy);
-                            loadDataFromSelectedMonth(newMonthFromCopy);
-                          }
-                        }
-                      }}
-                      disabled={!selectedSourceMonth || !newMonthFromCopy || historicalData[newMonthFromCopy]}
-                      size="sm"
-                      className="w-full"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Lägg till
-                    </Button>
-                  </div>
-                </div>
-                
-                {newMonthFromCopy && historicalData[newMonthFromCopy] && (
-                  <div className="mt-2 text-sm text-destructive">
-                    Månad {newMonthFromCopy} finns redan
-                  </div>
-                )}
-                
-                {selectedSourceMonth && newMonthFromCopy && !historicalData[newMonthFromCopy] && (
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    Kopierar all data från {selectedSourceMonth} till {newMonthFromCopy}
-                  </div>
-                )}
-              </div>
-            )}
           </CardContent>
         </Card>
 
