@@ -1537,6 +1537,10 @@ const BudgetCalculator = () => {
                             {formatCurrency(transferAccount - results.remainingDailyBudget - (results.andreasShare + results.susannaShare))}
                           </span>
                         </div>
+                        <div className="flex justify-between">
+                          <span>Kvar på överföringskonto:</span>
+                          <span className="font-medium">{formatCurrency(results.remainingDailyBudget + (transferAccount - results.remainingDailyBudget - (results.andreasShare + results.susannaShare)))}</span>
+                        </div>
                       </div>
                     </div>
 
