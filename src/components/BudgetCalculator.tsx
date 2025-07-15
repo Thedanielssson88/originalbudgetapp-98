@@ -258,15 +258,15 @@ const BudgetCalculator = () => {
     const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     setSelectedBudgetMonth(currentMonthKey);
 
-    // Load standard values
-    const savedStandardValues = localStorage.getItem('budgetCalculatorStandardValues');
-    if (savedStandardValues) {
+    // Load backup
+    const savedBackup = localStorage.getItem('budgetCalculatorBackup');
+    if (savedBackup) {
       try {
-        const parsed = JSON.parse(savedStandardValues);
+        const parsed = JSON.parse(savedBackup);
         setStandardValues(parsed);
-        console.log('Successfully loaded standard values');
+        console.log('Successfully loaded backup');
       } catch (error) {
-        console.error('Error loading standard values:', error);
+        console.error('Error loading backup:', error);
       }
     }
   }, []);
@@ -877,9 +877,9 @@ const BudgetCalculator = () => {
     }
   };
 
-  // Standard values functions
-  const saveStandardValues = () => {
-    const valuesToSave = {
+  // Backup functions
+  const saveBackup = () => {
+    const backupData = {
       andreasSalary,
       andreasförsäkringskassan,
       andreasbarnbidrag,
@@ -890,15 +890,22 @@ const BudgetCalculator = () => {
       savingsGroups,
       dailyTransfer,
       weekendTransfer,
-      customHolidays
+      customHolidays,
+      selectedPerson,
+      andreasPersonalCosts,
+      andreasPersonalSavings,
+      susannaPersonalCosts,
+      susannaPersonalSavings,
+      historicalData
     };
-    localStorage.setItem('budgetCalculatorStandardValues', JSON.stringify(valuesToSave));
-    setStandardValues(valuesToSave);
-    console.log('Standard values saved successfully');
+    localStorage.setItem('budgetCalculatorBackup', JSON.stringify(backupData));
+    setStandardValues(backupData);
+    console.log('Backup saved successfully with all historical data');
   };
 
-  const loadStandardValues = () => {
+  const loadBackup = () => {
     if (standardValues) {
+      // Replace all data with backup data
       setAndreasSalary(standardValues.andreasSalary || 45000);
       setAndreasförsäkringskassan(standardValues.andreasförsäkringskassan || 0);
       setAndreasbarnbidrag(standardValues.andreasbarnbidrag || 0);
@@ -910,7 +917,13 @@ const BudgetCalculator = () => {
       setDailyTransfer(standardValues.dailyTransfer || 300);
       setWeekendTransfer(standardValues.weekendTransfer || 540);
       setCustomHolidays(standardValues.customHolidays || []);
-      console.log('Standard values loaded successfully');
+      setSelectedPerson(standardValues.selectedPerson || 'andreas');
+      setAndreasPersonalCosts(standardValues.andreasPersonalCosts || []);
+      setAndreasPersonalSavings(standardValues.andreasPersonalSavings || []);
+      setSusannaPersonalCosts(standardValues.susannaPersonalCosts || []);
+      setSusannaPersonalSavings(standardValues.susannaPersonalSavings || []);
+      setHistoricalData(standardValues.historicalData || {});
+      console.log('Backup loaded successfully - all data replaced');
     }
   };
 
@@ -1703,39 +1716,40 @@ const BudgetCalculator = () => {
                 </CardContent>
               </Card>
 
-              {/* Saved Values Section */}
+              {/* Backup Section */}
               <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Save className="h-5 w-5 text-primary" />
-                    Sparade värden
+                    Backup
                   </CardTitle>
                   <CardDescription>
-                    Spara och ladda standardvärden
+                    Spara och ladda backup med all historisk data
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex flex-col gap-2">
-                    <Button onClick={saveStandardValues} className="w-full">
+                    <Button onClick={saveBackup} className="w-full">
                       <Save className="mr-2 h-4 w-4" />
-                      Spara nuvarande värden
+                      Spara backup
                     </Button>
                     <Button 
-                      onClick={loadStandardValues} 
+                      onClick={loadBackup} 
                       variant="outline" 
                       className="w-full"
                       disabled={!standardValues}
                     >
-                      Ladda sparade värden
+                      Ladda backup
                     </Button>
                   </div>
                   
                   {standardValues && (
                     <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                      <p className="font-medium mb-2">Sparade värden innehåller:</p>
+                      <p className="font-medium mb-2">Backup innehåller:</p>
                       <ul className="space-y-1 text-muted-foreground">
-                        <li>• Alla inkomster</li>
-                        <li>• Budgetkategorier</li>
+                        <li>• Alla inkomster och kategorier</li>
+                        <li>• All historisk data för alla månader</li>
+                        <li>• Personliga budgetar</li>
                         <li>• Överföringsinställningar</li>
                         <li>• Anpassade helgdagar</li>
                       </ul>
