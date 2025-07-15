@@ -55,6 +55,7 @@ const BudgetCalculator = () => {
     holidayDays: string[];
     holidaysUntil25th: string[];
   } | null>(null);
+  const [standardValues, setStandardValues] = useState<any>(null);
 
   // Swedish holiday calculation
   const getSwedishHolidays = (year: number) => {
@@ -201,6 +202,18 @@ const BudgetCalculator = () => {
         console.error('Error loading saved data:', error);
         // Only clear corrupted data, don't lose user data on migration
         console.warn('Using default values due to corrupted data');
+      }
+    }
+
+    // Load standard values
+    const savedStandardValues = localStorage.getItem('budgetCalculatorStandardValues');
+    if (savedStandardValues) {
+      try {
+        const parsed = JSON.parse(savedStandardValues);
+        setStandardValues(parsed);
+        console.log('Successfully loaded standard values');
+      } catch (error) {
+        console.error('Error loading standard values:', error);
       }
     }
   }, []);
@@ -572,6 +585,43 @@ const BudgetCalculator = () => {
     setCustomHolidays(customHolidays.map((holiday, i) => 
       i === index ? { ...holiday, [field]: value } : holiday
     ));
+  };
+
+  // Standard values functions
+  const saveStandardValues = () => {
+    const valuesToSave = {
+      andreasSalary,
+      andreasförsäkringskassan,
+      andreasbarnbidrag,
+      susannaSalary,
+      susannaförsäkringskassan,
+      susannabarnbidrag,
+      costGroups,
+      savingsGroups,
+      dailyTransfer,
+      weekendTransfer,
+      customHolidays
+    };
+    localStorage.setItem('budgetCalculatorStandardValues', JSON.stringify(valuesToSave));
+    setStandardValues(valuesToSave);
+    console.log('Standard values saved successfully');
+  };
+
+  const loadStandardValues = () => {
+    if (standardValues) {
+      setAndreasSalary(standardValues.andreasSalary || 45000);
+      setAndreasförsäkringskassan(standardValues.andreasförsäkringskassan || 0);
+      setAndreasbarnbidrag(standardValues.andreasbarnbidrag || 0);
+      setSusannaSalary(standardValues.susannaSalary || 40000);
+      setSusannaförsäkringskassan(standardValues.susannaförsäkringskassan || 5000);
+      setSusannabarnbidrag(standardValues.susannabarnbidrag || 0);
+      setCostGroups(standardValues.costGroups || []);
+      setSavingsGroups(standardValues.savingsGroups || []);
+      setDailyTransfer(standardValues.dailyTransfer || 300);
+      setWeekendTransfer(standardValues.weekendTransfer || 540);
+      setCustomHolidays(standardValues.customHolidays || []);
+      console.log('Standard values loaded successfully');
+    }
   };
 
   const updateSubCategory = (groupId: string, subId: string, field: 'name' | 'amount', value: string | number) => {
@@ -1365,6 +1415,56 @@ const BudgetCalculator = () => {
             </Card>
           </div>
         )}
+
+        {/* Standard Values Section */}
+        <div className="mt-8">
+          <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Save className="h-5 w-5 text-blue-600" />
+                Sparade värden
+              </CardTitle>
+              <CardDescription>
+                Spara alla nuvarande värden som standardvärden, eller ladda tidigare sparade standardvärden
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Button 
+                  onClick={saveStandardValues}
+                  className="flex items-center gap-2"
+                  variant="default"
+                >
+                  <Save className="h-4 w-4" />
+                  Spara standardvärden
+                </Button>
+                <Button 
+                  onClick={loadStandardValues}
+                  disabled={!standardValues}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <DollarSign className="h-4 w-4" />
+                  Ladda standardvärden
+                </Button>
+              </div>
+              {standardValues && (
+                <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    ✓ Standardvärden finns sparade och kan laddas när som helst
+                  </p>
+                </div>
+              )}
+              {!standardValues && (
+                <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-950/20 rounded-lg border border-gray-200 dark:border-gray-800">
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    Inga standardvärden sparade än. Klicka "Spara standardvärden" för att spara alla nuvarande värden.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
       </div>
     </div>
