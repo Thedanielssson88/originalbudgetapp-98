@@ -357,7 +357,7 @@ const BudgetCalculator = () => {
     }
     
     return { 
-      totalBudget, 
+      totalBudget: totalBudget - holidayBudget, // Subtract holiday budget from total
       remainingBudget, 
       holidayBudget,
       weekdayCount: remainingWeekdayCount, 
@@ -733,8 +733,16 @@ const BudgetCalculator = () => {
                   </div>
                   
                   <div className="bg-red-50 dark:bg-red-950/20 rounded-lg p-4 border border-red-200 dark:border-red-800">
-                    <p className="text-sm font-medium text-red-700 dark:text-red-300">Daglig Budget Röda Dagar</p>
-                    <p className="text-2xl font-bold text-red-700 dark:text-red-300">{formatCurrency(results.holidayDaysBudget)}</p>
+                    <p className="text-sm font-medium text-red-700 dark:text-red-300">Budget som ej överförs (röda dagar)</p>
+                    <p className="text-2xl font-bold text-red-700 dark:text-red-300">
+                      {results.holidayDaysBudget > 0 ? formatCurrency(results.holidayDaysBudget) : '0 kronor'}
+                    </p>
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      {results.holidayDaysBudget > 0 
+                        ? `Denna summa är redan borträknad från total daglig budget ovan`
+                        : 'Inga röda dagar påverkar budgeten fram till den 24:e'
+                      }
+                    </p>
                   </div>
                   
                   <div className="bg-gradient-to-r from-success/10 to-success/5 rounded-lg p-4 border border-success/20">
