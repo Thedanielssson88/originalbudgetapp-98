@@ -1066,12 +1066,12 @@ const BudgetCalculator = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-12">
-          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-            <TabsTrigger value="inkomster" className="w-full">Inkomster och Utgifter</TabsTrigger>
-            <TabsTrigger value="sammanstallning" className="w-full">Sammanställning</TabsTrigger>
-            <TabsTrigger value="overforing" className="w-full">Överföring</TabsTrigger>
-            <TabsTrigger value="egen-budget" className="w-full">Egen Budget</TabsTrigger>
-            <TabsTrigger value="historia" className="w-full">Historia</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1 h-auto p-1">
+            <TabsTrigger value="inkomster" className="w-full text-xs sm:text-sm">Inkomster och Utgifter</TabsTrigger>
+            <TabsTrigger value="sammanstallning" className="w-full text-xs sm:text-sm">Sammanställning</TabsTrigger>
+            <TabsTrigger value="overforing" className="w-full text-xs sm:text-sm">Överföring</TabsTrigger>
+            <TabsTrigger value="egen-budget" className="w-full text-xs sm:text-sm">Egen Budget</TabsTrigger>
+            <TabsTrigger value="historia" className="w-full text-xs sm:text-sm">Historia</TabsTrigger>
           </TabsList>
 
           {/* Tab 1: Inkomster och Utgifter */}
