@@ -1400,8 +1400,15 @@ const BudgetCalculator = () => {
                     'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
                     'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
                   ];
-                  const currentDate = new Date();
-                  return `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+                  
+                  if (selectedBudgetMonth) {
+                    const [year, month] = selectedBudgetMonth.split('-');
+                    const monthIndex = parseInt(month) - 1;
+                    return `${monthNames[monthIndex]} ${year}`;
+                  } else {
+                    const currentDate = new Date();
+                    return `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+                  }
                 })()}
               </div>
             </div>
