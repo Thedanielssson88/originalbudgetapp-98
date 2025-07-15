@@ -65,6 +65,7 @@ const BudgetCalculator = () => {
   const [historicalData, setHistoricalData] = useState<{[key: string]: any}>({});
   const [selectedHistoricalMonth, setSelectedHistoricalMonth] = useState<string>('');
   const [selectedBudgetMonth, setSelectedBudgetMonth] = useState<string>(''); // New state for budget month selector
+  const [newHistoricalMonth, setNewHistoricalMonth] = useState<string>(''); // State for new month input
   const [standardValues, setStandardValues] = useState<any>(null);
   const [transferAccount, setTransferAccount] = useState<number>(0);
   
@@ -1058,13 +1059,12 @@ const BudgetCalculator = () => {
 
   const renderHistoricalMonthsEditor = () => {
     const currentMonth = new Date().toISOString().substr(0, 7);
-    const [newMonth, setNewMonth] = useState('');
     
     const addHistoricalMonth = () => {
-      if (newMonth && newMonth < currentMonth && !historicalData[newMonth]) {
+      if (newHistoricalMonth && newHistoricalMonth < currentMonth && !historicalData[newHistoricalMonth]) {
         setHistoricalData(prev => ({
           ...prev,
-          [newMonth]: {
+          [newHistoricalMonth]: {
             totalSalary: 0,
             totalCosts: 0,
             totalSavings: 0,
@@ -1072,7 +1072,7 @@ const BudgetCalculator = () => {
             savingsGroups: []
           }
         }));
-        setNewMonth('');
+        setNewHistoricalMonth('');
       }
     };
     
@@ -1096,14 +1096,14 @@ const BudgetCalculator = () => {
               <input
                 id="new-month"
                 type="month"
-                value={newMonth}
-                onChange={(e) => setNewMonth(e.target.value)}
+                value={newHistoricalMonth}
+                onChange={(e) => setNewHistoricalMonth(e.target.value)}
                 max={currentMonth}
                 className="flex-1 p-2 border rounded-md"
               />
               <Button
                 onClick={addHistoricalMonth}
-                disabled={!newMonth || newMonth >= currentMonth || historicalData[newMonth]}
+                disabled={!newHistoricalMonth || newHistoricalMonth >= currentMonth || historicalData[newHistoricalMonth]}
                 size="sm"
               >
                 Lägg till
