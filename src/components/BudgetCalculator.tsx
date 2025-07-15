@@ -1029,7 +1029,7 @@ const BudgetCalculator = () => {
             size="sm"
             onClick={() => setExpandedSections(prev => ({ ...prev, editMonths: !prev.editMonths }))}
           >
-            {expandedSections.editMonths ? 'Klar' : 'Redigera månader'}
+            {expandedSections.editMonths ? 'Klar' : 'Hantera månader'}
           </Button>
         </div>
         
@@ -1050,6 +1050,9 @@ const BudgetCalculator = () => {
         {/* Always visible create month section */}
         <div className="mb-4 p-4 bg-muted rounded-lg">
           <Label htmlFor="new-month">Lägg till historisk månad:</Label>
+          <div className="text-sm text-muted-foreground mt-1 mb-2">
+            {selectedHistoricalMonth ? `Kopierar värden från ${selectedHistoricalMonth}` : 'Kopierar nuvarande värden'}
+          </div>
           <div className="flex gap-2 mt-2">
             <input
               id="new-month"
@@ -1063,14 +1066,29 @@ const BudgetCalculator = () => {
               onClick={() => {
                 const currentMonth = new Date().toISOString().substr(0, 7);
                 if (newHistoricalMonth && newHistoricalMonth < currentMonth && !historicalData[newHistoricalMonth]) {
+                  // Copy values from selected month if available, otherwise use current form values
+                  const sourceData = selectedHistoricalMonth && historicalData[selectedHistoricalMonth] 
+                    ? historicalData[selectedHistoricalMonth] 
+                    : {
+                        andreasSalary,
+                        andreasförsäkringskassan,
+                        andreasbarnbidrag,
+                        susannaSalary,
+                        susannaförsäkringskassan,
+                        susannabarnbidrag,
+                        costGroups: JSON.parse(JSON.stringify(costGroups)),
+                        savingsGroups: JSON.parse(JSON.stringify(savingsGroups)),
+                        dailyTransfer,
+                        weekendTransfer,
+                        customHolidays: JSON.parse(JSON.stringify(customHolidays))
+                      };
+                  
                   setHistoricalData(prev => ({
                     ...prev,
                     [newHistoricalMonth]: {
-                      totalSalary: 0,
-                      totalCosts: 0,
-                      totalSavings: 0,
-                      costGroups: [],
-                      savingsGroups: []
+                      ...sourceData,
+                      month: newHistoricalMonth,
+                      date: new Date().toISOString()
                     }
                   }));
                   setNewHistoricalMonth('');
