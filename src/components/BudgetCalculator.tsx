@@ -1527,7 +1527,7 @@ const BudgetCalculator = () => {
           </TabsContent>
 
           {/* Tab 4: Egen Budget */}
-          <TabsContent value="egen-budget" className="mt-12">
+          <TabsContent value="egen-budget" className="mt-32">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
