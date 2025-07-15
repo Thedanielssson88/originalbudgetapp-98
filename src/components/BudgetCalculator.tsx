@@ -346,20 +346,26 @@ const BudgetCalculator = () => {
     const timeDiff = date25th.getTime() - currentDate.getTime();
     const daysUntil25th = Math.ceil(timeDiff / (1000 * 3600 * 24));
     
-    // Collect holiday days - show next 5 holidays or all until 25th (whichever is more)
+    // Collect holiday days - calculate for the selected month period (24th prev month to 25th selected month)
     let holidayBudget = 0;
     
-    // First collect holidays until 25th of current/next month
-    const holidaysUntil25th: string[] = [];
-    let currentDatePointer = new Date(currentDate);
+    // Calculate holiday period: from 24th of previous month to 25th of selected month
+    const holidayPrevMonth = selectedMonth - 1;
+    const holidayPrevYear = holidayPrevMonth < 0 ? selectedYear - 1 : selectedYear;
+    const holidayAdjustedPrevMonth = holidayPrevMonth < 0 ? 11 : holidayPrevMonth;
+    const holidayStartDate = new Date(holidayPrevYear, holidayAdjustedPrevMonth, 24);
+    const holidayEndDate = new Date(selectedYear, selectedMonth, 25);
     
-    while (currentDatePointer <= remainingEndDate) {
-      const dayOfWeek = currentDatePointer.getDay();
-      const isHoliday = isSwedishHoliday(currentDatePointer);
+    const holidaysUntil25th: string[] = [];
+    let holidayDatePointer = new Date(holidayStartDate);
+    
+    while (holidayDatePointer <= holidayEndDate) {
+      const dayOfWeek = holidayDatePointer.getDay();
+      const isHoliday = isSwedishHoliday(holidayDatePointer);
       
       if (isHoliday) {
-        const holidayName = getHolidayName(currentDatePointer);
-        holidaysUntil25th.push(`${currentDatePointer.getDate()}/${currentDatePointer.getMonth() + 1} - ${holidayName}`);
+        const holidayName = getHolidayName(holidayDatePointer);
+        holidaysUntil25th.push(`${holidayDatePointer.getDate()}/${holidayDatePointer.getMonth() + 1} - ${holidayName}`);
         
         // If it's a weekday holiday, add to holiday budget
         if (dayOfWeek >= 1 && dayOfWeek <= 5) {
@@ -370,7 +376,7 @@ const BudgetCalculator = () => {
         }
       }
       
-      currentDatePointer.setDate(currentDatePointer.getDate() + 1);
+      holidayDatePointer.setDate(holidayDatePointer.getDate() + 1);
     }
     
     // Collect next 5 holidays from today regardless of 25th limit
@@ -423,7 +429,7 @@ const BudgetCalculator = () => {
     let remainingBudget = 0;
     let remainingWeekdayCount = 0;
     let remainingFridayCount = 0;
-    currentDatePointer = new Date(currentDate);
+    let currentDatePointer = new Date(currentDate);
     
     while (currentDatePointer <= remainingEndDate) {
       const dayOfWeek = currentDatePointer.getDay();
