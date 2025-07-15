@@ -66,6 +66,11 @@ const BudgetCalculator = () => {
   const [susannaPersonalCosts, setSusannaPersonalCosts] = useState<BudgetGroup[]>([]);
   const [susannaPersonalSavings, setSusannaPersonalSavings] = useState<BudgetGroup[]>([]);
   const [isEditingPersonalBudget, setIsEditingPersonalBudget] = useState<boolean>(false);
+  
+  // Alternative budget states
+  const [altTotalDailyBudget, setAltTotalDailyBudget] = useState<number>(0);
+  const [altTotalSharedCosts, setAltTotalSharedCosts] = useState<number>(0);
+  const [altTotalSharedSavings, setAltTotalSharedSavings] = useState<number>(0);
 
   // Swedish holiday calculation
   const getSwedishHolidays = (year: number) => {
@@ -1862,6 +1867,153 @@ const BudgetCalculator = () => {
                         getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)
                       ) : 'Beräkna budget först'}
                     </span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Alternative Budget Section */}
+        <div className="space-y-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5" />
+                Alternativ budget
+              </CardTitle>
+              <CardDescription>
+                Visa totala inkomster och beräkna fördelning av gemensamma kostnader
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Total Income Display */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 bg-primary/10 rounded-lg">
+                  <div className="text-sm text-muted-foreground">Andreas totala inkomst</div>
+                  <div className="text-2xl font-bold text-primary">
+                    {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}
+                  </div>
+                </div>
+                <div className="p-4 bg-primary/10 rounded-lg">
+                  <div className="text-sm text-muted-foreground">Susannas totala inkomst</div>
+                  <div className="text-2xl font-bold text-primary">
+                    {formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
+                  </div>
+                </div>
+                <div className="p-4 bg-primary/20 rounded-lg">
+                  <div className="text-sm text-muted-foreground">Total inkomst</div>
+                  <div className="text-2xl font-bold text-primary">
+                    {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Budget Fields */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="alt-daily-budget">Total daglig budget</Label>
+                  <Input
+                    id="alt-daily-budget"
+                    type="number"
+                    value={altTotalDailyBudget === 0 ? '' : altTotalDailyBudget}
+                    onChange={(e) => setAltTotalDailyBudget(Number(e.target.value) || 0)}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="alt-shared-costs">Total budget för gemensamma kostnader</Label>
+                  <Input
+                    id="alt-shared-costs"
+                    type="number"
+                    value={altTotalSharedCosts === 0 ? '' : altTotalSharedCosts}
+                    onChange={(e) => setAltTotalSharedCosts(Number(e.target.value) || 0)}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="alt-shared-savings">Total budget för gemensamt sparande</Label>
+                  <Input
+                    id="alt-shared-savings"
+                    type="number"
+                    value={altTotalSharedSavings === 0 ? '' : altTotalSharedSavings}
+                    onChange={(e) => setAltTotalSharedSavings(Number(e.target.value) || 0)}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div className="p-4 bg-muted rounded-lg">
+                <h5 className="font-medium mb-3">Summering totala gemensamma kostnader/sparande</h5>
+                <div className="text-lg font-semibold text-center">
+                  {formatCurrency(altTotalSharedCosts + altTotalSharedSavings)}
+                </div>
+              </div>
+
+              {/* Percentage Distribution and Calculations */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Andreas Column */}
+                <div className="space-y-4">
+                  <h5 className="font-medium text-lg">Andreas</h5>
+                  <div className="space-y-3">
+                    <div className="p-3 bg-primary/10 rounded-lg">
+                      <div className="text-sm text-muted-foreground">Procentuell fördelning</div>
+                      <div className="text-xl font-bold">
+                        {(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                          ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1)
+                          : '0'}%
+                      </div>
+                    </div>
+                    <div className="p-3 bg-destructive/10 rounded-lg">
+                      <div className="text-sm text-muted-foreground">Andel av gemensamma kostnader/sparande</div>
+                      <div className="text-xl font-bold text-destructive">
+                        {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                          ? (altTotalSharedCosts + altTotalSharedSavings) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                          : 0)}
+                      </div>
+                    </div>
+                    <div className="p-3 bg-green-50 rounded-lg">
+                      <div className="text-sm text-muted-foreground">Kvar efter gemensamma kostnader/sparande</div>
+                      <div className="text-xl font-bold text-green-600">
+                        {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) - 
+                          ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                            ? (altTotalSharedCosts + altTotalSharedSavings) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                            : 0))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Susanna Column */}
+                <div className="space-y-4">
+                  <h5 className="font-medium text-lg">Susanna</h5>
+                  <div className="space-y-3">
+                    <div className="p-3 bg-primary/10 rounded-lg">
+                      <div className="text-sm text-muted-foreground">Procentuell fördelning</div>
+                      <div className="text-xl font-bold">
+                        {(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                          ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1)
+                          : '0'}%
+                      </div>
+                    </div>
+                    <div className="p-3 bg-destructive/10 rounded-lg">
+                      <div className="text-sm text-muted-foreground">Andel av gemensamma kostnader/sparande</div>
+                      <div className="text-xl font-bold text-destructive">
+                        {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                          ? (altTotalSharedCosts + altTotalSharedSavings) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                          : 0)}
+                      </div>
+                    </div>
+                    <div className="p-3 bg-green-50 rounded-lg">
+                      <div className="text-sm text-muted-foreground">Kvar efter gemensamma kostnader/sparande</div>
+                      <div className="text-xl font-bold text-green-600">
+                        {formatCurrency((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) - 
+                          ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                            ? (altTotalSharedCosts + altTotalSharedSavings) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                            : 0))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
