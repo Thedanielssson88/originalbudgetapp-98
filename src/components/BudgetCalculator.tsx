@@ -719,22 +719,17 @@ const BudgetCalculator = () => {
     ));
   };
 
-  // Function to get available months (existing + future months)
+  // Function to get available months (only historical months with saved data)
   const getAvailableMonths = () => {
     const currentDate = new Date();
-    const availableMonths = new Set<string>();
+    const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     
-    // Add existing historical months
-    Object.keys(historicalData).forEach(month => availableMonths.add(month));
+    // Only include months with saved historical data
+    const availableMonths = Object.keys(historicalData)
+      .filter(month => month <= currentMonthKey) // Only current month and historical months
+      .sort((a, b) => b.localeCompare(a)); // Sort newest first
     
-    // Add current month and next 12 months
-    for (let i = 0; i <= 12; i++) {
-      const futureDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + i, 1);
-      const monthKey = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}`;
-      availableMonths.add(monthKey);
-    }
-    
-    return Array.from(availableMonths).sort((a, b) => b.localeCompare(a));
+    return availableMonths;
   };
 
   // Function to add a new month with empty data
