@@ -56,6 +56,7 @@ const BudgetCalculator = () => {
     totalMonthlyExpenses: number;
     holidayDays: string[];
     holidaysUntil25th: string[];
+    nextTenHolidays: string[];
   } | null>(null);
   const [standardValues, setStandardValues] = useState<any>(null);
   const [transferAccount, setTransferAccount] = useState<number>(0);
@@ -364,6 +365,27 @@ const BudgetCalculator = () => {
       }
     }
     
+    // Collect next 10 holidays from today regardless of 25th limit
+    const nextTenHolidays: string[] = [];
+    
+    // Check current year and next year for holidays
+    for (let year = holidayYear; year <= holidayYear + 1; year++) {
+      const holidays = getSwedishHolidays(year);
+      for (const holiday of holidays) {
+        if (holiday > currentDate) {
+          const holidayName = getHolidayName(holiday);
+          nextTenHolidays.push(`${holiday.getDate()}/${holiday.getMonth() + 1} - ${holidayName}`);
+          
+          if (nextTenHolidays.length >= 10) {
+            break;
+          }
+        }
+      }
+      if (nextTenHolidays.length >= 10) {
+        break;
+      }
+    }
+    
     // Use whichever list is longer: holidays until 25th or next 5 holidays
     const holidayDays = holidaysUntil25th.length >= 5 ? holidaysUntil25th : allUpcomingHolidays;
     
@@ -427,7 +449,8 @@ const BudgetCalculator = () => {
       totalWeekdayCount,
       totalFridayCount,
       holidayDays,
-      holidaysUntil25th
+      holidaysUntil25th,
+      nextTenHolidays
     };
   };
 
@@ -538,7 +561,8 @@ const BudgetCalculator = () => {
       fridayCount: budgetData.fridayCount,
       totalMonthlyExpenses,
       holidayDays: budgetData.holidayDays,
-      holidaysUntil25th: budgetData.holidaysUntil25th
+      holidaysUntil25th: budgetData.holidaysUntil25th,
+      nextTenHolidays: budgetData.nextTenHolidays
     });
     
     // Switch to summary tab after calculation
@@ -1248,10 +1272,18 @@ const BudgetCalculator = () => {
                         </div>
                         
                         {results && (
-                          <div className="text-sm space-y-1">
-                            <div>Röda dagar till 25:e: {results.holidaysUntil25th.length} st</div>
-                            <div className="text-xs text-muted-foreground">
-                              {results.holidaysUntil25th.join(', ')}
+                          <div className="text-sm space-y-3">
+                            <div>
+                              <div>Röda dagar till 25:e: {results.holidaysUntil25th.length} st</div>
+                              <div className="text-xs text-muted-foreground">
+                                {results.holidaysUntil25th.join(', ')}
+                              </div>
+                            </div>
+                            <div>
+                              <div>Nästkommande 10 röda dagar:</div>
+                              <div className="text-xs text-muted-foreground">
+                                {results.nextTenHolidays.join(', ')}
+                              </div>
                             </div>
                           </div>
                         )}
