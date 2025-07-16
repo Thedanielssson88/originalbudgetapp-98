@@ -105,6 +105,8 @@ const BudgetCalculator = () => {
   const [newTemplateName, setNewTemplateName] = useState<string>('');
   const [selectedTemplateSourceMonth, setSelectedTemplateSourceMonth] = useState<string>('');
   const [expandedTemplates, setExpandedTemplates] = useState<{[key: string]: boolean}>({});
+  const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
+  const [editingTemplateData, setEditingTemplateData] = useState<any>(null);
   
   // Alternative budget states - no longer needed for the read-only fields
   // const [altTotalDailyBudget, setAltTotalDailyBudget] = useState<number>(0);
@@ -1062,6 +1064,83 @@ const BudgetCalculator = () => {
     });
   };
 
+  const startEditingTemplate = (templateName: string) => {
+    const template = budgetTemplates[templateName];
+    if (!template) return;
+    
+    setEditingTemplate(templateName);
+    setEditingTemplateData(JSON.parse(JSON.stringify(template)));
+  };
+
+  const saveEditedTemplate = () => {
+    if (!editingTemplate || !editingTemplateData) return;
+    
+    setBudgetTemplates(prev => ({
+      ...prev,
+      [editingTemplate]: {
+        ...editingTemplateData,
+        date: new Date().toISOString() // Update modification date
+      }
+    }));
+    
+    setEditingTemplate(null);
+    setEditingTemplateData(null);
+  };
+
+  const cancelEditingTemplate = () => {
+    setEditingTemplate(null);
+    setEditingTemplateData(null);
+  };
+
+  const updateEditingTemplateGroup = (groupId: string, field: string, value: any, isSubCategory: boolean = false, subCategoryId?: string) => {
+    if (!editingTemplateData) return;
+    
+    setEditingTemplateData((prev: any) => {
+      const updated = { ...prev };
+      
+      // Update cost groups
+      if (updated.costGroups) {
+        updated.costGroups = updated.costGroups.map((group: any) => {
+          if (group.id === groupId) {
+            if (isSubCategory && subCategoryId) {
+              // Update subcategory
+              const updatedGroup = { ...group };
+              if (updatedGroup.subCategories) {
+                updatedGroup.subCategories = updatedGroup.subCategories.map((sub: any) => 
+                  sub.id === subCategoryId ? { ...sub, [field]: value } : sub
+                );
+              }
+              return updatedGroup;
+            } else {
+              // Update main category
+              return { ...group, [field]: value };
+            }
+          }
+          return group;
+        });
+      }
+      
+      // Update savings groups
+      if (updated.savingsGroups) {
+        updated.savingsGroups = updated.savingsGroups.map((group: any) => {
+          if (group.id === groupId) {
+            return { ...group, [field]: value };
+          }
+          return group;
+        });
+      }
+      
+      return updated;
+    });
+  };
+
+  const calculateMainCategorySum = (group: any) => {
+    if (!group.subCategories || group.subCategories.length === 0) {
+      return group.amount;
+    }
+    return group.subCategories.reduce((sum: number, sub: any) => sum + (sub.amount || 0), 0);
+  };
+
   // Backup functions
   const saveBackup = () => {
     const backupData = {
@@ -1952,24 +2031,32 @@ const BudgetCalculator = () => {
                                 Skapad: {new Date(budgetTemplates[templateName].date).toLocaleDateString()}
                               </p>
                             </div>
-                            <div className="flex gap-2">
-                              <Button
-                                onClick={() => loadBudgetTemplate(templateName)}
-                                size="sm"
-                                variant="outline"
-                                className="text-xs"
-                              >
-                                Ladda mall
-                              </Button>
-                              <Button
-                                onClick={() => deleteBudgetTemplate(templateName)}
-                                size="sm"
-                                variant="destructive"
-                                className="text-xs"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
-                            </div>
+                             <div className="flex gap-2">
+                               <Button
+                                 onClick={() => loadBudgetTemplate(templateName)}
+                                 size="sm"
+                                 variant="outline"
+                                 className="text-xs"
+                               >
+                                 Ladda mall
+                               </Button>
+                               <Button
+                                 onClick={() => startEditingTemplate(templateName)}
+                                 size="sm"
+                                 variant="outline"
+                                 className="text-xs"
+                               >
+                                 <Edit className="w-3 h-3" />
+                               </Button>
+                               <Button
+                                 onClick={() => deleteBudgetTemplate(templateName)}
+                                 size="sm"
+                                 variant="destructive"
+                                 className="text-xs"
+                               >
+                                 <Trash2 className="w-3 h-3" />
+                               </Button>
+                             </div>
                           </div>
                           
                           <Button
@@ -1988,12 +2075,12 @@ const BudgetCalculator = () => {
                                 <strong>Gemensamma kostnader:</strong>
                                 {budgetTemplates[templateName].costGroups.length > 0 ? (
                                   <ul className="ml-4 mt-1 space-y-1">
-                                    {budgetTemplates[templateName].costGroups.map((group: any) => (
-                                      <li key={group.id} className="space-y-1">
-                                        <div className="font-medium">
-                                          {group.name}: {group.amount.toLocaleString()} kr
-                                          {group.account && <span className="ml-2 text-muted-foreground">({group.account})</span>}
-                                        </div>
+                                     {budgetTemplates[templateName].costGroups.map((group: any) => (
+                                       <li key={group.id} className="space-y-1">
+                                         <div className="font-medium">
+                                           {group.name}: {calculateMainCategorySum(group).toLocaleString()} kr
+                                           {group.account && <span className="ml-2 text-muted-foreground">({group.account})</span>}
+                                         </div>
                                         {group.subCategories && group.subCategories.length > 0 && (
                                           <ul className="ml-4 text-xs space-y-0.5">
                                             {group.subCategories.map((sub: any) => (
@@ -2016,12 +2103,12 @@ const BudgetCalculator = () => {
                                 <strong>Sparande:</strong>
                                 {budgetTemplates[templateName].savingsGroups.length > 0 ? (
                                   <ul className="ml-4 mt-1 space-y-1">
-                                    {budgetTemplates[templateName].savingsGroups.map((group: any) => (
-                                      <li key={group.id} className="space-y-1">
-                                        <div className="font-medium">
-                                          {group.name}: {group.amount.toLocaleString()} kr
-                                          {group.account && <span className="ml-2 text-muted-foreground">({group.account})</span>}
-                                        </div>
+                                     {budgetTemplates[templateName].savingsGroups.map((group: any) => (
+                                       <li key={group.id} className="space-y-1">
+                                         <div className="font-medium">
+                                           {group.name}: {calculateMainCategorySum(group).toLocaleString()} kr
+                                           {group.account && <span className="ml-2 text-muted-foreground">({group.account})</span>}
+                                         </div>
                                         {group.subCategories && group.subCategories.length > 0 && (
                                           <ul className="ml-4 text-xs space-y-0.5">
                                             {group.subCategories.map((sub: any) => (
@@ -2058,6 +2145,155 @@ const BudgetCalculator = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Budget Template Edit Dialog */}
+        {editingTemplate && editingTemplateData && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Redigera budgetmall: {editingTemplate}</span>
+                <div className="flex gap-2">
+                  <Button onClick={saveEditedTemplate} size="sm">
+                    <Save className="w-4 h-4 mr-1" />
+                    Spara
+                  </Button>
+                  <Button onClick={cancelEditingTemplate} size="sm" variant="outline">
+                    <X className="w-4 h-4 mr-1" />
+                    Avbryt
+                  </Button>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Cost Categories */}
+              <div>
+                <h4 className="font-medium mb-2">Kostnader</h4>
+                {editingTemplateData.costGroups?.map((group: any) => (
+                  <div key={group.id} className="mb-4 p-3 border rounded-md">
+                    <div className="grid grid-cols-3 gap-2 mb-2">
+                      <div>
+                        <Label className="text-xs">Huvudkategori</Label>
+                        <Input
+                          value={group.name}
+                          onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value)}
+                          className="h-8"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Konto</Label>
+                        <Select 
+                          value={group.account || ''} 
+                          onValueChange={(value) => updateEditingTemplateGroup(group.id, 'account', value)}
+                        >
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Välj konto" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {accounts.map(account => (
+                              <SelectItem key={account} value={account}>{account}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {(!group.subCategories || group.subCategories.length === 0) && (
+                        <div>
+                          <Label className="text-xs">Belopp</Label>
+                          <Input
+                            type="number"
+                            value={group.amount}
+                            onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', parseFloat(e.target.value) || 0)}
+                            className="h-8"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Subcategories */}
+                    {group.subCategories && group.subCategories.length > 0 && (
+                      <div className="ml-4 space-y-2">
+                        <Label className="text-xs text-muted-foreground">Underkategorier:</Label>
+                        {group.subCategories.map((sub: any) => (
+                          <div key={sub.id} className="grid grid-cols-3 gap-2">
+                            <Input
+                              value={sub.name}
+                              onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value, true, sub.id)}
+                              className="h-7 text-xs"
+                              placeholder="Underkategori"
+                            />
+                            <Select 
+                              value={sub.account || ''} 
+                              onValueChange={(value) => updateEditingTemplateGroup(group.id, 'account', value, true, sub.id)}
+                            >
+                              <SelectTrigger className="h-7 text-xs">
+                                <SelectValue placeholder="Konto" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {accounts.map(account => (
+                                  <SelectItem key={account} value={account}>{account}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              type="number"
+                              value={sub.amount}
+                              onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', parseFloat(e.target.value) || 0, true, sub.id)}
+                              className="h-7 text-xs"
+                              placeholder="Belopp"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Savings Categories */}
+              <div>
+                <h4 className="font-medium mb-2">Sparande</h4>
+                {editingTemplateData.savingsGroups?.map((group: any) => (
+                  <div key={group.id} className="mb-4 p-3 border rounded-md">
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <Label className="text-xs">Kategori</Label>
+                        <Input
+                          value={group.name}
+                          onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value)}
+                          className="h-8"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Konto</Label>
+                        <Select 
+                          value={group.account || ''} 
+                          onValueChange={(value) => updateEditingTemplateGroup(group.id, 'account', value)}
+                        >
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Välj konto" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {accounts.map(account => (
+                              <SelectItem key={account} value={account}>{account}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Belopp</Label>
+                        <Input
+                          type="number"
+                          value={group.amount}
+                          onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', parseFloat(e.target.value) || 0)}
+                          className="h-8"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
           <TabsList className={`grid w-full ${(() => {
