@@ -4122,7 +4122,8 @@ const BudgetCalculator = () => {
                           andreasPersonalSavings: JSON.parse(JSON.stringify(sourceData.andreasPersonalSavings || [])),
                           susannaPersonalCosts: JSON.parse(JSON.stringify(sourceData.susannaPersonalCosts || [])),
                           susannaPersonalSavings: JSON.parse(JSON.stringify(sourceData.susannaPersonalSavings || [])),
-                          accounts: JSON.parse(JSON.stringify(sourceData.accounts || ['Löpande', 'Sparkonto', 'Buffert']))
+                          accounts: JSON.parse(JSON.stringify(sourceData.accounts || ['Löpande', 'Sparkonto', 'Buffert'])),
+                          date: new Date().toISOString()
                         };
                         
                         const updatedTemplates = {
@@ -4142,416 +4143,329 @@ const BudgetCalculator = () => {
                     Skapa budgetmall
                   </Button>
 
-                  {/* Existing templates */}
+                  {/* Budget Templates Section */}
                   {Object.keys(budgetTemplates).length > 0 && (
-                    <div className="space-y-4">
-                      <Label>Befintliga budgetmallar ({Object.keys(budgetTemplates).length})</Label>
-                      {Object.keys(budgetTemplates).sort().map(templateName => (
-                        <div key={templateName} className="border rounded-lg">
-                          <div className="p-3 border-b">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h4 className="font-medium">{templateName}</h4>
-                                <p className="text-sm text-muted-foreground">
-                                  Skapad: {new Date(budgetTemplates[templateName].created).toLocaleDateString()}
-                                </p>
-                              </div>
-                              <div className="flex gap-2">
-                                <Button
-                                  onClick={() => setExpandedTemplates(prev => ({
-                                    ...prev,
-                                    [templateName]: !prev[templateName]
-                                  }))}
-                                  variant="outline"
-                                  size="sm"
-                                >
-                                  {expandedTemplates[templateName] ? (
-                                    <>
-                                      <ChevronUp className="h-4 w-4 mr-1" />
-                                      Dölj
-                                    </>
-                                  ) : (
-                                    <>
-                                      <ChevronDown className="h-4 w-4 mr-1" />
-                                      Visa
-                                    </>
-                                  )}
-                                </Button>
-                                <Button
-                                  onClick={() => loadBudgetTemplate(templateName)}
-                                  variant="outline"
-                                  size="sm"
-                                >
-                                  Ladda
-                                </Button>
-                                <Button
-                                  onClick={() => {
-                                    const newTemplates = { ...budgetTemplates };
-                                    delete newTemplates[templateName];
-                                    setBudgetTemplates(newTemplates);
-                                  }}
-                                  variant="destructive"
-                                  size="sm"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {expandedTemplates[templateName] && (
-                            <div className="p-4 space-y-4">
-                              {editingTemplate === templateName ? (
-                                // Edit mode
-                                <div className="space-y-4">
-                                  <div className="flex justify-between items-center">
-                                    <h5 className="font-medium">Redigera budgetmall</h5>
-                                    <div className="flex gap-2">
-                                      <Button
-                                        onClick={() => {
-                                          // Save changes
-                                          const updatedTemplates = {
-                                            ...budgetTemplates,
-                                            [templateName]: {
-                                              ...budgetTemplates[templateName],
-                                              ...editingTemplateData,
-                                              modified: new Date().toISOString()
-                                            }
-                                          };
-                                          setBudgetTemplates(updatedTemplates);
-                                          setEditingTemplate(null);
-                                          setEditingTemplateData(null);
-                                        }}
-                                        size="sm"
-                                      >
-                                        <Save className="h-4 w-4 mr-1" />
-                                        Spara
-                                      </Button>
-                                      <Button
-                                        onClick={() => {
-                                          setEditingTemplate(null);
-                                          setEditingTemplateData(null);
-                                        }}
-                                        variant="outline"
-                                        size="sm"
-                                      >
-                                        <X className="h-4 w-4 mr-1" />
-                                        Avbryt
-                                      </Button>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Edit Income */}
-                                  <div className="space-y-2">
-                                    <Label className="text-sm font-medium">Inkomster</Label>
-                                    <div className="grid grid-cols-2 gap-2">
-                                      <div>
-                                        <Label className="text-xs">{userName1} lön</Label>
-                                        <Input
-                                          type="number"
-                                          value={editingTemplateData?.andreasSalary || 0}
-                                          onChange={(e) => setEditingTemplateData(prev => ({
-                                            ...prev,
-                                            andreasSalary: parseInt(e.target.value) || 0
-                                          }))}
-                                          className="text-sm"
-                                        />
-                                      </div>
-                                      <div>
-                                        <Label className="text-xs">{userName2} lön</Label>
-                                        <Input
-                                          type="number"
-                                          value={editingTemplateData?.susannaSalary || 0}
-                                          onChange={(e) => setEditingTemplateData(prev => ({
-                                            ...prev,
-                                            susannaSalary: parseInt(e.target.value) || 0
-                                          }))}
-                                          className="text-sm"
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Edit Cost Groups */}
-                                  <div className="space-y-2">
-                                    <Label className="text-sm font-medium">Kostnader</Label>
-                                    <div className="space-y-2">
-                                      {editingTemplateData?.costGroups?.map((group, index) => (
-                                        <div key={group.id} className="flex gap-2 items-center">
-                                          <Input
-                                            value={group.name}
-                                            onChange={(e) => {
-                                              const newGroups = [...editingTemplateData.costGroups];
-                                              newGroups[index].name = e.target.value;
-                                              setEditingTemplateData(prev => ({
-                                                ...prev,
-                                                costGroups: newGroups
-                                              }));
-                                            }}
-                                            className="flex-1 text-sm"
-                                          />
-                                          <Input
-                                            type="number"
-                                            value={group.amount}
-                                            onChange={(e) => {
-                                              const newGroups = [...editingTemplateData.costGroups];
-                                              newGroups[index].amount = parseInt(e.target.value) || 0;
-                                              setEditingTemplateData(prev => ({
-                                                ...prev,
-                                                costGroups: newGroups
-                                              }));
-                                            }}
-                                            className="w-24 text-sm"
-                                          />
-                                          <Button
-                                            onClick={() => {
-                                              const newGroups = editingTemplateData.costGroups.filter((_, i) => i !== index);
-                                              setEditingTemplateData(prev => ({
-                                                ...prev,
-                                                costGroups: newGroups
-                                              }));
-                                            }}
-                                            variant="destructive"
-                                            size="sm"
-                                          >
-                                            <Trash2 className="h-3 w-3" />
-                                          </Button>
-                                        </div>
-                                      ))}
-                                      <Button
-                                        onClick={() => {
-                                          const newGroup = {
-                                            id: Date.now().toString(),
-                                            name: 'Ny kategori',
-                                            amount: 0,
-                                            type: 'cost'
-                                          };
-                                          setEditingTemplateData(prev => ({
-                                            ...prev,
-                                            costGroups: [...(prev.costGroups || []), newGroup]
-                                          }));
-                                        }}
-                                        variant="outline"
-                                        size="sm"
-                                      >
-                                        <Plus className="h-3 w-3 mr-1" />
-                                        Lägg till kostnad
-                                      </Button>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Edit Savings Groups */}
-                                  <div className="space-y-2">
-                                    <Label className="text-sm font-medium">Sparande</Label>
-                                    <div className="space-y-2">
-                                      {editingTemplateData?.savingsGroups?.map((group, index) => (
-                                        <div key={group.id} className="flex gap-2 items-center">
-                                          <Input
-                                            value={group.name}
-                                            onChange={(e) => {
-                                              const newGroups = [...editingTemplateData.savingsGroups];
-                                              newGroups[index].name = e.target.value;
-                                              setEditingTemplateData(prev => ({
-                                                ...prev,
-                                                savingsGroups: newGroups
-                                              }));
-                                            }}
-                                            className="flex-1 text-sm"
-                                          />
-                                          <Input
-                                            type="number"
-                                            value={group.amount}
-                                            onChange={(e) => {
-                                              const newGroups = [...editingTemplateData.savingsGroups];
-                                              newGroups[index].amount = parseInt(e.target.value) || 0;
-                                              setEditingTemplateData(prev => ({
-                                                ...prev,
-                                                savingsGroups: newGroups
-                                              }));
-                                            }}
-                                            className="w-24 text-sm"
-                                          />
-                                          <Button
-                                            onClick={() => {
-                                              const newGroups = editingTemplateData.savingsGroups.filter((_, i) => i !== index);
-                                              setEditingTemplateData(prev => ({
-                                                ...prev,
-                                                savingsGroups: newGroups
-                                              }));
-                                            }}
-                                            variant="destructive"
-                                            size="sm"
-                                          >
-                                            <Trash2 className="h-3 w-3" />
-                                          </Button>
-                                        </div>
-                                      ))}
-                                      <Button
-                                        onClick={() => {
-                                          const newGroup = {
-                                            id: Date.now().toString(),
-                                            name: 'Nytt sparande',
-                                            amount: 0,
-                                            type: 'savings'
-                                          };
-                                          setEditingTemplateData(prev => ({
-                                            ...prev,
-                                            savingsGroups: [...(prev.savingsGroups || []), newGroup]
-                                          }));
-                                        }}
-                                        variant="outline"
-                                        size="sm"
-                                      >
-                                        <Plus className="h-3 w-3 mr-1" />
-                                        Lägg till sparande
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </div>
-                              ) : (
-                                // View mode
-                                <div className="space-y-4">
-                                  <div className="flex justify-between items-center">
-                                    <h5 className="font-medium">Budgetinnehåll</h5>
-                                    <Button
-                                      onClick={() => {
-                                        setEditingTemplate(templateName);
-                                        setEditingTemplateData(JSON.parse(JSON.stringify(budgetTemplates[templateName])));
-                                      }}
-                                      variant="outline"
-                                      size="sm"
-                                    >
-                                      <Edit className="h-4 w-4 mr-1" />
-                                      Redigera
-                                    </Button>
-                                  </div>
-                                  
-                                  {/* View Income */}
-                                  <div className="space-y-2">
-                                    <Label className="text-sm font-medium">Inkomster</Label>
-                                    <div className="grid grid-cols-2 gap-4 text-sm">
-                                      <div>
-                                        <span className="text-muted-foreground">{userName1} lön:</span>
-                                        <span className="ml-2 font-medium">{budgetTemplates[templateName].andreasSalary?.toLocaleString('sv-SE') || 0} kr</span>
-                                      </div>
-                                      <div>
-                                        <span className="text-muted-foreground">{userName2} lön:</span>
-                                        <span className="ml-2 font-medium">{budgetTemplates[templateName].susannaSalary?.toLocaleString('sv-SE') || 0} kr</span>
-                                      </div>
-                                    </div>
-                                    <div className="text-sm">
-                                      <span className="text-muted-foreground">Total inkomst:</span>
-                                      <span className="ml-2 font-medium text-green-600">
-                                        {((budgetTemplates[templateName].andreasSalary || 0) + 
-                                          (budgetTemplates[templateName].susannaSalary || 0) + 
-                                          (budgetTemplates[templateName].andreasförsäkringskassan || 0) + 
-                                          (budgetTemplates[templateName].susannaförsäkringskassan || 0) + 
-                                          (budgetTemplates[templateName].andreasbarnbidrag || 0) + 
-                                          (budgetTemplates[templateName].susannabarnbidrag || 0)).toLocaleString('sv-SE')} kr
-                                      </span>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* View Cost Groups */}
-                                  <div className="space-y-2">
-                                    <Label className="text-sm font-medium">Kostnader</Label>
-                                    <div className="space-y-1">
-                                      {budgetTemplates[templateName].costGroups?.map((group) => (
-                                        <div key={group.id} className="flex justify-between items-center text-sm">
-                                          <span className="text-muted-foreground">{group.name}:</span>
-                                          <span className="font-medium">{group.amount?.toLocaleString('sv-SE') || 0} kr</span>
-                                        </div>
-                                      ))}
-                                      {budgetTemplates[templateName].costGroups?.length === 0 && (
-                                        <div className="text-sm text-muted-foreground">Inga kostnader</div>
-                                      )}
-                                    </div>
-                                    <div className="text-sm pt-2 border-t">
-                                      <span className="text-muted-foreground">Total kostnader:</span>
-                                      <span className="ml-2 font-medium text-red-600">
-                                        {budgetTemplates[templateName].costGroups?.reduce((sum, group) => sum + (group.amount || 0), 0).toLocaleString('sv-SE')} kr
-                                      </span>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* View Savings Groups */}
-                                  <div className="space-y-2">
-                                    <Label className="text-sm font-medium">Sparande</Label>
-                                    <div className="space-y-1">
-                                      {budgetTemplates[templateName].savingsGroups?.map((group) => (
-                                        <div key={group.id} className="flex justify-between items-center text-sm">
-                                          <span className="text-muted-foreground">{group.name}:</span>
-                                          <span className="font-medium">{group.amount?.toLocaleString('sv-SE') || 0} kr</span>
-                                        </div>
-                                      ))}
-                                      {budgetTemplates[templateName].savingsGroups?.length === 0 && (
-                                        <div className="text-sm text-muted-foreground">Inget sparande</div>
-                                      )}
-                                    </div>
-                                    <div className="text-sm pt-2 border-t">
-                                      <span className="text-muted-foreground">Total sparande:</span>
-                                      <span className="ml-2 font-medium text-blue-600">
-                                        {budgetTemplates[templateName].savingsGroups?.reduce((sum, group) => sum + (group.amount || 0), 0).toLocaleString('sv-SE')} kr
-                                      </span>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Summary */}
-                                  <div className="p-3 bg-muted/50 rounded-lg">
-                                    <div className="text-sm space-y-1">
-                                      <div className="flex justify-between">
-                                        <span>Inkomster:</span>
-                                        <span className="text-green-600 font-medium">
-                                          +{((budgetTemplates[templateName].andreasSalary || 0) + 
-                                            (budgetTemplates[templateName].susannaSalary || 0) + 
-                                            (budgetTemplates[templateName].andreasförsäkringskassan || 0) + 
-                                            (budgetTemplates[templateName].susannaförsäkringskassan || 0) + 
-                                            (budgetTemplates[templateName].andreasbarnbidrag || 0) + 
-                                            (budgetTemplates[templateName].susannabarnbidrag || 0)).toLocaleString('sv-SE')} kr
-                                        </span>
-                                      </div>
-                                      <div className="flex justify-between">
-                                        <span>Kostnader:</span>
-                                        <span className="text-red-600 font-medium">
-                                          -{budgetTemplates[templateName].costGroups?.reduce((sum, group) => sum + (group.amount || 0), 0).toLocaleString('sv-SE')} kr
-                                        </span>
-                                      </div>
-                                      <div className="flex justify-between">
-                                        <span>Sparande:</span>
-                                        <span className="text-blue-600 font-medium">
-                                          -{budgetTemplates[templateName].savingsGroups?.reduce((sum, group) => sum + (group.amount || 0), 0).toLocaleString('sv-SE')} kr
-                                        </span>
-                                      </div>
-                                      <div className="flex justify-between border-t pt-1 font-medium">
-                                        <span>Kvar:</span>
-                                        <span className={`font-bold ${
-                                          ((budgetTemplates[templateName].andreasSalary || 0) + 
-                                           (budgetTemplates[templateName].susannaSalary || 0) + 
-                                           (budgetTemplates[templateName].andreasförsäkringskassan || 0) + 
-                                           (budgetTemplates[templateName].susannaförsäkringskassan || 0) + 
-                                           (budgetTemplates[templateName].andreasbarnbidrag || 0) + 
-                                           (budgetTemplates[templateName].susannabarnbidrag || 0)) - 
-                                          (budgetTemplates[templateName].costGroups?.reduce((sum, group) => sum + (group.amount || 0), 0) || 0) - 
-                                          (budgetTemplates[templateName].savingsGroups?.reduce((sum, group) => sum + (group.amount || 0), 0) || 0) >= 0 
-                                            ? 'text-green-600' : 'text-red-600'}`}>
-                                          {(((budgetTemplates[templateName].andreasSalary || 0) + 
-                                            (budgetTemplates[templateName].susannaSalary || 0) + 
-                                            (budgetTemplates[templateName].andreasförsäkringskassan || 0) + 
-                                            (budgetTemplates[templateName].susannaförsäkringskassan || 0) + 
-                                            (budgetTemplates[templateName].andreasbarnbidrag || 0) + 
-                                            (budgetTemplates[templateName].susannabarnbidrag || 0)) - 
-                                           (budgetTemplates[templateName].costGroups?.reduce((sum, group) => sum + (group.amount || 0), 0) || 0) - 
-                                           (budgetTemplates[templateName].savingsGroups?.reduce((sum, group) => sum + (group.amount || 0), 0) || 0)).toLocaleString('sv-SE')} kr
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                    <div className="mt-4">
+                      <Button
+                        onClick={() => setExpandedSections(prev => ({ ...prev, budgetTemplates: !prev.budgetTemplates }))}
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-between"
+                      >
+                        <span>Budgetmallar ({Object.keys(budgetTemplates).length})</span>
+                        {expandedSections.budgetTemplates ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </Button>
+                      
+                       {expandedSections.budgetTemplates && (
+                         <div className="mt-2 space-y-2">
+                           {Object.keys(budgetTemplates).sort().map(templateName => (
+                             <div key={templateName}>
+                               {editingTemplate === templateName ? (
+                                 // Edit mode - only show edit interface
+                                 <Card className="border-primary">
+                                   <CardHeader>
+                                     <CardTitle className="flex items-center justify-between">
+                                       <span>Redigera budgetmall: {templateName}</span>
+                                       <div className="flex gap-2">
+                                         <Button onClick={saveEditedTemplate} size="sm">
+                                           <Save className="w-4 h-4 mr-1" />
+                                           Spara
+                                         </Button>
+                                         <Button onClick={cancelEditingTemplate} size="sm" variant="outline">
+                                           <X className="w-4 h-4 mr-1" />
+                                           Avbryt
+                                         </Button>
+                                       </div>
+                                     </CardTitle>
+                                   </CardHeader>
+                                   <CardContent className="space-y-4">
+                                     {/* Cost Categories */}
+                                     <div>
+                                       <div className="flex items-center justify-between mb-2">
+                                         <h4 className="font-medium">Kostnader</h4>
+                                         <Button onClick={addEditingCostGroup} size="sm" variant="outline">
+                                           <Plus className="w-4 h-4 mr-1" />
+                                           Lägg till kategori
+                                         </Button>
+                                       </div>
+                                       {editingTemplateData.costGroups?.map((group: any) => (
+                                         <div key={group.id} className="mb-4 p-3 border rounded-md">
+                                           <div className="flex items-center justify-between mb-2">
+                                             <div className="grid grid-cols-2 gap-2 flex-1">
+                                               <div>
+                                                 <Label className="text-xs">Huvudkategori</Label>
+                                                 <Input
+                                                   value={group.name}
+                                                   onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value)}
+                                                   className="h-8"
+                                                 />
+                                               </div>
+                                               {(!group.subCategories || group.subCategories.length === 0) && (
+                                                 <div>
+                                                   <Label className="text-xs">Belopp</Label>
+                                                   <Input
+                                                     type="number"
+                                                     value={group.amount === 0 ? '' : group.amount}
+                                                     onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                                                     className="h-8"
+                                                     placeholder="0"
+                                                   />
+                                                 </div>
+                                               )}
+                                             </div>
+                                             <Button
+                                               onClick={() => removeEditingCostGroup(group.id)}
+                                               size="sm"
+                                               variant="destructive"
+                                               className="ml-2"
+                                             >
+                                               <Trash2 className="w-3 h-3" />
+                                             </Button>
+                                           </div>
+                                           
+                                           {/* Subcategories */}
+                                           {group.subCategories && group.subCategories.length > 0 && (
+                                             <div className="ml-4 space-y-2">
+                                               <Label className="text-xs text-muted-foreground">Underkategorier:</Label>
+                                               {group.subCategories.map((sub: any) => (
+                                                 <div key={sub.id} className="flex items-center gap-2">
+                                                   <div className="grid grid-cols-3 gap-2 flex-1">
+                                                     <Input
+                                                       value={sub.name}
+                                                       onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value, true, sub.id)}
+                                                       className="h-7 text-xs"
+                                                       placeholder="Underkategori"
+                                                     />
+                                                     <Select 
+                                                       value={sub.account || ''} 
+                                                       onValueChange={(value) => updateEditingTemplateGroup(group.id, 'account', value, true, sub.id)}
+                                                     >
+                                                       <SelectTrigger className="h-7 text-xs">
+                                                         <SelectValue placeholder="Konto" />
+                                                       </SelectTrigger>
+                                                       <SelectContent>
+                                                         {accounts.map(account => (
+                                                           <SelectItem key={account} value={account}>{account}</SelectItem>
+                                                         ))}
+                                                       </SelectContent>
+                                                     </Select>
+                                                     <Input
+                                                       type="number"
+                                                       value={sub.amount === 0 ? '' : sub.amount}
+                                                       onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0, true, sub.id)}
+                                                       className="h-7 text-xs"
+                                                       placeholder="0"
+                                                     />
+                                                   </div>
+                                                   <Button
+                                                     onClick={() => removeEditingSubCategory(group.id, sub.id)}
+                                                     size="sm"
+                                                     variant="destructive"
+                                                     className="h-7 w-7 p-0"
+                                                   >
+                                                     <Trash2 className="w-3 h-3" />
+                                                   </Button>
+                                                 </div>
+                                               ))}
+                                             </div>
+                                           )}
+                                           
+                                           <Button
+                                             onClick={() => addEditingSubCategory(group.id)}
+                                             size="sm"
+                                             variant="outline"
+                                             className="mt-2"
+                                           >
+                                             <Plus className="w-4 h-4 mr-1" />
+                                             Lägg till underkategori
+                                           </Button>
+                                         </div>
+                                       ))}
+                                     </div>
+
+                                     {/* Savings Categories */}
+                                     <div>
+                                       <div className="flex items-center justify-between mb-2">
+                                         <h4 className="font-medium">Sparande</h4>
+                                         <Button onClick={addEditingSavingsGroup} size="sm" variant="outline">
+                                           <Plus className="w-4 h-4 mr-1" />
+                                           Lägg till kategori
+                                         </Button>
+                                       </div>
+                                       {editingTemplateData.savingsGroups?.map((group: any) => (
+                                         <div key={group.id} className="mb-4 p-3 border rounded-md">
+                                           <div className="flex items-center justify-between">
+                                             <div className="grid grid-cols-3 gap-2 flex-1">
+                                               <div>
+                                                 <Label className="text-xs">Kategori</Label>
+                                                 <Input
+                                                   value={group.name}
+                                                   onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value)}
+                                                   className="h-8"
+                                                 />
+                                               </div>
+                                               <div>
+                                                 <Label className="text-xs">Konto</Label>
+                                                 <Select 
+                                                   value={group.account || ''} 
+                                                   onValueChange={(value) => updateEditingTemplateGroup(group.id, 'account', value)}
+                                                 >
+                                                   <SelectTrigger className="h-8">
+                                                     <SelectValue placeholder="Välj konto" />
+                                                   </SelectTrigger>
+                                                   <SelectContent>
+                                                     {accounts.map(account => (
+                                                       <SelectItem key={account} value={account}>{account}</SelectItem>
+                                                     ))}
+                                                   </SelectContent>
+                                                 </Select>
+                                               </div>
+                                               <div>
+                                                 <Label className="text-xs">Belopp</Label>
+                                                 <Input
+                                                   type="number"
+                                                   value={group.amount === 0 ? '' : group.amount}
+                                                   onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                                                   className="h-8"
+                                                   placeholder="0"
+                                                 />
+                                               </div>
+                                             </div>
+                                             <Button
+                                               onClick={() => removeEditingSavingsGroup(group.id)}
+                                               size="sm"
+                                               variant="destructive"
+                                               className="ml-2"
+                                             >
+                                               <Trash2 className="w-3 h-3" />
+                                             </Button>
+                                           </div>
+                                         </div>
+                                       ))}
+                                     </div>
+                                   </CardContent>
+                                 </Card>
+                               ) : (
+                                 // Display mode - only show when not editing
+                                 <div className="p-3 bg-muted/30 rounded-md border">
+                                   <div className="flex justify-between items-start mb-2">
+                                     <div>
+                                       <h5 className="font-medium text-sm">{templateName}</h5>
+                                       <p className="text-xs text-muted-foreground">
+                                         Skapad: {new Date(budgetTemplates[templateName].date).toLocaleDateString()}
+                                       </p>
+                                     </div>
+                                     <div className="flex gap-2">
+                                       <Button
+                                         onClick={() => loadBudgetTemplate(templateName)}
+                                         size="sm"
+                                         variant="outline"
+                                         className="text-xs"
+                                       >
+                                         Ladda mall
+                                       </Button>
+                                       <Button
+                                         onClick={() => startEditingTemplate(templateName)}
+                                         size="sm"
+                                         variant="outline"
+                                         className="text-xs"
+                                       >
+                                         <Edit className="w-3 h-3" />
+                                       </Button>
+                                       <Button
+                                         onClick={() => deleteBudgetTemplate(templateName)}
+                                         size="sm"
+                                         variant="destructive"
+                                         className="text-xs"
+                                       >
+                                         <Trash2 className="w-3 h-3" />
+                                       </Button>
+                                     </div>
+                                   </div>
+                                   
+                                   <Button
+                                     onClick={() => setExpandedTemplates(prev => ({ ...prev, [templateName]: !prev[templateName] }))}
+                                     variant="ghost"
+                                     size="sm"
+                                     className="w-full justify-between text-xs"
+                                   >
+                                     <span>Visa detaljer</span>
+                                     {expandedTemplates[templateName] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                   </Button>
+                                   
+                                   {expandedTemplates[templateName] && (
+                                     <div className="mt-2 space-y-2 text-xs">
+                                       <div>
+                                         <strong>Gemensamma kostnader:</strong>
+                                         {budgetTemplates[templateName].costGroups.length > 0 ? (
+                                           <ul className="ml-4 mt-1 space-y-1">
+                                             {budgetTemplates[templateName].costGroups.map((group: any) => (
+                                               <li key={group.id} className="space-y-1">
+                                                 <div className="font-medium">
+                                                   {group.name}: {calculateMainCategorySum(group).toLocaleString()} kr
+                                                   {group.account && <span className="ml-2 text-muted-foreground">({group.account})</span>}
+                                                 </div>
+                                                 {group.subCategories && group.subCategories.length > 0 && (
+                                                   <ul className="ml-4 text-xs space-y-0.5">
+                                                     {group.subCategories.map((sub: any) => (
+                                                       <li key={sub.id} className="text-muted-foreground">
+                                                         • {sub.name}: {sub.amount.toLocaleString()} kr
+                                                         {sub.account && <span className="ml-2">({sub.account})</span>}
+                                                       </li>
+                                                     ))}
+                                                   </ul>
+                                                 )}
+                                               </li>
+                                             ))}
+                                           </ul>
+                                         ) : (
+                                           <p className="ml-4 text-muted-foreground">Inga kostnader</p>
+                                         )}
+                                       </div>
+                                       
+                                       <div>
+                                         <strong>Sparande:</strong>
+                                         {budgetTemplates[templateName].savingsGroups.length > 0 ? (
+                                           <ul className="ml-4 mt-1 space-y-1">
+                                             {budgetTemplates[templateName].savingsGroups.map((group: any) => (
+                                               <li key={group.id} className="space-y-1">
+                                                 <div className="font-medium">
+                                                   {group.name}: {calculateMainCategorySum(group).toLocaleString()} kr
+                                                   {group.account && <span className="ml-2 text-muted-foreground">({group.account})</span>}
+                                                 </div>
+                                                 {group.subCategories && group.subCategories.length > 0 && (
+                                                   <ul className="ml-4 text-xs space-y-0.5">
+                                                     {group.subCategories.map((sub: any) => (
+                                                       <li key={sub.id} className="text-muted-foreground">
+                                                         • {sub.name}: {sub.amount.toLocaleString()} kr
+                                                         {sub.account && <span className="ml-2">({sub.account})</span>}
+                                                       </li>
+                                                     ))}
+                                                   </ul>
+                                                 )}
+                                               </li>
+                                             ))}
+                                           </ul>
+                                         ) : (
+                                           <p className="ml-4 text-muted-foreground">Inget sparande</p>
+                                         )}
+                                       </div>
+                                       
+                                       <div>
+                                         <strong>Överföringar:</strong>
+                                         <ul className="ml-4 mt-1">
+                                           <li>Daglig överföring: {budgetTemplates[templateName].dailyTransfer.toLocaleString()} kr</li>
+                                           <li>Fredagsöverföring: {budgetTemplates[templateName].weekendTransfer.toLocaleString()} kr</li>
+                                         </ul>
+                                       </div>
+                                     </div>
+                                   )}
+                                 </div>
+                               )}
+                             </div>
+                           ))}
+                         </div>
+                       )}
                     </div>
                   )}
                 </CardContent>
