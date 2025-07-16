@@ -2604,13 +2604,23 @@ const BudgetCalculator = () => {
                              />
                            </div>
                          </div>
-                         
-                         {results && (
-                           <div className="text-sm text-muted-foreground">
-                             <div>Vardagar: {results.weekdayCount} × {formatCurrency(dailyTransfer)} = {formatCurrency(results.weekdayCount * dailyTransfer)}</div>
-                             <div>Helgdagar: {results.fridayCount} × {formatCurrency(weekendTransfer)} = {formatCurrency(results.fridayCount * weekendTransfer)}</div>
-                           </div>
-                         )}
+                          
+                          {results && (
+                            <div className="space-y-3">
+                              <div className="text-sm text-muted-foreground">
+                                <div>Vardagar: {results.weekdayCount} × {formatCurrency(dailyTransfer)} = {formatCurrency(results.weekdayCount * dailyTransfer)}</div>
+                                <div>Helgdagar: {results.fridayCount} × {formatCurrency(weekendTransfer)} = {formatCurrency(results.fridayCount * weekendTransfer)}</div>
+                              </div>
+                              
+                              {/* Moved from budgetSummary section */}
+                              <div className="p-3 bg-amber-50 rounded-lg">
+                                <div className="text-sm text-muted-foreground">Återstående daglig budget</div>
+                                <div className="text-xl font-bold text-amber-600">
+                                  {formatCurrency(results.remainingDailyBudget)}
+                                </div>
+                              </div>
+                            </div>
+                          )}
                        </div>
                      )}
                    </div>
@@ -2726,12 +2736,7 @@ const BudgetCalculator = () => {
                       
                       {expandedSections.budgetSummary && (
                         <div className="mt-4 space-y-3">
-                          <div className="p-3 bg-amber-50 rounded-lg">
-                            <div className="text-sm text-muted-foreground">Återstående daglig budget</div>
-                            <div className="text-xl font-bold text-amber-600">
-                              {results ? formatCurrency(results.remainingDailyBudget) : 'Beräknar...'}
-                            </div>
-                          </div>
+                          {/* Removed Återstående daglig budget - moved to Total daglig budget section */}
                         </div>
                       )}
                     </div>
