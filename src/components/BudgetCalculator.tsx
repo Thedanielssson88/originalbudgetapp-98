@@ -72,6 +72,7 @@ const BudgetCalculator = () => {
   const [selectedSourceMonth, setSelectedSourceMonth] = useState<string>(''); // State for source month to copy from
   const [standardValues, setStandardValues] = useState<any>(null);
   const [transferAccount, setTransferAccount] = useState<number>(0);
+  const [isInitialLoad, setIsInitialLoad] = useState<boolean>(true);
   
   // Tab and expandable sections state
   const [activeTab, setActiveTab] = useState<string>("inkomster");
@@ -270,17 +271,36 @@ const BudgetCalculator = () => {
         }
         
         console.log('Successfully loaded saved budget data');
+        
+        // Set current month as default selected budget month
+        const currentDate = new Date();
+        const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+        setSelectedBudgetMonth(currentMonthKey);
+        
+        // Load current month data if it exists in historical data
+        if (parsed.historicalData && parsed.historicalData[currentMonthKey]) {
+          loadDataFromSelectedMonth(currentMonthKey);
+        }
+        
       } catch (error) {
         console.error('Error loading saved data:', error);
         // Only clear corrupted data, don't lose user data on migration
         console.warn('Using default values due to corrupted data');
+        
+        // Set current month as default selected budget month even on error
+        const currentDate = new Date();
+        const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+        setSelectedBudgetMonth(currentMonthKey);
       }
+    } else {
+      // If no saved data, set current month as default
+      const currentDate = new Date();
+      const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+      setSelectedBudgetMonth(currentMonthKey);
     }
     
-    // Set current month as default selected budget month
-    const currentDate = new Date();
-    const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-    setSelectedBudgetMonth(currentMonthKey);
+    // Mark initial load as complete
+    setTimeout(() => setIsInitialLoad(false), 100);
 
     // Load backup
     const savedBackup = localStorage.getItem('budgetCalculatorBackup');
@@ -373,9 +393,11 @@ const BudgetCalculator = () => {
 
   // Save data whenever key values change - both to localStorage and to selected month
   useEffect(() => {
-    saveToLocalStorage();
-    saveToSelectedMonth();
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, budgetTemplates]);
+    if (!isInitialLoad) {
+      saveToLocalStorage();
+      saveToSelectedMonth();
+    }
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, budgetTemplates, isInitialLoad]);
 
   // Auto-calculate budget whenever any input changes
   useEffect(() => {
