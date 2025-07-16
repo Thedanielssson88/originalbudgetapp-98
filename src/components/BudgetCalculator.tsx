@@ -1936,64 +1936,92 @@ const BudgetCalculator = () => {
 
         {/* Month Selector */}
         <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-primary" />
-              Välj Budget Månad
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl">
+              Aktuell månad
             </CardTitle>
-            <CardDescription>
-              Beräkningar baseras på period från 24:e föregående månad till 25:e valda månad.
-            </CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Current Month Display with Navigation */}
-            <div className="mb-4">
-              <Label>Aktuell månad</Label>
-              <div className="flex items-center gap-3 mt-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={navigateToPreviousMonth}
-                  disabled={!canNavigatePrevious()}
-                  className={`p-2 h-8 w-8 ${!canNavigatePrevious() ? 'text-muted-foreground/50' : 'text-primary hover:text-primary/80'}`}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                
-                <div className="text-lg font-medium text-primary">
+            {/* Current Month Display with Navigation and Dropdown */}
+            <div className="flex items-center justify-center gap-4">
+              <Button
+                variant="ghost"
+                size="lg"
+                onClick={navigateToPreviousMonth}
+                disabled={!canNavigatePrevious()}
+                className={`p-3 h-12 w-12 ${!canNavigatePrevious() ? 'text-muted-foreground/50' : 'text-primary hover:text-primary/80'}`}
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </Button>
+              
+              <Select 
+                value={selectedBudgetMonth} 
+                onValueChange={(value) => {
+                  setSelectedBudgetMonth(value);
+                  if (historicalData[value]) {
+                    loadDataFromSelectedMonth(value);
+                  }
+                }}
+              >
+                <SelectTrigger className="w-auto min-w-[200px] border-none bg-transparent text-xl font-semibold text-primary hover:bg-muted/50 transition-colors">
+                  <SelectValue>
+                    {(() => {
+                      const monthNames = [
+                        'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
+                        'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
+                      ];
+                      
+                      if (selectedBudgetMonth) {
+                        const [year, month] = selectedBudgetMonth.split('-');
+                        const monthIndex = parseInt(month) - 1;
+                        return `${monthNames[monthIndex]} ${year}`;
+                      } else {
+                        const currentDate = new Date();
+                        return `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+                      }
+                    })()}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
                   {(() => {
                     const monthNames = [
                       'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
                       'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
                     ];
                     
-                    if (selectedBudgetMonth) {
-                      const [year, month] = selectedBudgetMonth.split('-');
+                    // Generate options for current month and all historical months
+                    const currentDate = new Date();
+                    const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                    
+                    const allMonths = new Set([currentMonthKey, ...Object.keys(historicalData)]);
+                    
+                    return Array.from(allMonths).sort().reverse().map(monthKey => {
+                      const [year, month] = monthKey.split('-');
                       const monthIndex = parseInt(month) - 1;
-                      return `${monthNames[monthIndex]} ${year}`;
-                    } else {
-                      const currentDate = new Date();
-                      return `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
-                    }
+                      const displayName = `${monthNames[monthIndex]} ${year}`;
+                      
+                      return (
+                        <SelectItem key={monthKey} value={monthKey}>
+                          {displayName}
+                        </SelectItem>
+                      );
+                    });
                   })()}
-                </div>
+                </SelectContent>
+              </Select>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={navigateToNextMonth}
-                  disabled={!canNavigateNext()}
-                  className={`p-2 h-8 w-8 ${!canNavigateNext() ? 'text-muted-foreground/50' : 'text-primary hover:text-primary/80'}`}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button
+                variant="ghost"
+                size="lg"
+                onClick={navigateToNextMonth}
+                disabled={!canNavigateNext()}
+                className={`p-3 h-12 w-12 ${!canNavigateNext() ? 'text-muted-foreground/50' : 'text-primary hover:text-primary/80'}`}
+              >
+                <ChevronRight className="h-6 w-6" />
+              </Button>
             </div>
-
-            {/* Expandable Advanced Options */}
           </CardContent>
         </Card>
-
         {/* Budget Template Edit Dialog */}
         {editingTemplate && editingTemplateData && (
           <Card>
