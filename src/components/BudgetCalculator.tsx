@@ -13,6 +13,7 @@ interface SubCategory {
   id: string;
   name: string;
   amount: number;
+  account?: string;
 }
 
 interface BudgetGroup {
@@ -21,6 +22,7 @@ interface BudgetGroup {
   amount: number;
   type: 'cost' | 'savings';
   subCategories?: SubCategory[];
+  account?: string;
 }
 
 const BudgetCalculator = () => {
@@ -89,6 +91,11 @@ const BudgetCalculator = () => {
   const [susannaPersonalCosts, setSusannaPersonalCosts] = useState<BudgetGroup[]>([]);
   const [susannaPersonalSavings, setSusannaPersonalSavings] = useState<BudgetGroup[]>([]);
   const [isEditingPersonalBudget, setIsEditingPersonalBudget] = useState<boolean>(false);
+  
+  // Account management states
+  const [accounts, setAccounts] = useState<string[]>(['Löpande', 'Sparkonto', 'Buffert']);
+  const [newAccountName, setNewAccountName] = useState<string>('');
+  const [isEditingAccounts, setIsEditingAccounts] = useState<boolean>(false);
   
   // Alternative budget states - no longer needed for the read-only fields
   // const [altTotalDailyBudget, setAltTotalDailyBudget] = useState<number>(0);
@@ -241,6 +248,9 @@ const BudgetCalculator = () => {
         // Load historical data
         setHistoricalData(parsed.historicalData || {});
         
+        // Load accounts data
+        setAccounts(parsed.accounts || ['Löpande', 'Sparkonto', 'Buffert']);
+        
         if (parsed.results) {
           setResults(parsed.results);
         }
@@ -295,6 +305,7 @@ const BudgetCalculator = () => {
       andreasPersonalSavings: JSON.parse(JSON.stringify(andreasPersonalSavings)),
       susannaPersonalCosts: JSON.parse(JSON.stringify(susannaPersonalCosts)),
       susannaPersonalSavings: JSON.parse(JSON.stringify(susannaPersonalSavings)),
+      accounts: JSON.parse(JSON.stringify(accounts)),
       // Include any existing calculated results if they exist
       ...(results && {
         totalMonthlyExpenses: results.totalMonthlyExpenses,
@@ -336,7 +347,8 @@ const BudgetCalculator = () => {
       andreasPersonalSavings,
       susannaPersonalCosts,
       susannaPersonalSavings,
-      historicalData
+      historicalData,
+      accounts
     };
     localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
   };
@@ -345,7 +357,7 @@ const BudgetCalculator = () => {
   useEffect(() => {
     saveToLocalStorage();
     saveToSelectedMonth();
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, selectedBudgetMonth]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, selectedBudgetMonth, accounts]);
 
   const calculateDailyBudget = () => {
     const currentDate = new Date();
@@ -716,7 +728,7 @@ const BudgetCalculator = () => {
     ));
   };
 
-  const updateSavingsGroup = (id: string, field: 'name' | 'amount', value: string | number) => {
+  const updateSavingsGroup = (id: string, field: 'name' | 'amount' | 'account', value: string | number) => {
     setSavingsGroups(savingsGroups.map(group => 
       group.id === id ? { ...group, [field]: value } : group
     ));
@@ -999,7 +1011,8 @@ const BudgetCalculator = () => {
       andreasPersonalSavings,
       susannaPersonalCosts,
       susannaPersonalSavings,
-      historicalData
+      historicalData,
+      accounts
     };
     localStorage.setItem('budgetCalculatorBackup', JSON.stringify(backupData));
     setStandardValues(backupData);
@@ -1026,11 +1039,12 @@ const BudgetCalculator = () => {
       setSusannaPersonalCosts(standardValues.susannaPersonalCosts || []);
       setSusannaPersonalSavings(standardValues.susannaPersonalSavings || []);
       setHistoricalData(standardValues.historicalData || {});
+      setAccounts(standardValues.accounts || ['Löpande', 'Sparkonto', 'Buffert']);
       console.log('Backup loaded successfully - all data replaced');
     }
   };
 
-  const updateSubCategory = (groupId: string, subId: string, field: 'name' | 'amount', value: string | number) => {
+  const updateSubCategory = (groupId: string, subId: string, field: 'name' | 'amount' | 'account', value: string | number) => {
     setCostGroups(costGroups.map(group => 
       group.id === groupId ? {
         ...group,
@@ -1038,6 +1052,37 @@ const BudgetCalculator = () => {
           sub.id === subId ? { ...sub, [field]: value } : sub
         ) || []
       } : group
+    ));
+  };
+
+  // Account management functions
+  const addAccount = () => {
+    if (newAccountName.trim() && !accounts.includes(newAccountName.trim())) {
+      setAccounts([...accounts, newAccountName.trim()]);
+      setNewAccountName('');
+    }
+  };
+
+  const removeAccount = (accountName: string) => {
+    setAccounts(accounts.filter(account => account !== accountName));
+    // Remove the account from all subcategories and savings groups
+    setCostGroups(costGroups.map(group => ({
+      ...group,
+      account: group.account === accountName ? undefined : group.account,
+      subCategories: group.subCategories?.map(sub => ({
+        ...sub,
+        account: sub.account === accountName ? undefined : sub.account
+      }))
+    })));
+    setSavingsGroups(savingsGroups.map(group => ({
+      ...group,
+      account: group.account === accountName ? undefined : group.account
+    })));
+  };
+
+  const updateSavingsGroupAccount = (id: string, account: string) => {
+    setSavingsGroups(savingsGroups.map(group => 
+      group.id === id ? { ...group, account: account || undefined } : group
     ));
   };
 
@@ -1997,17 +2042,33 @@ const BudgetCalculator = () => {
                                   <div key={sub.id} className="flex gap-2 items-center text-sm">
                                     {isEditingCategories ? (
                                       <>
-                                        <Input
-                                          value={sub.name}
-                                          onChange={(e) => updateSubCategory(group.id, sub.id, 'name', e.target.value)}
-                                          className="flex-1"
-                                        />
-                                        <Input
-                                          type="number"
-                                          value={sub.amount === 0 ? '' : sub.amount}
-                                          onChange={(e) => updateSubCategory(group.id, sub.id, 'amount', Number(e.target.value) || 0)}
-                                          className="w-32"
-                                        />
+                                         <Input
+                                           value={sub.name}
+                                           onChange={(e) => updateSubCategory(group.id, sub.id, 'name', e.target.value)}
+                                           className="flex-1"
+                                         />
+                                         <Select
+                                           value={sub.account || ''}
+                                           onValueChange={(value) => updateSubCategory(group.id, sub.id, 'account', value)}
+                                         >
+                                           <SelectTrigger className="w-32">
+                                             <SelectValue placeholder="Konto" />
+                                           </SelectTrigger>
+                                           <SelectContent>
+                                             <SelectItem value="">Inget konto</SelectItem>
+                                             {accounts.map((account) => (
+                                               <SelectItem key={account} value={account}>
+                                                 {account}
+                                               </SelectItem>
+                                             ))}
+                                           </SelectContent>
+                                         </Select>
+                                         <Input
+                                           type="number"
+                                           value={sub.amount === 0 ? '' : sub.amount}
+                                           onChange={(e) => updateSubCategory(group.id, sub.id, 'amount', Number(e.target.value) || 0)}
+                                           className="w-32"
+                                         />
                                         <Button
                                           size="sm"
                                           variant="destructive"
@@ -2016,14 +2077,16 @@ const BudgetCalculator = () => {
                                           <Trash2 className="w-4 h-4" />
                                         </Button>
                                       </>
-                                    ) : (
-                                      <>
-                                        <span className="flex-1">{sub.name}</span>
-                                        <span className="w-32 text-right font-medium text-destructive">
-                                          {formatCurrency(sub.amount)}
-                                        </span>
-                                      </>
-                                    )}
+                                     ) : (
+                                       <>
+                                         <span className="flex-1">
+                                           {sub.name}{sub.account ? ` (${sub.account})` : ''}
+                                         </span>
+                                         <span className="w-32 text-right font-medium text-destructive">
+                                           {formatCurrency(sub.amount)}
+                                         </span>
+                                       </>
+                                     )}
                                   </div>
                                 ))}
                               </div>
@@ -2078,17 +2141,33 @@ const BudgetCalculator = () => {
                           <div key={group.id} className="flex gap-2 items-center">
                             {isEditingCategories ? (
                               <>
-                                <Input
-                                  value={group.name}
-                                  onChange={(e) => updateSavingsGroup(group.id, 'name', e.target.value)}
-                                  className="flex-1"
-                                />
-                                <Input
-                                  type="number"
-                                  value={group.amount === 0 ? '' : group.amount}
-                                  onChange={(e) => updateSavingsGroup(group.id, 'amount', Number(e.target.value) || 0)}
-                                  className="w-32"
-                                />
+                                 <Input
+                                   value={group.name}
+                                   onChange={(e) => updateSavingsGroup(group.id, 'name', e.target.value)}
+                                   className="flex-1"
+                                 />
+                                 <Select
+                                   value={group.account || ''}
+                                   onValueChange={(value) => updateSavingsGroup(group.id, 'account', value)}
+                                 >
+                                   <SelectTrigger className="w-32">
+                                     <SelectValue placeholder="Konto" />
+                                   </SelectTrigger>
+                                   <SelectContent>
+                                     <SelectItem value="">Inget konto</SelectItem>
+                                     {accounts.map((account) => (
+                                       <SelectItem key={account} value={account}>
+                                         {account}
+                                       </SelectItem>
+                                     ))}
+                                   </SelectContent>
+                                 </Select>
+                                 <Input
+                                   type="number"
+                                   value={group.amount === 0 ? '' : group.amount}
+                                   onChange={(e) => updateSavingsGroup(group.id, 'amount', Number(e.target.value) || 0)}
+                                   className="w-32"
+                                 />
                                 <Button
                                   size="sm"
                                   variant="destructive"
@@ -2097,21 +2176,72 @@ const BudgetCalculator = () => {
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
                               </>
-                            ) : (
-                              <>
-                                <span className="flex-1">{group.name}</span>
-                                <span className="w-32 text-right font-medium text-green-600">
-                                  {formatCurrency(group.amount)}
-                                </span>
-                              </>
-                            )}
+                             ) : (
+                               <>
+                                 <span className="flex-1">
+                                   {group.name}{group.account ? ` (${group.account})` : ''}
+                                 </span>
+                                 <span className="w-32 text-right font-medium text-green-600">
+                                   {formatCurrency(group.amount)}
+                                 </span>
+                               </>
+                             )}
                           </div>
                         ))}
                       </div>
                     )}
-                  </div>
+                   </div>
 
-                  {/* Total Daily Budget with Dropdown */}
+                   {/* Account Management Section */}
+                   {isEditingCategories && (
+                     <div className="p-4 bg-gray-50 rounded-lg">
+                       <div className="flex justify-between items-center mb-4">
+                         <h4 className="font-semibold">Hantera konton</h4>
+                         <Button 
+                           size="sm" 
+                           variant="outline" 
+                           onClick={() => setIsEditingAccounts(!isEditingAccounts)}
+                         >
+                           {isEditingAccounts ? 'Stäng' : 'Redigera konton'}
+                         </Button>
+                       </div>
+                       
+                       {isEditingAccounts && (
+                         <div className="space-y-4">
+                           <div className="flex gap-2">
+                             <Input
+                               placeholder="Nytt kontonamn"
+                               value={newAccountName}
+                               onChange={(e) => setNewAccountName(e.target.value)}
+                               className="flex-1"
+                             />
+                             <Button onClick={addAccount} disabled={!newAccountName.trim()}>
+                               <Plus className="w-4 h-4 mr-1" />
+                               Lägg till
+                             </Button>
+                           </div>
+                           
+                           <div className="space-y-2">
+                             <h5 className="text-sm font-medium">Befintliga konton:</h5>
+                             {accounts.map((account) => (
+                               <div key={account} className="flex justify-between items-center p-2 bg-white rounded border">
+                                 <span>{account}</span>
+                                 <Button
+                                   size="sm"
+                                   variant="destructive"
+                                   onClick={() => removeAccount(account)}
+                                 >
+                                   <Trash2 className="w-4 h-4" />
+                                 </Button>
+                               </div>
+                             ))}
+                           </div>
+                         </div>
+                       )}
+                     </div>
+                   )}
+
+                   {/* Total Daily Budget with Dropdown */}
                   <div className="p-4 bg-blue-50 rounded-lg">
                     <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetTransfers')}>
                       <div>
