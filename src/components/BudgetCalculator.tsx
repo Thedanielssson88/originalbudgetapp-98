@@ -97,6 +97,7 @@ const BudgetCalculator = () => {
   const [accounts, setAccounts] = useState<string[]>(['Löpande', 'Sparkonto', 'Buffert']);
   const [newAccountName, setNewAccountName] = useState<string>('');
   const [isEditingAccounts, setIsEditingAccounts] = useState<boolean>(false);
+  const [expandedAccounts, setExpandedAccounts] = useState<{[key: string]: boolean}>({});
   
   // Alternative budget states - no longer needed for the read-only fields
   // const [altTotalDailyBudget, setAltTotalDailyBudget] = useState<number>(0);
@@ -1179,6 +1180,13 @@ const BudgetCalculator = () => {
     }));
   };
 
+  const toggleAccountDetails = (accountName: string) => {
+    setExpandedAccounts(prev => ({
+      ...prev,
+      [accountName]: !prev[accountName]
+    }));
+  };
+
   const renderHistoricalCharts = () => {
     const chartData = Object.keys(historicalData).map(monthKey => {
       const data = historicalData[monthKey];
@@ -2238,27 +2246,53 @@ const BudgetCalculator = () => {
                              }, 0);
                              
                              const netAmount = accountSavings - accountCosts;
+                             const hasDetails = accountSavings > 0 || accountCosts > 0;
                              
                              return (
                                <div key={account} className="p-3 bg-white rounded border">
                                  <div className="flex justify-between items-center">
-                                   <span className="font-medium">{account}</span>
-                                   <div className="space-y-1 text-right">
-                                     {accountSavings > 0 && (
-                                       <div className="text-green-600 text-sm">
-                                         +{formatCurrency(accountSavings)}
-                                       </div>
+                                   <div className="flex items-center gap-2">
+                                     <span className="font-medium">{account}</span>
+                                     {hasDetails && (
+                                       <button
+                                         onClick={() => toggleAccountDetails(account)}
+                                         className="text-gray-400 hover:text-gray-600"
+                                       >
+                                         {expandedAccounts[account] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                       </button>
                                      )}
-                                     {accountCosts > 0 && (
-                                       <div className="text-red-600 text-sm">
-                                         -{formatCurrency(accountCosts)}
-                                       </div>
-                                     )}
-                                     <div className={`font-semibold ${netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                       {netAmount >= 0 ? '+' : ''}{formatCurrency(netAmount)}
-                                     </div>
+                                   </div>
+                                   <div className={`font-semibold ${netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                     {netAmount >= 0 ? '+' : ''}{formatCurrency(netAmount)}
                                    </div>
                                  </div>
+                                 
+                                 {/* Expandable breakdown */}
+                                 {expandedAccounts[account] && hasDetails && (
+                                   <div className="mt-3 pt-3 border-t space-y-2">
+                                     {/* Savings breakdown */}
+                                     {savingsGroups
+                                       .filter(group => group.account === account)
+                                       .map(group => (
+                                         <div key={`savings-${group.id}`} className="flex justify-between text-sm">
+                                           <span className="text-gray-600">{group.name} (Sparande)</span>
+                                           <span className="text-green-600">+{formatCurrency(group.amount)}</span>
+                                         </div>
+                                       ))}
+                                     
+                                     {/* Costs breakdown */}
+                                     {costGroups.map(group => 
+                                       group.subCategories
+                                         ?.filter(sub => sub.account === account)
+                                         .map(sub => (
+                                           <div key={`cost-${sub.id}`} className="flex justify-between text-sm">
+                                             <span className="text-gray-600">{sub.name} (Kostnad)</span>
+                                             <span className="text-red-600">-{formatCurrency(sub.amount)}</span>
+                                           </div>
+                                         ))
+                                     )}
+                                   </div>
+                                 )}
                                </div>
                              );
                            })}
