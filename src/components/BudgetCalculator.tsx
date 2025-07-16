@@ -2751,7 +2751,7 @@ const BudgetCalculator = () => {
                             <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                               <div className="text-sm text-green-700 font-medium">Totalt sparande</div>
                               <div className="text-xl font-bold text-green-800">
-                                -{formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
+                                {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
                               </div>
                             </div>
                           </div>
