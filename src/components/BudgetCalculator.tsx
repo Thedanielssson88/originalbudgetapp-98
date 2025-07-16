@@ -2088,9 +2088,10 @@ const BudgetCalculator = () => {
                                              <Label className="text-xs">Belopp</Label>
                                              <Input
                                                type="number"
-                                               value={group.amount}
-                                               onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', parseFloat(e.target.value) || 0)}
+                                               value={group.amount === 0 ? '' : group.amount}
+                                               onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                                                className="h-8"
+                                               placeholder="0"
                                              />
                                            </div>
                                          )}
@@ -2123,10 +2124,10 @@ const BudgetCalculator = () => {
                                                </Select>
                                                <Input
                                                  type="number"
-                                                 value={sub.amount}
-                                                 onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', parseFloat(e.target.value) || 0, true, sub.id)}
+                                                 value={sub.amount === 0 ? '' : sub.amount}
+                                                 onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0, true, sub.id)}
                                                  className="h-7 text-xs"
-                                                 placeholder="Belopp"
+                                                 placeholder="0"
                                                />
                                              </div>
                                            ))}
@@ -2170,9 +2171,10 @@ const BudgetCalculator = () => {
                                            <Label className="text-xs">Belopp</Label>
                                            <Input
                                              type="number"
-                                             value={group.amount}
-                                             onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', parseFloat(e.target.value) || 0)}
+                                             value={group.amount === 0 ? '' : group.amount}
+                                             onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                                              className="h-8"
+                                             placeholder="0"
                                            />
                                          </div>
                                        </div>
