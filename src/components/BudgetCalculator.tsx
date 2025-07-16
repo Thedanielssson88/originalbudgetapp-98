@@ -81,7 +81,8 @@ const BudgetCalculator = () => {
     budgetTransfers: false,
     redDays: false,
     editMonths: false,
-    monthSelector: false
+    monthSelector: false,
+    accountSummary: false
   });
   
   // Personal budget states
@@ -2206,54 +2207,113 @@ const BudgetCalculator = () => {
                     )}
                    </div>
 
-                   {/* Account Management Section */}
-                   {isEditingCategories && (
-                     <div className="p-4 bg-gray-50 rounded-lg">
-                       <div className="flex justify-between items-center mb-4">
-                         <h4 className="font-semibold">Hantera konton</h4>
-                         <Button 
-                           size="sm" 
-                           variant="outline" 
-                           onClick={() => setIsEditingAccounts(!isEditingAccounts)}
-                         >
-                           {isEditingAccounts ? 'Stäng' : 'Redigera konton'}
-                         </Button>
+                   {/* Account Summary with Dropdown */}
+                   <div className="p-4 bg-indigo-50 rounded-lg">
+                     <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('accountSummary')}>
+                       <div>
+                         <div className="text-sm text-muted-foreground">Kontosammanställning</div>
+                         <div className="text-lg font-bold text-indigo-600">
+                           {accounts.length} konton
+                         </div>
                        </div>
-                       
-                       {isEditingAccounts && (
-                         <div className="space-y-4">
-                           <div className="flex gap-2">
-                             <Input
-                               placeholder="Nytt kontonamn"
-                               value={newAccountName}
-                               onChange={(e) => setNewAccountName(e.target.value)}
-                               className="flex-1"
-                             />
-                             <Button onClick={addAccount} disabled={!newAccountName.trim()}>
-                               <Plus className="w-4 h-4 mr-1" />
-                               Lägg till
+                       {expandedSections.accountSummary ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                     </div>
+                     
+                     {expandedSections.accountSummary && (
+                       <div className="mt-4 space-y-4">
+                         {/* Account Summary List */}
+                         <div className="space-y-3">
+                           {accounts.map(account => {
+                             // Calculate savings for this account
+                             const accountSavings = savingsGroups
+                               .filter(group => group.account === account)
+                               .reduce((sum, group) => sum + group.amount, 0);
+                             
+                             // Calculate costs for this account
+                             const accountCosts = costGroups.reduce((sum, group) => {
+                               const groupCosts = group.subCategories
+                                 ?.filter(sub => sub.account === account)
+                                 .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                               return sum + groupCosts;
+                             }, 0);
+                             
+                             const netAmount = accountSavings - accountCosts;
+                             
+                             return (
+                               <div key={account} className="p-3 bg-white rounded border">
+                                 <div className="flex justify-between items-center">
+                                   <span className="font-medium">{account}</span>
+                                   <div className="space-y-1 text-right">
+                                     {accountSavings > 0 && (
+                                       <div className="text-green-600 text-sm">
+                                         +{formatCurrency(accountSavings)}
+                                       </div>
+                                     )}
+                                     {accountCosts > 0 && (
+                                       <div className="text-red-600 text-sm">
+                                         -{formatCurrency(accountCosts)}
+                                       </div>
+                                     )}
+                                     <div className={`font-semibold ${netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                       {netAmount >= 0 ? '+' : ''}{formatCurrency(netAmount)}
+                                     </div>
+                                   </div>
+                                 </div>
+                               </div>
+                             );
+                           })}
+                         </div>
+                         
+                         {/* Account Management Section */}
+                         <div className="p-4 bg-gray-50 rounded-lg">
+                           <div className="flex justify-between items-center mb-4">
+                             <h4 className="font-semibold">Hantera konton</h4>
+                             <Button 
+                               size="sm" 
+                               variant="outline" 
+                               onClick={() => setIsEditingAccounts(!isEditingAccounts)}
+                             >
+                               {isEditingAccounts ? 'Stäng' : 'Redigera konton'}
                              </Button>
                            </div>
                            
-                           <div className="space-y-2">
-                             <h5 className="text-sm font-medium">Befintliga konton:</h5>
-                             {accounts.map((account) => (
-                               <div key={account} className="flex justify-between items-center p-2 bg-white rounded border">
-                                 <span>{account}</span>
-                                 <Button
-                                   size="sm"
-                                   variant="destructive"
-                                   onClick={() => removeAccount(account)}
-                                 >
-                                   <Trash2 className="w-4 h-4" />
+                           {isEditingAccounts && (
+                             <div className="space-y-4">
+                               <div className="flex gap-2">
+                                 <Input
+                                   placeholder="Nytt kontonamn"
+                                   value={newAccountName}
+                                   onChange={(e) => setNewAccountName(e.target.value)}
+                                   className="flex-1"
+                                 />
+                                 <Button onClick={addAccount} disabled={!newAccountName.trim()}>
+                                   <Plus className="w-4 h-4 mr-1" />
+                                   Lägg till
                                  </Button>
                                </div>
-                             ))}
-                           </div>
+                               
+                               <div className="space-y-2">
+                                 <h5 className="text-sm font-medium">Befintliga konton:</h5>
+                                 {accounts.map((account) => (
+                                   <div key={account} className="flex justify-between items-center p-2 bg-white rounded border">
+                                     <span>{account}</span>
+                                     <Button
+                                       size="sm"
+                                       variant="destructive"
+                                       onClick={() => removeAccount(account)}
+                                     >
+                                       <Trash2 className="w-4 h-4" />
+                                     </Button>
+                                   </div>
+                                 ))}
+                               </div>
+                             </div>
+                           )}
                          </div>
-                       )}
-                     </div>
-                   )}
+                       </div>
+                     )}
+                   </div>
+
 
                    {/* Total Daily Budget with Dropdown */}
                   <div className="p-4 bg-blue-50 rounded-lg">
