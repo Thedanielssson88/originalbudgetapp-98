@@ -1909,12 +1909,11 @@ const BudgetCalculator = () => {
                     </div>
                   </div>
 
-                  {/* Budget automatically calculated when values change */}
-                  <div className="text-center p-4 bg-muted/30 rounded-lg">
-                    <div className="text-sm text-muted-foreground">
-                      Budgeten beräknas automatiskt när du ändrar värden
-                    </div>
-                  </div>
+                  {/* Calculate and Show Summary Button */}
+                  <Button onClick={() => setActiveTab("sammanstallning")} className="w-full" size="lg">
+                    <Calculator className="mr-2 h-4 w-4" />
+                    Beräkna och visa sammanställningen
+                  </Button>
                 </CardContent>
               </Card>
 
