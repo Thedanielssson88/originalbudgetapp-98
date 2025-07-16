@@ -82,7 +82,8 @@ const BudgetCalculator = () => {
     redDays: false,
     editMonths: false,
     monthSelector: false,
-    accountSummary: false
+    accountSummary: false,
+    budgetTemplates: false
   });
   
   // Personal budget states
@@ -98,6 +99,12 @@ const BudgetCalculator = () => {
   const [newAccountName, setNewAccountName] = useState<string>('');
   const [isEditingAccounts, setIsEditingAccounts] = useState<boolean>(false);
   const [expandedAccounts, setExpandedAccounts] = useState<{[key: string]: boolean}>({});
+
+  // Budget template states
+  const [budgetTemplates, setBudgetTemplates] = useState<{[key: string]: any}>({});
+  const [newTemplateName, setNewTemplateName] = useState<string>('');
+  const [selectedTemplateSourceMonth, setSelectedTemplateSourceMonth] = useState<string>('');
+  const [expandedTemplates, setExpandedTemplates] = useState<{[key: string]: boolean}>({});
   
   // Alternative budget states - no longer needed for the read-only fields
   // const [altTotalDailyBudget, setAltTotalDailyBudget] = useState<number>(0);
@@ -253,6 +260,9 @@ const BudgetCalculator = () => {
         // Load accounts data
         setAccounts(parsed.accounts || ['Löpande', 'Sparkonto', 'Buffert']);
         
+        // Load budget templates
+        setBudgetTemplates(parsed.budgetTemplates || {});
+        
         if (parsed.results) {
           setResults(parsed.results);
         }
@@ -353,7 +363,8 @@ const BudgetCalculator = () => {
       susannaPersonalCosts,
       susannaPersonalSavings,
       historicalData,
-      accounts
+      accounts,
+      budgetTemplates
     };
     localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
   };
@@ -999,6 +1010,51 @@ const BudgetCalculator = () => {
     }
   };
 
+  // Budget template functions
+  const saveBudgetTemplate = (templateName: string, sourceMonth: string) => {
+    const sourceData = historicalData[sourceMonth];
+    if (!sourceData || !templateName.trim()) return;
+    
+    // Create template with only common costs, savings, and transfers
+    const templateData = {
+      name: templateName.trim(),
+      date: new Date().toISOString(),
+      costGroups: JSON.parse(JSON.stringify(sourceData.costGroups || [])),
+      savingsGroups: JSON.parse(JSON.stringify(sourceData.savingsGroups || [])),
+      dailyTransfer: sourceData.dailyTransfer || 300,
+      weekendTransfer: sourceData.weekendTransfer || 540,
+      customHolidays: JSON.parse(JSON.stringify(sourceData.customHolidays || []))
+    };
+    
+    setBudgetTemplates(prev => ({
+      ...prev,
+      [templateName.trim()]: templateData
+    }));
+  };
+
+  const loadBudgetTemplate = (templateName: string) => {
+    const template = budgetTemplates[templateName];
+    if (!template) return;
+    
+    // Load template data into current form
+    setCostGroups(JSON.parse(JSON.stringify(template.costGroups || [])));
+    setSavingsGroups(JSON.parse(JSON.stringify(template.savingsGroups || [])));
+    setDailyTransfer(template.dailyTransfer || 300);
+    setWeekendTransfer(template.weekendTransfer || 540);
+    setCustomHolidays(JSON.parse(JSON.stringify(template.customHolidays || [])));
+    
+    // Save current month after loading template
+    saveToSelectedMonth();
+  };
+
+  const deleteBudgetTemplate = (templateName: string) => {
+    setBudgetTemplates(prev => {
+      const updated = { ...prev };
+      delete updated[templateName];
+      return updated;
+    });
+  };
+
   // Backup functions
   const saveBackup = () => {
     const backupData = {
@@ -1019,7 +1075,8 @@ const BudgetCalculator = () => {
       susannaPersonalCosts,
       susannaPersonalSavings,
       historicalData,
-      accounts
+      accounts,
+      budgetTemplates
     };
     localStorage.setItem('budgetCalculatorBackup', JSON.stringify(backupData));
     setStandardValues(backupData);
@@ -1047,6 +1104,7 @@ const BudgetCalculator = () => {
       setSusannaPersonalSavings(standardValues.susannaPersonalSavings || []);
       setHistoricalData(standardValues.historicalData || {});
       setAccounts(standardValues.accounts || ['Löpande', 'Sparkonto', 'Buffert']);
+      setBudgetTemplates(standardValues.budgetTemplates || {});
       console.log('Backup loaded successfully - all data replaced');
     }
   };
@@ -1793,6 +1851,173 @@ const BudgetCalculator = () => {
                           Kopierar all data från {selectedSourceMonth} till {newMonthFromCopy}
                         </div>
                       )}
+                    </div>
+                  )}
+                  
+                  {/* Budget Template Section */}
+                  {Object.keys(historicalData).length > 0 && (
+                    <div className="p-4 bg-muted/50 rounded-lg border">
+                      <h4 className="text-sm font-medium mb-3">Kopiera vald månad till budgetmall</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <Label htmlFor="template-source-month">Välj månad att kopiera från</Label>
+                          <Select value={selectedTemplateSourceMonth} onValueChange={setSelectedTemplateSourceMonth}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Välj månad..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Object.keys(historicalData)
+                                .sort((a, b) => b.localeCompare(a))
+                                .map(month => (
+                                  <SelectItem key={month} value={month}>
+                                    {month}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="template-name">Namn på budgetmall</Label>
+                          <Input
+                            id="template-name"
+                            type="text"
+                            value={newTemplateName}
+                            onChange={(e) => setNewTemplateName(e.target.value)}
+                            placeholder="T.ex. Semesterbudget"
+                          />
+                        </div>
+                        <div className="flex items-end">
+                          <Button
+                            onClick={() => {
+                              if (selectedTemplateSourceMonth && newTemplateName.trim() && !budgetTemplates[newTemplateName.trim()]) {
+                                saveBudgetTemplate(newTemplateName, selectedTemplateSourceMonth);
+                                setNewTemplateName('');
+                                setSelectedTemplateSourceMonth('');
+                              }
+                            }}
+                            disabled={!selectedTemplateSourceMonth || !newTemplateName.trim() || budgetTemplates[newTemplateName.trim()]}
+                            size="sm"
+                            className="w-full"
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Skapa mall
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {newTemplateName.trim() && budgetTemplates[newTemplateName.trim()] && (
+                        <div className="mt-2 text-sm text-destructive">
+                          Budgetmall "{newTemplateName}" finns redan
+                        </div>
+                      )}
+                      
+                      {selectedTemplateSourceMonth && newTemplateName.trim() && !budgetTemplates[newTemplateName.trim()] && (
+                        <div className="mt-2 text-sm text-muted-foreground">
+                          Skapar budgetmall "{newTemplateName}" från {selectedTemplateSourceMonth} (endast gemensamma kostnader, sparande och överföringar)
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Budget Templates Section */}
+              {Object.keys(budgetTemplates).length > 0 && (
+                <div className="mt-4">
+                  <Button
+                    onClick={() => setExpandedSections(prev => ({ ...prev, budgetTemplates: !prev.budgetTemplates }))}
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-between"
+                  >
+                    <span>Budgetmallar ({Object.keys(budgetTemplates).length})</span>
+                    {expandedSections.budgetTemplates ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </Button>
+                  
+                  {expandedSections.budgetTemplates && (
+                    <div className="mt-2 space-y-2">
+                      {Object.keys(budgetTemplates).sort().map(templateName => (
+                        <div key={templateName} className="p-3 bg-muted/30 rounded-md border">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h5 className="font-medium text-sm">{templateName}</h5>
+                              <p className="text-xs text-muted-foreground">
+                                Skapad: {new Date(budgetTemplates[templateName].date).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                onClick={() => loadBudgetTemplate(templateName)}
+                                size="sm"
+                                variant="outline"
+                                className="text-xs"
+                              >
+                                Ladda mall
+                              </Button>
+                              <Button
+                                onClick={() => deleteBudgetTemplate(templateName)}
+                                size="sm"
+                                variant="destructive"
+                                className="text-xs"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          <Button
+                            onClick={() => setExpandedTemplates(prev => ({ ...prev, [templateName]: !prev[templateName] }))}
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-between text-xs"
+                          >
+                            <span>Visa detaljer</span>
+                            {expandedTemplates[templateName] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                          </Button>
+                          
+                          {expandedTemplates[templateName] && (
+                            <div className="mt-2 space-y-2 text-xs">
+                              <div>
+                                <strong>Gemensamma kostnader:</strong>
+                                {budgetTemplates[templateName].costGroups.length > 0 ? (
+                                  <ul className="ml-4 mt-1">
+                                    {budgetTemplates[templateName].costGroups.map((group: any) => (
+                                      <li key={group.id}>
+                                        {group.name}: {group.amount.toLocaleString()} kr
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <p className="ml-4 text-muted-foreground">Inga kostnader</p>
+                                )}
+                              </div>
+                              
+                              <div>
+                                <strong>Sparande:</strong>
+                                {budgetTemplates[templateName].savingsGroups.length > 0 ? (
+                                  <ul className="ml-4 mt-1">
+                                    {budgetTemplates[templateName].savingsGroups.map((group: any) => (
+                                      <li key={group.id}>
+                                        {group.name}: {group.amount.toLocaleString()} kr
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <p className="ml-4 text-muted-foreground">Inget sparande</p>
+                                )}
+                              </div>
+                              
+                              <div>
+                                <strong>Överföringar:</strong>
+                                <ul className="ml-4 mt-1">
+                                  <li>Daglig överföring: {budgetTemplates[templateName].dailyTransfer.toLocaleString()} kr</li>
+                                  <li>Fredagsöverföring: {budgetTemplates[templateName].weekendTransfer.toLocaleString()} kr</li>
+                                </ul>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
