@@ -90,7 +90,8 @@ const BudgetCalculator = () => {
     accountSummary: false,
     budgetTemplates: false,
     totalIncome: false,
-    budgetSummary: false
+    budgetSummary: false,
+    remainingToAllocate: false
   });
   
   // Personal budget states
@@ -3027,10 +3028,35 @@ const BudgetCalculator = () => {
 
                   {/* Remaining to Allocate */}
                   <div className="p-4 bg-purple-50 rounded-lg">
-                    <div className="text-sm text-muted-foreground">Kvar att fördela</div>
-                    <div className={`text-2xl font-bold ${results && results.balanceLeft >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {results ? formatCurrency(results.balanceLeft) : 'Beräknar...'}
+                    <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('remainingToAllocate')}>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Kvar att fördela</div>
+                        <div className="text-2xl font-bold text-purple-600">
+                          {results ? formatCurrency(results.andreasShare + results.susannaShare) : 'Beräknar...'}
+                        </div>
+                      </div>
+                      {expandedSections.remainingToAllocate ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                     </div>
+                    
+                    {expandedSections.remainingToAllocate && results && (
+                      <div className="mt-4 space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                            <div className="text-sm text-purple-700 font-medium">{userName1} andel</div>
+                            <div className="text-xl font-bold text-purple-800">
+                              {formatCurrency(results.andreasShare)}
+                            </div>
+                          </div>
+                          
+                          <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                            <div className="text-sm text-purple-700 font-medium">{userName2} andel</div>
+                            <div className="text-xl font-bold text-purple-800">
+                              {formatCurrency(results.susannaShare)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
