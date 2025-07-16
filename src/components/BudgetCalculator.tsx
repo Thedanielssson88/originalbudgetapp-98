@@ -2164,20 +2164,7 @@ const BudgetCalculator = () => {
                 </div>
               )}
               
-              {/* Budget Templates Section */}
-              {Object.keys(budgetTemplates).length > 0 && (
-                <div className="mt-4">
-                  <Button
-                    onClick={() => setExpandedSections(prev => ({ ...prev, budgetTemplates: !prev.budgetTemplates }))}
-                    variant="outline"
-                    size="sm"
-                    className="w-full justify-between"
-                  >
-                    <span>Budgetmallar ({Object.keys(budgetTemplates).length})</span>
-                    {expandedSections.budgetTemplates ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  </Button>
-                  
-                   {expandedSections.budgetTemplates && (
+              {/* Budget Templates Section - Moved to Settings */}
                      <div className="mt-2 space-y-2">
                        {Object.keys(budgetTemplates).sort().map(templateName => (
                          <div key={templateName}>
