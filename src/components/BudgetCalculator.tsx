@@ -2690,19 +2690,11 @@ const BudgetCalculator = () => {
                     {results && (
                       <>
                         <div className="flex justify-between border-t pt-2">
-                          <span>Egen budget ({results.daysUntil25th} dagar):</span>
+                          <span>Kvar per dag till den 25e ({results.daysUntil25th} dagar):</span>
                           <span className="font-medium">
                             {formatCurrency((getCurrentPersonIncome() - 
                               getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0) - 
                               getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)) / results.daysUntil25th)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>.min budget ({results.daysUntil25th} dagar):</span>
-                          <span className="font-medium">
-                            {formatCurrency(Math.max(0, (getCurrentPersonIncome() - 
-                              getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0) - 
-                              getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)) / results.daysUntil25th))}
                           </span>
                         </div>
                       </>
