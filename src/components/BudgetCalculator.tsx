@@ -1927,19 +1927,20 @@ const BudgetCalculator = () => {
             </div>
 
           </CardContent>
-          </CardContent>
         </Card>
 
         {/* Budget Template Edit Dialog */}
-                               <CardHeader>
-                                 <CardTitle className="flex items-center justify-between">
-                                   <span>Redigera budgetmall: {editingTemplate}</span>
-                                   <Button onClick={saveEditedTemplate} size="sm">
-                                     <Save className="w-4 h-4 mr-1" />
-                                     Spara
-                                   </Button>
-                                 </CardTitle>
-                               </CardHeader>
+        {editingTemplate && editingTemplateData && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Redigera budgetmall: {editingTemplate}</span>
+                <Button onClick={saveEditedTemplate} size="sm">
+                  <Save className="w-4 h-4 mr-1" />
+                  Spara
+                </Button>
+              </CardTitle>
+            </CardHeader>
             <CardContent className="space-y-4">
               {/* Cost Categories */}
               <div>
