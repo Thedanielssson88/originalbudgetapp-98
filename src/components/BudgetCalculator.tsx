@@ -2164,7 +2164,58 @@ const BudgetCalculator = () => {
                 </div>
               )}
               
-              {/* Budget Templates Section - Moved to Settings */}
+              
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
+                <TabsList className="flex justify-between items-center w-full p-1 bg-muted rounded-md">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const tabs = ['inkomster', 'sammanstallning', 'overforing', 'egen-budget', 'historia', 'installningar'];
+                      const currentDate = new Date();
+                      const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                      const isCurrentMonth = selectedBudgetMonth === currentMonthKey;
+                      const filteredTabs = isCurrentMonth ? tabs : tabs.filter(tab => tab !== 'overforing');
+                      
+                      const currentIndex = filteredTabs.indexOf(activeTab);
+                      const previousIndex = (currentIndex - 1 + filteredTabs.length) % filteredTabs.length;
+                      setActiveTab(filteredTabs[previousIndex]);
+                    }}
+                    className="flex items-center gap-1"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  
+                  <div className="flex-1 text-center">
+                    <span className="text-sm font-medium">
+                      {activeTab === 'inkomster' && 'Inkomster och Utgifter'}
+                      {activeTab === 'sammanstallning' && 'Sammanställning'}
+                      {activeTab === 'overforing' && 'Överföring'}
+                      {activeTab === 'egen-budget' && 'Egen Budget'}
+                      {activeTab === 'historia' && 'Historia'}
+                      {activeTab === 'installningar' && 'Inställningar'}
+                    </span>
+                  </div>
+                  
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const tabs = ['inkomster', 'sammanstallning', 'overforing', 'egen-budget', 'historia', 'installningar'];
+                      const currentDate = new Date();
+                      const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                      const isCurrentMonth = selectedBudgetMonth === currentMonthKey;
+                      const filteredTabs = isCurrentMonth ? tabs : tabs.filter(tab => tab !== 'overforing');
+                      
+                      const currentIndex = filteredTabs.indexOf(activeTab);
+                      const nextIndex = (currentIndex + 1) % filteredTabs.length;
+                      setActiveTab(filteredTabs[nextIndex]);
+                    }}
+                    className="flex items-center gap-1"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </TabsList>
                      <div className="mt-2 space-y-2">
                        {Object.keys(budgetTemplates).sort().map(templateName => (
                          <div key={templateName}>
@@ -2473,12 +2524,58 @@ const BudgetCalculator = () => {
                          </div>
                        ))}
                      </div>
-                   )}
-                </div>
-              )}
+        
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
+          <TabsList className="flex justify-between items-center w-full p-1 bg-muted rounded-md">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const tabs = ['inkomster', 'sammanstallning', 'overforing', 'egen-budget', 'historia', 'installningar'];
+                const currentDate = new Date();
+                const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                const isCurrentMonth = selectedBudgetMonth === currentMonthKey;
+                const filteredTabs = isCurrentMonth ? tabs : tabs.filter(tab => tab !== 'overforing');
+                
+                const currentIndex = filteredTabs.indexOf(activeTab);
+                const previousIndex = (currentIndex - 1 + filteredTabs.length) % filteredTabs.length;
+                setActiveTab(filteredTabs[previousIndex]);
+              }}
+              className="flex items-center gap-1"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            
+            <div className="flex-1 text-center">
+              <span className="text-sm font-medium">
+                {activeTab === 'inkomster' && 'Inkomster och Utgifter'}
+                {activeTab === 'sammanstallning' && 'Sammanställning'}
+                {activeTab === 'overforing' && 'Överföring'}
+                {activeTab === 'egen-budget' && 'Egen Budget'}
+                {activeTab === 'historia' && 'Historia'}
+                {activeTab === 'installningar' && 'Inställningar'}
+              </span>
             </div>
-          </CardContent>
-        </Card>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const tabs = ['inkomster', 'sammanstallning', 'overforing', 'egen-budget', 'historia', 'installningar'];
+                const currentDate = new Date();
+                const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                const isCurrentMonth = selectedBudgetMonth === currentMonthKey;
+                const filteredTabs = isCurrentMonth ? tabs : tabs.filter(tab => tab !== 'overforing');
+                
+                const currentIndex = filteredTabs.indexOf(activeTab);
+                const nextIndex = (currentIndex + 1) % filteredTabs.length;
+                setActiveTab(filteredTabs[nextIndex]);
+              }}
+              className="flex items-center gap-1"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </TabsList>
 
         {/* Budget Template Edit Dialog */}
         {editingTemplate && editingTemplateData && (
