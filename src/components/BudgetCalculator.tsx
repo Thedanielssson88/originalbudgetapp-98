@@ -2173,12 +2173,12 @@ const BudgetCalculator = () => {
             <div className={`relative overflow-hidden ${
               isAnimating && previousTab === "inkomster" 
                 ? swipeDirection === "left" 
-                  ? "animate-slide-out-right" 
-                  : "animate-slide-out-left"
+                  ? "animate-slide-out-left" 
+                  : "animate-slide-out-right"
                 : isAnimating && activeTab === "inkomster"
                   ? swipeDirection === "left"
-                    ? "animate-slide-in-left"
-                    : "animate-slide-in-right"
+                    ? "animate-slide-in-right"
+                    : "animate-slide-in-left"
                   : ""
             }`}>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -2316,12 +2316,12 @@ const BudgetCalculator = () => {
             <div className={`relative overflow-hidden ${
               isAnimating && previousTab === "sammanstallning" 
                 ? swipeDirection === "left" 
-                  ? "animate-slide-out-right" 
-                  : "animate-slide-out-left"
+                  ? "animate-slide-out-left" 
+                  : "animate-slide-out-right"
                 : isAnimating && activeTab === "sammanstallning"
                   ? swipeDirection === "left"
-                    ? "animate-slide-in-left"
-                    : "animate-slide-in-right"
+                    ? "animate-slide-in-right"
+                    : "animate-slide-in-left"
                   : ""
             }`}>
               <div className="space-y-6">
@@ -3030,12 +3030,12 @@ const BudgetCalculator = () => {
             <div className={`relative overflow-hidden ${
               isAnimating && previousTab === "overforing" 
                 ? swipeDirection === "left" 
-                  ? "animate-slide-out-right" 
-                  : "animate-slide-out-left"
+                  ? "animate-slide-out-left" 
+                  : "animate-slide-out-right"
                 : isAnimating && activeTab === "overforing"
                   ? swipeDirection === "left"
-                    ? "animate-slide-in-left"
-                    : "animate-slide-in-right"
+                    ? "animate-slide-in-right"
+                    : "animate-slide-in-left"
                   : ""
             }`}>
               <Card>
@@ -3118,12 +3118,12 @@ const BudgetCalculator = () => {
             <div className={`relative overflow-hidden ${
               isAnimating && previousTab === "egen-budget" 
                 ? swipeDirection === "left" 
-                  ? "animate-slide-out-right" 
-                  : "animate-slide-out-left"
+                  ? "animate-slide-out-left" 
+                  : "animate-slide-out-right"
                 : isAnimating && activeTab === "egen-budget"
                   ? swipeDirection === "left"
-                    ? "animate-slide-in-left"
-                    : "animate-slide-in-right"
+                    ? "animate-slide-in-right"
+                    : "animate-slide-in-left"
                   : ""
             }`}>
               <Card>
@@ -3342,12 +3342,12 @@ const BudgetCalculator = () => {
             <div className={`relative overflow-hidden ${
               isAnimating && previousTab === "historia" 
                 ? swipeDirection === "left" 
-                  ? "animate-slide-out-right" 
-                  : "animate-slide-out-left"
+                  ? "animate-slide-out-left" 
+                  : "animate-slide-out-right"
                 : isAnimating && activeTab === "historia"
                   ? swipeDirection === "left"
-                    ? "animate-slide-in-left"
-                    : "animate-slide-in-right"
+                    ? "animate-slide-in-right"
+                    : "animate-slide-in-left"
                   : ""
             }`}>
               <div className="space-y-6">
@@ -3389,12 +3389,12 @@ const BudgetCalculator = () => {
             <div className={`relative overflow-hidden ${
               isAnimating && previousTab === "installningar" 
                 ? swipeDirection === "left" 
-                  ? "animate-slide-out-right" 
-                  : "animate-slide-out-left"
+                  ? "animate-slide-out-left" 
+                  : "animate-slide-out-right"
                 : isAnimating && activeTab === "installningar"
                   ? swipeDirection === "left"
-                    ? "animate-slide-in-left"
-                    : "animate-slide-in-right"
+                    ? "animate-slide-in-right"
+                    : "animate-slide-in-left"
                   : ""
             }`}>
               <div className="space-y-6">
