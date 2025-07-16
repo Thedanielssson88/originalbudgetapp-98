@@ -77,6 +77,9 @@ const BudgetCalculator = () => {
   
   // Tab and expandable sections state
   const [activeTab, setActiveTab] = useState<string>("inkomster");
+  const [previousTab, setPreviousTab] = useState<string>("");
+  const [isAnimating, setIsAnimating] = useState<boolean>(false);
+  const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null);
   const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({
     costCategories: false,
     savingsCategories: false,
@@ -126,17 +129,45 @@ const BudgetCalculator = () => {
   };
 
   const navigateToNextTab = () => {
+    if (isAnimating) return;
+    
     const tabs = getTabOrder();
     const currentIndex = tabs.indexOf(activeTab);
     const nextIndex = (currentIndex + 1) % tabs.length;
-    setActiveTab(tabs[nextIndex]);
+    
+    setPreviousTab(activeTab);
+    setSwipeDirection("left");
+    setIsAnimating(true);
+    
+    setTimeout(() => {
+      setActiveTab(tabs[nextIndex]);
+      setTimeout(() => {
+        setIsAnimating(false);
+        setSwipeDirection(null);
+        setPreviousTab("");
+      }, 300);
+    }, 150);
   };
 
   const navigateToPreviousTab = () => {
+    if (isAnimating) return;
+    
     const tabs = getTabOrder();
     const currentIndex = tabs.indexOf(activeTab);
     const previousIndex = currentIndex === 0 ? tabs.length - 1 : currentIndex - 1;
-    setActiveTab(tabs[previousIndex]);
+    
+    setPreviousTab(activeTab);
+    setSwipeDirection("right");
+    setIsAnimating(true);
+    
+    setTimeout(() => {
+      setActiveTab(tabs[previousIndex]);
+      setTimeout(() => {
+        setIsAnimating(false);
+        setSwipeDirection(null);
+        setPreviousTab("");
+      }, 300);
+    }, 150);
   };
 
   // Add swipe gestures
@@ -2139,7 +2170,18 @@ const BudgetCalculator = () => {
 
           {/* Tab 1: Inkomster och Utgifter */}
           <TabsContent value="inkomster" className="mt-0">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className={`relative overflow-hidden ${
+              isAnimating && previousTab === "inkomster" 
+                ? swipeDirection === "left" 
+                  ? "animate-slide-out-left" 
+                  : "animate-slide-out-right"
+                : isAnimating && activeTab === "inkomster"
+                  ? swipeDirection === "left"
+                    ? "animate-slide-in-left"
+                    : "animate-slide-in-right"
+                  : ""
+            }`}>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Input Section */}
               <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
                 <CardHeader>
@@ -2265,12 +2307,24 @@ const BudgetCalculator = () => {
                   </div>
                 </CardContent>
               </Card>
+              </div>
             </div>
           </TabsContent>
 
           {/* Tab 2: Sammanställning */}
           <TabsContent value="sammanstallning" className="mt-0">
-            <div className="space-y-6">
+            <div className={`relative overflow-hidden ${
+              isAnimating && previousTab === "sammanstallning" 
+                ? swipeDirection === "left" 
+                  ? "animate-slide-out-left" 
+                  : "animate-slide-out-right"
+                : isAnimating && activeTab === "sammanstallning"
+                  ? swipeDirection === "left"
+                    ? "animate-slide-in-left"
+                    : "animate-slide-in-right"
+                  : ""
+            }`}>
+              <div className="space-y-6">
               {/* Total Income Display */}
               <Card>
                 <CardHeader>
@@ -2967,12 +3021,24 @@ const BudgetCalculator = () => {
                   </div>
                 </CardContent>
               </Card>
+              </div>
             </div>
           </TabsContent>
 
           {/* Tab 3: Överföring */}
           <TabsContent value="overforing" className="mt-0">
-            <Card>
+            <div className={`relative overflow-hidden ${
+              isAnimating && previousTab === "overforing" 
+                ? swipeDirection === "left" 
+                  ? "animate-slide-out-left" 
+                  : "animate-slide-out-right"
+                : isAnimating && activeTab === "overforing"
+                  ? swipeDirection === "left"
+                    ? "animate-slide-in-left"
+                    : "animate-slide-in-right"
+                  : ""
+            }`}>
+              <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <DollarSign className="h-5 w-5 text-primary" />
@@ -3044,11 +3110,23 @@ const BudgetCalculator = () => {
                 )}
               </CardContent>
             </Card>
+            </div>
           </TabsContent>
 
           {/* Tab 4: Egen Budget */}
           <TabsContent value="egen-budget" className="mt-0">
-            <Card>
+            <div className={`relative overflow-hidden ${
+              isAnimating && previousTab === "egen-budget" 
+                ? swipeDirection === "left" 
+                  ? "animate-slide-out-left" 
+                  : "animate-slide-out-right"
+                : isAnimating && activeTab === "egen-budget"
+                  ? swipeDirection === "left"
+                    ? "animate-slide-in-left"
+                    : "animate-slide-in-right"
+                  : ""
+            }`}>
+              <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5 text-primary" />
@@ -3256,11 +3334,23 @@ const BudgetCalculator = () => {
                 </div>
               </CardContent>
             </Card>
+            </div>
           </TabsContent>
 
           {/* Tab 5: Historia */}
           <TabsContent value="historia" className="mt-0">
-            <div className="space-y-6">
+            <div className={`relative overflow-hidden ${
+              isAnimating && previousTab === "historia" 
+                ? swipeDirection === "left" 
+                  ? "animate-slide-out-left" 
+                  : "animate-slide-out-right"
+                : isAnimating && activeTab === "historia"
+                  ? swipeDirection === "left"
+                    ? "animate-slide-in-left"
+                    : "animate-slide-in-right"
+                  : ""
+            }`}>
+              <div className="space-y-6">
               {/* Charts Section */}
               <Card>
                 <CardHeader>
@@ -3290,12 +3380,24 @@ const BudgetCalculator = () => {
                   {renderHistoricalData()}
                 </CardContent>
               </Card>
+              </div>
             </div>
           </TabsContent>
 
           {/* Settings Tab */}
           <TabsContent value="installningar" className="mt-0">
-            <div className="space-y-6">
+            <div className={`relative overflow-hidden ${
+              isAnimating && previousTab === "installningar" 
+                ? swipeDirection === "left" 
+                  ? "animate-slide-out-left" 
+                  : "animate-slide-out-right"
+                : isAnimating && activeTab === "installningar"
+                  ? swipeDirection === "left"
+                    ? "animate-slide-in-left"
+                    : "animate-slide-in-right"
+                  : ""
+            }`}>
+              <div className="space-y-6">
               {/* User Names Settings */}
               <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
                 <CardHeader>
@@ -3947,6 +4049,7 @@ const BudgetCalculator = () => {
                   )}
                 </CardContent>
               </Card>
+              </div>
             </div>
           </TabsContent>
         </Tabs>
