@@ -752,7 +752,7 @@ const BudgetCalculator = () => {
     const totalSavings = savingsGroups.reduce((sum, group) => sum + group.amount, 0);
     
     const totalMonthlyExpenses = totalCosts + totalSavings;
-    const balanceLeft = totalSalary - budgetData.totalBudget - totalMonthlyExpenses;
+    const preliminaryBalance = totalSalary - budgetData.totalBudget - totalMonthlyExpenses;
     
     let susannaShare = 0;
     let andreasShare = 0;
@@ -762,9 +762,12 @@ const BudgetCalculator = () => {
     if (totalSalary > 0) {
       susannaPercentage = (susannaTotalIncome / totalSalary) * 100;
       andreasPercentage = (andreasTotalIncome / totalSalary) * 100;
-      susannaShare = (susannaTotalIncome / totalSalary) * balanceLeft;
-      andreasShare = (andreasTotalIncome / totalSalary) * balanceLeft;
+      susannaShare = (susannaTotalIncome / totalSalary) * preliminaryBalance;
+      andreasShare = (andreasTotalIncome / totalSalary) * preliminaryBalance;
     }
+    
+    // Final balance should be 0 when individual shares are included
+    const balanceLeft = preliminaryBalance - susannaShare - andreasShare;
     
     console.log('Holiday days calculated:', budgetData.holidayDays);
     setResults({
