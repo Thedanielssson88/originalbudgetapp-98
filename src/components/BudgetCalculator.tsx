@@ -1013,11 +1013,6 @@ const BudgetCalculator = () => {
   // Budget template functions
   const saveBudgetTemplate = (templateName: string, sourceMonth: string) => {
     const sourceData = historicalData[sourceMonth];
-    console.log('Saving template from month:', sourceMonth);
-    console.log('Source data:', sourceData);
-    console.log('Source costGroups:', sourceData?.costGroups);
-    console.log('Source savingsGroups:', sourceData?.savingsGroups);
-    
     if (!sourceData || !templateName.trim()) return;
     
     // Create template with complete cost and savings data including subcategories and accounts
@@ -1033,10 +1028,6 @@ const BudgetCalculator = () => {
       accounts: JSON.parse(JSON.stringify(sourceData.accounts || ['Löpande', 'Sparkonto', 'Buffert']))
     };
     
-    console.log('Template data being saved:', templateData);
-    console.log('Template costGroups:', templateData.costGroups);
-    console.log('Template savingsGroups:', templateData.savingsGroups);
-    
     setBudgetTemplates(prev => ({
       ...prev,
       [templateName.trim()]: templateData
@@ -1045,11 +1036,6 @@ const BudgetCalculator = () => {
 
   const loadBudgetTemplate = (templateName: string) => {
     const template = budgetTemplates[templateName];
-    console.log('Loading template:', templateName);
-    console.log('Template data:', template);
-    console.log('Template costGroups:', template?.costGroups);
-    console.log('Template savingsGroups:', template?.savingsGroups);
-    
     if (!template) return;
     
     // Load template data into current form with complete data
@@ -1063,9 +1049,6 @@ const BudgetCalculator = () => {
     if (template.accounts) {
       setAccounts(JSON.parse(JSON.stringify(template.accounts)));
     }
-    
-    console.log('Loaded costGroups:', template.costGroups);
-    console.log('Loaded savingsGroups:', template.savingsGroups);
     
     // Save current month after loading template
     saveToSelectedMonth();
@@ -2004,10 +1987,23 @@ const BudgetCalculator = () => {
                               <div>
                                 <strong>Gemensamma kostnader:</strong>
                                 {budgetTemplates[templateName].costGroups.length > 0 ? (
-                                  <ul className="ml-4 mt-1">
+                                  <ul className="ml-4 mt-1 space-y-1">
                                     {budgetTemplates[templateName].costGroups.map((group: any) => (
-                                      <li key={group.id}>
-                                        {group.name}: {group.amount.toLocaleString()} kr
+                                      <li key={group.id} className="space-y-1">
+                                        <div className="font-medium">
+                                          {group.name}: {group.amount.toLocaleString()} kr
+                                          {group.account && <span className="ml-2 text-muted-foreground">({group.account})</span>}
+                                        </div>
+                                        {group.subCategories && group.subCategories.length > 0 && (
+                                          <ul className="ml-4 text-xs space-y-0.5">
+                                            {group.subCategories.map((sub: any) => (
+                                              <li key={sub.id} className="text-muted-foreground">
+                                                • {sub.name}: {sub.amount.toLocaleString()} kr
+                                                {sub.account && <span className="ml-2">({sub.account})</span>}
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        )}
                                       </li>
                                     ))}
                                   </ul>
@@ -2019,10 +2015,23 @@ const BudgetCalculator = () => {
                               <div>
                                 <strong>Sparande:</strong>
                                 {budgetTemplates[templateName].savingsGroups.length > 0 ? (
-                                  <ul className="ml-4 mt-1">
+                                  <ul className="ml-4 mt-1 space-y-1">
                                     {budgetTemplates[templateName].savingsGroups.map((group: any) => (
-                                      <li key={group.id}>
-                                        {group.name}: {group.amount.toLocaleString()} kr
+                                      <li key={group.id} className="space-y-1">
+                                        <div className="font-medium">
+                                          {group.name}: {group.amount.toLocaleString()} kr
+                                          {group.account && <span className="ml-2 text-muted-foreground">({group.account})</span>}
+                                        </div>
+                                        {group.subCategories && group.subCategories.length > 0 && (
+                                          <ul className="ml-4 text-xs space-y-0.5">
+                                            {group.subCategories.map((sub: any) => (
+                                              <li key={sub.id} className="text-muted-foreground">
+                                                • {sub.name}: {sub.amount.toLocaleString()} kr
+                                                {sub.account && <span className="ml-2">({sub.account})</span>}
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        )}
                                       </li>
                                     ))}
                                   </ul>
