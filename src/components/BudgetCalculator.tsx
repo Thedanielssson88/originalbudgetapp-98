@@ -2046,14 +2046,14 @@ const BudgetCalculator = () => {
                                            <Input
                                              value={sub.name}
                                              onChange={(e) => updateSubCategory(group.id, sub.id, 'name', e.target.value)}
-                                             className="flex-1 text-base"
+                                             className="w-32 text-base"
                                              placeholder="Underkategori namn"
                                            />
                                            <Input
                                              type="number"
                                              value={sub.amount === 0 ? '' : sub.amount}
                                              onChange={(e) => updateSubCategory(group.id, sub.id, 'amount', Number(e.target.value) || 0)}
-                                             className="w-32"
+                                             className="flex-1"
                                              placeholder="Belopp"
                                            />
                                            <Button
