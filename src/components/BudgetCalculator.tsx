@@ -271,6 +271,51 @@ const BudgetCalculator = () => {
     }
   }, []);
 
+  // Save current data to the selected month in historical data
+  const saveToSelectedMonth = () => {
+    const currentDate = new Date();
+    const monthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    
+    const monthSnapshot = {
+      month: monthKey,
+      date: currentDate.toISOString(),
+      andreasSalary,
+      andreasförsäkringskassan,
+      andreasbarnbidrag,
+      susannaSalary,
+      susannaförsäkringskassan,
+      susannabarnbidrag,
+      totalSalary: andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag,
+      costGroups: JSON.parse(JSON.stringify(costGroups)),
+      savingsGroups: JSON.parse(JSON.stringify(savingsGroups)),
+      dailyTransfer,
+      weekendTransfer,
+      customHolidays: JSON.parse(JSON.stringify(customHolidays)),
+      andreasPersonalCosts: JSON.parse(JSON.stringify(andreasPersonalCosts)),
+      andreasPersonalSavings: JSON.parse(JSON.stringify(andreasPersonalSavings)),
+      susannaPersonalCosts: JSON.parse(JSON.stringify(susannaPersonalCosts)),
+      susannaPersonalSavings: JSON.parse(JSON.stringify(susannaPersonalSavings)),
+      // Include any existing calculated results if they exist
+      ...(results && {
+        totalMonthlyExpenses: results.totalMonthlyExpenses,
+        balanceLeft: results.balanceLeft,
+        susannaShare: results.susannaShare,
+        andreasShare: results.andreasShare,
+        susannaPercentage: results.susannaPercentage,
+        andreasPercentage: results.andreasPercentage,
+        totalDailyBudget: results.totalDailyBudget,
+        remainingDailyBudget: results.remainingDailyBudget,
+        holidayDaysBudget: results.holidayDaysBudget,
+        daysUntil25th: results.daysUntil25th
+      })
+    };
+    
+    setHistoricalData(prev => ({
+      ...prev,
+      [monthKey]: monthSnapshot
+    }));
+  };
+
   // Save data to localStorage whenever values change
   const saveToLocalStorage = () => {
     const dataToSave = {
@@ -296,10 +341,11 @@ const BudgetCalculator = () => {
     localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
   };
 
-  // Save data whenever key values change
+  // Save data whenever key values change - both to localStorage and to selected month
   useEffect(() => {
     saveToLocalStorage();
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, results, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, historicalData]);
+    saveToSelectedMonth();
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, selectedBudgetMonth]);
 
   const calculateDailyBudget = () => {
     const currentDate = new Date();
@@ -605,46 +651,30 @@ const BudgetCalculator = () => {
       remainingFridayCount: budgetData.remainingFridayCount
     });
     
-    // Save historical data for selected month
+    // Update historical data for selected month with calculated results
     const currentDate = new Date();
     const monthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     
-    const historicalSnapshot = {
-      month: monthKey,
-      date: currentDate.toISOString(),
-      andreasSalary,
-      andreasförsäkringskassan,
-      andreasbarnbidrag,
-      susannaSalary,
-      susannaförsäkringskassan,
-      susannabarnbidrag,
-      totalSalary,
-      costGroups: [...costGroups],
-      savingsGroups: [...savingsGroups],
-      totalMonthlyExpenses,
-      totalCosts, // Add calculated total costs
-      totalSavings, // Add calculated total savings
-      dailyTransfer,
-      weekendTransfer,
-      balanceLeft,
-      susannaShare,
-      andreasShare,
-      susannaPercentage,
-      andreasPercentage,
-      totalDailyBudget: budgetData.totalBudget,
-      remainingDailyBudget: budgetData.remainingBudget,
-      holidayDaysBudget: budgetData.holidayBudget,
-      daysUntil25th: budgetData.daysUntil25th,
-      // Include personal budget data in historical snapshot
-      andreasPersonalCosts: JSON.parse(JSON.stringify(andreasPersonalCosts)),
-      andreasPersonalSavings: JSON.parse(JSON.stringify(andreasPersonalSavings)),
-      susannaPersonalCosts: JSON.parse(JSON.stringify(susannaPersonalCosts)),
-      susannaPersonalSavings: JSON.parse(JSON.stringify(susannaPersonalSavings))
-    };
-    
+    // Update the existing month data with calculated results
     setHistoricalData(prev => ({
       ...prev,
-      [monthKey]: historicalSnapshot
+      [monthKey]: {
+        ...prev[monthKey], // Keep existing data
+        // Update with fresh calculated results
+        totalMonthlyExpenses,
+        totalCosts,
+        totalSavings,
+        balanceLeft,
+        susannaShare,
+        andreasShare,
+        susannaPercentage,
+        andreasPercentage,
+        totalDailyBudget: budgetData.totalBudget,
+        remainingDailyBudget: budgetData.remainingBudget,
+        holidayDaysBudget: budgetData.holidayBudget,
+        daysUntil25th: budgetData.daysUntil25th,
+        date: currentDate.toISOString() // Update timestamp
+      }
     }));
     
     // Switch to summary tab after calculation
