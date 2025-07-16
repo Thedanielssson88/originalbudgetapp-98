@@ -172,8 +172,8 @@ const BudgetCalculator = () => {
 
   // Add swipe gestures
   useSwipeGestures({
-    onSwipeLeft: navigateToNextTab,
-    onSwipeRight: navigateToPreviousTab,
+    onSwipeLeft: navigateToPreviousTab,
+    onSwipeRight: navigateToNextTab,
     threshold: 50
   });
   
