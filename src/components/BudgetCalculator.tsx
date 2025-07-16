@@ -1182,10 +1182,27 @@ const BudgetCalculator = () => {
   };
 
   const toggleSection = (section: string) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
+    setExpandedSections(prev => {
+      const newState = {
+        ...prev,
+        [section]: !prev[section]
+      };
+      
+      // If collapsing a section, exit edit mode
+      if (prev[section] === true && !newState[section]) {
+        if (section === 'costCategories' || section === 'savingsCategories') {
+          setIsEditingCategories(false);
+        }
+        if (section === 'budgetTransfers') {
+          setIsEditingTransfers(false);
+        }
+        if (section === 'redDays') {
+          setIsEditingHolidays(false);
+        }
+      }
+      
+      return newState;
+    });
   };
 
   const toggleAccountDetails = (accountName: string) => {
