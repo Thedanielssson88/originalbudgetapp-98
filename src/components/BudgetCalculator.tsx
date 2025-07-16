@@ -4144,38 +4144,412 @@ const BudgetCalculator = () => {
 
                   {/* Existing templates */}
                   {Object.keys(budgetTemplates).length > 0 && (
-                    <div className="space-y-2">
+                    <div className="space-y-4">
                       <Label>Befintliga budgetmallar ({Object.keys(budgetTemplates).length})</Label>
                       {Object.keys(budgetTemplates).sort().map(templateName => (
-                        <div key={templateName} className="p-3 border rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h4 className="font-medium">{templateName}</h4>
-                              <p className="text-sm text-muted-foreground">
-                                Skapad: {new Date(budgetTemplates[templateName].created).toLocaleDateString()}
-                              </p>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                onClick={() => loadBudgetTemplate(templateName)}
-                                variant="outline"
-                                size="sm"
-                              >
-                                Ladda
-                              </Button>
-                              <Button
-                                onClick={() => {
-                                  const newTemplates = { ...budgetTemplates };
-                                  delete newTemplates[templateName];
-                                  setBudgetTemplates(newTemplates);
-                                }}
-                                variant="outline"
-                                size="sm"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                        <div key={templateName} className="border rounded-lg">
+                          <div className="p-3 border-b">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h4 className="font-medium">{templateName}</h4>
+                                <p className="text-sm text-muted-foreground">
+                                  Skapad: {new Date(budgetTemplates[templateName].created).toLocaleDateString()}
+                                </p>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  onClick={() => setExpandedTemplates(prev => ({
+                                    ...prev,
+                                    [templateName]: !prev[templateName]
+                                  }))}
+                                  variant="outline"
+                                  size="sm"
+                                >
+                                  {expandedTemplates[templateName] ? (
+                                    <>
+                                      <ChevronUp className="h-4 w-4 mr-1" />
+                                      Dölj
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ChevronDown className="h-4 w-4 mr-1" />
+                                      Visa
+                                    </>
+                                  )}
+                                </Button>
+                                <Button
+                                  onClick={() => loadBudgetTemplate(templateName)}
+                                  variant="outline"
+                                  size="sm"
+                                >
+                                  Ladda
+                                </Button>
+                                <Button
+                                  onClick={() => {
+                                    const newTemplates = { ...budgetTemplates };
+                                    delete newTemplates[templateName];
+                                    setBudgetTemplates(newTemplates);
+                                  }}
+                                  variant="destructive"
+                                  size="sm"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
+                          
+                          {expandedTemplates[templateName] && (
+                            <div className="p-4 space-y-4">
+                              {editingTemplate === templateName ? (
+                                // Edit mode
+                                <div className="space-y-4">
+                                  <div className="flex justify-between items-center">
+                                    <h5 className="font-medium">Redigera budgetmall</h5>
+                                    <div className="flex gap-2">
+                                      <Button
+                                        onClick={() => {
+                                          // Save changes
+                                          const updatedTemplates = {
+                                            ...budgetTemplates,
+                                            [templateName]: {
+                                              ...budgetTemplates[templateName],
+                                              ...editingTemplateData,
+                                              modified: new Date().toISOString()
+                                            }
+                                          };
+                                          setBudgetTemplates(updatedTemplates);
+                                          setEditingTemplate(null);
+                                          setEditingTemplateData(null);
+                                        }}
+                                        size="sm"
+                                      >
+                                        <Save className="h-4 w-4 mr-1" />
+                                        Spara
+                                      </Button>
+                                      <Button
+                                        onClick={() => {
+                                          setEditingTemplate(null);
+                                          setEditingTemplateData(null);
+                                        }}
+                                        variant="outline"
+                                        size="sm"
+                                      >
+                                        <X className="h-4 w-4 mr-1" />
+                                        Avbryt
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Edit Income */}
+                                  <div className="space-y-2">
+                                    <Label className="text-sm font-medium">Inkomster</Label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div>
+                                        <Label className="text-xs">{userName1} lön</Label>
+                                        <Input
+                                          type="number"
+                                          value={editingTemplateData?.andreasSalary || 0}
+                                          onChange={(e) => setEditingTemplateData(prev => ({
+                                            ...prev,
+                                            andreasSalary: parseInt(e.target.value) || 0
+                                          }))}
+                                          className="text-sm"
+                                        />
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs">{userName2} lön</Label>
+                                        <Input
+                                          type="number"
+                                          value={editingTemplateData?.susannaSalary || 0}
+                                          onChange={(e) => setEditingTemplateData(prev => ({
+                                            ...prev,
+                                            susannaSalary: parseInt(e.target.value) || 0
+                                          }))}
+                                          className="text-sm"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Edit Cost Groups */}
+                                  <div className="space-y-2">
+                                    <Label className="text-sm font-medium">Kostnader</Label>
+                                    <div className="space-y-2">
+                                      {editingTemplateData?.costGroups?.map((group, index) => (
+                                        <div key={group.id} className="flex gap-2 items-center">
+                                          <Input
+                                            value={group.name}
+                                            onChange={(e) => {
+                                              const newGroups = [...editingTemplateData.costGroups];
+                                              newGroups[index].name = e.target.value;
+                                              setEditingTemplateData(prev => ({
+                                                ...prev,
+                                                costGroups: newGroups
+                                              }));
+                                            }}
+                                            className="flex-1 text-sm"
+                                          />
+                                          <Input
+                                            type="number"
+                                            value={group.amount}
+                                            onChange={(e) => {
+                                              const newGroups = [...editingTemplateData.costGroups];
+                                              newGroups[index].amount = parseInt(e.target.value) || 0;
+                                              setEditingTemplateData(prev => ({
+                                                ...prev,
+                                                costGroups: newGroups
+                                              }));
+                                            }}
+                                            className="w-24 text-sm"
+                                          />
+                                          <Button
+                                            onClick={() => {
+                                              const newGroups = editingTemplateData.costGroups.filter((_, i) => i !== index);
+                                              setEditingTemplateData(prev => ({
+                                                ...prev,
+                                                costGroups: newGroups
+                                              }));
+                                            }}
+                                            variant="destructive"
+                                            size="sm"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      ))}
+                                      <Button
+                                        onClick={() => {
+                                          const newGroup = {
+                                            id: Date.now().toString(),
+                                            name: 'Ny kategori',
+                                            amount: 0,
+                                            type: 'cost'
+                                          };
+                                          setEditingTemplateData(prev => ({
+                                            ...prev,
+                                            costGroups: [...(prev.costGroups || []), newGroup]
+                                          }));
+                                        }}
+                                        variant="outline"
+                                        size="sm"
+                                      >
+                                        <Plus className="h-3 w-3 mr-1" />
+                                        Lägg till kostnad
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Edit Savings Groups */}
+                                  <div className="space-y-2">
+                                    <Label className="text-sm font-medium">Sparande</Label>
+                                    <div className="space-y-2">
+                                      {editingTemplateData?.savingsGroups?.map((group, index) => (
+                                        <div key={group.id} className="flex gap-2 items-center">
+                                          <Input
+                                            value={group.name}
+                                            onChange={(e) => {
+                                              const newGroups = [...editingTemplateData.savingsGroups];
+                                              newGroups[index].name = e.target.value;
+                                              setEditingTemplateData(prev => ({
+                                                ...prev,
+                                                savingsGroups: newGroups
+                                              }));
+                                            }}
+                                            className="flex-1 text-sm"
+                                          />
+                                          <Input
+                                            type="number"
+                                            value={group.amount}
+                                            onChange={(e) => {
+                                              const newGroups = [...editingTemplateData.savingsGroups];
+                                              newGroups[index].amount = parseInt(e.target.value) || 0;
+                                              setEditingTemplateData(prev => ({
+                                                ...prev,
+                                                savingsGroups: newGroups
+                                              }));
+                                            }}
+                                            className="w-24 text-sm"
+                                          />
+                                          <Button
+                                            onClick={() => {
+                                              const newGroups = editingTemplateData.savingsGroups.filter((_, i) => i !== index);
+                                              setEditingTemplateData(prev => ({
+                                                ...prev,
+                                                savingsGroups: newGroups
+                                              }));
+                                            }}
+                                            variant="destructive"
+                                            size="sm"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      ))}
+                                      <Button
+                                        onClick={() => {
+                                          const newGroup = {
+                                            id: Date.now().toString(),
+                                            name: 'Nytt sparande',
+                                            amount: 0,
+                                            type: 'savings'
+                                          };
+                                          setEditingTemplateData(prev => ({
+                                            ...prev,
+                                            savingsGroups: [...(prev.savingsGroups || []), newGroup]
+                                          }));
+                                        }}
+                                        variant="outline"
+                                        size="sm"
+                                      >
+                                        <Plus className="h-3 w-3 mr-1" />
+                                        Lägg till sparande
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                // View mode
+                                <div className="space-y-4">
+                                  <div className="flex justify-between items-center">
+                                    <h5 className="font-medium">Budgetinnehåll</h5>
+                                    <Button
+                                      onClick={() => {
+                                        setEditingTemplate(templateName);
+                                        setEditingTemplateData(JSON.parse(JSON.stringify(budgetTemplates[templateName])));
+                                      }}
+                                      variant="outline"
+                                      size="sm"
+                                    >
+                                      <Edit className="h-4 w-4 mr-1" />
+                                      Redigera
+                                    </Button>
+                                  </div>
+                                  
+                                  {/* View Income */}
+                                  <div className="space-y-2">
+                                    <Label className="text-sm font-medium">Inkomster</Label>
+                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                      <div>
+                                        <span className="text-muted-foreground">{userName1} lön:</span>
+                                        <span className="ml-2 font-medium">{budgetTemplates[templateName].andreasSalary?.toLocaleString('sv-SE') || 0} kr</span>
+                                      </div>
+                                      <div>
+                                        <span className="text-muted-foreground">{userName2} lön:</span>
+                                        <span className="ml-2 font-medium">{budgetTemplates[templateName].susannaSalary?.toLocaleString('sv-SE') || 0} kr</span>
+                                      </div>
+                                    </div>
+                                    <div className="text-sm">
+                                      <span className="text-muted-foreground">Total inkomst:</span>
+                                      <span className="ml-2 font-medium text-green-600">
+                                        {((budgetTemplates[templateName].andreasSalary || 0) + 
+                                          (budgetTemplates[templateName].susannaSalary || 0) + 
+                                          (budgetTemplates[templateName].andreasförsäkringskassan || 0) + 
+                                          (budgetTemplates[templateName].susannaförsäkringskassan || 0) + 
+                                          (budgetTemplates[templateName].andreasbarnbidrag || 0) + 
+                                          (budgetTemplates[templateName].susannabarnbidrag || 0)).toLocaleString('sv-SE')} kr
+                                      </span>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* View Cost Groups */}
+                                  <div className="space-y-2">
+                                    <Label className="text-sm font-medium">Kostnader</Label>
+                                    <div className="space-y-1">
+                                      {budgetTemplates[templateName].costGroups?.map((group) => (
+                                        <div key={group.id} className="flex justify-between items-center text-sm">
+                                          <span className="text-muted-foreground">{group.name}:</span>
+                                          <span className="font-medium">{group.amount?.toLocaleString('sv-SE') || 0} kr</span>
+                                        </div>
+                                      ))}
+                                      {budgetTemplates[templateName].costGroups?.length === 0 && (
+                                        <div className="text-sm text-muted-foreground">Inga kostnader</div>
+                                      )}
+                                    </div>
+                                    <div className="text-sm pt-2 border-t">
+                                      <span className="text-muted-foreground">Total kostnader:</span>
+                                      <span className="ml-2 font-medium text-red-600">
+                                        {budgetTemplates[templateName].costGroups?.reduce((sum, group) => sum + (group.amount || 0), 0).toLocaleString('sv-SE')} kr
+                                      </span>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* View Savings Groups */}
+                                  <div className="space-y-2">
+                                    <Label className="text-sm font-medium">Sparande</Label>
+                                    <div className="space-y-1">
+                                      {budgetTemplates[templateName].savingsGroups?.map((group) => (
+                                        <div key={group.id} className="flex justify-between items-center text-sm">
+                                          <span className="text-muted-foreground">{group.name}:</span>
+                                          <span className="font-medium">{group.amount?.toLocaleString('sv-SE') || 0} kr</span>
+                                        </div>
+                                      ))}
+                                      {budgetTemplates[templateName].savingsGroups?.length === 0 && (
+                                        <div className="text-sm text-muted-foreground">Inget sparande</div>
+                                      )}
+                                    </div>
+                                    <div className="text-sm pt-2 border-t">
+                                      <span className="text-muted-foreground">Total sparande:</span>
+                                      <span className="ml-2 font-medium text-blue-600">
+                                        {budgetTemplates[templateName].savingsGroups?.reduce((sum, group) => sum + (group.amount || 0), 0).toLocaleString('sv-SE')} kr
+                                      </span>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Summary */}
+                                  <div className="p-3 bg-muted/50 rounded-lg">
+                                    <div className="text-sm space-y-1">
+                                      <div className="flex justify-between">
+                                        <span>Inkomster:</span>
+                                        <span className="text-green-600 font-medium">
+                                          +{((budgetTemplates[templateName].andreasSalary || 0) + 
+                                            (budgetTemplates[templateName].susannaSalary || 0) + 
+                                            (budgetTemplates[templateName].andreasförsäkringskassan || 0) + 
+                                            (budgetTemplates[templateName].susannaförsäkringskassan || 0) + 
+                                            (budgetTemplates[templateName].andreasbarnbidrag || 0) + 
+                                            (budgetTemplates[templateName].susannabarnbidrag || 0)).toLocaleString('sv-SE')} kr
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span>Kostnader:</span>
+                                        <span className="text-red-600 font-medium">
+                                          -{budgetTemplates[templateName].costGroups?.reduce((sum, group) => sum + (group.amount || 0), 0).toLocaleString('sv-SE')} kr
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span>Sparande:</span>
+                                        <span className="text-blue-600 font-medium">
+                                          -{budgetTemplates[templateName].savingsGroups?.reduce((sum, group) => sum + (group.amount || 0), 0).toLocaleString('sv-SE')} kr
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between border-t pt-1 font-medium">
+                                        <span>Kvar:</span>
+                                        <span className={`font-bold ${
+                                          ((budgetTemplates[templateName].andreasSalary || 0) + 
+                                           (budgetTemplates[templateName].susannaSalary || 0) + 
+                                           (budgetTemplates[templateName].andreasförsäkringskassan || 0) + 
+                                           (budgetTemplates[templateName].susannaförsäkringskassan || 0) + 
+                                           (budgetTemplates[templateName].andreasbarnbidrag || 0) + 
+                                           (budgetTemplates[templateName].susannabarnbidrag || 0)) - 
+                                          (budgetTemplates[templateName].costGroups?.reduce((sum, group) => sum + (group.amount || 0), 0) || 0) - 
+                                          (budgetTemplates[templateName].savingsGroups?.reduce((sum, group) => sum + (group.amount || 0), 0) || 0) >= 0 
+                                            ? 'text-green-600' : 'text-red-600'}`}>
+                                          {(((budgetTemplates[templateName].andreasSalary || 0) + 
+                                            (budgetTemplates[templateName].susannaSalary || 0) + 
+                                            (budgetTemplates[templateName].andreasförsäkringskassan || 0) + 
+                                            (budgetTemplates[templateName].susannaförsäkringskassan || 0) + 
+                                            (budgetTemplates[templateName].andreasbarnbidrag || 0) + 
+                                            (budgetTemplates[templateName].susannabarnbidrag || 0)) - 
+                                           (budgetTemplates[templateName].costGroups?.reduce((sum, group) => sum + (group.amount || 0), 0) || 0) - 
+                                           (budgetTemplates[templateName].savingsGroups?.reduce((sum, group) => sum + (group.amount || 0), 0) || 0)).toLocaleString('sv-SE')} kr
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
