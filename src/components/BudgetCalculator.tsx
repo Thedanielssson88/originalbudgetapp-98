@@ -698,9 +698,6 @@ const BudgetCalculator = () => {
         date: currentDate.toISOString() // Update timestamp
       }
     }));
-    
-    // Switch to summary tab after calculation
-    setActiveTab("sammanstallning");
   };
 
   const addCostGroup = () => {
