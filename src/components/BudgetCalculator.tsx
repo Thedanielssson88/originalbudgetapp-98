@@ -1013,6 +1013,11 @@ const BudgetCalculator = () => {
   // Budget template functions
   const saveBudgetTemplate = (templateName: string, sourceMonth: string) => {
     const sourceData = historicalData[sourceMonth];
+    console.log('Saving template from month:', sourceMonth);
+    console.log('Source data:', sourceData);
+    console.log('Source costGroups:', sourceData?.costGroups);
+    console.log('Source savingsGroups:', sourceData?.savingsGroups);
+    
     if (!sourceData || !templateName.trim()) return;
     
     // Create template with complete cost and savings data including subcategories and accounts
@@ -1028,6 +1033,10 @@ const BudgetCalculator = () => {
       accounts: JSON.parse(JSON.stringify(sourceData.accounts || ['Löpande', 'Sparkonto', 'Buffert']))
     };
     
+    console.log('Template data being saved:', templateData);
+    console.log('Template costGroups:', templateData.costGroups);
+    console.log('Template savingsGroups:', templateData.savingsGroups);
+    
     setBudgetTemplates(prev => ({
       ...prev,
       [templateName.trim()]: templateData
@@ -1036,6 +1045,11 @@ const BudgetCalculator = () => {
 
   const loadBudgetTemplate = (templateName: string) => {
     const template = budgetTemplates[templateName];
+    console.log('Loading template:', templateName);
+    console.log('Template data:', template);
+    console.log('Template costGroups:', template?.costGroups);
+    console.log('Template savingsGroups:', template?.savingsGroups);
+    
     if (!template) return;
     
     // Load template data into current form with complete data
@@ -1049,6 +1063,9 @@ const BudgetCalculator = () => {
     if (template.accounts) {
       setAccounts(JSON.parse(JSON.stringify(template.accounts)));
     }
+    
+    console.log('Loaded costGroups:', template.costGroups);
+    console.log('Loaded savingsGroups:', template.savingsGroups);
     
     // Save current month after loading template
     saveToSelectedMonth();
