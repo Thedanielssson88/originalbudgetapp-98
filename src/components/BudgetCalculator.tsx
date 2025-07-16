@@ -109,6 +109,10 @@ const BudgetCalculator = () => {
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
   const [editingTemplateData, setEditingTemplateData] = useState<any>(null);
   
+  // User name states
+  const [userName1, setUserName1] = useState<string>('Andreas');
+  const [userName2, setUserName2] = useState<string>('Susanna');
+  
   // Alternative budget states - no longer needed for the read-only fields
   // const [altTotalDailyBudget, setAltTotalDailyBudget] = useState<number>(0);
   // const [altTotalSharedCosts, setAltTotalSharedCosts] = useState<number>(0);
@@ -266,6 +270,10 @@ const BudgetCalculator = () => {
         // Load budget templates
         setBudgetTemplates(parsed.budgetTemplates || {});
         
+        // Load user names
+        setUserName1(parsed.userName1 || 'Andreas');
+        setUserName2(parsed.userName2 || 'Susanna');
+        
         if (parsed.results) {
           setResults(parsed.results);
         }
@@ -390,7 +398,9 @@ const BudgetCalculator = () => {
       historicalData,
       accounts,
       budgetTemplates,
-      selectedBudgetMonth // Save the selected month
+      selectedBudgetMonth, // Save the selected month
+      userName1,
+      userName2
     };
     localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
   };
@@ -401,7 +411,7 @@ const BudgetCalculator = () => {
       saveToLocalStorage();
       saveToSelectedMonth();
     }
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, budgetTemplates, isInitialLoad]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, budgetTemplates, userName1, userName2, isInitialLoad]);
 
   // Auto-calculate budget whenever any input changes
   useEffect(() => {
@@ -2632,7 +2642,7 @@ const BudgetCalculator = () => {
             const currentDate = new Date();
             const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
             const isCurrentMonth = selectedBudgetMonth === currentMonthKey;
-            return isCurrentMonth ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4';
+            return isCurrentMonth ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5';
           })()} gap-1 h-auto p-1`}>
             <TabsTrigger value="inkomster" className="w-full text-xs sm:text-sm">Inkomster och Utgifter</TabsTrigger>
             <TabsTrigger value="sammanstallning" className="w-full text-xs sm:text-sm">Sammanställning</TabsTrigger>
@@ -2647,6 +2657,7 @@ const BudgetCalculator = () => {
             })()}
             <TabsTrigger value="egen-budget" className="w-full text-xs sm:text-sm">Egen Budget</TabsTrigger>
             <TabsTrigger value="historia" className="w-full text-xs sm:text-sm">Historia</TabsTrigger>
+            <TabsTrigger value="installningar" className="w-full text-xs sm:text-sm">Inställningar</TabsTrigger>
           </TabsList>
 
           {/* Tab 1: Inkomster och Utgifter */}
@@ -2664,9 +2675,9 @@ const BudgetCalculator = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Andreas Income Section */}
+                  {/* First User Income Section */}
                   <div className="p-4 bg-muted/50 rounded-lg border">
-                    <h3 className="text-lg font-semibold mb-3 text-primary">Andreas Inkomst</h3>
+                    <h3 className="text-lg font-semibold mb-3 text-primary">{userName1} Inkomst</h3>
                     <div className="space-y-3">
                       <div className="space-y-2">
                         <Label htmlFor="andreas">Lön</Label>
@@ -2706,9 +2717,9 @@ const BudgetCalculator = () => {
                     </div>
                   </div>
 
-                  {/* Susanna Income Section */}
+                  {/* Second User Income Section */}
                   <div className="p-4 bg-muted/50 rounded-lg border">
-                    <h3 className="text-lg font-semibold mb-3 text-primary">Susanna Inkomst</h3>
+                    <h3 className="text-lg font-semibold mb-3 text-primary">{userName2} Inkomst</h3>
                     <div className="space-y-3">
                       <div className="space-y-2">
                         <Label htmlFor="susanna">Lön</Label>
@@ -2756,45 +2767,25 @@ const BudgetCalculator = () => {
                 </CardContent>
               </Card>
 
-              {/* Backup Section */}
+              {/* Empty card for layout balance */}
               <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Save className="h-5 w-5 text-primary" />
-                    Backup
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                    Snabb översikt
                   </CardTitle>
-                  <CardDescription>
-                    Spara och ladda backup med all historisk data
-                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex flex-col gap-2">
-                    <Button onClick={saveBackup} className="w-full">
-                      <Save className="mr-2 h-4 w-4" />
-                      Spara backup
-                    </Button>
-                    <Button 
-                      onClick={loadBackup} 
-                      variant="outline" 
-                      className="w-full"
-                      disabled={!standardValues}
-                    >
-                      Ladda backup
-                    </Button>
+                  <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                    <p className="font-medium mb-2">Total hushållsinkomst:</p>
+                    <p className="text-2xl font-bold text-primary">
+                      {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
+                    </p>
                   </div>
-                  
-                  {standardValues && (
-                    <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                      <p className="font-medium mb-2">Backup innehåller:</p>
-                      <ul className="space-y-1 text-muted-foreground">
-                        <li>• Alla inkomster och kategorier</li>
-                        <li>• All historisk data för alla månader</li>
-                        <li>• Personliga budgetar</li>
-                        <li>• Överföringsinställningar</li>
-                        <li>• Anpassade helgdagar</li>
-                      </ul>
-                    </div>
-                  )}
+                  <div className="text-sm text-muted-foreground">
+                    <p>• Gå till Sammanställning för detaljerad budget</p>
+                    <p>• Använd Inställningar för backup och avancerade funktioner</p>
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -2811,13 +2802,13 @@ const BudgetCalculator = () => {
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="p-4 bg-primary/10 rounded-lg">
-                      <div className="text-sm text-muted-foreground">Andreas totala inkomst</div>
+                      <div className="text-sm text-muted-foreground">{userName1} totala inkomst</div>
                       <div className="text-2xl font-bold text-primary">
                         {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}
                       </div>
                     </div>
                     <div className="p-4 bg-primary/10 rounded-lg">
-                      <div className="text-sm text-muted-foreground">Susannas totala inkomst</div>
+                      <div className="text-sm text-muted-foreground">{userName2} totala inkomst</div>
                       <div className="text-2xl font-bold text-primary">
                         {formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
                       </div>
@@ -3820,6 +3811,371 @@ const BudgetCalculator = () => {
                 <CardContent>
                   {renderMonthSelector()}
                   {renderHistoricalData()}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Settings Tab */}
+          <TabsContent value="installningar" className="mt-32">
+            <div className="space-y-6">
+              {/* User Names Settings */}
+              <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5 text-primary" />
+                    Användarnamn
+                  </CardTitle>
+                  <CardDescription>
+                    Anpassa namnen som visas i systemet
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="user1-name">Första användaren</Label>
+                      <Input
+                        id="user1-name"
+                        value={userName1}
+                        onChange={(e) => setUserName1(e.target.value)}
+                        placeholder="Ange namn för första användaren"
+                        className="text-lg"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="user2-name">Andra användaren</Label>
+                      <Input
+                        id="user2-name"
+                        value={userName2}
+                        onChange={(e) => setUserName2(e.target.value)}
+                        placeholder="Ange namn för andra användaren"
+                        className="text-lg"
+                      />
+                    </div>
+                  </div>
+                  <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                    <p className="font-medium mb-2">Dessa namn används:</p>
+                    <ul className="space-y-1 text-muted-foreground">
+                      <li>• I inkomstfälten</li>
+                      <li>• I budgetfördelningen</li>
+                      <li>• I den personliga budgeten</li>
+                      <li>• I alla rapporter och sammanställningar</li>
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Backup Section */}
+              <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Save className="h-5 w-5 text-primary" />
+                    Backup
+                  </CardTitle>
+                  <CardDescription>
+                    Spara och ladda backup med all historisk data
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-col gap-2">
+                    <Button onClick={saveBackup} className="w-full">
+                      <Save className="mr-2 h-4 w-4" />
+                      Spara backup
+                    </Button>
+                    <Button 
+                      onClick={loadBackup} 
+                      variant="outline" 
+                      className="w-full"
+                      disabled={!standardValues}
+                    >
+                      Ladda backup
+                    </Button>
+                  </div>
+                  
+                  {standardValues && (
+                    <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                      <p className="font-medium mb-2">Backup innehåller:</p>
+                      <ul className="space-y-1 text-muted-foreground">
+                        <li>• Alla inkomster och kategorier</li>
+                        <li>• All historisk data för alla månader</li>
+                        <li>• Personliga budgetar</li>
+                        <li>• Överföringsinställningar</li>
+                        <li>• Anpassade helgdagar</li>
+                        <li>• Användarnamn</li>
+                      </ul>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Advanced Month Options */}
+              <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-primary" />
+                    Avancerade månadsalternativ
+                  </CardTitle>
+                  <CardDescription>
+                    Hantera månader och historiska data
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="month-selector">Välj månad:</Label>
+                      <select
+                        id="month-selector"
+                        value={selectedHistoricalMonth}
+                        onChange={(e) => setSelectedHistoricalMonth(e.target.value)}
+                        className="w-full p-2 border rounded-md mt-2"
+                      >
+                        <option value="">Välj en månad</option>
+                        {Object.keys(historicalData).sort().reverse().map(month => (
+                          <option key={month} value={month}>{month}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="new-month">Lägg till ny månad</Label>
+                        <Input
+                          id="new-month"
+                          type="month"
+                          value={newHistoricalMonth}
+                          onChange={(e) => setNewHistoricalMonth(e.target.value)}
+                          className="text-lg"
+                        />
+                        <Button 
+                          onClick={() => {
+                            if (newHistoricalMonth) {
+                              const currentDate = new Date();
+                              const currentMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                              if (newHistoricalMonth < currentMonth && !historicalData[newHistoricalMonth]) {
+                                setHistoricalData(prev => ({
+                                  ...prev,
+                                  [newHistoricalMonth]: {
+                                    month: newHistoricalMonth,
+                                    date: currentDate.toISOString(),
+                                    andreasSalary: 0,
+                                    andreasförsäkringskassan: 0,
+                                    andreasbarnbidrag: 0,
+                                    susannaSalary: 0,
+                                    susannaförsäkringskassan: 0,
+                                    susannabarnbidrag: 0,
+                                    totalSalary: 0,
+                                    costGroups: [],
+                                    savingsGroups: [],
+                                    dailyTransfer: 300,
+                                    weekendTransfer: 540,
+                                    customHolidays: [],
+                                    andreasPersonalCosts: [],
+                                    andreasPersonalSavings: [],
+                                    susannaPersonalCosts: [],
+                                    susannaPersonalSavings: [],
+                                    accounts: ['Löpande', 'Sparkonto', 'Buffert']
+                                  }
+                                }));
+                                setNewHistoricalMonth('');
+                              }
+                            }
+                          }}
+                          disabled={!newHistoricalMonth}
+                          className="w-full"
+                        >
+                          Lägg till månad
+                        </Button>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="copy-month">Kopiera från månad</Label>
+                        <select
+                          id="copy-month"
+                          value={selectedSourceMonth}
+                          onChange={(e) => setSelectedSourceMonth(e.target.value)}
+                          className="w-full p-2 border rounded-md"
+                        >
+                          <option value="">Välj källmånad</option>
+                          {Object.keys(historicalData).sort().reverse().map(month => (
+                            <option key={month} value={month}>{month}</option>
+                          ))}
+                        </select>
+                        <Input
+                          type="month"
+                          value={newMonthFromCopy}
+                          onChange={(e) => setNewMonthFromCopy(e.target.value)}
+                          className="text-lg"
+                          placeholder="Ny månad"
+                        />
+                        <Button 
+                          onClick={() => {
+                            if (selectedSourceMonth && newMonthFromCopy && !historicalData[newMonthFromCopy]) {
+                              const sourceData = historicalData[selectedSourceMonth];
+                              setHistoricalData(prev => ({
+                                ...prev,
+                                [newMonthFromCopy]: {
+                                  ...sourceData,
+                                  month: newMonthFromCopy,
+                                  date: new Date().toISOString()
+                                }
+                              }));
+                              setNewMonthFromCopy('');
+                              setSelectedSourceMonth('');
+                            }
+                          }}
+                          disabled={!selectedSourceMonth || !newMonthFromCopy}
+                          className="w-full"
+                        >
+                          Kopiera månad
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Budget Templates */}
+              <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <History className="h-5 w-5 text-primary" />
+                    Budgetmallar
+                  </CardTitle>
+                  <CardDescription>
+                    Skapa och hantera budgetmallar från befintliga månader
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Create new template */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="template-name">Mallnamn</Label>
+                      <Input
+                        id="template-name"
+                        value={newTemplateName}
+                        onChange={(e) => setNewTemplateName(e.target.value)}
+                        placeholder="Ange namn för budgetmall"
+                        className="text-lg"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="template-source">Skapa från månad</Label>
+                      <select
+                        id="template-source"
+                        value={selectedTemplateSourceMonth}
+                        onChange={(e) => setSelectedTemplateSourceMonth(e.target.value)}
+                        className="w-full p-2 border rounded-md"
+                      >
+                        <option value="">Välj månad</option>
+                        <option value="current">Aktuell månad</option>
+                        {Object.keys(historicalData).sort().reverse().map(month => (
+                          <option key={month} value={month}>{month}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <Button
+                    onClick={() => {
+                      if (newTemplateName && selectedTemplateSourceMonth) {
+                        const sourceData = selectedTemplateSourceMonth === 'current' 
+                          ? {
+                              andreasSalary,
+                              andreasförsäkringskassan,
+                              andreasbarnbidrag,
+                              susannaSalary,
+                              susannaförsäkringskassan,
+                              susannabarnbidrag,
+                              costGroups,
+                              savingsGroups,
+                              dailyTransfer,
+                              weekendTransfer,
+                              customHolidays,
+                              andreasPersonalCosts,
+                              andreasPersonalSavings,
+                              susannaPersonalCosts,
+                              susannaPersonalSavings,
+                              accounts
+                            }
+                          : historicalData[selectedTemplateSourceMonth];
+                        
+                        const templateData = {
+                          name: newTemplateName.trim(),
+                          created: new Date().toISOString(),
+                          sourceMonth: selectedTemplateSourceMonth,
+                          andreasSalary: sourceData.andreasSalary || 0,
+                          andreasförsäkringskassan: sourceData.andreasförsäkringskassan || 0,
+                          andreasbarnbidrag: sourceData.andreasbarnbidrag || 0,
+                          susannaSalary: sourceData.susannaSalary || 0,
+                          susannaförsäkringskassan: sourceData.susannaförsäkringskassan || 0,
+                          susannabarnbidrag: sourceData.susannabarnbidrag || 0,
+                          costGroups: JSON.parse(JSON.stringify(sourceData.costGroups || [])),
+                          savingsGroups: JSON.parse(JSON.stringify(sourceData.savingsGroups || [])),
+                          dailyTransfer: sourceData.dailyTransfer || 300,
+                          weekendTransfer: sourceData.weekendTransfer || 540,
+                          customHolidays: JSON.parse(JSON.stringify(sourceData.customHolidays || [])),
+                          andreasPersonalCosts: JSON.parse(JSON.stringify(sourceData.andreasPersonalCosts || [])),
+                          andreasPersonalSavings: JSON.parse(JSON.stringify(sourceData.andreasPersonalSavings || [])),
+                          susannaPersonalCosts: JSON.parse(JSON.stringify(sourceData.susannaPersonalCosts || [])),
+                          susannaPersonalSavings: JSON.parse(JSON.stringify(sourceData.susannaPersonalSavings || [])),
+                          accounts: JSON.parse(JSON.stringify(sourceData.accounts || ['Löpande', 'Sparkonto', 'Buffert']))
+                        };
+                        
+                        const updatedTemplates = {
+                          ...budgetTemplates,
+                          [newTemplateName.trim()]: templateData
+                        };
+                        
+                        setBudgetTemplates(updatedTemplates);
+                        setNewTemplateName('');
+                        setSelectedTemplateSourceMonth('');
+                      }
+                    }}
+                    disabled={!newTemplateName || !selectedTemplateSourceMonth}
+                    className="w-full"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Skapa budgetmall
+                  </Button>
+
+                  {/* Existing templates */}
+                  {Object.keys(budgetTemplates).length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Befintliga budgetmallar ({Object.keys(budgetTemplates).length})</Label>
+                      {Object.keys(budgetTemplates).sort().map(templateName => (
+                        <div key={templateName} className="p-3 border rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="font-medium">{templateName}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                Skapad: {new Date(budgetTemplates[templateName].created).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                onClick={() => loadBudgetTemplate(templateName)}
+                                variant="outline"
+                                size="sm"
+                              >
+                                Ladda
+                              </Button>
+                              <Button
+                                onClick={() => {
+                                  const newTemplates = { ...budgetTemplates };
+                                  delete newTemplates[templateName];
+                                  setBudgetTemplates(newTemplates);
+                                }}
+                                variant="outline"
+                                size="sm"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
