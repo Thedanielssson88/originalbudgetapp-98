@@ -2144,57 +2144,64 @@ const BudgetCalculator = () => {
                           </div>
                         </div>
                         
-                        {savingsGroups.map((group) => (
-                          <div key={group.id} className="flex gap-2 items-center">
-                            {isEditingCategories ? (
-                              <>
-                                 <Input
-                                   value={group.name}
-                                   onChange={(e) => updateSavingsGroup(group.id, 'name', e.target.value)}
-                                   className="flex-1"
-                                 />
-                                 <Select
-                                   value={group.account || 'none'}
-                                   onValueChange={(value) => updateSavingsGroup(group.id, 'account', value === 'none' ? undefined : value)}
-                                 >
-                                   <SelectTrigger className="w-28">
-                                     <SelectValue placeholder="Konto" />
-                                   </SelectTrigger>
-                                   <SelectContent>
-                                     <SelectItem value="none">Inget</SelectItem>
-                                     {accounts.map((account) => (
-                                       <SelectItem key={account} value={account}>
-                                         {account}
-                                       </SelectItem>
-                                     ))}
-                                   </SelectContent>
-                                 </Select>
-                                 <Input
-                                   type="number"
-                                   value={group.amount === 0 ? '' : group.amount}
-                                   onChange={(e) => updateSavingsGroup(group.id, 'amount', Number(e.target.value) || 0)}
-                                   className="w-24"
-                                 />
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => removeSavingsGroup(group.id)}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </>
+                         {savingsGroups.map((group) => (
+                           <div key={group.id} className="space-y-2">
+                             {isEditingCategories ? (
+                               <div className="space-y-2">
+                                 <div className="flex gap-2 items-center">
+                                   <Input
+                                     value={group.name}
+                                     onChange={(e) => updateSavingsGroup(group.id, 'name', e.target.value)}
+                                     className="flex-1 text-base"
+                                     placeholder="Kategori namn"
+                                   />
+                                   <Input
+                                     type="number"
+                                     value={group.amount === 0 ? '' : group.amount}
+                                     onChange={(e) => updateSavingsGroup(group.id, 'amount', Number(e.target.value) || 0)}
+                                     className="w-32"
+                                     placeholder="Belopp"
+                                   />
+                                   <Button
+                                     size="sm"
+                                     variant="destructive"
+                                     onClick={() => removeSavingsGroup(group.id)}
+                                   >
+                                     <Trash2 className="w-4 h-4" />
+                                   </Button>
+                                 </div>
+                                 <div className="flex gap-2 items-center pl-2">
+                                   <span className="text-sm text-muted-foreground min-w-16">Konto:</span>
+                                   <Select
+                                     value={group.account || 'none'}
+                                     onValueChange={(value) => updateSavingsGroup(group.id, 'account', value === 'none' ? undefined : value)}
+                                   >
+                                     <SelectTrigger className="w-36">
+                                       <SelectValue placeholder="Välj konto" />
+                                     </SelectTrigger>
+                                     <SelectContent>
+                                       <SelectItem value="none">Inget konto</SelectItem>
+                                       {accounts.map((account) => (
+                                         <SelectItem key={account} value={account}>
+                                           {account}
+                                         </SelectItem>
+                                       ))}
+                                     </SelectContent>
+                                   </Select>
+                                 </div>
+                               </div>
                              ) : (
-                               <>
+                               <div className="flex justify-between items-center">
                                  <span className="flex-1">
                                    {group.name}{group.account ? ` (${group.account})` : ''}
                                  </span>
                                  <span className="w-32 text-right font-medium text-green-600">
                                    {formatCurrency(group.amount)}
                                  </span>
-                               </>
+                               </div>
                              )}
-                          </div>
-                        ))}
+                           </div>
+                         ))}
                       </div>
                     )}
                    </div>
