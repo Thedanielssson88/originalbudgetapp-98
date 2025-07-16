@@ -375,7 +375,7 @@ const BudgetCalculator = () => {
   useEffect(() => {
     saveToLocalStorage();
     saveToSelectedMonth();
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, selectedBudgetMonth, accounts]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, selectedBudgetMonth, accounts, budgetTemplates]);
 
   // Auto-calculate budget whenever any input changes
   useEffect(() => {
@@ -1034,6 +1034,11 @@ const BudgetCalculator = () => {
       ...prev,
       [templateName.trim()]: templateData
     }));
+    
+    // Force save to localStorage
+    setTimeout(() => {
+      saveToLocalStorage();
+    }, 100);
   };
 
   const loadBudgetTemplate = (templateName: string) => {
@@ -1085,6 +1090,11 @@ const BudgetCalculator = () => {
     
     setEditingTemplate(null);
     setEditingTemplateData(null);
+    
+    // Force save to localStorage
+    setTimeout(() => {
+      saveToLocalStorage();
+    }, 100);
   };
 
   const cancelEditingTemplate = () => {
@@ -2020,126 +2030,278 @@ const BudgetCalculator = () => {
                     {expandedSections.budgetTemplates ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </Button>
                   
-                  {expandedSections.budgetTemplates && (
-                    <div className="mt-2 space-y-2">
-                      {Object.keys(budgetTemplates).sort().map(templateName => (
-                        <div key={templateName} className="p-3 bg-muted/30 rounded-md border">
-                          <div className="flex justify-between items-start mb-2">
-                            <div>
-                              <h5 className="font-medium text-sm">{templateName}</h5>
-                              <p className="text-xs text-muted-foreground">
-                                Skapad: {new Date(budgetTemplates[templateName].date).toLocaleDateString()}
-                              </p>
-                            </div>
-                             <div className="flex gap-2">
+                   {expandedSections.budgetTemplates && (
+                     <div className="mt-2 space-y-2">
+                       {Object.keys(budgetTemplates).sort().map(templateName => (
+                         <div key={templateName}>
+                           {editingTemplate === templateName ? (
+                             // Edit mode - only show edit interface
+                             <Card className="border-primary">
+                               <CardHeader>
+                                 <CardTitle className="flex items-center justify-between">
+                                   <span>Redigera budgetmall: {templateName}</span>
+                                   <div className="flex gap-2">
+                                     <Button onClick={saveEditedTemplate} size="sm">
+                                       <Save className="w-4 h-4 mr-1" />
+                                       Spara
+                                     </Button>
+                                     <Button onClick={cancelEditingTemplate} size="sm" variant="outline">
+                                       <X className="w-4 h-4 mr-1" />
+                                       Avbryt
+                                     </Button>
+                                   </div>
+                                 </CardTitle>
+                               </CardHeader>
+                               <CardContent className="space-y-4">
+                                 {/* Cost Categories */}
+                                 <div>
+                                   <h4 className="font-medium mb-2">Kostnader</h4>
+                                   {editingTemplateData.costGroups?.map((group: any) => (
+                                     <div key={group.id} className="mb-4 p-3 border rounded-md">
+                                       <div className="grid grid-cols-3 gap-2 mb-2">
+                                         <div>
+                                           <Label className="text-xs">Huvudkategori</Label>
+                                           <Input
+                                             value={group.name}
+                                             onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value)}
+                                             className="h-8"
+                                           />
+                                         </div>
+                                         <div>
+                                           <Label className="text-xs">Konto</Label>
+                                           <Select 
+                                             value={group.account || ''} 
+                                             onValueChange={(value) => updateEditingTemplateGroup(group.id, 'account', value)}
+                                           >
+                                             <SelectTrigger className="h-8">
+                                               <SelectValue placeholder="Välj konto" />
+                                             </SelectTrigger>
+                                             <SelectContent>
+                                               {accounts.map(account => (
+                                                 <SelectItem key={account} value={account}>{account}</SelectItem>
+                                               ))}
+                                             </SelectContent>
+                                           </Select>
+                                         </div>
+                                         {(!group.subCategories || group.subCategories.length === 0) && (
+                                           <div>
+                                             <Label className="text-xs">Belopp</Label>
+                                             <Input
+                                               type="number"
+                                               value={group.amount}
+                                               onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', parseFloat(e.target.value) || 0)}
+                                               className="h-8"
+                                             />
+                                           </div>
+                                         )}
+                                       </div>
+                                       
+                                       {/* Subcategories */}
+                                       {group.subCategories && group.subCategories.length > 0 && (
+                                         <div className="ml-4 space-y-2">
+                                           <Label className="text-xs text-muted-foreground">Underkategorier:</Label>
+                                           {group.subCategories.map((sub: any) => (
+                                             <div key={sub.id} className="grid grid-cols-3 gap-2">
+                                               <Input
+                                                 value={sub.name}
+                                                 onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value, true, sub.id)}
+                                                 className="h-7 text-xs"
+                                                 placeholder="Underkategori"
+                                               />
+                                               <Select 
+                                                 value={sub.account || ''} 
+                                                 onValueChange={(value) => updateEditingTemplateGroup(group.id, 'account', value, true, sub.id)}
+                                               >
+                                                 <SelectTrigger className="h-7 text-xs">
+                                                   <SelectValue placeholder="Konto" />
+                                                 </SelectTrigger>
+                                                 <SelectContent>
+                                                   {accounts.map(account => (
+                                                     <SelectItem key={account} value={account}>{account}</SelectItem>
+                                                   ))}
+                                                 </SelectContent>
+                                               </Select>
+                                               <Input
+                                                 type="number"
+                                                 value={sub.amount}
+                                                 onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', parseFloat(e.target.value) || 0, true, sub.id)}
+                                                 className="h-7 text-xs"
+                                                 placeholder="Belopp"
+                                               />
+                                             </div>
+                                           ))}
+                                         </div>
+                                       )}
+                                     </div>
+                                   ))}
+                                 </div>
+
+                                 {/* Savings Categories */}
+                                 <div>
+                                   <h4 className="font-medium mb-2">Sparande</h4>
+                                   {editingTemplateData.savingsGroups?.map((group: any) => (
+                                     <div key={group.id} className="mb-4 p-3 border rounded-md">
+                                       <div className="grid grid-cols-3 gap-2">
+                                         <div>
+                                           <Label className="text-xs">Kategori</Label>
+                                           <Input
+                                             value={group.name}
+                                             onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value)}
+                                             className="h-8"
+                                           />
+                                         </div>
+                                         <div>
+                                           <Label className="text-xs">Konto</Label>
+                                           <Select 
+                                             value={group.account || ''} 
+                                             onValueChange={(value) => updateEditingTemplateGroup(group.id, 'account', value)}
+                                           >
+                                             <SelectTrigger className="h-8">
+                                               <SelectValue placeholder="Välj konto" />
+                                             </SelectTrigger>
+                                             <SelectContent>
+                                               {accounts.map(account => (
+                                                 <SelectItem key={account} value={account}>{account}</SelectItem>
+                                               ))}
+                                             </SelectContent>
+                                           </Select>
+                                         </div>
+                                         <div>
+                                           <Label className="text-xs">Belopp</Label>
+                                           <Input
+                                             type="number"
+                                             value={group.amount}
+                                             onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', parseFloat(e.target.value) || 0)}
+                                             className="h-8"
+                                           />
+                                         </div>
+                                       </div>
+                                     </div>
+                                   ))}
+                                 </div>
+                               </CardContent>
+                             </Card>
+                           ) : (
+                             // Display mode - only show when not editing
+                             <div className="p-3 bg-muted/30 rounded-md border">
+                               <div className="flex justify-between items-start mb-2">
+                                 <div>
+                                   <h5 className="font-medium text-sm">{templateName}</h5>
+                                   <p className="text-xs text-muted-foreground">
+                                     Skapad: {new Date(budgetTemplates[templateName].date).toLocaleDateString()}
+                                   </p>
+                                 </div>
+                                 <div className="flex gap-2">
+                                   <Button
+                                     onClick={() => loadBudgetTemplate(templateName)}
+                                     size="sm"
+                                     variant="outline"
+                                     className="text-xs"
+                                   >
+                                     Ladda mall
+                                   </Button>
+                                   <Button
+                                     onClick={() => startEditingTemplate(templateName)}
+                                     size="sm"
+                                     variant="outline"
+                                     className="text-xs"
+                                   >
+                                     <Edit className="w-3 h-3" />
+                                   </Button>
+                                   <Button
+                                     onClick={() => deleteBudgetTemplate(templateName)}
+                                     size="sm"
+                                     variant="destructive"
+                                     className="text-xs"
+                                   >
+                                     <Trash2 className="w-3 h-3" />
+                                   </Button>
+                                 </div>
+                               </div>
+                               
                                <Button
-                                 onClick={() => loadBudgetTemplate(templateName)}
+                                 onClick={() => setExpandedTemplates(prev => ({ ...prev, [templateName]: !prev[templateName] }))}
+                                 variant="ghost"
                                  size="sm"
-                                 variant="outline"
-                                 className="text-xs"
+                                 className="w-full justify-between text-xs"
                                >
-                                 Ladda mall
+                                 <span>Visa detaljer</span>
+                                 {expandedTemplates[templateName] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                                </Button>
-                               <Button
-                                 onClick={() => startEditingTemplate(templateName)}
-                                 size="sm"
-                                 variant="outline"
-                                 className="text-xs"
-                               >
-                                 <Edit className="w-3 h-3" />
-                               </Button>
-                               <Button
-                                 onClick={() => deleteBudgetTemplate(templateName)}
-                                 size="sm"
-                                 variant="destructive"
-                                 className="text-xs"
-                               >
-                                 <Trash2 className="w-3 h-3" />
-                               </Button>
+                               
+                               {expandedTemplates[templateName] && (
+                                 <div className="mt-2 space-y-2 text-xs">
+                                   <div>
+                                     <strong>Gemensamma kostnader:</strong>
+                                     {budgetTemplates[templateName].costGroups.length > 0 ? (
+                                       <ul className="ml-4 mt-1 space-y-1">
+                                         {budgetTemplates[templateName].costGroups.map((group: any) => (
+                                           <li key={group.id} className="space-y-1">
+                                             <div className="font-medium">
+                                               {group.name}: {calculateMainCategorySum(group).toLocaleString()} kr
+                                               {group.account && <span className="ml-2 text-muted-foreground">({group.account})</span>}
+                                             </div>
+                                             {group.subCategories && group.subCategories.length > 0 && (
+                                               <ul className="ml-4 text-xs space-y-0.5">
+                                                 {group.subCategories.map((sub: any) => (
+                                                   <li key={sub.id} className="text-muted-foreground">
+                                                     • {sub.name}: {sub.amount.toLocaleString()} kr
+                                                     {sub.account && <span className="ml-2">({sub.account})</span>}
+                                                   </li>
+                                                 ))}
+                                               </ul>
+                                             )}
+                                           </li>
+                                         ))}
+                                       </ul>
+                                     ) : (
+                                       <p className="ml-4 text-muted-foreground">Inga kostnader</p>
+                                     )}
+                                   </div>
+                                   
+                                   <div>
+                                     <strong>Sparande:</strong>
+                                     {budgetTemplates[templateName].savingsGroups.length > 0 ? (
+                                       <ul className="ml-4 mt-1 space-y-1">
+                                         {budgetTemplates[templateName].savingsGroups.map((group: any) => (
+                                           <li key={group.id} className="space-y-1">
+                                             <div className="font-medium">
+                                               {group.name}: {calculateMainCategorySum(group).toLocaleString()} kr
+                                               {group.account && <span className="ml-2 text-muted-foreground">({group.account})</span>}
+                                             </div>
+                                             {group.subCategories && group.subCategories.length > 0 && (
+                                               <ul className="ml-4 text-xs space-y-0.5">
+                                                 {group.subCategories.map((sub: any) => (
+                                                   <li key={sub.id} className="text-muted-foreground">
+                                                     • {sub.name}: {sub.amount.toLocaleString()} kr
+                                                     {sub.account && <span className="ml-2">({sub.account})</span>}
+                                                   </li>
+                                                 ))}
+                                               </ul>
+                                             )}
+                                           </li>
+                                         ))}
+                                       </ul>
+                                     ) : (
+                                       <p className="ml-4 text-muted-foreground">Inget sparande</p>
+                                     )}
+                                   </div>
+                                   
+                                   <div>
+                                     <strong>Överföringar:</strong>
+                                     <ul className="ml-4 mt-1">
+                                       <li>Daglig överföring: {budgetTemplates[templateName].dailyTransfer.toLocaleString()} kr</li>
+                                       <li>Fredagsöverföring: {budgetTemplates[templateName].weekendTransfer.toLocaleString()} kr</li>
+                                     </ul>
+                                   </div>
+                                 </div>
+                               )}
                              </div>
-                          </div>
-                          
-                          <Button
-                            onClick={() => setExpandedTemplates(prev => ({ ...prev, [templateName]: !prev[templateName] }))}
-                            variant="ghost"
-                            size="sm"
-                            className="w-full justify-between text-xs"
-                          >
-                            <span>Visa detaljer</span>
-                            {expandedTemplates[templateName] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                          </Button>
-                          
-                          {expandedTemplates[templateName] && (
-                            <div className="mt-2 space-y-2 text-xs">
-                              <div>
-                                <strong>Gemensamma kostnader:</strong>
-                                {budgetTemplates[templateName].costGroups.length > 0 ? (
-                                  <ul className="ml-4 mt-1 space-y-1">
-                                     {budgetTemplates[templateName].costGroups.map((group: any) => (
-                                       <li key={group.id} className="space-y-1">
-                                         <div className="font-medium">
-                                           {group.name}: {calculateMainCategorySum(group).toLocaleString()} kr
-                                           {group.account && <span className="ml-2 text-muted-foreground">({group.account})</span>}
-                                         </div>
-                                        {group.subCategories && group.subCategories.length > 0 && (
-                                          <ul className="ml-4 text-xs space-y-0.5">
-                                            {group.subCategories.map((sub: any) => (
-                                              <li key={sub.id} className="text-muted-foreground">
-                                                • {sub.name}: {sub.amount.toLocaleString()} kr
-                                                {sub.account && <span className="ml-2">({sub.account})</span>}
-                                              </li>
-                                            ))}
-                                          </ul>
-                                        )}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  <p className="ml-4 text-muted-foreground">Inga kostnader</p>
-                                )}
-                              </div>
-                              
-                              <div>
-                                <strong>Sparande:</strong>
-                                {budgetTemplates[templateName].savingsGroups.length > 0 ? (
-                                  <ul className="ml-4 mt-1 space-y-1">
-                                     {budgetTemplates[templateName].savingsGroups.map((group: any) => (
-                                       <li key={group.id} className="space-y-1">
-                                         <div className="font-medium">
-                                           {group.name}: {calculateMainCategorySum(group).toLocaleString()} kr
-                                           {group.account && <span className="ml-2 text-muted-foreground">({group.account})</span>}
-                                         </div>
-                                        {group.subCategories && group.subCategories.length > 0 && (
-                                          <ul className="ml-4 text-xs space-y-0.5">
-                                            {group.subCategories.map((sub: any) => (
-                                              <li key={sub.id} className="text-muted-foreground">
-                                                • {sub.name}: {sub.amount.toLocaleString()} kr
-                                                {sub.account && <span className="ml-2">({sub.account})</span>}
-                                              </li>
-                                            ))}
-                                          </ul>
-                                        )}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  <p className="ml-4 text-muted-foreground">Inget sparande</p>
-                                )}
-                              </div>
-                              
-                              <div>
-                                <strong>Överföringar:</strong>
-                                <ul className="ml-4 mt-1">
-                                  <li>Daglig överföring: {budgetTemplates[templateName].dailyTransfer.toLocaleString()} kr</li>
-                                  <li>Fredagsöverföring: {budgetTemplates[templateName].weekendTransfer.toLocaleString()} kr</li>
-                                </ul>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                           )}
+                         </div>
+                       ))}
+                     </div>
+                   )}
                 </div>
               )}
             </div>
