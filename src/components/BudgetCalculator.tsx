@@ -1015,7 +1015,7 @@ const BudgetCalculator = () => {
     const sourceData = historicalData[sourceMonth];
     if (!sourceData || !templateName.trim()) return;
     
-    // Create template with only common costs, savings, and transfers
+    // Create template with complete cost and savings data including subcategories and accounts
     const templateData = {
       name: templateName.trim(),
       date: new Date().toISOString(),
@@ -1023,7 +1023,9 @@ const BudgetCalculator = () => {
       savingsGroups: JSON.parse(JSON.stringify(sourceData.savingsGroups || [])),
       dailyTransfer: sourceData.dailyTransfer || 300,
       weekendTransfer: sourceData.weekendTransfer || 540,
-      customHolidays: JSON.parse(JSON.stringify(sourceData.customHolidays || []))
+      customHolidays: JSON.parse(JSON.stringify(sourceData.customHolidays || [])),
+      // Include accounts to ensure they are available when loading template
+      accounts: JSON.parse(JSON.stringify(sourceData.accounts || ['Löpande', 'Sparkonto', 'Buffert']))
     };
     
     setBudgetTemplates(prev => ({
@@ -1036,12 +1038,17 @@ const BudgetCalculator = () => {
     const template = budgetTemplates[templateName];
     if (!template) return;
     
-    // Load template data into current form
+    // Load template data into current form with complete data
     setCostGroups(JSON.parse(JSON.stringify(template.costGroups || [])));
     setSavingsGroups(JSON.parse(JSON.stringify(template.savingsGroups || [])));
     setDailyTransfer(template.dailyTransfer || 300);
     setWeekendTransfer(template.weekendTransfer || 540);
     setCustomHolidays(JSON.parse(JSON.stringify(template.customHolidays || [])));
+    
+    // Load accounts if they exist in the template
+    if (template.accounts) {
+      setAccounts(JSON.parse(JSON.stringify(template.accounts)));
+    }
     
     // Save current month after loading template
     saveToSelectedMonth();
