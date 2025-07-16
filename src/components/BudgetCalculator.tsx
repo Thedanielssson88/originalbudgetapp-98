@@ -2047,22 +2047,6 @@ const BudgetCalculator = () => {
                                            onChange={(e) => updateSubCategory(group.id, sub.id, 'name', e.target.value)}
                                            className="flex-1"
                                          />
-                                         <Select
-                                           value={sub.account || ''}
-                                           onValueChange={(value) => updateSubCategory(group.id, sub.id, 'account', value)}
-                                         >
-                                           <SelectTrigger className="w-32">
-                                             <SelectValue placeholder="Konto" />
-                                           </SelectTrigger>
-                                           <SelectContent>
-                                             <SelectItem value="">Inget konto</SelectItem>
-                                             {accounts.map((account) => (
-                                               <SelectItem key={account} value={account}>
-                                                 {account}
-                                               </SelectItem>
-                                             ))}
-                                           </SelectContent>
-                                         </Select>
                                          <Input
                                            type="number"
                                            value={sub.amount === 0 ? '' : sub.amount}
@@ -2146,22 +2130,6 @@ const BudgetCalculator = () => {
                                    onChange={(e) => updateSavingsGroup(group.id, 'name', e.target.value)}
                                    className="flex-1"
                                  />
-                                 <Select
-                                   value={group.account || ''}
-                                   onValueChange={(value) => updateSavingsGroup(group.id, 'account', value)}
-                                 >
-                                   <SelectTrigger className="w-32">
-                                     <SelectValue placeholder="Konto" />
-                                   </SelectTrigger>
-                                   <SelectContent>
-                                     <SelectItem value="">Inget konto</SelectItem>
-                                     {accounts.map((account) => (
-                                       <SelectItem key={account} value={account}>
-                                         {account}
-                                       </SelectItem>
-                                     ))}
-                                   </SelectContent>
-                                 </Select>
                                  <Input
                                    type="number"
                                    value={group.amount === 0 ? '' : group.amount}
