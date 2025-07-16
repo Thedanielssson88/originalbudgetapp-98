@@ -281,6 +281,9 @@ const BudgetCalculator = () => {
         console.error('Error loading backup:', error);
       }
     }
+    
+    // Calculate budget on component mount after data is loaded
+    setTimeout(() => calculateBudget(), 0);
   }, []);
 
   // Save current data to the selected month in historical data
@@ -360,6 +363,11 @@ const BudgetCalculator = () => {
     saveToLocalStorage();
     saveToSelectedMonth();
   }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, selectedBudgetMonth, accounts]);
+
+  // Auto-calculate budget whenever any input changes
+  useEffect(() => {
+    calculateBudget();
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedBudgetMonth, transferAccount]);
 
   const calculateDailyBudget = () => {
     const currentDate = new Date();
@@ -1213,7 +1221,7 @@ const BudgetCalculator = () => {
     if (chartData.length === 0) {
       return (
         <div className="text-center py-8">
-          <p className="text-muted-foreground">Ingen historisk data tillgänglig. Beräkna budget för att spara data.</p>
+          <p className="text-muted-foreground">Ingen historisk data tillgänglig. Budgeten sparas automatiskt varje månad.</p>
         </div>
       );
     }
@@ -1901,11 +1909,12 @@ const BudgetCalculator = () => {
                     </div>
                   </div>
 
-                  {/* Calculate Button */}
-                  <Button onClick={calculateBudget} className="w-full" size="lg">
-                    <Calculator className="mr-2 h-4 w-4" />
-                    Beräkna Budget
-                  </Button>
+                  {/* Budget automatically calculated when values change */}
+                  <div className="text-center p-4 bg-muted/30 rounded-lg">
+                    <div className="text-sm text-muted-foreground">
+                      Budgeten beräknas automatiskt när du ändrar värden
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -2355,7 +2364,7 @@ const BudgetCalculator = () => {
                       <div>
                         <div className="text-sm text-muted-foreground">Total daglig budget</div>
                         <div className="text-2xl font-bold text-blue-600">
-                          {results ? formatCurrency(results.totalDailyBudget) : 'Beräkna budget först'}
+                          {results ? formatCurrency(results.totalDailyBudget) : 'Beräknar...'}
                         </div>
                       </div>
                       {expandedSections.budgetTransfers ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
@@ -2407,7 +2416,7 @@ const BudgetCalculator = () => {
                   <div className="p-4 bg-amber-50 rounded-lg">
                     <div className="text-sm text-muted-foreground">Återstående daglig budget</div>
                     <div className="text-2xl font-bold text-amber-600">
-                      {results ? formatCurrency(results.remainingDailyBudget) : 'Beräkna budget först'}
+                      {results ? formatCurrency(results.remainingDailyBudget) : 'Beräknar...'}
                     </div>
                   </div>
 
@@ -2432,7 +2441,7 @@ const BudgetCalculator = () => {
                       <div>
                         <div className="text-sm text-muted-foreground">Budget som ej överförs (röda dagar)</div>
                         <div className="text-2xl font-bold text-red-600">
-                          {results ? formatCurrency(results.holidayDaysBudget) : 'Beräkna budget först'}
+                          {results ? formatCurrency(results.holidayDaysBudget) : 'Beräknar...'}
                         </div>
                       </div>
                       {expandedSections.redDays ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
@@ -2506,7 +2515,7 @@ const BudgetCalculator = () => {
                   <div className="p-4 bg-purple-50 rounded-lg">
                     <div className="text-sm text-muted-foreground">Kvar att fördela</div>
                     <div className={`text-2xl font-bold ${results && results.balanceLeft >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {results ? formatCurrency(results.balanceLeft) : 'Beräkna budget först'}
+                      {results ? formatCurrency(results.balanceLeft) : 'Beräknar...'}
                     </div>
                   </div>
                 </CardContent>
@@ -2522,19 +2531,19 @@ const BudgetCalculator = () => {
                     <div className="space-y-2">
                       <div className="text-sm text-muted-foreground">Andreas andel</div>
                       <div className="text-lg font-semibold">
-                        {results ? `${results.andreasPercentage.toFixed(1)}%` : 'Beräkna budget först'}
+                        {results ? `${results.andreasPercentage.toFixed(1)}%` : 'Beräknar...'}
                       </div>
                       <div className="text-2xl font-bold text-green-600">
-                        {results ? formatCurrency(results.andreasShare) : 'Beräkna budget först'}
+                        {results ? formatCurrency(results.andreasShare) : 'Beräknar...'}
                       </div>
                     </div>
                     <div className="space-y-2">
                       <div className="text-sm text-muted-foreground">Susanna andel</div>
                       <div className="text-lg font-semibold">
-                        {results ? `${results.susannaPercentage.toFixed(1)}%` : 'Beräkna budget först'}
+                        {results ? `${results.susannaPercentage.toFixed(1)}%` : 'Beräknar...'}
                       </div>
                       <div className="text-2xl font-bold text-green-600">
-                        {results ? formatCurrency(results.susannaShare) : 'Beräkna budget först'}
+                        {results ? formatCurrency(results.susannaShare) : 'Beräknar...'}
                       </div>
                     </div>
                   </div>
@@ -2894,7 +2903,7 @@ const BudgetCalculator = () => {
                     <div className="flex justify-between">
                       <span>Total andel:</span>
                       <span className="font-medium">
-                        {results ? formatCurrency(getCurrentPersonIncome()) : 'Beräkna budget först'}
+                        {results ? formatCurrency(getCurrentPersonIncome()) : 'Beräknar...'}
                       </span>
                     </div>
                     <div className="flex justify-between text-destructive">
@@ -2921,7 +2930,7 @@ const BudgetCalculator = () => {
                           getCurrentPersonIncome() - 
                           getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0) - 
                           getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)
-                        ) : 'Beräkna budget först'}
+                        ) : 'Beräknar...'}
                       </span>
                     </div>
                     {/* Daily Budget Fields for Personal Budget */}
