@@ -2106,32 +2106,39 @@ const BudgetCalculator = () => {
           </Card>
         )}
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
-          <TabsList className={`grid w-full ${(() => {
-            // Check if current selected month is the current month
-            const currentDate = new Date();
-            const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-            const isCurrentMonth = selectedBudgetMonth === currentMonthKey;
-            return isCurrentMonth ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5';
-          })()} gap-1 h-auto p-1`}>
-            <TabsTrigger value="inkomster" className="w-full text-xs sm:text-sm">Inkomster och Utgifter</TabsTrigger>
-            <TabsTrigger value="sammanstallning" className="w-full text-xs sm:text-sm">Sammanställning</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          {/* Hidden TabsList for programmatic navigation only */}
+          <TabsList className="hidden">
+            <TabsTrigger value="inkomster">Inkomster och Utgifter</TabsTrigger>
+            <TabsTrigger value="sammanstallning">Sammanställning</TabsTrigger>
             {(() => {
               // Only show Överföring tab for current month
               const currentDate = new Date();
               const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
               const isCurrentMonth = selectedBudgetMonth === currentMonthKey;
               return isCurrentMonth ? (
-                <TabsTrigger value="overforing" className="w-full text-xs sm:text-sm">Överföring</TabsTrigger>
+                <TabsTrigger value="overforing">Överföring</TabsTrigger>
               ) : null;
             })()}
-            <TabsTrigger value="egen-budget" className="w-full text-xs sm:text-sm">Egen Budget</TabsTrigger>
-            <TabsTrigger value="historia" className="w-full text-xs sm:text-sm">Historia</TabsTrigger>
-            <TabsTrigger value="installningar" className="w-full text-xs sm:text-sm">Inställningar</TabsTrigger>
+            <TabsTrigger value="egen-budget">Egen Budget</TabsTrigger>
+            <TabsTrigger value="historia">Historia</TabsTrigger>
+            <TabsTrigger value="installningar">Inställningar</TabsTrigger>
           </TabsList>
 
+          {/* Current page title */}
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-center">
+              {activeTab === 'inkomster' && 'Inkomster och Utgifter'}
+              {activeTab === 'sammanstallning' && 'Sammanställning'}
+              {activeTab === 'overforing' && 'Överföring'}
+              {activeTab === 'egen-budget' && 'Egen Budget'}
+              {activeTab === 'historia' && 'Historia'}
+              {activeTab === 'installningar' && 'Inställningar'}
+            </h1>
+          </div>
+
           {/* Tab 1: Inkomster och Utgifter */}
-          <TabsContent value="inkomster" className="mt-32">
+          <TabsContent value="inkomster" className="mt-0">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Input Section */}
               <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
@@ -2262,7 +2269,7 @@ const BudgetCalculator = () => {
           </TabsContent>
 
           {/* Tab 2: Sammanställning */}
-          <TabsContent value="sammanstallning" className="mt-32">
+          <TabsContent value="sammanstallning" className="mt-0">
             <div className="space-y-6">
               {/* Total Income Display */}
               <Card>
@@ -2964,7 +2971,7 @@ const BudgetCalculator = () => {
           </TabsContent>
 
           {/* Tab 3: Överföring */}
-          <TabsContent value="overforing" className="mt-32">
+          <TabsContent value="overforing" className="mt-0">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -3040,7 +3047,7 @@ const BudgetCalculator = () => {
           </TabsContent>
 
           {/* Tab 4: Egen Budget */}
-          <TabsContent value="egen-budget" className="mt-32">
+          <TabsContent value="egen-budget" className="mt-0">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -3252,7 +3259,7 @@ const BudgetCalculator = () => {
           </TabsContent>
 
           {/* Tab 5: Historia */}
-          <TabsContent value="historia" className="mt-32">
+          <TabsContent value="historia" className="mt-0">
             <div className="space-y-6">
               {/* Charts Section */}
               <Card>
@@ -3287,7 +3294,7 @@ const BudgetCalculator = () => {
           </TabsContent>
 
           {/* Settings Tab */}
-          <TabsContent value="installningar" className="mt-32">
+          <TabsContent value="installningar" className="mt-0">
             <div className="space-y-6">
               {/* User Names Settings */}
               <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
