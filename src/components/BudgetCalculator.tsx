@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useSwipeGestures } from '@/hooks/useSwipeGestures';
 
 interface SubCategory {
@@ -2959,26 +2959,179 @@ const BudgetCalculator = () => {
               {/* Individual Shares */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Individuella andelar</CardTitle>
+                  <CardTitle>Individuell Fördelning & Bidrag</CardTitle>
                 </CardHeader>
                 <CardContent>
+                  {/* Individual Breakdown */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <div className="text-sm text-muted-foreground">Andreas andel</div>
-                      <div className="text-lg font-semibold">
-                        {results ? `${results.andreasPercentage.toFixed(1)}%` : 'Beräknar...'}
-                      </div>
-                      <div className="text-2xl font-bold text-green-600">
-                        {results ? formatCurrency(results.andreasShare) : 'Beräknar...'}
+                    {/* Andreas Column */}
+                    <div className="space-y-4">
+                      <h5 className="font-medium text-lg">Andreas</h5>
+                      <div className="space-y-3">
+                        <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                          <div className="text-sm text-muted-foreground">Procentuell fördelning</div>
+                          <div className="text-xl font-bold text-purple-600">
+                            {(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                              ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1)
+                              : '0'}%
+                          </div>
+                        </div>
+                        <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                          <div className="text-sm text-muted-foreground">Andel av gemensamma kostnader/sparande</div>
+                          <div className="text-xl font-bold text-red-600">
+                            {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                              ? ((results ? results.totalDailyBudget : 0) +
+                                costGroups.reduce((sum, group) => {
+                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                  return sum + subCategoriesTotal;
+                                }, 0) +
+                                savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                              : 0)}
+                          </div>
+                        </div>
+                        <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                          <div className="text-sm text-muted-foreground">Kvar efter gemensamma kostnader/sparande</div>
+                          <div className="text-xl font-bold text-green-600">
+                            {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) - 
+                              ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                                ? ((results ? results.totalDailyBudget : 0) +
+                                  costGroups.reduce((sum, group) => {
+                                    const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                    return sum + subCategoriesTotal;
+                                  }, 0) +
+                                  savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                                : 0))}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <div className="text-sm text-muted-foreground">Susanna andel</div>
-                      <div className="text-lg font-semibold">
-                        {results ? `${results.susannaPercentage.toFixed(1)}%` : 'Beräknar...'}
+
+                    {/* Susanna Column */}
+                    <div className="space-y-4">
+                      <h5 className="font-medium text-lg">Susanna</h5>
+                      <div className="space-y-3">
+                        <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                          <div className="text-sm text-muted-foreground">Procentuell fördelning</div>
+                          <div className="text-xl font-bold text-purple-600">
+                            {(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                              ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1)
+                              : '0'}%
+                          </div>
+                        </div>
+                        <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                          <div className="text-sm text-muted-foreground">Andel av gemensamma kostnader/sparande</div>
+                          <div className="text-xl font-bold text-red-600">
+                            {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                              ? ((results ? results.totalDailyBudget : 0) +
+                                costGroups.reduce((sum, group) => {
+                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                  return sum + subCategoriesTotal;
+                                }, 0) +
+                                savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                              : 0)}
+                          </div>
+                        </div>
+                        <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                          <div className="text-sm text-muted-foreground">Kvar efter gemensamma kostnader/sparande</div>
+                          <div className="text-xl font-bold text-green-600">
+                            {formatCurrency((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) - 
+                              ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                                ? ((results ? results.totalDailyBudget : 0) +
+                                  costGroups.reduce((sum, group) => {
+                                    const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                    return sum + subCategoriesTotal;
+                                  }, 0) +
+                                  savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                                : 0))}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-2xl font-bold text-green-600">
-                        {results ? formatCurrency(results.susannaShare) : 'Beräknar...'}
+                    </div>
+                  </div>
+
+                  {/* Bar Charts Section */}
+                  <div className="mt-8 space-y-6">
+                    <div>
+                      <h5 className="font-medium text-lg mb-4">Andel av gemensamma kostnader/sparande</h5>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={[
+                              {
+                                name: userName1,
+                                value: (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                                  ? ((results ? results.totalDailyBudget : 0) +
+                                    costGroups.reduce((sum, group) => {
+                                      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                      return sum + subCategoriesTotal;
+                                    }, 0) +
+                                    savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                                  : 0
+                              },
+                              {
+                                name: userName2,
+                                value: (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                                  ? ((results ? results.totalDailyBudget : 0) +
+                                    costGroups.reduce((sum, group) => {
+                                      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                      return sum + subCategoriesTotal;
+                                    }, 0) +
+                                    savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                                  : 0
+                              }
+                            ]}
+                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis tickFormatter={(value) => formatCurrency(value)} />
+                            <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                            <Bar dataKey="value" fill="#ef4444" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h5 className="font-medium text-lg mb-4">Kvar efter gemensamma kostnader/sparande</h5>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={[
+                              {
+                                name: userName1,
+                                value: (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) - 
+                                  ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                                    ? ((results ? results.totalDailyBudget : 0) +
+                                      costGroups.reduce((sum, group) => {
+                                        const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                        return sum + subCategoriesTotal;
+                                      }, 0) +
+                                      savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                                    : 0)
+                              },
+                              {
+                                name: userName2,
+                                value: (susannaSalary + susannaförsäkringskassan + susannabarnbidrag) - 
+                                  ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                                    ? ((results ? results.totalDailyBudget : 0) +
+                                      costGroups.reduce((sum, group) => {
+                                        const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                        return sum + subCategoriesTotal;
+                                      }, 0) +
+                                      savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                                    : 0)
+                              }
+                            ]}
+                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis tickFormatter={(value) => formatCurrency(value)} />
+                            <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                            <Bar dataKey="value" fill="#16a34a" />
+                          </BarChart>
+                        </ResponsiveContainer>
                       </div>
                     </div>
                   </div>
@@ -3007,93 +3160,6 @@ const BudgetCalculator = () => {
                       </div>
                     </div>
                   )}
-
-                  {/* Individual Breakdown */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Andreas Column */}
-                    <div className="space-y-4">
-                      <h5 className="font-medium text-lg">Andreas</h5>
-                      <div className="space-y-3">
-                        <div className="p-3 bg-primary/10 rounded-lg">
-                          <div className="text-sm text-muted-foreground">Procentuell fördelning</div>
-                          <div className="text-xl font-bold">
-                            {(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                              ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1)
-                              : '0'}%
-                          </div>
-                        </div>
-                        <div className="p-3 bg-destructive/10 rounded-lg">
-                          <div className="text-sm text-muted-foreground">Andel av gemensamma kostnader/sparande</div>
-                          <div className="text-xl font-bold text-destructive">
-                            {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                              ? ((results ? results.totalDailyBudget : 0) +
-                                costGroups.reduce((sum, group) => {
-                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                  return sum + subCategoriesTotal;
-                                }, 0) +
-                                savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
-                              : 0)}
-                          </div>
-                        </div>
-                        <div className="p-3 bg-green-50 rounded-lg">
-                          <div className="text-sm text-muted-foreground">Kvar efter gemensamma kostnader/sparande</div>
-                          <div className="text-xl font-bold text-green-600">
-                            {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) - 
-                              ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                                ? ((results ? results.totalDailyBudget : 0) +
-                                  costGroups.reduce((sum, group) => {
-                                    const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                    return sum + subCategoriesTotal;
-                                  }, 0) +
-                                  savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
-                                : 0))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Susanna Column */}
-                    <div className="space-y-4">
-                      <h5 className="font-medium text-lg">Susanna</h5>
-                      <div className="space-y-3">
-                        <div className="p-3 bg-primary/10 rounded-lg">
-                          <div className="text-sm text-muted-foreground">Procentuell fördelning</div>
-                          <div className="text-xl font-bold">
-                            {(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                              ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1)
-                              : '0'}%
-                          </div>
-                        </div>
-                        <div className="p-3 bg-destructive/10 rounded-lg">
-                          <div className="text-sm text-muted-foreground">Andel av gemensamma kostnader/sparande</div>
-                          <div className="text-xl font-bold text-destructive">
-                            {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                              ? ((results ? results.totalDailyBudget : 0) +
-                                costGroups.reduce((sum, group) => {
-                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                  return sum + subCategoriesTotal;
-                                }, 0) +
-                                savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
-                              : 0)}
-                          </div>
-                        </div>
-                        <div className="p-3 bg-green-50 rounded-lg">
-                          <div className="text-sm text-muted-foreground">Kvar efter gemensamma kostnader/sparande</div>
-                          <div className="text-xl font-bold text-green-600">
-                            {formatCurrency((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) - 
-                              ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                                ? ((results ? results.totalDailyBudget : 0) +
-                                  costGroups.reduce((sum, group) => {
-                                    const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                    return sum + subCategoriesTotal;
-                                  }, 0) +
-                                  savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
-                                : 0))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
                 </CardContent>
               </Card>
               </div>
