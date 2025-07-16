@@ -28,10 +28,10 @@ export const useSwipeGestures = ({
     
     if (Math.abs(swipeDistance) > threshold) {
       if (swipeDistance > 0) {
-        // Swipe left (next)
+        // Swipe left (previous)
         onSwipeLeft();
       } else {
-        // Swipe right (previous)
+        // Swipe right (next)
         onSwipeRight();
       }
     }
