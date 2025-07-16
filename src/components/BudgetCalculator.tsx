@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from 'recharts';
 import { useSwipeGestures } from '@/hooks/useSwipeGestures';
 
 interface SubCategory {
@@ -88,7 +88,9 @@ const BudgetCalculator = () => {
     editMonths: false,
     monthSelector: false,
     accountSummary: false,
-    budgetTemplates: false
+    budgetTemplates: false,
+    totalIncome: false,
+    budgetSummary: false
   });
   
   // Personal budget states
@@ -2353,41 +2355,78 @@ const BudgetCalculator = () => {
                   : ""
             }`}>
               <div className="space-y-6">
-              {/* Total Income Display */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Inkomstöversikt</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 bg-primary/10 rounded-lg">
-                      <div className="text-sm text-muted-foreground">{userName1} totala inkomst</div>
-                      <div className="text-2xl font-bold text-primary">
-                        {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}
-                      </div>
-                    </div>
-                    <div className="p-4 bg-primary/10 rounded-lg">
-                      <div className="text-sm text-muted-foreground">{userName2} totala inkomst</div>
-                      <div className="text-2xl font-bold text-primary">
-                        {formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
-                      </div>
-                    </div>
-                    <div className="p-4 bg-primary/20 rounded-lg">
-                      <div className="text-sm text-muted-foreground">Total inkomst</div>
-                      <div className="text-2xl font-bold text-primary">
-                        {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
               {/* Budget Categories */}
               <Card>
                 <CardHeader>
                   <CardTitle>Budgetöversikt</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Total Income with Dropdown */}
+                  <div className="p-4 bg-primary/10 rounded-lg">
+                    <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('totalIncome')}>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Total inkomst</div>
+                        <div className="text-2xl font-bold text-primary">
+                          {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
+                        </div>
+                      </div>
+                      {expandedSections.totalIncome ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                    </div>
+                    
+                    {expandedSections.totalIncome && (
+                      <div className="mt-4 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-3">
+                            <div className="p-3 bg-primary/5 rounded-lg">
+                              <div className="text-sm text-muted-foreground">{userName1} totala inkomst</div>
+                              <div className="text-xl font-bold text-primary">
+                                {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}
+                              </div>
+                            </div>
+                            <div className="p-3 bg-primary/5 rounded-lg">
+                              <div className="text-sm text-muted-foreground">{userName2} totala inkomst</div>
+                              <div className="text-xl font-bold text-primary">
+                                {formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex justify-center">
+                            <div className="w-48 h-48">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                  <Pie
+                                    data={[
+                                      {
+                                        name: userName1,
+                                        value: andreasSalary + andreasförsäkringskassan + andreasbarnbidrag,
+                                        color: '#8b5cf6'
+                                      },
+                                      {
+                                        name: userName2,
+                                        value: susannaSalary + susannaförsäkringskassan + susannabarnbidrag,
+                                        color: '#06b6d4'
+                                      }
+                                    ]}
+                                    dataKey="value"
+                                    nameKey="name"
+                                    cx="50%"
+                                    cy="50%"
+                                    outerRadius={80}
+                                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                                  >
+                                    <Cell fill="#8b5cf6" />
+                                    <Cell fill="#06b6d4" />
+                                  </Pie>
+                                  <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                                </PieChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Total Costs with Dropdown */}
                   <div className="p-4 bg-destructive/10 rounded-lg">
                     <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('costCategories')}>
@@ -2519,10 +2558,64 @@ const BudgetCalculator = () => {
                           </div>
                         ))}
                       </div>
-                    )}
-                  </div>
+                     )}
+                   </div>
 
-                  {/* Total Savings with Dropdown */}
+                   {/* Total Daily Budget with Dropdown */}
+                   <div className="p-4 bg-blue-50 rounded-lg">
+                     <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetTransfers')}>
+                       <div>
+                         <div className="text-sm text-muted-foreground">Total daglig budget</div>
+                         <div className="text-2xl font-bold text-blue-600">
+                           {results ? formatCurrency(results.totalDailyBudget) : 'Beräknar...'}
+                         </div>
+                       </div>
+                       {expandedSections.budgetTransfers ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                     </div>
+                     
+                     {expandedSections.budgetTransfers && (
+                       <div className="mt-4 space-y-4">
+                         <div className="flex justify-between items-center">
+                           <h4 className="font-semibold">Budgetöverföringar</h4>
+                           <Button size="sm" onClick={() => setIsEditingTransfers(!isEditingTransfers)}>
+                             {isEditingTransfers ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
+                           </Button>
+                         </div>
+                         
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <div className="space-y-2">
+                             <Label htmlFor="daily-transfer">Daglig överföring (måndag-torsdag)</Label>
+                             <Input
+                               id="daily-transfer"
+                               type="number"
+                               value={dailyTransfer || ''}
+                               onChange={(e) => setDailyTransfer(Number(e.target.value))}
+                               disabled={!isEditingTransfers}
+                             />
+                           </div>
+                           <div className="space-y-2">
+                             <Label htmlFor="weekend-transfer">Helgöverföring (fredag-söndag)</Label>
+                             <Input
+                               id="weekend-transfer"
+                               type="number"
+                               value={weekendTransfer || ''}
+                               onChange={(e) => setWeekendTransfer(Number(e.target.value))}
+                               disabled={!isEditingTransfers}
+                             />
+                           </div>
+                         </div>
+                         
+                         {results && (
+                           <div className="text-sm text-muted-foreground">
+                             <div>Vardagar: {results.weekdayCount} × {formatCurrency(dailyTransfer)} = {formatCurrency(results.weekdayCount * dailyTransfer)}</div>
+                             <div>Helgdagar: {results.fridayCount} × {formatCurrency(weekendTransfer)} = {formatCurrency(results.fridayCount * weekendTransfer)}</div>
+                           </div>
+                         )}
+                       </div>
+                     )}
+                   </div>
+
+                   {/* Total Savings with Dropdown */}
                   <div className="p-4 bg-green-50 rounded-lg">
                     <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('savingsCategories')}>
                       <div>
@@ -2608,11 +2701,42 @@ const BudgetCalculator = () => {
                              )}
                            </div>
                          ))}
-                      </div>
-                    )}
-                   </div>
+                       </div>
+                     )}
+                    </div>
 
-                   {/* Account Summary with Dropdown */}
+                    {/* Budget Summary with Dropdown */}
+                    <div className="p-4 bg-muted rounded-lg">
+                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetSummary')}>
+                        <div>
+                          <div className="text-sm text-muted-foreground">Budgetsummering</div>
+                          <div className="text-2xl font-bold">
+                            {formatCurrency(
+                              (results ? results.totalDailyBudget : 0) +
+                              costGroups.reduce((sum, group) => {
+                                const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                return sum + subCategoriesTotal;
+                              }, 0) +
+                              savingsGroups.reduce((sum, group) => sum + group.amount, 0)
+                            )}
+                          </div>
+                        </div>
+                        {expandedSections.budgetSummary ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                      </div>
+                      
+                      {expandedSections.budgetSummary && (
+                        <div className="mt-4 space-y-3">
+                          <div className="p-3 bg-amber-50 rounded-lg">
+                            <div className="text-sm text-muted-foreground">Återstående daglig budget</div>
+                            <div className="text-xl font-bold text-amber-600">
+                              {results ? formatCurrency(results.remainingDailyBudget) : 'Beräknar...'}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Account Summary with Dropdown */}
                    <div className="p-4 bg-indigo-50 rounded-lg">
                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('accountSummary')}>
                        <div>
@@ -2745,83 +2869,6 @@ const BudgetCalculator = () => {
                      )}
                    </div>
 
-
-                   {/* Total Daily Budget with Dropdown */}
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetTransfers')}>
-                      <div>
-                        <div className="text-sm text-muted-foreground">Total daglig budget</div>
-                        <div className="text-2xl font-bold text-blue-600">
-                          {results ? formatCurrency(results.totalDailyBudget) : 'Beräknar...'}
-                        </div>
-                      </div>
-                      {expandedSections.budgetTransfers ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                    </div>
-                    
-                    {expandedSections.budgetTransfers && (
-                      <div className="mt-4 space-y-4">
-                        <div className="flex justify-between items-center">
-                          <h4 className="font-semibold">Budgetöverföringar</h4>
-                          <Button size="sm" onClick={() => setIsEditingTransfers(!isEditingTransfers)}>
-                            {isEditingTransfers ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
-                          </Button>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="daily-transfer">Daglig överföring (måndag-torsdag)</Label>
-                            <Input
-                              id="daily-transfer"
-                              type="number"
-                              value={dailyTransfer || ''}
-                              onChange={(e) => setDailyTransfer(Number(e.target.value))}
-                              disabled={!isEditingTransfers}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="weekend-transfer">Helgöverföring (fredag-söndag)</Label>
-                            <Input
-                              id="weekend-transfer"
-                              type="number"
-                              value={weekendTransfer || ''}
-                              onChange={(e) => setWeekendTransfer(Number(e.target.value))}
-                              disabled={!isEditingTransfers}
-                            />
-                          </div>
-                        </div>
-                        
-                        {results && (
-                          <div className="text-sm text-muted-foreground">
-                            <div>Vardagar: {results.weekdayCount} × {formatCurrency(dailyTransfer)} = {formatCurrency(results.weekdayCount * dailyTransfer)}</div>
-                            <div>Helgdagar: {results.fridayCount} × {formatCurrency(weekendTransfer)} = {formatCurrency(results.fridayCount * weekendTransfer)}</div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Remaining Daily Budget */}
-                  <div className="p-4 bg-amber-50 rounded-lg">
-                    <div className="text-sm text-muted-foreground">Återstående daglig budget</div>
-                    <div className="text-2xl font-bold text-amber-600">
-                      {results ? formatCurrency(results.remainingDailyBudget) : 'Beräknar...'}
-                    </div>
-                  </div>
-
-                  {/* Summary of Total Costs, Savings, and Daily Budget */}
-                  <div className="p-4 bg-muted rounded-lg">
-                    <h5 className="font-medium mb-3">Summering totala gemensamma kostnader/sparande</h5>
-                    <div className="text-lg font-semibold text-center">
-                      {formatCurrency(
-                        (results ? results.totalDailyBudget : 0) +
-                        costGroups.reduce((sum, group) => {
-                          const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                          return sum + subCategoriesTotal;
-                        }, 0) +
-                        savingsGroups.reduce((sum, group) => sum + group.amount, 0)
-                      )}
-                    </div>
-                  </div>
 
                   {/* Budget Not Transferred (Red Days) */}
                   <div className="p-4 bg-red-50 rounded-lg">
