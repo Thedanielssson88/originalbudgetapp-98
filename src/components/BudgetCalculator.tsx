@@ -2048,14 +2048,14 @@ const BudgetCalculator = () => {
                                            className="flex-1"
                                          />
                                          <Select
-                                           value={sub.account || ''}
-                                           onValueChange={(value) => updateSubCategory(group.id, sub.id, 'account', value || undefined)}
+                                           value={sub.account || 'none'}
+                                           onValueChange={(value) => updateSubCategory(group.id, sub.id, 'account', value === 'none' ? undefined : value)}
                                          >
                                            <SelectTrigger className="w-28">
                                              <SelectValue placeholder="Konto" />
                                            </SelectTrigger>
                                            <SelectContent>
-                                             <SelectItem value="">Inget</SelectItem>
+                                             <SelectItem value="none">Inget</SelectItem>
                                              {accounts.map((account) => (
                                                <SelectItem key={account} value={account}>
                                                  {account}
@@ -2147,14 +2147,14 @@ const BudgetCalculator = () => {
                                    className="flex-1"
                                  />
                                  <Select
-                                   value={group.account || ''}
-                                   onValueChange={(value) => updateSavingsGroup(group.id, 'account', value || undefined)}
+                                   value={group.account || 'none'}
+                                   onValueChange={(value) => updateSavingsGroup(group.id, 'account', value === 'none' ? undefined : value)}
                                  >
                                    <SelectTrigger className="w-28">
                                      <SelectValue placeholder="Konto" />
                                    </SelectTrigger>
                                    <SelectContent>
-                                     <SelectItem value="">Inget</SelectItem>
+                                     <SelectItem value="none">Inget</SelectItem>
                                      {accounts.map((account) => (
                                        <SelectItem key={account} value={account}>
                                          {account}
