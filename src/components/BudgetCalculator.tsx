@@ -634,7 +634,12 @@ const BudgetCalculator = () => {
       totalDailyBudget: budgetData.totalBudget,
       remainingDailyBudget: budgetData.remainingBudget,
       holidayDaysBudget: budgetData.holidayBudget,
-      daysUntil25th: budgetData.daysUntil25th
+      daysUntil25th: budgetData.daysUntil25th,
+      // Include personal budget data in historical snapshot
+      andreasPersonalCosts: JSON.parse(JSON.stringify(andreasPersonalCosts)),
+      andreasPersonalSavings: JSON.parse(JSON.stringify(andreasPersonalSavings)),
+      susannaPersonalCosts: JSON.parse(JSON.stringify(susannaPersonalCosts)),
+      susannaPersonalSavings: JSON.parse(JSON.stringify(susannaPersonalSavings))
     };
     
     setHistoricalData(prev => ({
