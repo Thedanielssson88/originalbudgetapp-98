@@ -375,7 +375,7 @@ const BudgetCalculator = () => {
   useEffect(() => {
     saveToLocalStorage();
     saveToSelectedMonth();
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, selectedBudgetMonth, accounts, budgetTemplates]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, budgetTemplates]);
 
   // Auto-calculate budget whenever any input changes
   useEffect(() => {
@@ -991,6 +991,9 @@ const BudgetCalculator = () => {
 
   // Function to handle month selection change
   const handleBudgetMonthChange = (monthKey: string) => {
+    // Save current data to current month before switching
+    saveToSelectedMonth();
+    
     setSelectedBudgetMonth(monthKey);
     
     // Check if switching away from current month while on Överföring tab
