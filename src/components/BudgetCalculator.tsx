@@ -3138,30 +3138,50 @@ const BudgetCalculator = () => {
                 </CardContent>
               </Card>
 
-              {/* Time & Transfer Details */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Tid & överföringsdetaljer</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {results && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="p-3 bg-muted rounded-lg">
-                        <div className="text-sm text-muted-foreground">Dagar kvar till 25:e</div>
-                        <div className="text-xl font-semibold">{results.daysUntil25th} dagar</div>
+              {/* Transfer Plan & Next Salary - Only show for current month */}
+              {(() => {
+                const currentDate = new Date();
+                const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                const isCurrentMonth = selectedBudgetMonth === currentMonthKey;
+                
+                if (!isCurrentMonth) return null;
+                
+                return (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Överföringsplan & Nästa Lön</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {results && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="p-3 bg-muted rounded-lg">
+                            <div className="text-sm text-muted-foreground">Dagar kvar till 25:e</div>
+                            <div className="text-xl font-semibold">{results.daysUntil25th} dagar</div>
+                          </div>
+                          <div className="p-3 bg-muted rounded-lg">
+                            <div className="text-sm text-muted-foreground">Vardagar</div>
+                            <div className="text-xl font-semibold">{results.weekdayCount} dagar</div>
+                          </div>
+                          <div className="p-3 bg-muted rounded-lg">
+                            <div className="text-sm text-muted-foreground">Helgdagar</div>
+                            <div className="text-xl font-semibold">{results.fridayCount} dagar</div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="pt-4 border-t">
+                        <Button 
+                          onClick={() => setActiveTab("overforing")} 
+                          className="w-full"
+                          variant="outline"
+                        >
+                          Se överföringsplan
+                        </Button>
                       </div>
-                      <div className="p-3 bg-muted rounded-lg">
-                        <div className="text-sm text-muted-foreground">Vardagar</div>
-                        <div className="text-xl font-semibold">{results.weekdayCount} dagar</div>
-                      </div>
-                      <div className="p-3 bg-muted rounded-lg">
-                        <div className="text-sm text-muted-foreground">Helgdagar</div>
-                        <div className="text-xl font-semibold">{results.fridayCount} dagar</div>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
               </div>
             </div>
           </TabsContent>
