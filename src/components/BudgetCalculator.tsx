@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History } from 'lucide-react';
+import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface SubCategory {
@@ -880,6 +880,48 @@ const BudgetCalculator = () => {
     }
   };
 
+  // Function to get available months with saved data
+  const getMonthsWithSavedData = () => {
+    return Object.keys(historicalData)
+      .filter(month => historicalData[month]) // Only months with actual saved data
+      .sort((a, b) => a.localeCompare(b)); // Sort chronologically (oldest first)
+  };
+
+  // Function to navigate to previous month with saved data
+  const navigateToPreviousMonth = () => {
+    const monthsWithData = getMonthsWithSavedData();
+    const currentIndex = monthsWithData.indexOf(selectedBudgetMonth);
+    
+    if (currentIndex > 0) {
+      const previousMonth = monthsWithData[currentIndex - 1];
+      handleBudgetMonthChange(previousMonth);
+    }
+  };
+
+  // Function to navigate to next month with saved data
+  const navigateToNextMonth = () => {
+    const monthsWithData = getMonthsWithSavedData();
+    const currentIndex = monthsWithData.indexOf(selectedBudgetMonth);
+    
+    if (currentIndex >= 0 && currentIndex < monthsWithData.length - 1) {
+      const nextMonth = monthsWithData[currentIndex + 1];
+      handleBudgetMonthChange(nextMonth);
+    }
+  };
+
+  // Function to check if navigation arrows should be disabled
+  const canNavigatePrevious = () => {
+    const monthsWithData = getMonthsWithSavedData();
+    const currentIndex = monthsWithData.indexOf(selectedBudgetMonth);
+    return currentIndex > 0;
+  };
+
+  const canNavigateNext = () => {
+    const monthsWithData = getMonthsWithSavedData();
+    const currentIndex = monthsWithData.indexOf(selectedBudgetMonth);
+    return currentIndex >= 0 && currentIndex < monthsWithData.length - 1;
+  };
+
   // Function to handle month selection change
   const handleBudgetMonthChange = (monthKey: string) => {
     setSelectedBudgetMonth(monthKey);
@@ -1428,25 +1470,47 @@ const BudgetCalculator = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Current Month Display */}
+            {/* Current Month Display with Navigation */}
             <div className="mb-4">
               <Label>Aktuell månad</Label>
-              <div className="text-lg font-medium text-primary mt-1">
-                {(() => {
-                  const monthNames = [
-                    'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
-                    'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
-                  ];
-                  
-                  if (selectedBudgetMonth) {
-                    const [year, month] = selectedBudgetMonth.split('-');
-                    const monthIndex = parseInt(month) - 1;
-                    return `${monthNames[monthIndex]} ${year}`;
-                  } else {
-                    const currentDate = new Date();
-                    return `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
-                  }
-                })()}
+              <div className="flex items-center gap-3 mt-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={navigateToPreviousMonth}
+                  disabled={!canNavigatePrevious()}
+                  className={`p-2 h-8 w-8 ${!canNavigatePrevious() ? 'text-muted-foreground/50' : 'text-primary hover:text-primary/80'}`}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                
+                <div className="text-lg font-medium text-primary">
+                  {(() => {
+                    const monthNames = [
+                      'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
+                      'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
+                    ];
+                    
+                    if (selectedBudgetMonth) {
+                      const [year, month] = selectedBudgetMonth.split('-');
+                      const monthIndex = parseInt(month) - 1;
+                      return `${monthNames[monthIndex]} ${year}`;
+                    } else {
+                      const currentDate = new Date();
+                      return `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+                    }
+                  })()}
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={navigateToNextMonth}
+                  disabled={!canNavigateNext()}
+                  className={`p-2 h-8 w-8 ${!canNavigateNext() ? 'text-muted-foreground/50' : 'text-primary hover:text-primary/80'}`}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
             </div>
 
