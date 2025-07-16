@@ -272,19 +272,22 @@ const BudgetCalculator = () => {
         
         console.log('Successfully loaded saved budget data');
         
-        // Set current month as default selected budget month
+        // Load the previously selected budget month or default to current month
         const currentDate = new Date();
         const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-        setSelectedBudgetMonth(currentMonthKey);
+        const savedSelectedMonth = parsed.selectedBudgetMonth || currentMonthKey;
+        setSelectedBudgetMonth(savedSelectedMonth);
         
-        // Load current month data if it exists in historical data
-        if (parsed.historicalData && parsed.historicalData[currentMonthKey]) {
-          loadDataFromSelectedMonth(currentMonthKey);
+        // Load data for the selected month from historical data
+        if (parsed.historicalData && parsed.historicalData[savedSelectedMonth]) {
+          // Use setTimeout to ensure state is set before loading data
+          setTimeout(() => {
+            loadDataFromSelectedMonth(savedSelectedMonth);
+          }, 0);
         }
         
       } catch (error) {
         console.error('Error loading saved data:', error);
-        // Only clear corrupted data, don't lose user data on migration
         console.warn('Using default values due to corrupted data');
         
         // Set current month as default selected budget month even on error
@@ -386,7 +389,8 @@ const BudgetCalculator = () => {
       susannaPersonalSavings,
       historicalData,
       accounts,
-      budgetTemplates
+      budgetTemplates,
+      selectedBudgetMonth // Save the selected month
     };
     localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
   };
