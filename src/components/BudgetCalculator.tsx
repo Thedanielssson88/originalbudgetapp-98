@@ -1151,6 +1151,91 @@ const BudgetCalculator = () => {
     return group.subCategories.reduce((sum: number, sub: any) => sum + (sub.amount || 0), 0);
   };
 
+  const addEditingCostGroup = () => {
+    if (!editingTemplateData) return;
+    
+    const newGroup = {
+      id: Date.now().toString(),
+      name: '',
+      amount: 0,
+      type: 'cost',
+      subCategories: []
+    };
+    
+    setEditingTemplateData(prev => ({
+      ...prev,
+      costGroups: [...(prev.costGroups || []), newGroup]
+    }));
+  };
+
+  const addEditingSavingsGroup = () => {
+    if (!editingTemplateData) return;
+    
+    const newGroup = {
+      id: Date.now().toString(),
+      name: '',
+      amount: 0,
+      type: 'savings'
+    };
+    
+    setEditingTemplateData(prev => ({
+      ...prev,
+      savingsGroups: [...(prev.savingsGroups || []), newGroup]
+    }));
+  };
+
+  const addEditingSubCategory = (groupId: string) => {
+    if (!editingTemplateData) return;
+    
+    const newSubCategory = {
+      id: Date.now().toString(),
+      name: '',
+      amount: 0
+    };
+    
+    setEditingTemplateData(prev => ({
+      ...prev,
+      costGroups: prev.costGroups.map((group: any) => 
+        group.id === groupId ? { 
+          ...group, 
+          subCategories: [...(group.subCategories || []), newSubCategory]
+        } : group
+      )
+    }));
+  };
+
+  const removeEditingCostGroup = (groupId: string) => {
+    if (!editingTemplateData) return;
+    
+    setEditingTemplateData(prev => ({
+      ...prev,
+      costGroups: prev.costGroups.filter((group: any) => group.id !== groupId)
+    }));
+  };
+
+  const removeEditingSavingsGroup = (groupId: string) => {
+    if (!editingTemplateData) return;
+    
+    setEditingTemplateData(prev => ({
+      ...prev,
+      savingsGroups: prev.savingsGroups.filter((group: any) => group.id !== groupId)
+    }));
+  };
+
+  const removeEditingSubCategory = (groupId: string, subCategoryId: string) => {
+    if (!editingTemplateData) return;
+    
+    setEditingTemplateData(prev => ({
+      ...prev,
+      costGroups: prev.costGroups.map((group: any) => 
+        group.id === groupId ? {
+          ...group,
+          subCategories: group.subCategories.filter((sub: any) => sub.id !== subCategoryId)
+        } : group
+      )
+    }));
+  };
+
   // Backup functions
   const saveBackup = () => {
     const backupData = {
@@ -2055,35 +2140,145 @@ const BudgetCalculator = () => {
                                <CardContent className="space-y-4">
                                  {/* Cost Categories */}
                                  <div>
-                                   <h4 className="font-medium mb-2">Kostnader</h4>
+                                   <div className="flex items-center justify-between mb-2">
+                                     <h4 className="font-medium">Kostnader</h4>
+                                     <Button onClick={addEditingCostGroup} size="sm" variant="outline">
+                                       <Plus className="w-4 h-4 mr-1" />
+                                       Lägg till kategori
+                                     </Button>
+                                   </div>
                                    {editingTemplateData.costGroups?.map((group: any) => (
                                      <div key={group.id} className="mb-4 p-3 border rounded-md">
-                                       <div className="grid grid-cols-3 gap-2 mb-2">
-                                         <div>
-                                           <Label className="text-xs">Huvudkategori</Label>
-                                           <Input
-                                             value={group.name}
-                                             onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value)}
-                                             className="h-8"
-                                           />
+                                       <div className="flex items-center justify-between mb-2">
+                                         <div className="grid grid-cols-2 gap-2 flex-1">
+                                           <div>
+                                             <Label className="text-xs">Huvudkategori</Label>
+                                             <Input
+                                               value={group.name}
+                                               onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value)}
+                                               className="h-8"
+                                             />
+                                           </div>
+                                           {(!group.subCategories || group.subCategories.length === 0) && (
+                                             <div>
+                                               <Label className="text-xs">Belopp</Label>
+                                               <Input
+                                                 type="number"
+                                                 value={group.amount === 0 ? '' : group.amount}
+                                                 onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                                                 className="h-8"
+                                                 placeholder="0"
+                                               />
+                                             </div>
+                                           )}
                                          </div>
-                                         <div>
-                                           <Label className="text-xs">Konto</Label>
-                                           <Select 
-                                             value={group.account || ''} 
-                                             onValueChange={(value) => updateEditingTemplateGroup(group.id, 'account', value)}
-                                           >
-                                             <SelectTrigger className="h-8">
-                                               <SelectValue placeholder="Välj konto" />
-                                             </SelectTrigger>
-                                             <SelectContent>
-                                               {accounts.map(account => (
-                                                 <SelectItem key={account} value={account}>{account}</SelectItem>
-                                               ))}
-                                             </SelectContent>
-                                           </Select>
+                                         <Button
+                                           onClick={() => removeEditingCostGroup(group.id)}
+                                           size="sm"
+                                           variant="destructive"
+                                           className="ml-2"
+                                         >
+                                           <Trash2 className="w-3 h-3" />
+                                         </Button>
+                                       </div>
+                                       
+                                       {/* Subcategories */}
+                                       {group.subCategories && group.subCategories.length > 0 && (
+                                         <div className="ml-4 space-y-2">
+                                           <Label className="text-xs text-muted-foreground">Underkategorier:</Label>
+                                           {group.subCategories.map((sub: any) => (
+                                             <div key={sub.id} className="flex items-center gap-2">
+                                               <div className="grid grid-cols-3 gap-2 flex-1">
+                                                 <Input
+                                                   value={sub.name}
+                                                   onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value, true, sub.id)}
+                                                   className="h-7 text-xs"
+                                                   placeholder="Underkategori"
+                                                 />
+                                                 <Select 
+                                                   value={sub.account || ''} 
+                                                   onValueChange={(value) => updateEditingTemplateGroup(group.id, 'account', value, true, sub.id)}
+                                                 >
+                                                   <SelectTrigger className="h-7 text-xs">
+                                                     <SelectValue placeholder="Konto" />
+                                                   </SelectTrigger>
+                                                   <SelectContent>
+                                                     {accounts.map(account => (
+                                                       <SelectItem key={account} value={account}>{account}</SelectItem>
+                                                     ))}
+                                                   </SelectContent>
+                                                 </Select>
+                                                 <Input
+                                                   type="number"
+                                                   value={sub.amount === 0 ? '' : sub.amount}
+                                                   onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0, true, sub.id)}
+                                                   className="h-7 text-xs"
+                                                   placeholder="0"
+                                                 />
+                                               </div>
+                                               <Button
+                                                 onClick={() => removeEditingSubCategory(group.id, sub.id)}
+                                                 size="sm"
+                                                 variant="destructive"
+                                                 className="h-7 w-7 p-0"
+                                               >
+                                                 <Trash2 className="w-3 h-3" />
+                                               </Button>
+                                             </div>
+                                           ))}
                                          </div>
-                                         {(!group.subCategories || group.subCategories.length === 0) && (
+                                       )}
+                                       
+                                       <Button
+                                         onClick={() => addEditingSubCategory(group.id)}
+                                         size="sm"
+                                         variant="outline"
+                                         className="mt-2"
+                                       >
+                                         <Plus className="w-4 h-4 mr-1" />
+                                         Lägg till underkategori
+                                       </Button>
+                                     </div>
+                                   ))}
+                                 </div>
+
+                                 {/* Savings Categories */}
+                                 <div>
+                                   <div className="flex items-center justify-between mb-2">
+                                     <h4 className="font-medium">Sparande</h4>
+                                     <Button onClick={addEditingSavingsGroup} size="sm" variant="outline">
+                                       <Plus className="w-4 h-4 mr-1" />
+                                       Lägg till kategori
+                                     </Button>
+                                   </div>
+                                   {editingTemplateData.savingsGroups?.map((group: any) => (
+                                     <div key={group.id} className="mb-4 p-3 border rounded-md">
+                                       <div className="flex items-center justify-between">
+                                         <div className="grid grid-cols-3 gap-2 flex-1">
+                                           <div>
+                                             <Label className="text-xs">Kategori</Label>
+                                             <Input
+                                               value={group.name}
+                                               onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value)}
+                                               className="h-8"
+                                             />
+                                           </div>
+                                           <div>
+                                             <Label className="text-xs">Konto</Label>
+                                             <Select 
+                                               value={group.account || ''} 
+                                               onValueChange={(value) => updateEditingTemplateGroup(group.id, 'account', value)}
+                                             >
+                                               <SelectTrigger className="h-8">
+                                                 <SelectValue placeholder="Välj konto" />
+                                               </SelectTrigger>
+                                               <SelectContent>
+                                                 {accounts.map(account => (
+                                                   <SelectItem key={account} value={account}>{account}</SelectItem>
+                                                 ))}
+                                               </SelectContent>
+                                             </Select>
+                                           </div>
                                            <div>
                                              <Label className="text-xs">Belopp</Label>
                                              <Input
@@ -2094,89 +2289,15 @@ const BudgetCalculator = () => {
                                                placeholder="0"
                                              />
                                            </div>
-                                         )}
-                                       </div>
-                                       
-                                       {/* Subcategories */}
-                                       {group.subCategories && group.subCategories.length > 0 && (
-                                         <div className="ml-4 space-y-2">
-                                           <Label className="text-xs text-muted-foreground">Underkategorier:</Label>
-                                           {group.subCategories.map((sub: any) => (
-                                             <div key={sub.id} className="grid grid-cols-3 gap-2">
-                                               <Input
-                                                 value={sub.name}
-                                                 onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value, true, sub.id)}
-                                                 className="h-7 text-xs"
-                                                 placeholder="Underkategori"
-                                               />
-                                               <Select 
-                                                 value={sub.account || ''} 
-                                                 onValueChange={(value) => updateEditingTemplateGroup(group.id, 'account', value, true, sub.id)}
-                                               >
-                                                 <SelectTrigger className="h-7 text-xs">
-                                                   <SelectValue placeholder="Konto" />
-                                                 </SelectTrigger>
-                                                 <SelectContent>
-                                                   {accounts.map(account => (
-                                                     <SelectItem key={account} value={account}>{account}</SelectItem>
-                                                   ))}
-                                                 </SelectContent>
-                                               </Select>
-                                               <Input
-                                                 type="number"
-                                                 value={sub.amount === 0 ? '' : sub.amount}
-                                                 onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0, true, sub.id)}
-                                                 className="h-7 text-xs"
-                                                 placeholder="0"
-                                               />
-                                             </div>
-                                           ))}
                                          </div>
-                                       )}
-                                     </div>
-                                   ))}
-                                 </div>
-
-                                 {/* Savings Categories */}
-                                 <div>
-                                   <h4 className="font-medium mb-2">Sparande</h4>
-                                   {editingTemplateData.savingsGroups?.map((group: any) => (
-                                     <div key={group.id} className="mb-4 p-3 border rounded-md">
-                                       <div className="grid grid-cols-3 gap-2">
-                                         <div>
-                                           <Label className="text-xs">Kategori</Label>
-                                           <Input
-                                             value={group.name}
-                                             onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value)}
-                                             className="h-8"
-                                           />
-                                         </div>
-                                         <div>
-                                           <Label className="text-xs">Konto</Label>
-                                           <Select 
-                                             value={group.account || ''} 
-                                             onValueChange={(value) => updateEditingTemplateGroup(group.id, 'account', value)}
-                                           >
-                                             <SelectTrigger className="h-8">
-                                               <SelectValue placeholder="Välj konto" />
-                                             </SelectTrigger>
-                                             <SelectContent>
-                                               {accounts.map(account => (
-                                                 <SelectItem key={account} value={account}>{account}</SelectItem>
-                                               ))}
-                                             </SelectContent>
-                                           </Select>
-                                         </div>
-                                         <div>
-                                           <Label className="text-xs">Belopp</Label>
-                                           <Input
-                                             type="number"
-                                             value={group.amount === 0 ? '' : group.amount}
-                                             onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
-                                             className="h-8"
-                                             placeholder="0"
-                                           />
-                                         </div>
+                                         <Button
+                                           onClick={() => removeEditingSavingsGroup(group.id)}
+                                           size="sm"
+                                           variant="destructive"
+                                           className="ml-2"
+                                         >
+                                           <Trash2 className="w-3 h-3" />
+                                         </Button>
                                        </div>
                                      </div>
                                    ))}
@@ -2313,21 +2434,15 @@ const BudgetCalculator = () => {
         {/* Budget Template Edit Dialog */}
         {editingTemplate && editingTemplateData && (
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Redigera budgetmall: {editingTemplate}</span>
-                <div className="flex gap-2">
-                  <Button onClick={saveEditedTemplate} size="sm">
-                    <Save className="w-4 h-4 mr-1" />
-                    Spara
-                  </Button>
-                  <Button onClick={cancelEditingTemplate} size="sm" variant="outline">
-                    <X className="w-4 h-4 mr-1" />
-                    Avbryt
-                  </Button>
-                </div>
-              </CardTitle>
-            </CardHeader>
+                               <CardHeader>
+                                 <CardTitle className="flex items-center justify-between">
+                                   <span>Redigera budgetmall: {editingTemplate}</span>
+                                   <Button onClick={saveEditedTemplate} size="sm">
+                                     <Save className="w-4 h-4 mr-1" />
+                                     Spara
+                                   </Button>
+                                 </CardTitle>
+                               </CardHeader>
             <CardContent className="space-y-4">
               {/* Cost Categories */}
               <div>
