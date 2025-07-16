@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { useSwipeGestures } from '@/hooks/useSwipeGestures';
 
 interface SubCategory {
   id: string;
@@ -112,6 +113,38 @@ const BudgetCalculator = () => {
   // User name states
   const [userName1, setUserName1] = useState<string>('Andreas');
   const [userName2, setUserName2] = useState<string>('Susanna');
+
+  // Tab navigation helper functions
+  const getTabOrder = () => {
+    const currentDate = new Date();
+    const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    const isCurrentMonth = selectedBudgetMonth === currentMonthKey;
+    
+    return isCurrentMonth 
+      ? ["inkomster", "sammanstallning", "overforing", "egen-budget", "historia", "installningar"]
+      : ["inkomster", "sammanstallning", "egen-budget", "historia", "installningar"];
+  };
+
+  const navigateToNextTab = () => {
+    const tabs = getTabOrder();
+    const currentIndex = tabs.indexOf(activeTab);
+    const nextIndex = (currentIndex + 1) % tabs.length;
+    setActiveTab(tabs[nextIndex]);
+  };
+
+  const navigateToPreviousTab = () => {
+    const tabs = getTabOrder();
+    const currentIndex = tabs.indexOf(activeTab);
+    const previousIndex = currentIndex === 0 ? tabs.length - 1 : currentIndex - 1;
+    setActiveTab(tabs[previousIndex]);
+  };
+
+  // Add swipe gestures
+  useSwipeGestures({
+    onSwipeLeft: navigateToNextTab,
+    onSwipeRight: navigateToPreviousTab,
+    threshold: 50
+  });
   
   // Alternative budget states - no longer needed for the read-only fields
   // const [altTotalDailyBudget, setAltTotalDailyBudget] = useState<number>(0);
