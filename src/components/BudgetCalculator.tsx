@@ -2038,57 +2038,64 @@ const BudgetCalculator = () => {
                             
                             {group.subCategories && group.subCategories.length > 0 && (
                               <div className="pl-4 space-y-1">
-                                {group.subCategories.map((sub) => (
-                                  <div key={sub.id} className="flex gap-2 items-center text-sm">
-                                    {isEditingCategories ? (
-                                      <>
-                                         <Input
-                                           value={sub.name}
-                                           onChange={(e) => updateSubCategory(group.id, sub.id, 'name', e.target.value)}
-                                           className="flex-1"
-                                         />
-                                         <Select
-                                           value={sub.account || 'none'}
-                                           onValueChange={(value) => updateSubCategory(group.id, sub.id, 'account', value === 'none' ? undefined : value)}
-                                         >
-                                           <SelectTrigger className="w-28">
-                                             <SelectValue placeholder="Konto" />
-                                           </SelectTrigger>
-                                           <SelectContent>
-                                             <SelectItem value="none">Inget</SelectItem>
-                                             {accounts.map((account) => (
-                                               <SelectItem key={account} value={account}>
-                                                 {account}
-                                               </SelectItem>
-                                             ))}
-                                           </SelectContent>
-                                         </Select>
-                                         <Input
-                                           type="number"
-                                           value={sub.amount === 0 ? '' : sub.amount}
-                                           onChange={(e) => updateSubCategory(group.id, sub.id, 'amount', Number(e.target.value) || 0)}
-                                           className="w-24"
-                                         />
-                                        <Button
-                                          size="sm"
-                                          variant="destructive"
-                                          onClick={() => removeSubCategory(group.id, sub.id)}
-                                        >
-                                          <Trash2 className="w-4 h-4" />
-                                        </Button>
-                                      </>
+                                 {group.subCategories.map((sub) => (
+                                   <div key={sub.id} className="text-sm space-y-2">
+                                     {isEditingCategories ? (
+                                       <div className="space-y-2">
+                                         <div className="flex gap-2 items-center">
+                                           <Input
+                                             value={sub.name}
+                                             onChange={(e) => updateSubCategory(group.id, sub.id, 'name', e.target.value)}
+                                             className="flex-1 text-base"
+                                             placeholder="Underkategori namn"
+                                           />
+                                           <Input
+                                             type="number"
+                                             value={sub.amount === 0 ? '' : sub.amount}
+                                             onChange={(e) => updateSubCategory(group.id, sub.id, 'amount', Number(e.target.value) || 0)}
+                                             className="w-32"
+                                             placeholder="Belopp"
+                                           />
+                                           <Button
+                                             size="sm"
+                                             variant="destructive"
+                                             onClick={() => removeSubCategory(group.id, sub.id)}
+                                           >
+                                             <Trash2 className="w-4 h-4" />
+                                           </Button>
+                                         </div>
+                                         <div className="flex gap-2 items-center pl-2">
+                                           <span className="text-sm text-muted-foreground min-w-16">Konto:</span>
+                                           <Select
+                                             value={sub.account || 'none'}
+                                             onValueChange={(value) => updateSubCategory(group.id, sub.id, 'account', value === 'none' ? undefined : value)}
+                                           >
+                                             <SelectTrigger className="w-36">
+                                               <SelectValue placeholder="Välj konto" />
+                                             </SelectTrigger>
+                                             <SelectContent>
+                                               <SelectItem value="none">Inget konto</SelectItem>
+                                               {accounts.map((account) => (
+                                                 <SelectItem key={account} value={account}>
+                                                   {account}
+                                                 </SelectItem>
+                                               ))}
+                                             </SelectContent>
+                                           </Select>
+                                         </div>
+                                       </div>
                                      ) : (
-                                       <>
+                                       <div className="flex justify-between items-center">
                                          <span className="flex-1">
                                            {sub.name}{sub.account ? ` (${sub.account})` : ''}
                                          </span>
                                          <span className="w-32 text-right font-medium text-destructive">
                                            {formatCurrency(sub.amount)}
                                          </span>
-                                       </>
+                                       </div>
                                      )}
-                                  </div>
-                                ))}
+                                   </div>
+                                 ))}
                               </div>
                             )}
                             
