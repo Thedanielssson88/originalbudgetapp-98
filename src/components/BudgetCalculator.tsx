@@ -1963,7 +1963,7 @@ const BudgetCalculator = () => {
                   }
                 }}
               >
-                <SelectTrigger className="w-auto min-w-[200px] border-none bg-transparent text-xl font-semibold text-primary hover:bg-muted/50 transition-colors">
+                <SelectTrigger className="w-auto min-w-[200px] border-none bg-transparent text-xl font-semibold text-primary hover:bg-muted/50 transition-colors text-center justify-center">
                   <SelectValue>
                     {(() => {
                       const monthNames = [
