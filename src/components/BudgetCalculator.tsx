@@ -1059,15 +1059,38 @@ const BudgetCalculator = () => {
       accounts: JSON.parse(JSON.stringify(sourceData.accounts || ['Löpande', 'Sparkonto', 'Buffert']))
     };
     
-    setBudgetTemplates(prev => ({
-      ...prev,
+    const updatedTemplates = {
+      ...budgetTemplates,
       [templateName.trim()]: templateData
-    }));
+    };
     
-    // Force save to localStorage
-    setTimeout(() => {
-      saveToLocalStorage();
-    }, 100);
+    setBudgetTemplates(updatedTemplates);
+    
+    // Save immediately to localStorage with the new template data
+    const dataToSave = {
+      andreasSalary,
+      andreasförsäkringskassan,
+      andreasbarnbidrag,
+      susannaSalary,
+      susannaförsäkringskassan,
+      susannabarnbidrag,
+      costGroups,
+      savingsGroups,
+      dailyTransfer,
+      weekendTransfer,
+      customHolidays,
+      results,
+      selectedPerson,
+      andreasPersonalCosts,
+      andreasPersonalSavings,
+      susannaPersonalCosts,
+      susannaPersonalSavings,
+      historicalData,
+      accounts,
+      budgetTemplates: updatedTemplates, // Use the updated templates immediately
+      selectedBudgetMonth
+    };
+    localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
   };
 
   const loadBudgetTemplate = (templateName: string) => {
