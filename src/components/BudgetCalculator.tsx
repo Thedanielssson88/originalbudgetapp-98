@@ -2406,15 +2406,15 @@ const BudgetCalculator = () => {
                             }, 0),
                             dailyBudget: results?.totalDailyBudget || 0,
                           },
-                          {
-                            name: 'Överföring',
-                            andreasShare: results?.andreasShare || 0,
-                            susannaShare: results?.susannaShare || 0,
-                            savings: savingsGroups.reduce((sum, group) => {
-                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                              return sum + subCategoriesTotal;
-                            }, 0),
-                          }
+                           {
+                             name: 'Överföring',
+                             andreasShare: results?.andreasShare || 0,
+                             susannaShare: results?.susannaShare || 0,
+                             savings: savingsGroups.reduce((sum, group) => {
+                               const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                               return sum + group.amount + subCategoriesTotal;
+                             }, 0),
+                           }
                         ]}
                         margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                         barCategoryGap="10%"
@@ -2528,12 +2528,12 @@ const BudgetCalculator = () => {
                       <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('chartTransfer')}>
                         <div>
                           <h4 className="font-medium text-sm">Överföring</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {formatCurrency((results?.andreasShare || 0) + (results?.susannaShare || 0) + savingsGroups.reduce((sum, group) => {
-                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                              return sum + subCategoriesTotal;
-                            }, 0))}
-                          </p>
+                           <p className="text-sm text-muted-foreground">
+                             {formatCurrency((results?.andreasShare || 0) + (results?.susannaShare || 0) + savingsGroups.reduce((sum, group) => {
+                               const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                               return sum + group.amount + subCategoriesTotal;
+                             }, 0))}
+                           </p>
                         </div>
                         <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.chartTransfer ? 'rotate-180' : ''}`} />
                       </div>
@@ -2549,14 +2549,14 @@ const BudgetCalculator = () => {
                             <span className="text-sm">{userName2}s andel:</span>
                             <span className="text-sm font-medium ml-auto">{formatCurrency(results?.susannaShare || 0)}</span>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(142, 71%, 45%)' }}></div>
-                            <span className="text-sm">Sparande:</span>
-                            <span className="text-sm font-medium ml-auto">{formatCurrency(savingsGroups.reduce((sum, group) => {
-                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                              return sum + subCategoriesTotal;
-                            }, 0))}</span>
-                          </div>
+                           <div className="flex items-center gap-2">
+                             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(142, 71%, 45%)' }}></div>
+                             <span className="text-sm">Sparande:</span>
+                             <span className="text-sm font-medium ml-auto">{formatCurrency(savingsGroups.reduce((sum, group) => {
+                               const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                               return sum + group.amount + subCategoriesTotal;
+                             }, 0))}</span>
+                           </div>
                         </div>
                       )}
                     </div>
