@@ -2462,145 +2462,282 @@ const BudgetCalculator = () => {
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Custom Expandable Legend */}
-                  <div className="space-y-3">
-                    {/* Intäkter */}
-                    <div className="p-4 bg-primary/10 rounded-lg">
-                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('chartIncomes')}>
-                        <div>
-                          <h4 className="font-medium text-sm">Intäkter</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
-                          </p>
+                  {/* Tabbed Sub-Summary */}
+                  <Tabs defaultValue="intakter" className="w-full">
+                    <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="intakter">Intäkter</TabsTrigger>
+                      <TabsTrigger value="kostnader">Kostnader</TabsTrigger>
+                      <TabsTrigger value="overforing">Överföring</TabsTrigger>
+                    </TabsList>
+                    
+                    {/* Intäkter Tab */}
+                    <TabsContent value="intakter" className="mt-4">
+                      <div className="space-y-4">
+                        {/* Income Chart */}
+                        <div className="h-48 w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={[
+                                  {
+                                    name: userName1,
+                                    value: andreasSalary + andreasförsäkringskassan + andreasbarnbidrag,
+                                    color: '#8b5cf6'
+                                  },
+                                  {
+                                    name: userName2,
+                                    value: susannaSalary + susannaförsäkringskassan + susannabarnbidrag,
+                                    color: '#06b6d4'
+                                  }
+                                ]}
+                                dataKey="value"
+                                nameKey="name"
+                                cx="50%"
+                                cy="50%"
+                                outerRadius={80}
+                                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                              >
+                                <Cell fill="#8b5cf6" />
+                                <Cell fill="#06b6d4" />
+                              </Pie>
+                              <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                            </PieChart>
+                          </ResponsiveContainer>
                         </div>
-                        <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.chartIncomes ? 'rotate-180' : ''}`} />
-                      </div>
-                      {expandedSections.chartIncomes && (
-                        <div className="mt-3 space-y-4 border-t pt-3">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(142, 71%, 45%)' }}></div>
-                              <span className="text-sm">{userName1}:</span>
-                              <span className="text-sm font-medium ml-auto">{formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(142, 71%, 35%)' }}></div>
-                              <span className="text-sm">{userName2}:</span>
-                              <span className="text-sm font-medium ml-auto">{formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}</span>
+                        
+                        {/* Detailed Income Breakdown */}
+                        <div className="space-y-3">
+                          <div className="p-3 border rounded-lg">
+                            <h5 className="font-medium mb-2">{userName1}</h5>
+                            <div className="space-y-1 text-sm pl-4">
+                              <div className="flex justify-between">
+                                <span>• Lön:</span>
+                                <span className="font-medium">{formatCurrency(andreasSalary)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>• Försäkringskassan:</span>
+                                <span className="font-medium">{formatCurrency(andreasförsäkringskassan)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>• Barnbidrag:</span>
+                                <span className="font-medium">{formatCurrency(andreasbarnbidrag)}</span>
+                              </div>
+                              <div className="flex justify-between pt-1 border-t">
+                                <span className="font-medium">Total:</span>
+                                <span className="font-semibold">{formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}</span>
+                              </div>
                             </div>
                           </div>
                           
-                          {/* Income Distribution Chart */}
-                          <div className="border-t pt-3">
-                            <h5 className="text-sm font-medium mb-3">Inkomstfördelning</h5>
-                            <div className="flex justify-center">
-                              <div className="w-48 h-48">
-                                <ResponsiveContainer width="100%" height="100%">
-                                  <PieChart>
-                                    <Pie
-                                      data={[
-                                        {
-                                          name: userName1,
-                                          value: andreasSalary + andreasförsäkringskassan + andreasbarnbidrag,
-                                          color: '#8b5cf6'
-                                        },
-                                        {
-                                          name: userName2,
-                                          value: susannaSalary + susannaförsäkringskassan + susannabarnbidrag,
-                                          color: '#06b6d4'
-                                        }
-                                      ]}
-                                      dataKey="value"
-                                      nameKey="name"
-                                      cx="50%"
-                                      cy="50%"
-                                      outerRadius={80}
-                                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
-                                    >
-                                      <Cell fill="#8b5cf6" />
-                                      <Cell fill="#06b6d4" />
-                                    </Pie>
-                                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                                  </PieChart>
-                                </ResponsiveContainer>
+                          <div className="p-3 border rounded-lg">
+                            <h5 className="font-medium mb-2">{userName2}</h5>
+                            <div className="space-y-1 text-sm pl-4">
+                              <div className="flex justify-between">
+                                <span>• Lön:</span>
+                                <span className="font-medium">{formatCurrency(susannaSalary)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>• Försäkringskassan:</span>
+                                <span className="font-medium">{formatCurrency(susannaförsäkringskassan)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>• Barnbidrag:</span>
+                                <span className="font-medium">{formatCurrency(susannabarnbidrag)}</span>
+                              </div>
+                              <div className="flex justify-between pt-1 border-t">
+                                <span className="font-medium">Total:</span>
+                                <span className="font-semibold">{formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}</span>
                               </div>
                             </div>
                           </div>
                         </div>
-                      )}
-                    </div>
-
-                    {/* Kostnader */}
-                    <div className="p-4 bg-primary/10 rounded-lg">
-                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('chartCosts')}>
-                        <div>
-                          <h4 className="font-medium text-sm">Kostnader</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {formatCurrency((costGroups.reduce((sum, group) => {
-                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                              return sum + subCategoriesTotal;
-                            }, 0)) + (results?.totalDailyBudget || 0))}
-                          </p>
-                        </div>
-                        <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.chartCosts ? 'rotate-180' : ''}`} />
                       </div>
-                      {expandedSections.chartCosts && (
-                        <div className="mt-3 space-y-2 border-t pt-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(0, 84%, 60%)' }}></div>
-                            <span className="text-sm">Kostnader:</span>
-                            <span className="text-sm font-medium ml-auto">{formatCurrency(costGroups.reduce((sum, group) => {
-                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                              return sum + subCategoriesTotal;
-                            }, 0))}</span>
+                    </TabsContent>
+                    
+                    {/* Kostnader Tab */}
+                    <TabsContent value="kostnader" className="mt-4">
+                      <div className="space-y-4">
+                        {/* Costs Chart */}
+                        <div className="h-48 w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={[
+                                  {
+                                    name: 'Kostnader',
+                                    value: costGroups.reduce((sum, group) => {
+                                      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                      return sum + subCategoriesTotal;
+                                    }, 0),
+                                    color: '#dc2626'
+                                  },
+                                  {
+                                    name: 'Daglig Budget',
+                                    value: results?.totalDailyBudget || 0,
+                                    color: '#b91c1c'
+                                  }
+                                ]}
+                                dataKey="value"
+                                nameKey="name"
+                                cx="50%"
+                                cy="50%"
+                                outerRadius={80}
+                                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                              >
+                                <Cell fill="#dc2626" />
+                                <Cell fill="#b91c1c" />
+                              </Pie>
+                              <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        
+                        {/* Detailed Cost Breakdown */}
+                        <div className="space-y-3">
+                          <div className="p-3 border rounded-lg">
+                            <h5 className="font-medium mb-2">Kostnader</h5>
+                            <div className="space-y-1 text-sm pl-4">
+                              {costGroups.map((group) => (
+                                <div key={group.id} className="space-y-1">
+                                  <div className="flex justify-between">
+                                    <span>• {group.name}:</span>
+                                    <span className="font-medium">{formatCurrency(group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0)}</span>
+                                  </div>
+                                  {group.subCategories && group.subCategories.length > 0 && (
+                                    <div className="pl-4 space-y-1">
+                                      {group.subCategories.map((sub) => (
+                                        <div key={sub.id} className="flex justify-between text-xs text-muted-foreground">
+                                          <span>- {sub.name}:</span>
+                                          <span>{formatCurrency(sub.amount)}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                              <div className="flex justify-between pt-1 border-t">
+                                <span className="font-medium">Total kostnader:</span>
+                                <span className="font-semibold">{formatCurrency(costGroups.reduce((sum, group) => {
+                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                  return sum + subCategoriesTotal;
+                                }, 0))}</span>
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(0, 84%, 45%)' }}></div>
-                            <span className="text-sm">Daglig budget:</span>
-                            <span className="text-sm font-medium ml-auto">{formatCurrency(results?.totalDailyBudget || 0)}</span>
+                          
+                          <div className="p-3 border rounded-lg">
+                            <h5 className="font-medium mb-2">Daglig Budget</h5>
+                            <div className="space-y-1 text-sm pl-4">
+                              <div className="flex justify-between">
+                                <span>• Total daglig budget:</span>
+                                <span className="font-semibold">{formatCurrency(results?.totalDailyBudget || 0)}</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      )}
-                    </div>
-
-                    {/* Överföring */}
-                    <div className="p-4 bg-primary/10 rounded-lg">
-                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('chartTransfer')}>
-                        <div>
-                          <h4 className="font-medium text-sm">Överföring</h4>
-                           <p className="text-sm text-muted-foreground">
-                             {formatCurrency((results?.andreasShare || 0) + (results?.susannaShare || 0) + savingsGroups.reduce((sum, group) => {
-                               const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                               return sum + group.amount + subCategoriesTotal;
-                             }, 0))}
-                           </p>
-                        </div>
-                        <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.chartTransfer ? 'rotate-180' : ''}`} />
                       </div>
-                      {expandedSections.chartTransfer && (
-                        <div className="mt-3 space-y-2 border-t pt-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(262, 83%, 58%)' }}></div>
-                            <span className="text-sm">{userName1}s andel:</span>
-                            <span className="text-sm font-medium ml-auto">{formatCurrency(results?.andreasShare || 0)}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(262, 83%, 68%)' }}></div>
-                            <span className="text-sm">{userName2}s andel:</span>
-                            <span className="text-sm font-medium ml-auto">{formatCurrency(results?.susannaShare || 0)}</span>
-                          </div>
-                           <div className="flex items-center gap-2">
-                             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(142, 71%, 45%)' }}></div>
-                             <span className="text-sm">Sparande:</span>
-                             <span className="text-sm font-medium ml-auto">{formatCurrency(savingsGroups.reduce((sum, group) => {
-                               const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                               return sum + group.amount + subCategoriesTotal;
-                             }, 0))}</span>
-                           </div>
+                    </TabsContent>
+                    
+                    {/* Överföring Tab */}
+                    <TabsContent value="overforing" className="mt-4">
+                      <div className="space-y-4">
+                        {/* Transfer Chart */}
+                        <div className="h-48 w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={[
+                                  {
+                                    name: `${userName1}s andel`,
+                                    value: results?.andreasShare || 0,
+                                    color: '#8b5cf6'
+                                  },
+                                  {
+                                    name: `${userName2}s andel`,
+                                    value: results?.susannaShare || 0,
+                                    color: '#a855f7'
+                                  },
+                                  {
+                                    name: 'Sparande',
+                                    value: savingsGroups.reduce((sum, group) => {
+                                      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                      return sum + group.amount + subCategoriesTotal;
+                                    }, 0),
+                                    color: '#22c55e'
+                                  }
+                                ]}
+                                dataKey="value"
+                                nameKey="name"
+                                cx="50%"
+                                cy="50%"
+                                outerRadius={80}
+                                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                              >
+                                <Cell fill="#8b5cf6" />
+                                <Cell fill="#a855f7" />
+                                <Cell fill="#22c55e" />
+                              </Pie>
+                              <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                            </PieChart>
+                          </ResponsiveContainer>
                         </div>
-                      )}
-                    </div>
-                  </div>
+                        
+                        {/* Detailed Transfer Breakdown */}
+                        <div className="space-y-3">
+                          <div className="p-3 border rounded-lg">
+                            <h5 className="font-medium mb-2">{userName1}s andel</h5>
+                            <div className="space-y-1 text-sm pl-4">
+                              <div className="flex justify-between">
+                                <span>• Personlig andel:</span>
+                                <span className="font-semibold">{formatCurrency(results?.andreasShare || 0)}</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="p-3 border rounded-lg">
+                            <h5 className="font-medium mb-2">{userName2}s andel</h5>
+                            <div className="space-y-1 text-sm pl-4">
+                              <div className="flex justify-between">
+                                <span>• Personlig andel:</span>
+                                <span className="font-semibold">{formatCurrency(results?.susannaShare || 0)}</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="p-3 border rounded-lg">
+                            <h5 className="font-medium mb-2">Sparande</h5>
+                            <div className="space-y-1 text-sm pl-4">
+                              {savingsGroups.map((group) => (
+                                <div key={group.id} className="space-y-1">
+                                  <div className="flex justify-between">
+                                    <span>• {group.name}:</span>
+                                    <span className="font-medium">{formatCurrency(group.amount + (group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0))}</span>
+                                  </div>
+                                  {group.subCategories && group.subCategories.length > 0 && (
+                                    <div className="pl-4 space-y-1">
+                                      {group.subCategories.map((sub) => (
+                                        <div key={sub.id} className="flex justify-between text-xs text-muted-foreground">
+                                          <span>- {sub.name}:</span>
+                                          <span>{formatCurrency(sub.amount)}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                              <div className="flex justify-between pt-1 border-t">
+                                <span className="font-medium">Total sparande:</span>
+                                <span className="font-semibold">{formatCurrency(savingsGroups.reduce((sum, group) => {
+                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                  return sum + group.amount + subCategoriesTotal;
+                                }, 0))}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
                 </CardContent>
               </Card>
 
