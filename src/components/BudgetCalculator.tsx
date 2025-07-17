@@ -144,7 +144,12 @@ const BudgetCalculator = () => {
     
     setTimeout(() => {
       setActiveTab(tabs[nextIndex]);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => {
+        const firstHeading = document.querySelector('h1, h2, h3');
+        if (firstHeading) {
+          firstHeading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 50);
       setTimeout(() => {
         setIsAnimating(false);
         setSwipeDirection(null);
@@ -166,7 +171,12 @@ const BudgetCalculator = () => {
     
     setTimeout(() => {
       setActiveTab(tabs[previousIndex]);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => {
+        const firstHeading = document.querySelector('h1, h2, h3');
+        if (firstHeading) {
+          firstHeading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 50);
       setTimeout(() => {
         setIsAnimating(false);
         setSwipeDirection(null);
