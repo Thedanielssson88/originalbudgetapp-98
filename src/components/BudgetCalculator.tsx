@@ -2313,7 +2313,12 @@ const BudgetCalculator = () => {
                   </div>
 
                   {/* Calculate and Show Summary Button */}
-                  <Button onClick={() => setActiveTab("sammanstallning")} className="w-full" size="lg">
+                  <Button onClick={() => {
+                    setActiveTab("sammanstallning");
+                    setTimeout(() => {
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }, 100);
+                  }} className="w-full" size="lg">
                     <Calculator className="mr-2 h-4 w-4" />
                     Beräkna och visa sammanställningen
                   </Button>
