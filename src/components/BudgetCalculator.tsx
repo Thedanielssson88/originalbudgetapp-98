@@ -2382,10 +2382,11 @@ const BudgetCalculator = () => {
                   : ""
             }`}>
               <div className="space-y-6">
-              {/* Budget Categories */}
+              {/* Overview Chart */}
               <Card>
                 <CardHeader>
                   <CardTitle>Budgetöversikt</CardTitle>
+                  <CardDescription>Översikt över intäkter, kostnader och överföringar</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Stacked Bar Chart */}
@@ -2475,16 +2476,55 @@ const BudgetCalculator = () => {
                         <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.chartIncomes ? 'rotate-180' : ''}`} />
                       </div>
                       {expandedSections.chartIncomes && (
-                        <div className="mt-3 space-y-2 border-t pt-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(142, 71%, 45%)' }}></div>
-                            <span className="text-sm">{userName1}:</span>
-                            <span className="text-sm font-medium ml-auto">{formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}</span>
+                        <div className="mt-3 space-y-4 border-t pt-3">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(142, 71%, 45%)' }}></div>
+                              <span className="text-sm">{userName1}:</span>
+                              <span className="text-sm font-medium ml-auto">{formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(142, 71%, 35%)' }}></div>
+                              <span className="text-sm">{userName2}:</span>
+                              <span className="text-sm font-medium ml-auto">{formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(142, 71%, 35%)' }}></div>
-                            <span className="text-sm">{userName2}:</span>
-                            <span className="text-sm font-medium ml-auto">{formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}</span>
+                          
+                          {/* Income Distribution Chart */}
+                          <div className="border-t pt-3">
+                            <h5 className="text-sm font-medium mb-3">Inkomstfördelning</h5>
+                            <div className="flex justify-center">
+                              <div className="w-48 h-48">
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <PieChart>
+                                    <Pie
+                                      data={[
+                                        {
+                                          name: userName1,
+                                          value: andreasSalary + andreasförsäkringskassan + andreasbarnbidrag,
+                                          color: '#8b5cf6'
+                                        },
+                                        {
+                                          name: userName2,
+                                          value: susannaSalary + susannaförsäkringskassan + susannabarnbidrag,
+                                          color: '#06b6d4'
+                                        }
+                                      ]}
+                                      dataKey="value"
+                                      nameKey="name"
+                                      cx="50%"
+                                      cy="50%"
+                                      outerRadius={80}
+                                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                                    >
+                                      <Cell fill="#8b5cf6" />
+                                      <Cell fill="#06b6d4" />
+                                    </Pie>
+                                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                                  </PieChart>
+                                </ResponsiveContainer>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )}
@@ -2561,72 +2601,16 @@ const BudgetCalculator = () => {
                       )}
                     </div>
                   </div>
-                  
-                  {/* Total Income with Dropdown */}
-                  <div className="p-4 bg-primary/10 rounded-lg">
-                    <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('totalIncome')}>
-                      <div>
-                        <div className="text-sm text-muted-foreground">Total inkomst</div>
-                        <div className="text-2xl font-bold text-primary">
-                          {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
-                        </div>
-                      </div>
-                      {expandedSections.totalIncome ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                    </div>
-                    
-                    {expandedSections.totalIncome && (
-                      <div className="mt-4 space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-3">
-                            <div className="p-3 bg-primary/5 rounded-lg">
-                              <div className="text-sm text-muted-foreground">{userName1} totala inkomst</div>
-                              <div className="text-xl font-bold text-primary">
-                                {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}
-                              </div>
-                            </div>
-                            <div className="p-3 bg-primary/5 rounded-lg">
-                              <div className="text-sm text-muted-foreground">{userName2} totala inkomst</div>
-                              <div className="text-xl font-bold text-primary">
-                                {formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex justify-center">
-                            <div className="w-48 h-48">
-                              <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                  <Pie
-                                    data={[
-                                      {
-                                        name: userName1,
-                                        value: andreasSalary + andreasförsäkringskassan + andreasbarnbidrag,
-                                        color: '#8b5cf6'
-                                      },
-                                      {
-                                        name: userName2,
-                                        value: susannaSalary + susannaförsäkringskassan + susannabarnbidrag,
-                                        color: '#06b6d4'
-                                      }
-                                    ]}
-                                    dataKey="value"
-                                    nameKey="name"
-                                    cx="50%"
-                                    cy="50%"
-                                    outerRadius={80}
-                                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
-                                  >
-                                    <Cell fill="#8b5cf6" />
-                                    <Cell fill="#06b6d4" />
-                                  </Pie>
-                                  <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                                </PieChart>
-                              </ResponsiveContainer>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Editable Categories */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Kategorier</CardTitle>
+                  <CardDescription>Redigera kostnader och sparande</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
 
                   {/* Total Costs with Dropdown */}
                   <div className="p-4 bg-destructive/10 rounded-lg">
@@ -3223,38 +3207,6 @@ const BudgetCalculator = () => {
                     )}
                   </div>
 
-                  {/* Remaining to Allocate */}
-                  <div className="p-4 bg-purple-50 rounded-lg">
-                    <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('remainingToAllocate')}>
-                      <div>
-                        <div className="text-sm text-muted-foreground">Kvar att fördela</div>
-                        <div className="text-2xl font-bold text-purple-600">
-                          {results ? formatCurrency(results.andreasShare + results.susannaShare) : 'Beräknar...'}
-                        </div>
-                      </div>
-                      {expandedSections.remainingToAllocate ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                    </div>
-                    
-                    {expandedSections.remainingToAllocate && results && (
-                      <div className="mt-4 space-y-3">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                            <div className="text-sm text-purple-700 font-medium">{userName1} andel</div>
-                            <div className="text-xl font-bold text-purple-800">
-                              {formatCurrency(results.andreasShare)}
-                            </div>
-                          </div>
-                          
-                          <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                            <div className="text-sm text-purple-700 font-medium">{userName2} andel</div>
-                            <div className="text-xl font-bold text-purple-800">
-                              {formatCurrency(results.susannaShare)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </CardContent>
               </Card>
 
@@ -3538,11 +3490,11 @@ const BudgetCalculator = () => {
                           <span className={`font-medium ${(results.andreasShare + results.susannaShare) < 0 ? 'text-red-600' : ''}`}>{formatCurrency(results.andreasShare + results.susannaShare)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Andreas andel:</span>
+                          <span>{userName1}s andel ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%):</span>
                           <span className="font-medium">{formatCurrency(results.andreasShare)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Susannas andel:</span>
+                          <span>{userName2}s andel ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%):</span>
                           <span className="font-medium">{formatCurrency(results.susannaShare)}</span>
                         </div>
                         <div className="flex justify-between pt-2 border-t">
@@ -3567,6 +3519,33 @@ const BudgetCalculator = () => {
                          <div className="font-medium pt-2">
                            Total överföring: {formatCurrency(results.remainingWeekdayCount * dailyTransfer + results.remainingFridayCount * weekendTransfer)}
                          </div>
+                      </div>
+                    </div>
+                    
+                    {/* Kvar att fördela - moved from Sammanställning */}
+                    <div className="p-4 bg-purple-50 rounded-lg">
+                      <h4 className="font-medium mb-3">Kvar att fördela</h4>
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                            <div className="text-sm text-purple-700 font-medium">{userName1} andel</div>
+                            <div className="text-xl font-bold text-purple-800">
+                              {formatCurrency(results.andreasShare)}
+                            </div>
+                          </div>
+                          
+                          <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                            <div className="text-sm text-purple-700 font-medium">{userName2} andel</div>
+                            <div className="text-xl font-bold text-purple-800">
+                              {formatCurrency(results.susannaShare)}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-between pt-2 border-t">
+                          <span className="font-medium">Total kvar att fördela:</span>
+                          <span className="font-bold text-purple-600">{formatCurrency(results.andreasShare + results.susannaShare)}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
