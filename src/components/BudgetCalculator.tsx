@@ -80,7 +80,6 @@ const BudgetCalculator = () => {
   const [previousTab, setPreviousTab] = useState<string>("");
   const [isAnimating, setIsAnimating] = useState<boolean>(false);
   const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null);
-  const [activeSummaryTab, setActiveSummaryTab] = useState<string>("intakter");
   const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({
     costCategories: false,
     savingsCategories: false,
@@ -2383,214 +2382,1060 @@ const BudgetCalculator = () => {
                   : ""
             }`}>
               <div className="space-y-6">
-                
-                {/* Sub-tabs for Sammanställning */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Budgetöversikt</CardTitle>
-                    <CardDescription>Detaljerad översikt över intäkter, kostnader och överföringar</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* Sub-tabs */}
-                    <Tabs value={activeSummaryTab} onValueChange={setActiveSummaryTab}>
-                      <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="intakter">Intäkter</TabsTrigger>
-                        <TabsTrigger value="kostnader">Kostnader</TabsTrigger>
-                        <TabsTrigger value="overforing">Överföring</TabsTrigger>
-                      </TabsList>
+              {/* Overview Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Budgetöversikt</CardTitle>
+                  <CardDescription>Översikt över intäkter, kostnader och överföringar</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Stacked Bar Chart */}
+                  <div className="h-80 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={[
+                          {
+                            name: 'Intäkter',
+                            andreas: andreasSalary + andreasförsäkringskassan + andreasbarnbidrag,
+                            susanna: susannaSalary + susannaförsäkringskassan + susannabarnbidrag,
+                          },
+                          {
+                            name: 'Kostnader',
+                            costs: costGroups.reduce((sum, group) => {
+                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                              return sum + subCategoriesTotal;
+                            }, 0),
+                            dailyBudget: results?.totalDailyBudget || 0,
+                          },
+                           {
+                             name: 'Överföring',
+                             andreasShare: results?.andreasShare || 0,
+                             susannaShare: results?.susannaShare || 0,
+                             savings: savingsGroups.reduce((sum, group) => {
+                               const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                               return sum + group.amount + subCategoriesTotal;
+                             }, 0),
+                           }
+                        ]}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                        barCategoryGap="10%"
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis 
+                          dataKey="name" 
+                          fontSize={12}
+                          tick={{ fontSize: 12 }}
+                          interval={0}
+                        />
+                        <YAxis 
+                          fontSize={12}
+                          tick={{ fontSize: 12 }}
+                          tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                        />
+                        <Tooltip 
+                          formatter={(value, name) => [
+                            formatCurrency(Number(value)), 
+                            name === 'andreas' ? userName1 :
+                            name === 'susanna' ? userName2 :
+                            name === 'costs' ? 'Kostnader' :
+                            name === 'dailyBudget' ? 'Daglig budget' :
+                            name === 'andreasShare' ? `${userName1}s andel` :
+                            name === 'susannaShare' ? `${userName2}s andel` :
+                            name === 'savings' ? 'Sparande' : name
+                          ]}
+                          labelFormatter={(label) => label}
+                        />
+                        
+                        {/* Income bars - green colors */}
+                        <Bar dataKey="andreas" stackId="income" fill="hsl(142, 71%, 45%)" name={userName1} />
+                        <Bar dataKey="susanna" stackId="income" fill="hsl(142, 71%, 35%)" name={userName2} />
+                        
+                        {/* Cost bars - red colors */}
+                        <Bar dataKey="costs" stackId="costs" fill="hsl(0, 84%, 60%)" name="Kostnader" />
+                        <Bar dataKey="dailyBudget" stackId="costs" fill="hsl(0, 84%, 45%)" name="Daglig budget" />
+                        
+                        {/* Transfer bars - purple and green */}
+                        <Bar dataKey="andreasShare" stackId="transfer" fill="hsl(262, 83%, 58%)" name={`${userName1}s andel`} />
+                        <Bar dataKey="susannaShare" stackId="transfer" fill="hsl(262, 83%, 68%)" name={`${userName2}s andel`} />
+                        <Bar dataKey="savings" stackId="transfer" fill="hsl(142, 71%, 45%)" name="Sparande" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
 
-                      {/* Intäkter Tab */}
-                      <TabsContent value="intakter" className="space-y-4">
+                  {/* Custom Expandable Legend */}
+                  <div className="space-y-3">
+                    {/* Intäkter */}
+                    <div className="p-4 bg-primary/10 rounded-lg">
+                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('chartIncomes')}>
+                        <div>
+                          <h4 className="font-medium text-sm">Intäkter</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
+                          </p>
+                        </div>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.chartIncomes ? 'rotate-180' : ''}`} />
+                      </div>
+                      {expandedSections.chartIncomes && (
+                        <div className="mt-3 space-y-4 border-t pt-3">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(142, 71%, 45%)' }}></div>
+                              <span className="text-sm">{userName1}:</span>
+                              <span className="text-sm font-medium ml-auto">{formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(142, 71%, 35%)' }}></div>
+                              <span className="text-sm">{userName2}:</span>
+                              <span className="text-sm font-medium ml-auto">{formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}</span>
+                            </div>
+                          </div>
+                          
+                          {/* Income Distribution Chart */}
+                          <div className="border-t pt-3">
+                            <h5 className="text-sm font-medium mb-3">Inkomstfördelning</h5>
+                            <div className="flex justify-center">
+                              <div className="w-48 h-48">
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <PieChart>
+                                    <Pie
+                                      data={[
+                                        {
+                                          name: userName1,
+                                          value: andreasSalary + andreasförsäkringskassan + andreasbarnbidrag,
+                                          color: '#8b5cf6'
+                                        },
+                                        {
+                                          name: userName2,
+                                          value: susannaSalary + susannaförsäkringskassan + susannabarnbidrag,
+                                          color: '#06b6d4'
+                                        }
+                                      ]}
+                                      dataKey="value"
+                                      nameKey="name"
+                                      cx="50%"
+                                      cy="50%"
+                                      outerRadius={80}
+                                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                                    >
+                                      <Cell fill="#8b5cf6" />
+                                      <Cell fill="#06b6d4" />
+                                    </Pie>
+                                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                                  </PieChart>
+                                </ResponsiveContainer>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Kostnader */}
+                    <div className="p-4 bg-primary/10 rounded-lg">
+                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('chartCosts')}>
+                        <div>
+                          <h4 className="font-medium text-sm">Kostnader</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {formatCurrency((costGroups.reduce((sum, group) => {
+                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                              return sum + subCategoriesTotal;
+                            }, 0)) + (results?.totalDailyBudget || 0))}
+                          </p>
+                        </div>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.chartCosts ? 'rotate-180' : ''}`} />
+                      </div>
+                      {expandedSections.chartCosts && (
+                        <div className="mt-3 space-y-2 border-t pt-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(0, 84%, 60%)' }}></div>
+                            <span className="text-sm">Kostnader:</span>
+                            <span className="text-sm font-medium ml-auto">{formatCurrency(costGroups.reduce((sum, group) => {
+                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                              return sum + subCategoriesTotal;
+                            }, 0))}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(0, 84%, 45%)' }}></div>
+                            <span className="text-sm">Daglig budget:</span>
+                            <span className="text-sm font-medium ml-auto">{formatCurrency(results?.totalDailyBudget || 0)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Överföring */}
+                    <div className="p-4 bg-primary/10 rounded-lg">
+                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('chartTransfer')}>
+                        <div>
+                          <h4 className="font-medium text-sm">Överföring</h4>
+                           <p className="text-sm text-muted-foreground">
+                             {formatCurrency((results?.andreasShare || 0) + (results?.susannaShare || 0) + savingsGroups.reduce((sum, group) => {
+                               const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                               return sum + group.amount + subCategoriesTotal;
+                             }, 0))}
+                           </p>
+                        </div>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.chartTransfer ? 'rotate-180' : ''}`} />
+                      </div>
+                      {expandedSections.chartTransfer && (
+                        <div className="mt-3 space-y-2 border-t pt-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(262, 83%, 58%)' }}></div>
+                            <span className="text-sm">{userName1}s andel:</span>
+                            <span className="text-sm font-medium ml-auto">{formatCurrency(results?.andreasShare || 0)}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(262, 83%, 68%)' }}></div>
+                            <span className="text-sm">{userName2}s andel:</span>
+                            <span className="text-sm font-medium ml-auto">{formatCurrency(results?.susannaShare || 0)}</span>
+                          </div>
+                           <div className="flex items-center gap-2">
+                             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(142, 71%, 45%)' }}></div>
+                             <span className="text-sm">Sparande:</span>
+                             <span className="text-sm font-medium ml-auto">{formatCurrency(savingsGroups.reduce((sum, group) => {
+                               const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                               return sum + group.amount + subCategoriesTotal;
+                             }, 0))}</span>
+                           </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Editable Categories */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Kategorier</CardTitle>
+                  <CardDescription>Redigera kostnader och sparande</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+
+                  {/* Total Costs with Dropdown */}
+                  <div className="p-4 bg-destructive/10 rounded-lg">
+                    <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('costCategories')}>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Totala kostnader</div>
+                        <div className="text-2xl font-bold text-destructive">
+                          {formatCurrency(costGroups.reduce((sum, group) => {
+                            const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                            return sum + subCategoriesTotal;
+                          }, 0))}
+                        </div>
+                      </div>
+                      {expandedSections.costCategories ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                    </div>
+                    
+                    {expandedSections.costCategories && (
+                      <div className="mt-4 space-y-4">
                         <div className="flex justify-between items-center">
-                          <h3 className="text-lg font-medium">Intäkter</h3>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => setActiveTab("inkomster")}
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            Redigera
-                          </Button>
+                          <h4 className="font-semibold">Kostnadskategorier</h4>
+                          <div className="space-x-2">
+                            <Button size="sm" onClick={() => setIsEditingCategories(!isEditingCategories)}>
+                              {isEditingCategories ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
+                            </Button>
+                            {isEditingCategories && (
+                              <Button size="sm" onClick={addCostGroup}>
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                         
-                        {/* Income Chart */}
-                        <div className="h-64 w-full">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={[
-                                  {
-                                    name: userName1,
-                                    value: andreasSalary + andreasförsäkringskassan + andreasbarnbidrag,
-                                    color: '#8b5cf6'
-                                  },
-                                  {
-                                    name: userName2,
-                                    value: susannaSalary + susannaförsäkringskassan + susannabarnbidrag,
-                                    color: '#06b6d4'
-                                  }
-                                ]}
-                                dataKey="value"
-                                nameKey="name"
-                                cx="50%"
-                                cy="50%"
-                                outerRadius={80}
-                                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                        {costGroups.map((group) => (
+                          <div key={group.id} className="space-y-2">
+                            <div className="flex gap-2 items-center">
+                              {isEditingCategories ? (
+                                <>
+                                  <Input
+                                    value={group.name}
+                                    onChange={(e) => updateCostGroup(group.id, 'name', e.target.value)}
+                                    className="flex-1"
+                                  />
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => removeCostGroup(group.id)}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <div className="flex-1 font-medium">{group.name}</div>
+                              )}
+                            </div>
+                            
+                            {group.subCategories && group.subCategories.length > 0 && (
+                              <div className="pl-4 space-y-1">
+                                 {group.subCategories.map((sub) => (
+                                   <div key={sub.id} className="text-sm space-y-2">
+                                     {isEditingCategories ? (
+                                       <div className="space-y-2">
+                                         <div className="flex gap-2 items-center">
+                                           <Input
+                                             value={sub.name}
+                                             onChange={(e) => updateSubCategory(group.id, sub.id, 'name', e.target.value)}
+                                             className="w-32 text-base"
+                                             placeholder="Underkategori namn"
+                                           />
+                                           <Input
+                                             type="number"
+                                             value={sub.amount === 0 ? '' : sub.amount}
+                                             onChange={(e) => updateSubCategory(group.id, sub.id, 'amount', Number(e.target.value) || 0)}
+                                             className="flex-1"
+                                             placeholder="Belopp"
+                                           />
+                                           <Button
+                                             size="sm"
+                                             variant="destructive"
+                                             onClick={() => removeSubCategory(group.id, sub.id)}
+                                           >
+                                             <Trash2 className="w-4 h-4" />
+                                           </Button>
+                                         </div>
+                                         <div className="flex gap-2 items-center pl-2">
+                                           <span className="text-sm text-muted-foreground min-w-16">Konto:</span>
+                                           <Select
+                                             value={sub.account || 'none'}
+                                             onValueChange={(value) => updateSubCategory(group.id, sub.id, 'account', value === 'none' ? undefined : value)}
+                                           >
+                                             <SelectTrigger className="w-36">
+                                               <SelectValue placeholder="Välj konto" />
+                                             </SelectTrigger>
+                                             <SelectContent>
+                                               <SelectItem value="none">Inget konto</SelectItem>
+                                               {accounts.map((account) => (
+                                                 <SelectItem key={account} value={account}>
+                                                   {account}
+                                                 </SelectItem>
+                                               ))}
+                                             </SelectContent>
+                                           </Select>
+                                         </div>
+                                       </div>
+                                     ) : (
+                                       <div className="flex justify-between items-center">
+                                         <span className="flex-1">
+                                           {sub.name}{sub.account ? ` (${sub.account})` : ''}
+                                         </span>
+                                         <span className="w-32 text-right font-medium text-destructive">
+                                           {formatCurrency(sub.amount)}
+                                         </span>
+                                       </div>
+                                     )}
+                                   </div>
+                                 ))}
+                              </div>
+                            )}
+                            
+                            {isEditingCategories && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="ml-4"
+                                onClick={() => addSubCategory(group.id)}
                               >
-                                <Cell fill="#8b5cf6" />
-                                <Cell fill="#06b6d4" />
-                              </Pie>
-                              <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </div>
-
-                        {/* Income Details */}
-                        <div className="space-y-4">
-                          <div className="bg-primary/5 p-4 rounded-lg">
-                            <h4 className="font-medium mb-3">{userName1}</h4>
-                            <div className="space-y-2 text-sm">
-                              <div className="flex justify-between">
-                                <span>Lön:</span>
-                                <span className="font-medium">{formatCurrency(andreasSalary)}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>Försäkringskassan:</span>
-                                <span className="font-medium">{formatCurrency(andreasförsäkringskassan)}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>Barnbidrag:</span>
-                                <span className="font-medium">{formatCurrency(andreasbarnbidrag)}</span>
-                              </div>
-                            </div>
+                                <Plus className="w-4 h-4 mr-1" />
+                                Lägg till underkategori
+                              </Button>
+                            )}
                           </div>
+                        ))}
+                      </div>
+                     )}
+                   </div>
 
-                          <div className="bg-primary/5 p-4 rounded-lg">
-                            <h4 className="font-medium mb-3">{userName2}</h4>
-                            <div className="space-y-2 text-sm">
-                              <div className="flex justify-between">
-                                <span>Lön:</span>
-                                <span className="font-medium">{formatCurrency(susannaSalary)}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>Försäkringskassan:</span>
-                                <span className="font-medium">{formatCurrency(susannaförsäkringskassan)}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>Barnbidrag:</span>
-                                <span className="font-medium">{formatCurrency(susannabarnbidrag)}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </TabsContent>
-
-                      {/* Kostnader Tab */}
-                      <TabsContent value="kostnader" className="space-y-4">
-                        <div className="flex justify-between items-center">
-                          <h3 className="text-lg font-medium">Kostnader</h3>
-                          <div className="flex gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => {
-                                setActiveTab("inkomster");
-                                setExpandedSections(prev => ({ ...prev, costCategories: true }));
-                              }}
-                            >
-                              <Edit className="h-4 w-4 mr-1" />
-                              Redigera kostnader
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => {
-                                setActiveTab("inkomster");
-                                setExpandedSections(prev => ({ ...prev, budgetTransfers: true }));
-                              }}
-                            >
-                              <Edit className="h-4 w-4 mr-1" />
-                              Redigera daglig budget
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* Cost Details */}
-                        <div className="space-y-3">
-                          {costGroups.map((group) => (
-                            <div key={group.id} className="bg-primary/5 p-3 rounded-lg">
-                              <div className="flex justify-between">
-                                <span className="font-medium">{group.name}:</span>
-                                <span className="font-medium">{formatCurrency(group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || group.amount)}</span>
-                              </div>
-                            </div>
-                          ))}
+                   {/* Total Daily Budget with Dropdown */}
+                   <div className="p-4 bg-blue-50 rounded-lg">
+                     <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetTransfers')}>
+                       <div>
+                         <div className="text-sm text-muted-foreground">Total daglig budget</div>
+                         <div className="text-2xl font-bold text-blue-600">
+                           {results ? formatCurrency(results.totalDailyBudget) : 'Beräknar...'}
+                         </div>
+                       </div>
+                       {expandedSections.budgetTransfers ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                     </div>
+                     
+                     {expandedSections.budgetTransfers && (
+                       <div className="mt-4 space-y-4">
+                         <div className="flex justify-between items-center">
+                           <h4 className="font-semibold">Budgetöverföringar</h4>
+                           <Button size="sm" onClick={() => setIsEditingTransfers(!isEditingTransfers)}>
+                             {isEditingTransfers ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
+                           </Button>
+                         </div>
+                         
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <div className="space-y-2">
+                             <Label htmlFor="daily-transfer">Daglig överföring (måndag-torsdag)</Label>
+                             <Input
+                               id="daily-transfer"
+                               type="number"
+                               value={dailyTransfer || ''}
+                               onChange={(e) => setDailyTransfer(Number(e.target.value))}
+                               disabled={!isEditingTransfers}
+                             />
+                           </div>
+                           <div className="space-y-2">
+                             <Label htmlFor="weekend-transfer">Helgöverföring (fredag-söndag)</Label>
+                             <Input
+                               id="weekend-transfer"
+                               type="number"
+                               value={weekendTransfer || ''}
+                               onChange={(e) => setWeekendTransfer(Number(e.target.value))}
+                               disabled={!isEditingTransfers}
+                             />
+                           </div>
+                         </div>
                           
-                          <div className="bg-red-50 border border-red-200 p-3 rounded-lg">
-                            <div className="flex justify-between font-medium">
-                              <span>Daglig budget:</span>
-                              <span>{formatCurrency(results?.totalDailyBudget || 0)}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </TabsContent>
-
-                      {/* Överföring Tab */}
-                      <TabsContent value="overforing" className="space-y-4">
-                        <div className="flex justify-between items-center">
-                          <h3 className="text-lg font-medium">Överföring</h3>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => {
-                              setActiveTab("inkomster");
-                              setExpandedSections(prev => ({ ...prev, savingsCategories: true }));
-                            }}
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            Redigera sparande
-                          </Button>
-                        </div>
-
-                        {/* Transfer Details */}
-                        <div className="space-y-3">
-                          <div className="bg-primary/5 p-3 rounded-lg">
-                            <div className="flex justify-between">
-                              <span className="font-medium">{userName1}s andel ({results?.andreasPercentage.toFixed(1)}%):</span>
-                              <span className="font-medium">{formatCurrency(results?.andreasShare || 0)}</span>
-                            </div>
-                          </div>
-
-                          <div className="bg-primary/5 p-3 rounded-lg">
-                            <div className="flex justify-between">
-                              <span className="font-medium">{userName2}s andel ({results?.susannaPercentage.toFixed(1)}%):</span>
-                              <span className="font-medium">{formatCurrency(results?.susannaShare || 0)}</span>
-                            </div>
-                          </div>
-
-                          {savingsGroups.map((group) => (
-                            <div key={group.id} className="bg-green-50 border border-green-200 p-3 rounded-lg">
-                              <div className="flex justify-between">
-                                <span className="font-medium">{group.name}:</span>
-                                <span className="font-medium">{formatCurrency(group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || group.amount)}</span>
+                          {results && (
+                            <div className="space-y-3">
+                              <div className="text-sm text-muted-foreground">
+                                <div>Vardagar: {results.weekdayCount} × {formatCurrency(dailyTransfer)} = {formatCurrency(results.weekdayCount * dailyTransfer)}</div>
+                                <div>Helgdagar: {results.fridayCount} × {formatCurrency(weekendTransfer)} = {formatCurrency(results.fridayCount * weekendTransfer)}</div>
                               </div>
-                              {group.subCategories && group.subCategories.length > 0 && (
-                                <div className="mt-2 ml-4 space-y-1 text-sm text-muted-foreground">
-                                  {group.subCategories.map((sub) => (
-                                    <div key={sub.id} className="flex justify-between">
-                                      <span>• {sub.name}:</span>
-                                      <span>{formatCurrency(sub.amount)}</span>
-                                    </div>
-                                  ))}
+                              
+                              {/* Moved from budgetSummary section */}
+                              <div className="p-3 bg-amber-50 rounded-lg">
+                                <div className="text-sm text-muted-foreground">Återstående daglig budget</div>
+                                <div className="text-xl font-bold text-amber-600">
+                                  {formatCurrency(results.remainingDailyBudget)}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                       </div>
+                     )}
+                   </div>
+
+                   {/* Total Savings with Dropdown */}
+                  <div className="p-4 bg-green-50 rounded-lg">
+                    <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('savingsCategories')}>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Totalt sparande</div>
+                        <div className="text-2xl font-bold text-green-600">
+                          {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
+                        </div>
+                      </div>
+                      {expandedSections.savingsCategories ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                    </div>
+                    
+                    {expandedSections.savingsCategories && (
+                      <div className="mt-4 space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h4 className="font-semibold">Sparandekategorier</h4>
+                          <div className="space-x-2">
+                            <Button size="sm" onClick={() => setIsEditingCategories(!isEditingCategories)}>
+                              {isEditingCategories ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
+                            </Button>
+                            {isEditingCategories && (
+                              <Button size="sm" onClick={addSavingsGroup}>
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        
+                         {savingsGroups.map((group) => (
+                           <div key={group.id} className="space-y-2">
+                             {isEditingCategories ? (
+                               <div className="space-y-2">
+                                 <div className="flex gap-2 items-center">
+                                   <Input
+                                     value={group.name}
+                                     onChange={(e) => updateSavingsGroup(group.id, 'name', e.target.value)}
+                                     className="flex-1 text-base"
+                                     placeholder="Kategori namn"
+                                   />
+                                   <Input
+                                     type="number"
+                                     value={group.amount === 0 ? '' : group.amount}
+                                     onChange={(e) => updateSavingsGroup(group.id, 'amount', Number(e.target.value) || 0)}
+                                     className="w-32"
+                                     placeholder="Belopp"
+                                   />
+                                   <Button
+                                     size="sm"
+                                     variant="destructive"
+                                     onClick={() => removeSavingsGroup(group.id)}
+                                   >
+                                     <Trash2 className="w-4 h-4" />
+                                   </Button>
+                                 </div>
+                                 <div className="flex gap-2 items-center pl-2">
+                                   <span className="text-sm text-muted-foreground min-w-16">Konto:</span>
+                                   <Select
+                                     value={group.account || 'none'}
+                                     onValueChange={(value) => updateSavingsGroup(group.id, 'account', value === 'none' ? undefined : value)}
+                                   >
+                                     <SelectTrigger className="w-36">
+                                       <SelectValue placeholder="Välj konto" />
+                                     </SelectTrigger>
+                                     <SelectContent>
+                                       <SelectItem value="none">Inget konto</SelectItem>
+                                       {accounts.map((account) => (
+                                         <SelectItem key={account} value={account}>
+                                           {account}
+                                         </SelectItem>
+                                       ))}
+                                     </SelectContent>
+                                   </Select>
+                                 </div>
+                               </div>
+                             ) : (
+                               <div className="flex justify-between items-center">
+                                 <span className="flex-1">
+                                   {group.name}{group.account ? ` (${group.account})` : ''}
+                                 </span>
+                                 <span className="w-32 text-right font-medium text-green-600">
+                                   {formatCurrency(group.amount)}
+                                 </span>
+                               </div>
+                             )}
+                           </div>
+                         ))}
+                       </div>
+                     )}
+                    </div>
+
+                    {/* Budget Summary with Dropdown */}
+                    <div className="p-4 bg-muted rounded-lg">
+                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetSummary')}>
+                        <div>
+                          <div className="text-sm text-muted-foreground">Budgetsummering</div>
+                          <div className="text-2xl font-bold">
+                            {formatCurrency(
+                              (results ? results.totalDailyBudget : 0) +
+                              costGroups.reduce((sum, group) => {
+                                const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                return sum + subCategoriesTotal;
+                              }, 0) +
+                              savingsGroups.reduce((sum, group) => sum + group.amount, 0)
+                            )}
+                          </div>
+                        </div>
+                        {expandedSections.budgetSummary ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                      </div>
+                      
+                      {expandedSections.budgetSummary && results && (
+                        <div className="mt-4 space-y-3">
+                          {/* Income items - Green boxes */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                              <div className="text-sm text-green-700 font-medium">Totala intäkter</div>
+                              <div className="text-xl font-bold text-green-800">
+                                {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
+                              </div>
+                            </div>
+                            
+                            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                              <div className="text-sm text-green-700 font-medium">Totalt sparande</div>
+                              <div className="text-xl font-bold text-green-800">
+                                {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Cost items - Red boxes */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                              <div className="text-sm text-red-700 font-medium">Totala kostnader</div>
+                              <div className="text-xl font-bold text-red-800">
+                                -{formatCurrency(costGroups.reduce((sum, group) => {
+                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                  return sum + subCategoriesTotal;
+                                }, 0))}
+                              </div>
+                            </div>
+                            
+                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                              <div className="text-sm text-red-700 font-medium">Total daglig budget</div>
+                              <div className="text-xl font-bold text-red-800">
+                                -{formatCurrency(results.totalDailyBudget)}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Individual shares - Purple boxes */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                              <div className="text-sm text-purple-700 font-medium">{userName1} andel</div>
+                              <div className="text-xl font-bold text-purple-800">
+                                -{formatCurrency(results.andreasShare)}
+                              </div>
+                            </div>
+                            
+                            <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                              <div className="text-sm text-purple-700 font-medium">{userName2} andel</div>
+                              <div className="text-xl font-bold text-purple-800">
+                                -{formatCurrency(results.susannaShare)}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Final sum */}
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <div className="p-4 bg-gray-50 border-2 border-gray-300 rounded-lg">
+                              <div className="text-sm text-gray-600 font-medium mb-1">Slutsumma (bör vara 0)</div>
+                              <div className={`text-2xl font-bold ${
+                                Math.abs(results.balanceLeft) < 0.01 
+                                  ? 'text-green-600' 
+                                  : 'text-red-600'
+                              }`}>
+                                {formatCurrency(results.balanceLeft)}
+                              </div>
+                              {Math.abs(results.balanceLeft) > 0.01 && (
+                                <div className="text-xs text-red-500 mt-1">
+                                  ⚠️ Budgeten är inte balanserad
                                 </div>
                               )}
                             </div>
-                          ))}
+                          </div>
                         </div>
-                      </TabsContent>
-                    </Tabs>
-                  </CardContent>
-                </Card>
+                      )}
+                    </div>
+
+                    {/* Account Summary with Dropdown */}
+                   <div className="p-4 bg-indigo-50 rounded-lg">
+                     <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('accountSummary')}>
+                       <div>
+                         <div className="text-sm text-muted-foreground">Kontosammanställning</div>
+                         <div className="text-lg font-bold text-indigo-600">
+                           {accounts.length} konton
+                         </div>
+                       </div>
+                       {expandedSections.accountSummary ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                     </div>
+                     
+                     {expandedSections.accountSummary && (
+                       <div className="mt-4 space-y-4">
+                         {/* Account Summary List */}
+                         <div className="space-y-3">
+                           {accounts.map(account => {
+                             // Calculate savings for this account
+                             const accountSavings = savingsGroups
+                               .filter(group => group.account === account)
+                               .reduce((sum, group) => sum + group.amount, 0);
+                             
+                             // Calculate costs for this account
+                             const accountCosts = costGroups.reduce((sum, group) => {
+                               const groupCosts = group.subCategories
+                                 ?.filter(sub => sub.account === account)
+                                 .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                               return sum + groupCosts;
+                             }, 0);
+                             
+                             const netAmount = accountSavings - accountCosts;
+                             const hasDetails = accountSavings > 0 || accountCosts > 0;
+                             
+                             return (
+                               <div key={account} className="p-3 bg-white rounded border">
+                                 <div className="flex justify-between items-center">
+                                   <div className="flex items-center gap-2">
+                                     <span className="font-medium">{account}</span>
+                                     {hasDetails && (
+                                       <button
+                                         onClick={() => toggleAccountDetails(account)}
+                                         className="text-gray-400 hover:text-gray-600"
+                                       >
+                                         {expandedAccounts[account] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                       </button>
+                                     )}
+                                   </div>
+                                   <div className={`font-semibold ${netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                     {netAmount >= 0 ? '+' : ''}{formatCurrency(netAmount)}
+                                   </div>
+                                 </div>
+                                 
+                                 {/* Expandable breakdown */}
+                                 {expandedAccounts[account] && hasDetails && (
+                                   <div className="mt-3 pt-3 border-t space-y-2">
+                                     {/* Savings breakdown */}
+                                     {savingsGroups
+                                       .filter(group => group.account === account)
+                                       .map(group => (
+                                         <div key={`savings-${group.id}`} className="flex justify-between text-sm">
+                                           <span className="text-gray-600">{group.name} (Sparande)</span>
+                                           <span className="text-green-600">+{formatCurrency(group.amount)}</span>
+                                         </div>
+                                       ))}
+                                     
+                                     {/* Costs breakdown */}
+                                     {costGroups.map(group => 
+                                       group.subCategories
+                                         ?.filter(sub => sub.account === account)
+                                         .map(sub => (
+                                           <div key={`cost-${sub.id}`} className="flex justify-between text-sm">
+                                             <span className="text-gray-600">{sub.name} (Kostnad)</span>
+                                             <span className="text-red-600">-{formatCurrency(sub.amount)}</span>
+                                           </div>
+                                         ))
+                                     )}
+                                   </div>
+                                 )}
+                               </div>
+                             );
+                           })}
+                         </div>
+                         
+                         {/* Account Management Section */}
+                         <div className="p-4 bg-gray-50 rounded-lg">
+                           <div className="flex justify-between items-center mb-4">
+                             <h4 className="font-semibold">Hantera konton</h4>
+                             <Button 
+                               size="sm" 
+                               variant="outline" 
+                               onClick={() => setIsEditingAccounts(!isEditingAccounts)}
+                             >
+                               {isEditingAccounts ? 'Stäng' : 'Redigera konton'}
+                             </Button>
+                           </div>
+                           
+                           {isEditingAccounts && (
+                             <div className="space-y-4">
+                               <div className="flex gap-2">
+                                 <Input
+                                   placeholder="Nytt kontonamn"
+                                   value={newAccountName}
+                                   onChange={(e) => setNewAccountName(e.target.value)}
+                                   className="flex-1"
+                                 />
+                                 <Button onClick={addAccount} disabled={!newAccountName.trim()}>
+                                   <Plus className="w-4 h-4 mr-1" />
+                                   Lägg till
+                                 </Button>
+                               </div>
+                               
+                               <div className="space-y-2">
+                                 <h5 className="text-sm font-medium">Befintliga konton:</h5>
+                                 {accounts.map((account) => (
+                                   <div key={account} className="flex justify-between items-center p-2 bg-white rounded border">
+                                     <span>{account}</span>
+                                     <Button
+                                       size="sm"
+                                       variant="destructive"
+                                       onClick={() => removeAccount(account)}
+                                     >
+                                       <Trash2 className="w-4 h-4" />
+                                     </Button>
+                                   </div>
+                                 ))}
+                               </div>
+                             </div>
+                           )}
+                         </div>
+                       </div>
+                     )}
+                   </div>
+
+
+                  {/* Budget Not Transferred (Red Days) */}
+                  <div className="p-4 bg-red-50 rounded-lg">
+                    <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('redDays')}>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Budget som ej överförs (röda dagar)</div>
+                        <div className="text-2xl font-bold text-red-600">
+                          {results ? formatCurrency(results.holidayDaysBudget) : 'Beräknar...'}
+                        </div>
+                      </div>
+                      {expandedSections.redDays ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                    </div>
+                    
+                    {expandedSections.redDays && (
+                      <div className="mt-4 space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h4 className="font-semibold">Svenska röda dagar</h4>
+                          <Button size="sm" onClick={() => setIsEditingHolidays(!isEditingHolidays)}>
+                            {isEditingHolidays ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
+                          </Button>
+                        </div>
+                        
+                        {results && (
+                          <div className="text-sm space-y-3">
+                            <div>
+                              <div>Röda dagar till 25:e: {results.holidaysUntil25th.length} st</div>
+                              <div className="text-xs text-muted-foreground">
+                                {results.holidaysUntil25th.join(', ')}
+                              </div>
+                            </div>
+                            <div>
+                              <div>Nästkommande 10 röda dagar:</div>
+                              <div className="text-xs text-muted-foreground">
+                                {results.nextTenHolidays.join(', ')}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {isEditingHolidays && (
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <h5 className="font-medium">Anpassade helgdagar</h5>
+                              <Button size="sm" onClick={addCustomHoliday}>
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                            </div>
+                            
+                            {customHolidays.map((holiday, index) => (
+                              <div key={index} className="flex gap-2 items-center">
+                                <Input
+                                  type="date"
+                                  value={holiday.date}
+                                  onChange={(e) => updateCustomHoliday(index, 'date', e.target.value)}
+                                  className="flex-1"
+                                />
+                                <Input
+                                  value={holiday.name}
+                                  onChange={(e) => updateCustomHoliday(index, 'name', e.target.value)}
+                                  className="flex-1"
+                                  placeholder="Namn på helgdag"
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => removeCustomHoliday(index)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                </CardContent>
+              </Card>
+
+              {/* Individual Shares */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Individuell Fördelning & Bidrag</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {/* Individual Breakdown */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Andreas Column */}
+                    <div className="space-y-4">
+                      <h5 className="font-medium text-lg">Andreas</h5>
+                      <div className="space-y-3">
+                        <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                          <div className="text-sm text-muted-foreground">Procentuell fördelning</div>
+                          <div className="text-xl font-bold text-purple-600">
+                            {(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                              ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1)
+                              : '0'}%
+                          </div>
+                        </div>
+                        <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                          <div className="text-sm text-muted-foreground">Andel av gemensamma kostnader/sparande</div>
+                          <div className="text-xl font-bold text-red-600">
+                            {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                              ? ((results ? results.totalDailyBudget : 0) +
+                                costGroups.reduce((sum, group) => {
+                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                  return sum + subCategoriesTotal;
+                                }, 0) +
+                                savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                              : 0)}
+                          </div>
+                        </div>
+                        <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                          <div className="text-sm text-muted-foreground">Kvar efter gemensamma kostnader/sparande</div>
+                          <div className="text-xl font-bold text-green-600">
+                            {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) - 
+                              ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                                ? ((results ? results.totalDailyBudget : 0) +
+                                  costGroups.reduce((sum, group) => {
+                                    const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                    return sum + subCategoriesTotal;
+                                  }, 0) +
+                                  savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                                : 0))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Susanna Column */}
+                    <div className="space-y-4">
+                      <h5 className="font-medium text-lg">Susanna</h5>
+                      <div className="space-y-3">
+                        <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                          <div className="text-sm text-muted-foreground">Procentuell fördelning</div>
+                          <div className="text-xl font-bold text-purple-600">
+                            {(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                              ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1)
+                              : '0'}%
+                          </div>
+                        </div>
+                        <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                          <div className="text-sm text-muted-foreground">Andel av gemensamma kostnader/sparande</div>
+                          <div className="text-xl font-bold text-red-600">
+                            {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                              ? ((results ? results.totalDailyBudget : 0) +
+                                costGroups.reduce((sum, group) => {
+                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                  return sum + subCategoriesTotal;
+                                }, 0) +
+                                savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                              : 0)}
+                          </div>
+                        </div>
+                        <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                          <div className="text-sm text-muted-foreground">Kvar efter gemensamma kostnader/sparande</div>
+                          <div className="text-xl font-bold text-green-600">
+                            {formatCurrency((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) - 
+                              ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                                ? ((results ? results.totalDailyBudget : 0) +
+                                  costGroups.reduce((sum, group) => {
+                                    const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                    return sum + subCategoriesTotal;
+                                  }, 0) +
+                                  savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                                : 0))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bar Charts Section */}
+                  <div className="mt-8 space-y-6">
+                    <div>
+                      <h5 className="font-medium text-lg mb-4">Andel av gemensamma kostnader/sparande</h5>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={[
+                              {
+                                name: userName1,
+                                value: (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                                  ? ((results ? results.totalDailyBudget : 0) +
+                                    costGroups.reduce((sum, group) => {
+                                      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                      return sum + subCategoriesTotal;
+                                    }, 0) +
+                                    savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                                  : 0
+                              },
+                              {
+                                name: userName2,
+                                value: (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                                  ? ((results ? results.totalDailyBudget : 0) +
+                                    costGroups.reduce((sum, group) => {
+                                      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                      return sum + subCategoriesTotal;
+                                    }, 0) +
+                                    savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                                  : 0
+                              }
+                            ]}
+                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis tickFormatter={(value) => formatCurrency(value)} />
+                            <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                            <Bar dataKey="value" fill="#ef4444" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h5 className="font-medium text-lg mb-4">Kvar efter gemensamma kostnader/sparande</h5>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={[
+                              {
+                                name: userName1,
+                                value: (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) - 
+                                  ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                                    ? ((results ? results.totalDailyBudget : 0) +
+                                      costGroups.reduce((sum, group) => {
+                                        const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                        return sum + subCategoriesTotal;
+                                      }, 0) +
+                                      savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                                    : 0)
+                              },
+                              {
+                                name: userName2,
+                                value: (susannaSalary + susannaförsäkringskassan + susannabarnbidrag) - 
+                                  ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
+                                    ? ((results ? results.totalDailyBudget : 0) +
+                                      costGroups.reduce((sum, group) => {
+                                        const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                        return sum + subCategoriesTotal;
+                                      }, 0) +
+                                      savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
+                                    : 0)
+                              }
+                            ]}
+                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis tickFormatter={(value) => formatCurrency(value)} />
+                            <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                            <Bar dataKey="value" fill="#16a34a" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Transfer Plan & Next Salary - Only show for current month */}
+              {(() => {
+                const currentDate = new Date();
+                const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                const isCurrentMonth = selectedBudgetMonth === currentMonthKey;
+                
+                if (!isCurrentMonth) return null;
+                
+                return (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Överföringsplan & Nästa Lön</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {results && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="p-3 bg-muted rounded-lg">
+                            <div className="text-sm text-muted-foreground">Dagar kvar till 25:e</div>
+                            <div className="text-xl font-semibold">{results.daysUntil25th} dagar</div>
+                          </div>
+                          <div className="p-3 bg-muted rounded-lg">
+                            <div className="text-sm text-muted-foreground">Vardagar</div>
+                            <div className="text-xl font-semibold">{results.weekdayCount} dagar</div>
+                          </div>
+                          <div className="p-3 bg-muted rounded-lg">
+                            <div className="text-sm text-muted-foreground">Helgdagar</div>
+                            <div className="text-xl font-semibold">{results.fridayCount} dagar</div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="pt-4 border-t">
+                        <Button 
+                          onClick={() => setActiveTab("overforing")} 
+                          className="w-full"
+                          variant="outline"
+                        >
+                          Se överföringsplan
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
               </div>
             </div>
           </TabsContent>
