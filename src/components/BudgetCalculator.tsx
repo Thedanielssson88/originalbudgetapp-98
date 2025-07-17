@@ -2388,6 +2388,82 @@ const BudgetCalculator = () => {
                   <CardTitle>Budgetöversikt</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Stacked Bar Chart */}
+                  <div className="h-80 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={[
+                          {
+                            name: 'Intäkter',
+                            andreas: andreasSalary + andreasförsäkringskassan + andreasbarnbidrag,
+                            susanna: susannaSalary + susannaförsäkringskassan + susannabarnbidrag,
+                          },
+                          {
+                            name: 'Budgeterade kostnader',
+                            costs: costGroups.reduce((sum, group) => {
+                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                              return sum + subCategoriesTotal;
+                            }, 0),
+                            dailyBudget: results?.totalDailyBudget || 0,
+                          },
+                          {
+                            name: 'Fördelning och sparande',
+                            andreasShare: results?.andreasShare || 0,
+                            susannaShare: results?.susannaShare || 0,
+                            savings: savingsGroups.reduce((sum, group) => {
+                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                              return sum + subCategoriesTotal;
+                            }, 0),
+                          }
+                        ]}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis 
+                          dataKey="name" 
+                          fontSize={12}
+                          tick={{ fontSize: 12 }}
+                          interval={0}
+                          angle={-45}
+                          textAnchor="end"
+                          height={60}
+                        />
+                        <YAxis 
+                          fontSize={12}
+                          tick={{ fontSize: 12 }}
+                          tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                        />
+                        <Tooltip 
+                          formatter={(value, name) => [
+                            formatCurrency(Number(value)), 
+                            name === 'andreas' ? userName1 :
+                            name === 'susanna' ? userName2 :
+                            name === 'costs' ? 'Kostnader' :
+                            name === 'dailyBudget' ? 'Daglig budget' :
+                            name === 'andreasShare' ? `${userName1}s andel` :
+                            name === 'susannaShare' ? `${userName2}s andel` :
+                            name === 'savings' ? 'Sparande' : name
+                          ]}
+                          labelFormatter={(label) => label}
+                        />
+                        <Legend />
+                        
+                        {/* Income bars - green colors */}
+                        <Bar dataKey="andreas" stackId="income" fill="hsl(142, 71%, 45%)" name={userName1} />
+                        <Bar dataKey="susanna" stackId="income" fill="hsl(142, 71%, 35%)" name={userName2} />
+                        
+                        {/* Cost bars - red colors */}
+                        <Bar dataKey="costs" stackId="costs" fill="hsl(0, 84%, 60%)" name="Kostnader" />
+                        <Bar dataKey="dailyBudget" stackId="costs" fill="hsl(0, 84%, 45%)" name="Daglig budget" />
+                        
+                        {/* Distribution and savings bars - purple and green */}
+                        <Bar dataKey="andreasShare" stackId="distribution" fill="hsl(262, 83%, 58%)" name={`${userName1}s andel`} />
+                        <Bar dataKey="susannaShare" stackId="distribution" fill="hsl(262, 83%, 68%)" name={`${userName2}s andel`} />
+                        <Bar dataKey="savings" stackId="distribution" fill="hsl(142, 71%, 45%)" name="Sparande" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  
                   {/* Total Income with Dropdown */}
                   <div className="p-4 bg-primary/10 rounded-lg">
                     <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('totalIncome')}>
