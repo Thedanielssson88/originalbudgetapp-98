@@ -2399,7 +2399,7 @@ const BudgetCalculator = () => {
                             susanna: susannaSalary + susannaförsäkringskassan + susannabarnbidrag,
                           },
                           {
-                            name: 'Budgeterade kostnader',
+                            name: 'Kostnader',
                             costs: costGroups.reduce((sum, group) => {
                               const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
                               return sum + subCategoriesTotal;
@@ -2407,7 +2407,7 @@ const BudgetCalculator = () => {
                             dailyBudget: results?.totalDailyBudget || 0,
                           },
                           {
-                            name: 'Fördelning och sparande',
+                            name: 'Överföring',
                             andreasShare: results?.andreasShare || 0,
                             susannaShare: results?.susannaShare || 0,
                             savings: savingsGroups.reduce((sum, group) => {
@@ -2417,6 +2417,7 @@ const BudgetCalculator = () => {
                           }
                         ]}
                         margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                        barCategoryGap="10%"
                       >
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis 
@@ -2424,9 +2425,6 @@ const BudgetCalculator = () => {
                           fontSize={12}
                           tick={{ fontSize: 12 }}
                           interval={0}
-                          angle={-45}
-                          textAnchor="end"
-                          height={60}
                         />
                         <YAxis 
                           fontSize={12}
@@ -2446,7 +2444,6 @@ const BudgetCalculator = () => {
                           ]}
                           labelFormatter={(label) => label}
                         />
-                        <Legend />
                         
                         {/* Income bars - green colors */}
                         <Bar dataKey="andreas" stackId="income" fill="hsl(142, 71%, 45%)" name={userName1} />
@@ -2456,12 +2453,113 @@ const BudgetCalculator = () => {
                         <Bar dataKey="costs" stackId="costs" fill="hsl(0, 84%, 60%)" name="Kostnader" />
                         <Bar dataKey="dailyBudget" stackId="costs" fill="hsl(0, 84%, 45%)" name="Daglig budget" />
                         
-                        {/* Distribution and savings bars - purple and green */}
-                        <Bar dataKey="andreasShare" stackId="distribution" fill="hsl(262, 83%, 58%)" name={`${userName1}s andel`} />
-                        <Bar dataKey="susannaShare" stackId="distribution" fill="hsl(262, 83%, 68%)" name={`${userName2}s andel`} />
-                        <Bar dataKey="savings" stackId="distribution" fill="hsl(142, 71%, 45%)" name="Sparande" />
+                        {/* Transfer bars - purple and green */}
+                        <Bar dataKey="andreasShare" stackId="transfer" fill="hsl(262, 83%, 58%)" name={`${userName1}s andel`} />
+                        <Bar dataKey="susannaShare" stackId="transfer" fill="hsl(262, 83%, 68%)" name={`${userName2}s andel`} />
+                        <Bar dataKey="savings" stackId="transfer" fill="hsl(142, 71%, 45%)" name="Sparande" />
                       </BarChart>
                     </ResponsiveContainer>
+                  </div>
+
+                  {/* Custom Expandable Legend */}
+                  <div className="space-y-3">
+                    {/* Intäkter */}
+                    <div className="p-4 bg-primary/10 rounded-lg">
+                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('chartIncomes')}>
+                        <div>
+                          <h4 className="font-medium text-sm">Intäkter</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
+                          </p>
+                        </div>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.chartIncomes ? 'rotate-180' : ''}`} />
+                      </div>
+                      {expandedSections.chartIncomes && (
+                        <div className="mt-3 space-y-2 border-t pt-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(142, 71%, 45%)' }}></div>
+                            <span className="text-sm">{userName1}:</span>
+                            <span className="text-sm font-medium ml-auto">{formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(142, 71%, 35%)' }}></div>
+                            <span className="text-sm">{userName2}:</span>
+                            <span className="text-sm font-medium ml-auto">{formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Kostnader */}
+                    <div className="p-4 bg-primary/10 rounded-lg">
+                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('chartCosts')}>
+                        <div>
+                          <h4 className="font-medium text-sm">Kostnader</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {formatCurrency((costGroups.reduce((sum, group) => {
+                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                              return sum + subCategoriesTotal;
+                            }, 0)) + (results?.totalDailyBudget || 0))}
+                          </p>
+                        </div>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.chartCosts ? 'rotate-180' : ''}`} />
+                      </div>
+                      {expandedSections.chartCosts && (
+                        <div className="mt-3 space-y-2 border-t pt-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(0, 84%, 60%)' }}></div>
+                            <span className="text-sm">Kostnader:</span>
+                            <span className="text-sm font-medium ml-auto">{formatCurrency(costGroups.reduce((sum, group) => {
+                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                              return sum + subCategoriesTotal;
+                            }, 0))}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(0, 84%, 45%)' }}></div>
+                            <span className="text-sm">Daglig budget:</span>
+                            <span className="text-sm font-medium ml-auto">{formatCurrency(results?.totalDailyBudget || 0)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Överföring */}
+                    <div className="p-4 bg-primary/10 rounded-lg">
+                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('chartTransfer')}>
+                        <div>
+                          <h4 className="font-medium text-sm">Överföring</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {formatCurrency((results?.andreasShare || 0) + (results?.susannaShare || 0) + savingsGroups.reduce((sum, group) => {
+                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                              return sum + subCategoriesTotal;
+                            }, 0))}
+                          </p>
+                        </div>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.chartTransfer ? 'rotate-180' : ''}`} />
+                      </div>
+                      {expandedSections.chartTransfer && (
+                        <div className="mt-3 space-y-2 border-t pt-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(262, 83%, 58%)' }}></div>
+                            <span className="text-sm">{userName1}s andel:</span>
+                            <span className="text-sm font-medium ml-auto">{formatCurrency(results?.andreasShare || 0)}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(262, 83%, 68%)' }}></div>
+                            <span className="text-sm">{userName2}s andel:</span>
+                            <span className="text-sm font-medium ml-auto">{formatCurrency(results?.susannaShare || 0)}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(142, 71%, 45%)' }}></div>
+                            <span className="text-sm">Sparande:</span>
+                            <span className="text-sm font-medium ml-auto">{formatCurrency(savingsGroups.reduce((sum, group) => {
+                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                              return sum + subCategoriesTotal;
+                            }, 0))}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
                   {/* Total Income with Dropdown */}
