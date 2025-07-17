@@ -2505,51 +2505,64 @@ const BudgetCalculator = () => {
                           </ResponsiveContainer>
                         </div>
                         
-                        {/* Detailed Income Breakdown */}
-                        <div className="space-y-3">
-                          <div className="p-3 border rounded-lg">
-                            <h5 className="font-medium mb-2">{userName1}</h5>
-                            <div className="space-y-1 text-sm pl-4">
-                              <div className="flex justify-between">
-                                <span>• Lön:</span>
-                                <span className="font-medium">{formatCurrency(andreasSalary)}</span>
+                        {/* Expandable Income Details */}
+                        <div className="p-4 bg-primary/10 rounded-lg">
+                          <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('incomeDetails')}>
+                            <div>
+                              <h4 className="font-medium text-sm">Intäkter</h4>
+                              <p className="text-sm text-muted-foreground">
+                                {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
+                              </p>
+                            </div>
+                            <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.incomeDetails ? 'rotate-180' : ''}`} />
+                          </div>
+                          {expandedSections.incomeDetails && (
+                            <div className="mt-3 space-y-3 border-t pt-3">
+                              <div className="p-3 border rounded-lg">
+                                <h5 className="font-medium mb-2">{userName1}</h5>
+                                <div className="space-y-1 text-sm pl-4">
+                                  <div className="flex justify-between">
+                                    <span>• Lön:</span>
+                                    <span className="font-medium">{formatCurrency(andreasSalary)}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>• Försäkringskassan:</span>
+                                    <span className="font-medium">{formatCurrency(andreasförsäkringskassan)}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>• Barnbidrag:</span>
+                                    <span className="font-medium">{formatCurrency(andreasbarnbidrag)}</span>
+                                  </div>
+                                  <div className="flex justify-between pt-1 border-t">
+                                    <span className="font-medium">Total:</span>
+                                    <span className="font-semibold">{formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}</span>
+                                  </div>
+                                </div>
                               </div>
-                              <div className="flex justify-between">
-                                <span>• Försäkringskassan:</span>
-                                <span className="font-medium">{formatCurrency(andreasförsäkringskassan)}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>• Barnbidrag:</span>
-                                <span className="font-medium">{formatCurrency(andreasbarnbidrag)}</span>
-                              </div>
-                              <div className="flex justify-between pt-1 border-t">
-                                <span className="font-medium">Total:</span>
-                                <span className="font-semibold">{formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}</span>
+                              
+                              <div className="p-3 border rounded-lg">
+                                <h5 className="font-medium mb-2">{userName2}</h5>
+                                <div className="space-y-1 text-sm pl-4">
+                                  <div className="flex justify-between">
+                                    <span>• Lön:</span>
+                                    <span className="font-medium">{formatCurrency(susannaSalary)}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>• Försäkringskassan:</span>
+                                    <span className="font-medium">{formatCurrency(susannaförsäkringskassan)}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>• Barnbidrag:</span>
+                                    <span className="font-medium">{formatCurrency(susannabarnbidrag)}</span>
+                                  </div>
+                                  <div className="flex justify-between pt-1 border-t">
+                                    <span className="font-medium">Total:</span>
+                                    <span className="font-semibold">{formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}</span>
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                          
-                          <div className="p-3 border rounded-lg">
-                            <h5 className="font-medium mb-2">{userName2}</h5>
-                            <div className="space-y-1 text-sm pl-4">
-                              <div className="flex justify-between">
-                                <span>• Lön:</span>
-                                <span className="font-medium">{formatCurrency(susannaSalary)}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>• Försäkringskassan:</span>
-                                <span className="font-medium">{formatCurrency(susannaförsäkringskassan)}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>• Barnbidrag:</span>
-                                <span className="font-medium">{formatCurrency(susannabarnbidrag)}</span>
-                              </div>
-                              <div className="flex justify-between pt-1 border-t">
-                                <span className="font-medium">Total:</span>
-                                <span className="font-semibold">{formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}</span>
-                              </div>
-                            </div>
-                          </div>
+                          )}
                         </div>
                       </div>
                     </TabsContent>
@@ -2563,14 +2576,11 @@ const BudgetCalculator = () => {
                             <PieChart>
                               <Pie
                                 data={[
-                                  {
-                                    name: 'Kostnader',
-                                    value: costGroups.reduce((sum, group) => {
-                                      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                      return sum + subCategoriesTotal;
-                                    }, 0),
-                                    color: '#dc2626'
-                                  },
+                                  ...costGroups.map((group, index) => ({
+                                    name: group.name,
+                                    value: group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0,
+                                    color: `hsl(${(index * 40) % 360}, 70%, 50%)`
+                                  })),
                                   {
                                     name: 'Daglig Budget',
                                     value: results?.totalDailyBudget || 0,
@@ -2584,7 +2594,9 @@ const BudgetCalculator = () => {
                                 outerRadius={80}
                                 label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
                               >
-                                <Cell fill="#dc2626" />
+                                {costGroups.map((_, index) => (
+                                  <Cell key={index} fill={`hsl(${(index * 40) % 360}, 70%, 50%)`} />
+                                ))}
                                 <Cell fill="#b91c1c" />
                               </Pie>
                               <Tooltip formatter={(value) => formatCurrency(Number(value))} />
@@ -2592,48 +2604,60 @@ const BudgetCalculator = () => {
                           </ResponsiveContainer>
                         </div>
                         
-                        {/* Detailed Cost Breakdown */}
-                        <div className="space-y-3">
-                          <div className="p-3 border rounded-lg">
-                            <h5 className="font-medium mb-2">Kostnader</h5>
-                            <div className="space-y-1 text-sm pl-4">
-                              {costGroups.map((group) => (
-                                <div key={group.id} className="space-y-1">
-                                  <div className="flex justify-between">
-                                    <span>• {group.name}:</span>
-                                    <span className="font-medium">{formatCurrency(group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0)}</span>
-                                  </div>
-                                  {group.subCategories && group.subCategories.length > 0 && (
-                                    <div className="pl-4 space-y-1">
-                                      {group.subCategories.map((sub) => (
-                                        <div key={sub.id} className="flex justify-between text-xs text-muted-foreground">
-                                          <span>- {sub.name}:</span>
-                                          <span>{formatCurrency(sub.amount)}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                              <div className="flex justify-between pt-1 border-t">
-                                <span className="font-medium">Total kostnader:</span>
-                                <span className="font-semibold">{formatCurrency(costGroups.reduce((sum, group) => {
+                        {/* Expandable Cost Details */}
+                        <div className="p-4 bg-destructive/10 rounded-lg">
+                          <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('costDetails')}>
+                            <div>
+                              <h4 className="font-medium text-sm">Kostnader</h4>
+                              <p className="text-sm text-muted-foreground">
+                                {formatCurrency(costGroups.reduce((sum, group) => {
                                   const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
                                   return sum + subCategoriesTotal;
-                                }, 0))}</span>
+                                }, 0) + (results?.totalDailyBudget || 0))}
+                              </p>
+                            </div>
+                            <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.costDetails ? 'rotate-180' : ''}`} />
+                          </div>
+                          {expandedSections.costDetails && (
+                            <div className="mt-3 space-y-3 border-t pt-3">
+                              {costGroups.map((group) => (
+                                <div key={group.id} className="p-3 border rounded-lg">
+                                  <h5 className="font-medium mb-2">{group.name}</h5>
+                                  <div className="space-y-1 text-sm pl-4">
+                                    {group.subCategories && group.subCategories.length > 0 ? (
+                                      <>
+                                        {group.subCategories.map((sub) => (
+                                          <div key={sub.id} className="flex justify-between">
+                                            <span>• {sub.name}:</span>
+                                            <span className="font-medium">{formatCurrency(sub.amount)}</span>
+                                          </div>
+                                        ))}
+                                        <div className="flex justify-between pt-1 border-t">
+                                          <span className="font-medium">Total:</span>
+                                          <span className="font-semibold">{formatCurrency(group.subCategories.reduce((sum, sub) => sum + sub.amount, 0))}</span>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div className="flex justify-between">
+                                        <span>Inga underkategorier</span>
+                                        <span className="font-medium">{formatCurrency(0)}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                              
+                              <div className="p-3 border rounded-lg">
+                                <h5 className="font-medium mb-2">Daglig Budget</h5>
+                                <div className="space-y-1 text-sm pl-4">
+                                  <div className="flex justify-between">
+                                    <span>• Total daglig budget:</span>
+                                    <span className="font-semibold">{formatCurrency(results?.totalDailyBudget || 0)}</span>
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                          
-                          <div className="p-3 border rounded-lg">
-                            <h5 className="font-medium mb-2">Daglig Budget</h5>
-                            <div className="space-y-1 text-sm pl-4">
-                              <div className="flex justify-between">
-                                <span>• Total daglig budget:</span>
-                                <span className="font-semibold">{formatCurrency(results?.totalDailyBudget || 0)}</span>
-                              </div>
-                            </div>
-                          </div>
+                          )}
                         </div>
                       </div>
                     </TabsContent>
@@ -2682,58 +2706,74 @@ const BudgetCalculator = () => {
                           </ResponsiveContainer>
                         </div>
                         
-                        {/* Detailed Transfer Breakdown */}
-                        <div className="space-y-3">
-                          <div className="p-3 border rounded-lg">
-                            <h5 className="font-medium mb-2">{userName1}s andel</h5>
-                            <div className="space-y-1 text-sm pl-4">
-                              <div className="flex justify-between">
-                                <span>• Personlig andel:</span>
-                                <span className="font-semibold">{formatCurrency(results?.andreasShare || 0)}</span>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="p-3 border rounded-lg">
-                            <h5 className="font-medium mb-2">{userName2}s andel</h5>
-                            <div className="space-y-1 text-sm pl-4">
-                              <div className="flex justify-between">
-                                <span>• Personlig andel:</span>
-                                <span className="font-semibold">{formatCurrency(results?.susannaShare || 0)}</span>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="p-3 border rounded-lg">
-                            <h5 className="font-medium mb-2">Sparande</h5>
-                            <div className="space-y-1 text-sm pl-4">
-                              {savingsGroups.map((group) => (
-                                <div key={group.id} className="space-y-1">
-                                  <div className="flex justify-between">
-                                    <span>• {group.name}:</span>
-                                    <span className="font-medium">{formatCurrency(group.amount + (group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0))}</span>
-                                  </div>
-                                  {group.subCategories && group.subCategories.length > 0 && (
-                                    <div className="pl-4 space-y-1">
-                                      {group.subCategories.map((sub) => (
-                                        <div key={sub.id} className="flex justify-between text-xs text-muted-foreground">
-                                          <span>- {sub.name}:</span>
-                                          <span>{formatCurrency(sub.amount)}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                              <div className="flex justify-between pt-1 border-t">
-                                <span className="font-medium">Total sparande:</span>
-                                <span className="font-semibold">{formatCurrency(savingsGroups.reduce((sum, group) => {
+                        {/* Expandable Transfer Details */}
+                        <div className="p-4 bg-primary/10 rounded-lg">
+                          <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('transferDetails')}>
+                            <div>
+                              <h4 className="font-medium text-sm">Överföring</h4>
+                              <p className="text-sm text-muted-foreground">
+                                {formatCurrency((results?.andreasShare || 0) + (results?.susannaShare || 0) + savingsGroups.reduce((sum, group) => {
                                   const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
                                   return sum + group.amount + subCategoriesTotal;
-                                }, 0))}</span>
+                                }, 0))}
+                              </p>
+                            </div>
+                            <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.transferDetails ? 'rotate-180' : ''}`} />
+                          </div>
+                          {expandedSections.transferDetails && (
+                            <div className="mt-3 space-y-3 border-t pt-3">
+                              <div className="p-3 border rounded-lg">
+                                <h5 className="font-medium mb-2">{userName1}s andel</h5>
+                                <div className="space-y-1 text-sm pl-4">
+                                  <div className="flex justify-between">
+                                    <span>• Personlig andel:</span>
+                                    <span className="font-semibold">{formatCurrency(results?.andreasShare || 0)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="p-3 border rounded-lg">
+                                <h5 className="font-medium mb-2">{userName2}s andel</h5>
+                                <div className="space-y-1 text-sm pl-4">
+                                  <div className="flex justify-between">
+                                    <span>• Personlig andel:</span>
+                                    <span className="font-semibold">{formatCurrency(results?.susannaShare || 0)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="p-3 border rounded-lg">
+                                <h5 className="font-medium mb-2">Sparande</h5>
+                                <div className="space-y-1 text-sm pl-4">
+                                  {savingsGroups.map((group) => (
+                                    <div key={group.id} className="space-y-1">
+                                      <div className="flex justify-between">
+                                        <span>• {group.name}:</span>
+                                        <span className="font-medium">{formatCurrency(group.amount + (group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0))}</span>
+                                      </div>
+                                      {group.subCategories && group.subCategories.length > 0 && (
+                                        <div className="pl-4 space-y-1">
+                                          {group.subCategories.map((sub) => (
+                                            <div key={sub.id} className="flex justify-between text-xs text-muted-foreground">
+                                              <span>- {sub.name}:</span>
+                                              <span>{formatCurrency(sub.amount)}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                  <div className="flex justify-between pt-1 border-t">
+                                    <span className="font-medium">Total sparande:</span>
+                                    <span className="font-semibold">{formatCurrency(savingsGroups.reduce((sum, group) => {
+                                      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                      return sum + group.amount + subCategoriesTotal;
+                                    }, 0))}</span>
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       </div>
                     </TabsContent>
