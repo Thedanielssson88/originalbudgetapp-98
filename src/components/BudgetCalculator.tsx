@@ -145,9 +145,10 @@ const BudgetCalculator = () => {
     setTimeout(() => {
       setActiveTab(tabs[nextIndex]);
       setTimeout(() => {
-        const firstHeading = document.querySelector('h1, h2, h3');
-        if (firstHeading) {
-          firstHeading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Find the main title element for the current tab
+        const mainTitle = document.querySelector('h1.text-3xl.font-bold.text-center');
+        if (mainTitle) {
+          mainTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       }, 50);
       setTimeout(() => {
@@ -172,9 +173,10 @@ const BudgetCalculator = () => {
     setTimeout(() => {
       setActiveTab(tabs[previousIndex]);
       setTimeout(() => {
-        const firstHeading = document.querySelector('h1, h2, h3');
-        if (firstHeading) {
-          firstHeading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Find the main title element for the current tab
+        const mainTitle = document.querySelector('h1.text-3xl.font-bold.text-center');
+        if (mainTitle) {
+          mainTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       }, 50);
       setTimeout(() => {
@@ -2328,7 +2330,11 @@ const BudgetCalculator = () => {
                   <Button onClick={() => {
                     setActiveTab("sammanstallning");
                     setTimeout(() => {
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                      // Find the main title element for the current tab
+                      const mainTitle = document.querySelector('h1.text-3xl.font-bold.text-center');
+                      if (mainTitle) {
+                        mainTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }
                     }, 100);
                   }} className="w-full" size="lg">
                     <Calculator className="mr-2 h-4 w-4" />
