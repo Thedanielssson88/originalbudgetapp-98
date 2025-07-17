@@ -144,6 +144,7 @@ const BudgetCalculator = () => {
     
     setTimeout(() => {
       setActiveTab(tabs[nextIndex]);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       setTimeout(() => {
         setIsAnimating(false);
         setSwipeDirection(null);
@@ -165,6 +166,7 @@ const BudgetCalculator = () => {
     
     setTimeout(() => {
       setActiveTab(tabs[previousIndex]);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       setTimeout(() => {
         setIsAnimating(false);
         setSwipeDirection(null);
