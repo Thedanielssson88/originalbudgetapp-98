@@ -2388,18 +2388,18 @@ const BudgetCalculator = () => {
                   : ""
             }`}>
               <div className="space-y-6">
-              {/* Overview Chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Budgetöversikt</CardTitle>
-                  <CardDescription>Översikt över intäkter, kostnader och överföringar</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Stacked Bar Chart */}
-                  <div className="h-80 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={[
+               {/* Overview Chart */}
+               <Card>
+                 <CardHeader>
+                   <CardTitle>Budgetöversikt</CardTitle>
+                   <CardDescription>Översikt över intäkter, kostnader och överföringar</CardDescription>
+                 </CardHeader>
+                 <CardContent className="space-y-4">
+                   {/* Stacked Bar Chart */}
+                   <div className="h-80 w-full">
+                     <ResponsiveContainer width="100%" height="100%">
+                       <BarChart
+                         data={[
                           {
                             name: 'Intäkter',
                             andreas: andreasSalary + andreasförsäkringskassan + andreasbarnbidrag,
@@ -2778,7 +2778,7 @@ const BudgetCalculator = () => {
               {/* Editable Categories */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Kategorier</CardTitle>
+                  <CardTitle>Budgetinställningar</CardTitle>
                   <CardDescription>Redigera kostnader och sparande</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
