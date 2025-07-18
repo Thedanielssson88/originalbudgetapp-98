@@ -3441,15 +3441,6 @@ const BudgetCalculator = () => {
                 </CardHeader>
                 <CardContent className="space-y-6">
 
-                  {/* Nöje och Inredning */}
-                  <div className="p-4 bg-purple-50 rounded-lg">
-                    <div>
-                      <div className="text-sm text-muted-foreground">Nöje och Inredning</div>
-                      <div className="text-2xl font-bold text-purple-600">
-                        {results ? formatCurrency(results.andreasShare + results.susannaShare) : 'Beräknar...'}
-                      </div>
-                    </div>
-                  </div>
 
 
 
