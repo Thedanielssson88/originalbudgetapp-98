@@ -3436,298 +3436,38 @@ const BudgetCalculator = () => {
               {/* Editable Categories */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Kategorier</CardTitle>
-                  <CardDescription>Redigera kostnader och sparande</CardDescription>
+                  <CardTitle>Överföring</CardTitle>
+                  <CardDescription>Överföringar och fördelningar</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
 
-                  {/* Total Costs with Dropdown */}
-                  <div className="p-4 bg-destructive/10 rounded-lg">
-                    <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('costCategories')}>
-                      <div>
-                        <div className="text-sm text-muted-foreground">Totala kostnader</div>
-                        <div className="text-2xl font-bold text-destructive">
-                          {formatCurrency(costGroups.reduce((sum, group) => {
-                            const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                            return sum + subCategoriesTotal;
-                          }, 0))}
-                        </div>
+                  {/* Nöje och Inredning */}
+                  <div className="p-4 bg-purple-50 rounded-lg">
+                    <div>
+                      <div className="text-sm text-muted-foreground">Nöje och Inredning</div>
+                      <div className="text-2xl font-bold text-purple-600">
+                        {results ? formatCurrency(results.andreasShare + results.susannaShare) : 'Beräknar...'}
                       </div>
-                      {expandedSections.costCategories ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                     </div>
                     
-                    {expandedSections.costCategories && (
-                      <div className="mt-4 space-y-4">
-                        <div className="flex justify-between items-center">
-                          <h4 className="font-semibold">Kostnadskategorier</h4>
-                          <div className="space-x-2">
-                            <Button size="sm" onClick={() => setIsEditingCategories(!isEditingCategories)}>
-                              {isEditingCategories ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
-                            </Button>
-                            {isEditingCategories && (
-                              <Button size="sm" onClick={addCostGroup}>
-                                <Plus className="w-4 h-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                        
-                        {costGroups.map((group) => (
-                          <div key={group.id} className="space-y-2">
-                            <div className="flex gap-2 items-center">
-                              {isEditingCategories ? (
-                                <>
-                                  <Input
-                                    value={group.name}
-                                    onChange={(e) => updateCostGroup(group.id, 'name', e.target.value)}
-                                    className="flex-1"
-                                  />
-                                  <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    onClick={() => removeCostGroup(group.id)}
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </>
-                              ) : (
-                                <div className="flex-1 font-medium">{group.name}</div>
-                              )}
-                            </div>
-                            
-                            {group.subCategories && group.subCategories.length > 0 && (
-                              <div className="pl-4 space-y-1">
-                                 {group.subCategories.map((sub) => (
-                                   <div key={sub.id} className="text-sm space-y-2">
-                                     {isEditingCategories ? (
-                                       <div className="space-y-2">
-                                         <div className="flex gap-2 items-center">
-                                           <Input
-                                             value={sub.name}
-                                             onChange={(e) => updateSubCategory(group.id, sub.id, 'name', e.target.value)}
-                                             className="w-32 text-base"
-                                             placeholder="Underkategori namn"
-                                           />
-                                           <Input
-                                             type="number"
-                                             value={sub.amount === 0 ? '' : sub.amount}
-                                             onChange={(e) => updateSubCategory(group.id, sub.id, 'amount', Number(e.target.value) || 0)}
-                                             className="flex-1"
-                                             placeholder="Belopp"
-                                           />
-                                           <Button
-                                             size="sm"
-                                             variant="destructive"
-                                             onClick={() => removeSubCategory(group.id, sub.id)}
-                                           >
-                                             <Trash2 className="w-4 h-4" />
-                                           </Button>
-                                         </div>
-                                         <div className="flex gap-2 items-center pl-2">
-                                           <span className="text-sm text-muted-foreground min-w-16">Konto:</span>
-                                           <Select
-                                             value={sub.account || 'none'}
-                                             onValueChange={(value) => updateSubCategory(group.id, sub.id, 'account', value === 'none' ? undefined : value)}
-                                           >
-                                             <SelectTrigger className="w-36">
-                                               <SelectValue placeholder="Välj konto" />
-                                             </SelectTrigger>
-                                             <SelectContent>
-                                               <SelectItem value="none">Inget konto</SelectItem>
-                                               {accounts.map((account) => (
-                                                 <SelectItem key={account} value={account}>
-                                                   {account}
-                                                 </SelectItem>
-                                               ))}
-                                             </SelectContent>
-                                           </Select>
-                                         </div>
-                                       </div>
-                                     ) : (
-                                       <div className="flex justify-between items-center">
-                                         <span className="flex-1">
-                                           {sub.name}{sub.account ? ` (${sub.account})` : ''}
-                                         </span>
-                                         <span className="w-32 text-right font-medium text-destructive">
-                                           {formatCurrency(sub.amount)}
-                                         </span>
-                                       </div>
-                                     )}
-                                   </div>
-                                 ))}
-                              </div>
-                            )}
-                            
-                            {isEditingCategories && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="ml-4"
-                                onClick={() => addSubCategory(group.id)}
-                              >
-                                <Plus className="w-4 h-4 mr-1" />
-                                Lägg till underkategori
-                              </Button>
-                            )}
-                          </div>
-                        ))}
+                    <div className="mt-4 space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium">Andreas konto</span>
+                        <span className="text-purple-600 font-semibold">
+                          {results ? formatCurrency(results.andreasShare) : 'Beräknar...'}
+                        </span>
                       </div>
-                     )}
-                   </div>
-
-                   {/* Total Daily Budget with Dropdown */}
-                   <div className="p-4 bg-blue-50 rounded-lg">
-                     <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetTransfers')}>
-                       <div>
-                         <div className="text-sm text-muted-foreground">Total daglig budget</div>
-                         <div className="text-2xl font-bold text-blue-600">
-                           {results ? formatCurrency(results.totalDailyBudget) : 'Beräknar...'}
-                         </div>
-                       </div>
-                       {expandedSections.budgetTransfers ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                     </div>
-                     
-                     {expandedSections.budgetTransfers && (
-                       <div className="mt-4 space-y-4">
-                         <div className="flex justify-between items-center">
-                           <h4 className="font-semibold">Budgetöverföringar</h4>
-                           <Button size="sm" onClick={() => setIsEditingTransfers(!isEditingTransfers)}>
-                             {isEditingTransfers ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
-                           </Button>
-                         </div>
-                         
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                           <div className="space-y-2">
-                             <Label htmlFor="daily-transfer">Daglig överföring (måndag-torsdag)</Label>
-                             <Input
-                               id="daily-transfer"
-                               type="number"
-                               value={dailyTransfer || ''}
-                               onChange={(e) => setDailyTransfer(Number(e.target.value))}
-                               disabled={!isEditingTransfers}
-                             />
-                           </div>
-                           <div className="space-y-2">
-                             <Label htmlFor="weekend-transfer">Helgöverföring (fredag-söndag)</Label>
-                             <Input
-                               id="weekend-transfer"
-                               type="number"
-                               value={weekendTransfer || ''}
-                               onChange={(e) => setWeekendTransfer(Number(e.target.value))}
-                               disabled={!isEditingTransfers}
-                             />
-                           </div>
-                         </div>
-                          
-                          {results && (
-                            <div className="space-y-3">
-                              <div className="text-sm text-muted-foreground">
-                                <div>Vardagar: {results.weekdayCount} × {formatCurrency(dailyTransfer)} = {formatCurrency(results.weekdayCount * dailyTransfer)}</div>
-                                <div>Helgdagar: {results.fridayCount} × {formatCurrency(weekendTransfer)} = {formatCurrency(results.fridayCount * weekendTransfer)}</div>
-                              </div>
-                              
-                              {/* Moved from budgetSummary section */}
-                              <div className="p-3 bg-amber-50 rounded-lg">
-                                <div className="text-sm text-muted-foreground">Återstående daglig budget</div>
-                                <div className="text-xl font-bold text-amber-600">
-                                  {formatCurrency(results.remainingDailyBudget)}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                       </div>
-                     )}
-                   </div>
-
-                   {/* Total Savings with Dropdown */}
-                  <div className="p-4 bg-green-50 rounded-lg">
-                    <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('savingsCategories')}>
-                      <div>
-                        <div className="text-sm text-muted-foreground">Totalt sparande</div>
-                        <div className="text-2xl font-bold text-green-600">
-                          {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
-                        </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium">Susannas konto</span>
+                        <span className="text-purple-600 font-semibold">
+                          {results ? formatCurrency(results.susannaShare) : 'Beräknar...'}
+                        </span>
                       </div>
-                      {expandedSections.savingsCategories ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                     </div>
-                    
-                    {expandedSections.savingsCategories && (
-                      <div className="mt-4 space-y-4">
-                        <div className="flex justify-between items-center">
-                          <h4 className="font-semibold">Sparandekategorier</h4>
-                          <div className="space-x-2">
-                            <Button size="sm" onClick={() => setIsEditingCategories(!isEditingCategories)}>
-                              {isEditingCategories ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
-                            </Button>
-                            {isEditingCategories && (
-                              <Button size="sm" onClick={addSavingsGroup}>
-                                <Plus className="w-4 h-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                        
-                         {savingsGroups.map((group) => (
-                           <div key={group.id} className="space-y-2">
-                             {isEditingCategories ? (
-                               <div className="space-y-2">
-                                 <div className="flex gap-2 items-center">
-                                   <Input
-                                     value={group.name}
-                                     onChange={(e) => updateSavingsGroup(group.id, 'name', e.target.value)}
-                                     className="flex-1 text-base"
-                                     placeholder="Kategori namn"
-                                   />
-                                   <Input
-                                     type="number"
-                                     value={group.amount === 0 ? '' : group.amount}
-                                     onChange={(e) => updateSavingsGroup(group.id, 'amount', Number(e.target.value) || 0)}
-                                     className="w-32"
-                                     placeholder="Belopp"
-                                   />
-                                   <Button
-                                     size="sm"
-                                     variant="destructive"
-                                     onClick={() => removeSavingsGroup(group.id)}
-                                   >
-                                     <Trash2 className="w-4 h-4" />
-                                   </Button>
-                                 </div>
-                                 <div className="flex gap-2 items-center pl-2">
-                                   <span className="text-sm text-muted-foreground min-w-16">Konto:</span>
-                                   <Select
-                                     value={group.account || 'none'}
-                                     onValueChange={(value) => updateSavingsGroup(group.id, 'account', value === 'none' ? undefined : value)}
-                                   >
-                                     <SelectTrigger className="w-36">
-                                       <SelectValue placeholder="Välj konto" />
-                                     </SelectTrigger>
-                                     <SelectContent>
-                                       <SelectItem value="none">Inget konto</SelectItem>
-                                       {accounts.map((account) => (
-                                         <SelectItem key={account} value={account}>
-                                           {account}
-                                         </SelectItem>
-                                       ))}
-                                     </SelectContent>
-                                   </Select>
-                                 </div>
-                               </div>
-                             ) : (
-                               <div className="flex justify-between items-center">
-                                 <span className="flex-1">
-                                   {group.name}{group.account ? ` (${group.account})` : ''}
-                                 </span>
-                                 <span className="w-32 text-right font-medium text-green-600">
-                                   {formatCurrency(group.amount)}
-                                 </span>
-                               </div>
-                             )}
-                           </div>
-                         ))}
-                       </div>
-                     )}
-                    </div>
+                  </div>
+
+
 
 
                     {/* Account Summary with Dropdown */}
