@@ -2718,13 +2718,7 @@ const BudgetCalculator = () => {
                         Budgetsummering
                       </CardTitle>
                       <CardDescription>
-                        {formatCurrency(
-                          (results ? results.totalDailyBudget : 0) +
-                          costGroups.reduce((sum, group) => sum + group.amount, 0) +
-                          savingsGroups.reduce((sum, group) => sum + group.amount, 0) +
-                          (results ? results.andreasShare : 0) +
-                          (results ? results.susannaShare : 0)
-                        )}
+                        {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
                       </CardDescription>
                     </div>
                     <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.budgetSummary ? 'rotate-180' : ''}`} />
