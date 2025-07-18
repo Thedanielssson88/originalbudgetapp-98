@@ -98,7 +98,8 @@ const BudgetCalculator = () => {
     transferDetails: false,
     budgetIncome: false,
     budgetCosts: false,
-    budgetTransfer: false
+    budgetTransfer: false,
+    budgetCategories: false
   });
 
   // Budget category expandable states
@@ -2248,7 +2249,14 @@ const BudgetCalculator = () => {
           {/* Current page title */}
           <div className="mb-6">
             <h1 className="text-3xl font-bold text-center">
-              {activeTab === 'inkomster' && 'Inkomster och Utgifter'}
+              {activeTab === 'inkomster' && (() => {
+                const currentDate = new Date();
+                const monthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 
+                                  'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
+                const currentMonth = monthNames[currentDate.getMonth()];
+                const currentYear = currentDate.getFullYear();
+                return `Min Månadsbudget - ${currentMonth} ${currentYear}`;
+              })()}
               {activeTab === 'sammanstallning' && 'Sammanställning'}
               {activeTab === 'overforing' && 'Överföring'}
               {activeTab === 'egen-budget' && 'Egen Budget'}
@@ -2270,140 +2278,434 @@ const BudgetCalculator = () => {
                     : "animate-slide-in-left"
                   : ""
             }`}>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Input Section */}
-              <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
+              <div className="space-y-6">
+              {/* Intäkter Section */}
+              <Card className="shadow-lg border-0 bg-green-50/50 backdrop-blur-sm">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calculator className="h-5 w-5 text-primary" />
-                    Inkomst & Utgifter
-                  </CardTitle>
-                  <CardDescription>
-                    Ange era månadsinkomster och utgifter
-                  </CardDescription>
+                  <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('incomeDetails')}>
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-green-800">
+                        <DollarSign className="h-5 w-5" />
+                        Intäkter
+                      </CardTitle>
+                      <CardDescription className="text-green-700">
+                        {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
+                      </CardDescription>
+                    </div>
+                    <ChevronDown className={`h-4 w-4 transition-transform text-green-800 ${expandedSections.incomeDetails ? 'rotate-180' : ''}`} />
+                  </div>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* First User Income Section */}
-                  <div className="p-4 bg-muted/50 rounded-lg border">
-                    <h3 className="text-lg font-semibold mb-3 text-primary">{userName1} Inkomst</h3>
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="andreas">Lön</Label>
-                        <Input
-                          id="andreas"
-                          type="number"
-                          placeholder="Ange månadslön"
-                          value={andreasSalary || ''}
-                          onChange={(e) => setAndreasSalary(Number(e.target.value))}
-                          className="text-lg"
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="andreas-forsakringskassan">Försäkringskassan</Label>
-                        <Input
-                          id="andreas-forsakringskassan"
-                          type="number"
-                          placeholder="Ange försäkringskassan"
-                          value={andreasförsäkringskassan || ''}
-                          onChange={(e) => setAndreasförsäkringskassan(Number(e.target.value))}
-                          className="text-lg"
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="andreas-barnbidrag">Barnbidrag</Label>
-                        <Input
-                          id="andreas-barnbidrag"
-                          type="number"
-                          placeholder="Ange barnbidrag"
-                          value={andreasbarnbidrag || ''}
-                          onChange={(e) => setAndreasbarnbidrag(Number(e.target.value))}
-                          className="text-lg"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Second User Income Section */}
-                  <div className="p-4 bg-muted/50 rounded-lg border">
-                    <h3 className="text-lg font-semibold mb-3 text-primary">{userName2} Inkomst</h3>
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="susanna">Lön</Label>
-                        <Input
-                          id="susanna"
-                          type="number"
-                          placeholder="Ange månadslön"
-                          value={susannaSalary || ''}
-                          onChange={(e) => setSusannaSalary(Number(e.target.value))}
-                          className="text-lg"
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="susanna-forsakringskassan">Försäkringskassan</Label>
-                        <Input
-                          id="susanna-forsakringskassan"
-                          type="number"
-                          placeholder="Ange försäkringskassan"
-                          value={susannaförsäkringskassan || ''}
-                          onChange={(e) => setSusannaförsäkringskassan(Number(e.target.value))}
-                          className="text-lg"
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="susanna-barnbidrag">Barnbidrag</Label>
-                        <Input
-                          id="susanna-barnbidrag"
-                          type="number"
-                          placeholder="Ange barnbidrag"
-                          value={susannabarnbidrag || ''}
-                          onChange={(e) => setSusannabarnbidrag(Number(e.target.value))}
-                          className="text-lg"
-                        />
+                {expandedSections.incomeDetails && (
+                  <CardContent className="space-y-6 bg-green-50/30">
+                    {/* First User Income Section */}
+                    <div className="p-4 bg-green-100/50 rounded-lg border border-green-200">
+                      <h3 className="text-lg font-semibold mb-3 text-green-800">{userName1} Inkomst</h3>
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="andreas" className="text-green-700">Lön</Label>
+                          <Input
+                            id="andreas"
+                            type="number"
+                            placeholder="Ange månadslön"
+                            value={andreasSalary || ''}
+                            onChange={(e) => setAndreasSalary(Number(e.target.value))}
+                            className="text-lg bg-white/70"
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="andreas-forsakringskassan" className="text-green-700">Försäkringskassan</Label>
+                          <Input
+                            id="andreas-forsakringskassan"
+                            type="number"
+                            placeholder="Ange försäkringskassan"
+                            value={andreasförsäkringskassan || ''}
+                            onChange={(e) => setAndreasförsäkringskassan(Number(e.target.value))}
+                            className="text-lg bg-white/70"
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="andreas-barnbidrag" className="text-green-700">Barnbidrag</Label>
+                          <Input
+                            id="andreas-barnbidrag"
+                            type="number"
+                            placeholder="Ange barnbidrag"
+                            value={andreasbarnbidrag || ''}
+                            onChange={(e) => setAndreasbarnbidrag(Number(e.target.value))}
+                            className="text-lg bg-white/70"
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Calculate and Show Summary Button */}
-                  <Button onClick={() => {
-                    setActiveTab("sammanstallning");
-                    setTimeout(() => {
-                      // Find the main title element for the current tab
-                      const mainTitle = document.querySelector('h1.text-3xl.font-bold.text-center');
-                      if (mainTitle) {
-                        mainTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }
-                    }, 100);
-                  }} className="w-full" size="lg">
-                    <Calculator className="mr-2 h-4 w-4" />
-                    Beräkna och visa sammanställningen
-                  </Button>
-                </CardContent>
+                    {/* Second User Income Section */}
+                    <div className="p-4 bg-green-100/50 rounded-lg border border-green-200">
+                      <h3 className="text-lg font-semibold mb-3 text-green-800">{userName2} Inkomst</h3>
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="susanna" className="text-green-700">Lön</Label>
+                          <Input
+                            id="susanna"
+                            type="number"
+                            placeholder="Ange månadslön"
+                            value={susannaSalary || ''}
+                            onChange={(e) => setSusannaSalary(Number(e.target.value))}
+                            className="text-lg bg-white/70"
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="susanna-forsakringskassan" className="text-green-700">Försäkringskassan</Label>
+                          <Input
+                            id="susanna-forsakringskassan"
+                            type="number"
+                            placeholder="Ange försäkringskassan"
+                            value={susannaförsäkringskassan || ''}
+                            onChange={(e) => setSusannaförsäkringskassan(Number(e.target.value))}
+                            className="text-lg bg-white/70"
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="susanna-barnbidrag" className="text-green-700">Barnbidrag</Label>
+                          <Input
+                            id="susanna-barnbidrag"
+                            type="number"
+                            placeholder="Ange barnbidrag"
+                            value={susannabarnbidrag || ''}
+                            onChange={(e) => setSusannabarnbidrag(Number(e.target.value))}
+                            className="text-lg bg-white/70"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Calculate and Show Summary Button */}
+                    <Button onClick={() => {
+                      setActiveTab("sammanstallning");
+                      setTimeout(() => {
+                        // Find the main title element for the current tab
+                        const mainTitle = document.querySelector('h1.text-3xl.font-bold.text-center');
+                        if (mainTitle) {
+                          mainTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                      }, 100);
+                    }} className="w-full bg-green-600 hover:bg-green-700" size="lg">
+                      <Calculator className="mr-2 h-4 w-4" />
+                      Beräkna och visa sammanställningen
+                    </Button>
+                  </CardContent>
+                )}
               </Card>
 
-              {/* Empty card for layout balance */}
+              {/* Budgetkategorier Section */}
               <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-primary" />
-                    Snabb översikt
-                  </CardTitle>
+                  <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetCategories')}>
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Users className="h-5 w-5 text-primary" />
+                        Budgetkategorier
+                      </CardTitle>
+                      <CardDescription>
+                        Redigera kostnader och sparande
+                      </CardDescription>
+                    </div>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.budgetCategories ? 'rotate-180' : ''}`} />
+                  </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                    <p className="font-medium mb-2">Total hushållsinkomst:</p>
-                    <p className="text-2xl font-bold text-primary">
-                      {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
-                    </p>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    <p>• Gå till Sammanställning för detaljerad budget</p>
-                    <p>• Använd Inställningar för backup och avancerade funktioner</p>
-                  </div>
-                </CardContent>
+                {expandedSections.budgetCategories && (
+                  <CardContent className="space-y-6">
+                    {/* Total Costs with Dropdown */}
+                    <div className="p-4 bg-destructive/10 rounded-lg">
+                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('costCategories')}>
+                        <div>
+                          <div className="text-sm text-muted-foreground">Totala kostnader</div>
+                          <div className="text-2xl font-bold text-destructive">
+                            {formatCurrency(costGroups.reduce((sum, group) => {
+                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                              return sum + subCategoriesTotal;
+                            }, 0))}
+                          </div>
+                        </div>
+                        {expandedSections.costCategories ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                      </div>
+                      
+                      {expandedSections.costCategories && (
+                        <div className="mt-4 space-y-4">
+                          <div className="flex justify-between items-center">
+                            <h4 className="font-semibold">Kostnadskategorier</h4>
+                            <div className="space-x-2">
+                              <Button size="sm" onClick={() => setIsEditingCategories(!isEditingCategories)}>
+                                {isEditingCategories ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
+                              </Button>
+                              {isEditingCategories && (
+                                <Button size="sm" onClick={addCostGroup}>
+                                  <Plus className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {costGroups.map((group) => (
+                            <div key={group.id} className="space-y-2">
+                              <div className="flex gap-2 items-center">
+                                {isEditingCategories ? (
+                                  <>
+                                    <Input
+                                      value={group.name}
+                                      onChange={(e) => updateCostGroup(group.id, 'name', e.target.value)}
+                                      className="flex-1"
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => removeCostGroup(group.id)}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <div className="flex-1 font-medium">{group.name}</div>
+                                )}
+                              </div>
+                              
+                              {group.subCategories && group.subCategories.length > 0 && (
+                                <div className="pl-4 space-y-1">
+                                   {group.subCategories.map((sub) => (
+                                     <div key={sub.id} className="text-sm space-y-2">
+                                       {isEditingCategories ? (
+                                         <div className="space-y-2">
+                                           <div className="flex gap-2 items-center">
+                                             <Input
+                                               value={sub.name}
+                                               onChange={(e) => updateSubCategory(group.id, sub.id, 'name', e.target.value)}
+                                               className="w-32 text-base"
+                                               placeholder="Underkategori namn"
+                                             />
+                                             <Input
+                                               type="number"
+                                               value={sub.amount === 0 ? '' : sub.amount}
+                                               onChange={(e) => updateSubCategory(group.id, sub.id, 'amount', Number(e.target.value) || 0)}
+                                               className="flex-1"
+                                               placeholder="Belopp"
+                                             />
+                                             <Button
+                                               size="sm"
+                                               variant="destructive"
+                                               onClick={() => removeSubCategory(group.id, sub.id)}
+                                             >
+                                               <Trash2 className="w-4 h-4" />
+                                             </Button>
+                                           </div>
+                                           <div className="flex gap-2 items-center pl-2">
+                                             <span className="text-sm text-muted-foreground min-w-16">Konto:</span>
+                                             <Select
+                                               value={sub.account || 'none'}
+                                               onValueChange={(value) => updateSubCategory(group.id, sub.id, 'account', value === 'none' ? undefined : value)}
+                                             >
+                                               <SelectTrigger className="w-36">
+                                                 <SelectValue placeholder="Välj konto" />
+                                               </SelectTrigger>
+                                               <SelectContent>
+                                                 <SelectItem value="none">Inget konto</SelectItem>
+                                                 {accounts.map((account) => (
+                                                   <SelectItem key={account} value={account}>
+                                                     {account}
+                                                   </SelectItem>
+                                                 ))}
+                                               </SelectContent>
+                                             </Select>
+                                           </div>
+                                         </div>
+                                       ) : (
+                                         <div className="flex justify-between items-center">
+                                           <span className="flex-1">
+                                             {sub.name}{sub.account ? ` (${sub.account})` : ''}
+                                           </span>
+                                           <span className="w-32 text-right font-medium text-destructive">
+                                             {formatCurrency(sub.amount)}
+                                           </span>
+                                         </div>
+                                       )}
+                                     </div>
+                                   ))}
+                                </div>
+                              )}
+                              
+                              {isEditingCategories && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="ml-4"
+                                  onClick={() => addSubCategory(group.id)}
+                                >
+                                  <Plus className="w-4 h-4 mr-1" />
+                                  Lägg till underkategori
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                       )}
+                     </div>
+
+                     {/* Total Daily Budget with Dropdown */}
+                     <div className="p-4 bg-blue-50 rounded-lg">
+                       <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetTransfers')}>
+                         <div>
+                           <div className="text-sm text-muted-foreground">Total daglig budget</div>
+                           <div className="text-2xl font-bold text-blue-600">
+                             {results ? formatCurrency(results.totalDailyBudget) : 'Beräknar...'}
+                           </div>
+                         </div>
+                         {expandedSections.budgetTransfers ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                       </div>
+                       
+                       {expandedSections.budgetTransfers && (
+                         <div className="mt-4 space-y-4">
+                           <div className="flex justify-between items-center">
+                             <h4 className="font-semibold">Budgetöverföringar</h4>
+                             <Button size="sm" onClick={() => setIsEditingTransfers(!isEditingTransfers)}>
+                               {isEditingTransfers ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
+                             </Button>
+                           </div>
+                           
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div className="space-y-2">
+                               <Label htmlFor="daily-transfer">Daglig överföring (måndag-torsdag)</Label>
+                               <Input
+                                 id="daily-transfer"
+                                 type="number"
+                                 value={dailyTransfer || ''}
+                                 onChange={(e) => setDailyTransfer(Number(e.target.value))}
+                                 disabled={!isEditingTransfers}
+                               />
+                             </div>
+                             <div className="space-y-2">
+                               <Label htmlFor="weekend-transfer">Helgöverföring (fredag-söndag)</Label>
+                               <Input
+                                 id="weekend-transfer"
+                                 type="number"
+                                 value={weekendTransfer || ''}
+                                 onChange={(e) => setWeekendTransfer(Number(e.target.value))}
+                                 disabled={!isEditingTransfers}
+                               />
+                             </div>
+                           </div>
+                            
+                            {results && (
+                              <div className="space-y-3">
+                                <div className="text-sm text-muted-foreground">
+                                  <div>Vardagar: {results.weekdayCount} × {formatCurrency(dailyTransfer)} = {formatCurrency(results.weekdayCount * dailyTransfer)}</div>
+                                  <div>Helgdagar: {results.fridayCount} × {formatCurrency(weekendTransfer)} = {formatCurrency(results.fridayCount * weekendTransfer)}</div>
+                                </div>
+                                
+                                {/* Moved from budgetSummary section */}
+                                <div className="p-3 bg-amber-50 rounded-lg">
+                                  <div className="text-sm text-muted-foreground">Återstående daglig budget</div>
+                                  <div className="text-xl font-bold text-amber-600">
+                                    {formatCurrency(results.remainingDailyBudget)}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                         </div>
+                       )}
+                     </div>
+
+                     {/* Total Savings with Dropdown */}
+                    <div className="p-4 bg-green-50 rounded-lg">
+                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('savingsCategories')}>
+                        <div>
+                          <div className="text-sm text-muted-foreground">Totalt sparande</div>
+                          <div className="text-2xl font-bold text-green-600">
+                            {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
+                          </div>
+                        </div>
+                        {expandedSections.savingsCategories ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                      </div>
+                      
+                      {expandedSections.savingsCategories && (
+                        <div className="mt-4 space-y-4">
+                          <div className="flex justify-between items-center">
+                            <h4 className="font-semibold">Sparandekategorier</h4>
+                            <div className="space-x-2">
+                              <Button size="sm" onClick={() => setIsEditingCategories(!isEditingCategories)}>
+                                {isEditingCategories ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
+                              </Button>
+                              {isEditingCategories && (
+                                <Button size="sm" onClick={addSavingsGroup}>
+                                  <Plus className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          
+                           {savingsGroups.map((group) => (
+                             <div key={group.id} className="space-y-2">
+                               {isEditingCategories ? (
+                                 <div className="space-y-2">
+                                   <div className="flex gap-2 items-center">
+                                     <Input
+                                       value={group.name}
+                                       onChange={(e) => updateSavingsGroup(group.id, 'name', e.target.value)}
+                                       className="flex-1 text-base"
+                                       placeholder="Kategori namn"
+                                     />
+                                     <Input
+                                       type="number"
+                                       value={group.amount === 0 ? '' : group.amount}
+                                       onChange={(e) => updateSavingsGroup(group.id, 'amount', Number(e.target.value) || 0)}
+                                       className="w-32"
+                                       placeholder="Belopp"
+                                     />
+                                     <Button
+                                       size="sm"
+                                       variant="destructive"
+                                       onClick={() => removeSavingsGroup(group.id)}
+                                     >
+                                       <Trash2 className="w-4 h-4" />
+                                     </Button>
+                                   </div>
+                                   <div className="flex gap-2 items-center pl-2">
+                                     <span className="text-sm text-muted-foreground min-w-16">Konto:</span>
+                                     <Select
+                                       value={group.account || 'none'}
+                                       onValueChange={(value) => updateSavingsGroup(group.id, 'account', value === 'none' ? undefined : value)}
+                                     >
+                                       <SelectTrigger className="w-36">
+                                         <SelectValue placeholder="Välj konto" />
+                                       </SelectTrigger>
+                                       <SelectContent>
+                                         <SelectItem value="none">Inget konto</SelectItem>
+                                         {accounts.map((account) => (
+                                           <SelectItem key={account} value={account}>
+                                             {account}
+                                           </SelectItem>
+                                         ))}
+                                       </SelectContent>
+                                     </Select>
+                                   </div>
+                                 </div>
+                               ) : (
+                                 <div className="flex justify-between items-center">
+                                   <span className="flex-1">
+                                     {group.name}{group.account ? ` (${group.account})` : ''}
+                                   </span>
+                                   <span className="w-32 text-right font-medium text-green-600">
+                                     {formatCurrency(group.amount)}
+                                   </span>
+                                 </div>
+                               )}
+                             </div>
+                           ))}
+                         </div>
+                       )}
+                      </div>
+                  </CardContent>
+                )}
               </Card>
               </div>
             </div>
