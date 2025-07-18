@@ -524,21 +524,7 @@ const BudgetCalculator = () => {
     
     const currentDay = currentDate.getDate();
     
-    // Calculate remaining budget: from current date to 24th of selected month
-    let remainingEndDate = new Date(selectedYear, selectedMonth, 24);
-    
-    // If we're looking at current month and current day is after 24th, calculate for next month
-    if (selectedYear === currentDate.getFullYear() && selectedMonth === currentDate.getMonth() && currentDay > 24) {
-      const nextMonth = selectedMonth + 1;
-      const nextYear = nextMonth > 11 ? selectedYear + 1 : selectedYear;
-      const adjustedMonth = nextMonth > 11 ? 0 : nextMonth;
-      remainingEndDate = new Date(nextYear, adjustedMonth, 24);
-    }
-    
-    // If the selected month's 24th is in the past, set remaining budget calculation to 0
-    if (remainingEndDate < currentDate) {
-      remainingEndDate = new Date(currentDate); // This will make remaining counts 0
-    }
+    // remainingEndDate will be calculated in the remaining budget section below
     
     // Calculate total budget: from 25th of previous month to 24th of selected month
     const prevMonth = selectedMonth - 1;
@@ -638,11 +624,37 @@ const BudgetCalculator = () => {
     // Use whichever list is longer: holidays until 25th or next 5 holidays
     const holidayDays = holidaysUntil25th.length >= 5 ? holidaysUntil25th : allUpcomingHolidays;
     
-    // Calculate remaining budget (today to 24th) excluding holidays
+    // Calculate remaining budget based on whether we're looking at current month or not
     let remainingBudget = 0;
     let remainingWeekdayCount = 0;
     let remainingFridayCount = 0;
-    let currentDatePointer = new Date(currentDate);
+    let remainingStartDate;
+    let remainingEndDate;
+    
+    const isCurrentMonth = selectedYear === currentDate.getFullYear() && selectedMonth === currentDate.getMonth();
+    
+    if (isCurrentMonth) {
+      // For current month: from today to 25th of same month
+      remainingStartDate = new Date(currentDate);
+      remainingEndDate = new Date(selectedYear, selectedMonth, 25);
+      
+      // If today is after 25th, calculate for next month
+      if (currentDay > 25) {
+        const nextMonth = selectedMonth + 1;
+        const nextYear = nextMonth > 11 ? selectedYear + 1 : selectedYear;
+        const adjustedMonth = nextMonth > 11 ? 0 : nextMonth;
+        remainingEndDate = new Date(nextYear, adjustedMonth, 25);
+      }
+    } else {
+      // For other months: from 24th of previous month to 25th of selected month
+      const prevMonth = selectedMonth - 1;
+      const prevYear = prevMonth < 0 ? selectedYear - 1 : selectedYear;
+      const adjustedPrevMonth = prevMonth < 0 ? 11 : prevMonth;
+      remainingStartDate = new Date(prevYear, adjustedPrevMonth, 24);
+      remainingEndDate = new Date(selectedYear, selectedMonth, 25);
+    }
+    
+    let currentDatePointer = new Date(remainingStartDate);
     
     while (currentDatePointer <= remainingEndDate) {
       const dayOfWeek = currentDatePointer.getDay();
