@@ -524,15 +524,16 @@ const BudgetCalculator = () => {
     
     const currentDay = currentDate.getDate();
     
-    // Calculate remaining budget: from current date to 24th of selected month
-    let remainingEndDate = new Date(selectedYear, selectedMonth, 24);
+    // Calculate remaining budget: from current date to 24th of current month
+    // (should always be within the budget period, never exceed total budget)
+    let remainingEndDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 24);
     
-    if (currentDay > 24 && selectedYear === currentDate.getFullYear() && selectedMonth === currentDate.getMonth()) {
-      // If current day is after 24th and we're looking at current month, calculate for next month
-      const nextMonth = selectedMonth + 1;
-      const nextYear = nextMonth > 11 ? selectedYear + 1 : selectedYear;
+    // If current day is after 24th, calculate for next month
+    if (currentDay > 24) {
+      const nextMonth = currentDate.getMonth() + 1;
+      const nextYear = nextMonth > 11 ? currentDate.getFullYear() + 1 : currentDate.getFullYear();
       const adjustedMonth = nextMonth > 11 ? 0 : nextMonth;
-      remainingEndDate.setFullYear(nextYear, adjustedMonth, 24);
+      remainingEndDate = new Date(nextYear, adjustedMonth, 24);
     }
     
     // Calculate total budget: from 25th of previous month to 24th of selected month
