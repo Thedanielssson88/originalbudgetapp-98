@@ -2707,6 +2707,107 @@ const BudgetCalculator = () => {
                   </CardContent>
                 )}
               </Card>
+
+              {/* Budget Summary */}
+              <Card className="shadow-lg border-0 bg-muted/50 backdrop-blur-sm">
+                <CardHeader>
+                  <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetSummary')}>
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Calculator className="h-5 w-5 text-primary" />
+                        Budgetsummering
+                      </CardTitle>
+                      <CardDescription>
+                        {formatCurrency(
+                          (results ? results.totalDailyBudget : 0) +
+                          costGroups.reduce((sum, group) => {
+                            const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                            return sum + subCategoriesTotal;
+                          }, 0) +
+                          savingsGroups.reduce((sum, group) => sum + group.amount, 0)
+                        )}
+                      </CardDescription>
+                    </div>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.budgetSummary ? 'rotate-180' : ''}`} />
+                  </div>
+                </CardHeader>
+                {expandedSections.budgetSummary && results && (
+                  <CardContent className="space-y-4">
+                    {/* Income items - Green boxes */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="text-sm text-green-700 font-medium">Totala intäkter</div>
+                        <div className="text-xl font-bold text-green-800">
+                          {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
+                        </div>
+                      </div>
+                      
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="text-sm text-green-700 font-medium">Totalt sparande</div>
+                        <div className="text-xl font-bold text-green-800">
+                          {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Cost items - Red boxes */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="text-sm text-red-700 font-medium">Totala kostnader</div>
+                        <div className="text-xl font-bold text-red-800">
+                          -{formatCurrency(costGroups.reduce((sum, group) => {
+                            const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                            return sum + subCategoriesTotal;
+                          }, 0))}
+                        </div>
+                      </div>
+                      
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="text-sm text-red-700 font-medium">Total daglig budget</div>
+                        <div className="text-xl font-bold text-red-800">
+                          -{formatCurrency(results.totalDailyBudget)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Individual shares - Purple boxes */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                        <div className="text-sm text-purple-700 font-medium">{userName1} andel</div>
+                        <div className="text-xl font-bold text-purple-800">
+                          -{formatCurrency(results.andreasShare)}
+                        </div>
+                      </div>
+                      
+                      <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                        <div className="text-sm text-purple-700 font-medium">{userName2} andel</div>
+                        <div className="text-xl font-bold text-purple-800">
+                          -{formatCurrency(results.susannaShare)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Final sum */}
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="p-4 bg-gray-50 border-2 border-gray-300 rounded-lg">
+                        <div className="text-sm text-gray-600 font-medium mb-1">Slutsumma (bör vara 0)</div>
+                        <div className={`text-2xl font-bold ${
+                          Math.abs(results.balanceLeft) < 0.01 
+                            ? 'text-green-600' 
+                            : 'text-red-600'
+                        }`}>
+                          {formatCurrency(results.balanceLeft)}
+                        </div>
+                        {Math.abs(results.balanceLeft) > 0.01 && (
+                          <div className="text-xs text-red-500 mt-1">
+                            ⚠️ Budgeten är inte balanserad
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
               </div>
             </div>
           </TabsContent>
@@ -3635,102 +3736,6 @@ const BudgetCalculator = () => {
                      )}
                     </div>
 
-                    {/* Budget Summary with Dropdown */}
-                    <div className="p-4 bg-muted rounded-lg">
-                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetSummary')}>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Budgetsummering</div>
-                          <div className="text-2xl font-bold">
-                            {formatCurrency(
-                              (results ? results.totalDailyBudget : 0) +
-                              costGroups.reduce((sum, group) => {
-                                const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                return sum + subCategoriesTotal;
-                              }, 0) +
-                              savingsGroups.reduce((sum, group) => sum + group.amount, 0)
-                            )}
-                          </div>
-                        </div>
-                        {expandedSections.budgetSummary ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                      </div>
-                      
-                      {expandedSections.budgetSummary && results && (
-                        <div className="mt-4 space-y-3">
-                          {/* Income items - Green boxes */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                              <div className="text-sm text-green-700 font-medium">Totala intäkter</div>
-                              <div className="text-xl font-bold text-green-800">
-                                {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
-                              </div>
-                            </div>
-                            
-                            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                              <div className="text-sm text-green-700 font-medium">Totalt sparande</div>
-                              <div className="text-xl font-bold text-green-800">
-                                {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Cost items - Red boxes */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                              <div className="text-sm text-red-700 font-medium">Totala kostnader</div>
-                              <div className="text-xl font-bold text-red-800">
-                                -{formatCurrency(costGroups.reduce((sum, group) => {
-                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                  return sum + subCategoriesTotal;
-                                }, 0))}
-                              </div>
-                            </div>
-                            
-                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                              <div className="text-sm text-red-700 font-medium">Total daglig budget</div>
-                              <div className="text-xl font-bold text-red-800">
-                                -{formatCurrency(results.totalDailyBudget)}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Individual shares - Purple boxes */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                              <div className="text-sm text-purple-700 font-medium">{userName1} andel</div>
-                              <div className="text-xl font-bold text-purple-800">
-                                -{formatCurrency(results.andreasShare)}
-                              </div>
-                            </div>
-                            
-                            <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                              <div className="text-sm text-purple-700 font-medium">{userName2} andel</div>
-                              <div className="text-xl font-bold text-purple-800">
-                                -{formatCurrency(results.susannaShare)}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Final sum */}
-                          <div className="mt-4 pt-4 border-t border-gray-200">
-                            <div className="p-4 bg-gray-50 border-2 border-gray-300 rounded-lg">
-                              <div className="text-sm text-gray-600 font-medium mb-1">Slutsumma (bör vara 0)</div>
-                              <div className={`text-2xl font-bold ${
-                                Math.abs(results.balanceLeft) < 0.01 
-                                  ? 'text-green-600' 
-                                  : 'text-red-600'
-                              }`}>
-                                {formatCurrency(results.balanceLeft)}
-                              </div>
-                              {Math.abs(results.balanceLeft) > 0.01 && (
-                                <div className="text-xs text-red-500 mt-1">
-                                  ⚠️ Budgeten är inte balanserad
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
 
                     {/* Account Summary with Dropdown */}
                    <div className="p-4 bg-indigo-50 rounded-lg">
