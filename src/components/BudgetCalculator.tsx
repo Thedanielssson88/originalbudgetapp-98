@@ -2381,20 +2381,6 @@ const BudgetCalculator = () => {
                       </div>
                     </div>
 
-                    {/* Calculate and Show Summary Button */}
-                    <Button onClick={() => {
-                      setActiveTab("sammanstallning");
-                      setTimeout(() => {
-                        // Find the main title element for the current tab
-                        const mainTitle = document.querySelector('h1.text-3xl.font-bold.text-center');
-                        if (mainTitle) {
-                          mainTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }
-                      }, 100);
-                    }} className="w-full bg-green-600 hover:bg-green-700" size="lg">
-                      <Calculator className="mr-2 h-4 w-4" />
-                      Beräkna och visa sammanställningen
-                    </Button>
                   </CardContent>
                 )}
               </Card>
@@ -2801,6 +2787,21 @@ const BudgetCalculator = () => {
                   </CardContent>
                 )}
               </Card>
+
+              {/* Calculate and Show Summary Button */}
+              <Button onClick={() => {
+                setActiveTab("sammanstallning");
+                setTimeout(() => {
+                  // Find the main title element for the current tab
+                  const mainTitle = document.querySelector('h1.text-3xl.font-bold.text-center');
+                  if (mainTitle) {
+                    mainTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+                }, 100);
+              }} className="w-full bg-green-600 hover:bg-green-700" size="lg">
+                <Calculator className="mr-2 h-4 w-4" />
+                Beräkna och visa sammanställningen
+              </Button>
               </div>
             </div>
           </TabsContent>
