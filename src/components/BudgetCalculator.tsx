@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useSwipeGestures } from '@/hooks/useSwipeGestures';
@@ -99,6 +100,9 @@ const BudgetCalculator = () => {
     budgetCosts: false,
     budgetTransfer: false
   });
+
+  // Budget category expandable states
+  const [expandedBudgetCategories, setExpandedBudgetCategories] = useState<{[key: string]: boolean}>({});
   
   // Personal budget states
   const [selectedPerson, setSelectedPerson] = useState<'andreas' | 'susanna'>('andreas');
@@ -1600,6 +1604,13 @@ const BudgetCalculator = () => {
     }));
   };
 
+  const toggleBudgetCategory = (categoryKey: string) => {
+    setExpandedBudgetCategories(prev => ({
+      ...prev,
+      [categoryKey]: !prev[categoryKey]
+    }));
+  };
+
   const renderHistoricalCharts = () => {
     const chartData = Object.keys(historicalData).map(monthKey => {
       const data = historicalData[monthKey];
@@ -2515,83 +2526,106 @@ const BudgetCalculator = () => {
                              </ResponsiveContainer>
                            </div>
                            
-                           {/* Colored legend boxes */}
-                           <div className="space-y-2">
-                             {(() => {
-                               const total = andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag;
-                               const andreasPercentage = total > 0 ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / total * 100).toFixed(1) : '0';
-                               const susannaPercentage = total > 0 ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / total * 100).toFixed(1) : '0';
-                               
-                               return (
-                                 <>
-                                   <div className="p-3 rounded-lg" style={{ backgroundColor: 'hsl(262, 83%, 58%, 0.2)' }}>
-                                     <div className="flex items-center justify-between">
-                                       <span className="font-medium">{userName1}</span>
-                                       <span className="font-semibold">{andreasPercentage}%</span>
-                                     </div>
-                                     <p className="text-sm text-muted-foreground mt-1">
-                                       {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}
-                                     </p>
-                                   </div>
-                                   <div className="p-3 rounded-lg" style={{ backgroundColor: 'hsl(200, 95%, 45%, 0.2)' }}>
-                                     <div className="flex items-center justify-between">
-                                       <span className="font-medium">{userName2}</span>
-                                       <span className="font-semibold">{susannaPercentage}%</span>
-                                     </div>
-                                     <p className="text-sm text-muted-foreground mt-1">
-                                       {formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
-                                     </p>
-                                   </div>
-                                 </>
-                               );
-                             })()}
-                           </div>
-                          
-                          <div className="space-y-3">
-                            <div className="p-3 border rounded-lg">
-                              <h5 className="font-medium mb-2">{userName1}</h5>
-                              <div className="space-y-1 text-sm pl-4">
-                                <div className="flex justify-between">
-                                  <span>• Lön:</span>
-                                  <span className="font-medium">{formatCurrency(andreasSalary)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>• Försäkringskassan:</span>
-                                  <span className="font-medium">{formatCurrency(andreasförsäkringskassan)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>• Barnbidrag:</span>
-                                  <span className="font-medium">{formatCurrency(andreasbarnbidrag)}</span>
-                                </div>
-                                <div className="flex justify-between pt-1 border-t">
-                                  <span className="font-medium">Total:</span>
-                                  <span className="font-semibold">{formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}</span>
-                                </div>
-                              </div>
+                            {/* Expandable income categories */}
+                            <div className="space-y-2">
+                              {(() => {
+                                const total = andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag;
+                                const andreasTotal = andreasSalary + andreasförsäkringskassan + andreasbarnbidrag;
+                                const susannaTotal = susannaSalary + susannaförsäkringskassan + susannabarnbidrag;
+                                const andreasPercentage = total > 0 ? (andreasTotal / total * 100).toFixed(1) : '0';
+                                const susannaPercentage = total > 0 ? (susannaTotal / total * 100).toFixed(1) : '0';
+                                
+                                return (
+                                  <>
+                                    <Collapsible open={expandedBudgetCategories['budget-income-andreas']}>
+                                      <CollapsibleTrigger 
+                                        className="w-full p-3 rounded-lg" 
+                                        style={{ backgroundColor: 'hsl(262, 83%, 58%, 0.2)' }}
+                                        onClick={() => toggleBudgetCategory('budget-income-andreas')}
+                                      >
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center justify-between w-full">
+                                            <span className="font-medium">{userName1}</span>
+                                            <div className="flex items-center space-x-2">
+                                              <span className="font-semibold">{andreasPercentage}%</span>
+                                              <ChevronDown className={`h-4 w-4 transition-transform ${expandedBudgetCategories['budget-income-andreas'] ? 'rotate-180' : ''}`} />
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <p className="text-sm text-muted-foreground mt-1 text-left">
+                                          {formatCurrency(andreasTotal)}
+                                        </p>
+                                      </CollapsibleTrigger>
+                                      <CollapsibleContent className="mt-2">
+                                        <div className="p-3 border rounded-lg bg-background">
+                                          <div className="space-y-1 text-sm">
+                                            <div className="flex justify-between">
+                                              <span>• Lön:</span>
+                                              <span className="font-medium">{formatCurrency(andreasSalary)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <span>• Försäkringskassan:</span>
+                                              <span className="font-medium">{formatCurrency(andreasförsäkringskassan)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <span>• Barnbidrag:</span>
+                                              <span className="font-medium">{formatCurrency(andreasbarnbidrag)}</span>
+                                            </div>
+                                            <div className="flex justify-between pt-1 border-t">
+                                              <span className="font-medium">Total:</span>
+                                              <span className="font-semibold">{formatCurrency(andreasTotal)}</span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </CollapsibleContent>
+                                    </Collapsible>
+                                    
+                                    <Collapsible open={expandedBudgetCategories['budget-income-susanna']}>
+                                      <CollapsibleTrigger 
+                                        className="w-full p-3 rounded-lg" 
+                                        style={{ backgroundColor: 'hsl(200, 95%, 45%, 0.2)' }}
+                                        onClick={() => toggleBudgetCategory('budget-income-susanna')}
+                                      >
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center justify-between w-full">
+                                            <span className="font-medium">{userName2}</span>
+                                            <div className="flex items-center space-x-2">
+                                              <span className="font-semibold">{susannaPercentage}%</span>
+                                              <ChevronDown className={`h-4 w-4 transition-transform ${expandedBudgetCategories['budget-income-susanna'] ? 'rotate-180' : ''}`} />
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <p className="text-sm text-muted-foreground mt-1 text-left">
+                                          {formatCurrency(susannaTotal)}
+                                        </p>
+                                      </CollapsibleTrigger>
+                                      <CollapsibleContent className="mt-2">
+                                        <div className="p-3 border rounded-lg bg-background">
+                                          <div className="space-y-1 text-sm">
+                                            <div className="flex justify-between">
+                                              <span>• Lön:</span>
+                                              <span className="font-medium">{formatCurrency(susannaSalary)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <span>• Försäkringskassan:</span>
+                                              <span className="font-medium">{formatCurrency(susannaförsäkringskassan)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <span>• Barnbidrag:</span>
+                                              <span className="font-medium">{formatCurrency(susannabarnbidrag)}</span>
+                                            </div>
+                                            <div className="flex justify-between pt-1 border-t">
+                                              <span className="font-medium">Total:</span>
+                                              <span className="font-semibold">{formatCurrency(susannaTotal)}</span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </CollapsibleContent>
+                                    </Collapsible>
+                                  </>
+                                );
+                              })()}
                             </div>
-                            
-                            <div className="p-3 border rounded-lg">
-                              <h5 className="font-medium mb-2">{userName2}</h5>
-                              <div className="space-y-1 text-sm pl-4">
-                                <div className="flex justify-between">
-                                  <span>• Lön:</span>
-                                  <span className="font-medium">{formatCurrency(susannaSalary)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>• Försäkringskassan:</span>
-                                  <span className="font-medium">{formatCurrency(susannaförsäkringskassan)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>• Barnbidrag:</span>
-                                  <span className="font-medium">{formatCurrency(susannabarnbidrag)}</span>
-                                </div>
-                                <div className="flex justify-between pt-1 border-t">
-                                  <span className="font-medium">Total:</span>
-                                  <span className="font-semibold">{formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
                         </div>
                       )}
                     </div>
@@ -2646,87 +2680,107 @@ const BudgetCalculator = () => {
                              </ResponsiveContainer>
                            </div>
                            
-                           {/* Colored legend boxes */}
-                           <div className="space-y-2">
-                             {(() => {
-                               const costGroupsTotal = costGroups.reduce((sum, group) => {
-                                 const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                 return sum + subCategoriesTotal;
-                               }, 0);
-                               const dailyBudgetTotal = results?.totalDailyBudget || 0;
-                               const total = costGroupsTotal + dailyBudgetTotal;
-                               
-                               return (
-                                 <>
-                                   {costGroups.map((group, index) => {
-                                     const groupTotal = group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0;
-                                     const percentage = total > 0 ? (groupTotal / total * 100).toFixed(1) : '0';
-                                     const color = `hsl(${15 + (index * 60)}, 75%, 55%)`;
-                                     
-                                     return (
-                                       <div key={group.id} className="p-3 rounded-lg" style={{ backgroundColor: `${color.replace(')', ', 0.2)')}` }}>
-                                         <div className="flex items-center justify-between">
-                                           <span className="font-medium">{group.name}</span>
-                                           <span className="font-semibold">{percentage}%</span>
-                                         </div>
-                                         <p className="text-sm text-muted-foreground mt-1">
-                                           {formatCurrency(groupTotal)}
-                                         </p>
-                                       </div>
-                                     );
-                                   })}
-                                   <div className="p-3 rounded-lg" style={{ backgroundColor: 'hsl(345, 82%, 48%, 0.2)' }}>
-                                     <div className="flex items-center justify-between">
-                                       <span className="font-medium">Daglig Budget</span>
-                                       <span className="font-semibold">{total > 0 ? (dailyBudgetTotal / total * 100).toFixed(1) : '0'}%</span>
-                                     </div>
-                                     <p className="text-sm text-muted-foreground mt-1">
-                                       {formatCurrency(dailyBudgetTotal)}
-                                     </p>
-                                   </div>
-                                 </>
-                               );
-                             })()}
-                           </div>
-                          
-                          <div className="space-y-3">
-                            {costGroups.map((group) => (
-                              <div key={group.id} className="p-3 border rounded-lg">
-                                <h5 className="font-medium mb-2">{group.name}</h5>
-                                <div className="space-y-1 text-sm pl-4">
-                                  {group.subCategories && group.subCategories.length > 0 ? (
-                                    <>
-                                      {group.subCategories.map((sub) => (
-                                        <div key={sub.id} className="flex justify-between">
-                                          <span>• {sub.name}:</span>
-                                          <span className="font-medium">{formatCurrency(sub.amount)}</span>
+                            {/* Expandable budget categories */}
+                            <div className="space-y-2">
+                              {(() => {
+                                const costGroupsTotal = costGroups.reduce((sum, group) => {
+                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                  return sum + subCategoriesTotal;
+                                }, 0);
+                                const dailyBudgetTotal = results?.totalDailyBudget || 0;
+                                const total = costGroupsTotal + dailyBudgetTotal;
+                                
+                                return (
+                                  <>
+                                    {costGroups.map((group, index) => {
+                                      const groupTotal = group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0;
+                                      const percentage = total > 0 ? (groupTotal / total * 100).toFixed(1) : '0';
+                                      const color = `hsl(${15 + (index * 60)}, 75%, 55%)`;
+                                      const categoryKey = `budget-costs-${group.id}`;
+                                      
+                                      return (
+                                        <Collapsible key={group.id} open={expandedBudgetCategories[categoryKey]}>
+                                          <CollapsibleTrigger 
+                                            className="w-full p-3 rounded-lg" 
+                                            style={{ backgroundColor: `${color.replace(')', ', 0.2)')}` }}
+                                            onClick={() => toggleBudgetCategory(categoryKey)}
+                                          >
+                                            <div className="flex items-center justify-between">
+                                              <div className="flex items-center justify-between w-full">
+                                                <span className="font-medium">{group.name}</span>
+                                                <div className="flex items-center space-x-2">
+                                                  <span className="font-semibold">{percentage}%</span>
+                                                  <ChevronDown className={`h-4 w-4 transition-transform ${expandedBudgetCategories[categoryKey] ? 'rotate-180' : ''}`} />
+                                                </div>
+                                              </div>
+                                            </div>
+                                            <p className="text-sm text-muted-foreground mt-1 text-left">
+                                              {formatCurrency(groupTotal)}
+                                            </p>
+                                          </CollapsibleTrigger>
+                                          <CollapsibleContent className="mt-2">
+                                            <div className="p-3 border rounded-lg bg-background">
+                                              <div className="space-y-1 text-sm">
+                                                {group.subCategories && group.subCategories.length > 0 ? (
+                                                  <>
+                                                    {group.subCategories.map((sub) => (
+                                                      <div key={sub.id} className="flex justify-between">
+                                                        <span>• {sub.name}:</span>
+                                                        <span className="font-medium">{formatCurrency(sub.amount)}</span>
+                                                      </div>
+                                                    ))}
+                                                    <div className="flex justify-between pt-1 border-t">
+                                                      <span className="font-medium">Total:</span>
+                                                      <span className="font-semibold">{formatCurrency(group.subCategories.reduce((sum, sub) => sum + sub.amount, 0))}</span>
+                                                    </div>
+                                                  </>
+                                                ) : (
+                                                  <div className="flex justify-between">
+                                                    <span>Inga underkategorier</span>
+                                                    <span className="font-medium">{formatCurrency(0)}</span>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </CollapsibleContent>
+                                        </Collapsible>
+                                      );
+                                    })}
+                                    
+                                    <Collapsible open={expandedBudgetCategories['budget-costs-daily']}>
+                                      <CollapsibleTrigger 
+                                        className="w-full p-3 rounded-lg" 
+                                        style={{ backgroundColor: 'hsl(345, 82%, 48%, 0.2)' }}
+                                        onClick={() => toggleBudgetCategory('budget-costs-daily')}
+                                      >
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center justify-between w-full">
+                                            <span className="font-medium">Daglig Budget</span>
+                                            <div className="flex items-center space-x-2">
+                                              <span className="font-semibold">{total > 0 ? (dailyBudgetTotal / total * 100).toFixed(1) : '0'}%</span>
+                                              <ChevronDown className={`h-4 w-4 transition-transform ${expandedBudgetCategories['budget-costs-daily'] ? 'rotate-180' : ''}`} />
+                                            </div>
+                                          </div>
                                         </div>
-                                      ))}
-                                      <div className="flex justify-between pt-1 border-t">
-                                        <span className="font-medium">Total:</span>
-                                        <span className="font-semibold">{formatCurrency(group.subCategories.reduce((sum, sub) => sum + sub.amount, 0))}</span>
-                                      </div>
-                                    </>
-                                  ) : (
-                                    <div className="flex justify-between">
-                                      <span>Inga underkategorier</span>
-                                      <span className="font-medium">{formatCurrency(0)}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                            
-                            <div className="p-3 border rounded-lg">
-                              <h5 className="font-medium mb-2">Daglig Budget</h5>
-                              <div className="space-y-1 text-sm pl-4">
-                                <div className="flex justify-between">
-                                  <span>• Total daglig budget:</span>
-                                  <span className="font-semibold">{formatCurrency(results?.totalDailyBudget || 0)}</span>
-                                </div>
-                              </div>
+                                        <p className="text-sm text-muted-foreground mt-1 text-left">
+                                          {formatCurrency(dailyBudgetTotal)}
+                                        </p>
+                                      </CollapsibleTrigger>
+                                      <CollapsibleContent className="mt-2">
+                                        <div className="p-3 border rounded-lg bg-background">
+                                          <div className="space-y-1 text-sm">
+                                            <div className="flex justify-between">
+                                              <span>• Total daglig budget:</span>
+                                              <span className="font-semibold">{formatCurrency(results?.totalDailyBudget || 0)}</span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </CollapsibleContent>
+                                    </Collapsible>
+                                  </>
+                                );
+                              })()}
                             </div>
-                          </div>
                         </div>
                       )}
                     </div>
@@ -2788,107 +2842,137 @@ const BudgetCalculator = () => {
                              </ResponsiveContainer>
                            </div>
                            
-                           {/* Colored legend boxes */}
-                           <div className="space-y-2">
-                             {(() => {
-                               const andreasShare = results?.andreasShare || 0;
-                               const susannaShare = results?.susannaShare || 0;
-                               const savingsTotal = savingsGroups.reduce((sum, group) => {
-                                 const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                 return sum + group.amount + subCategoriesTotal;
-                               }, 0);
-                               const total = andreasShare + susannaShare + savingsTotal;
-                               
-                               const andreasPercentage = total > 0 ? (andreasShare / total * 100).toFixed(1) : '0';
-                               const susannaPercentage = total > 0 ? (susannaShare / total * 100).toFixed(1) : '0';
-                               const savingsPercentage = total > 0 ? (savingsTotal / total * 100).toFixed(1) : '0';
-                               
-                               return (
-                                 <>
-                                   <div className="p-3 rounded-lg" style={{ backgroundColor: 'hsl(45, 93%, 58%, 0.2)' }}>
-                                     <div className="flex items-center justify-between">
-                                       <span className="font-medium">{userName1}s andel</span>
-                                       <span className="font-semibold">{andreasPercentage}%</span>
-                                     </div>
-                                     <p className="text-sm text-muted-foreground mt-1">
-                                       {formatCurrency(andreasShare)}
-                                     </p>
-                                   </div>
-                                   <div className="p-3 rounded-lg" style={{ backgroundColor: 'hsl(280, 85%, 65%, 0.2)' }}>
-                                     <div className="flex items-center justify-between">
-                                       <span className="font-medium">{userName2}s andel</span>
-                                       <span className="font-semibold">{susannaPercentage}%</span>
-                                     </div>
-                                     <p className="text-sm text-muted-foreground mt-1">
-                                       {formatCurrency(susannaShare)}
-                                     </p>
-                                   </div>
-                                   <div className="p-3 rounded-lg" style={{ backgroundColor: 'hsl(142, 71%, 45%, 0.2)' }}>
-                                     <div className="flex items-center justify-between">
-                                       <span className="font-medium">Sparande</span>
-                                       <span className="font-semibold">{savingsPercentage}%</span>
-                                     </div>
-                                     <p className="text-sm text-muted-foreground mt-1">
-                                       {formatCurrency(savingsTotal)}
-                                     </p>
-                                   </div>
-                                 </>
-                               );
-                             })()}
-                           </div>
-                          
-                          <div className="space-y-3">
-                            <div className="p-3 border rounded-lg">
-                              <h5 className="font-medium mb-2">{userName1}s andel</h5>
-                              <div className="space-y-1 text-sm pl-4">
-                                <div className="flex justify-between">
-                                  <span>• Personlig andel:</span>
-                                  <span className="font-semibold">{formatCurrency(results?.andreasShare || 0)}</span>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="p-3 border rounded-lg">
-                              <h5 className="font-medium mb-2">{userName2}s andel</h5>
-                              <div className="space-y-1 text-sm pl-4">
-                                <div className="flex justify-between">
-                                  <span>• Personlig andel:</span>
-                                  <span className="font-semibold">{formatCurrency(results?.susannaShare || 0)}</span>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="p-3 border rounded-lg">
-                              <h5 className="font-medium mb-2">Sparande</h5>
-                              <div className="space-y-1 text-sm pl-4">
-                                {savingsGroups.map((group) => (
-                                  <div key={group.id} className="space-y-1">
-                                    <div className="flex justify-between">
-                                      <span>• {group.name}:</span>
-                                      <span className="font-medium">{formatCurrency(group.amount + (group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0))}</span>
-                                    </div>
-                                    {group.subCategories && group.subCategories.length > 0 && (
-                                      <div className="pl-4 space-y-1">
-                                        {group.subCategories.map((sub) => (
-                                          <div key={sub.id} className="flex justify-between text-xs text-muted-foreground">
-                                            <span>- {sub.name}:</span>
-                                            <span>{formatCurrency(sub.amount)}</span>
+                            {/* Expandable transfer categories */}
+                            <div className="space-y-2">
+                              {(() => {
+                                const andreasShare = results?.andreasShare || 0;
+                                const susannaShare = results?.susannaShare || 0;
+                                const savingsTotal = savingsGroups.reduce((sum, group) => {
+                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                  return sum + group.amount + subCategoriesTotal;
+                                }, 0);
+                                const total = andreasShare + susannaShare + savingsTotal;
+                                
+                                const andreasPercentage = total > 0 ? (andreasShare / total * 100).toFixed(1) : '0';
+                                const susannaPercentage = total > 0 ? (susannaShare / total * 100).toFixed(1) : '0';
+                                const savingsPercentage = total > 0 ? (savingsTotal / total * 100).toFixed(1) : '0';
+                                
+                                return (
+                                  <>
+                                    <Collapsible open={expandedBudgetCategories['budget-transfer-andreas']}>
+                                      <CollapsibleTrigger 
+                                        className="w-full p-3 rounded-lg" 
+                                        style={{ backgroundColor: 'hsl(45, 93%, 58%, 0.2)' }}
+                                        onClick={() => toggleBudgetCategory('budget-transfer-andreas')}
+                                      >
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center justify-between w-full">
+                                            <span className="font-medium">{userName1}s andel</span>
+                                            <div className="flex items-center space-x-2">
+                                              <span className="font-semibold">{andreasPercentage}%</span>
+                                              <ChevronDown className={`h-4 w-4 transition-transform ${expandedBudgetCategories['budget-transfer-andreas'] ? 'rotate-180' : ''}`} />
+                                            </div>
                                           </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
-                                <div className="flex justify-between pt-1 border-t">
-                                  <span className="font-medium">Total sparande:</span>
-                                  <span className="font-semibold">{formatCurrency(savingsGroups.reduce((sum, group) => {
-                                    const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                    return sum + group.amount + subCategoriesTotal;
-                                  }, 0))}</span>
-                                </div>
-                              </div>
+                                        </div>
+                                        <p className="text-sm text-muted-foreground mt-1 text-left">
+                                          {formatCurrency(andreasShare)}
+                                        </p>
+                                      </CollapsibleTrigger>
+                                      <CollapsibleContent className="mt-2">
+                                        <div className="p-3 border rounded-lg bg-background">
+                                          <div className="space-y-1 text-sm">
+                                            <div className="flex justify-between">
+                                              <span>• Personlig andel:</span>
+                                              <span className="font-semibold">{formatCurrency(andreasShare)}</span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </CollapsibleContent>
+                                    </Collapsible>
+                                    
+                                    <Collapsible open={expandedBudgetCategories['budget-transfer-susanna']}>
+                                      <CollapsibleTrigger 
+                                        className="w-full p-3 rounded-lg" 
+                                        style={{ backgroundColor: 'hsl(280, 85%, 65%, 0.2)' }}
+                                        onClick={() => toggleBudgetCategory('budget-transfer-susanna')}
+                                      >
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center justify-between w-full">
+                                            <span className="font-medium">{userName2}s andel</span>
+                                            <div className="flex items-center space-x-2">
+                                              <span className="font-semibold">{susannaPercentage}%</span>
+                                              <ChevronDown className={`h-4 w-4 transition-transform ${expandedBudgetCategories['budget-transfer-susanna'] ? 'rotate-180' : ''}`} />
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <p className="text-sm text-muted-foreground mt-1 text-left">
+                                          {formatCurrency(susannaShare)}
+                                        </p>
+                                      </CollapsibleTrigger>
+                                      <CollapsibleContent className="mt-2">
+                                        <div className="p-3 border rounded-lg bg-background">
+                                          <div className="space-y-1 text-sm">
+                                            <div className="flex justify-between">
+                                              <span>• Personlig andel:</span>
+                                              <span className="font-semibold">{formatCurrency(susannaShare)}</span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </CollapsibleContent>
+                                    </Collapsible>
+                                    
+                                    <Collapsible open={expandedBudgetCategories['budget-transfer-savings']}>
+                                      <CollapsibleTrigger 
+                                        className="w-full p-3 rounded-lg" 
+                                        style={{ backgroundColor: 'hsl(142, 71%, 45%, 0.2)' }}
+                                        onClick={() => toggleBudgetCategory('budget-transfer-savings')}
+                                      >
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center justify-between w-full">
+                                            <span className="font-medium">Sparande</span>
+                                            <div className="flex items-center space-x-2">
+                                              <span className="font-semibold">{savingsPercentage}%</span>
+                                              <ChevronDown className={`h-4 w-4 transition-transform ${expandedBudgetCategories['budget-transfer-savings'] ? 'rotate-180' : ''}`} />
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <p className="text-sm text-muted-foreground mt-1 text-left">
+                                          {formatCurrency(savingsTotal)}
+                                        </p>
+                                      </CollapsibleTrigger>
+                                      <CollapsibleContent className="mt-2">
+                                        <div className="p-3 border rounded-lg bg-background">
+                                          <div className="space-y-1 text-sm">
+                                            {savingsGroups.map((group) => (
+                                              <div key={group.id} className="space-y-1">
+                                                <div className="flex justify-between">
+                                                  <span>• {group.name}:</span>
+                                                  <span className="font-medium">{formatCurrency(group.amount + (group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0))}</span>
+                                                </div>
+                                                {group.subCategories && group.subCategories.length > 0 && (
+                                                  <div className="pl-4 space-y-1">
+                                                    {group.subCategories.map((sub) => (
+                                                      <div key={sub.id} className="flex justify-between text-xs text-muted-foreground">
+                                                        <span>- {sub.name}:</span>
+                                                        <span>{formatCurrency(sub.amount)}</span>
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ))}
+                                            <div className="flex justify-between pt-1 border-t">
+                                              <span className="font-medium">Total sparande:</span>
+                                              <span className="font-semibold">{formatCurrency(savingsTotal)}</span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </CollapsibleContent>
+                                    </Collapsible>
+                                  </>
+                                );
+                              })()}
                             </div>
-                          </div>
                         </div>
                       )}
                     </div>
