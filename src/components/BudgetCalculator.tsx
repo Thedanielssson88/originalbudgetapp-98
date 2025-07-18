@@ -632,8 +632,15 @@ const BudgetCalculator = () => {
     let remainingEndDate;
     
     const isCurrentMonth = selectedYear === currentDate.getFullYear() && selectedMonth === currentDate.getMonth();
+    const isPastMonth = selectedYear < currentDate.getFullYear() || 
+                       (selectedYear === currentDate.getFullYear() && selectedMonth < currentDate.getMonth());
     
-    if (isCurrentMonth) {
+    if (isPastMonth) {
+      // For past months: no remaining budget since the month has passed
+      remainingWeekdayCount = 0;
+      remainingFridayCount = 0;
+      remainingBudget = 0;
+    } else if (isCurrentMonth) {
       // For current month: from today to 25th of same month
       remainingStartDate = new Date(currentDate);
       remainingEndDate = new Date(selectedYear, selectedMonth, 25);
