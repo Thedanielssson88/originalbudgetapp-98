@@ -2766,16 +2766,49 @@ const BudgetCalculator = () => {
                                           {formatCurrency(dailyBudgetTotal)}
                                         </p>
                                       </CollapsibleTrigger>
-                                      <CollapsibleContent className="mt-2">
-                                        <div className="p-3 border rounded-lg bg-background">
-                                          <div className="space-y-1 text-sm">
-                                            <div className="flex justify-between">
-                                              <span>• Total daglig budget:</span>
-                                              <span className="font-semibold">{formatCurrency(results?.totalDailyBudget || 0)}</span>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </CollapsibleContent>
+                                       <CollapsibleContent className="mt-2">
+                                         <div className="p-3 border rounded-lg bg-background">
+                                           <div className="space-y-3 text-sm">
+                                             {/* Total Daily Budget Calculation */}
+                                             <div>
+                                               <p className="font-medium mb-2">Uträkning total daglig budget:</p>
+                                               <div className="space-y-1 pl-2">
+                                                 <div className="flex justify-between">
+                                                   <span>• Vardagar: {results?.weekdayCount || 0} × {formatCurrency(dailyTransfer)} =</span>
+                                                   <span className="font-medium">{formatCurrency((results?.weekdayCount || 0) * dailyTransfer)}</span>
+                                                 </div>
+                                                 <div className="flex justify-between">
+                                                   <span>• Helgdagar: {results?.fridayCount || 0} × {formatCurrency(weekendTransfer)} =</span>
+                                                   <span className="font-medium">{formatCurrency((results?.fridayCount || 0) * weekendTransfer)}</span>
+                                                 </div>
+                                                 <div className="flex justify-between pt-1 border-t">
+                                                   <span className="font-medium">Total daglig budget:</span>
+                                                   <span className="font-semibold">{formatCurrency(results?.totalDailyBudget || 0)}</span>
+                                                 </div>
+                                               </div>
+                                             </div>
+                                             
+                                             {/* Remaining Daily Budget */}
+                                             <div className="pt-2 border-t">
+                                               <p className="font-medium mb-2">Återstående daglig budget:</p>
+                                               <div className="space-y-1 pl-2">
+                                                 <div className="flex justify-between">
+                                                   <span>• Återstående vardagar: {results?.remainingWeekdayCount || 0} × {formatCurrency(dailyTransfer)} =</span>
+                                                   <span className="font-medium">{formatCurrency((results?.remainingWeekdayCount || 0) * dailyTransfer)}</span>
+                                                 </div>
+                                                 <div className="flex justify-between">
+                                                   <span>• Återstående helgdagar: {results?.remainingFridayCount || 0} × {formatCurrency(weekendTransfer)} =</span>
+                                                   <span className="font-medium">{formatCurrency((results?.remainingFridayCount || 0) * weekendTransfer)}</span>
+                                                 </div>
+                                                 <div className="flex justify-between pt-1 border-t">
+                                                   <span className="font-medium">Återstående daglig budget:</span>
+                                                   <span className="font-semibold">{formatCurrency(results?.remainingDailyBudget || 0)}</span>
+                                                 </div>
+                                               </div>
+                                             </div>
+                                           </div>
+                                         </div>
+                                       </CollapsibleContent>
                                     </Collapsible>
                                   </>
                                 );
