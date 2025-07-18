@@ -95,9 +95,9 @@ const BudgetCalculator = () => {
     incomeDetails: false,
     costDetails: false,
     transferDetails: false,
-    budgetIncome: false,
-    budgetCosts: false,
-    budgetTransfer: false
+    budgetIncome: true,
+    budgetCosts: true,
+    budgetTransfer: true
   });
   
   // Personal budget states
@@ -2468,53 +2468,84 @@ const BudgetCalculator = () => {
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Expandable Budget Sections */}
-                  <div className="space-y-4">
-                    {/* Intäkter Section */}
-                    <div className="p-4 bg-primary/10 rounded-lg">
-                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetIncome')}>
-                        <div>
-                          <h4 className="font-medium">Intäkter</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
-                          </p>
-                        </div>
-                        <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.budgetIncome ? 'rotate-180' : ''}`} />
-                      </div>
-                      
-                      {expandedSections.budgetIncome && (
-                        <div className="mt-3 space-y-4 border-t pt-3">
-                          {/* Income Chart */}
-                          <div className="h-48 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <PieChart>
-                                <Pie
-                                  data={[
-                                    {
-                                      name: userName1,
-                                      value: andreasSalary + andreasförsäkringskassan + andreasbarnbidrag,
-                                      color: '#8b5cf6'
-                                    },
-                                    {
-                                      name: userName2,
-                                      value: susannaSalary + susannaförsäkringskassan + susannabarnbidrag,
-                                      color: '#06b6d4'
-                                    }
-                                  ]}
-                                  dataKey="value"
-                                  nameKey="name"
-                                  cx="50%"
-                                  cy="50%"
-                                  outerRadius={80}
-                                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
-                                >
-                                  <Cell fill="#8b5cf6" />
-                                  <Cell fill="#06b6d4" />
-                                </Pie>
-                                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                              </PieChart>
-                            </ResponsiveContainer>
-                          </div>
+                   {/* Expandable Budget Sections */}
+                   <div className="space-y-4">
+                     {/* Intäkter Section */}
+                     <div className="p-4 bg-primary/10 rounded-lg">
+                       <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetIncome')}>
+                         <div>
+                           <h4 className="font-medium">Intäkter</h4>
+                           <p className="text-sm text-muted-foreground">
+                             {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
+                           </p>
+                         </div>
+                         <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.budgetIncome ? 'rotate-180' : ''}`} />
+                       </div>
+                       
+                       {expandedSections.budgetIncome && (
+                         <div className="mt-3 space-y-4 border-t pt-3">
+                           {/* Income Chart */}
+                           <div className="h-48 w-full">
+                             <ResponsiveContainer width="100%" height="100%">
+                               <PieChart>
+                                 <Pie
+                                   data={[
+                                     {
+                                       name: userName1,
+                                       value: andreasSalary + andreasförsäkringskassan + andreasbarnbidrag,
+                                       color: 'hsl(262, 83%, 58%)'
+                                     },
+                                     {
+                                       name: userName2,
+                                       value: susannaSalary + susannaförsäkringskassan + susannabarnbidrag,
+                                       color: 'hsl(200, 95%, 45%)'
+                                     }
+                                   ]}
+                                   dataKey="value"
+                                   nameKey="name"
+                                   cx="50%"
+                                   cy="50%"
+                                   outerRadius={80}
+                                 >
+                                   <Cell fill="hsl(262, 83%, 58%)" />
+                                   <Cell fill="hsl(200, 95%, 45%)" />
+                                 </Pie>
+                                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                               </PieChart>
+                             </ResponsiveContainer>
+                           </div>
+                           
+                           {/* Colored legend boxes */}
+                           <div className="space-y-2">
+                             {(() => {
+                               const total = andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag;
+                               const andreasPercentage = total > 0 ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / total * 100).toFixed(1) : '0';
+                               const susannaPercentage = total > 0 ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / total * 100).toFixed(1) : '0';
+                               
+                               return (
+                                 <>
+                                   <div className="p-3 rounded-lg" style={{ backgroundColor: 'hsl(262, 83%, 58%, 0.2)' }}>
+                                     <div className="flex items-center justify-between">
+                                       <span className="font-medium">{userName1}</span>
+                                       <span className="font-semibold">{andreasPercentage}%</span>
+                                     </div>
+                                     <p className="text-sm text-muted-foreground mt-1">
+                                       {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}
+                                     </p>
+                                   </div>
+                                   <div className="p-3 rounded-lg" style={{ backgroundColor: 'hsl(200, 95%, 45%, 0.2)' }}>
+                                     <div className="flex items-center justify-between">
+                                       <span className="font-medium">{userName2}</span>
+                                       <span className="font-semibold">{susannaPercentage}%</span>
+                                     </div>
+                                     <p className="text-sm text-muted-foreground mt-1">
+                                       {formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
+                                     </p>
+                                   </div>
+                                 </>
+                               );
+                             })()}
+                           </div>
                           
                           <div className="space-y-3">
                             <div className="p-3 border rounded-lg">
@@ -2565,56 +2596,98 @@ const BudgetCalculator = () => {
                       )}
                     </div>
                     
-                    {/* Kostnader Section */}
-                    <div className="p-4 bg-destructive/10 rounded-lg">
-                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetCosts')}>
-                        <div>
-                          <h4 className="font-medium">Kostnader</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {formatCurrency(costGroups.reduce((sum, group) => {
-                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                              return sum + subCategoriesTotal;
-                            }, 0) + (results?.totalDailyBudget || 0))}
-                          </p>
-                        </div>
-                        <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.budgetCosts ? 'rotate-180' : ''}`} />
-                      </div>
-                      
-                      {expandedSections.budgetCosts && (
-                        <div className="mt-3 space-y-4 border-t pt-3">
-                          {/* Costs Chart */}
-                          <div className="h-48 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <PieChart>
-                                <Pie
-                                  data={[
-                                    ...costGroups.map((group, index) => ({
-                                      name: group.name,
-                                      value: group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0,
-                                      color: `hsl(${(index * 40) % 360}, 70%, 50%)`
-                                    })),
-                                    {
-                                      name: 'Daglig Budget',
-                                      value: results?.totalDailyBudget || 0,
-                                      color: '#b91c1c'
-                                    }
-                                  ]}
-                                  dataKey="value"
-                                  nameKey="name"
-                                  cx="50%"
-                                  cy="50%"
-                                  outerRadius={80}
-                                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
-                                >
-                                  {costGroups.map((_, index) => (
-                                    <Cell key={index} fill={`hsl(${(index * 40) % 360}, 70%, 50%)`} />
-                                  ))}
-                                  <Cell fill="#b91c1c" />
-                                </Pie>
-                                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                              </PieChart>
-                            </ResponsiveContainer>
-                          </div>
+                     {/* Kostnader Section */}
+                     <div className="p-4 bg-destructive/10 rounded-lg">
+                       <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetCosts')}>
+                         <div>
+                           <h4 className="font-medium">Kostnader</h4>
+                           <p className="text-sm text-muted-foreground">
+                             {formatCurrency(costGroups.reduce((sum, group) => {
+                               const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                               return sum + subCategoriesTotal;
+                             }, 0) + (results?.totalDailyBudget || 0))}
+                           </p>
+                         </div>
+                         <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.budgetCosts ? 'rotate-180' : ''}`} />
+                       </div>
+                       
+                       {expandedSections.budgetCosts && (
+                         <div className="mt-3 space-y-4 border-t pt-3">
+                           {/* Costs Chart */}
+                           <div className="h-48 w-full">
+                             <ResponsiveContainer width="100%" height="100%">
+                               <PieChart>
+                                 <Pie
+                                   data={[
+                                     ...costGroups.map((group, index) => ({
+                                       name: group.name,
+                                       value: group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0,
+                                       color: `hsl(${15 + (index * 60)}, 75%, 55%)`
+                                     })),
+                                     {
+                                       name: 'Daglig Budget',
+                                       value: results?.totalDailyBudget || 0,
+                                       color: 'hsl(345, 82%, 48%)'
+                                     }
+                                   ]}
+                                   dataKey="value"
+                                   nameKey="name"
+                                   cx="50%"
+                                   cy="50%"
+                                   outerRadius={80}
+                                 >
+                                   {costGroups.map((_, index) => (
+                                     <Cell key={index} fill={`hsl(${15 + (index * 60)}, 75%, 55%)`} />
+                                   ))}
+                                   <Cell fill="hsl(345, 82%, 48%)" />
+                                 </Pie>
+                                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                               </PieChart>
+                             </ResponsiveContainer>
+                           </div>
+                           
+                           {/* Colored legend boxes */}
+                           <div className="space-y-2">
+                             {(() => {
+                               const costGroupsTotal = costGroups.reduce((sum, group) => {
+                                 const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                 return sum + subCategoriesTotal;
+                               }, 0);
+                               const dailyBudgetTotal = results?.totalDailyBudget || 0;
+                               const total = costGroupsTotal + dailyBudgetTotal;
+                               
+                               return (
+                                 <>
+                                   {costGroups.map((group, index) => {
+                                     const groupTotal = group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0;
+                                     const percentage = total > 0 ? (groupTotal / total * 100).toFixed(1) : '0';
+                                     const color = `hsl(${15 + (index * 60)}, 75%, 55%)`;
+                                     
+                                     return (
+                                       <div key={group.id} className="p-3 rounded-lg" style={{ backgroundColor: `${color.replace(')', ', 0.2)')}` }}>
+                                         <div className="flex items-center justify-between">
+                                           <span className="font-medium">{group.name}</span>
+                                           <span className="font-semibold">{percentage}%</span>
+                                         </div>
+                                         <p className="text-sm text-muted-foreground mt-1">
+                                           {formatCurrency(groupTotal)}
+                                         </p>
+                                       </div>
+                                     );
+                                   })}
+                                   <div className="p-3 rounded-lg" style={{ backgroundColor: 'hsl(345, 82%, 48%, 0.2)' }}>
+                                     <div className="flex items-center justify-between">
+                                       <span className="font-medium">Daglig Budget</span>
+                                       <span className="font-semibold">{total > 0 ? (dailyBudgetTotal / total * 100).toFixed(1) : '0'}%</span>
+                                     </div>
+                                     <p className="text-sm text-muted-foreground mt-1">
+                                       {formatCurrency(dailyBudgetTotal)}
+                                     </p>
+                                   </div>
+                                 </>
+                               );
+                             })()}
+                           </div>
                           
                           <div className="space-y-3">
                             {costGroups.map((group) => (
@@ -2658,63 +2731,111 @@ const BudgetCalculator = () => {
                       )}
                     </div>
                     
-                    {/* Överföring Section */}
-                    <div className="p-4 bg-primary/10 rounded-lg">
-                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetTransfer')}>
-                        <div>
-                          <h4 className="font-medium">Överföring</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {formatCurrency((results?.andreasShare || 0) + (results?.susannaShare || 0) + savingsGroups.reduce((sum, group) => {
-                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                              return sum + group.amount + subCategoriesTotal;
-                            }, 0))}
-                          </p>
-                        </div>
-                        <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.budgetTransfer ? 'rotate-180' : ''}`} />
-                      </div>
-                      
-                      {expandedSections.budgetTransfer && (
-                        <div className="mt-3 space-y-4 border-t pt-3">
-                          {/* Transfer Chart */}
-                          <div className="h-48 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <PieChart>
-                                <Pie
-                                  data={[
-                                    {
-                                      name: `${userName1}s andel`,
-                                      value: results?.andreasShare || 0,
-                                      color: '#8b5cf6'
-                                    },
-                                    {
-                                      name: `${userName2}s andel`,
-                                      value: results?.susannaShare || 0,
-                                      color: '#a855f7'
-                                    },
-                                    {
-                                      name: 'Sparande',
-                                      value: savingsGroups.reduce((sum, group) => {
-                                        const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                        return sum + group.amount + subCategoriesTotal;
-                                      }, 0),
-                                      color: '#22c55e'
-                                    }
-                                  ]}
-                                  dataKey="value"
-                                  nameKey="name"
-                                  cx="50%"
-                                  cy="50%"
-                                  outerRadius={80}
-                                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
-                                >
-                                  <Cell fill="#8b5cf6" />
-                                  <Cell fill="#a855f7" />
-                                  <Cell fill="#22c55e" />
-                                </Pie>
-                                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                              </PieChart>
-                            </ResponsiveContainer>
-                          </div>
+                     {/* Överföring Section */}
+                     <div className="p-4 bg-primary/10 rounded-lg">
+                       <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetTransfer')}>
+                         <div>
+                           <h4 className="font-medium">Överföring</h4>
+                           <p className="text-sm text-muted-foreground">
+                             {formatCurrency((results?.andreasShare || 0) + (results?.susannaShare || 0) + savingsGroups.reduce((sum, group) => {
+                               const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                               return sum + group.amount + subCategoriesTotal;
+                             }, 0))}
+                           </p>
+                         </div>
+                         <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.budgetTransfer ? 'rotate-180' : ''}`} />
+                       </div>
+                       
+                       {expandedSections.budgetTransfer && (
+                         <div className="mt-3 space-y-4 border-t pt-3">
+                           {/* Transfer Chart */}
+                           <div className="h-48 w-full">
+                             <ResponsiveContainer width="100%" height="100%">
+                               <PieChart>
+                                 <Pie
+                                   data={[
+                                     {
+                                       name: `${userName1}s andel`,
+                                       value: results?.andreasShare || 0,
+                                       color: 'hsl(45, 93%, 58%)'
+                                     },
+                                     {
+                                       name: `${userName2}s andel`,
+                                       value: results?.susannaShare || 0,
+                                       color: 'hsl(280, 85%, 65%)'
+                                     },
+                                     {
+                                       name: 'Sparande',
+                                       value: savingsGroups.reduce((sum, group) => {
+                                         const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                         return sum + group.amount + subCategoriesTotal;
+                                       }, 0),
+                                       color: 'hsl(142, 71%, 45%)'
+                                     }
+                                   ]}
+                                   dataKey="value"
+                                   nameKey="name"
+                                   cx="50%"
+                                   cy="50%"
+                                   outerRadius={80}
+                                 >
+                                   <Cell fill="hsl(45, 93%, 58%)" />
+                                   <Cell fill="hsl(280, 85%, 65%)" />
+                                   <Cell fill="hsl(142, 71%, 45%)" />
+                                 </Pie>
+                                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                               </PieChart>
+                             </ResponsiveContainer>
+                           </div>
+                           
+                           {/* Colored legend boxes */}
+                           <div className="space-y-2">
+                             {(() => {
+                               const andreasShare = results?.andreasShare || 0;
+                               const susannaShare = results?.susannaShare || 0;
+                               const savingsTotal = savingsGroups.reduce((sum, group) => {
+                                 const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                 return sum + group.amount + subCategoriesTotal;
+                               }, 0);
+                               const total = andreasShare + susannaShare + savingsTotal;
+                               
+                               const andreasPercentage = total > 0 ? (andreasShare / total * 100).toFixed(1) : '0';
+                               const susannaPercentage = total > 0 ? (susannaShare / total * 100).toFixed(1) : '0';
+                               const savingsPercentage = total > 0 ? (savingsTotal / total * 100).toFixed(1) : '0';
+                               
+                               return (
+                                 <>
+                                   <div className="p-3 rounded-lg" style={{ backgroundColor: 'hsl(45, 93%, 58%, 0.2)' }}>
+                                     <div className="flex items-center justify-between">
+                                       <span className="font-medium">{userName1}s andel</span>
+                                       <span className="font-semibold">{andreasPercentage}%</span>
+                                     </div>
+                                     <p className="text-sm text-muted-foreground mt-1">
+                                       {formatCurrency(andreasShare)}
+                                     </p>
+                                   </div>
+                                   <div className="p-3 rounded-lg" style={{ backgroundColor: 'hsl(280, 85%, 65%, 0.2)' }}>
+                                     <div className="flex items-center justify-between">
+                                       <span className="font-medium">{userName2}s andel</span>
+                                       <span className="font-semibold">{susannaPercentage}%</span>
+                                     </div>
+                                     <p className="text-sm text-muted-foreground mt-1">
+                                       {formatCurrency(susannaShare)}
+                                     </p>
+                                   </div>
+                                   <div className="p-3 rounded-lg" style={{ backgroundColor: 'hsl(142, 71%, 45%, 0.2)' }}>
+                                     <div className="flex items-center justify-between">
+                                       <span className="font-medium">Sparande</span>
+                                       <span className="font-semibold">{savingsPercentage}%</span>
+                                     </div>
+                                     <p className="text-sm text-muted-foreground mt-1">
+                                       {formatCurrency(savingsTotal)}
+                                     </p>
+                                   </div>
+                                 </>
+                               );
+                             })()}
+                           </div>
                           
                           <div className="space-y-3">
                             <div className="p-3 border rounded-lg">
