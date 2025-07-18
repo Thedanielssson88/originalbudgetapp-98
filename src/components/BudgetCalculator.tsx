@@ -95,9 +95,9 @@ const BudgetCalculator = () => {
     incomeDetails: false,
     costDetails: false,
     transferDetails: false,
-    budgetIncome: true,
-    budgetCosts: true,
-    budgetTransfer: true
+    budgetIncome: false,
+    budgetCosts: false,
+    budgetTransfer: false
   });
   
   // Personal budget states
