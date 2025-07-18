@@ -2721,7 +2721,9 @@ const BudgetCalculator = () => {
                         {formatCurrency(
                           (results ? results.totalDailyBudget : 0) +
                           costGroups.reduce((sum, group) => sum + group.amount, 0) +
-                          savingsGroups.reduce((sum, group) => sum + group.amount, 0)
+                          savingsGroups.reduce((sum, group) => sum + group.amount, 0) +
+                          (results ? results.andreasShare : 0) +
+                          (results ? results.susannaShare : 0)
                         )}
                       </CardDescription>
                     </div>
