@@ -3458,10 +3458,10 @@ const BudgetCalculator = () => {
                    <div className="p-4 bg-indigo-50 rounded-lg">
                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('accountSummary')}>
                        <div>
-                         <div className="text-sm text-muted-foreground">Kontosammanställning</div>
-                         <div className="text-lg font-bold text-indigo-600">
-                           {accounts.length} konton
-                         </div>
+                          <div className="text-sm text-muted-foreground">Kontosammanställning</div>
+                          <div className="text-lg font-bold text-indigo-600">
+                            {accounts.length + 2} konton
+                          </div>
                        </div>
                        {expandedSections.accountSummary ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                      </div>
