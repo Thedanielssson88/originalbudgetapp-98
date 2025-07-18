@@ -3449,22 +3449,6 @@ const BudgetCalculator = () => {
                         {results ? formatCurrency(results.andreasShare + results.susannaShare) : 'Beräknar...'}
                       </div>
                     </div>
-                    
-                    <div className="mt-4 space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium">Andreas konto</span>
-                        <span className="text-purple-600 font-semibold">
-                          {results ? formatCurrency(results.andreasShare) : 'Beräknar...'}
-                        </span>
-                      </div>
-                      
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium">Susannas konto</span>
-                        <span className="text-purple-600 font-semibold">
-                          {results ? formatCurrency(results.susannaShare) : 'Beräknar...'}
-                        </span>
-                      </div>
-                    </div>
                   </div>
 
 
@@ -3550,8 +3534,27 @@ const BudgetCalculator = () => {
                                  )}
                                </div>
                              );
-                           })}
-                         </div>
+                            })}
+                            
+                            {/* Andreas konto and Susannas konto */}
+                            <div className="p-3 bg-white rounded border">
+                              <div className="flex justify-between items-center">
+                                <span className="font-medium">Andreas konto</span>
+                                <div className="font-semibold text-purple-600">
+                                  +{results ? formatCurrency(results.andreasShare) : 'Beräknar...'}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="p-3 bg-white rounded border">
+                              <div className="flex justify-between items-center">
+                                <span className="font-medium">Susannas konto</span>
+                                <div className="font-semibold text-purple-600">
+                                  +{results ? formatCurrency(results.susannaShare) : 'Beräknar...'}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                          
                          {/* Account Management Section */}
                          <div className="p-4 bg-gray-50 rounded-lg">
