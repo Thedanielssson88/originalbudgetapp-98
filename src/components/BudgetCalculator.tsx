@@ -3280,22 +3280,14 @@ const BudgetCalculator = () => {
                              </div>
                            </div>
                             
-                            {results && (
-                              <div className="space-y-3">
-                                <div className="text-sm text-muted-foreground">
-                                  <div>Vardagar: {results.weekdayCount} × {formatCurrency(dailyTransfer)} = {formatCurrency(results.weekdayCount * dailyTransfer)}</div>
-                                  <div>Helgdagar: {results.fridayCount} × {formatCurrency(weekendTransfer)} = {formatCurrency(results.fridayCount * weekendTransfer)}</div>
-                                </div>
-                                
-                                {/* Moved from budgetSummary section */}
-                                <div className="p-3 bg-amber-50 rounded-lg">
-                                  <div className="text-sm text-muted-foreground">Återstående daglig budget</div>
-                                  <div className="text-xl font-bold text-amber-600">
-                                    {formatCurrency(results.remainingDailyBudget)}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
+                             {results && (
+                               <div className="space-y-3">
+                                 <div className="text-sm text-muted-foreground">
+                                   <div>Daglig överföring: {formatCurrency(dailyTransfer)}</div>
+                                   <div>Helgöverföring: {formatCurrency(weekendTransfer)}</div>
+                                 </div>
+                               </div>
+                             )}
                          </div>
                        )}
                      </div>
@@ -3387,26 +3379,52 @@ const BudgetCalculator = () => {
                              </div>
                             ))}
                             
-                            {/* Total Daily Budget with breakdown under Savings Categories */}
-                            <div className="mt-4 pt-4 border-t border-gray-200">
-                              <div className="font-medium text-base mb-2">
-                                Total daglig budget: {formatCurrency(results?.totalDailyBudget || 0)}
-                              </div>
-                              <div className="ml-4 space-y-1 text-xs text-muted-foreground">
-                                <div>Daglig överföring (måndag-torsdag): {dailyTransfer}</div>
-                                <div>Helgöverföring (fredag-söndag): {weekendTransfer}</div>
-                                {(() => {
-                                  if (!results) return null;
-                                  const weekdaysExcludingFridays = results.weekdayCount - results.fridayCount;
-                                  return (
-                                    <>
-                                      <div>Vardagar: {weekdaysExcludingFridays} × {dailyTransfer} kr = {formatCurrency(weekdaysExcludingFridays * dailyTransfer)}</div>
-                                      <div>Helgdagar: {results.fridayCount} × {weekendTransfer} kr = {formatCurrency(results.fridayCount * weekendTransfer)}</div>
-                                    </>
-                                  );
-                                })()}
-                              </div>
-                            </div>
+                             {/* Total Daily Budget with breakdown under Savings Categories */}
+                             <div className="mt-4 pt-4 border-t border-gray-200">
+                               <div className="font-medium text-base mb-2">
+                                 Total daglig budget: {formatCurrency((() => {
+                                   if (!results) return 0;
+                                   const currentDate = new Date();
+                                   let selectedYear = currentDate.getFullYear();
+                                   let selectedMonth = currentDate.getMonth();
+                                   
+                                   if (selectedBudgetMonth) {
+                                     const [yearStr, monthStr] = selectedBudgetMonth.split('-');
+                                     selectedYear = parseInt(yearStr);
+                                     selectedMonth = parseInt(monthStr) - 1;
+                                   }
+                                   
+                                   const { weekdayCount, fridayCount } = calculateDaysForMonth(selectedYear, selectedMonth);
+                                   return dailyTransfer * weekdayCount + weekendTransfer * fridayCount;
+                                 })())}
+                               </div>
+                               <div className="ml-4 space-y-1 text-xs text-muted-foreground">
+                                 <div>Daglig överföring (måndag-torsdag): {dailyTransfer}</div>
+                                 <div>Helgöverföring (fredag-söndag): {weekendTransfer}</div>
+                                 {(() => {
+                                   if (!results) return null;
+                                   const currentDate = new Date();
+                                   let selectedYear = currentDate.getFullYear();
+                                   let selectedMonth = currentDate.getMonth();
+                                   
+                                   if (selectedBudgetMonth) {
+                                     const [yearStr, monthStr] = selectedBudgetMonth.split('-');
+                                     selectedYear = parseInt(yearStr);
+                                     selectedMonth = parseInt(monthStr) - 1;
+                                   }
+                                   
+                                   const { weekdayCount, fridayCount } = calculateDaysForMonth(selectedYear, selectedMonth);
+                                   const weekdaysExcludingFridays = weekdayCount - fridayCount;
+                                   
+                                   return (
+                                     <>
+                                       <div>• Vardagar: {weekdayCount} × {dailyTransfer} kr = {formatCurrency(weekdayCount * dailyTransfer)}</div>
+                                       <div>• Helgdagar: {fridayCount} × {weekendTransfer} kr = {formatCurrency(fridayCount * weekendTransfer)}</div>
+                                     </>
+                                   );
+                                 })()}
+                               </div>
+                             </div>
                           </div>
                         )}
                        </div>
