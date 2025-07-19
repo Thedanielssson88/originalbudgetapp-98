@@ -5839,6 +5839,8 @@ const BudgetCalculator = () => {
         selectedBudgetMonth={selectedBudgetMonth}
         direction={createMonthDirection}
       />
+      {/* Bottom padding for better visual spacing */}
+      <div className="h-16"></div>
     </div>
   );
 };

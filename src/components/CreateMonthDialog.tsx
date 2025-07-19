@@ -72,7 +72,7 @@ const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
@@ -80,7 +80,7 @@ const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
           </DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-6 py-4">
+        <div className="space-y-6 py-4 overflow-y-auto flex-1">
           <RadioGroup value={selectedOption} onValueChange={(value) => setSelectedOption(value as any)}>
             {/* Empty month option */}
             <Card className={`cursor-pointer transition-colors ${selectedOption === 'empty' ? 'ring-2 ring-primary' : ''}`}>
@@ -178,7 +178,7 @@ const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
           )}
         </div>
 
-        <div className="flex gap-2 pt-4">
+        <div className="flex gap-2 pt-4 border-t bg-background">
           <Button variant="outline" onClick={handleCancel} className="flex-1">
             <X className="h-4 w-4 mr-2" />
             Avbryt
