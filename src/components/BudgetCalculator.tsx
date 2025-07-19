@@ -2641,12 +2641,18 @@ const BudgetCalculator = () => {
                                             <ul className="ml-4 mt-1 space-y-1">
                                               {template.costGroups.map((group: any) => {
                                                 const groupTotal = group.subCategories?.reduce((sum: number, sub: any) => sum + sub.amount, 0) || 0;
-                                                const subCategoriesText = group.subCategories && group.subCategories.length > 0 
-                                                  ? ` (${group.subCategories.map((sub: any) => `${sub.name}: ${formatCurrency(sub.amount)}${sub.account ? ` (${sub.account})` : ''}`).join(', ')})`
-                                                  : '';
                                                 return (
                                                   <li key={group.id} className="text-xs">
-                                                    {group.name}: {formatCurrency(groupTotal)}{subCategoriesText}
+                                                    <div className="font-medium">{group.name}: {formatCurrency(groupTotal)}</div>
+                                                    {group.subCategories && group.subCategories.length > 0 && (
+                                                      <ul className="ml-4 mt-1 space-y-1">
+                                                        {group.subCategories.map((sub: any, index: number) => (
+                                                          <li key={index} className="text-xs text-muted-foreground">
+                                                            • {sub.name}: {formatCurrency(sub.amount)}{sub.account ? ` (${sub.account})` : ''}
+                                                          </li>
+                                                        ))}
+                                                      </ul>
+                                                    )}
                                                   </li>
                                                 );
                                               })}
@@ -5416,12 +5422,18 @@ const BudgetCalculator = () => {
                                               <ul className="ml-4 mt-1 space-y-1">
                                                 {template.costGroups.map((group: any) => {
                                                   const groupTotal = group.subCategories?.reduce((sum: number, sub: any) => sum + sub.amount, 0) || 0;
-                                                  const subCategoriesText = group.subCategories && group.subCategories.length > 0 
-                                                    ? ` (${group.subCategories.map((sub: any) => `${sub.name}: ${formatCurrency(sub.amount)}${sub.account ? ` (${sub.account})` : ''}`).join(', ')})`
-                                                    : '';
                                                   return (
                                                     <li key={group.id} className="text-xs">
-                                                      {group.name}: {formatCurrency(groupTotal)}{subCategoriesText}
+                                                      <div className="font-medium">{group.name}: {formatCurrency(groupTotal)}</div>
+                                                      {group.subCategories && group.subCategories.length > 0 && (
+                                                        <ul className="ml-4 mt-1 space-y-1">
+                                                          {group.subCategories.map((sub: any, index: number) => (
+                                                            <li key={index} className="text-xs text-muted-foreground">
+                                                              • {sub.name}: {formatCurrency(sub.amount)}{sub.account ? ` (${sub.account})` : ''}
+                                                            </li>
+                                                          ))}
+                                                        </ul>
+                                                      )}
                                                     </li>
                                                   );
                                                 })}
