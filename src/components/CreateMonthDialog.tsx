@@ -13,6 +13,7 @@ interface CreateMonthDialogProps {
   onCreateMonth: (type: 'empty' | 'template' | 'copy', templateName?: string) => void;
   budgetTemplates: { [key: string]: any };
   selectedBudgetMonth: string;
+  direction?: 'previous' | 'next';
 }
 
 const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
@@ -20,7 +21,8 @@ const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
   onClose,
   onCreateMonth,
   budgetTemplates,
-  selectedBudgetMonth
+  selectedBudgetMonth,
+  direction = 'next'
 }) => {
   const [selectedOption, setSelectedOption] = useState<'empty' | 'template' | 'copy'>('empty');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
@@ -49,13 +51,32 @@ const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
     return `${monthNames[parseInt(month) - 1]} ${year}`;
   };
 
+  const getTargetMonthDisplay = () => {
+    if (!selectedBudgetMonth) return '';
+    const [year, month] = selectedBudgetMonth.split('-');
+    const currentYear = parseInt(year);
+    const currentMonth = parseInt(month);
+    
+    let targetMonth, targetYear;
+    if (direction === 'next') {
+      targetMonth = currentMonth === 12 ? 1 : currentMonth + 1;
+      targetYear = currentMonth === 12 ? currentYear + 1 : currentYear;
+    } else {
+      targetMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+      targetYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+    }
+    
+    const targetMonthKey = `${targetYear}-${String(targetMonth).padStart(2, '0')}`;
+    return formatMonthDisplay(targetMonthKey);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            Skapa ny månad
+            Skapa {direction === 'next' ? 'nästa' : 'föregående'} månad ({getTargetMonthDisplay()})
           </DialogTitle>
         </DialogHeader>
         

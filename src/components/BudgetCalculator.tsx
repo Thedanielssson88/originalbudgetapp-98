@@ -150,6 +150,7 @@ const BudgetCalculator = () => {
 
   // Create month dialog state
   const [isCreateMonthDialogOpen, setIsCreateMonthDialogOpen] = useState<boolean>(false);
+  const [createMonthDirection, setCreateMonthDirection] = useState<'previous' | 'next'>('next');
 
   // Tab navigation helper functions
   const getTabOrder = () => {
@@ -2407,7 +2408,10 @@ const BudgetCalculator = () => {
               <Button
                 variant="ghost"
                 size="lg"
-                onClick={canNavigatePrevious() ? navigateToPreviousMonth : createPreviousMonth}
+                onClick={canNavigatePrevious() ? navigateToPreviousMonth : () => {
+                  setCreateMonthDirection('previous');
+                  setIsCreateMonthDialogOpen(true);
+                }}
                 className={`p-3 h-12 w-12 text-primary hover:text-primary/80`}
               >
                 {canNavigatePrevious() ? (
@@ -2476,7 +2480,10 @@ const BudgetCalculator = () => {
               <Button
                 variant="ghost"
                 size="lg"
-                onClick={canNavigateNext() ? navigateToNextMonth : () => setIsCreateMonthDialogOpen(true)}
+                onClick={canNavigateNext() ? navigateToNextMonth : () => {
+                  setCreateMonthDirection('next');
+                  setIsCreateMonthDialogOpen(true);
+                }}
                 className={`p-3 h-12 w-12 text-primary hover:text-primary/80`}
               >
                 {canNavigateNext() ? (
@@ -5752,6 +5759,7 @@ const BudgetCalculator = () => {
         onCreateMonth={handleCreateMonthFromDialog}
         budgetTemplates={budgetTemplates}
         selectedBudgetMonth={selectedBudgetMonth}
+        direction={createMonthDirection}
       />
     </div>
   );
