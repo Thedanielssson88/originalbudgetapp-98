@@ -2639,11 +2639,17 @@ const BudgetCalculator = () => {
                                           <div>
                                             <span className="font-medium">Kostnadskategorier:</span>
                                             <ul className="ml-4 mt-1 space-y-1">
-                                              {template.costGroups.map((group: any) => (
-                                                <li key={group.id} className="text-xs">
-                                                  {group.name}: {formatCurrency(group.subCategories?.reduce((sum: number, sub: any) => sum + sub.amount, 0) || 0)}
-                                                </li>
-                                              ))}
+                                              {template.costGroups.map((group: any) => {
+                                                const groupTotal = group.subCategories?.reduce((sum: number, sub: any) => sum + sub.amount, 0) || 0;
+                                                const subCategoriesText = group.subCategories && group.subCategories.length > 0 
+                                                  ? ` (${group.subCategories.map((sub: any) => `${sub.name}: ${formatCurrency(sub.amount)}${sub.account ? ` (${sub.account})` : ''}`).join(', ')})`
+                                                  : '';
+                                                return (
+                                                  <li key={group.id} className="text-xs">
+                                                    {group.name}: {formatCurrency(groupTotal)}{subCategoriesText}
+                                                  </li>
+                                                );
+                                              })}
                                             </ul>
                                           </div>
                                         )}
@@ -5408,11 +5414,17 @@ const BudgetCalculator = () => {
                                             <div>
                                               <span className="font-medium">Kostnadskategorier:</span>
                                               <ul className="ml-4 mt-1 space-y-1">
-                                                {template.costGroups.map((group: any) => (
-                                                  <li key={group.id} className="text-xs">
-                                                    {group.name}: {formatCurrency(group.subCategories?.reduce((sum: number, sub: any) => sum + sub.amount, 0) || 0)}
-                                                  </li>
-                                                ))}
+                                                {template.costGroups.map((group: any) => {
+                                                  const groupTotal = group.subCategories?.reduce((sum: number, sub: any) => sum + sub.amount, 0) || 0;
+                                                  const subCategoriesText = group.subCategories && group.subCategories.length > 0 
+                                                    ? ` (${group.subCategories.map((sub: any) => `${sub.name}: ${formatCurrency(sub.amount)}${sub.account ? ` (${sub.account})` : ''}`).join(', ')})`
+                                                    : '';
+                                                  return (
+                                                    <li key={group.id} className="text-xs">
+                                                      {group.name}: {formatCurrency(groupTotal)}{subCategoriesText}
+                                                    </li>
+                                                  );
+                                                })}
                                               </ul>
                                             </div>
                                           )}
