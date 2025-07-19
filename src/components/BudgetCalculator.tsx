@@ -2551,156 +2551,157 @@ const BudgetCalculator = () => {
                             {expandedSections.budgetTemplates ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                           </Button>
                         </div>
-                        
-                        <div className="space-y-4">
-                          {/* Template Selection */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="template-select">Välj budgetmall</Label>
-                              <Select
-                                value={selectedTemplateToCopy}
-                                onValueChange={setSelectedTemplateToCopy}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Välj en budgetmall" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {Object.keys(budgetTemplates).sort().map(templateName => (
-                                    <SelectItem key={templateName} value={templateName}>
-                                      {templateName}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            
-                            <div className="space-y-2">
-                              <Label htmlFor="target-month">Måltminatid</Label>
-                              <div className="text-sm p-2 bg-muted rounded border">
-                                {(() => {
-                                  const monthNames = [
-                                    'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
-                                    'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
-                                  ];
-                                  
-                                  if (selectedBudgetMonth) {
-                                    const [year, month] = selectedBudgetMonth.split('-');
-                                    const monthIndex = parseInt(month) - 1;
-                                    return `${monthNames[monthIndex]} ${year}`;
-                                  } else {
-                                    const currentDate = new Date();
-                                    return `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
-                                  }
-                                })()}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {/* Template Details */}
-                          {selectedTemplateToCopy && (
-                            <div className="space-y-3">
-                              <div className="flex items-center gap-2">
-                                <Checkbox
-                                  id="show-details"
-                                  checked={showTemplateDetails}
-                                  onCheckedChange={(checked) => setShowTemplateDetails(checked as boolean)}
-                                />
-                                <Label htmlFor="show-details" className="text-sm">Visa malldetaljer</Label>
+                         {expandedSections.budgetTemplates && (
+                          <div className="space-y-4">
+                            {/* Template Selection */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="template-select">Välj budgetmall</Label>
+                                <Select
+                                  value={selectedTemplateToCopy}
+                                  onValueChange={setSelectedTemplateToCopy}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Välj en budgetmall" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {Object.keys(budgetTemplates).sort().map(templateName => (
+                                      <SelectItem key={templateName} value={templateName}>
+                                        {templateName}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
                               </div>
                               
-                              {showTemplateDetails && (
-                                <div className="p-3 bg-muted/50 rounded border">
-                                  <h5 className="font-medium mb-2">Detaljer för "{selectedTemplateToCopy}"</h5>
+                              <div className="space-y-2">
+                                <Label htmlFor="target-month">Måltminatid</Label>
+                                <div className="text-sm p-2 bg-muted rounded border">
                                   {(() => {
-                                    const template = budgetTemplates[selectedTemplateToCopy];
-                                    if (!template) return null;
+                                    const monthNames = [
+                                      'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
+                                      'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
+                                    ];
                                     
-                                    const totalCosts = template.costGroups?.reduce((sum: number, group: any) => {
-                                      const subTotal = group.subCategories?.reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-                                      return sum + subTotal;
-                                    }, 0) || 0;
-                                    
-                                    const totalSavings = template.savingsGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0;
-                                    
-                                    return (
-                                      <div className="space-y-2 text-sm">
-                                        <div className="grid grid-cols-2 gap-4">
-                                          <div>
-                                            <span className="font-medium">Totala kostnader:</span>
-                                            <div className="text-destructive">{formatCurrency(totalCosts)}</div>
-                                          </div>
-                                          <div>
-                                            <span className="font-medium">Totalt sparande:</span>
-                                            <div className="text-green-600">{formatCurrency(totalSavings)}</div>
-                                          </div>
-                                        </div>
-                                        
-                                        {template.costGroups && template.costGroups.length > 0 && (
-                                          <div>
-                                            <span className="font-medium">Kostnadskategorier:</span>
-                                            <ul className="ml-4 mt-1 space-y-1">
-                                              {template.costGroups.map((group: any) => {
-                                                const groupTotal = group.subCategories?.reduce((sum: number, sub: any) => sum + sub.amount, 0) || 0;
-                                                return (
-                                                  <li key={group.id} className="text-xs">
-                                                    <div className="font-medium">{group.name}: {formatCurrency(groupTotal)}</div>
-                                                    {group.subCategories && group.subCategories.length > 0 && (
-                                                      <ul className="ml-4 mt-1 space-y-1">
-                                                        {group.subCategories.map((sub: any, index: number) => (
-                                                          <li key={index} className="text-xs text-muted-foreground">
-                                                            • {sub.name}: {formatCurrency(sub.amount)}{sub.account ? ` (${sub.account})` : ''}
-                                                          </li>
-                                                        ))}
-                                                      </ul>
-                                                    )}
-                                                  </li>
-                                                );
-                                              })}
-                                            </ul>
-                                          </div>
-                                        )}
-                                        
-                                        {template.savingsGroups && template.savingsGroups.length > 0 && (
-                                          <div>
-                                            <span className="font-medium">Sparandekategorier:</span>
-                                            <ul className="ml-4 mt-1 space-y-1">
-                                              {template.savingsGroups.map((group: any) => (
-                                                <li key={group.id} className="text-xs">
-                                                  {group.name}: {formatCurrency(group.amount)}
-                                                </li>
-                                              ))}
-                                            </ul>
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
+                                    if (selectedBudgetMonth) {
+                                      const [year, month] = selectedBudgetMonth.split('-');
+                                      const monthIndex = parseInt(month) - 1;
+                                      return `${monthNames[monthIndex]} ${year}`;
+                                    } else {
+                                      const currentDate = new Date();
+                                      return `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+                                    }
                                   })()}
                                 </div>
-                              )}
-                              
-                              <Button
-                                onClick={() => copyTemplateToMonth(selectedTemplateToCopy, selectedBudgetMonth)}
-                                disabled={!selectedTemplateToCopy}
-                                className="w-full"
-                              >
-                                <History className="w-4 h-4 mr-2" />
-                                Kopiera till {(() => {
-                                  const monthNames = [
-                                    'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
-                                    'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
-                                  ];
-                                  
-                                  if (selectedBudgetMonth) {
-                                    const [year, month] = selectedBudgetMonth.split('-');
-                                    const monthIndex = parseInt(month) - 1;
-                                    return `${monthNames[monthIndex]} ${year}`;
-                                  }
-                                  return 'vald månad';
-                                })()}
-                              </Button>
+                              </div>
                             </div>
-                          )}
-                        </div>
+                            
+                            {/* Template Details */}
+                            {selectedTemplateToCopy && (
+                              <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                  <Checkbox
+                                    id="show-details"
+                                    checked={showTemplateDetails}
+                                    onCheckedChange={(checked) => setShowTemplateDetails(checked as boolean)}
+                                  />
+                                  <Label htmlFor="show-details" className="text-sm">Visa malldetaljer</Label>
+                                </div>
+                                
+                                {showTemplateDetails && (
+                                  <div className="p-3 bg-muted/50 rounded border">
+                                    <h5 className="font-medium mb-2">Detaljer för "{selectedTemplateToCopy}"</h5>
+                                    {(() => {
+                                      const template = budgetTemplates[selectedTemplateToCopy];
+                                      if (!template) return null;
+                                      
+                                      const totalCosts = template.costGroups?.reduce((sum: number, group: any) => {
+                                        const subTotal = group.subCategories?.reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+                                        return sum + subTotal;
+                                      }, 0) || 0;
+                                      
+                                      const totalSavings = template.savingsGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0;
+                                      
+                                      return (
+                                        <div className="space-y-2 text-sm">
+                                          <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                              <span className="font-medium">Totala kostnader:</span>
+                                              <div className="text-destructive">{formatCurrency(totalCosts)}</div>
+                                            </div>
+                                            <div>
+                                              <span className="font-medium">Totalt sparande:</span>
+                                              <div className="text-green-600">{formatCurrency(totalSavings)}</div>
+                                            </div>
+                                          </div>
+                                          
+                                          {template.costGroups && template.costGroups.length > 0 && (
+                                            <div>
+                                              <span className="font-medium">Kostnadskategorier:</span>
+                                              <ul className="ml-4 mt-1 space-y-1">
+                                                {template.costGroups.map((group: any) => {
+                                                  const groupTotal = group.subCategories?.reduce((sum: number, sub: any) => sum + sub.amount, 0) || 0;
+                                                  return (
+                                                    <li key={group.id} className="text-xs">
+                                                      <div className="font-medium">{group.name}: {formatCurrency(groupTotal)}</div>
+                                                      {group.subCategories && group.subCategories.length > 0 && (
+                                                        <ul className="ml-4 mt-1 space-y-1">
+                                                          {group.subCategories.map((sub: any, index: number) => (
+                                                            <li key={index} className="text-xs text-muted-foreground">
+                                                              • {sub.name}: {formatCurrency(sub.amount)}{sub.account ? ` (${sub.account})` : ''}
+                                                            </li>
+                                                          ))}
+                                                        </ul>
+                                                      )}
+                                                    </li>
+                                                  );
+                                                })}
+                                              </ul>
+                                            </div>
+                                          )}
+                                          
+                                          {template.savingsGroups && template.savingsGroups.length > 0 && (
+                                            <div>
+                                              <span className="font-medium">Sparandekategorier:</span>
+                                              <ul className="ml-4 mt-1 space-y-1">
+                                                {template.savingsGroups.map((group: any) => (
+                                                  <li key={group.id} className="text-xs">
+                                                    {group.name}: {formatCurrency(group.amount)}
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+                                )}
+                                
+                                <Button
+                                  onClick={() => copyTemplateToMonth(selectedTemplateToCopy, selectedBudgetMonth)}
+                                  disabled={!selectedTemplateToCopy}
+                                  className="w-full"
+                                >
+                                  <History className="w-4 h-4 mr-2" />
+                                  Kopiera till {(() => {
+                                    const monthNames = [
+                                      'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
+                                      'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
+                                    ];
+                                    
+                                    if (selectedBudgetMonth) {
+                                      const [year, month] = selectedBudgetMonth.split('-');
+                                      const monthIndex = parseInt(month) - 1;
+                                      return `${monthNames[monthIndex]} ${year}`;
+                                    }
+                                    return 'vald månad';
+                                  })()}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                     {/* Total Costs with Dropdown */}
