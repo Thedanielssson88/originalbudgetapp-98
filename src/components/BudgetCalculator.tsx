@@ -4003,6 +4003,8 @@ const BudgetCalculator = () => {
                               return sum + groupCosts;
                             }, 0);
                             
+                            // Calculate total amount as sum of absolute values (what needs to be transferred)
+                            const totalAmount = accountSavings + accountCosts;
                             const netAmount = accountSavings - accountCosts;
                             const hasDetails = accountSavings > 0 || accountCosts > 0;
                             
@@ -4024,9 +4026,9 @@ const BudgetCalculator = () => {
                                       </button>
                                     )}
                                   </div>
-                                  <div className={`font-semibold ${netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {netAmount >= 0 ? '+' : ''}{formatCurrency(netAmount)}
-                                  </div>
+                                   <div className={`font-semibold ${netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                     {formatCurrency(totalAmount)}
+                                   </div>
                                 </div>
                                
                                {/* Expandable breakdown */}
@@ -4036,10 +4038,10 @@ const BudgetCalculator = () => {
                                    {savingsGroups
                                      .filter(group => group.account === account)
                                      .map(group => (
-                                       <div key={`savings-${group.id}`} className="flex justify-between text-sm">
-                                         <span className="text-gray-600">{group.name} (Sparande)</span>
-                                         <span className="text-green-600">+{formatCurrency(group.amount)}</span>
-                                       </div>
+                                        <div key={`savings-${group.id}`} className="flex justify-between text-sm">
+                                          <span className="text-gray-600">{group.name} (Sparande)</span>
+                                          <span className="text-green-600">{formatCurrency(group.amount)}</span>
+                                        </div>
                                      ))}
                                    
                                    {/* Costs breakdown */}
@@ -4047,10 +4049,10 @@ const BudgetCalculator = () => {
                                      group.subCategories
                                        ?.filter(sub => sub.account === account)
                                        .map(sub => (
-                                         <div key={`cost-${sub.id}`} className="flex justify-between text-sm">
-                                           <span className="text-gray-600">{sub.name} (Kostnad)</span>
-                                           <span className="text-red-600">-{formatCurrency(sub.amount)}</span>
-                                         </div>
+                                          <div key={`cost-${sub.id}`} className="flex justify-between text-sm">
+                                            <span className="text-gray-600">{sub.name} (Kostnad)</span>
+                                            <span className="text-red-600">{formatCurrency(sub.amount)}</span>
+                                          </div>
                                        ))
                                    )}
                                  </div>
@@ -4243,16 +4245,86 @@ const BudgetCalculator = () => {
                     <div className="p-4 bg-purple-50 rounded-lg">
                       <h4 className="font-medium mb-3">Verifiering</h4>
                       <div className="space-y-3">
-                        <div className="flex justify-between pt-2 border-t">
-                          <span>Differens:</span>
-                          <span className={`font-semibold ${(transferAccount - (results.andreasShare + results.susannaShare) - results.remainingDailyBudget) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {formatCurrency(transferAccount - (results.andreasShare + results.susannaShare) - results.remainingDailyBudget)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Kvar på överföringskonto:</span>
-                          <span className="font-medium">{formatCurrency((transferAccount - (results.andreasShare + results.susannaShare) - results.remainingDailyBudget))}</span>
-                        </div>
+                         <div className="flex justify-between pt-2 border-t">
+                           <span>Differens:</span>
+                           <span className={`font-semibold ${(() => {
+                             // Calculate unchecked accounts total
+                             const uncheckedAccountsTotal = accounts.reduce((sum, account) => {
+                               if (transferChecks[account]) return sum; // Skip checked accounts
+                               const accountSavings = savingsGroups
+                                 .filter(group => group.account === account)
+                                 .reduce((sum, group) => sum + group.amount, 0);
+                               const accountCosts = costGroups.reduce((sum, group) => {
+                                 const groupCosts = group.subCategories
+                                   ?.filter(sub => sub.account === account)
+                                   .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                 return sum + groupCosts;
+                               }, 0);
+                               return sum + accountSavings + accountCosts;
+                             }, 0);
+                             
+                             // Calculate unchecked individual shares
+                             const uncheckedSharesTotal = 
+                               (!andreasShareChecked ? results.andreasShare : 0) +
+                               (!susannaShareChecked ? results.susannaShare : 0);
+                             
+                             const totalUnchecked = uncheckedAccountsTotal + uncheckedSharesTotal + results.remainingDailyBudget;
+                             const difference = transferAccount - totalUnchecked;
+                             return difference >= 0 ? 'text-green-600' : 'text-red-600';
+                           })()}`}>
+                             {(() => {
+                               // Calculate unchecked accounts total
+                               const uncheckedAccountsTotal = accounts.reduce((sum, account) => {
+                                 if (transferChecks[account]) return sum; // Skip checked accounts
+                                 const accountSavings = savingsGroups
+                                   .filter(group => group.account === account)
+                                   .reduce((sum, group) => sum + group.amount, 0);
+                                 const accountCosts = costGroups.reduce((sum, group) => {
+                                   const groupCosts = group.subCategories
+                                     ?.filter(sub => sub.account === account)
+                                     .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                   return sum + groupCosts;
+                                 }, 0);
+                                 return sum + accountSavings + accountCosts;
+                               }, 0);
+                               
+                               // Calculate unchecked individual shares
+                               const uncheckedSharesTotal = 
+                                 (!andreasShareChecked ? results.andreasShare : 0) +
+                                 (!susannaShareChecked ? results.susannaShare : 0);
+                               
+                               const totalUnchecked = uncheckedAccountsTotal + uncheckedSharesTotal + results.remainingDailyBudget;
+                               return formatCurrency(transferAccount - totalUnchecked);
+                             })()}
+                           </span>
+                         </div>
+                         <div className="flex justify-between">
+                           <span>Kvar på överföringskonto:</span>
+                           <span className="font-medium">{(() => {
+                             // Calculate unchecked accounts total
+                             const uncheckedAccountsTotal = accounts.reduce((sum, account) => {
+                               if (transferChecks[account]) return sum; // Skip checked accounts
+                               const accountSavings = savingsGroups
+                                 .filter(group => group.account === account)
+                                 .reduce((sum, group) => sum + group.amount, 0);
+                               const accountCosts = costGroups.reduce((sum, group) => {
+                                 const groupCosts = group.subCategories
+                                   ?.filter(sub => sub.account === account)
+                                   .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                 return sum + groupCosts;
+                               }, 0);
+                               return sum + accountSavings + accountCosts;
+                             }, 0);
+                             
+                             // Calculate unchecked individual shares
+                             const uncheckedSharesTotal = 
+                               (!andreasShareChecked ? results.andreasShare : 0) +
+                               (!susannaShareChecked ? results.susannaShare : 0);
+                             
+                             const totalUnchecked = uncheckedAccountsTotal + uncheckedSharesTotal + results.remainingDailyBudget;
+                             return formatCurrency(transferAccount - totalUnchecked);
+                           })()}</span>
+                         </div>
                       </div>
                     </div>
                   </div>
