@@ -1168,6 +1168,76 @@ const BudgetCalculator = () => {
     return currentIndex >= 0 && currentIndex < monthsWithData.length - 1;
   };
 
+  // Function to create previous month with current month's data
+  const createPreviousMonth = () => {
+    if (!selectedBudgetMonth) return;
+    
+    const [year, month] = selectedBudgetMonth.split('-');
+    const currentYear = parseInt(year);
+    const currentMonth = parseInt(month);
+    
+    const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+    const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+    const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+    
+    // Don't create if it already exists
+    if (historicalData[prevMonthKey]) {
+      handleBudgetMonthChange(prevMonthKey);
+      return;
+    }
+    
+    // Copy current month's data to new previous month
+    const currentMonthData = historicalData[selectedBudgetMonth];
+    if (currentMonthData) {
+      setHistoricalData(prev => ({
+        ...prev,
+        [prevMonthKey]: {
+          ...currentMonthData,
+          // Update any date-specific properties if needed
+          createdAt: new Date().toISOString()
+        }
+      }));
+    }
+    
+    // Switch to the new month
+    handleBudgetMonthChange(prevMonthKey);
+  };
+
+  // Function to create next month with current month's data
+  const createNextMonth = () => {
+    if (!selectedBudgetMonth) return;
+    
+    const [year, month] = selectedBudgetMonth.split('-');
+    const currentYear = parseInt(year);
+    const currentMonth = parseInt(month);
+    
+    const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
+    const nextYear = currentMonth === 12 ? currentYear + 1 : currentYear;
+    const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+    
+    // Don't create if it already exists
+    if (historicalData[nextMonthKey]) {
+      handleBudgetMonthChange(nextMonthKey);
+      return;
+    }
+    
+    // Copy current month's data to new next month
+    const currentMonthData = historicalData[selectedBudgetMonth];
+    if (currentMonthData) {
+      setHistoricalData(prev => ({
+        ...prev,
+        [nextMonthKey]: {
+          ...currentMonthData,
+          // Update any date-specific properties if needed
+          createdAt: new Date().toISOString()
+        }
+      }));
+    }
+    
+    // Switch to the new month
+    handleBudgetMonthChange(nextMonthKey);
+  };
+
   // Function to handle month selection change
   const handleBudgetMonthChange = (monthKey: string) => {
     // Save current data to current month before switching
@@ -2141,11 +2211,14 @@ const BudgetCalculator = () => {
               <Button
                 variant="ghost"
                 size="lg"
-                onClick={navigateToPreviousMonth}
-                disabled={!canNavigatePrevious()}
-                className={`p-3 h-12 w-12 ${!canNavigatePrevious() ? 'text-muted-foreground/50' : 'text-primary hover:text-primary/80'}`}
+                onClick={canNavigatePrevious() ? navigateToPreviousMonth : createPreviousMonth}
+                className={`p-3 h-12 w-12 text-primary hover:text-primary/80`}
               >
-                <ChevronLeft className="h-6 w-6" />
+                {canNavigatePrevious() ? (
+                  <ChevronLeft className="h-6 w-6" />
+                ) : (
+                  <Plus className="h-6 w-6" />
+                )}
               </Button>
               
               <Select 
@@ -2207,11 +2280,14 @@ const BudgetCalculator = () => {
               <Button
                 variant="ghost"
                 size="lg"
-                onClick={navigateToNextMonth}
-                disabled={!canNavigateNext()}
-                className={`p-3 h-12 w-12 ${!canNavigateNext() ? 'text-muted-foreground/50' : 'text-primary hover:text-primary/80'}`}
+                onClick={canNavigateNext() ? navigateToNextMonth : createNextMonth}
+                className={`p-3 h-12 w-12 text-primary hover:text-primary/80`}
               >
-                <ChevronRight className="h-6 w-6" />
+                {canNavigateNext() ? (
+                  <ChevronRight className="h-6 w-6" />
+                ) : (
+                  <Plus className="h-6 w-6" />
+                )}
               </Button>
             </div>
           </CardContent>
