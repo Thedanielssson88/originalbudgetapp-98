@@ -103,7 +103,8 @@ const BudgetCalculator = () => {
     andreasDetails: false,
     susannaDetails: false,
     remainingAmountDistribution: false,
-    remainingDailyBudgetDistribution: false
+    remainingDailyBudgetDistribution: false,
+    individualSharesDistribution: false
   });
 
   // Budget category expandable states
@@ -4112,13 +4113,40 @@ const BudgetCalculator = () => {
                                 <span>Totalt återstående belopp efter budget:</span>
                                 <span className={`font-medium ${(results.andreasShare + results.susannaShare) < 0 ? 'text-red-600' : ''}`}>{formatCurrency(results.andreasShare + results.susannaShare)}</span>
                               </div>
-                              <div className="flex justify-between">
-                                <span>{userName1}s andel ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%):</span>
-                                <span className="font-medium">{formatCurrency(results.andreasShare)}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>{userName2}s andel ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%):</span>
-                                <span className="font-medium">{formatCurrency(results.susannaShare)}</span>
+                              
+                              {/* Individual Shares - Expandable section */}
+                              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 mt-4">
+                                <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('individualSharesDistribution')}>
+                                  <div>
+                                    <div className="text-sm text-blue-700 font-medium">Individuella andelar</div>
+                                    <div className="text-lg font-bold text-blue-800">
+                                      {formatCurrency(results.andreasShare + results.susannaShare)}
+                                    </div>
+                                  </div>
+                                  {expandedSections.individualSharesDistribution ? <ChevronUp className="h-5 w-5 text-blue-600" /> : <ChevronDown className="h-5 w-5 text-blue-600" />}
+                                </div>
+                                
+                                {expandedSections.individualSharesDistribution && (
+                                  <div className="mt-4 space-y-3">
+                                    <div className="bg-white p-3 rounded border">
+                                      <h5 className="font-medium text-blue-800 mb-2">Fördelning baserat på inkomst</h5>
+                                      <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between">
+                                          <span>{userName1}s andel ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%):</span>
+                                          <span className="font-semibold text-blue-700">{formatCurrency(results.andreasShare)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span>{userName2}s andel ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%):</span>
+                                          <span className="font-semibold text-blue-700">{formatCurrency(results.susannaShare)}</span>
+                                        </div>
+                                        <div className="flex justify-between pt-2 border-t font-medium">
+                                          <span>Totalt att fördela:</span>
+                                          <span className="text-blue-800">{formatCurrency(results.andreasShare + results.susannaShare)}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                               
                               {/* Kvar av Daglig budget - Expandable section */}
