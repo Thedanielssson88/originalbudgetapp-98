@@ -2706,7 +2706,21 @@ const BudgetCalculator = () => {
           {/* Current page title */}
           <div className="mb-6">
             <h1 className="text-3xl font-bold text-center">
-              {activeTab === 'inkomster' && `Min Månadsbudget - Juli 2025`}
+              {activeTab === 'inkomster' && (() => {
+                const monthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 
+                                  'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
+                
+                if (selectedBudgetMonth) {
+                  const [year, month] = selectedBudgetMonth.split('-');
+                  const monthIndex = parseInt(month) - 1;
+                  return `Min Månadsbudget - ${monthNames[monthIndex]} ${year}`;
+                } else {
+                  const currentDate = new Date();
+                  const currentMonth = monthNames[currentDate.getMonth()];
+                  const currentYear = currentDate.getFullYear();
+                  return `Min Månadsbudget - ${currentMonth} ${currentYear}`;
+                }
+              })()}
               {activeTab === 'sammanstallning' && 'Sammanställning'}
               {activeTab === 'overforing' && 'Överföring'}
               {activeTab === 'egen-budget' && 'Egen Budget'}
@@ -2845,10 +2859,10 @@ const BudgetCalculator = () => {
                         Budgetkategorier
                       </CardTitle>
                       <CardDescription className="text-red-700">
-                        Totala kostnader: {formatCurrency(costGroups.reduce((sum, group) => {
+                        {formatCurrency(costGroups.reduce((sum, group) => {
                           const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
                           return sum + subCategoriesTotal;
-                        }, 0))}, Total daglig budget: {formatCurrency(dailyTransfer * 31 + weekendTransfer * 8)}, Totalt sparande: {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
+                        }, 0) + (dailyTransfer * 31 + weekendTransfer * 8) + savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
                       </CardDescription>
                     </div>
                     <ChevronDown className={`h-4 w-4 transition-transform text-red-800 ${expandedSections.budgetCategories ? 'rotate-180' : ''}`} />
