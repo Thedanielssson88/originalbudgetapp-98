@@ -4663,16 +4663,23 @@ const BudgetCalculator = () => {
                   : ""
             }`}>
               <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-primary" />
-                  Kontroll av belopp
-                </CardTitle>
-                <CardDescription>
-                  Kontrollera överföringsbelopp och saldo
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5 text-primary" />
+                    Överföringar
+                  </CardTitle>
+                  <CardDescription>
+                    Hantera överföringar till konton och daglig budget
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Tabs defaultValue="account-transfers" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="account-transfers">Överföring till konton</TabsTrigger>
+                      <TabsTrigger value="daily-transfer">Daglig överföring</TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="account-transfers" className="space-y-6 mt-6">
                  <div className="space-y-2">
                    <Label htmlFor="transfer-account">Överföringskonto saldo</Label>
                    <Input
@@ -4882,48 +4889,6 @@ const BudgetCalculator = () => {
                                  </div>
                                </div>
                               
-                              {/* Kvar av Daglig budget - Expandable section */}
-                              <div className="p-4 bg-amber-50 rounded-lg border border-amber-200 mt-4">
-                                <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('remainingDailyBudgetDistribution')}>
-                                  <div>
-                                    <div className="text-sm text-amber-700 font-medium">Kvar av Daglig budget</div>
-                                    <div className="text-lg font-bold text-amber-800">
-                                      {formatCurrency(results.remainingDailyBudget)}
-                                    </div>
-                                  </div>
-                                  {expandedSections.remainingDailyBudgetDistribution ? <ChevronUp className="h-5 w-5 text-amber-600" /> : <ChevronDown className="h-5 w-5 text-amber-600" />}
-                                </div>
-                                
-                                {expandedSections.remainingDailyBudgetDistribution && (
-                                  <div className="mt-4 space-y-3">
-                                    <div className="bg-white p-3 rounded border">
-                                      <h5 className="font-medium text-amber-800 mb-2">Detaljerad överföringsplan</h5>
-                                      <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between">
-                                          <span>Antal dagar till lön (den 25):</span>
-                                          <span className="font-medium">{results.daysUntil25th} dagar</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                          <span>Vardagar ({results.remainingWeekdayCount} st):</span>
-                                          <span>{formatCurrency(dailyTransfer)} per dag</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                          <span>Helgdagar ({results.remainingFridayCount} st):</span>
-                                          <span>{formatCurrency(weekendTransfer)} per dag</span>
-                                        </div>
-                                        <div className="flex justify-between pt-2 border-t font-medium">
-                                          <span>Total överföring behövs:</span>
-                                          <span className="text-amber-700">{formatCurrency(results.remainingWeekdayCount * dailyTransfer + results.remainingFridayCount * weekendTransfer)}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                          <span>Återstående daglig budget:</span>
-                                          <span className="font-semibold text-amber-800">{formatCurrency(results.remainingDailyBudget)}</span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
                               
                             </div>
                           </div>
@@ -5017,9 +4982,35 @@ const BudgetCalculator = () => {
                       </div>
                     </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                 )}
+                    </TabsContent>
+                    
+                    <TabsContent value="daily-transfer" className="space-y-6 mt-6">
+                      {results && (
+                        <div className="space-y-4">
+                          <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                            <div className="text-sm text-amber-700 font-medium mb-2">Återstående daglig budget:</div>
+                            <div className="space-y-1 pl-2">
+                              <div className="flex justify-between">
+                                <span>• Återstående vardagar: {results.remainingWeekdayCount || 0} × {formatCurrency(dailyTransfer)} =</span>
+                                <span className="font-medium">{formatCurrency((results.remainingWeekdayCount || 0) * dailyTransfer)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>• Återstående helgdagar: {results.remainingFridayCount || 0} × {formatCurrency(weekendTransfer)} =</span>
+                                <span className="font-medium">{formatCurrency((results.remainingFridayCount || 0) * weekendTransfer)}</span>
+                              </div>
+                              <div className="flex justify-between pt-2 border-t">
+                                <span className="font-medium text-amber-800">Återstående daglig budget:</span>
+                                <span className="font-semibold text-amber-800">{formatCurrency(results.remainingDailyBudget || 0)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
