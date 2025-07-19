@@ -135,6 +135,61 @@ const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
               </CardContent>
             </Card>
 
+            {/* Show template details if template is selected */}
+            {selectedOption === 'template' && selectedTemplate && budgetTemplates[selectedTemplate] && (
+              <Card className="bg-muted/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Detaljer för "{selectedTemplate}"</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0 space-y-3 text-sm">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-muted-foreground">Skapad:</span>
+                      <p className="font-medium">{new Date(budgetTemplates[selectedTemplate].created).toLocaleDateString('sv-SE')}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Kategorier:</span>
+                      <p className="font-medium">
+                        {(budgetTemplates[selectedTemplate].costGroups?.length || 0)} kostnader, {(budgetTemplates[selectedTemplate].savingsGroups?.length || 0)} sparande
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h6 className="font-medium text-green-600 mb-2">Inkomster</h6>
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span>Andreas:</span>
+                          <span>{((budgetTemplates[selectedTemplate].andreasSalary || 0) + (budgetTemplates[selectedTemplate].andreasförsäkringskassan || 0) + (budgetTemplates[selectedTemplate].andreasbarnbidrag || 0)).toLocaleString('sv-SE')} kr</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Susanna:</span>
+                          <span>{((budgetTemplates[selectedTemplate].susannaSalary || 0) + (budgetTemplates[selectedTemplate].susannaförsäkringskassan || 0) + (budgetTemplates[selectedTemplate].susannabarnbidrag || 0)).toLocaleString('sv-SE')} kr</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <h6 className="font-medium text-red-600 mb-2">Kostnader</h6>
+                      <div className="space-y-1">
+                        {budgetTemplates[selectedTemplate].costGroups?.slice(0, 3).map((group: any) => (
+                          <div key={group.id} className="flex justify-between">
+                            <span>{group.name}:</span>
+                            <span>{group.amount.toLocaleString('sv-SE')} kr</span>
+                          </div>
+                        ))}
+                        {budgetTemplates[selectedTemplate].costGroups?.length > 3 && (
+                          <div className="text-muted-foreground">
+                            +{budgetTemplates[selectedTemplate].costGroups.length - 3} fler kategorier...
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Copy current month option */}
             <Card className={`cursor-pointer transition-colors ${selectedOption === 'copy' ? 'ring-2 ring-primary' : ''}`}>
               <CardContent className="p-4">
@@ -153,61 +208,6 @@ const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
               </CardContent>
             </Card>
           </RadioGroup>
-
-          {/* Show template details if template is selected */}
-          {selectedOption === 'template' && selectedTemplate && budgetTemplates[selectedTemplate] && (
-            <Card className="bg-muted/50">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Detaljer för "{selectedTemplate}"</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0 space-y-3 text-sm">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-muted-foreground">Skapad:</span>
-                    <p className="font-medium">{new Date(budgetTemplates[selectedTemplate].created).toLocaleDateString('sv-SE')}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Kategorier:</span>
-                    <p className="font-medium">
-                      {(budgetTemplates[selectedTemplate].costGroups?.length || 0)} kostnader, {(budgetTemplates[selectedTemplate].savingsGroups?.length || 0)} sparande
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h6 className="font-medium text-green-600 mb-2">Inkomster</h6>
-                    <div className="space-y-1">
-                      <div className="flex justify-between">
-                        <span>Andreas:</span>
-                        <span>{((budgetTemplates[selectedTemplate].andreasSalary || 0) + (budgetTemplates[selectedTemplate].andreasförsäkringskassan || 0) + (budgetTemplates[selectedTemplate].andreasbarnbidrag || 0)).toLocaleString('sv-SE')} kr</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Susanna:</span>
-                        <span>{((budgetTemplates[selectedTemplate].susannaSalary || 0) + (budgetTemplates[selectedTemplate].susannaförsäkringskassan || 0) + (budgetTemplates[selectedTemplate].susannabarnbidrag || 0)).toLocaleString('sv-SE')} kr</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <h6 className="font-medium text-red-600 mb-2">Kostnader</h6>
-                    <div className="space-y-1">
-                      {budgetTemplates[selectedTemplate].costGroups?.slice(0, 3).map((group: any) => (
-                        <div key={group.id} className="flex justify-between">
-                          <span>{group.name}:</span>
-                          <span>{group.amount.toLocaleString('sv-SE')} kr</span>
-                        </div>
-                      ))}
-                      {budgetTemplates[selectedTemplate].costGroups?.length > 3 && (
-                        <div className="text-muted-foreground">
-                          +{budgetTemplates[selectedTemplate].costGroups.length - 3} fler kategorier...
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
 
         <div className="flex gap-2 pt-4 border-t bg-background">
