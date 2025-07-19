@@ -2862,7 +2862,7 @@ const BudgetCalculator = () => {
                         {formatCurrency(costGroups.reduce((sum, group) => {
                           const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
                           return sum + subCategoriesTotal;
-                        }, 0) + (dailyTransfer * 31 + weekendTransfer * 8) + savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
+                        }, 0) + (results ? results.totalDailyBudget : 0) + savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
                       </CardDescription>
                     </div>
                     <ChevronDown className={`h-4 w-4 transition-transform text-red-800 ${expandedSections.budgetCategories ? 'rotate-180' : ''}`} />
