@@ -5397,6 +5397,11 @@ const BudgetCalculator = () => {
                               // Reset selection after deletion
                               setSelectedHistoricalMonth('');
                               
+                              // Save changes immediately to localStorage
+                              setTimeout(() => {
+                                saveToLocalStorage();
+                              }, 0);
+                              
                               // If the deleted month was the currently selected budget month, reset to current month
                               if (selectedBudgetMonth === monthToDelete) {
                                 const currentDate = new Date();
