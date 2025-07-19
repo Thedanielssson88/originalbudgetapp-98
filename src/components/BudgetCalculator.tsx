@@ -713,12 +713,12 @@ const BudgetCalculator = () => {
         remainingEndDate = new Date(nextYear, adjustedMonth, 25);
       }
     } else {
-      // For future months: from 25th of previous month to 24th of selected month (same as total budget calculation)
+      // For other months: from 24th of previous month to 25th of selected month
       const prevMonth = selectedMonth - 1;
       const prevYear = prevMonth < 0 ? selectedYear - 1 : selectedYear;
       const adjustedPrevMonth = prevMonth < 0 ? 11 : prevMonth;
-      remainingStartDate = new Date(prevYear, adjustedPrevMonth, 25);
-      remainingEndDate = new Date(selectedYear, selectedMonth, 24);
+      remainingStartDate = new Date(prevYear, adjustedPrevMonth, 24);
+      remainingEndDate = new Date(selectedYear, selectedMonth, 25);
     }
     
     let currentDatePointer = new Date(remainingStartDate);
@@ -5836,59 +5836,18 @@ const BudgetCalculator = () => {
                                       
                                       const totalSavings = template.savingsGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0;
                                       
-                                       // Calculate daily budget for template
-                                       const templateDailyTransfer = template.dailyTransfer || 300;
-                                       const templateWeekendTransfer = template.weekendTransfer || 540;
-                                       
-                                       // Mock calculation for template display (simplified)
-                                       // Using approximate weekday/weekend counts for a month
-                                       const approximateWeekdays = 21;
-                                       const approximateFridays = 5;
-                                       const totalDailyBudget = (approximateWeekdays * templateDailyTransfer) + (approximateFridays * templateWeekendTransfer);
-                                       
-                                       return (
-                                         <div className="space-y-3 text-sm">
-                                           <div className="grid grid-cols-3 gap-4">
-                                             <div>
-                                               <span className="font-medium">Totala kostnader:</span>
-                                               <div className="text-destructive">{formatCurrency(totalCosts)}</div>
-                                             </div>
-                                             <div>
-                                               <span className="font-medium">Totalt sparande:</span>
-                                               <div className="text-green-600">{formatCurrency(totalSavings)}</div>
-                                             </div>
-                                             <div>
-                                               <span className="font-medium">Total daglig budget:</span>
-                                               <div className="text-blue-600">{formatCurrency(totalDailyBudget)}</div>
-                                             </div>
-                                           </div>
-                                           
-                                           {/* Daily Budget Calculation Details */}
-                                           <div className="bg-blue-50 p-3 rounded-lg">
-                                             <p className="font-medium mb-2">Budgetöverföringar</p>
-                                             <div className="space-y-1 text-xs">
-                                               <div className="flex justify-between">
-                                                 <span>Daglig överföring (måndag-torsdag):</span>
-                                                 <span className="font-medium">{formatCurrency(templateDailyTransfer)}</span>
-                                               </div>
-                                               <div className="flex justify-between">
-                                                 <span>Helgöverföring (fredag-söndag):</span>
-                                                 <span className="font-medium">{formatCurrency(templateWeekendTransfer)}</span>
-                                               </div>
-                                               <div className="flex justify-between pt-1 border-t border-blue-200">
-                                                 <span>Vardagar: {approximateWeekdays} × {formatCurrency(templateDailyTransfer)} =</span>
-                                                 <span className="font-medium">{formatCurrency(approximateWeekdays * templateDailyTransfer)}</span>
-                                               </div>
-                                               <div className="flex justify-between">
-                                                 <span>Helgdagar: {approximateFridays} × {formatCurrency(templateWeekendTransfer)} =</span>
-                                                 <span className="font-medium">{formatCurrency(approximateFridays * templateWeekendTransfer)}</span>
-                                               </div>
-                                               <div className="flex justify-between pt-1 border-t border-blue-200 font-semibold">
-                                                 <span>Total daglig budget:</span>
-                                                 <span className="text-blue-600">{formatCurrency(totalDailyBudget)}</span>
-                                               </div>
-                                             </div>
-                                           </div>
+                                      return (
+                                        <div className="space-y-3 text-sm">
+                                          <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                              <span className="font-medium">Totala kostnader:</span>
+                                              <div className="text-destructive">{formatCurrency(totalCosts)}</div>
+                                            </div>
+                                            <div>
+                                              <span className="font-medium">Totalt sparande:</span>
+                                              <div className="text-green-600">{formatCurrency(totalSavings)}</div>
+                                            </div>
+                                          </div>
                                           
                                           {template.costGroups && template.costGroups.length > 0 && (
                                             <div>
