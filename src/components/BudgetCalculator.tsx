@@ -1261,6 +1261,52 @@ const BudgetCalculator = () => {
     saveToSelectedMonth();
   };
 
+  const copyTemplateToJuli2025 = (templateName: string) => {
+    const template = budgetTemplates[templateName];
+    if (!template) return;
+    
+    const juli2025Key = '2025-07';
+    
+    // Create historical data entry for Juli 2025
+    const historicalEntry = {
+      andreasSalary: template.andreasSalary || 45000,
+      andreasförsäkringskassan: template.andreasförsäkringskassan || 0,
+      andreasbarnbidrag: template.andreasbarnbidrag || 0,
+      susannaSalary: template.susannaSalary || 40000,
+      susannaförsäkringskassan: template.susannaförsäkringskassan || 5000,
+      susannabarnbidrag: template.susannabarnbidrag || 0,
+      costGroups: JSON.parse(JSON.stringify(template.costGroups || [])),
+      savingsGroups: JSON.parse(JSON.stringify(template.savingsGroups || [])),
+      dailyTransfer: template.dailyTransfer || 300,
+      weekendTransfer: template.weekendTransfer || 540,
+      customHolidays: JSON.parse(JSON.stringify(template.customHolidays || [])),
+      andreasPersonalCosts: JSON.parse(JSON.stringify(template.andreasPersonalCosts || [])),
+      andreasPersonalSavings: JSON.parse(JSON.stringify(template.andreasPersonalSavings || [])),
+      susannaPersonalCosts: JSON.parse(JSON.stringify(template.susannaPersonalCosts || [])),
+      susannaPersonalSavings: JSON.parse(JSON.stringify(template.susannaPersonalSavings || [])),
+      accounts: JSON.parse(JSON.stringify(template.accounts || ['Löpande', 'Sparkonto', 'Buffert'])),
+      transferChecks: {},
+      andreasShareChecked: false,
+      susannaShareChecked: false,
+      results: null,
+      transferAccount: 0,
+      date: new Date().toISOString()
+    };
+    
+    // Update historical data
+    const updatedHistoricalData = {
+      ...historicalData,
+      [juli2025Key]: historicalEntry
+    };
+    
+    setHistoricalData(updatedHistoricalData);
+    
+    // Auto-save to localStorage
+    setTimeout(() => {
+      saveToLocalStorage();
+    }, 0);
+  };
+
   const deleteBudgetTemplate = (templateName: string) => {
     setBudgetTemplates(prev => {
       const updated = { ...prev };
@@ -2422,6 +2468,30 @@ const BudgetCalculator = () => {
                 </CardHeader>
                 {expandedSections.budgetCategories && (
                   <CardContent className="space-y-6">
+                    {/* Copy to Juli 2025 Section */}
+                    {Object.keys(budgetTemplates).length > 0 && (
+                      <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <h4 className="font-semibold text-primary">Kopiera Budgetmall till Juli 2025</h4>
+                            <p className="text-sm text-muted-foreground">Välj en budgetmall att kopiera till Min Månadsbudget - Juli 2025</p>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {Object.keys(budgetTemplates).sort().map(templateName => (
+                            <Button
+                              key={templateName}
+                              onClick={() => copyTemplateToJuli2025(templateName)}
+                              size="sm"
+                              variant="outline"
+                              className="border-primary/30 hover:bg-primary/10"
+                            >
+                              Kopiera "{templateName}"
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {/* Total Costs with Dropdown */}
                     <div className="p-4 bg-destructive/10 rounded-lg">
                       <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('costCategories')}>
@@ -5133,14 +5203,22 @@ const BudgetCalculator = () => {
                                        </p>
                                      </div>
                                      <div className="flex gap-2">
-                                       <Button
-                                         onClick={() => loadBudgetTemplate(templateName)}
-                                         size="sm"
-                                         variant="outline"
-                                         className="text-xs"
-                                       >
-                                         Ladda mall
-                                       </Button>
+                                        <Button
+                                          onClick={() => loadBudgetTemplate(templateName)}
+                                          size="sm"
+                                          variant="outline"
+                                          className="text-xs"
+                                        >
+                                          Ladda mall
+                                        </Button>
+                                        <Button
+                                          onClick={() => copyTemplateToJuli2025(templateName)}
+                                          size="sm"
+                                          variant="outline"
+                                          className="text-xs"
+                                        >
+                                          Kopiera till Juli 2025
+                                        </Button>
                                        <Button
                                          onClick={() => startEditingTemplate(templateName)}
                                          size="sm"
