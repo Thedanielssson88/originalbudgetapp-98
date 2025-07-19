@@ -4313,17 +4313,56 @@ const BudgetCalculator = () => {
                    </div>
 
 
-                  {/* Budget Not Transferred (Red Days) */}
-                  <div className="p-4 bg-red-50 rounded-lg">
-                    <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('redDays')}>
-                      <div>
-                        <div className="text-sm text-muted-foreground">Budget som ej överförs (röda dagar)</div>
-                        <div className="text-2xl font-bold text-red-600">
-                          {results ? formatCurrency(results.holidayDaysBudget) : 'Beräknar...'}
-                        </div>
-                      </div>
-                      {expandedSections.redDays ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                    </div>
+                   {/* Remaining Daily Budget */}
+                   <div className="p-4 bg-amber-50 rounded-lg">
+                     <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('remainingDailyBudgetDistribution')}>
+                       <div>
+                         <div className="text-sm text-muted-foreground">Återstående daglig budget</div>
+                         <div className="text-2xl font-bold text-amber-600">
+                           {results ? formatCurrency(results.remainingDailyBudget) : 'Beräknar...'}
+                         </div>
+                       </div>
+                       {expandedSections.remainingDailyBudgetDistribution ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                     </div>
+                     
+                     {expandedSections.remainingDailyBudgetDistribution && (
+                       <div className="mt-4 space-y-4">
+                         {results && (
+                           <div className="space-y-4">
+                             <div className="p-4 bg-amber-100 rounded-lg border border-amber-200">
+                               <div className="text-sm text-amber-700 font-medium mb-2">Beräkning återstående daglig budget:</div>
+                               <div className="space-y-1 pl-2">
+                                 <div className="flex justify-between">
+                                   <span>• Återstående vardagar: {results.remainingWeekdayCount || 0} × {formatCurrency(dailyTransfer)} =</span>
+                                   <span className="font-medium">{formatCurrency((results.remainingWeekdayCount || 0) * dailyTransfer)}</span>
+                                 </div>
+                                 <div className="flex justify-between">
+                                   <span>• Återstående helgdagar: {results.remainingFridayCount || 0} × {formatCurrency(weekendTransfer)} =</span>
+                                   <span className="font-medium">{formatCurrency((results.remainingFridayCount || 0) * weekendTransfer)}</span>
+                                 </div>
+                                 <div className="flex justify-between pt-2 border-t">
+                                   <span className="font-medium text-amber-800">Återstående daglig budget:</span>
+                                   <span className="font-semibold text-amber-800">{formatCurrency(results.remainingDailyBudget || 0)}</span>
+                                 </div>
+                               </div>
+                             </div>
+                           </div>
+                         )}
+                       </div>
+                     )}
+                   </div>
+
+                   {/* Budget Not Transferred (Red Days) */}
+                   <div className="p-4 bg-red-50 rounded-lg">
+                     <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('redDays')}>
+                       <div>
+                         <div className="text-sm text-muted-foreground">Budget som ej överförs (röda dagar)</div>
+                         <div className="text-2xl font-bold text-red-600">
+                           {results ? formatCurrency(results.holidayDaysBudget) : 'Beräknar...'}
+                         </div>
+                       </div>
+                       {expandedSections.redDays ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                     </div>
                     
                     {expandedSections.redDays && (
                       <div className="mt-4 space-y-4">
