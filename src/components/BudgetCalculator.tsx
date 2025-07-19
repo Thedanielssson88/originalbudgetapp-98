@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useSwipeGestures } from '@/hooks/useSwipeGestures';
+import CreateMonthDialog from './CreateMonthDialog';
 
 interface SubCategory {
   id: string;
@@ -146,6 +147,9 @@ const BudgetCalculator = () => {
   const [transferChecks, setTransferChecks] = useState<{[key: string]: boolean}>({});
   const [andreasShareChecked, setAndreasShareChecked] = useState<boolean>(false);
   const [susannaShareChecked, setSusannaShareChecked] = useState<boolean>(false);
+
+  // Create month dialog state
+  const [isCreateMonthDialogOpen, setIsCreateMonthDialogOpen] = useState<boolean>(false);
 
   // Tab navigation helper functions
   const getTabOrder = () => {
@@ -1316,6 +1320,120 @@ const BudgetCalculator = () => {
     }
   };
 
+  // Function to handle month creation from dialog
+  const handleCreateMonthFromDialog = (type: 'empty' | 'template' | 'copy', templateName?: string) => {
+    if (!selectedBudgetMonth) return;
+    
+    const [year, month] = selectedBudgetMonth.split('-');
+    const currentYear = parseInt(year);
+    const currentMonth = parseInt(month);
+    
+    const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
+    const nextYear = currentMonth === 12 ? currentYear + 1 : currentYear;
+    const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+    
+    // Don't create if it already exists
+    if (historicalData[nextMonthKey]) {
+      handleBudgetMonthChange(nextMonthKey);
+      return;
+    }
+    
+    let newMonthData: any;
+    
+    if (type === 'empty') {
+      // Create empty month with same categories but no amounts
+      const currentMonthData = historicalData[selectedBudgetMonth];
+      if (currentMonthData) {
+        newMonthData = {
+          ...currentMonthData,
+          // Reset all income values to 0
+          andreasSalary: 0,
+          andreasförsäkringskassan: 0,
+          andreasbarnbidrag: 0,
+          susannaSalary: 0,
+          susannaförsäkringskassan: 0,
+          susannabarnbidrag: 0,
+          // Reset all category amounts to 0
+          costGroups: (currentMonthData.costGroups || []).map((group: any) => ({
+            ...group,
+            amount: 0,
+            subCategories: (group.subCategories || []).map((sub: any) => ({
+              ...sub,
+              amount: 0
+            }))
+          })),
+          savingsGroups: (currentMonthData.savingsGroups || []).map((group: any) => ({
+            ...group,
+            amount: 0,
+            subCategories: (group.subCategories || []).map((sub: any) => ({
+              ...sub,
+              amount: 0
+            }))
+          })),
+          // Reset transfers
+          dailyTransfer: 0,
+          weekendTransfer: 0,
+          // Reset personal budgets
+          andreasPersonalCosts: (currentMonthData.andreasPersonalCosts || []).map((item: any) => ({
+            ...item,
+            amount: 0
+          })),
+          andreasPersonalSavings: (currentMonthData.andreasPersonalSavings || []).map((item: any) => ({
+            ...item,
+            amount: 0
+          })),
+          susannaPersonalCosts: (currentMonthData.susannaPersonalCosts || []).map((item: any) => ({
+            ...item,
+            amount: 0
+          })),
+          susannaPersonalSavings: (currentMonthData.susannaPersonalSavings || []).map((item: any) => ({
+            ...item,
+            amount: 0
+          })),
+          createdAt: new Date().toISOString()
+        };
+      }
+    } else if (type === 'template' && templateName && budgetTemplates[templateName]) {
+      // Use template data
+      const template = budgetTemplates[templateName];
+      newMonthData = {
+        ...template,
+        createdAt: new Date().toISOString()
+      };
+    } else if (type === 'copy') {
+      // Copy current month with all data (but reset income to 0 as per existing behavior)
+      const currentMonthData = historicalData[selectedBudgetMonth];
+      if (currentMonthData) {
+        newMonthData = {
+          ...currentMonthData,
+          // Reset all income values to 0
+          andreasSalary: 0,
+          andreasförsäkringskassan: 0,
+          andreasbarnbidrag: 0,
+          susannaSalary: 0,
+          susannaförsäkringskassan: 0,
+          susannabarnbidrag: 0,
+          createdAt: new Date().toISOString()
+        };
+      }
+    }
+    
+    if (newMonthData) {
+      setHistoricalData(prev => ({
+        ...prev,
+        [nextMonthKey]: newMonthData
+      }));
+      
+      // Set the new month as selected
+      setSelectedBudgetMonth(nextMonthKey);
+      
+      // Load the new month data
+      setTimeout(() => {
+        loadDataFromSelectedMonth(nextMonthKey);
+      }, 0);
+    }
+  };
+
   // Function to handle month selection change
   const handleBudgetMonthChange = (monthKey: string) => {
     // Save current data to current month before switching
@@ -2358,7 +2476,7 @@ const BudgetCalculator = () => {
               <Button
                 variant="ghost"
                 size="lg"
-                onClick={canNavigateNext() ? navigateToNextMonth : createNextMonth}
+                onClick={canNavigateNext() ? navigateToNextMonth : () => setIsCreateMonthDialogOpen(true)}
                 className={`p-3 h-12 w-12 text-primary hover:text-primary/80`}
               >
                 {canNavigateNext() ? (
@@ -5626,6 +5744,15 @@ const BudgetCalculator = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Create Month Dialog */}
+      <CreateMonthDialog
+        isOpen={isCreateMonthDialogOpen}
+        onClose={() => setIsCreateMonthDialogOpen(false)}
+        onCreateMonth={handleCreateMonthFromDialog}
+        budgetTemplates={budgetTemplates}
+        selectedBudgetMonth={selectedBudgetMonth}
+      />
     </div>
   );
 };
