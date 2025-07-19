@@ -4696,10 +4696,9 @@ const BudgetCalculator = () => {
                 </CardHeader>
                 <CardContent>
                   <Tabs defaultValue="account-transfers" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3">
+                    <TabsList className="grid w-full grid-cols-2">
                       <TabsTrigger value="account-transfers">Överföring till konton</TabsTrigger>
-                      <TabsTrigger value="daily-transfer">Daglig överföring</TabsTrigger>
-                      <TabsTrigger value="remaining-daily-budget">Återstående daglig budget</TabsTrigger>
+                      <TabsTrigger value="remaining-daily-transfer">Återstående daglig överföring</TabsTrigger>
                     </TabsList>
                     
                     <TabsContent value="account-transfers" className="space-y-6 mt-6">
@@ -5008,67 +5007,48 @@ const BudgetCalculator = () => {
                  )}
                     </TabsContent>
                     
-                    <TabsContent value="daily-transfer" className="space-y-6 mt-6">
-                      <div className="p-4 bg-indigo-50 rounded-lg">
-                        <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('dailyTransferDetails')}>
-                          <div>
-                            <div className="text-sm text-muted-foreground">Daglig överföring</div>
-                            <div className="text-lg font-bold text-indigo-600">
-                              {formatCurrency(dailyTransfer)} vardagar / {formatCurrency(weekendTransfer)} helgdagar
-                            </div>
-                          </div>
-                          {expandedSections.dailyTransferDetails ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                        </div>
-                        
-                        {expandedSections.dailyTransferDetails && (
-                          <div className="mt-4 space-y-4">
-                            <div className="space-y-3">
-                              <div className="p-3 bg-white rounded border">
-                                <div className="flex justify-between items-center">
-                                  <span className="font-medium">Vardagar</span>
-                                  <div className="font-semibold text-blue-600">
-                                    {formatCurrency(dailyTransfer)}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <div className="p-3 bg-white rounded border">
-                                <div className="flex justify-between items-center">
-                                  <span className="font-medium">Helgdagar</span>
-                                  <div className="font-semibold text-blue-600">
-                                    {formatCurrency(weekendTransfer)}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="remaining-daily-budget" className="space-y-6 mt-6">
-                      {results && (
-                        <div className="space-y-4">
-                          <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
-                            <div className="text-sm text-amber-700 font-medium mb-2">Återstående daglig budget:</div>
-                            <div className="space-y-1 pl-2">
-                              <div className="flex justify-between">
-                                <span>• Återstående vardagar: {results.remainingWeekdayCount || 0} × {formatCurrency(dailyTransfer)} =</span>
-                                <span className="font-medium">{formatCurrency((results.remainingWeekdayCount || 0) * dailyTransfer)}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>• Återstående helgdagar: {results.remainingFridayCount || 0} × {formatCurrency(weekendTransfer)} =</span>
-                                <span className="font-medium">{formatCurrency((results.remainingFridayCount || 0) * weekendTransfer)}</span>
-                              </div>
-                              <div className="flex justify-between pt-2 border-t">
-                                <span className="font-medium text-amber-800">Återstående daglig budget:</span>
-                                <span className="font-semibold text-amber-800">{formatCurrency(results.remainingDailyBudget || 0)}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </TabsContent>
+                     <TabsContent value="remaining-daily-transfer" className="space-y-6 mt-6">
+                       {results && (
+                         <div className="space-y-4">
+                           {/* Återstående daglig överföring - Collapsible Section */}
+                           <div className="p-4 bg-amber-50 rounded-lg">
+                             <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('remainingDailyTransfer')}>
+                               <div>
+                                 <div className="text-sm text-muted-foreground">Återstående daglig överföring</div>
+                                 <div className="text-lg font-bold text-amber-600">
+                                   {formatCurrency(results.remainingDailyBudget)}
+                                 </div>
+                               </div>
+                               {expandedSections.remainingDailyTransfer ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                             </div>
+                            
+                             {expandedSections.remainingDailyTransfer && (
+                               <div className="mt-4 space-y-4">
+                                 <div className="space-y-4">
+                                   <div className="p-4 bg-amber-100 rounded-lg border border-amber-200">
+                                     <div className="text-sm text-amber-700 font-medium mb-2">Beräkning återstående daglig överföring:</div>
+                                     <div className="space-y-1 pl-2">
+                                       <div className="flex justify-between">
+                                         <span>• Återstående vardagar: {results.remainingWeekdayCount || 0} × {formatCurrency(dailyTransfer)} =</span>
+                                         <span className="font-medium">{formatCurrency((results.remainingWeekdayCount || 0) * dailyTransfer)}</span>
+                                       </div>
+                                       <div className="flex justify-between">
+                                         <span>• Återstående helgdagar: {results.remainingFridayCount || 0} × {formatCurrency(weekendTransfer)} =</span>
+                                         <span className="font-medium">{formatCurrency((results.remainingFridayCount || 0) * weekendTransfer)}</span>
+                                       </div>
+                                       <div className="flex justify-between pt-2 border-t">
+                                         <span className="font-medium text-amber-800">Återstående daglig överföring:</span>
+                                         <span className="font-semibold text-amber-800">{formatCurrency(results.remainingDailyBudget || 0)}</span>
+                                       </div>
+                                     </div>
+                                   </div>
+                                 </div>
+                               </div>
+                             )}
+                           </div>
+                         </div>
+                       )}
+                     </TabsContent>
                   </Tabs>
                 </CardContent>
               </Card>
