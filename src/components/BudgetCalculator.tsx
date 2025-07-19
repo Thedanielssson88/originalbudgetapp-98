@@ -4240,12 +4240,12 @@ const BudgetCalculator = () => {
                                return sum + accountSavings + accountCosts;
                              }, 0);
                              
-                             // Calculate unchecked individual shares
-                             const uncheckedSharesTotal = 
-                               (!andreasShareChecked ? results.andreasShare : 0) +
-                               (!susannaShareChecked ? results.susannaShare : 0);
-                             
-                             const totalUnchecked = uncheckedAccountsTotal + uncheckedSharesTotal + results.remainingDailyBudget;
+                              // Calculate unchecked individual shares
+                              const uncheckedSharesTotal = 
+                                (!andreasShareChecked ? results.andreasShare : 0) +
+                                (!susannaShareChecked ? results.susannaShare : 0);
+                              
+                              const totalUnchecked = uncheckedAccountsTotal + uncheckedSharesTotal + results.remainingDailyBudget;
                              const difference = transferAccount - totalUnchecked;
                              return difference >= 0 ? 'text-green-600' : 'text-red-600';
                            })()}`}>
@@ -4265,12 +4265,12 @@ const BudgetCalculator = () => {
                                  return sum + accountSavings + accountCosts;
                                }, 0);
                                
-                               // Calculate unchecked individual shares
-                               const uncheckedSharesTotal = 
-                                 (!andreasShareChecked ? results.andreasShare : 0) +
-                                 (!susannaShareChecked ? results.susannaShare : 0);
-                               
-                               const totalUnchecked = uncheckedAccountsTotal + uncheckedSharesTotal + results.remainingDailyBudget;
+                                // Calculate unchecked individual shares
+                                const uncheckedSharesTotal = 
+                                  (!andreasShareChecked ? results.andreasShare : 0) +
+                                  (!susannaShareChecked ? results.susannaShare : 0);
+                                
+                                const totalUnchecked = uncheckedAccountsTotal + uncheckedSharesTotal + results.remainingDailyBudget;
                                return formatCurrency(transferAccount - totalUnchecked);
                              })()}
                            </span>
@@ -4293,12 +4293,12 @@ const BudgetCalculator = () => {
                                return sum + accountSavings + accountCosts;
                              }, 0);
                              
-                             // Calculate unchecked individual shares
-                             const uncheckedSharesTotal = 
-                               (!andreasShareChecked ? results.andreasShare : 0) +
-                               (!susannaShareChecked ? results.susannaShare : 0);
-                             
-                             const totalUnchecked = uncheckedAccountsTotal + uncheckedSharesTotal + results.remainingDailyBudget;
+                              // Calculate unchecked individual shares
+                              const uncheckedSharesTotal = 
+                                (!andreasShareChecked ? results.andreasShare : 0) +
+                                (!susannaShareChecked ? results.susannaShare : 0);
+                              
+                              const totalUnchecked = uncheckedAccountsTotal + uncheckedSharesTotal + results.remainingDailyBudget;
                              return formatCurrency(transferAccount - totalUnchecked);
                            })()}</span>
                          </div>
