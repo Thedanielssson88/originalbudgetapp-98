@@ -101,8 +101,7 @@ const BudgetCalculator = () => {
     budgetTransfer: false,
     budgetCategories: false,
     andreasDetails: false,
-    susannaDetails: false,
-    transferToAccounts: false
+    susannaDetails: false
   });
 
   // Budget category expandable states
@@ -3444,116 +3443,10 @@ const BudgetCalculator = () => {
                   <CardDescription>Överföringar och fördelningar</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Transfer Section - Copied from Sammanställning */}
-                  <div className="p-4 bg-primary/10 rounded-lg">
-                    <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('transferToAccounts')}>
-                      <div>
-                        <h4 className="font-medium">Överföring till konto</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {formatCurrency(savingsGroups.reduce((sum, group) => {
-                            const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                            return sum + group.amount + subCategoriesTotal;
-                          }, 0))}
-                        </p>
-                      </div>
-                      <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.transferToAccounts ? 'rotate-180' : ''}`} />
-                    </div>
-                    
-                    {expandedSections.transferToAccounts && (
-                      <div className="mt-3 space-y-4 border-t pt-3">
-                        {/* Transfer Chart */}
-                        <div className="h-48 w-full">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={[
-                                  {
-                                    name: 'Sparande',
-                                    value: savingsGroups.reduce((sum, group) => {
-                                      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                      return sum + group.amount + subCategoriesTotal;
-                                    }, 0),
-                                    color: 'hsl(142, 71%, 45%)'
-                                  }
-                                ]}
-                                dataKey="value"
-                                nameKey="name"
-                                cx="50%"
-                                cy="50%"
-                                outerRadius={80}
-                              >
-                                <Cell fill="hsl(142, 71%, 45%)" />
-                              </Pie>
-                              <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </div>
-                        
-                         {/* Expandable transfer categories - only savings, no personal shares */}
-                         <div className="space-y-2">
-                           {(() => {
-                             const savingsTotal = savingsGroups.reduce((sum, group) => {
-                               const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                               return sum + group.amount + subCategoriesTotal;
-                             }, 0);
-                             
-                             return (
-                               <>
-                                 <Collapsible open={expandedBudgetCategories['budget-transfer-savings']}>
-                                   <CollapsibleTrigger 
-                                     className="w-full p-3 rounded-lg" 
-                                     style={{ backgroundColor: 'hsl(142, 71%, 45%, 0.2)' }}
-                                     onClick={() => toggleBudgetCategory('budget-transfer-savings')}
-                                   >
-                                     <div className="flex items-center justify-between">
-                                       <div className="flex items-center justify-between w-full">
-                                         <span className="font-medium">Sparande</span>
-                                         <div className="flex items-center space-x-2">
-                                           <span className="font-semibold">100%</span>
-                                           <ChevronDown className={`h-4 w-4 transition-transform ${expandedBudgetCategories['budget-transfer-savings'] ? 'rotate-180' : ''}`} />
-                                         </div>
-                                       </div>
-                                     </div>
-                                     <p className="text-sm text-muted-foreground mt-1 text-left">
-                                       {formatCurrency(savingsTotal)}
-                                     </p>
-                                   </CollapsibleTrigger>
-                                   <CollapsibleContent className="mt-2">
-                                     <div className="p-3 border rounded-lg bg-background">
-                                       <div className="space-y-1 text-sm">
-                                         {savingsGroups.map((group) => (
-                                           <div key={group.id} className="space-y-1">
-                                             <div className="flex justify-between">
-                                               <span>• {group.name}:</span>
-                                               <span className="font-medium">{formatCurrency(group.amount + (group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0))}</span>
-                                             </div>
-                                             {group.subCategories && group.subCategories.length > 0 && (
-                                               <div className="pl-4 space-y-1">
-                                                 {group.subCategories.map((sub) => (
-                                                   <div key={sub.id} className="flex justify-between text-xs text-muted-foreground">
-                                                     <span>- {sub.name}:</span>
-                                                     <span>{formatCurrency(sub.amount)}</span>
-                                                   </div>
-                                                 ))}
-                                               </div>
-                                             )}
-                                           </div>
-                                         ))}
-                                         <div className="flex justify-between pt-1 border-t">
-                                           <span className="font-medium">Total sparande:</span>
-                                           <span className="font-semibold">{formatCurrency(savingsTotal)}</span>
-                                         </div>
-                                       </div>
-                                     </div>
-                                   </CollapsibleContent>
-                                 </Collapsible>
-                               </>
-                             );
-                           })()}
-                         </div>
-                     </div>
-                   )}
-                 </div>
+
+
+
+
 
                     {/* Account Summary with Dropdown */}
                    <div className="p-4 bg-indigo-50 rounded-lg">
@@ -3637,6 +3530,24 @@ const BudgetCalculator = () => {
                              );
                             })}
                             
+                            {/* Andreas konto and Susannas konto */}
+                            <div className="p-3 bg-white rounded border">
+                              <div className="flex justify-between items-center">
+                                <span className="font-medium">Andreas konto</span>
+                                <div className="font-semibold text-purple-600">
+                                  +{results ? formatCurrency(results.andreasShare) : 'Beräknar...'}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="p-3 bg-white rounded border">
+                              <div className="flex justify-between items-center">
+                                <span className="font-medium">Susannas konto</span>
+                                <div className="font-semibold text-purple-600">
+                                  +{results ? formatCurrency(results.susannaShare) : 'Beräknar...'}
+                                </div>
+                              </div>
+                            </div>
                           </div>
                          
                          {/* Account Management Section */}
@@ -4048,10 +3959,14 @@ const BudgetCalculator = () => {
                 {results && (
                   <div className="space-y-4">
                     <div className="p-4 bg-muted rounded-lg">
-                       <h4 className="font-medium mb-3">Fördelning av återstående belopp</h4>
-                       <div className="space-y-2">
-                         <div className="flex justify-between pt-2 border-t">
-                           <span>Totalt återstående belopp efter budget:</span>
+                      <h4 className="font-medium mb-3">Beloppssammanfattning</h4>
+                      <div className="space-y-2">
+                         <div className="flex justify-between">
+                           <span>Belopp för Återstående daglig budget:</span>
+                           <span className={`font-medium ${results.remainingDailyBudget < 0 ? 'text-red-600' : ''}`}>{formatCurrency(results.remainingDailyBudget)}</span>
+                         </div>
+                        <div className="flex justify-between pt-2 border-t">
+                          <span>Individuella Andelar (Totalt belopp):</span>
                           <span className={`font-medium ${(results.andreasShare + results.susannaShare) < 0 ? 'text-red-600' : ''}`}>{formatCurrency(results.andreasShare + results.susannaShare)}</span>
                         </div>
                         <div className="flex justify-between">
@@ -4087,30 +4002,30 @@ const BudgetCalculator = () => {
                       </div>
                     </div>
                     
-                     {/* Andreas and Susanna accounts - moved from account summary */}
-                     <div className="p-4 bg-purple-50 rounded-lg">
-                       <h4 className="font-medium mb-3">Fördelning av återstående belopp</h4>
+                    {/* Kvar att fördela - moved from Sammanställning */}
+                    <div className="p-4 bg-purple-50 rounded-lg">
+                      <h4 className="font-medium mb-3">Kvar att fördela</h4>
                       <div className="space-y-3">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                           <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                             <div className="text-sm text-purple-700 font-medium">{userName1} konto</div>
-                             <div className="text-xl font-bold text-purple-800">
-                               +{formatCurrency(results.andreasShare)}
-                             </div>
-                           </div>
-                           
-                           <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                             <div className="text-sm text-purple-700 font-medium">{userName2} konto</div>
-                             <div className="text-xl font-bold text-purple-800">
-                               +{formatCurrency(results.susannaShare)}
-                             </div>
-                           </div>
+                          <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                            <div className="text-sm text-purple-700 font-medium">{userName1} andel</div>
+                            <div className="text-xl font-bold text-purple-800">
+                              {formatCurrency(results.andreasShare)}
+                            </div>
+                          </div>
+                          
+                          <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                            <div className="text-sm text-purple-700 font-medium">{userName2} andel</div>
+                            <div className="text-xl font-bold text-purple-800">
+                              {formatCurrency(results.susannaShare)}
+                            </div>
+                          </div>
                         </div>
                         
-                         <div className="flex justify-between pt-2 border-t">
-                           <span className="font-medium">Totalt återstående belopp efter budget:</span>
-                           <span className="font-bold text-purple-600">{formatCurrency(results.andreasShare + results.susannaShare)}</span>
-                         </div>
+                        <div className="flex justify-between pt-2 border-t">
+                          <span className="font-medium">Total kvar att fördela:</span>
+                          <span className="font-bold text-purple-600">{formatCurrency(results.andreasShare + results.susannaShare)}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
