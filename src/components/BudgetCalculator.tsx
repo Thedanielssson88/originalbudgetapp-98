@@ -1329,13 +1329,21 @@ const BudgetCalculator = () => {
     const currentYear = parseInt(year);
     const currentMonth = parseInt(month);
     
-    const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-    const nextYear = currentMonth === 12 ? currentYear + 1 : currentYear;
-    const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+    // Calculate target month based on direction
+    let targetMonth, targetYear;
+    if (createMonthDirection === 'next') {
+      targetMonth = currentMonth === 12 ? 1 : currentMonth + 1;
+      targetYear = currentMonth === 12 ? currentYear + 1 : currentYear;
+    } else {
+      targetMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+      targetYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+    }
+    
+    const targetMonthKey = `${targetYear}-${String(targetMonth).padStart(2, '0')}`;
     
     // Don't create if it already exists
-    if (historicalData[nextMonthKey]) {
-      handleBudgetMonthChange(nextMonthKey);
+    if (historicalData[targetMonthKey]) {
+      handleBudgetMonthChange(targetMonthKey);
       return;
     }
     
@@ -1395,7 +1403,7 @@ const BudgetCalculator = () => {
         };
       }
     } else if (type === 'template' && templateName && budgetTemplates[templateName]) {
-      // Use template data
+      // Use template data - copy all data like "Kopiera Budgetmall"
       const template = budgetTemplates[templateName];
       newMonthData = {
         ...template,
@@ -1422,15 +1430,15 @@ const BudgetCalculator = () => {
     if (newMonthData) {
       setHistoricalData(prev => ({
         ...prev,
-        [nextMonthKey]: newMonthData
+        [targetMonthKey]: newMonthData
       }));
       
       // Set the new month as selected
-      setSelectedBudgetMonth(nextMonthKey);
+      setSelectedBudgetMonth(targetMonthKey);
       
       // Load the new month data
       setTimeout(() => {
-        loadDataFromSelectedMonth(nextMonthKey);
+        loadDataFromSelectedMonth(targetMonthKey);
       }, 0);
     }
   };
