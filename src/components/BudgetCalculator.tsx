@@ -1426,18 +1426,12 @@ const BudgetCalculator = () => {
         createdAt: new Date().toISOString()
       };
     } else if (type === 'copy') {
-      // Copy current month with all data (but reset income to 0 as per existing behavior)
+      // Copy current month with all data including income values
       const currentMonthData = historicalData[selectedBudgetMonth];
       if (currentMonthData) {
         newMonthData = {
           ...currentMonthData,
-          // Reset all income values to 0
-          andreasSalary: 0,
-          andreasförsäkringskassan: 0,
-          andreasbarnbidrag: 0,
-          susannaSalary: 0,
-          susannaförsäkringskassan: 0,
-          susannabarnbidrag: 0,
+          // Keep all income values from the source month
           createdAt: new Date().toISOString()
         };
       }
