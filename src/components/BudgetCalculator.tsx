@@ -1210,9 +1210,34 @@ const BudgetCalculator = () => {
       // Set the new month as selected
       setSelectedBudgetMonth(prevMonthKey);
       
-      // Load the new month data into form (with income reset to 0)
+      // Directly set all income values to 0 in the form
+      setAndreasSalary(0);
+      setAndreasförsäkringskassan(0);
+      setAndreasbarnbidrag(0);
+      setSusannaSalary(0);
+      setSusannaförsäkringskassan(0);
+      setSusannabarnbidrag(0);
+      
+      // Also load other data from the new month
       setTimeout(() => {
-        loadDataFromSelectedMonth(prevMonthKey);
+        const monthData = newMonthData;
+        // Load non-income data
+        setCostGroups(monthData.costGroups || []);
+        setSavingsGroups(monthData.savingsGroups || []);
+        setDailyTransfer(monthData.dailyTransfer || 0);
+        setWeekendTransfer(monthData.weekendTransfer || 0);
+        setCustomHolidays(monthData.customHolidays || []);
+        setSelectedPerson(monthData.selectedPerson || 'andreas');
+        setAndreasPersonalCosts(monthData.andreasPersonalCosts || []);
+        setAndreasPersonalSavings(monthData.andreasPersonalSavings || []);
+        setSusannaPersonalCosts(monthData.susannaPersonalCosts || []);
+        setSusannaPersonalSavings(monthData.susannaPersonalSavings || []);
+        setAccounts(monthData.accounts || []);
+        setUserName1(monthData.userName1 || 'Andreas');
+        setUserName2(monthData.userName2 || 'Susanna');
+        setTransferChecks(monthData.transferChecks || {});
+        setAndreasShareChecked(monthData.andreasShareChecked !== undefined ? monthData.andreasShareChecked : true);
+        setSusannaShareChecked(monthData.susannaShareChecked !== undefined ? monthData.susannaShareChecked : true);
       }, 0);
     }
   };
@@ -1259,9 +1284,34 @@ const BudgetCalculator = () => {
       // Set the new month as selected
       setSelectedBudgetMonth(nextMonthKey);
       
-      // Load the new month data into form (with income reset to 0)
+      // Directly set all income values to 0 in the form
+      setAndreasSalary(0);
+      setAndreasförsäkringskassan(0);
+      setAndreasbarnbidrag(0);
+      setSusannaSalary(0);
+      setSusannaförsäkringskassan(0);
+      setSusannabarnbidrag(0);
+      
+      // Also load other data from the new month
       setTimeout(() => {
-        loadDataFromSelectedMonth(nextMonthKey);
+        const monthData = newMonthData;
+        // Load non-income data
+        setCostGroups(monthData.costGroups || []);
+        setSavingsGroups(monthData.savingsGroups || []);
+        setDailyTransfer(monthData.dailyTransfer || 0);
+        setWeekendTransfer(monthData.weekendTransfer || 0);
+        setCustomHolidays(monthData.customHolidays || []);
+        setSelectedPerson(monthData.selectedPerson || 'andreas');
+        setAndreasPersonalCosts(monthData.andreasPersonalCosts || []);
+        setAndreasPersonalSavings(monthData.andreasPersonalSavings || []);
+        setSusannaPersonalCosts(monthData.susannaPersonalCosts || []);
+        setSusannaPersonalSavings(monthData.susannaPersonalSavings || []);
+        setAccounts(monthData.accounts || []);
+        setUserName1(monthData.userName1 || 'Andreas');
+        setUserName2(monthData.userName2 || 'Susanna');
+        setTransferChecks(monthData.transferChecks || {});
+        setAndreasShareChecked(monthData.andreasShareChecked !== undefined ? monthData.andreasShareChecked : true);
+        setSusannaShareChecked(monthData.susannaShareChecked !== undefined ? monthData.susannaShareChecked : true);
       }, 0);
     }
   };
