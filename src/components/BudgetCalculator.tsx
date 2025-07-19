@@ -3385,10 +3385,31 @@ const BudgetCalculator = () => {
                                  </div>
                                )}
                              </div>
-                           ))}
-                         </div>
-                       )}
-                      </div>
+                            ))}
+                            
+                            {/* Total Daily Budget with breakdown under Savings Categories */}
+                            <div className="mt-4 pt-4 border-t border-gray-200">
+                              <div className="font-medium text-base mb-2">
+                                Total daglig budget: {formatCurrency(results?.totalDailyBudget || 0)}
+                              </div>
+                              <div className="ml-4 space-y-1 text-xs text-muted-foreground">
+                                <div>Daglig överföring (måndag-torsdag): {dailyTransfer}</div>
+                                <div>Helgöverföring (fredag-söndag): {weekendTransfer}</div>
+                                {(() => {
+                                  if (!results) return null;
+                                  const weekdaysExcludingFridays = results.weekdayCount - results.fridayCount;
+                                  return (
+                                    <>
+                                      <div>Vardagar: {weekdaysExcludingFridays} × {dailyTransfer} kr = {formatCurrency(weekdaysExcludingFridays * dailyTransfer)}</div>
+                                      <div>Helgdagar: {results.fridayCount} × {weekendTransfer} kr = {formatCurrency(results.fridayCount * weekendTransfer)}</div>
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                       </div>
                   </CardContent>
                 )}
               </Card>
@@ -3437,13 +3458,6 @@ const BudgetCalculator = () => {
                             const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
                             return sum + subCategoriesTotal;
                           }, 0))}
-                        </div>
-                      </div>
-                      
-                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <div className="text-sm text-red-700 font-medium">Total daglig budget</div>
-                        <div className="text-xl font-bold text-red-800">
-                          -{formatCurrency(results.totalDailyBudget)}
                         </div>
                       </div>
                     </div>
