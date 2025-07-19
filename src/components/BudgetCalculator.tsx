@@ -102,7 +102,8 @@ const BudgetCalculator = () => {
     budgetCategories: false,
     andreasDetails: false,
     susannaDetails: false,
-    remainingAmountDistribution: false
+    remainingAmountDistribution: false,
+    remainingDailyBudgetDistribution: false
   });
 
   // Budget category expandable states
@@ -4104,34 +4105,78 @@ const BudgetCalculator = () => {
                          {expandedSections.remainingAmountDistribution ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                        </div>
                        
-                       {expandedSections.remainingAmountDistribution && (
-                         <div className="mt-4 space-y-4">
-                           <div className="space-y-2">
-                             <div className="flex justify-between pt-2 border-t">
-                               <span>Totalt återstående belopp efter budget:</span>
-                               <span className={`font-medium ${(results.andreasShare + results.susannaShare) < 0 ? 'text-red-600' : ''}`}>{formatCurrency(results.andreasShare + results.susannaShare)}</span>
-                             </div>
-                             <div className="flex justify-between">
-                               <span>{userName1}s andel ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%):</span>
-                               <span className="font-medium">{formatCurrency(results.andreasShare)}</span>
-                             </div>
-                             <div className="flex justify-between">
-                               <span>{userName2}s andel ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%):</span>
-                               <span className="font-medium">{formatCurrency(results.susannaShare)}</span>
-                             </div>
-                             <div className="flex justify-between pt-2 border-t">
-                               <span>Differens:</span>
-                               <span className={`font-semibold ${(transferAccount - (results.andreasShare + results.susannaShare)) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                 {formatCurrency(transferAccount - (results.andreasShare + results.susannaShare))}
-                               </span>
-                             </div>
-                             <div className="flex justify-between">
-                               <span>Kvar på överföringskonto:</span>
-                               <span className="font-medium">{formatCurrency((transferAccount - (results.andreasShare + results.susannaShare)))}</span>
-                             </div>
-                           </div>
-                         </div>
-                       )}
+                        {expandedSections.remainingAmountDistribution && (
+                          <div className="mt-4 space-y-4">
+                            <div className="space-y-2">
+                              <div className="flex justify-between pt-2 border-t">
+                                <span>Totalt återstående belopp efter budget:</span>
+                                <span className={`font-medium ${(results.andreasShare + results.susannaShare) < 0 ? 'text-red-600' : ''}`}>{formatCurrency(results.andreasShare + results.susannaShare)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>{userName1}s andel ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%):</span>
+                                <span className="font-medium">{formatCurrency(results.andreasShare)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>{userName2}s andel ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%):</span>
+                                <span className="font-medium">{formatCurrency(results.susannaShare)}</span>
+                              </div>
+                              
+                              {/* Kvar av Daglig budget - Expandable section */}
+                              <div className="p-4 bg-amber-50 rounded-lg border border-amber-200 mt-4">
+                                <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('remainingDailyBudgetDistribution')}>
+                                  <div>
+                                    <div className="text-sm text-amber-700 font-medium">Kvar av Daglig budget</div>
+                                    <div className="text-lg font-bold text-amber-800">
+                                      {formatCurrency(results.remainingDailyBudget)}
+                                    </div>
+                                  </div>
+                                  {expandedSections.remainingDailyBudgetDistribution ? <ChevronUp className="h-5 w-5 text-amber-600" /> : <ChevronDown className="h-5 w-5 text-amber-600" />}
+                                </div>
+                                
+                                {expandedSections.remainingDailyBudgetDistribution && (
+                                  <div className="mt-4 space-y-3">
+                                    <div className="bg-white p-3 rounded border">
+                                      <h5 className="font-medium text-amber-800 mb-2">Detaljerad överföringsplan</h5>
+                                      <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between">
+                                          <span>Antal dagar till lön (den 25):</span>
+                                          <span className="font-medium">{results.daysUntil25th} dagar</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span>Vardagar ({results.remainingWeekdayCount} st):</span>
+                                          <span>{formatCurrency(dailyTransfer)} per dag</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span>Helgdagar ({results.remainingFridayCount} st):</span>
+                                          <span>{formatCurrency(weekendTransfer)} per dag</span>
+                                        </div>
+                                        <div className="flex justify-between pt-2 border-t font-medium">
+                                          <span>Total överföring behövs:</span>
+                                          <span className="text-amber-700">{formatCurrency(results.remainingWeekdayCount * dailyTransfer + results.remainingFridayCount * weekendTransfer)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span>Återstående daglig budget:</span>
+                                          <span className="font-semibold text-amber-800">{formatCurrency(results.remainingDailyBudget)}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="flex justify-between pt-2 border-t">
+                                <span>Differens:</span>
+                                <span className={`font-semibold ${(transferAccount - (results.andreasShare + results.susannaShare) - results.remainingDailyBudget) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  {formatCurrency(transferAccount - (results.andreasShare + results.susannaShare) - results.remainingDailyBudget)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Kvar på överföringskonto:</span>
+                                <span className="font-medium">{formatCurrency((transferAccount - (results.andreasShare + results.susannaShare) - results.remainingDailyBudget))}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                      </div>
 
                     <div className="p-4 bg-blue-50 rounded-lg">
