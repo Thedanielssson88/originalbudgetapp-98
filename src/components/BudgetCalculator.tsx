@@ -4129,10 +4129,6 @@ const BudgetCalculator = () => {
                         {expandedSections.remainingAmountDistribution && (
                           <div className="mt-4 space-y-4">
                              <div className="space-y-2">
-                               <div className="flex justify-between pt-2 border-t">
-                                 <span>Totalt återstående belopp efter budget:</span>
-                                 <span className={`font-medium ${(results.andreasShare + results.susannaShare) < 0 ? 'text-red-600' : ''}`}>{formatCurrency(results.andreasShare + results.susannaShare)}</span>
-                               </div>
                                
                                {/* Individual Shares - moved out of collapsible section */}
                                <div className="space-y-3 mt-4">
@@ -4172,41 +4168,6 @@ const BudgetCalculator = () => {
                                      <span className="font-semibold text-blue-800">{formatCurrency(Math.abs(results.andreasShare) + Math.abs(results.susannaShare))}</span>
                                    </div>
                                  </div>
-                               </div>
-                               
-                               {/* Fördelning av återstående belopp - now only contains the remaining daily budget section */}
-                               <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 mt-4">
-                                 <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('individualSharesDistribution')}>
-                                   <div>
-                                     <div className="text-sm text-blue-700 font-medium">Fördelning av återstående belopp</div>
-                                     <div className="text-lg font-bold text-blue-800">
-                                       Detaljerad fördelning
-                                     </div>
-                                   </div>
-                                   {expandedSections.individualSharesDistribution ? <ChevronUp className="h-5 w-5 text-blue-600" /> : <ChevronDown className="h-5 w-5 text-blue-600" />}
-                                 </div>
-                                 
-                                  {expandedSections.individualSharesDistribution && (
-                                    <div className="mt-4 space-y-3">
-                                      <div className="bg-white p-3 rounded border">
-                                        <h5 className="font-medium text-blue-800 mb-2">Fördelning baserat på inkomst</h5>
-                                        <div className="space-y-2 text-sm">
-                                          <div className="flex justify-between">
-                                            <span>{userName1}s inkomst:</span>
-                                            <span>{formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}</span>
-                                          </div>
-                                          <div className="flex justify-between">
-                                            <span>{userName2}s inkomst:</span>
-                                            <span>{formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}</span>
-                                          </div>
-                                          <div className="flex justify-between pt-2 border-t font-medium">
-                                            <span>Total inkomst:</span>
-                                            <span>{formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}</span>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
                                </div>
                               
                               {/* Kvar av Daglig budget - Expandable section */}
@@ -4257,18 +4218,6 @@ const BudgetCalculator = () => {
                         )}
                      </div>
 
-                    <div className="p-4 bg-blue-50 rounded-lg">
-                      <h4 className="font-medium mb-3">Överföringsplan</h4>
-                      <div className="space-y-1 text-sm">
-                         <div>Antal dagar till lön (den 25): {results.daysUntil25th} dagar</div>
-                         <div>Vardagar ({results.remainingWeekdayCount} st): {formatCurrency(dailyTransfer)} per dag</div>
-                         <div>Helgdagar ({results.remainingFridayCount} st): {formatCurrency(weekendTransfer)} per dag</div>
-                         <div className="font-medium pt-2">
-                           Total överföring: {formatCurrency(results.remainingWeekdayCount * dailyTransfer + results.remainingFridayCount * weekendTransfer)}
-                         </div>
-                      </div>
-                    </div>
-                    
                     {/* Verifiering section - renamed from "Kvar att fördela" */}
                     <div className="p-4 bg-purple-50 rounded-lg">
                       <h4 className="font-medium mb-3">Verifiering</h4>
