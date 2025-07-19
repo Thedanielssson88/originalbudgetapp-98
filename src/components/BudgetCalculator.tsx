@@ -4128,58 +4128,86 @@ const BudgetCalculator = () => {
                        
                         {expandedSections.remainingAmountDistribution && (
                           <div className="mt-4 space-y-4">
-                            <div className="space-y-2">
-                              <div className="flex justify-between pt-2 border-t">
-                                <span>Totalt återstående belopp efter budget:</span>
-                                <span className={`font-medium ${(results.andreasShare + results.susannaShare) < 0 ? 'text-red-600' : ''}`}>{formatCurrency(results.andreasShare + results.susannaShare)}</span>
-                              </div>
-                              
-                              {/* Individual Shares - Expandable section */}
-                              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 mt-4">
-                                <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('individualSharesDistribution')}>
-                                  <div>
-                                    <div className="text-sm text-blue-700 font-medium">Individuella andelar</div>
-                                    <div className="text-lg font-bold text-blue-800">
-                                      {formatCurrency(results.andreasShare + results.susannaShare)}
-                                    </div>
-                                  </div>
-                                  {expandedSections.individualSharesDistribution ? <ChevronUp className="h-5 w-5 text-blue-600" /> : <ChevronDown className="h-5 w-5 text-blue-600" />}
-                                </div>
-                                
-                                 {expandedSections.individualSharesDistribution && (
-                                   <div className="mt-4 space-y-3">
-                                     <div className="bg-white p-3 rounded border">
-                                       <h5 className="font-medium text-blue-800 mb-2">Fördelning baserat på inkomst</h5>
-                                       <div className="space-y-2 text-sm">
-                                         <div className="flex justify-between items-center">
-                                           <div className="flex items-center gap-3">
-                                             <Checkbox
-                                               checked={andreasShareChecked}
-                                               onCheckedChange={(checked) => setAndreasShareChecked(checked as boolean)}
-                                             />
-                                             <span>{userName1}s andel ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%):</span>
-                                           </div>
-                                           <span className="font-semibold text-blue-700">{formatCurrency(results.andreasShare)}</span>
-                                         </div>
-                                         <div className="flex justify-between items-center">
-                                           <div className="flex items-center gap-3">
-                                             <Checkbox
-                                               checked={susannaShareChecked}
-                                               onCheckedChange={(checked) => setSusannaShareChecked(checked as boolean)}
-                                             />
-                                             <span>{userName2}s andel ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%):</span>
-                                           </div>
-                                           <span className="font-semibold text-blue-700">{formatCurrency(results.susannaShare)}</span>
-                                         </div>
-                                         <div className="flex justify-between pt-2 border-t font-medium">
-                                           <span>Totalt att fördela:</span>
-                                           <span className="text-blue-800">{formatCurrency(results.andreasShare + results.susannaShare)}</span>
-                                         </div>
-                                       </div>
+                             <div className="space-y-2">
+                               <div className="flex justify-between pt-2 border-t">
+                                 <span>Totalt återstående belopp efter budget:</span>
+                                 <span className={`font-medium ${(results.andreasShare + results.susannaShare) < 0 ? 'text-red-600' : ''}`}>{formatCurrency(results.andreasShare + results.susannaShare)}</span>
+                               </div>
+                               
+                               {/* Individual Shares - moved out of collapsible section */}
+                               <div className="space-y-3 mt-4">
+                                 <div className="p-3 bg-white rounded border">
+                                   <div className="flex justify-between items-center">
+                                     <div className="flex items-center gap-3">
+                                       <Checkbox
+                                         checked={andreasShareChecked}
+                                         onCheckedChange={(checked) => setAndreasShareChecked(checked as boolean)}
+                                       />
+                                       <span className="font-medium">{userName1}s andel ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%)</span>
+                                     </div>
+                                     <div className={`font-semibold ${results.andreasShare >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                       {formatCurrency(Math.abs(results.andreasShare))}
                                      </div>
                                    </div>
-                                 )}
-                              </div>
+                                 </div>
+                                 
+                                 <div className="p-3 bg-white rounded border">
+                                   <div className="flex justify-between items-center">
+                                     <div className="flex items-center gap-3">
+                                       <Checkbox
+                                         checked={susannaShareChecked}
+                                         onCheckedChange={(checked) => setSusannaShareChecked(checked as boolean)}
+                                       />
+                                       <span className="font-medium">{userName2}s andel ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%)</span>
+                                     </div>
+                                     <div className={`font-semibold ${results.susannaShare >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                       {formatCurrency(Math.abs(results.susannaShare))}
+                                     </div>
+                                   </div>
+                                 </div>
+                                 
+                                 <div className="p-3 bg-gray-50 rounded border">
+                                   <div className="flex justify-between items-center">
+                                     <span className="font-medium">Totalt att fördela:</span>
+                                     <span className="font-semibold text-blue-800">{formatCurrency(Math.abs(results.andreasShare) + Math.abs(results.susannaShare))}</span>
+                                   </div>
+                                 </div>
+                               </div>
+                               
+                               {/* Fördelning av återstående belopp - now only contains the remaining daily budget section */}
+                               <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 mt-4">
+                                 <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('individualSharesDistribution')}>
+                                   <div>
+                                     <div className="text-sm text-blue-700 font-medium">Fördelning av återstående belopp</div>
+                                     <div className="text-lg font-bold text-blue-800">
+                                       Detaljerad fördelning
+                                     </div>
+                                   </div>
+                                   {expandedSections.individualSharesDistribution ? <ChevronUp className="h-5 w-5 text-blue-600" /> : <ChevronDown className="h-5 w-5 text-blue-600" />}
+                                 </div>
+                                 
+                                  {expandedSections.individualSharesDistribution && (
+                                    <div className="mt-4 space-y-3">
+                                      <div className="bg-white p-3 rounded border">
+                                        <h5 className="font-medium text-blue-800 mb-2">Fördelning baserat på inkomst</h5>
+                                        <div className="space-y-2 text-sm">
+                                          <div className="flex justify-between">
+                                            <span>{userName1}s inkomst:</span>
+                                            <span>{formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag)}</span>
+                                          </div>
+                                          <div className="flex justify-between">
+                                            <span>{userName2}s inkomst:</span>
+                                            <span>{formatCurrency(susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}</span>
+                                          </div>
+                                          <div className="flex justify-between pt-2 border-t font-medium">
+                                            <span>Total inkomst:</span>
+                                            <span>{formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                               </div>
                               
                               {/* Kvar av Daglig budget - Expandable section */}
                               <div className="p-4 bg-amber-50 rounded-lg border border-amber-200 mt-4">
