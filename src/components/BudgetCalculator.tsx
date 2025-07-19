@@ -4114,17 +4114,17 @@ const BudgetCalculator = () => {
 
                  {results && (
                    <div className="space-y-4">
-                     {/* Fördelning av återstående belopp - Collapsible Section */}
-                     <div className="p-4 bg-purple-50 rounded-lg">
-                       <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('remainingAmountDistribution')}>
-                         <div>
-                           <div className="text-sm text-muted-foreground">Fördelning av återstående belopp</div>
-                           <div className="text-lg font-bold text-purple-600">
-                             {formatCurrency(results.andreasShare + results.susannaShare)}
-                           </div>
-                         </div>
-                         {expandedSections.remainingAmountDistribution ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                       </div>
+                      {/* Fördelning av återstående belopp - Collapsible Section */}
+                      <div className="p-4 bg-purple-50 rounded-lg">
+                        <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('remainingAmountDistribution')}>
+                          <div>
+                            <div className="text-sm text-muted-foreground">Fördelning av återstående belopp</div>
+                            <div className="text-lg font-bold text-purple-600">
+                              {formatCurrency(results.andreasShare + results.susannaShare + results.remainingDailyBudget)}
+                            </div>
+                          </div>
+                          {expandedSections.remainingAmountDistribution ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                        </div>
                        
                         {expandedSections.remainingAmountDistribution && (
                           <div className="mt-4 space-y-4">
@@ -4139,7 +4139,7 @@ const BudgetCalculator = () => {
                                          checked={andreasShareChecked}
                                          onCheckedChange={(checked) => setAndreasShareChecked(checked as boolean)}
                                        />
-                                       <span className="font-medium">{userName1}s andel ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%)</span>
+                                       <span className="font-medium">{userName1}s konto ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%)</span>
                                      </div>
                                      <div className={`font-semibold ${results.andreasShare >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                        {formatCurrency(Math.abs(results.andreasShare))}
@@ -4154,7 +4154,7 @@ const BudgetCalculator = () => {
                                          checked={susannaShareChecked}
                                          onCheckedChange={(checked) => setSusannaShareChecked(checked as boolean)}
                                        />
-                                       <span className="font-medium">{userName2}s andel ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%)</span>
+                                       <span className="font-medium">{userName2}s konto ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%)</span>
                                      </div>
                                      <div className={`font-semibold ${results.susannaShare >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                        {formatCurrency(Math.abs(results.susannaShare))}
@@ -4165,7 +4165,7 @@ const BudgetCalculator = () => {
                                  <div className="p-3 bg-gray-50 rounded border">
                                    <div className="flex justify-between items-center">
                                      <span className="font-medium">Totalt att fördela:</span>
-                                     <span className="font-semibold text-blue-800">{formatCurrency(Math.abs(results.andreasShare) + Math.abs(results.susannaShare))}</span>
+                                     <span className="font-semibold text-blue-800">{formatCurrency(Math.abs(results.andreasShare) + Math.abs(results.susannaShare) + results.remainingDailyBudget)}</span>
                                    </div>
                                  </div>
                                </div>
