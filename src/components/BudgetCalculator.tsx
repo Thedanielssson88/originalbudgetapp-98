@@ -1189,25 +1189,32 @@ const BudgetCalculator = () => {
     // Copy current month's data to new previous month, but reset all income to 0
     const currentMonthData = historicalData[selectedBudgetMonth];
     if (currentMonthData) {
+      const newMonthData = {
+        ...currentMonthData,
+        // Reset all income values to 0
+        andreasSalary: 0,
+        andreasförsäkringskassan: 0,
+        andreasbarnbidrag: 0,
+        susannaSalary: 0,
+        susannaförsäkringskassan: 0,
+        susannabarnbidrag: 0,
+        // Update any date-specific properties if needed
+        createdAt: new Date().toISOString()
+      };
+      
       setHistoricalData(prev => ({
         ...prev,
-        [prevMonthKey]: {
-          ...currentMonthData,
-          // Reset all income values to 0
-          andreasSalary: 0,
-          andreasförsäkringskassan: 0,
-          andreasbarnbidrag: 0,
-          susannaSalary: 0,
-          susannaförsäkringskassan: 0,
-          susannabarnbidrag: 0,
-          // Update any date-specific properties if needed
-          createdAt: new Date().toISOString()
-        }
+        [prevMonthKey]: newMonthData
       }));
+      
+      // Set the new month as selected
+      setSelectedBudgetMonth(prevMonthKey);
+      
+      // Load the new month data into form (with income reset to 0)
+      setTimeout(() => {
+        loadDataFromSelectedMonth(prevMonthKey);
+      }, 0);
     }
-    
-    // Switch to the new month
-    handleBudgetMonthChange(prevMonthKey);
   };
 
   // Function to create next month with current month's data
@@ -1231,25 +1238,32 @@ const BudgetCalculator = () => {
     // Copy current month's data to new next month, but reset all income to 0
     const currentMonthData = historicalData[selectedBudgetMonth];
     if (currentMonthData) {
+      const newMonthData = {
+        ...currentMonthData,
+        // Reset all income values to 0
+        andreasSalary: 0,
+        andreasförsäkringskassan: 0,
+        andreasbarnbidrag: 0,
+        susannaSalary: 0,
+        susannaförsäkringskassan: 0,
+        susannabarnbidrag: 0,
+        // Update any date-specific properties if needed
+        createdAt: new Date().toISOString()
+      };
+      
       setHistoricalData(prev => ({
         ...prev,
-        [nextMonthKey]: {
-          ...currentMonthData,
-          // Reset all income values to 0
-          andreasSalary: 0,
-          andreasförsäkringskassan: 0,
-          andreasbarnbidrag: 0,
-          susannaSalary: 0,
-          susannaförsäkringskassan: 0,
-          susannabarnbidrag: 0,
-          // Update any date-specific properties if needed
-          createdAt: new Date().toISOString()
-        }
+        [nextMonthKey]: newMonthData
       }));
+      
+      // Set the new month as selected
+      setSelectedBudgetMonth(nextMonthKey);
+      
+      // Load the new month data into form (with income reset to 0)
+      setTimeout(() => {
+        loadDataFromSelectedMonth(nextMonthKey);
+      }, 0);
     }
-    
-    // Switch to the new month
-    handleBudgetMonthChange(nextMonthKey);
   };
 
   // Function to handle month selection change
