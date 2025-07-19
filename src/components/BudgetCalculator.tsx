@@ -2608,7 +2608,7 @@ const BudgetCalculator = () => {
                                 <Label htmlFor="show-details" className="text-sm">Visa malldetaljer</Label>
                               </div>
                               
-                              {showTemplateDetails && expandedSections.budgetTemplates && (
+                              {showTemplateDetails && (
                                 <div className="p-3 bg-muted/50 rounded border">
                                   <h5 className="font-medium mb-2">Detaljer för "{selectedTemplateToCopy}"</h5>
                                   {(() => {
@@ -5326,45 +5326,120 @@ const BudgetCalculator = () => {
                      </Button>
                    </div>
 
-                   {/* Existing Templates Management */}
-                   {Object.keys(budgetTemplates).length > 0 && (
-                     <div className="space-y-4">
-                       <h3 className="text-lg font-semibold">Hantera befintliga mallar</h3>
-                       <div className="space-y-2">
-                         {Object.keys(budgetTemplates).sort().map(templateName => (
-                           <div key={templateName} className="flex items-center justify-between p-3 border rounded-lg">
-                             <div>
-                               <span className="font-medium">{templateName}</span>
-                               <p className="text-sm text-muted-foreground">
-                                 Skapad: {new Date(budgetTemplates[templateName].created).toLocaleDateString('sv-SE')}
-                               </p>
-                             </div>
-                             <div className="flex gap-2">
-                               <Button
-                                 onClick={() => startEditingTemplate(templateName)}
-                                 size="sm"
-                                 variant="outline"
-                               >
-                                 <Edit className="w-4 h-4 mr-1" />
-                                 Redigera
-                               </Button>
-                               <Button
-                                 onClick={() => {
-                                   const updatedTemplates = { ...budgetTemplates };
-                                   delete updatedTemplates[templateName];
-                                   setBudgetTemplates(updatedTemplates);
-                                 }}
-                                 size="sm"
-                                 variant="destructive"
-                               >
-                                 <Trash2 className="w-4 h-4" />
-                               </Button>
-                             </div>
-                           </div>
-                         ))}
-                       </div>
-                     </div>
-                   )}
+                    {/* Existing Templates Management */}
+                    {Object.keys(budgetTemplates).length > 0 && (
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold">Hantera befintliga mallar</h3>
+                        <div className="space-y-2">
+                          {Object.keys(budgetTemplates).sort().map(templateName => (
+                            <Collapsible key={templateName} open={expandedTemplates[templateName]}>
+                              <div className="border rounded-lg">
+                                <CollapsibleTrigger 
+                                  className="w-full flex items-center justify-between p-3 hover:bg-muted/50"
+                                  onClick={() => setExpandedTemplates(prev => ({
+                                    ...prev,
+                                    [templateName]: !prev[templateName]
+                                  }))}
+                                >
+                                  <div className="flex items-center justify-between w-full">
+                                    <div>
+                                      <span className="font-medium">{templateName}</span>
+                                      <p className="text-sm text-muted-foreground">
+                                        Skapad: {new Date(budgetTemplates[templateName].created).toLocaleDateString('sv-SE')}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex gap-2">
+                                        <Button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            startEditingTemplate(templateName);
+                                          }}
+                                          size="sm"
+                                          variant="outline"
+                                        >
+                                          <Edit className="w-4 h-4 mr-1" />
+                                          Redigera
+                                        </Button>
+                                        <Button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const updatedTemplates = { ...budgetTemplates };
+                                            delete updatedTemplates[templateName];
+                                            setBudgetTemplates(updatedTemplates);
+                                          }}
+                                          size="sm"
+                                          variant="destructive"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                      <ChevronDown className={`h-4 w-4 transition-transform ${expandedTemplates[templateName] ? 'rotate-180' : ''}`} />
+                                    </div>
+                                  </div>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                  <div className="p-3 pt-0 border-t">
+                                    {(() => {
+                                      const template = budgetTemplates[templateName];
+                                      if (!template) return null;
+                                      
+                                      const totalCosts = template.costGroups?.reduce((sum: number, group: any) => {
+                                        const subTotal = group.subCategories?.reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+                                        return sum + subTotal;
+                                      }, 0) || 0;
+                                      
+                                      const totalSavings = template.savingsGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0;
+                                      
+                                      return (
+                                        <div className="space-y-3 text-sm">
+                                          <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                              <span className="font-medium">Totala kostnader:</span>
+                                              <div className="text-destructive">{formatCurrency(totalCosts)}</div>
+                                            </div>
+                                            <div>
+                                              <span className="font-medium">Totalt sparande:</span>
+                                              <div className="text-green-600">{formatCurrency(totalSavings)}</div>
+                                            </div>
+                                          </div>
+                                          
+                                          {template.costGroups && template.costGroups.length > 0 && (
+                                            <div>
+                                              <span className="font-medium">Kostnadskategorier:</span>
+                                              <ul className="ml-4 mt-1 space-y-1">
+                                                {template.costGroups.map((group: any) => (
+                                                  <li key={group.id} className="text-xs">
+                                                    {group.name}: {formatCurrency(group.subCategories?.reduce((sum: number, sub: any) => sum + sub.amount, 0) || 0)}
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            </div>
+                                          )}
+                                          
+                                          {template.savingsGroups && template.savingsGroups.length > 0 && (
+                                            <div>
+                                              <span className="font-medium">Sparandekategorier:</span>
+                                              <ul className="ml-4 mt-1 space-y-1">
+                                                {template.savingsGroups.map((group: any) => (
+                                                  <li key={group.id} className="text-xs">
+                                                    {group.name}: {formatCurrency(group.amount)}
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+                                </CollapsibleContent>
+                              </div>
+                            </Collapsible>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                  </CardContent>
                </Card>
               </div>
