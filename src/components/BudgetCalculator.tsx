@@ -5388,19 +5388,46 @@ const BudgetCalculator = () => {
                           onClick={() => {
                             if (selectedHistoricalMonth && historicalData[selectedHistoricalMonth]) {
                               const monthToDelete = selectedHistoricalMonth;
-                              setHistoricalData(prev => {
-                                const newData = { ...prev };
-                                delete newData[monthToDelete];
-                                return newData;
-                              });
+                              
+                              // Create updated historical data without the deleted month
+                              const newHistoricalData = { ...historicalData };
+                              delete newHistoricalData[monthToDelete];
+                              
+                              // Update state
+                              setHistoricalData(newHistoricalData);
                               
                               // Reset selection after deletion
                               setSelectedHistoricalMonth('');
                               
-                              // Save changes immediately to localStorage
-                              setTimeout(() => {
-                                saveToLocalStorage();
-                              }, 0);
+                              // Save directly to localStorage with updated data
+                              const dataToSave = {
+                                andreasSalary,
+                                andreasförsäkringskassan,
+                                andreasbarnbidrag,
+                                susannaSalary,
+                                susannaförsäkringskassan,
+                                susannabarnbidrag,
+                                costGroups,
+                                savingsGroups,
+                                dailyTransfer,
+                                weekendTransfer,
+                                customHolidays,
+                                selectedPerson,
+                                andreasPersonalCosts,
+                                andreasPersonalSavings,
+                                susannaPersonalCosts,
+                                susannaPersonalSavings,
+                                historicalData: newHistoricalData, // Use the updated data
+                                accounts,
+                                budgetTemplates,
+                                selectedBudgetMonth,
+                                userName1,
+                                userName2,
+                                transferChecks,
+                                andreasShareChecked,
+                                susannaShareChecked
+                              };
+                              localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
                               
                               // If the deleted month was the currently selected budget month, reset to current month
                               if (selectedBudgetMonth === monthToDelete) {
