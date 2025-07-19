@@ -3457,7 +3457,7 @@ const BudgetCalculator = () => {
               <Card>
                 <CardHeader>
                   <CardTitle>Överföring</CardTitle>
-                  <CardDescription>Överföringar och fördelningar</CardDescription>
+                  <CardDescription>Kontosammanställning</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
 
