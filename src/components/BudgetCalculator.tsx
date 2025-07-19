@@ -3007,6 +3007,26 @@ const BudgetCalculator = () => {
                                               </ul>
                                             </div>
                                           )}
+                                          
+                                          {/* Dagliga Överföringar Section */}
+                                          {(template.dailyTransfer || template.weekendTransfer) && (
+                                            <div>
+                                              <span className="font-medium">Dagliga Överföringar:</span>
+                                              <div className="ml-4 mt-1 space-y-1 text-xs">
+                                                <div className="font-medium">
+                                                  Total daglig budget: {formatCurrency((template.dailyTransfer || 0) * 21 + (template.weekendTransfer || 0) * 5)}
+                                                </div>
+                                                <ul className="ml-4 space-y-1">
+                                                  <li className="text-xs text-muted-foreground">
+                                                    • Vardagar: 21 × {formatCurrency(template.dailyTransfer || 0)} = {formatCurrency((template.dailyTransfer || 0) * 21)}
+                                                  </li>
+                                                  <li className="text-xs text-muted-foreground">
+                                                    • Helgdagar: 5 × {formatCurrency(template.weekendTransfer || 0)} = {formatCurrency((template.weekendTransfer || 0) * 5)}
+                                                  </li>
+                                                </ul>
+                                              </div>
+                                            </div>
+                                          )}
                                         </div>
                                       );
                                     })()}
