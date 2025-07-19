@@ -539,6 +539,36 @@ const BudgetCalculator = () => {
     calculateBudget();
   }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedBudgetMonth, transferAccount, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts]);
 
+  // Function to calculate weekdays and weekend days for a specific month
+  const calculateDaysForMonth = (year: number, month: number) => {
+    // Calculate from 24th of previous month to 25th of selected month
+    const prevMonth = month - 1;
+    const prevYear = prevMonth < 0 ? year - 1 : year;
+    const adjustedPrevMonth = prevMonth < 0 ? 11 : prevMonth;
+    const startDate = new Date(prevYear, adjustedPrevMonth, 24);
+    const endDate = new Date(year, month, 25);
+    
+    let weekdayCount = 0;
+    let fridayCount = 0;
+    let currentDatePointer = new Date(startDate);
+    
+    while (currentDatePointer <= endDate) {
+      const dayOfWeek = currentDatePointer.getDay();
+      const isHoliday = isSwedishHoliday(currentDatePointer);
+      
+      if (!isHoliday && dayOfWeek >= 1 && dayOfWeek <= 5) {
+        weekdayCount++;
+        if (dayOfWeek === 5) { // Friday
+          fridayCount++;
+        }
+      }
+      
+      currentDatePointer.setDate(currentDatePointer.getDate() + 1);
+    }
+    
+    return { weekdayCount, fridayCount };
+  };
+
   const calculateDailyBudget = () => {
     const currentDate = new Date();
     
@@ -3009,24 +3039,39 @@ const BudgetCalculator = () => {
                                           )}
                                           
                                           {/* Dagliga Överföringar Section */}
-                                          {(template.dailyTransfer || template.weekendTransfer) && (
-                                            <div>
-                                              <span className="font-medium">Dagliga Överföringar:</span>
-                                              <div className="ml-4 mt-1 space-y-1 text-xs">
-                                                <div className="font-medium">
-                                                  Total daglig budget: {formatCurrency((template.dailyTransfer || 0) * 21 + (template.weekendTransfer || 0) * 5)}
+                                          {(template.dailyTransfer || template.weekendTransfer) && (() => {
+                                            const currentDate = new Date();
+                                            let selectedYear = currentDate.getFullYear();
+                                            let selectedMonth = currentDate.getMonth();
+                                            
+                                            if (selectedBudgetMonth) {
+                                              const [yearStr, monthStr] = selectedBudgetMonth.split('-');
+                                              selectedYear = parseInt(yearStr);
+                                              selectedMonth = parseInt(monthStr) - 1;
+                                            }
+                                            
+                                            const { weekdayCount, fridayCount } = calculateDaysForMonth(selectedYear, selectedMonth);
+                                            const totalDailyBudget = (template.dailyTransfer || 0) * weekdayCount + (template.weekendTransfer || 0) * fridayCount;
+                                            
+                                            return (
+                                              <div>
+                                                <span className="font-medium">Dagliga Överföringar:</span>
+                                                <div className="ml-4 mt-1 space-y-1 text-xs">
+                                                  <div className="font-medium">
+                                                    Total daglig budget: {formatCurrency(totalDailyBudget)}
+                                                  </div>
+                                                  <ul className="ml-4 space-y-1">
+                                                    <li className="text-xs text-muted-foreground">
+                                                      • Vardagar: {weekdayCount} × {formatCurrency(template.dailyTransfer || 0)} = {formatCurrency((template.dailyTransfer || 0) * weekdayCount)}
+                                                    </li>
+                                                    <li className="text-xs text-muted-foreground">
+                                                      • Helgdagar: {fridayCount} × {formatCurrency(template.weekendTransfer || 0)} = {formatCurrency((template.weekendTransfer || 0) * fridayCount)}
+                                                    </li>
+                                                  </ul>
                                                 </div>
-                                                <ul className="ml-4 space-y-1">
-                                                  <li className="text-xs text-muted-foreground">
-                                                    • Vardagar: 21 × {formatCurrency(template.dailyTransfer || 0)} = {formatCurrency((template.dailyTransfer || 0) * 21)}
-                                                  </li>
-                                                  <li className="text-xs text-muted-foreground">
-                                                    • Helgdagar: 5 × {formatCurrency(template.weekendTransfer || 0)} = {formatCurrency((template.weekendTransfer || 0) * 5)}
-                                                  </li>
-                                                </ul>
                                               </div>
-                                            </div>
-                                          )}
+                                            );
+                                          })()}
                                         </div>
                                       );
                                     })()}
