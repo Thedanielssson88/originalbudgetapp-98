@@ -1186,13 +1186,20 @@ const BudgetCalculator = () => {
       return;
     }
     
-    // Copy current month's data to new previous month
+    // Copy current month's data to new previous month, but reset all income to 0
     const currentMonthData = historicalData[selectedBudgetMonth];
     if (currentMonthData) {
       setHistoricalData(prev => ({
         ...prev,
         [prevMonthKey]: {
           ...currentMonthData,
+          // Reset all income values to 0
+          andreasSalary: 0,
+          andreasförsäkringskassan: 0,
+          andreasbarnbidrag: 0,
+          susannaSalary: 0,
+          susannaförsäkringskassan: 0,
+          susannabarnbidrag: 0,
           // Update any date-specific properties if needed
           createdAt: new Date().toISOString()
         }
@@ -1221,13 +1228,20 @@ const BudgetCalculator = () => {
       return;
     }
     
-    // Copy current month's data to new next month
+    // Copy current month's data to new next month, but reset all income to 0
     const currentMonthData = historicalData[selectedBudgetMonth];
     if (currentMonthData) {
       setHistoricalData(prev => ({
         ...prev,
         [nextMonthKey]: {
           ...currentMonthData,
+          // Reset all income values to 0
+          andreasSalary: 0,
+          andreasförsäkringskassan: 0,
+          andreasbarnbidrag: 0,
+          susannaSalary: 0,
+          susannaförsäkringskassan: 0,
+          susannabarnbidrag: 0,
           // Update any date-specific properties if needed
           createdAt: new Date().toISOString()
         }
