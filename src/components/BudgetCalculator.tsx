@@ -7,6 +7,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useSwipeGestures } from '@/hooks/useSwipeGestures';
@@ -135,6 +136,11 @@ const BudgetCalculator = () => {
   // User name states
   const [userName1, setUserName1] = useState<string>('Andreas');
   const [userName2, setUserName2] = useState<string>('Susanna');
+
+  // Transfer completion states
+  const [transferChecks, setTransferChecks] = useState<{[key: string]: boolean}>({});
+  const [andreasShareChecked, setAndreasShareChecked] = useState<boolean>(false);
+  const [susannaShareChecked, setSusannaShareChecked] = useState<boolean>(false);
 
   // Tab navigation helper functions
   const getTabOrder = () => {
@@ -371,6 +377,11 @@ const BudgetCalculator = () => {
         setUserName1(parsed.userName1 || 'Andreas');
         setUserName2(parsed.userName2 || 'Susanna');
         
+        // Load transfer checkbox states
+        setTransferChecks(parsed.transferChecks || {});
+        setAndreasShareChecked(parsed.andreasShareChecked || false);
+        setSusannaShareChecked(parsed.susannaShareChecked || false);
+        
         if (parsed.results) {
           setResults(parsed.results);
         }
@@ -497,7 +508,10 @@ const BudgetCalculator = () => {
       budgetTemplates,
       selectedBudgetMonth, // Save the selected month
       userName1,
-      userName2
+      userName2,
+      transferChecks,
+      andreasShareChecked,
+      susannaShareChecked
     };
     localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
   };
@@ -508,7 +522,7 @@ const BudgetCalculator = () => {
       saveToLocalStorage();
       saveToSelectedMonth();
     }
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, budgetTemplates, userName1, userName2, isInitialLoad]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, isInitialLoad]);
 
   // Auto-calculate budget whenever any input changes
   useEffect(() => {
@@ -3973,43 +3987,47 @@ const BudgetCalculator = () => {
                    
                    {expandedSections.accountSummary && (
                      <div className="mt-4 space-y-4">
-                       {/* Account Summary List */}
-                       <div className="space-y-3">
-                         {accounts.map(account => {
-                           // Calculate savings for this account
-                           const accountSavings = savingsGroups
-                             .filter(group => group.account === account)
-                             .reduce((sum, group) => sum + group.amount, 0);
-                           
-                           // Calculate costs for this account
-                           const accountCosts = costGroups.reduce((sum, group) => {
-                             const groupCosts = group.subCategories
-                               ?.filter(sub => sub.account === account)
-                               .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                             return sum + groupCosts;
-                           }, 0);
-                           
-                           const netAmount = accountSavings - accountCosts;
-                           const hasDetails = accountSavings > 0 || accountCosts > 0;
-                           
-                           return (
-                             <div key={account} className="p-3 bg-white rounded border">
-                               <div className="flex justify-between items-center">
-                                 <div className="flex items-center gap-2">
-                                   <span className="font-medium">{account}</span>
-                                   {hasDetails && (
-                                     <button
-                                       onClick={() => toggleAccountDetails(account)}
-                                       className="text-gray-400 hover:text-gray-600"
-                                     >
-                                       {expandedAccounts[account] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                     </button>
-                                   )}
-                                 </div>
-                                 <div className={`font-semibold ${netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                   {netAmount >= 0 ? '+' : ''}{formatCurrency(netAmount)}
-                                 </div>
-                               </div>
+                        {/* Account Summary List */}
+                        <div className="space-y-3">
+                          {accounts.map(account => {
+                            // Calculate savings for this account
+                            const accountSavings = savingsGroups
+                              .filter(group => group.account === account)
+                              .reduce((sum, group) => sum + group.amount, 0);
+                            
+                            // Calculate costs for this account
+                            const accountCosts = costGroups.reduce((sum, group) => {
+                              const groupCosts = group.subCategories
+                                ?.filter(sub => sub.account === account)
+                                .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                              return sum + groupCosts;
+                            }, 0);
+                            
+                            const netAmount = accountSavings - accountCosts;
+                            const hasDetails = accountSavings > 0 || accountCosts > 0;
+                            
+                            return (
+                              <div key={account} className="p-3 bg-white rounded border">
+                                <div className="flex justify-between items-center">
+                                  <div className="flex items-center gap-3">
+                                    <Checkbox
+                                      checked={transferChecks[account] || false}
+                                      onCheckedChange={(checked) => setTransferChecks(prev => ({...prev, [account]: checked as boolean}))}
+                                    />
+                                    <span className="font-medium">{account}</span>
+                                    {hasDetails && (
+                                      <button
+                                        onClick={() => toggleAccountDetails(account)}
+                                        className="text-gray-400 hover:text-gray-600"
+                                      >
+                                        {expandedAccounts[account] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                      </button>
+                                    )}
+                                  </div>
+                                  <div className={`font-semibold ${netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {netAmount >= 0 ? '+' : ''}{formatCurrency(netAmount)}
+                                  </div>
+                                </div>
                                
                                {/* Expandable breakdown */}
                                {expandedAccounts[account] && hasDetails && (
@@ -4126,27 +4144,39 @@ const BudgetCalculator = () => {
                                   {expandedSections.individualSharesDistribution ? <ChevronUp className="h-5 w-5 text-blue-600" /> : <ChevronDown className="h-5 w-5 text-blue-600" />}
                                 </div>
                                 
-                                {expandedSections.individualSharesDistribution && (
-                                  <div className="mt-4 space-y-3">
-                                    <div className="bg-white p-3 rounded border">
-                                      <h5 className="font-medium text-blue-800 mb-2">Fördelning baserat på inkomst</h5>
-                                      <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between">
-                                          <span>{userName1}s andel ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%):</span>
-                                          <span className="font-semibold text-blue-700">{formatCurrency(results.andreasShare)}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                          <span>{userName2}s andel ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%):</span>
-                                          <span className="font-semibold text-blue-700">{formatCurrency(results.susannaShare)}</span>
-                                        </div>
-                                        <div className="flex justify-between pt-2 border-t font-medium">
-                                          <span>Totalt att fördela:</span>
-                                          <span className="text-blue-800">{formatCurrency(results.andreasShare + results.susannaShare)}</span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
+                                 {expandedSections.individualSharesDistribution && (
+                                   <div className="mt-4 space-y-3">
+                                     <div className="bg-white p-3 rounded border">
+                                       <h5 className="font-medium text-blue-800 mb-2">Fördelning baserat på inkomst</h5>
+                                       <div className="space-y-2 text-sm">
+                                         <div className="flex justify-between items-center">
+                                           <div className="flex items-center gap-3">
+                                             <Checkbox
+                                               checked={andreasShareChecked}
+                                               onCheckedChange={(checked) => setAndreasShareChecked(checked as boolean)}
+                                             />
+                                             <span>{userName1}s andel ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%):</span>
+                                           </div>
+                                           <span className="font-semibold text-blue-700">{formatCurrency(results.andreasShare)}</span>
+                                         </div>
+                                         <div className="flex justify-between items-center">
+                                           <div className="flex items-center gap-3">
+                                             <Checkbox
+                                               checked={susannaShareChecked}
+                                               onCheckedChange={(checked) => setSusannaShareChecked(checked as boolean)}
+                                             />
+                                             <span>{userName2}s andel ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%):</span>
+                                           </div>
+                                           <span className="font-semibold text-blue-700">{formatCurrency(results.susannaShare)}</span>
+                                         </div>
+                                         <div className="flex justify-between pt-2 border-t font-medium">
+                                           <span>Totalt att fördela:</span>
+                                           <span className="text-blue-800">{formatCurrency(results.andreasShare + results.susannaShare)}</span>
+                                         </div>
+                                       </div>
+                                     </div>
+                                   </div>
+                                 )}
                               </div>
                               
                               {/* Kvar av Daglig budget - Expandable section */}
@@ -4192,16 +4222,6 @@ const BudgetCalculator = () => {
                                 )}
                               </div>
                               
-                              <div className="flex justify-between pt-2 border-t">
-                                <span>Differens:</span>
-                                <span className={`font-semibold ${(transferAccount - (results.andreasShare + results.susannaShare) - results.remainingDailyBudget) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                  {formatCurrency(transferAccount - (results.andreasShare + results.susannaShare) - results.remainingDailyBudget)}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>Kvar på överföringskonto:</span>
-                                <span className="font-medium">{formatCurrency((transferAccount - (results.andreasShare + results.susannaShare) - results.remainingDailyBudget))}</span>
-                              </div>
                             </div>
                           </div>
                         )}
@@ -4219,29 +4239,19 @@ const BudgetCalculator = () => {
                       </div>
                     </div>
                     
-                    {/* Kvar att fördela - moved from Sammanställning */}
+                    {/* Verifiering section - renamed from "Kvar att fördela" */}
                     <div className="p-4 bg-purple-50 rounded-lg">
-                      <h4 className="font-medium mb-3">Kvar att fördela</h4>
+                      <h4 className="font-medium mb-3">Verifiering</h4>
                       <div className="space-y-3">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                            <div className="text-sm text-purple-700 font-medium">{userName1} andel</div>
-                            <div className="text-xl font-bold text-purple-800">
-                              {formatCurrency(results.andreasShare)}
-                            </div>
-                          </div>
-                          
-                          <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                            <div className="text-sm text-purple-700 font-medium">{userName2} andel</div>
-                            <div className="text-xl font-bold text-purple-800">
-                              {formatCurrency(results.susannaShare)}
-                            </div>
-                          </div>
-                        </div>
-                        
                         <div className="flex justify-between pt-2 border-t">
-                          <span className="font-medium">Total kvar att fördela:</span>
-                          <span className="font-bold text-purple-600">{formatCurrency(results.andreasShare + results.susannaShare)}</span>
+                          <span>Differens:</span>
+                          <span className={`font-semibold ${(transferAccount - (results.andreasShare + results.susannaShare) - results.remainingDailyBudget) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {formatCurrency(transferAccount - (results.andreasShare + results.susannaShare) - results.remainingDailyBudget)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Kvar på överföringskonto:</span>
+                          <span className="font-medium">{formatCurrency((transferAccount - (results.andreasShare + results.susannaShare) - results.remainingDailyBudget))}</span>
                         </div>
                       </div>
                     </div>
