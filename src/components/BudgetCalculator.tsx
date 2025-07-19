@@ -3944,29 +3944,158 @@ const BudgetCalculator = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="transfer-account">Överföringskonto saldo</Label>
-                  <Input
-                    id="transfer-account"
-                    type="number"
-                    placeholder="Ange nuvarande saldo"
-                    value={transferAccount || ''}
-                    onChange={(e) => setTransferAccount(Number(e.target.value))}
-                    className="text-lg"
-                  />
-                </div>
+                 <div className="space-y-2">
+                   <Label htmlFor="transfer-account">Överföringskonto saldo</Label>
+                   <Input
+                     id="transfer-account"
+                     type="number"
+                     placeholder="Ange nuvarande saldo"
+                     value={transferAccount || ''}
+                     onChange={(e) => setTransferAccount(Number(e.target.value))}
+                     className="text-lg"
+                   />
+                 </div>
 
-                {results && (
-                  <div className="space-y-4">
-                    <div className="p-4 bg-muted rounded-lg">
-                      <h4 className="font-medium mb-3">Beloppssammanfattning</h4>
-                      <div className="space-y-2">
-                         <div className="flex justify-between">
-                           <span>Belopp för Återstående daglig budget:</span>
-                           <span className={`font-medium ${results.remainingDailyBudget < 0 ? 'text-red-600' : ''}`}>{formatCurrency(results.remainingDailyBudget)}</span>
+                 {/* Överföring till konto section - copied from Sammanställning */}
+                 <div className="p-4 bg-indigo-50 rounded-lg">
+                   <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('accountSummary')}>
+                     <div>
+                        <div className="text-sm text-muted-foreground">Överföring till konto</div>
+                        <div className="text-lg font-bold text-indigo-600">
+                          {accounts.length} konton
+                        </div>
+                     </div>
+                     {expandedSections.accountSummary ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                   </div>
+                   
+                   {expandedSections.accountSummary && (
+                     <div className="mt-4 space-y-4">
+                       {/* Account Summary List */}
+                       <div className="space-y-3">
+                         {accounts.map(account => {
+                           // Calculate savings for this account
+                           const accountSavings = savingsGroups
+                             .filter(group => group.account === account)
+                             .reduce((sum, group) => sum + group.amount, 0);
+                           
+                           // Calculate costs for this account
+                           const accountCosts = costGroups.reduce((sum, group) => {
+                             const groupCosts = group.subCategories
+                               ?.filter(sub => sub.account === account)
+                               .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                             return sum + groupCosts;
+                           }, 0);
+                           
+                           const netAmount = accountSavings - accountCosts;
+                           const hasDetails = accountSavings > 0 || accountCosts > 0;
+                           
+                           return (
+                             <div key={account} className="p-3 bg-white rounded border">
+                               <div className="flex justify-between items-center">
+                                 <div className="flex items-center gap-2">
+                                   <span className="font-medium">{account}</span>
+                                   {hasDetails && (
+                                     <button
+                                       onClick={() => toggleAccountDetails(account)}
+                                       className="text-gray-400 hover:text-gray-600"
+                                     >
+                                       {expandedAccounts[account] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                     </button>
+                                   )}
+                                 </div>
+                                 <div className={`font-semibold ${netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                   {netAmount >= 0 ? '+' : ''}{formatCurrency(netAmount)}
+                                 </div>
+                               </div>
+                               
+                               {/* Expandable breakdown */}
+                               {expandedAccounts[account] && hasDetails && (
+                                 <div className="mt-3 pt-3 border-t space-y-2">
+                                   {/* Savings breakdown */}
+                                   {savingsGroups
+                                     .filter(group => group.account === account)
+                                     .map(group => (
+                                       <div key={`savings-${group.id}`} className="flex justify-between text-sm">
+                                         <span className="text-gray-600">{group.name} (Sparande)</span>
+                                         <span className="text-green-600">+{formatCurrency(group.amount)}</span>
+                                       </div>
+                                     ))}
+                                   
+                                   {/* Costs breakdown */}
+                                   {costGroups.map(group => 
+                                     group.subCategories
+                                       ?.filter(sub => sub.account === account)
+                                       .map(sub => (
+                                         <div key={`cost-${sub.id}`} className="flex justify-between text-sm">
+                                           <span className="text-gray-600">{sub.name} (Kostnad)</span>
+                                           <span className="text-red-600">-{formatCurrency(sub.amount)}</span>
+                                         </div>
+                                       ))
+                                   )}
+                                 </div>
+                               )}
+                             </div>
+                           );
+                          })}
+                        </div>
+                       
+                       {/* Account Management Section */}
+                       <div className="p-4 bg-gray-50 rounded-lg">
+                         <div className="flex justify-between items-center mb-4">
+                           <h4 className="font-semibold">Hantera konton</h4>
+                           <Button 
+                             size="sm" 
+                             variant="outline" 
+                             onClick={() => setIsEditingAccounts(!isEditingAccounts)}
+                           >
+                             {isEditingAccounts ? 'Stäng' : 'Redigera konton'}
+                           </Button>
                          </div>
-                        <div className="flex justify-between pt-2 border-t">
-                          <span>Individuella Andelar (Totalt belopp):</span>
+                         
+                         {isEditingAccounts && (
+                           <div className="space-y-4">
+                             <div className="flex gap-2">
+                               <Input
+                                 placeholder="Nytt kontonamn"
+                                 value={newAccountName}
+                                 onChange={(e) => setNewAccountName(e.target.value)}
+                                 className="flex-1"
+                               />
+                               <Button onClick={addAccount} disabled={!newAccountName.trim()}>
+                                 <Plus className="w-4 h-4 mr-1" />
+                                 Lägg till
+                               </Button>
+                             </div>
+                             
+                             <div className="space-y-2">
+                               <h5 className="text-sm font-medium">Befintliga konton:</h5>
+                               {accounts.map((account) => (
+                                 <div key={account} className="flex justify-between items-center p-2 bg-white rounded border">
+                                   <span>{account}</span>
+                                   <Button
+                                     size="sm"
+                                     variant="destructive"
+                                     onClick={() => removeAccount(account)}
+                                   >
+                                     <Trash2 className="w-4 h-4" />
+                                   </Button>
+                                 </div>
+                               ))}
+                             </div>
+                           </div>
+                         )}
+                       </div>
+                     </div>
+                   )}
+                 </div>
+
+                 {results && (
+                   <div className="space-y-4">
+                     <div className="p-4 bg-muted rounded-lg">
+                       <h4 className="font-medium mb-3">Fördelning av återstående belopp</h4>
+                       <div className="space-y-2">
+                         <div className="flex justify-between pt-2 border-t">
+                           <span>Totalt återstående belopp efter budget:</span>
                           <span className={`font-medium ${(results.andreasShare + results.susannaShare) < 0 ? 'text-red-600' : ''}`}>{formatCurrency(results.andreasShare + results.susannaShare)}</span>
                         </div>
                         <div className="flex justify-between">
