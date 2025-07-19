@@ -1406,7 +1406,23 @@ const BudgetCalculator = () => {
       // Use template data - copy all data like "Kopiera Budgetmall"
       const template = budgetTemplates[templateName];
       newMonthData = {
-        ...template,
+        date: new Date().toISOString(),
+        andreasSalary: template.andreasSalary || 0,
+        andreasförsäkringskassan: template.andreasförsäkringskassan || 0,
+        andreasbarnbidrag: template.andreasbarnbidrag || 0,
+        susannaSalary: template.susannaSalary || 0,
+        susannaförsäkringskassan: template.susannaförsäkringskassan || 0,
+        susannabarnbidrag: template.susannabarnbidrag || 0,
+        costGroups: JSON.parse(JSON.stringify(template.costGroups || [])),
+        savingsGroups: JSON.parse(JSON.stringify(template.savingsGroups || [])),
+        dailyTransfer: template.dailyTransfer || 300,
+        weekendTransfer: template.weekendTransfer || 540,
+        customHolidays: JSON.parse(JSON.stringify(template.customHolidays || [])),
+        andreasPersonalCosts: JSON.parse(JSON.stringify(template.andreasPersonalCosts || [])),
+        andreasPersonalSavings: JSON.parse(JSON.stringify(template.andreasPersonalSavings || [])),
+        susannaPersonalCosts: JSON.parse(JSON.stringify(template.susannaPersonalCosts || [])),
+        susannaPersonalSavings: JSON.parse(JSON.stringify(template.susannaPersonalSavings || [])),
+        accounts: JSON.parse(JSON.stringify(template.accounts || ['Löpande', 'Sparkonto', 'Buffert'])),
         createdAt: new Date().toISOString()
       };
     } else if (type === 'copy') {
@@ -1428,18 +1444,46 @@ const BudgetCalculator = () => {
     }
     
     if (newMonthData) {
-      setHistoricalData(prev => ({
-        ...prev,
-        [targetMonthKey]: newMonthData
-      }));
-      
-      // Set the new month as selected
-      setSelectedBudgetMonth(targetMonthKey);
-      
-      // Load the new month data
-      setTimeout(() => {
-        loadDataFromSelectedMonth(targetMonthKey);
-      }, 0);
+      setHistoricalData(prev => {
+        const updatedData = {
+          ...prev,
+          [targetMonthKey]: newMonthData
+        };
+        
+        // Set the new month as selected
+        setSelectedBudgetMonth(targetMonthKey);
+        
+        // Load the new month data immediately with the updated data
+        setTimeout(() => {
+          const monthData = updatedData[targetMonthKey];
+          if (monthData) {
+            // Load all the form data from the new month
+            setAndreasSalary(monthData.andreasSalary || 0);
+            setAndreasförsäkringskassan(monthData.andreasförsäkringskassan || 0);
+            setAndreasbarnbidrag(monthData.andreasbarnbidrag || 0);
+            setSusannaSalary(monthData.susannaSalary || 0);
+            setSusannaförsäkringskassan(monthData.susannaförsäkringskassan || 0);
+            setSusannabarnbidrag(monthData.susannabarnbidrag || 0);
+            setCostGroups(JSON.parse(JSON.stringify(monthData.costGroups || [])));
+            setSavingsGroups(JSON.parse(JSON.stringify(monthData.savingsGroups || [])));
+            setDailyTransfer(monthData.dailyTransfer || 0);
+            setWeekendTransfer(monthData.weekendTransfer || 0);
+            setCustomHolidays(JSON.parse(JSON.stringify(monthData.customHolidays || [])));
+            setAndreasPersonalCosts(JSON.parse(JSON.stringify(monthData.andreasPersonalCosts || [])));
+            setAndreasPersonalSavings(JSON.parse(JSON.stringify(monthData.andreasPersonalSavings || [])));
+            setSusannaPersonalCosts(JSON.parse(JSON.stringify(monthData.susannaPersonalCosts || [])));
+            setSusannaPersonalSavings(JSON.parse(JSON.stringify(monthData.susannaPersonalSavings || [])));
+            setAccounts(JSON.parse(JSON.stringify(monthData.accounts || ['Löpande', 'Sparkonto', 'Buffert'])));
+            setUserName1(monthData.userName1 || 'Andreas');
+            setUserName2(monthData.userName2 || 'Susanna');
+            setTransferChecks(monthData.transferChecks || {});
+            setAndreasShareChecked(monthData.andreasShareChecked !== undefined ? monthData.andreasShareChecked : true);
+            setSusannaShareChecked(monthData.susannaShareChecked !== undefined ? monthData.susannaShareChecked : true);
+          }
+        }, 0);
+        
+        return updatedData;
+      });
     }
   };
 
