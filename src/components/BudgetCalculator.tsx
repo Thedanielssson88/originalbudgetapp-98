@@ -133,6 +133,11 @@ const BudgetCalculator = () => {
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
   const [editingTemplateData, setEditingTemplateData] = useState<any>(null);
   
+  // Template copying states
+  const [selectedTemplateToCopy, setSelectedTemplateToCopy] = useState<string>('');
+  const [targetCopyMonth, setTargetCopyMonth] = useState<string>('');
+  const [showTemplateDetails, setShowTemplateDetails] = useState<boolean>(false);
+  
   // User name states
   const [userName1, setUserName1] = useState<string>('Andreas');
   const [userName2, setUserName2] = useState<string>('Susanna');
@@ -1346,6 +1351,50 @@ const BudgetCalculator = () => {
   const cancelEditingTemplate = () => {
     setEditingTemplate(null);
     setEditingTemplateData(null);
+  };
+
+  const copyTemplateToMonth = () => {
+    if (!selectedTemplateToCopy || !targetCopyMonth) return;
+    
+    const template = budgetTemplates[selectedTemplateToCopy];
+    if (!template) return;
+    
+    // Prepare the data to copy
+    const templateDataToCopy = {
+      month: targetCopyMonth,
+      date: new Date().toISOString(),
+      andreasSalary: template.andreasSalary || 0,
+      andreasförsäkringskassan: template.andreasförsäkringskassan || 0,
+      andreasbarnbidrag: template.andreasbarnbidrag || 0,
+      susannaSalary: template.susannaSalary || 0,
+      susannaförsäkringskassan: template.susannaförsäkringskassan || 0,
+      susannabarnbidrag: template.susannabarnbidrag || 0,
+      costGroups: JSON.parse(JSON.stringify(template.costGroups || [])),
+      savingsGroups: JSON.parse(JSON.stringify(template.savingsGroups || [])),
+      dailyTransfer: template.dailyTransfer || 300,
+      weekendTransfer: template.weekendTransfer || 540,
+      customHolidays: JSON.parse(JSON.stringify(template.customHolidays || [])),
+      andreasPersonalCosts: JSON.parse(JSON.stringify(template.andreasPersonalCosts || [])),
+      andreasPersonalSavings: JSON.parse(JSON.stringify(template.andreasPersonalSavings || [])),
+      susannaPersonalCosts: JSON.parse(JSON.stringify(template.susannaPersonalCosts || [])),
+      susannaPersonalSavings: JSON.parse(JSON.stringify(template.susannaPersonalSavings || [])),
+      accounts: JSON.parse(JSON.stringify(template.accounts || ['Löpande', 'Sparkonto', 'Buffert']))
+    };
+    
+    // Add the copied data to historical data
+    setHistoricalData(prev => ({
+      ...prev,
+      [targetCopyMonth]: templateDataToCopy
+    }));
+    
+    // Reset form
+    setSelectedTemplateToCopy('');
+    setTargetCopyMonth('');
+    setShowTemplateDetails(false);
+    
+    // Optionally switch to the copied month
+    setSelectedBudgetMonth(targetCopyMonth);
+    loadDataFromSelectedMonth(targetCopyMonth);
   };
 
   const updateEditingTemplateGroup = (groupId: string, field: string, value: any, isSubCategory: boolean = false, subCategoryId?: string) => {
@@ -4885,446 +4934,289 @@ const BudgetCalculator = () => {
                 </CardContent>
               </Card>
 
-              {/* Budget Templates */}
-              <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <History className="h-5 w-5 text-primary" />
-                    Budgetmallar
-                  </CardTitle>
-                  <CardDescription>
-                    Skapa och hantera budgetmallar från befintliga månader
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Create new template */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="template-name">Mallnamn</Label>
-                      <Input
-                        id="template-name"
-                        value={newTemplateName}
-                        onChange={(e) => setNewTemplateName(e.target.value)}
-                        placeholder="Ange namn för budgetmall"
-                        className="text-lg"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="template-source">Skapa från månad</Label>
-                      <select
-                        id="template-source"
-                        value={selectedTemplateSourceMonth}
-                        onChange={(e) => setSelectedTemplateSourceMonth(e.target.value)}
-                        className="w-full p-2 border rounded-md"
-                      >
-                        <option value="">Välj månad</option>
-                        <option value="current">Aktuell månad</option>
-                        {Object.keys(historicalData).sort().reverse().map(month => (
-                          <option key={month} value={month}>{month}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  
-                  <Button
-                    onClick={() => {
-                      if (newTemplateName && selectedTemplateSourceMonth) {
-                        const sourceData = selectedTemplateSourceMonth === 'current' 
-                          ? {
-                              andreasSalary,
-                              andreasförsäkringskassan,
-                              andreasbarnbidrag,
-                              susannaSalary,
-                              susannaförsäkringskassan,
-                              susannabarnbidrag,
-                              costGroups,
-                              savingsGroups,
-                              dailyTransfer,
-                              weekendTransfer,
-                              customHolidays,
-                              andreasPersonalCosts,
-                              andreasPersonalSavings,
-                              susannaPersonalCosts,
-                              susannaPersonalSavings,
-                              accounts
-                            }
-                          : historicalData[selectedTemplateSourceMonth];
-                        
-                        const templateData = {
-                          name: newTemplateName.trim(),
-                          created: new Date().toISOString(),
-                          sourceMonth: selectedTemplateSourceMonth,
-                          andreasSalary: sourceData.andreasSalary || 0,
-                          andreasförsäkringskassan: sourceData.andreasförsäkringskassan || 0,
-                          andreasbarnbidrag: sourceData.andreasbarnbidrag || 0,
-                          susannaSalary: sourceData.susannaSalary || 0,
-                          susannaförsäkringskassan: sourceData.susannaförsäkringskassan || 0,
-                          susannabarnbidrag: sourceData.susannabarnbidrag || 0,
-                          costGroups: JSON.parse(JSON.stringify(sourceData.costGroups || [])),
-                          savingsGroups: JSON.parse(JSON.stringify(sourceData.savingsGroups || [])),
-                          dailyTransfer: sourceData.dailyTransfer || 300,
-                          weekendTransfer: sourceData.weekendTransfer || 540,
-                          customHolidays: JSON.parse(JSON.stringify(sourceData.customHolidays || [])),
-                          andreasPersonalCosts: JSON.parse(JSON.stringify(sourceData.andreasPersonalCosts || [])),
-                          andreasPersonalSavings: JSON.parse(JSON.stringify(sourceData.andreasPersonalSavings || [])),
-                          susannaPersonalCosts: JSON.parse(JSON.stringify(sourceData.susannaPersonalCosts || [])),
-                          susannaPersonalSavings: JSON.parse(JSON.stringify(sourceData.susannaPersonalSavings || [])),
-                          accounts: JSON.parse(JSON.stringify(sourceData.accounts || ['Löpande', 'Sparkonto', 'Buffert'])),
-                          date: new Date().toISOString()
-                        };
-                        
-                        const updatedTemplates = {
-                          ...budgetTemplates,
-                          [newTemplateName.trim()]: templateData
-                        };
-                        
-                        setBudgetTemplates(updatedTemplates);
-                        setNewTemplateName('');
-                        setSelectedTemplateSourceMonth('');
-                      }
-                    }}
-                    disabled={!newTemplateName || !selectedTemplateSourceMonth}
-                    className="w-full"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Skapa budgetmall
-                  </Button>
-
-                  {/* Budget Templates Section */}
-                  {Object.keys(budgetTemplates).length > 0 && (
-                    <div className="mt-4">
-                      <Button
-                        onClick={() => setExpandedSections(prev => ({ ...prev, budgetTemplates: !prev.budgetTemplates }))}
-                        variant="outline"
-                        size="sm"
-                        className="w-full justify-between"
-                      >
-                        <span>Budgetmallar ({Object.keys(budgetTemplates).length})</span>
-                        {expandedSections.budgetTemplates ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </Button>
-                      
-                       {expandedSections.budgetTemplates && (
-                         <div className="mt-2 space-y-2">
-                           {Object.keys(budgetTemplates).sort().map(templateName => (
-                             <div key={templateName}>
-                               {editingTemplate === templateName ? (
-                                 // Edit mode - only show edit interface
-                                 <Card className="border-primary">
-                                   <CardHeader>
-                                     <CardTitle className="flex items-center justify-between">
-                                       <span>Redigera budgetmall: {templateName}</span>
-                                       <div className="flex gap-2">
-                                         <Button onClick={saveEditedTemplate} size="sm">
-                                           <Save className="w-4 h-4 mr-1" />
-                                           Spara
-                                         </Button>
-                                         <Button onClick={cancelEditingTemplate} size="sm" variant="outline">
-                                           <X className="w-4 h-4 mr-1" />
-                                           Avbryt
-                                         </Button>
-                                       </div>
-                                     </CardTitle>
-                                   </CardHeader>
-                                   <CardContent className="space-y-4">
-                                     {/* Cost Categories */}
-                                     <div>
-                                       <div className="flex items-center justify-between mb-2">
-                                         <h4 className="font-medium">Kostnader</h4>
-                                         <Button onClick={addEditingCostGroup} size="sm" variant="outline">
-                                           <Plus className="w-4 h-4 mr-1" />
-                                           Lägg till kategori
-                                         </Button>
-                                       </div>
-                                       {editingTemplateData.costGroups?.map((group: any) => (
-                                         <div key={group.id} className="mb-4 p-3 border rounded-md">
-                                           <div className="flex items-center justify-between mb-2">
-                                             <div className="grid grid-cols-2 gap-2 flex-1">
-                                               <div>
-                                                 <Label className="text-xs">Huvudkategori</Label>
-                                                 <Input
-                                                   value={group.name}
-                                                   onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value)}
-                                                   className="h-8"
-                                                 />
-                                               </div>
-                                               {(!group.subCategories || group.subCategories.length === 0) && (
-                                                 <div>
-                                                   <Label className="text-xs">Belopp</Label>
-                                                   <Input
-                                                     type="number"
-                                                     value={group.amount === 0 ? '' : group.amount}
-                                                     onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
-                                                     className="h-8"
-                                                     placeholder="0"
-                                                   />
-                                                 </div>
-                                               )}
-                                             </div>
-                                             <Button
-                                               onClick={() => removeEditingCostGroup(group.id)}
-                                               size="sm"
-                                               variant="destructive"
-                                               className="ml-2"
-                                             >
-                                               <Trash2 className="w-3 h-3" />
-                                             </Button>
-                                           </div>
-                                           
-                                           {/* Subcategories */}
-                                           {group.subCategories && group.subCategories.length > 0 && (
-                                             <div className="ml-4 space-y-2">
-                                               <Label className="text-xs text-muted-foreground">Underkategorier:</Label>
-                                               {group.subCategories.map((sub: any) => (
-                                                 <div key={sub.id} className="flex items-center gap-2">
-                                                   <div className="grid grid-cols-3 gap-2 flex-1">
-                                                     <Input
-                                                       value={sub.name}
-                                                       onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value, true, sub.id)}
-                                                       className="h-7 text-xs"
-                                                       placeholder="Underkategori"
-                                                     />
-                                                     <Select 
-                                                       value={sub.account || ''} 
-                                                       onValueChange={(value) => updateEditingTemplateGroup(group.id, 'account', value, true, sub.id)}
-                                                     >
-                                                       <SelectTrigger className="h-7 text-xs">
-                                                         <SelectValue placeholder="Konto" />
-                                                       </SelectTrigger>
-                                                       <SelectContent>
-                                                         {accounts.map(account => (
-                                                           <SelectItem key={account} value={account}>{account}</SelectItem>
-                                                         ))}
-                                                       </SelectContent>
-                                                     </Select>
-                                                     <Input
-                                                       type="number"
-                                                       value={sub.amount === 0 ? '' : sub.amount}
-                                                       onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0, true, sub.id)}
-                                                       className="h-7 text-xs"
-                                                       placeholder="0"
-                                                     />
-                                                   </div>
-                                                   <Button
-                                                     onClick={() => removeEditingSubCategory(group.id, sub.id)}
-                                                     size="sm"
-                                                     variant="destructive"
-                                                     className="h-7 w-7 p-0"
-                                                   >
-                                                     <Trash2 className="w-3 h-3" />
-                                                   </Button>
-                                                 </div>
-                                               ))}
-                                             </div>
-                                           )}
-                                           
-                                           <Button
-                                             onClick={() => addEditingSubCategory(group.id)}
-                                             size="sm"
-                                             variant="outline"
-                                             className="mt-2"
-                                           >
-                                             <Plus className="w-4 h-4 mr-1" />
-                                             Lägg till underkategori
-                                           </Button>
-                                         </div>
-                                       ))}
+               {/* Budget Templates */}
+               <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
+                 <CardHeader>
+                   <CardTitle className="flex items-center gap-2">
+                     <History className="h-5 w-5 text-primary" />
+                     Budgetmallar
+                   </CardTitle>
+                   <CardDescription>
+                     Skapa och hantera budgetmallar från befintliga månader
+                   </CardDescription>
+                 </CardHeader>
+                 <CardContent className="space-y-6">
+                   {/* Copy Template to Month Section */}
+                   <div className="space-y-4 p-4 border-2 border-primary/20 rounded-lg bg-primary/5">
+                     <h3 className="text-lg font-semibold text-primary">Kopiera Budgetmall till Månad</h3>
+                     <p className="text-sm text-muted-foreground">
+                       Välj en budgetmall att kopiera till Min Månadsbudget för en specifik månad
+                     </p>
+                     
+                     {Object.keys(budgetTemplates).length > 0 ? (
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <div className="space-y-2">
+                           <Label htmlFor="template-to-copy">Välj budgetmall</Label>
+                           <Select value={selectedTemplateToCopy} onValueChange={setSelectedTemplateToCopy}>
+                             <SelectTrigger>
+                               <SelectValue placeholder="Välj en budgetmall att kopiera" />
+                             </SelectTrigger>
+                             <SelectContent>
+                               {Object.keys(budgetTemplates).sort().map(templateName => (
+                                 <SelectItem key={templateName} value={templateName}>
+                                   {templateName}
+                                 </SelectItem>
+                               ))}
+                             </SelectContent>
+                           </Select>
+                         </div>
+                         
+                         <div className="space-y-2">
+                           <Label htmlFor="target-month">Månad att kopiera till</Label>
+                           <Input
+                             id="target-month"
+                             type="month"
+                             value={targetCopyMonth}
+                             onChange={(e) => setTargetCopyMonth(e.target.value)}
+                             className="text-lg"
+                             placeholder="Välj månad"
+                           />
+                         </div>
+                       </div>
+                     ) : (
+                       <div className="text-center py-4 text-muted-foreground">
+                         <p>Inga budgetmallar skapade än. Skapa en mall först nedan.</p>
+                       </div>
+                     )}
+                     
+                     {selectedTemplateToCopy && Object.keys(budgetTemplates).length > 0 && (
+                       <div className="space-y-4">
+                         {/* Template Details */}
+                         <div className="p-3 bg-muted/50 rounded-lg">
+                           <div className="flex items-center justify-between mb-3">
+                             <h4 className="font-medium">Detaljer för: {selectedTemplateToCopy}</h4>
+                             <Button
+                               onClick={() => setShowTemplateDetails(!showTemplateDetails)}
+                               variant="outline"
+                               size="sm"
+                             >
+                               {showTemplateDetails ? 'Dölj detaljer' : 'Visa detaljer'}
+                             </Button>
+                           </div>
+                           
+                           {budgetTemplates[selectedTemplateToCopy] && (
+                             <div className="grid grid-cols-2 gap-4 text-sm">
+                               <div>
+                                 <span className="text-muted-foreground">Skapad:</span>
+                                 <p className="font-medium">
+                                   {new Date(budgetTemplates[selectedTemplateToCopy].created).toLocaleDateString('sv-SE')}
+                                 </p>
+                               </div>
+                               <div>
+                                 <span className="text-muted-foreground">Från månad:</span>
+                                 <p className="font-medium">
+                                   {budgetTemplates[selectedTemplateToCopy].sourceMonth === 'current' 
+                                     ? 'Aktuell månad' 
+                                     : budgetTemplates[selectedTemplateToCopy].sourceMonth}
+                                 </p>
+                               </div>
+                             </div>
+                           )}
+                           
+                           {showTemplateDetails && budgetTemplates[selectedTemplateToCopy] && (
+                             <div className="mt-4 space-y-3">
+                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                 <div>
+                                   <h5 className="font-medium text-green-600 mb-2">Inkomster</h5>
+                                   <div className="space-y-1">
+                                     <div className="flex justify-between">
+                                       <span>{userName1}:</span>
+                                       <span>{formatCurrency(budgetTemplates[selectedTemplateToCopy].andreasSalary + budgetTemplates[selectedTemplateToCopy].andreasförsäkringskassan + budgetTemplates[selectedTemplateToCopy].andreasbarnbidrag)}</span>
                                      </div>
-
-                                     {/* Savings Categories */}
-                                     <div>
-                                       <div className="flex items-center justify-between mb-2">
-                                         <h4 className="font-medium">Sparande</h4>
-                                         <Button onClick={addEditingSavingsGroup} size="sm" variant="outline">
-                                           <Plus className="w-4 h-4 mr-1" />
-                                           Lägg till kategori
-                                         </Button>
-                                       </div>
-                                       {editingTemplateData.savingsGroups?.map((group: any) => (
-                                         <div key={group.id} className="mb-4 p-3 border rounded-md">
-                                           <div className="flex items-center justify-between">
-                                             <div className="grid grid-cols-3 gap-2 flex-1">
-                                               <div>
-                                                 <Label className="text-xs">Kategori</Label>
-                                                 <Input
-                                                   value={group.name}
-                                                   onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value)}
-                                                   className="h-8"
-                                                 />
-                                               </div>
-                                               <div>
-                                                 <Label className="text-xs">Konto</Label>
-                                                 <Select 
-                                                   value={group.account || ''} 
-                                                   onValueChange={(value) => updateEditingTemplateGroup(group.id, 'account', value)}
-                                                 >
-                                                   <SelectTrigger className="h-8">
-                                                     <SelectValue placeholder="Välj konto" />
-                                                   </SelectTrigger>
-                                                   <SelectContent>
-                                                     {accounts.map(account => (
-                                                       <SelectItem key={account} value={account}>{account}</SelectItem>
-                                                     ))}
-                                                   </SelectContent>
-                                                 </Select>
-                                               </div>
-                                               <div>
-                                                 <Label className="text-xs">Belopp</Label>
-                                                 <Input
-                                                   type="number"
-                                                   value={group.amount === 0 ? '' : group.amount}
-                                                   onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
-                                                   className="h-8"
-                                                   placeholder="0"
-                                                 />
-                                               </div>
-                                             </div>
-                                             <Button
-                                               onClick={() => removeEditingSavingsGroup(group.id)}
-                                               size="sm"
-                                               variant="destructive"
-                                               className="ml-2"
-                                             >
-                                               <Trash2 className="w-3 h-3" />
-                                             </Button>
-                                           </div>
-                                         </div>
-                                       ))}
-                                     </div>
-                                   </CardContent>
-                                 </Card>
-                               ) : (
-                                 // Display mode - only show when not editing
-                                 <div className="p-3 bg-muted/30 rounded-md border">
-                                   <div className="flex justify-between items-start mb-2">
-                                     <div>
-                                       <h5 className="font-medium text-sm">{templateName}</h5>
-                                       <p className="text-xs text-muted-foreground">
-                                         Skapad: {new Date(budgetTemplates[templateName].date).toLocaleDateString()}
-                                       </p>
-                                     </div>
-                                     <div className="flex gap-2">
-                                        <Button
-                                          onClick={() => loadBudgetTemplate(templateName)}
-                                          size="sm"
-                                          variant="outline"
-                                          className="text-xs"
-                                        >
-                                          Ladda mall
-                                        </Button>
-                                        <Button
-                                          onClick={() => copyTemplateToJuli2025(templateName)}
-                                          size="sm"
-                                          variant="outline"
-                                          className="text-xs"
-                                        >
-                                          Kopiera till Juli 2025
-                                        </Button>
-                                       <Button
-                                         onClick={() => startEditingTemplate(templateName)}
-                                         size="sm"
-                                         variant="outline"
-                                         className="text-xs"
-                                       >
-                                         <Edit className="w-3 h-3" />
-                                       </Button>
-                                       <Button
-                                         onClick={() => deleteBudgetTemplate(templateName)}
-                                         size="sm"
-                                         variant="destructive"
-                                         className="text-xs"
-                                       >
-                                         <Trash2 className="w-3 h-3" />
-                                       </Button>
+                                     <div className="flex justify-between">
+                                       <span>{userName2}:</span>
+                                       <span>{formatCurrency(budgetTemplates[selectedTemplateToCopy].susannaSalary + budgetTemplates[selectedTemplateToCopy].susannaförsäkringskassan + budgetTemplates[selectedTemplateToCopy].susannabarnbidrag)}</span>
                                      </div>
                                    </div>
-                                   
-                                   <Button
-                                     onClick={() => setExpandedTemplates(prev => ({ ...prev, [templateName]: !prev[templateName] }))}
-                                     variant="ghost"
-                                     size="sm"
-                                     className="w-full justify-between text-xs"
-                                   >
-                                     <span>Visa detaljer</span>
-                                     {expandedTemplates[templateName] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                                   </Button>
-                                   
-                                   {expandedTemplates[templateName] && (
-                                     <div className="mt-2 space-y-2 text-xs">
-                                       <div>
-                                         <strong>Gemensamma kostnader:</strong>
-                                         {budgetTemplates[templateName].costGroups.length > 0 ? (
-                                           <ul className="ml-4 mt-1 space-y-1">
-                                             {budgetTemplates[templateName].costGroups.map((group: any) => (
-                                               <li key={group.id} className="space-y-1">
-                                                 <div className="font-medium">
-                                                   {group.name}: {calculateMainCategorySum(group).toLocaleString()} kr
-                                                   {group.account && <span className="ml-2 text-muted-foreground">({group.account})</span>}
-                                                 </div>
-                                                 {group.subCategories && group.subCategories.length > 0 && (
-                                                   <ul className="ml-4 text-xs space-y-0.5">
-                                                     {group.subCategories.map((sub: any) => (
-                                                       <li key={sub.id} className="text-muted-foreground">
-                                                         • {sub.name}: {sub.amount.toLocaleString()} kr
-                                                         {sub.account && <span className="ml-2">({sub.account})</span>}
-                                                       </li>
-                                                     ))}
-                                                   </ul>
-                                                 )}
-                                               </li>
-                                             ))}
-                                           </ul>
-                                         ) : (
-                                           <p className="ml-4 text-muted-foreground">Inga kostnader</p>
-                                         )}
-                                       </div>
-                                       
-                                       <div>
-                                         <strong>Sparande:</strong>
-                                         {budgetTemplates[templateName].savingsGroups.length > 0 ? (
-                                           <ul className="ml-4 mt-1 space-y-1">
-                                             {budgetTemplates[templateName].savingsGroups.map((group: any) => (
-                                               <li key={group.id} className="space-y-1">
-                                                 <div className="font-medium">
-                                                   {group.name}: {calculateMainCategorySum(group).toLocaleString()} kr
-                                                   {group.account && <span className="ml-2 text-muted-foreground">({group.account})</span>}
-                                                 </div>
-                                                 {group.subCategories && group.subCategories.length > 0 && (
-                                                   <ul className="ml-4 text-xs space-y-0.5">
-                                                     {group.subCategories.map((sub: any) => (
-                                                       <li key={sub.id} className="text-muted-foreground">
-                                                         • {sub.name}: {sub.amount.toLocaleString()} kr
-                                                         {sub.account && <span className="ml-2">({sub.account})</span>}
-                                                       </li>
-                                                     ))}
-                                                   </ul>
-                                                 )}
-                                               </li>
-                                             ))}
-                                           </ul>
-                                         ) : (
-                                           <p className="ml-4 text-muted-foreground">Inget sparande</p>
-                                         )}
-                                       </div>
-                                       
-                                       <div>
-                                         <strong>Överföringar:</strong>
-                                         <ul className="ml-4 mt-1">
-                                           <li>Daglig överföring: {budgetTemplates[templateName].dailyTransfer.toLocaleString()} kr</li>
-                                           <li>Fredagsöverföring: {budgetTemplates[templateName].weekendTransfer.toLocaleString()} kr</li>
-                                         </ul>
-                                       </div>
-                                     </div>
-                                   )}
                                  </div>
-                               )}
+                                 <div>
+                                   <h5 className="font-medium text-red-600 mb-2">Kostnader</h5>
+                                   <div className="space-y-1">
+                                     {budgetTemplates[selectedTemplateToCopy].costGroups?.slice(0, 3).map((group: any) => (
+                                       <div key={group.id} className="flex justify-between">
+                                         <span>{group.name}:</span>
+                                         <span>{formatCurrency(group.amount)}</span>
+                                       </div>
+                                     ))}
+                                     {budgetTemplates[selectedTemplateToCopy].costGroups?.length > 3 && (
+                                       <div className="text-muted-foreground">
+                                         +{budgetTemplates[selectedTemplateToCopy].costGroups.length - 3} fler kategorier...
+                                       </div>
+                                     )}
+                                   </div>
+                                 </div>
+                               </div>
                              </div>
-                           ))}
+                           )}
                          </div>
-                       )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                         
+                         {/* Copy Action */}
+                         <div className="flex flex-col gap-2">
+                           <Button
+                             onClick={copyTemplateToMonth}
+                             disabled={!selectedTemplateToCopy || !targetCopyMonth}
+                             className="w-full bg-primary hover:bg-primary/90"
+                             size="lg"
+                           >
+                             <Plus className="mr-2 h-4 w-4" />
+                             Kopiera "{selectedTemplateToCopy}" till {targetCopyMonth}
+                           </Button>
+                           {targetCopyMonth && historicalData[targetCopyMonth] && (
+                             <p className="text-sm text-amber-600 text-center">
+                               ⚠️ Denna månad har redan data. Kopieringen kommer att ersätta befintlig data.
+                             </p>
+                           )}
+                         </div>
+                       </div>
+                     )}
+                   </div>
+
+                   {/* Create new template */}
+                   <div className="space-y-4">
+                     <h3 className="text-lg font-semibold">Skapa ny budgetmall</h3>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                       <div className="space-y-2">
+                         <Label htmlFor="template-name">Mallnamn</Label>
+                         <Input
+                           id="template-name"
+                           value={newTemplateName}
+                           onChange={(e) => setNewTemplateName(e.target.value)}
+                           placeholder="Ange namn för budgetmall"
+                           className="text-lg"
+                         />
+                       </div>
+                       <div className="space-y-2">
+                         <Label htmlFor="template-source">Skapa från månad</Label>
+                         <Select value={selectedTemplateSourceMonth} onValueChange={setSelectedTemplateSourceMonth}>
+                           <SelectTrigger>
+                             <SelectValue placeholder="Välj månad" />
+                           </SelectTrigger>
+                           <SelectContent>
+                             <SelectItem value="current">Aktuell månad</SelectItem>
+                             {Object.keys(historicalData).sort().reverse().map(month => (
+                               <SelectItem key={month} value={month}>{month}</SelectItem>
+                             ))}
+                           </SelectContent>
+                         </Select>
+                       </div>
+                     </div>
+                     
+                     <Button
+                       onClick={() => {
+                         if (newTemplateName && selectedTemplateSourceMonth) {
+                           const sourceData = selectedTemplateSourceMonth === 'current' 
+                             ? {
+                                 andreasSalary,
+                                 andreasförsäkringskassan,
+                                 andreasbarnbidrag,
+                                 susannaSalary,
+                                 susannaförsäkringskassan,
+                                 susannabarnbidrag,
+                                 costGroups,
+                                 savingsGroups,
+                                 dailyTransfer,
+                                 weekendTransfer,
+                                 customHolidays,
+                                 andreasPersonalCosts,
+                                 andreasPersonalSavings,
+                                 susannaPersonalCosts,
+                                 susannaPersonalSavings,
+                                 accounts
+                               }
+                             : historicalData[selectedTemplateSourceMonth];
+                           
+                           const templateData = {
+                             name: newTemplateName.trim(),
+                             created: new Date().toISOString(),
+                             sourceMonth: selectedTemplateSourceMonth,
+                             andreasSalary: sourceData.andreasSalary || 0,
+                             andreasförsäkringskassan: sourceData.andreasförsäkringskassan || 0,
+                             andreasbarnbidrag: sourceData.andreasbarnbidrag || 0,
+                             susannaSalary: sourceData.susannaSalary || 0,
+                             susannaförsäkringskassan: sourceData.susannaförsäkringskassan || 0,
+                             susannabarnbidrag: sourceData.susannabarnbidrag || 0,
+                             costGroups: JSON.parse(JSON.stringify(sourceData.costGroups || [])),
+                             savingsGroups: JSON.parse(JSON.stringify(sourceData.savingsGroups || [])),
+                             dailyTransfer: sourceData.dailyTransfer || 300,
+                             weekendTransfer: sourceData.weekendTransfer || 540,
+                             customHolidays: JSON.parse(JSON.stringify(sourceData.customHolidays || [])),
+                             andreasPersonalCosts: JSON.parse(JSON.stringify(sourceData.andreasPersonalCosts || [])),
+                             andreasPersonalSavings: JSON.parse(JSON.stringify(sourceData.andreasPersonalSavings || [])),
+                             susannaPersonalCosts: JSON.parse(JSON.stringify(sourceData.susannaPersonalCosts || [])),
+                             susannaPersonalSavings: JSON.parse(JSON.stringify(sourceData.susannaPersonalSavings || [])),
+                             accounts: JSON.parse(JSON.stringify(sourceData.accounts || ['Löpande', 'Sparkonto', 'Buffert'])),
+                             date: new Date().toISOString()
+                           };
+                           
+                           const updatedTemplates = {
+                             ...budgetTemplates,
+                             [newTemplateName.trim()]: templateData
+                           };
+                           
+                           setBudgetTemplates(updatedTemplates);
+                           setNewTemplateName('');
+                           setSelectedTemplateSourceMonth('');
+                         }
+                       }}
+                       disabled={!newTemplateName || !selectedTemplateSourceMonth}
+                       className="w-full"
+                     >
+                       <Plus className="mr-2 h-4 w-4" />
+                       Skapa budgetmall
+                     </Button>
+                   </div>
+
+                   {/* Existing Templates Management */}
+                   {Object.keys(budgetTemplates).length > 0 && (
+                     <div className="space-y-4">
+                       <h3 className="text-lg font-semibold">Hantera befintliga mallar</h3>
+                       <div className="space-y-2">
+                         {Object.keys(budgetTemplates).sort().map(templateName => (
+                           <div key={templateName} className="flex items-center justify-between p-3 border rounded-lg">
+                             <div>
+                               <span className="font-medium">{templateName}</span>
+                               <p className="text-sm text-muted-foreground">
+                                 Skapad: {new Date(budgetTemplates[templateName].created).toLocaleDateString('sv-SE')}
+                               </p>
+                             </div>
+                             <div className="flex gap-2">
+                               <Button
+                                 onClick={() => startEditingTemplate(templateName)}
+                                 size="sm"
+                                 variant="outline"
+                               >
+                                 <Edit className="w-4 h-4 mr-1" />
+                                 Redigera
+                               </Button>
+                               <Button
+                                 onClick={() => {
+                                   const updatedTemplates = { ...budgetTemplates };
+                                   delete updatedTemplates[templateName];
+                                   setBudgetTemplates(updatedTemplates);
+                                 }}
+                                 size="sm"
+                                 variant="destructive"
+                               >
+                                 <Trash2 className="w-4 h-4" />
+                               </Button>
+                             </div>
+                           </div>
+                         ))}
+                       </div>
+                     </div>
+                   )}
+                 </CardContent>
+               </Card>
               </div>
             </div>
           </TabsContent>
