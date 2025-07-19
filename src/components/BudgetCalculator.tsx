@@ -541,12 +541,12 @@ const BudgetCalculator = () => {
 
   // Function to calculate weekdays and weekend days for a specific month
   const calculateDaysForMonth = (year: number, month: number) => {
-    // Calculate from 24th of previous month to 25th of selected month
+    // Calculate from 25th of previous month to 24th of selected month
     const prevMonth = month - 1;
     const prevYear = prevMonth < 0 ? year - 1 : year;
     const adjustedPrevMonth = prevMonth < 0 ? 11 : prevMonth;
-    const startDate = new Date(prevYear, adjustedPrevMonth, 24);
-    const endDate = new Date(year, month, 25);
+    const startDate = new Date(prevYear, adjustedPrevMonth, 25);
+    const endDate = new Date(year, month, 24);
     
     let weekdayCount = 0;
     let fridayCount = 0;
@@ -584,8 +584,6 @@ const BudgetCalculator = () => {
     
     const currentDay = currentDate.getDate();
     
-    // remainingEndDate will be calculated in the remaining budget section below
-    
     // Calculate total budget: from 25th of previous month to 24th of selected month
     const prevMonth = selectedMonth - 1;
     const prevYear = prevMonth < 0 ? selectedYear - 1 : selectedYear;
@@ -605,15 +603,15 @@ const BudgetCalculator = () => {
     const timeDiff = date25th.getTime() - currentDate.getTime();
     const daysUntil25th = Math.ceil(timeDiff / (1000 * 3600 * 24));
     
-    // Collect holiday days - calculate for the selected month period (24th prev month to 25th selected month)
+    // Collect holiday days - calculate for the selected month period (25th prev month to 24th selected month)
     let holidayBudget = 0;
     
-    // Calculate holiday period: from 24th of previous month to 25th of selected month
+    // Calculate holiday period: from 25th of previous month to 24th of selected month
     const holidayPrevMonth = selectedMonth - 1;
     const holidayPrevYear = holidayPrevMonth < 0 ? selectedYear - 1 : selectedYear;
     const holidayAdjustedPrevMonth = holidayPrevMonth < 0 ? 11 : holidayPrevMonth;
-    const holidayStartDate = new Date(holidayPrevYear, holidayAdjustedPrevMonth, 24);
-    const holidayEndDate = new Date(selectedYear, selectedMonth, 25);
+    const holidayStartDate = new Date(holidayPrevYear, holidayAdjustedPrevMonth, 25);
+    const holidayEndDate = new Date(selectedYear, selectedMonth, 24);
     
     const holidaysUntil25th: string[] = [];
     let holidayDatePointer = new Date(holidayStartDate);
@@ -713,12 +711,12 @@ const BudgetCalculator = () => {
         remainingEndDate = new Date(nextYear, adjustedMonth, 25);
       }
     } else {
-      // For other months: from 24th of previous month to 25th of selected month
+      // For future months: same as total budget - from 25th of previous month to 24th of selected month
       const prevMonth = selectedMonth - 1;
       const prevYear = prevMonth < 0 ? selectedYear - 1 : selectedYear;
       const adjustedPrevMonth = prevMonth < 0 ? 11 : prevMonth;
-      remainingStartDate = new Date(prevYear, adjustedPrevMonth, 24);
-      remainingEndDate = new Date(selectedYear, selectedMonth, 25);
+      remainingStartDate = new Date(prevYear, adjustedPrevMonth, 25);
+      remainingEndDate = new Date(selectedYear, selectedMonth, 24);
     }
     
     let currentDatePointer = new Date(remainingStartDate);
@@ -768,7 +766,7 @@ const BudgetCalculator = () => {
     }
     
     return { 
-      totalBudget: totalBudget - holidayBudget, // Subtract holiday budget from total
+      totalBudget,
       remainingBudget, 
       holidayBudget,
       weekdayCount: totalWeekdayCount, 
@@ -5836,18 +5834,53 @@ const BudgetCalculator = () => {
                                       
                                       const totalSavings = template.savingsGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0;
                                       
-                                      return (
-                                        <div className="space-y-3 text-sm">
-                                          <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                              <span className="font-medium">Totala kostnader:</span>
-                                              <div className="text-destructive">{formatCurrency(totalCosts)}</div>
-                                            </div>
-                                            <div>
-                                              <span className="font-medium">Totalt sparande:</span>
-                                              <div className="text-green-600">{formatCurrency(totalSavings)}</div>
-                                            </div>
-                                          </div>
+                                       return (
+                                         <div className="space-y-3 text-sm">
+                                           <div className="grid grid-cols-2 gap-4">
+                                             <div>
+                                               <span className="font-medium">Totala kostnader:</span>
+                                               <div className="text-destructive">{formatCurrency(totalCosts)}</div>
+                                             </div>
+                                             <div>
+                                               <span className="font-medium">Totalt sparande:</span>
+                                               <div className="text-green-600">{formatCurrency(totalSavings)}</div>
+                                             </div>
+                                           </div>
+                                           
+                                           {/* Total Daily Budget with breakdown */}
+                                           {template.dailyTransfer && template.weekendTransfer && (
+                                             <div className="border-t pt-3">
+                                               <div className="font-medium text-base mb-2">
+                                                 Total daglig budget: {formatCurrency(
+                                                   (() => {
+                                                     // Calculate for the current month from 25th previous to 24th current
+                                                     const currentDate = new Date();
+                                                     const year = currentDate.getFullYear();
+                                                     const month = currentDate.getMonth();
+                                                     const { weekdayCount, fridayCount } = calculateDaysForMonth(year, month);
+                                                     return (weekdayCount * template.dailyTransfer) + (fridayCount * template.weekendTransfer);
+                                                   })()
+                                                 )}
+                                               </div>
+                                               <div className="ml-4 space-y-1 text-xs text-muted-foreground">
+                                                 <div>Daglig överföring (måndag-torsdag): {template.dailyTransfer}</div>
+                                                 <div>Helgöverföring (fredag-söndag): {template.weekendTransfer}</div>
+                                                 {(() => {
+                                                   const currentDate = new Date();
+                                                   const year = currentDate.getFullYear();
+                                                   const month = currentDate.getMonth();
+                                                   const { weekdayCount, fridayCount } = calculateDaysForMonth(year, month);
+                                                   const weekdaysExcludingFridays = weekdayCount - fridayCount;
+                                                   return (
+                                                     <>
+                                                       <div>Vardagar: {weekdaysExcludingFridays} × {template.dailyTransfer} kr = {formatCurrency(weekdaysExcludingFridays * template.dailyTransfer)}</div>
+                                                       <div>Helgdagar: {fridayCount} × {template.weekendTransfer} kr = {formatCurrency(fridayCount * template.weekendTransfer)}</div>
+                                                     </>
+                                                   );
+                                                 })()}
+                                               </div>
+                                             </div>
+                                           )}
                                           
                                           {template.costGroups && template.costGroups.length > 0 && (
                                             <div>

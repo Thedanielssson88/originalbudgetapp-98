@@ -95,12 +95,12 @@ const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
 
   // Function to calculate weekdays and weekend days for a specific month
   const calculateDaysForMonth = (year: number, month: number) => {
-    // Calculate from 24th of previous month to 25th of selected month
+    // Calculate from 25th of previous month to 24th of selected month
     const prevMonth = month - 1;
     const prevYear = prevMonth < 0 ? year - 1 : year;
     const adjustedPrevMonth = prevMonth < 0 ? 11 : prevMonth;
-    const startDate = new Date(prevYear, adjustedPrevMonth, 24);
-    const endDate = new Date(year, month, 25);
+    const startDate = new Date(prevYear, adjustedPrevMonth, 25);
+    const endDate = new Date(year, month, 24);
     
     let weekdayCount = 0;
     let fridayCount = 0;
