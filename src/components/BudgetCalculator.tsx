@@ -1476,6 +1476,8 @@ const BudgetCalculator = () => {
             ...item,
             amount: 0
           })),
+          // Reset account balances to 0
+          accountBalances: {},
           createdAt: new Date().toISOString()
         };
       }
@@ -1500,6 +1502,8 @@ const BudgetCalculator = () => {
         susannaPersonalCosts: JSON.parse(JSON.stringify(template.susannaPersonalCosts || [])),
         susannaPersonalSavings: JSON.parse(JSON.stringify(template.susannaPersonalSavings || [])),
         accounts: JSON.parse(JSON.stringify(template.accounts || ['Löpande', 'Sparkonto', 'Buffert'])),
+        // Reset account balances to 0
+        accountBalances: {},
         createdAt: new Date().toISOString()
       };
     } else if (type === 'copy') {
@@ -1509,6 +1513,8 @@ const BudgetCalculator = () => {
         newMonthData = {
           ...currentMonthData,
           // Keep all income values from the source month
+          // Reset account balances to 0
+          accountBalances: {},
           createdAt: new Date().toISOString()
         };
       }
@@ -1550,6 +1556,8 @@ const BudgetCalculator = () => {
             setTransferChecks(monthData.transferChecks || {});
             setAndreasShareChecked(monthData.andreasShareChecked !== undefined ? monthData.andreasShareChecked : true);
             setSusannaShareChecked(monthData.susannaShareChecked !== undefined ? monthData.susannaShareChecked : true);
+            // Set account balances (should be empty {} for new months)
+            setAccountBalances(monthData.accountBalances || {});
           }
         }, 0);
         
