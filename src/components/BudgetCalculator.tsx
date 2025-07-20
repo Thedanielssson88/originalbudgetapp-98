@@ -2271,50 +2271,75 @@ const BudgetCalculator = () => {
         if (monthKey === currentMonthKey) {
           // Current month forecast: use current accountBalances for forecast
           dataPoint[account] = accountBalances[account] || 0;
-        } else if (monthData && monthData.accountBalances) {
-          // Historical month: Use the starting balances (Kontosaldon) for this month
-          const accountBalance = monthData.accountBalances[account];
-          if (accountBalance !== undefined && accountBalance !== 0) {
-            dataPoint[account] = accountBalance;
+        } else {
+          // For historical months, look for accountBalances in the NEXT month
+          // because account balances entered represent the PREVIOUS month's balances
+          const nextMonthIndex = extendedMonthKeys.indexOf(monthKey) + 1;
+          if (nextMonthIndex < extendedMonthKeys.length) {
+            const nextMonthKey = extendedMonthKeys[nextMonthIndex];
+            const nextMonthData = historicalData[nextMonthKey];
+            if (nextMonthData && nextMonthData.accountBalances && nextMonthData.accountBalances[account]) {
+              // Use the account balance from next month (which represents this month's balance)
+              dataPoint[account] = nextMonthData.accountBalances[account];
+            } else {
+              // No balance data found, try to calculate from previous month
+              if (monthData) {
+                const prevMonthIndex = extendedMonthKeys.indexOf(monthKey) - 1;
+                if (prevMonthIndex >= 0) {
+                  const prevMonthKey = extendedMonthKeys[prevMonthIndex];
+                  const prevMonthData = historicalData[prevMonthKey];
+                  if (prevMonthData) {
+                    // Calculate final balance from previous month
+                    const originalBalance = (prevMonthData.accountBalances && prevMonthData.accountBalances[account]) || 0;
+                    const savingsAmount = (prevMonthData.savingsGroups || [])
+                      .filter((group: any) => group.account === account)
+                      .reduce((sum: number, group: any) => sum + group.amount, 0);
+                    const costsAmount = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+                      const groupCosts = group.subCategories
+                        ?.filter((sub: any) => sub.account === account)
+                        .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+                      return sum + groupCosts;
+                    }, 0);
+                    dataPoint[account] = originalBalance + savingsAmount - costsAmount;
+                  } else {
+                    dataPoint[account] = 0;
+                  }
+                } else {
+                  dataPoint[account] = 0;
+                }
+              } else {
+                dataPoint[account] = 0;
+              }
+            }
           } else {
-            // All account balances are 0, use previous month's final balance
-            const prevMonthIndex = extendedMonthKeys.indexOf(monthKey) - 1;
-            if (prevMonthIndex >= 0) {
-              const prevMonthKey = extendedMonthKeys[prevMonthIndex];
-              const prevMonthData = historicalData[prevMonthKey];
-              if (prevMonthData) {
-                // Calculate final balance from previous month
-                const originalBalance = (prevMonthData.accountBalances && prevMonthData.accountBalances[account]) || 0;
-                const savingsAmount = (prevMonthData.savingsGroups || [])
-                  .filter((group: any) => group.account === account)
-                  .reduce((sum: number, group: any) => sum + group.amount, 0);
-                const costsAmount = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-                  const groupCosts = group.subCategories
-                    ?.filter((sub: any) => sub.account === account)
-                    .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-                  return sum + groupCosts;
-                }, 0);
-                dataPoint[account] = originalBalance + savingsAmount - costsAmount;
+            // No next month data, try to use current month data if available or calculate from previous
+            if (monthData) {
+              const prevMonthIndex = extendedMonthKeys.indexOf(monthKey) - 1;
+              if (prevMonthIndex >= 0) {
+                const prevMonthKey = extendedMonthKeys[prevMonthIndex];
+                const prevMonthData = historicalData[prevMonthKey];
+                if (prevMonthData) {
+                  // Calculate final balance from previous month
+                  const originalBalance = (prevMonthData.accountBalances && prevMonthData.accountBalances[account]) || 0;
+                  const savingsAmount = (prevMonthData.savingsGroups || [])
+                    .filter((group: any) => group.account === account)
+                    .reduce((sum: number, group: any) => sum + group.amount, 0);
+                  const costsAmount = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+                    const groupCosts = group.subCategories
+                      ?.filter((sub: any) => sub.account === account)
+                      .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+                    return sum + groupCosts;
+                  }, 0);
+                  dataPoint[account] = originalBalance + savingsAmount - costsAmount;
+                } else {
+                  dataPoint[account] = 0;
+                }
               } else {
                 dataPoint[account] = 0;
               }
             } else {
               dataPoint[account] = 0;
             }
-          }
-        } else {
-          // No data for this month, try to use previous month's final balance
-          const prevMonthIndex = extendedMonthKeys.indexOf(monthKey) - 1;
-          if (prevMonthIndex >= 0) {
-            const prevMonthKey = extendedMonthKeys[prevMonthIndex];
-            const prevMonthData = historicalData[prevMonthKey];
-            if (prevMonthData && prevMonthData.accountBalances) {
-              dataPoint[account] = prevMonthData.accountBalances[account] || 0;
-            } else {
-              dataPoint[account] = 0;
-            }
-          } else {
-            dataPoint[account] = 0;
           }
         }
       });
