@@ -2314,74 +2314,16 @@ const BudgetCalculator = () => {
       setSelectedAccountsForChart(accounts.slice(0, 3)); // Start with first 3 accounts
     }
     
-    // Helper function to get account balance with estimation logic for a specific month
+    // Helper function to get account balance directly from stored accountBalances
     const getAccountBalanceForMonth = (monthKey: string, account: string) => {
       if (monthKey === currentMonthKey) {
-        // For current month, use current accountBalances with fallback to estimation
-        const currentBalance = accountBalances[account] || 0;
-        if (currentBalance !== 0) return currentBalance;
-        
-        // If empty, get estimated from previous month's final balance
-        const prevMonthInfo = getPreviousMonthInfo();
-        const prevMonthData = historicalData[prevMonthInfo.monthKey];
-        if (prevMonthData) {
-          const originalBalance = (prevMonthData.accountBalances && prevMonthData.accountBalances[account]) || 0;
-          const savingsAmount = (prevMonthData.savingsGroups || [])
-            .filter((group: any) => group.account === account)
-            .reduce((sum: number, group: any) => sum + group.amount, 0);
-          const costsAmount = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-            const groupCosts = group.subCategories
-              ?.filter((sub: any) => sub.account === account)
-              .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-            return sum + groupCosts;
-          }, 0);
-          return originalBalance + savingsAmount - costsAmount;
-        }
-        return 0;
+        // For current month, use current accountBalances
+        return accountBalances[account] || 0;
       } else {
         // For historical months, use accountBalances from that month
         const monthData = historicalData[monthKey];
-        if (monthData && monthData.accountBalances && monthData.accountBalances[account]) {
+        if (monthData && monthData.accountBalances && monthData.accountBalances[account] !== undefined) {
           return monthData.accountBalances[account];
-        }
-        
-        // If no accountBalances for this month, calculate "Kontobelopp efter budget" using current month's data
-        // This gives us the estimated balance for this month based on current month's budget
-        if (selectedBudgetMonth && selectedBudgetMonth !== monthKey) {
-          const currentMonthData = historicalData[selectedBudgetMonth];
-          if (currentMonthData) {
-            const originalBalance = (currentMonthData.accountBalances && currentMonthData.accountBalances[account]) || 0;
-            const savingsAmount = (currentMonthData.savingsGroups || savingsGroups)
-              .filter((group: any) => group.account === account)
-              .reduce((sum: number, group: any) => sum + group.amount, 0);
-            const costsAmount = (currentMonthData.costGroups || costGroups).reduce((sum: number, group: any) => {
-              const groupCosts = group.subCategories
-                ?.filter((sub: any) => sub.account === account)
-                .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-              return sum + groupCosts;
-            }, 0);
-            return originalBalance + savingsAmount - costsAmount;
-          }
-        }
-        
-        // Fallback: try to estimate from previous month
-        const monthIndex = extendedMonthKeys.indexOf(monthKey);
-        if (monthIndex > 0) {
-          const prevMonthKey = extendedMonthKeys[monthIndex - 1];
-          const prevMonthData = historicalData[prevMonthKey];
-          if (prevMonthData) {
-            const originalBalance = (prevMonthData.accountBalances && prevMonthData.accountBalances[account]) || 0;
-            const savingsAmount = (prevMonthData.savingsGroups || [])
-              .filter((group: any) => group.account === account)
-              .reduce((sum: number, group: any) => sum + group.amount, 0);
-            const costsAmount = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-              const groupCosts = group.subCategories
-                ?.filter((sub: any) => sub.account === account)
-                .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-              return sum + groupCosts;
-            }, 0);
-            return originalBalance + savingsAmount - costsAmount;
-          }
         }
         return 0;
       }
