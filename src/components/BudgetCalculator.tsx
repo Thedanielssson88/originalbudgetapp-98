@@ -4511,10 +4511,19 @@ const BudgetCalculator = () => {
                               // Get original balance from first page
                               const originalBalance = accountBalances[account] || 0;
                               
-                              // Calculate total deposits (savings) for this account
-                              const totalDeposits = savingsGroups
+                              // Calculate total deposits (savings + costs as positive) for this account
+                              const savingsAmount = savingsGroups
                                 .filter(group => group.account === account)
                                 .reduce((sum, group) => sum + group.amount, 0);
+                              
+                              const costsAmount = costGroups.reduce((sum, group) => {
+                                const groupCosts = group.subCategories
+                                  ?.filter(sub => sub.account === account)
+                                  .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                return sum + groupCosts;
+                              }, 0);
+                              
+                              const totalDeposits = savingsAmount + costsAmount;
                               
                               // Get all cost subcategories for this account
                               const accountCostItems = costGroups.reduce((items, group) => {
@@ -4525,8 +4534,8 @@ const BudgetCalculator = () => {
                               // Calculate total costs for this account
                               const totalCosts = accountCostItems.reduce((sum, item) => sum + item.amount, 0);
                               
-                              // Calculate final balance (original + deposits - costs)
-                              const finalBalance = originalBalance + totalDeposits - totalCosts;
+                              // Calculate final balance (original + deposits, since deposits already include all amounts as positive)
+                              const finalBalance = originalBalance + totalDeposits;
                               
                               const hasDetails = totalDeposits > 0 || accountCostItems.length > 0 || originalBalance !== 0;
                               
