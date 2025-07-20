@@ -2384,7 +2384,36 @@ const BudgetCalculator = () => {
             dataPoint[account] = nextMonthData.accountBalances[account];
           } else {
             // If no stored data, use estimated values
-            dataPoint[account] = getAccountBalanceForMonth(nextMonthKey, account);
+            const estimatedValue = getAccountBalanceForMonth(nextMonthKey, account);
+            
+            if (estimatedValue === 0) {
+              // If estimated value is 0, use calculated value from "Kontosammanställning" for the same month
+              const monthData = historicalData[monthKey];
+              if (monthData) {
+                // Get original balance
+                const originalBalance = (monthData.accountBalances && monthData.accountBalances[account]) || 0;
+                
+                // Calculate savings for this account
+                const accountSavings = (monthData.savingsGroups || [])
+                  .filter((group: any) => group.account === account)
+                  .reduce((sum: number, group: any) => sum + group.amount, 0);
+                
+                // Calculate costs for this account
+                const accountCosts = (monthData.costGroups || []).reduce((sum: number, group: any) => {
+                  const groupCosts = group.subCategories
+                    ?.filter((sub: any) => sub.account === account)
+                    .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+                  return sum + groupCosts;
+                }, 0);
+                
+                // Final balance from Kontosammanställning calculation
+                dataPoint[account] = originalBalance + accountSavings + accountCosts;
+              } else {
+                dataPoint[account] = 0;
+              }
+            } else {
+              dataPoint[account] = estimatedValue;
+            }
           }
         } else {
           dataPoint[account] = 0;
