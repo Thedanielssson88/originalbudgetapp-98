@@ -2345,7 +2345,26 @@ const BudgetCalculator = () => {
           return monthData.accountBalances[account];
         }
         
-        // If no accountBalances for this month, try to estimate from previous month
+        // If no accountBalances for this month, calculate "Kontobelopp efter budget" using current month's data
+        // This gives us the estimated balance for this month based on current month's budget
+        if (selectedBudgetMonth && selectedBudgetMonth !== monthKey) {
+          const currentMonthData = historicalData[selectedBudgetMonth];
+          if (currentMonthData) {
+            const originalBalance = (currentMonthData.accountBalances && currentMonthData.accountBalances[account]) || 0;
+            const savingsAmount = (currentMonthData.savingsGroups || savingsGroups)
+              .filter((group: any) => group.account === account)
+              .reduce((sum: number, group: any) => sum + group.amount, 0);
+            const costsAmount = (currentMonthData.costGroups || costGroups).reduce((sum: number, group: any) => {
+              const groupCosts = group.subCategories
+                ?.filter((sub: any) => sub.account === account)
+                .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+              return sum + groupCosts;
+            }, 0);
+            return originalBalance + savingsAmount - costsAmount;
+          }
+        }
+        
+        // Fallback: try to estimate from previous month
         const monthIndex = extendedMonthKeys.indexOf(monthKey);
         if (monthIndex > 0) {
           const prevMonthKey = extendedMonthKeys[monthIndex - 1];
