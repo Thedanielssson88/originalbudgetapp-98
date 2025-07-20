@@ -5764,23 +5764,37 @@ const BudgetCalculator = () => {
                                         return (
                                           <div className="space-y-4">
                                             {/* Edit Mode Header with totals */}
-                                            <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-muted/50 rounded-lg">
-                                              <div>
-                                                <span className="font-medium">Totala kostnader:</span>
-                                                <div className="text-destructive">
-                                                  {formatCurrency(editingTemplateData.costGroups?.reduce((sum: number, group: any) => {
-                                                    const subTotal = group.subCategories?.reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-                                                    return sum + subTotal;
-                                                  }, 0) || 0)}
-                                                </div>
-                                              </div>
-                                              <div>
-                                                <span className="font-medium">Totalt sparande:</span>
-                                                <div className="text-green-600">
-                                                  {formatCurrency(editingTemplateData.savingsGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0)}
-                                                </div>
-                                              </div>
-                                            </div>
+                                             <div className="mb-4 p-3 bg-muted/50 rounded-lg space-y-3">
+                                               <div className="grid grid-cols-2 gap-4">
+                                                 <div>
+                                                   <span className="font-medium">Totala kostnader:</span>
+                                                   <div className="text-destructive">
+                                                     {formatCurrency(editingTemplateData.costGroups?.reduce((sum: number, group: any) => {
+                                                       const subTotal = group.subCategories?.reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+                                                       return sum + subTotal;
+                                                     }, 0) || 0)}
+                                                   </div>
+                                                 </div>
+                                                 <div>
+                                                   <span className="font-medium">Total daglig budget:</span>
+                                                   <div className="text-destructive">
+                                                     {editingTemplateData.dailyTransfer && editingTemplateData.weekendTransfer ? formatCurrency(
+                                                       (() => {
+                                                         const [year, month] = selectedBudgetMonth.split('-').map(Number);
+                                                         const { weekdayCount, fridayCount } = calculateDaysForMonth(year, month - 1);
+                                                         return (weekdayCount * editingTemplateData.dailyTransfer) + (fridayCount * editingTemplateData.weekendTransfer);
+                                                       })()
+                                                     ) : '0 kr'}
+                                                   </div>
+                                                 </div>
+                                               </div>
+                                               <div>
+                                                 <span className="font-medium">Totalt sparande:</span>
+                                                 <div className="text-green-600">
+                                                   {formatCurrency(editingTemplateData.savingsGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0)}
+                                                 </div>
+                                               </div>
+                                             </div>
 
                                             {/* Transfer Settings */}
                                             <div className="space-y-3 p-3 border rounded-lg bg-blue-50/50">
@@ -5962,48 +5976,61 @@ const BudgetCalculator = () => {
                                       // View Mode
                                       return (
                                         <div className="space-y-3 text-sm">
-                                          <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                              <span className="font-medium">Totala kostnader:</span>
-                                              <div className="text-destructive">{formatCurrency(totalCosts)}</div>
-                                            </div>
-                                            <div>
-                                              <span className="font-medium">Totalt sparande:</span>
-                                              <div className="text-green-600">{formatCurrency(totalSavings)}</div>
-                                            </div>
-                                          </div>
+                                           <div className="space-y-3">
+                                             <div className="grid grid-cols-2 gap-4">
+                                               <div>
+                                                 <span className="font-medium">Totala kostnader:</span>
+                                                 <div className="text-destructive">{formatCurrency(totalCosts)}</div>
+                                               </div>
+                                               <div>
+                                                 <span className="font-medium">Total daglig budget:</span>
+                                                 <div className="text-destructive">
+                                                   {template.dailyTransfer && template.weekendTransfer ? formatCurrency(
+                                                     (() => {
+                                                       const [year, month] = selectedBudgetMonth.split('-').map(Number);
+                                                       const { weekdayCount, fridayCount } = calculateDaysForMonth(year, month - 1);
+                                                       return (weekdayCount * template.dailyTransfer) + (fridayCount * template.weekendTransfer);
+                                                     })()
+                                                   ) : '0 kr'}
+                                                 </div>
+                                               </div>
+                                             </div>
+                                             <div>
+                                               <span className="font-medium">Totalt sparande:</span>
+                                               <div className="text-green-600">{formatCurrency(totalSavings)}</div>
+                                             </div>
+                                           </div>
                                           
-                                          {/* Total Daily Budget with breakdown */}
-                                          {template.dailyTransfer && template.weekendTransfer && (
-                                            <div className="border-t pt-3">
-                                              <div className="font-medium text-base mb-2">
-                                                 Total daglig budget: {formatCurrency(
-                                                   (() => {
-                                                     // Use the selected budget month for calculation
-                                                     const [year, month] = selectedBudgetMonth.split('-').map(Number);
-                                                     const { weekdayCount, fridayCount } = calculateDaysForMonth(year, month - 1);
-                                                     return (weekdayCount * template.dailyTransfer) + (fridayCount * template.weekendTransfer);
-                                                   })()
-                                                 )}
-                                              </div>
-                                              <div className="ml-4 space-y-1 text-xs text-muted-foreground">
-                                                <div>Daglig överföring (måndag-torsdag): {template.dailyTransfer}</div>
-                                                <div>Helgöverföring (fredag-söndag): {template.weekendTransfer}</div>
-                                                 {(() => {
-                                                   // Use the selected budget month for calculation
-                                                   const [year, month] = selectedBudgetMonth.split('-').map(Number);
-                                                   const { weekdayCount, fridayCount } = calculateDaysForMonth(year, month - 1);
-                                                   const weekdaysExcludingFridays = weekdayCount - fridayCount;
-                                                   return (
-                                                     <>
-                                                       <div>Vardagar: {weekdaysExcludingFridays} × {template.dailyTransfer} kr = {formatCurrency(weekdaysExcludingFridays * template.dailyTransfer)}</div>
-                                                       <div>Helgdagar: {fridayCount} × {template.weekendTransfer} kr = {formatCurrency(fridayCount * template.weekendTransfer)}</div>
-                                                     </>
-                                                   );
-                                                 })()}
-                                              </div>
-                                            </div>
-                                          )}
+                                          {/* Daily Budget Summary with updated layout */}
+                                           {template.dailyTransfer && template.weekendTransfer && (
+                                             <div className="border-t pt-3">
+                                               <div className="font-medium text-base mb-2">
+                                                  Total daglig budget
+                                               </div>
+                                               <div className="ml-4 space-y-1 text-xs text-muted-foreground">
+                                                 <div>Totalt belopp: {formatCurrency(
+                                                    (() => {
+                                                      const [year, month] = selectedBudgetMonth.split('-').map(Number);
+                                                      const { weekdayCount, fridayCount } = calculateDaysForMonth(year, month - 1);
+                                                      return (weekdayCount * template.dailyTransfer) + (fridayCount * template.weekendTransfer);
+                                                    })()
+                                                  )}</div>
+                                                 <div>• Daglig överföring (måndag-torsdag): {template.dailyTransfer}</div>
+                                                 <div>• Helgöverföring (fredag): {template.weekendTransfer}</div>
+                                                  {(() => {
+                                                    const [year, month] = selectedBudgetMonth.split('-').map(Number);
+                                                    const { weekdayCount, fridayCount } = calculateDaysForMonth(year, month - 1);
+                                                    const weekdaysExcludingFridays = weekdayCount - fridayCount;
+                                                    return (
+                                                      <>
+                                                        <div>• Vardagar: {weekdaysExcludingFridays} × {template.dailyTransfer} kr = {formatCurrency(weekdaysExcludingFridays * template.dailyTransfer)}</div>
+                                                        <div>• Helgdagar: {fridayCount} × {template.weekendTransfer} kr = {formatCurrency(fridayCount * template.weekendTransfer)}</div>
+                                                      </>
+                                                    );
+                                                  })()}
+                                               </div>
+                                             </div>
+                                           )}
                                          
                                          {template.costGroups && template.costGroups.length > 0 && (
                                            <div>
