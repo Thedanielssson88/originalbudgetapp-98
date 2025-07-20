@@ -4619,24 +4619,27 @@ const BudgetCalculator = () => {
                      <div className="mt-4 space-y-4">
                         {/* Account Summary List */}
                         <div className="space-y-3">
-                          {accounts.map(account => {
-                            // Calculate savings for this account
-                            const accountSavings = savingsGroups
-                              .filter(group => group.account === account)
-                              .reduce((sum, group) => sum + group.amount, 0);
-                            
-                            // Calculate costs for this account
-                            const accountCosts = costGroups.reduce((sum, group) => {
-                              const groupCosts = group.subCategories
-                                ?.filter(sub => sub.account === account)
-                                .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                              return sum + groupCosts;
-                            }, 0);
-                            
-                            // Calculate total amount as sum of absolute values (what needs to be transferred)
-                            const totalAmount = accountSavings + accountCosts;
-                            const netAmount = accountSavings - accountCosts;
-                            const hasDetails = accountSavings > 0 || accountCosts > 0;
+                         {accounts.map(account => {
+                             // Calculate savings for this account
+                             const accountSavings = savingsGroups
+                               .filter(group => group.account === account)
+                               .reduce((sum, group) => sum + group.amount, 0);
+                             
+                             // Calculate costs for this account
+                             const accountCosts = costGroups.reduce((sum, group) => {
+                               const groupCosts = group.subCategories
+                                 ?.filter(sub => sub.account === account)
+                                 .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                               return sum + groupCosts;
+                             }, 0);
+                             
+                             // Calculate total amount as sum of absolute values (what needs to be transferred)
+                             const totalAmount = accountSavings + accountCosts;
+                             const netAmount = accountSavings - accountCosts;
+                             const hasDetails = accountSavings > 0 || accountCosts > 0;
+                             
+                             // Hide accounts with 0 balance since no transfer occurs to these
+                             if (totalAmount === 0) return null;
                             
                             return (
                               <div key={account} className="p-3 bg-white rounded border">
@@ -4692,18 +4695,17 @@ const BudgetCalculator = () => {
                           })}
                         </div>
                        
-                       {/* Account Management Section */}
-                       <div className="p-4 bg-gray-50 rounded-lg">
-                         <div className="flex justify-between items-center mb-4">
-                           <h4 className="font-semibold">Hantera konton</h4>
-                           <Button 
-                             size="sm" 
-                             variant="outline" 
-                             onClick={() => setIsEditingAccounts(!isEditingAccounts)}
-                           >
-                             {isEditingAccounts ? 'Stäng' : 'Redigera konton'}
-                           </Button>
-                         </div>
+                        {/* Account Management Section */}
+                        <div className="p-4 bg-gray-50 rounded-lg">
+                          <div className="flex justify-center mb-4">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => setIsEditingAccounts(!isEditingAccounts)}
+                            >
+                              {isEditingAccounts ? 'Stäng' : 'Redigera konton'}
+                            </Button>
+                          </div>
                          
                          {isEditingAccounts && (
                            <div className="space-y-4">
