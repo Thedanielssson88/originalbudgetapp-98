@@ -4491,6 +4491,130 @@ const BudgetCalculator = () => {
                       )}
                     </div>
 
+                    {/* Account Summary after cost budget */}
+                    <div className="p-4 bg-green-50 rounded-lg">
+                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('accountSummaryCostBudget')}>
+                        <div>
+                           <div className="text-sm text-muted-foreground">Kontosammanställning efter kostnadsbudget</div>
+                           <div className="text-lg font-bold text-green-600">
+                             {accounts.length + 2} konton med kostnadsbudget
+                           </div>
+                        </div>
+                        {expandedSections.accountSummaryCostBudget ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                      </div>
+                      
+                      {expandedSections.accountSummaryCostBudget && (
+                        <div className="mt-4 space-y-4">
+                          {/* Cost Budget Account Summary List */}
+                          <div className="space-y-3">
+                            {accounts.map(account => {
+                              // Get original balance from first page
+                              const originalBalance = accountBalances[account] || 0;
+                              
+                              // Calculate total deposits (savings) for this account
+                              const totalDeposits = savingsGroups
+                                .filter(group => group.account === account)
+                                .reduce((sum, group) => sum + group.amount, 0);
+                              
+                              // Get all cost subcategories for this account
+                              const accountCostItems = costGroups.reduce((items, group) => {
+                                const groupCosts = group.subCategories?.filter(sub => sub.account === account) || [];
+                                return items.concat(groupCosts);
+                              }, []);
+                              
+                              // Calculate total costs for this account
+                              const totalCosts = accountCostItems.reduce((sum, item) => sum + item.amount, 0);
+                              
+                              // Calculate final balance (original + deposits - costs)
+                              const finalBalance = originalBalance + totalDeposits - totalCosts;
+                              
+                              const hasDetails = totalDeposits > 0 || accountCostItems.length > 0 || originalBalance !== 0;
+                              
+                              return (
+                                <div key={account} className="p-3 bg-white rounded border">
+                                  <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">{account}</span>
+                                      {hasDetails && (
+                                        <button
+                                          onClick={() => toggleAccountDetails(`costbudget-${account}`)}
+                                          className="text-gray-400 hover:text-gray-600"
+                                        >
+                                          {expandedAccounts[`costbudget-${account}`] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                        </button>
+                                      )}
+                                    </div>
+                                    <div className={`font-semibold ${finalBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {formatCurrency(finalBalance)}
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Expandable breakdown */}
+                                  {expandedAccounts[`costbudget-${account}`] && hasDetails && (
+                                    <div className="mt-3 pt-3 border-t space-y-2">
+                                      {/* Original balance */}
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-gray-600">Ursprungligt saldo</span>
+                                        <span className={originalBalance >= 0 ? 'text-blue-600' : 'text-red-600'}>
+                                          {formatCurrency(originalBalance)}
+                                        </span>
+                                      </div>
+                                      
+                                      {/* Total deposits grouped as "Insättning" */}
+                                      {totalDeposits > 0 && (
+                                        <div className="flex justify-between text-sm">
+                                          <span className="text-gray-600">Insättning</span>
+                                          <span className="text-green-600">+{formatCurrency(totalDeposits)}</span>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Individual cost items as negative values */}
+                                      {accountCostItems.map(costItem => (
+                                        <div key={`costbudget-cost-${costItem.id}`} className="flex justify-between text-sm">
+                                          <span className="text-gray-600">{costItem.name} (Kostnad)</span>
+                                          <span className="text-red-600">-{formatCurrency(costItem.amount)}</span>
+                                        </div>
+                                      ))}
+                                      
+                                      {/* Final calculation line */}
+                                      <div className="pt-2 mt-2 border-t border-gray-200">
+                                        <div className="flex justify-between text-sm font-medium">
+                                          <span className="text-gray-800">Slutsaldo</span>
+                                          <span className={finalBalance >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                            {formatCurrency(finalBalance)}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                             })}
+                             
+                             {/* Andreas konto final balance */}
+                             <div className="p-3 bg-white rounded border">
+                               <div className="flex justify-between items-center">
+                                 <span className="font-medium">Andreas konto</span>
+                                 <div className="font-semibold text-purple-600">
+                                   {results ? formatCurrency(results.andreasShare) : 'Beräknar...'}
+                                 </div>
+                               </div>
+                             </div>
+                             
+                             {/* Susannas konto final balance */}
+                             <div className="p-3 bg-white rounded border">
+                               <div className="flex justify-between items-center">
+                                 <span className="font-medium">Susannas konto</span>
+                                 <div className="font-semibold text-purple-600">
+                                   {results ? formatCurrency(results.susannaShare) : 'Beräknar...'}
+                                 </div>
+                               </div>
+                             </div>
+                           </div>
+                         </div>
+                       )}
+                     </div>
+
                     {/* Remaining Daily Budget */}
                    <div className="p-4 bg-amber-50 rounded-lg">
                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('remainingDailyBudgetDistribution')}>
