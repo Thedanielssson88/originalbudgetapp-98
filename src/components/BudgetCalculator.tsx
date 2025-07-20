@@ -107,7 +107,8 @@ const BudgetCalculator = () => {
     remainingAmountDistribution: false,
     remainingDailyBudgetDistribution: false,
     individualSharesDistribution: false,
-    dailyTransferDetails: false
+    dailyTransferDetails: false,
+    accountBalances: false
   });
 
   // Budget category expandable states
@@ -152,6 +153,9 @@ const BudgetCalculator = () => {
   // Create month dialog state
   const [isCreateMonthDialogOpen, setIsCreateMonthDialogOpen] = useState<boolean>(false);
   const [createMonthDirection, setCreateMonthDirection] = useState<'previous' | 'next'>('next');
+
+  // Account balances state
+  const [accountBalances, setAccountBalances] = useState<{[key: string]: number}>({});
 
   // Tab navigation helper functions
   const getTabOrder = () => {
@@ -393,6 +397,9 @@ const BudgetCalculator = () => {
         setAndreasShareChecked(parsed.andreasShareChecked || false);
         setSusannaShareChecked(parsed.susannaShareChecked || false);
         
+        // Load account balances
+        setAccountBalances(parsed.accountBalances || {});
+        
         if (parsed.results) {
           setResults(parsed.results);
         }
@@ -473,6 +480,7 @@ const BudgetCalculator = () => {
       susannaPersonalCosts: JSON.parse(JSON.stringify(susannaPersonalCosts)),
       susannaPersonalSavings: JSON.parse(JSON.stringify(susannaPersonalSavings)),
       accounts: JSON.parse(JSON.stringify(accounts)),
+      accountBalances: JSON.parse(JSON.stringify(accountBalances)),
       // Include any existing calculated results if they exist
       ...(results && {
         totalMonthlyExpenses: results.totalMonthlyExpenses,
@@ -522,7 +530,8 @@ const BudgetCalculator = () => {
       userName2,
       transferChecks,
       andreasShareChecked,
-      susannaShareChecked
+      susannaShareChecked,
+      accountBalances
     };
     localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
   };
@@ -533,7 +542,7 @@ const BudgetCalculator = () => {
       saveToLocalStorage();
       saveToSelectedMonth();
     }
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, isInitialLoad]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, isInitialLoad]);
 
   // Auto-calculate budget whenever any input changes
   useEffect(() => {
@@ -1112,6 +1121,42 @@ const BudgetCalculator = () => {
     }));
   };
 
+  // Helper function to get previous month information for account balances
+  const getPreviousMonthInfo = () => {
+    const currentDate = new Date();
+    let selectedYear = currentDate.getFullYear();
+    let selectedMonth = currentDate.getMonth();
+    
+    if (selectedBudgetMonth) {
+      const [yearStr, monthStr] = selectedBudgetMonth.split('-');
+      selectedYear = parseInt(yearStr);
+      selectedMonth = parseInt(monthStr) - 1; // Convert to 0-based month
+    }
+    
+    const prevMonth = selectedMonth - 1;
+    const prevYear = prevMonth < 0 ? selectedYear - 1 : selectedYear;
+    const adjustedPrevMonth = prevMonth < 0 ? 11 : prevMonth;
+    
+    const monthNames = [
+      'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
+      'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
+    ];
+    
+    return {
+      monthName: monthNames[adjustedPrevMonth],
+      year: prevYear,
+      date: `24 ${monthNames[adjustedPrevMonth]} ${prevYear}`
+    };
+  };
+
+  // Function to update account balance
+  const updateAccountBalance = (account: string, balance: number) => {
+    setAccountBalances(prev => ({
+      ...prev,
+      [account]: balance
+    }));
+  };
+
   // Function to load data from selected month into current form
   const loadDataFromSelectedMonth = (monthKey: string) => {
     const monthData = historicalData[monthKey];
@@ -1134,6 +1179,9 @@ const BudgetCalculator = () => {
     setAndreasPersonalSavings(monthData.andreasPersonalSavings || []);
     setSusannaPersonalCosts(monthData.susannaPersonalCosts || []);
     setSusannaPersonalSavings(monthData.susannaPersonalSavings || []);
+    
+    // Load account balances
+    setAccountBalances(monthData.accountBalances || {});
     
     // Update results if available
     if (monthData.totalSalary !== undefined) {
@@ -2741,6 +2789,63 @@ const BudgetCalculator = () => {
                       </div>
                     </div>
 
+                  </CardContent>
+                )}
+              </Card>
+
+              {/* Kontosaldon Section */}
+              <Card className="shadow-lg border-0 bg-blue-50/50 backdrop-blur-sm">
+                <CardHeader>
+                  <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('accountBalances')}>
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-blue-800">
+                        <TrendingUp className="h-5 w-5" />
+                        Kontosaldon
+                      </CardTitle>
+                      <CardDescription className="text-blue-700">
+                        Saldo för {getPreviousMonthInfo().date} (innan påfyllning den 25:e)
+                      </CardDescription>
+                    </div>
+                    <ChevronDown className={`h-4 w-4 transition-transform text-blue-800 ${expandedSections.accountBalances ? 'rotate-180' : ''}`} />
+                  </div>
+                </CardHeader>
+                {expandedSections.accountBalances && (
+                  <CardContent className="space-y-4">
+                    <div className="p-4 bg-blue-100/50 rounded-lg border border-blue-200">
+                      <h3 className="text-lg font-semibold mb-4 text-blue-800">
+                        Kontosaldon för {getPreviousMonthInfo().monthName} {getPreviousMonthInfo().year}
+                      </h3>
+                      <p className="text-sm text-blue-700 mb-4">
+                        Ange saldot på kontona den 24:e föregående månad, innan kontona fylls på med nya pengar den 25:e.
+                      </p>
+                      
+                      <div className="space-y-3">
+                        {accounts.map(account => (
+                          <div key={account} className="flex justify-between items-center p-3 bg-white rounded border">
+                            <span className="font-medium text-blue-800">{account}</span>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                value={accountBalances[account] || ''}
+                                onChange={(e) => updateAccountBalance(account, Number(e.target.value) || 0)}
+                                className="w-32 text-right"
+                                placeholder="0"
+                              />
+                              <span className="text-sm text-blue-700 min-w-8">kr</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <div className="mt-4 pt-4 border-t border-blue-200">
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold text-blue-800">Totalt saldo:</span>
+                          <span className="font-bold text-lg text-blue-800">
+                            {formatCurrency(Object.values(accountBalances).reduce((sum, balance) => sum + (balance || 0), 0))}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </CardContent>
                 )}
               </Card>
