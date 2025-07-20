@@ -2375,12 +2375,11 @@ const BudgetCalculator = () => {
       // Get data from the next month (index + 1)
       const nextMonthIndex = index + 1;
       const nextMonthKey = nextMonthIndex < extendedMonthKeys.length ? extendedMonthKeys[nextMonthIndex] : null;
-      const nextMonthData = nextMonthKey ? historicalData[nextMonthKey] : null;
       
       accounts.forEach(account => {
-        // Use the next month's account balance data for the current month display
-        if (nextMonthData && nextMonthData.accountBalances && nextMonthData.accountBalances[account] !== undefined) {
-          dataPoint[account] = nextMonthData.accountBalances[account];
+        if (nextMonthKey) {
+          // Use the calculation function which handles both stored and estimated values
+          dataPoint[account] = getAccountBalanceForMonth(nextMonthKey, account);
         } else {
           dataPoint[account] = 0;
         }
