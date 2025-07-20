@@ -2237,7 +2237,7 @@ const BudgetCalculator = () => {
     const currentDate = new Date();
     const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     
-    // Get all available months including one month before the first saved month
+    // Get all available months from historical data (fixed chart, independent of selected month)
     const allMonthKeys = Object.keys(historicalData).sort();
     const extendedMonthKeys = [...allMonthKeys];
     
@@ -2252,7 +2252,7 @@ const BudgetCalculator = () => {
       }
     }
 
-    // Add current month if not in historical data
+    // Add current month if not in historical data (for forecast)
     if (!extendedMonthKeys.includes(currentMonthKey)) {
       extendedMonthKeys.push(currentMonthKey);
     }
@@ -2269,15 +2269,15 @@ const BudgetCalculator = () => {
       
       accounts.forEach(account => {
         if (monthKey === currentMonthKey) {
-          // Current month: use current accountBalances
+          // Current month forecast: use current accountBalances for forecast
           dataPoint[account] = accountBalances[account] || 0;
         } else if (monthData && monthData.accountBalances) {
-          // Historical month with data
+          // Historical month: Use the starting balances (Kontosaldon) for this month
           const accountBalance = monthData.accountBalances[account];
           if (accountBalance !== undefined && accountBalance !== 0) {
             dataPoint[account] = accountBalance;
           } else {
-            // All account balances are 0, use previous month's "Kontobelopp efter budget"
+            // All account balances are 0, use previous month's final balance
             const prevMonthIndex = extendedMonthKeys.indexOf(monthKey) - 1;
             if (prevMonthIndex >= 0) {
               const prevMonthKey = extendedMonthKeys[prevMonthIndex];
@@ -2307,15 +2307,11 @@ const BudgetCalculator = () => {
           const prevMonthIndex = extendedMonthKeys.indexOf(monthKey) - 1;
           if (prevMonthIndex >= 0) {
             const prevMonthKey = extendedMonthKeys[prevMonthIndex];
-            if (prevMonthKey === currentMonthKey) {
-              dataPoint[account] = accountBalances[account] || 0;
+            const prevMonthData = historicalData[prevMonthKey];
+            if (prevMonthData && prevMonthData.accountBalances) {
+              dataPoint[account] = prevMonthData.accountBalances[account] || 0;
             } else {
-              const prevMonthData = historicalData[prevMonthKey];
-              if (prevMonthData && prevMonthData.accountBalances) {
-                dataPoint[account] = prevMonthData.accountBalances[account] || 0;
-              } else {
-                dataPoint[account] = 0;
-              }
+              dataPoint[account] = 0;
             }
           } else {
             dataPoint[account] = 0;
