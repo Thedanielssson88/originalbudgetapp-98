@@ -2324,17 +2324,16 @@ const BudgetCalculator = () => {
     
     // Helper function to get account balance from saved "Min Månadsbudget" data
     const getAccountBalanceForMonth = (monthKey: string, account: string) => {
-      if (monthKey === currentMonthKey) {
-        // For current month, use the same logic as first page: filled values or estimated fallback
-        return getAccountBalanceWithFallback(account);
-      } else if (historicalData[monthKey]) {
+      if (historicalData[monthKey]) {
         // For saved months, use the accountBalances from "Min Månadsbudget" section (Kontosaldon)
         const monthData = historicalData[monthKey];
         if (monthData.accountBalances && monthData.accountBalances[account] !== undefined) {
           return monthData.accountBalances[account];
         }
       }
-      return 0;
+      
+      // For months without saved data (including current month), use estimated values
+      return getAccountBalanceWithFallback(account);
     };
 
     // Calculate account balances for each month using saved "Kontosaldon" data
