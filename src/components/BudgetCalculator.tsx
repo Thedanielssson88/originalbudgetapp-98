@@ -2368,15 +2368,19 @@ const BudgetCalculator = () => {
       }
     };
 
-    // Calculate account balances for each month - use stored account balances directly
-    const chartData = extendedMonthKeys.map(monthKey => {
+    // Calculate account balances for each month - show next month's data for current month
+    const chartData = extendedMonthKeys.map((monthKey, index) => {
       const dataPoint: any = { month: monthKey };
-      const monthData = historicalData[monthKey];
+      
+      // Get data from the next month (index + 1)
+      const nextMonthIndex = index + 1;
+      const nextMonthKey = nextMonthIndex < extendedMonthKeys.length ? extendedMonthKeys[nextMonthIndex] : null;
+      const nextMonthData = nextMonthKey ? historicalData[nextMonthKey] : null;
       
       accounts.forEach(account => {
-        // Use the stored account balance directly from the month's data
-        if (monthData && monthData.accountBalances && monthData.accountBalances[account] !== undefined) {
-          dataPoint[account] = monthData.accountBalances[account];
+        // Use the next month's account balance data for the current month display
+        if (nextMonthData && nextMonthData.accountBalances && nextMonthData.accountBalances[account] !== undefined) {
+          dataPoint[account] = nextMonthData.accountBalances[account];
         } else {
           dataPoint[account] = 0;
         }
