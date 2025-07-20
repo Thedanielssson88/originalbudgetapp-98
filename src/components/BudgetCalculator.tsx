@@ -2318,15 +2318,34 @@ const BudgetCalculator = () => {
     const getAccountBalanceForMonth = (monthKey: string, account: string) => {
       if (monthKey === currentMonthKey) {
         // For current month, use current accountBalances with fallback to estimation
-        return getAccountBalanceWithFallback(account);
+        const currentBalance = accountBalances[account] || 0;
+        if (currentBalance !== 0) return currentBalance;
+        
+        // If empty, get estimated from previous month's final balance
+        const prevMonthInfo = getPreviousMonthInfo();
+        const prevMonthData = historicalData[prevMonthInfo.monthKey];
+        if (prevMonthData) {
+          const originalBalance = (prevMonthData.accountBalances && prevMonthData.accountBalances[account]) || 0;
+          const savingsAmount = (prevMonthData.savingsGroups || [])
+            .filter((group: any) => group.account === account)
+            .reduce((sum: number, group: any) => sum + group.amount, 0);
+          const costsAmount = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+            const groupCosts = group.subCategories
+              ?.filter((sub: any) => sub.account === account)
+              .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+            return sum + groupCosts;
+          }, 0);
+          return originalBalance + savingsAmount - costsAmount;
+        }
+        return 0;
       } else {
-        // For historical months, use accountBalances from that month's data directly
+        // For historical months, use accountBalances from that month
         const monthData = historicalData[monthKey];
-        if (monthData && monthData.accountBalances && monthData.accountBalances[account] !== undefined) {
+        if (monthData && monthData.accountBalances && monthData.accountBalances[account]) {
           return monthData.accountBalances[account];
         }
         
-        // If no accountBalances for this month, try to estimate from previous month's final balance
+        // If no accountBalances for this month, try to estimate from previous month
         const monthIndex = extendedMonthKeys.indexOf(monthKey);
         if (monthIndex > 0) {
           const prevMonthKey = extendedMonthKeys[monthIndex - 1];
