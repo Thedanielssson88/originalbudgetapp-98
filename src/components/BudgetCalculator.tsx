@@ -2855,16 +2855,39 @@ const BudgetCalculator = () => {
                                       
                                       return (
                                         <div className="space-y-2 text-sm">
-                                          <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                              <span className="font-medium">Totala kostnader:</span>
-                                              <div className="text-destructive">{formatCurrency(totalCosts)}</div>
-                                            </div>
-                                            <div>
-                                              <span className="font-medium">Totalt sparande:</span>
-                                              <div className="text-green-600">{formatCurrency(totalSavings)}</div>
-                                            </div>
-                                          </div>
+                                           <div className="space-y-3">
+                                             <div className="grid grid-cols-2 gap-4">
+                                               <div>
+                                                 <span className="font-medium">Totala kostnader:</span>
+                                                 <div className="text-destructive">{formatCurrency(totalCosts)}</div>
+                                               </div>
+                                               <div>
+                                                 <span className="font-medium">Total daglig budget:</span>
+                                                 <div className="text-destructive">
+                                                   {(() => {
+                                                     if (!template.dailyTransfer || !template.weekendTransfer) return '0 kr';
+                                                     const currentDate = new Date();
+                                                     let selectedYear = currentDate.getFullYear();
+                                                     let selectedMonth = currentDate.getMonth();
+                                                     
+                                                     if (selectedBudgetMonth) {
+                                                       const [yearStr, monthStr] = selectedBudgetMonth.split('-');
+                                                       selectedYear = parseInt(yearStr);
+                                                       selectedMonth = parseInt(monthStr) - 1;
+                                                     }
+                                                     
+                                                     const { weekdayCount, fridayCount } = calculateDaysForMonth(selectedYear, selectedMonth);
+                                                     const totalDailyBudget = template.dailyTransfer * weekdayCount + template.weekendTransfer * fridayCount;
+                                                     return formatCurrency(totalDailyBudget);
+                                                   })()}
+                                                 </div>
+                                               </div>
+                                             </div>
+                                             <div>
+                                               <span className="font-medium">Totalt sparande:</span>
+                                               <div className="text-green-600">{formatCurrency(totalSavings)}</div>
+                                             </div>
+                                           </div>
                                           
                                           {template.costGroups && template.costGroups.length > 0 && (
                                             <div>

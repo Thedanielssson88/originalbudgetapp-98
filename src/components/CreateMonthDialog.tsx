@@ -251,16 +251,42 @@ const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
                     
                     return (
                       <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <span className="font-medium">Totala kostnader:</span>
-                            <div className="text-destructive font-semibold">{formatCurrency(totalCosts)}</div>
-                          </div>
-                          <div>
-                            <span className="font-medium">Totalt sparande:</span>
-                            <div className="text-green-600 font-semibold">{formatCurrency(totalSavings)}</div>
-                          </div>
-                        </div>
+                         <div className="space-y-3">
+                           <div className="grid grid-cols-2 gap-4">
+                             <div>
+                               <span className="font-medium">Totala kostnader:</span>
+                               <div className="text-destructive font-semibold">{formatCurrency(totalCosts)}</div>
+                             </div>
+                             <div>
+                               <span className="font-medium">Total daglig budget:</span>
+                               <div className="text-destructive font-semibold">
+                                 {(() => {
+                                   if (!template.dailyTransfer || !template.weekendTransfer) return '0 kr';
+                                   const [year, month] = selectedBudgetMonth.split('-');
+                                   const currentYear = parseInt(year);
+                                   const currentMonth = parseInt(month);
+                                   
+                                   let targetMonth, targetYear;
+                                   if (direction === 'next') {
+                                     targetMonth = currentMonth === 12 ? 1 : currentMonth + 1;
+                                     targetYear = currentMonth === 12 ? currentYear + 1 : currentYear;
+                                   } else {
+                                     targetMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+                                     targetYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+                                   }
+                                   
+                                   const { weekdayCount, fridayCount } = calculateDaysForMonth(targetYear, targetMonth - 1);
+                                   const totalDailyBudget = template.dailyTransfer * weekdayCount + template.weekendTransfer * fridayCount;
+                                   return formatCurrency(totalDailyBudget);
+                                 })()}
+                               </div>
+                             </div>
+                           </div>
+                           <div>
+                             <span className="font-medium">Totalt sparande:</span>
+                             <div className="text-green-600 font-semibold">{formatCurrency(totalSavings)}</div>
+                           </div>
+                         </div>
                         
                         {template.costGroups && template.costGroups.length > 0 && (
                           <div>
