@@ -1153,8 +1153,60 @@ const BudgetCalculator = () => {
     return {
       monthName: monthNames[adjustedPrevMonth],
       year: prevYear,
-      date: `24 ${monthNames[adjustedPrevMonth]} ${prevYear}`
+      date: `24 ${monthNames[adjustedPrevMonth]} ${prevYear}`,
+      monthKey: `${prevYear}-${String(adjustedPrevMonth + 1).padStart(2, '0')}`
     };
+  };
+
+  // Helper function to get estimated account balances from previous month's final balances
+  const getEstimatedAccountBalances = () => {
+    const prevMonthInfo = getPreviousMonthInfo();
+    const prevMonthData = historicalData[prevMonthInfo.monthKey];
+    
+    if (!prevMonthData) return null;
+    
+    const estimatedBalances: {[key: string]: number} = {};
+    
+    // Calculate final balances from previous month for each account
+    accounts.forEach(account => {
+      const originalBalance = prevMonthData.accountBalances?.[account] || 0;
+      
+      // Calculate savings for this account
+      const accountSavings = (prevMonthData.savingsGroups || [])
+        .filter((group: any) => group.account === account)
+        .reduce((sum: number, group: any) => sum + group.amount, 0);
+      
+      // Calculate costs for this account
+      const accountCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+        const groupCosts = group.subCategories
+          ?.filter((sub: any) => sub.account === account)
+          .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+        return sum + groupCosts;
+      }, 0);
+      
+      // Final balance from previous month becomes estimated starting balance
+      estimatedBalances[account] = originalBalance + accountSavings + accountCosts;
+    });
+    
+    return estimatedBalances;
+  };
+
+  // Helper function to check if current month has empty account balances
+  const hasEmptyAccountBalances = () => {
+    return accounts.every(account => (accountBalances[account] || 0) === 0);
+  };
+
+  // Helper function to get account balance with fallback to estimated
+  const getAccountBalanceWithFallback = (account: string) => {
+    const currentBalance = accountBalances[account] || 0;
+    if (currentBalance !== 0) return currentBalance;
+    
+    if (hasEmptyAccountBalances()) {
+      const estimated = getEstimatedAccountBalances();
+      return estimated?.[account] || 0;
+    }
+    
+    return currentBalance;
   };
 
   // Function to update account balance
@@ -3042,7 +3094,12 @@ const BudgetCalculator = () => {
                         Kontosaldon
                       </CardTitle>
                       <CardDescription className="text-blue-700">
-                        {formatCurrency(Object.values(accountBalances).reduce((sum, balance) => sum + (balance || 0), 0))}
+                        {(() => {
+                          const total = accounts.reduce((sum, account) => {
+                            return sum + getAccountBalanceWithFallback(account);
+                          }, 0);
+                          return formatCurrency(total);
+                        })()}
                       </CardDescription>
                     </div>
                     <ChevronDown className={`h-4 w-4 transition-transform text-blue-800 ${expandedSections.accountBalances ? 'rotate-180' : ''}`} />
@@ -3059,28 +3116,42 @@ const BudgetCalculator = () => {
                       </p>
                       
                       <div className="space-y-3">
-                        {accounts.map(account => (
-                          <div key={account} className="flex justify-between items-center p-3 bg-white rounded border">
-                            <span className="font-medium text-blue-800">{account}</span>
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="number"
-                                value={accountBalances[account] || ''}
-                                onChange={(e) => updateAccountBalance(account, Number(e.target.value) || 0)}
-                                className="w-32 text-right"
-                                placeholder="0"
-                              />
-                              <span className="text-sm text-blue-700 min-w-8">kr</span>
+                        {accounts.map(account => {
+                          const currentBalance = accountBalances[account] || 0;
+                          const estimatedBalance = hasEmptyAccountBalances() ? getEstimatedAccountBalances()?.[account] || 0 : 0;
+                          const showEstimated = hasEmptyAccountBalances() && estimatedBalance > 0;
+                          
+                          return (
+                            <div key={account} className="flex justify-between items-center p-3 bg-white rounded border">
+                              <span className="font-medium text-blue-800">{account}</span>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  value={currentBalance || ''}
+                                  onChange={(e) => updateAccountBalance(account, Number(e.target.value) || 0)}
+                                  className="w-32 text-right"
+                                  placeholder={showEstimated ? estimatedBalance.toString() : "0"}
+                                />
+                                <span className="text-sm text-blue-700 min-w-8">kr</span>
+                                {showEstimated && (
+                                  <span className="text-xs text-orange-600 ml-2">(Est: {estimatedBalance} kr)</span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                       
                       <div className="mt-4 pt-4 border-t border-blue-200">
                         <div className="flex justify-between items-center">
                           <span className="font-semibold text-blue-800">Totalt saldo:</span>
                           <span className="font-bold text-lg text-blue-800">
-                            {formatCurrency(Object.values(accountBalances).reduce((sum, balance) => sum + (balance || 0), 0))}
+                            {(() => {
+                              const total = accounts.reduce((sum, account) => {
+                                return sum + getAccountBalanceWithFallback(account);
+                              }, 0);
+                              return formatCurrency(total);
+                            })()}
                           </span>
                         </div>
                       </div>
@@ -4609,8 +4680,8 @@ const BudgetCalculator = () => {
                           {/* Final Account Summary List */}
                           <div className="space-y-3">
                             {accounts.map(account => {
-                              // Get original balance from first page
-                              const originalBalance = accountBalances[account] || 0;
+                              // Get original balance from first page or use estimated balance
+                              const originalBalance = getAccountBalanceWithFallback(account);
                               
                               // Calculate savings for this account
                               const accountSavings = savingsGroups
@@ -4652,13 +4723,18 @@ const BudgetCalculator = () => {
                                   {/* Expandable breakdown */}
                                   {expandedAccounts[`final-${account}`] && hasDetails && (
                                     <div className="mt-3 pt-3 border-t space-y-2">
-                                      {/* Original balance */}
-                                      <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">Ursprungligt saldo</span>
-                                        <span className={originalBalance >= 0 ? 'text-blue-600' : 'text-red-600'}>
-                                          {formatCurrency(originalBalance)}
-                                        </span>
-                                      </div>
+                      {/* Original balance */}
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">
+                          {(() => {
+                            const isEstimated = hasEmptyAccountBalances() && getEstimatedAccountBalances();
+                            return isEstimated ? "Ursprungligt saldo (Est)" : "Ursprungligt saldo";
+                          })()}
+                        </span>
+                        <span className={originalBalance >= 0 ? 'text-blue-600' : 'text-red-600'}>
+                          {formatCurrency(originalBalance)}
+                        </span>
+                      </div>
                                       
                                       {/* Savings breakdown */}
                                       {savingsGroups
@@ -4738,8 +4814,8 @@ const BudgetCalculator = () => {
                           {/* Cost Budget Account Summary List */}
                           <div className="space-y-3">
                             {accounts.map(account => {
-                              // Get original balance from first page
-                              const originalBalance = accountBalances[account] || 0;
+                              // Get original balance from first page or use estimated balance
+                              const originalBalance = getAccountBalanceWithFallback(account);
                               
                               // Calculate total deposits (savings + costs as positive) for this account
                               const savingsAmount = savingsGroups
@@ -4793,7 +4869,12 @@ const BudgetCalculator = () => {
                                     <div className="mt-3 pt-3 border-t space-y-2">
                                       {/* Original balance */}
                                       <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">Ursprungligt saldo</span>
+                                        <span className="text-gray-600">
+                                          {(() => {
+                                            const isEstimated = hasEmptyAccountBalances() && getEstimatedAccountBalances();
+                                            return isEstimated ? "Ursprungligt saldo (Est)" : "Ursprungligt saldo";
+                                          })()}
+                                        </span>
                                         <span className={originalBalance >= 0 ? 'text-blue-600' : 'text-red-600'}>
                                           {formatCurrency(originalBalance)}
                                         </span>
