@@ -108,7 +108,8 @@ const BudgetCalculator = () => {
     remainingDailyBudgetDistribution: false,
     individualSharesDistribution: false,
     dailyTransferDetails: false,
-    accountBalances: false
+    accountBalances: false,
+    finalAccountSummary: false
   });
 
   // Budget category expandable states
@@ -4359,10 +4360,141 @@ const BudgetCalculator = () => {
                          </div>
                        </div>
                      )}
-                   </div>
+                    </div>
 
+                    {/* Account Summary after transfers */}
+                    <div className="p-4 bg-indigo-50 rounded-lg">
+                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('finalAccountSummary')}>
+                        <div>
+                           <div className="text-sm text-muted-foreground">Kontosammanställning</div>
+                           <div className="text-lg font-bold text-indigo-600">
+                             {accounts.length + 2} konton efter överföring
+                           </div>
+                        </div>
+                        {expandedSections.finalAccountSummary ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                      </div>
+                      
+                      {expandedSections.finalAccountSummary && (
+                        <div className="mt-4 space-y-4">
+                          {/* Final Account Summary List */}
+                          <div className="space-y-3">
+                            {accounts.map(account => {
+                              // Get original balance from first page
+                              const originalBalance = accountBalances[account] || 0;
+                              
+                              // Calculate savings for this account
+                              const accountSavings = savingsGroups
+                                .filter(group => group.account === account)
+                                .reduce((sum, group) => sum + group.amount, 0);
+                              
+                              // Calculate costs for this account
+                              const accountCosts = costGroups.reduce((sum, group) => {
+                                const groupCosts = group.subCategories
+                                  ?.filter(sub => sub.account === account)
+                                  .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                return sum + groupCosts;
+                              }, 0);
+                              
+                              // Calculate net transfer (savings - costs)
+                              const netTransfer = accountSavings - accountCosts;
+                              
+                              // Calculate final balance (original balance + net transfer)
+                              const finalBalance = originalBalance + netTransfer;
+                              
+                              const hasDetails = accountSavings > 0 || accountCosts > 0 || originalBalance !== 0;
+                              
+                              return (
+                                <div key={account} className="p-3 bg-white rounded border">
+                                  <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">{account}</span>
+                                      {hasDetails && (
+                                        <button
+                                          onClick={() => toggleAccountDetails(`final-${account}`)}
+                                          className="text-gray-400 hover:text-gray-600"
+                                        >
+                                          {expandedAccounts[`final-${account}`] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                        </button>
+                                      )}
+                                    </div>
+                                    <div className={`font-semibold ${finalBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {formatCurrency(finalBalance)}
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Expandable breakdown */}
+                                  {expandedAccounts[`final-${account}`] && hasDetails && (
+                                    <div className="mt-3 pt-3 border-t space-y-2">
+                                      {/* Original balance */}
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-gray-600">Ursprungligt saldo</span>
+                                        <span className={originalBalance >= 0 ? 'text-blue-600' : 'text-red-600'}>
+                                          {formatCurrency(originalBalance)}
+                                        </span>
+                                      </div>
+                                      
+                                      {/* Savings breakdown */}
+                                      {savingsGroups
+                                        .filter(group => group.account === account)
+                                        .map(group => (
+                                          <div key={`final-savings-${group.id}`} className="flex justify-between text-sm">
+                                            <span className="text-gray-600">{group.name} (Sparande)</span>
+                                            <span className="text-green-600">+{formatCurrency(group.amount)}</span>
+                                          </div>
+                                        ))}
+                                      
+                                      {/* Costs breakdown */}
+                                      {costGroups.map(group => 
+                                        group.subCategories
+                                          ?.filter(sub => sub.account === account)
+                                          .map(sub => (
+                                            <div key={`final-cost-${sub.id}`} className="flex justify-between text-sm">
+                                              <span className="text-gray-600">{sub.name} (Kostnad)</span>
+                                              <span className="text-red-600">-{formatCurrency(sub.amount)}</span>
+                                            </div>
+                                          ))
+                                      )}
+                                      
+                                      {/* Final calculation */}
+                                      <div className="pt-2 mt-2 border-t border-gray-200">
+                                        <div className="flex justify-between text-sm font-medium">
+                                          <span className="text-gray-800">Slutligt saldo</span>
+                                          <span className={finalBalance >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                            {formatCurrency(finalBalance)}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                             })}
+                             
+                             {/* Andreas konto final balance */}
+                             <div className="p-3 bg-white rounded border">
+                               <div className="flex justify-between items-center">
+                                 <span className="font-medium">Andreas konto</span>
+                                 <div className="font-semibold text-purple-600">
+                                   {results ? formatCurrency(results.andreasShare) : 'Beräknar...'}
+                                 </div>
+                               </div>
+                             </div>
+                             
+                             {/* Susannas konto final balance */}
+                             <div className="p-3 bg-white rounded border">
+                               <div className="flex justify-between items-center">
+                                 <span className="font-medium">Susannas konto</span>
+                                 <div className="font-semibold text-purple-600">
+                                   {results ? formatCurrency(results.susannaShare) : 'Beräknar...'}
+                                 </div>
+                               </div>
+                             </div>
+                           </div>
+                        </div>
+                      )}
+                    </div>
 
-                   {/* Remaining Daily Budget */}
+                    {/* Remaining Daily Budget */}
                    <div className="p-4 bg-amber-50 rounded-lg">
                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('remainingDailyBudgetDistribution')}>
                        <div>
