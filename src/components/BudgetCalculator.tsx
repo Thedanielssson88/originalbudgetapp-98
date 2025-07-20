@@ -2324,10 +2324,14 @@ const BudgetCalculator = () => {
     
     // Helper function to calculate estimated balances for any month
     const getEstimatedBalancesForMonth = (monthKey: string) => {
+      console.log(`Calculating estimated balances for ${monthKey}`);
       const [year, month] = monthKey.split('-').map(Number);
       const prevDate = new Date(year, month - 2, 1);
       const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+      console.log(`Looking for previous month data: ${prevMonthKey}`);
+      
       const prevMonthData = historicalData[prevMonthKey];
+      console.log(`Previous month data exists:`, !!prevMonthData);
       
       if (!prevMonthData) return null;
       
@@ -2336,11 +2340,13 @@ const BudgetCalculator = () => {
       // Calculate final balances from previous month for each account
       accounts.forEach(account => {
         const originalBalance = prevMonthData.accountBalances?.[account] || 0;
+        console.log(`Original balance for ${account}: ${originalBalance}`);
         
         // Calculate savings for this account from previous month
         const accountSavings = (prevMonthData.savingsGroups || [])
           .filter((group: any) => group.account === account)
           .reduce((sum: number, group: any) => sum + group.amount, 0);
+        console.log(`Account savings for ${account}: ${accountSavings}`);
         
         // Calculate costs for this account from previous month
         const accountCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
@@ -2349,11 +2355,14 @@ const BudgetCalculator = () => {
             .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
           return sum + groupCosts;
         }, 0);
+        console.log(`Account costs for ${account}: ${accountCosts}`);
         
         // Final balance from previous month becomes estimated starting balance
         estimatedBalances[account] = originalBalance + accountSavings + accountCosts;
+        console.log(`Estimated balance for ${account}: ${estimatedBalances[account]}`);
       });
       
+      console.log(`All estimated balances:`, estimatedBalances);
       return estimatedBalances;
     };
 
