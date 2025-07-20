@@ -4534,8 +4534,8 @@ const BudgetCalculator = () => {
                               // Calculate total costs for this account
                               const totalCosts = accountCostItems.reduce((sum, item) => sum + item.amount, 0);
                               
-                              // Calculate final balance (original + deposits - costs for display)
-                              const finalBalance = originalBalance + totalDeposits - totalCosts;
+                              // Calculate final balance (original + deposits, since deposits already include all amounts as positive)
+                              const finalBalance = originalBalance + totalDeposits;
                               
                               const hasDetails = totalDeposits > 0 || accountCostItems.length > 0 || originalBalance !== 0;
                               
