@@ -4395,11 +4395,8 @@ const BudgetCalculator = () => {
                                 return sum + groupCosts;
                               }, 0);
                               
-                              // Calculate net transfer (savings - costs)
-                              const netTransfer = accountSavings - accountCosts;
-                              
-                              // Calculate final balance (original balance + net transfer)
-                              const finalBalance = originalBalance + netTransfer;
+                              // Calculate final balance (original balance + all amounts as positive)
+                              const finalBalance = originalBalance + accountSavings + accountCosts;
                               
                               const hasDetails = accountSavings > 0 || accountCosts > 0 || originalBalance !== 0;
                               
@@ -4443,14 +4440,14 @@ const BudgetCalculator = () => {
                                           </div>
                                         ))}
                                       
-                                      {/* Costs breakdown */}
+                                      {/* Costs breakdown - shown as positive additions */}
                                       {costGroups.map(group => 
                                         group.subCategories
                                           ?.filter(sub => sub.account === account)
                                           .map(sub => (
                                             <div key={`final-cost-${sub.id}`} className="flex justify-between text-sm">
                                               <span className="text-gray-600">{sub.name} (Kostnad)</span>
-                                              <span className="text-red-600">-{formatCurrency(sub.amount)}</span>
+                                              <span className="text-green-600">+{formatCurrency(sub.amount)}</span>
                                             </div>
                                           ))
                                       )}
