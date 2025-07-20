@@ -2387,24 +2387,18 @@ const BudgetCalculator = () => {
       }
     };
 
-    // Calculate account balances for each month - show next month's data for current month
+    // Calculate account balances for each month - always use "Kontobelopp efter budget" calculation
     const chartData = extendedMonthKeys.map((monthKey, index) => {
       const dataPoint: any = { month: monthKey };
       
-      // Get data from the next month (index + 1)
+      // Get data from the next month (index + 1) for display
       const nextMonthIndex = index + 1;
       const nextMonthKey = nextMonthIndex < extendedMonthKeys.length ? extendedMonthKeys[nextMonthIndex] : null;
-      const nextMonthData = nextMonthKey ? historicalData[nextMonthKey] : null;
       
       accounts.forEach(account => {
         if (nextMonthKey) {
-          // First check if there's stored data for the next month
-          if (nextMonthData && nextMonthData.accountBalances && nextMonthData.accountBalances[account] !== undefined) {
-            dataPoint[account] = nextMonthData.accountBalances[account];
-          } else {
-            // If no stored data, use estimated values
-            dataPoint[account] = getAccountBalanceForMonth(nextMonthKey, account);
-          }
+          // Always use "Kontobelopp efter budget" calculation for all months
+          dataPoint[account] = getAccountBalanceForMonth(nextMonthKey, account);
         } else {
           dataPoint[account] = 0;
         }
