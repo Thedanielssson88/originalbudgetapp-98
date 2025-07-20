@@ -2387,27 +2387,27 @@ const BudgetCalculator = () => {
             const estimatedValue = getAccountBalanceForMonth(nextMonthKey, account);
             
             if (estimatedValue === 0) {
-              // If estimated value is 0, use calculated value from "Kontosammanställning" for the same month
-              const monthData = historicalData[monthKey];
-              if (monthData) {
-                // Get original balance
-                const originalBalance = (monthData.accountBalances && monthData.accountBalances[account]) || 0;
+              // If estimated value is 0, fetch from next month's "Kontobelopp efter budget" (final balance after budget)
+              const nextMonthData = historicalData[nextMonthKey];
+              if (nextMonthData) {
+                // Get original balance for next month
+                const originalBalance = (nextMonthData.accountBalances && nextMonthData.accountBalances[account]) || 0;
                 
-                // Calculate savings for this account
-                const accountSavings = (monthData.savingsGroups || [])
+                // Calculate savings for this account in next month
+                const accountSavings = (nextMonthData.savingsGroups || [])
                   .filter((group: any) => group.account === account)
                   .reduce((sum: number, group: any) => sum + group.amount, 0);
                 
-                // Calculate costs for this account
-                const accountCosts = (monthData.costGroups || []).reduce((sum: number, group: any) => {
+                // Calculate costs for this account in next month
+                const accountCosts = (nextMonthData.costGroups || []).reduce((sum: number, group: any) => {
                   const groupCosts = group.subCategories
                     ?.filter((sub: any) => sub.account === account)
                     .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
                   return sum + groupCosts;
                 }, 0);
                 
-                // Final balance from Kontosammanställning calculation
-                dataPoint[account] = originalBalance + accountSavings + accountCosts;
+                // Final balance after budget from next month (Kontobelopp efter budget)
+                dataPoint[account] = originalBalance + accountSavings - accountCosts;
               } else {
                 dataPoint[account] = 0;
               }
