@@ -2336,15 +2336,30 @@ const BudgetCalculator = () => {
         }
       }
       
-      // For months without saved data, only use estimated values if it's the current month
+      // For months without saved data, calculate estimated values for that specific month
+      // by getting the final balance from the previous month
+      const [year, month] = monthKey.split('-').map(Number);
+      const prevDate = new Date(year, month - 2, 1);
+      const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (historicalData[prevMonthKey]) {
+        // Get final balance from previous month's calculation
+        const prevMonthData = historicalData[prevMonthKey];
+        if (prevMonthData.accountBalances && prevMonthData.accountBalances[account] !== undefined) {
+          const estimatedBalance = prevMonthData.accountBalances[account];
+          console.log(`Using estimated balance for ${monthKey} from previous month: ${estimatedBalance}`);
+          return estimatedBalance;
+        }
+      }
+      
+      // If no previous month data, use current context as fallback
       if (monthKey === currentMonthKey) {
         const estimatedBalance = getAccountBalanceWithFallback(account);
         console.log(`Using estimated balance for current month ${monthKey}: ${estimatedBalance}`);
         return estimatedBalance;
       }
       
-      // For future months without data, return 0
-      console.log(`No data for future month ${monthKey}, returning 0`);
+      console.log(`No data for month ${monthKey}, returning 0`);
       return 0;
     };
 
