@@ -2289,22 +2289,30 @@ const BudgetCalculator = () => {
     const currentDate = new Date();
     const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     
-    // Get all available months from historical data (fixed chart, independent of selected month)
-    const allMonthKeys = Object.keys(historicalData).sort();
-    const extendedMonthKeys = [...allMonthKeys];
+    // Get all saved months from historical data and sort them
+    const savedMonthKeys = Object.keys(historicalData).sort();
     
-    // Add previous month if it doesn't exist already
-    if (allMonthKeys.length > 0) {
-      const firstMonth = allMonthKeys[0];
-      const [year, month] = firstMonth.split('-').map(Number);
+    // Create extended month list including previous months before each saved month
+    const extendedMonthKeys: string[] = [];
+    
+    // For each saved month, add the previous month first, then the saved month
+    for (const savedMonthKey of savedMonthKeys) {
+      const [year, month] = savedMonthKey.split('-').map(Number);
       const prevDate = new Date(year, month - 2, 1);
       const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+      
+      // Add previous month if not already added
       if (!extendedMonthKeys.includes(prevMonthKey)) {
-        extendedMonthKeys.unshift(prevMonthKey);
+        extendedMonthKeys.push(prevMonthKey);
+      }
+      
+      // Add the saved month if not already added
+      if (!extendedMonthKeys.includes(savedMonthKey)) {
+        extendedMonthKeys.push(savedMonthKey);
       }
     }
 
-    // Add current month if not in historical data (for forecast)
+    // Add current month at the end if it's not already included (for forecast)
     if (!extendedMonthKeys.includes(currentMonthKey)) {
       extendedMonthKeys.push(currentMonthKey);
     }
@@ -2314,36 +2322,27 @@ const BudgetCalculator = () => {
       setSelectedAccountsForChart(accounts.slice(0, 3)); // Start with first 3 accounts
     }
     
-    // Helper function to get account balance exactly like first page shows (filled or estimated)
+    // Helper function to get account balance from saved "Min Månadsbudget" data
     const getAccountBalanceForMonth = (monthKey: string, account: string) => {
       if (monthKey === currentMonthKey) {
         // For current month, use the same logic as first page: filled values or estimated fallback
         return getAccountBalanceWithFallback(account);
-      } else {
-        // For historical months, use accountBalances from that month
+      } else if (historicalData[monthKey]) {
+        // For saved months, use the accountBalances from "Min Månadsbudget" section (Kontosaldon)
         const monthData = historicalData[monthKey];
-        if (monthData && monthData.accountBalances && monthData.accountBalances[account] !== undefined) {
+        if (monthData.accountBalances && monthData.accountBalances[account] !== undefined) {
           return monthData.accountBalances[account];
         }
-        return 0;
       }
+      return 0;
     };
 
-    // Calculate account balances for each month - always use "Kontobelopp efter budget" calculation
-    const chartData = extendedMonthKeys.map((monthKey, index) => {
+    // Calculate account balances for each month using saved "Kontosaldon" data
+    const chartData = extendedMonthKeys.map((monthKey) => {
       const dataPoint: any = { month: monthKey };
       
-      // Get data from the next month (index + 1) for display
-      const nextMonthIndex = index + 1;
-      const nextMonthKey = nextMonthIndex < extendedMonthKeys.length ? extendedMonthKeys[nextMonthIndex] : null;
-      
       accounts.forEach(account => {
-        if (nextMonthKey) {
-          // Always use "Kontobelopp efter budget" calculation for all months
-          dataPoint[account] = getAccountBalanceForMonth(nextMonthKey, account);
-        } else {
-          dataPoint[account] = 0;
-        }
+        dataPoint[account] = getAccountBalanceForMonth(monthKey, account);
       });
       
       return dataPoint;
