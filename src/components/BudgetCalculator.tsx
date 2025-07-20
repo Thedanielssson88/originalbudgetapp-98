@@ -2384,36 +2384,7 @@ const BudgetCalculator = () => {
             dataPoint[account] = nextMonthData.accountBalances[account];
           } else {
             // If no stored data, use estimated values
-            const estimatedValue = getAccountBalanceForMonth(nextMonthKey, account);
-            
-            if (estimatedValue === 0) {
-              // If estimated value is 0, fetch from next month's "Kontobelopp efter budget" (final balance after budget)
-              const nextMonthData = historicalData[nextMonthKey];
-              if (nextMonthData) {
-                // Get original balance for next month
-                const originalBalance = (nextMonthData.accountBalances && nextMonthData.accountBalances[account]) || 0;
-                
-                // Calculate savings for this account in next month
-                const accountSavings = (nextMonthData.savingsGroups || [])
-                  .filter((group: any) => group.account === account)
-                  .reduce((sum: number, group: any) => sum + group.amount, 0);
-                
-                // Calculate costs for this account in next month
-                const accountCosts = (nextMonthData.costGroups || []).reduce((sum: number, group: any) => {
-                  const groupCosts = group.subCategories
-                    ?.filter((sub: any) => sub.account === account)
-                    .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-                  return sum + groupCosts;
-                }, 0);
-                
-                // Final balance after budget from next month (Kontobelopp efter budget)
-                dataPoint[account] = originalBalance + accountSavings - accountCosts;
-              } else {
-                dataPoint[account] = 0;
-              }
-            } else {
-              dataPoint[account] = estimatedValue;
-            }
+            dataPoint[account] = getAccountBalanceForMonth(nextMonthKey, account);
           }
         } else {
           dataPoint[account] = 0;
