@@ -2811,7 +2811,7 @@ const BudgetCalculator = () => {
                         Kontosaldon
                       </CardTitle>
                       <CardDescription className="text-blue-700">
-                        Saldo för {getPreviousMonthInfo().date} (innan påfyllning den 25:e)
+                        Saldo för {getPreviousMonthInfo().date} (innan påfyllning den 25:e): {formatCurrency(Object.values(accountBalances).reduce((sum, balance) => sum + (balance || 0), 0))}
                       </CardDescription>
                     </div>
                     <ChevronDown className={`h-4 w-4 transition-transform text-blue-800 ${expandedSections.accountBalances ? 'rotate-180' : ''}`} />
