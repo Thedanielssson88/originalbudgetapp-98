@@ -2376,6 +2376,16 @@ const BudgetCalculator = () => {
         if (monthData.accountBalances && monthData.accountBalances[account] !== undefined) {
           const savedBalance = monthData.accountBalances[account];
           console.log(`Found saved balance for ${monthKey}: ${savedBalance}`);
+          
+          // If saved balance is 0, try to get estimated values instead
+          if (savedBalance === 0) {
+            const estimated = getEstimatedBalancesForMonth(monthKey);
+            if (estimated && estimated[account] !== undefined && estimated[account] > 0) {
+              console.log(`Using estimated balance instead of 0 for ${monthKey}: ${estimated[account]}`);
+              return estimated[account];
+            }
+          }
+          
           return savedBalance;
         }
       }
