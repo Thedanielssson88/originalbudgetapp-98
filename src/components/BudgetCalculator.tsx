@@ -2845,6 +2845,52 @@ const BudgetCalculator = () => {
                           </span>
                         </div>
                       </div>
+                      
+                      {/* Account Management Section */}
+                      <div className="p-4 bg-blue-100/50 rounded-lg border border-blue-200 mt-4">
+                        <div className="flex justify-center mb-4">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => setIsEditingAccounts(!isEditingAccounts)}
+                            className="border-blue-300 text-blue-800 hover:bg-blue-200"
+                          >
+                            {isEditingAccounts ? 'Stäng' : 'Redigera konton'}
+                          </Button>
+                        </div>
+                       
+                       {isEditingAccounts && (
+                         <div className="space-y-4">
+                           <div className="flex gap-2">
+                             <Input
+                               placeholder="Nytt kontonamn"
+                               value={newAccountName}
+                               onChange={(e) => setNewAccountName(e.target.value)}
+                               className="flex-1"
+                             />
+                             <Button onClick={addAccount} disabled={!newAccountName.trim()}>
+                               <Plus className="h-4 w-4" />
+                             </Button>
+                           </div>
+                          
+                           <div className="space-y-2">
+                             {accounts.map((account, index) => (
+                               <div key={account} className="flex justify-between items-center p-2 bg-white rounded border">
+                                 <span className="font-medium">{account}</span>
+                                 <Button
+                                   size="sm"
+                                   variant="ghost"
+                                   onClick={() => removeAccount(account)}
+                                   className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                                 >
+                                   <Trash2 className="h-4 w-4" />
+                                 </Button>
+                               </div>
+                             ))}
+                           </div>
+                         </div>
+                       )}
+                      </div>
                     </div>
                   </CardContent>
                 )}
