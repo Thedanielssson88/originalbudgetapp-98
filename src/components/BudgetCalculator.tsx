@@ -2368,23 +2368,22 @@ const BudgetCalculator = () => {
       }
     };
 
-    // Calculate account balances for each month using unified logic
-    // Shift display by one month earlier - each month's data should show for previous month
-    const chartData = extendedMonthKeys.map((monthKey, index) => {
-      // Skip the first month since there's no previous month to display it for
-      if (index === 0) return null;
+    // Calculate account balances for each month - use stored account balances directly
+    const chartData = extendedMonthKeys.map(monthKey => {
+      const dataPoint: any = { month: monthKey };
+      const monthData = historicalData[monthKey];
       
-      // Get the previous month key for display
-      const prevMonthKey = extendedMonthKeys[index - 1];
-      const dataPoint: any = { month: prevMonthKey };
-      
-      // Use current month's data but display it for previous month
       accounts.forEach(account => {
-        dataPoint[account] = getAccountBalanceForMonth(monthKey, account);
+        // Use the stored account balance directly from the month's data
+        if (monthData && monthData.accountBalances && monthData.accountBalances[account] !== undefined) {
+          dataPoint[account] = monthData.accountBalances[account];
+        } else {
+          dataPoint[account] = 0;
+        }
       });
       
       return dataPoint;
-    }).filter(Boolean); // Remove null entries
+    });
 
     // Find where historical data ends and forecast begins
     const lastHistoricalIndex = chartData.findIndex(data => data.month === currentMonthKey);
