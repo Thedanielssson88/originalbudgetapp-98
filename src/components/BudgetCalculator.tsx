@@ -2314,11 +2314,11 @@ const BudgetCalculator = () => {
       setSelectedAccountsForChart(accounts.slice(0, 3)); // Start with first 3 accounts
     }
     
-    // Helper function to get account balance directly from stored accountBalances
+    // Helper function to get account balance exactly like first page shows (filled or estimated)
     const getAccountBalanceForMonth = (monthKey: string, account: string) => {
       if (monthKey === currentMonthKey) {
-        // For current month, use current accountBalances
-        return accountBalances[account] || 0;
+        // For current month, use the same logic as first page: filled values or estimated fallback
+        return getAccountBalanceWithFallback(account);
       } else {
         // For historical months, use accountBalances from that month
         const monthData = historicalData[monthKey];
