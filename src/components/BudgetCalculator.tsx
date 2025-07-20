@@ -157,6 +157,9 @@ const BudgetCalculator = () => {
 
   // Account balances state
   const [accountBalances, setAccountBalances] = useState<{[key: string]: number}>({});
+  
+  // Account chart selection state
+  const [selectedAccountsForChart, setSelectedAccountsForChart] = useState<string[]>([]);
 
   // Tab navigation helper functions
   const getTabOrder = () => {
@@ -401,6 +404,9 @@ const BudgetCalculator = () => {
         // Load account balances
         setAccountBalances(parsed.accountBalances || {});
         
+        // Load selected accounts for chart
+        setSelectedAccountsForChart(parsed.selectedAccountsForChart || []);
+        
         if (parsed.results) {
           setResults(parsed.results);
         }
@@ -532,7 +538,8 @@ const BudgetCalculator = () => {
       transferChecks,
       andreasShareChecked,
       susannaShareChecked,
-      accountBalances
+      accountBalances,
+      selectedAccountsForChart
     };
     localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
   };
@@ -543,7 +550,7 @@ const BudgetCalculator = () => {
       saveToLocalStorage();
       saveToSelectedMonth();
     }
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, isInitialLoad]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, selectedAccountsForChart, isInitialLoad]);
 
   // Auto-calculate budget whenever any input changes
   useEffect(() => {
@@ -2222,6 +2229,208 @@ const BudgetCalculator = () => {
             <Line type="monotone" dataKey="totalDailyBudget" stroke="#f59e0b" name="Total Daglig Budget" />
           </LineChart>
         </ResponsiveContainer>
+      </div>
+    );
+  };
+
+  const renderAccountBalanceChart = () => {
+    const currentDate = new Date();
+    const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    
+    // Get all available months including one month before the first saved month
+    const allMonthKeys = Object.keys(historicalData).sort();
+    const extendedMonthKeys = [...allMonthKeys];
+    
+    // Add previous month if it doesn't exist already
+    if (allMonthKeys.length > 0) {
+      const firstMonth = allMonthKeys[0];
+      const [year, month] = firstMonth.split('-').map(Number);
+      const prevDate = new Date(year, month - 2, 1);
+      const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+      if (!extendedMonthKeys.includes(prevMonthKey)) {
+        extendedMonthKeys.unshift(prevMonthKey);
+      }
+    }
+
+    // Add current month if not in historical data
+    if (!extendedMonthKeys.includes(currentMonthKey)) {
+      extendedMonthKeys.push(currentMonthKey);
+    }
+
+    // Initialize selected accounts if empty
+    if (selectedAccountsForChart.length === 0 && accounts.length > 0) {
+      setSelectedAccountsForChart(accounts.slice(0, 3)); // Start with first 3 accounts
+    }
+    
+    // Calculate account balances for each month
+    const chartData = extendedMonthKeys.map(monthKey => {
+      const monthData = historicalData[monthKey];
+      const dataPoint: any = { month: monthKey };
+      
+      accounts.forEach(account => {
+        if (monthKey === currentMonthKey) {
+          // Current month: use current accountBalances
+          dataPoint[account] = accountBalances[account] || 0;
+        } else if (monthData && monthData.accountBalances) {
+          // Historical month with data
+          const accountBalance = monthData.accountBalances[account];
+          if (accountBalance !== undefined && accountBalance !== 0) {
+            dataPoint[account] = accountBalance;
+          } else {
+            // All account balances are 0, use previous month's "Kontobelopp efter budget"
+            const prevMonthIndex = extendedMonthKeys.indexOf(monthKey) - 1;
+            if (prevMonthIndex >= 0) {
+              const prevMonthKey = extendedMonthKeys[prevMonthIndex];
+              const prevMonthData = historicalData[prevMonthKey];
+              if (prevMonthData) {
+                // Calculate final balance from previous month
+                const originalBalance = (prevMonthData.accountBalances && prevMonthData.accountBalances[account]) || 0;
+                const savingsAmount = (prevMonthData.savingsGroups || [])
+                  .filter((group: any) => group.account === account)
+                  .reduce((sum: number, group: any) => sum + group.amount, 0);
+                const costsAmount = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+                  const groupCosts = group.subCategories
+                    ?.filter((sub: any) => sub.account === account)
+                    .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+                  return sum + groupCosts;
+                }, 0);
+                dataPoint[account] = originalBalance + savingsAmount - costsAmount;
+              } else {
+                dataPoint[account] = 0;
+              }
+            } else {
+              dataPoint[account] = 0;
+            }
+          }
+        } else {
+          // No data for this month, try to use previous month's final balance
+          const prevMonthIndex = extendedMonthKeys.indexOf(monthKey) - 1;
+          if (prevMonthIndex >= 0) {
+            const prevMonthKey = extendedMonthKeys[prevMonthIndex];
+            if (prevMonthKey === currentMonthKey) {
+              dataPoint[account] = accountBalances[account] || 0;
+            } else {
+              const prevMonthData = historicalData[prevMonthKey];
+              if (prevMonthData && prevMonthData.accountBalances) {
+                dataPoint[account] = prevMonthData.accountBalances[account] || 0;
+              } else {
+                dataPoint[account] = 0;
+              }
+            }
+          } else {
+            dataPoint[account] = 0;
+          }
+        }
+      });
+      
+      return dataPoint;
+    });
+
+    // Find where historical data ends and forecast begins
+    const lastHistoricalIndex = chartData.findIndex(data => data.month === currentMonthKey);
+    
+    if (chartData.length === 0) {
+      return (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground">Ingen data tillgänglig för kontosaldon.</p>
+        </div>
+      );
+    }
+
+    // Colors for different accounts
+    const accountColors = [
+      '#22c55e', '#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', 
+      '#ec4899', '#06b6d4', '#10b981', '#f97316', '#6366f1'
+    ];
+
+    return (
+      <div className="space-y-4">
+        {/* Account Selection */}
+        <div className="bg-muted/50 p-4 rounded-lg">
+          <h4 className="font-medium mb-3">Välj konton att visa:</h4>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {accounts.map((account, index) => (
+              <label key={account} className="flex items-center space-x-2 cursor-pointer">
+                <Checkbox 
+                  checked={selectedAccountsForChart.includes(account)}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedAccountsForChart(prev => [...prev, account]);
+                    } else {
+                      setSelectedAccountsForChart(prev => prev.filter(a => a !== account));
+                    }
+                  }}
+                />
+                <span className="text-sm">{account}</span>
+                <div 
+                  className="w-3 h-3 rounded-full ml-1" 
+                  style={{ backgroundColor: accountColors[index % accountColors.length] }}
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Chart */}
+        <div className="h-96 relative">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis tickFormatter={(value: number) => formatCurrency(value)} />
+              <Tooltip formatter={(value: number) => formatCurrency(value)} />
+              <Legend />
+              
+              {/* Historical data separator line */}
+              {lastHistoricalIndex >= 0 && (
+                <Line 
+                  type="monotone" 
+                  dataKey={() => null}
+                  stroke="transparent"
+                  strokeDasharray="5 5"
+                />
+              )}
+              
+              {/* Account lines */}
+              {selectedAccountsForChart.map((account, index) => (
+                <Line
+                  key={account}
+                  type="monotone"
+                  dataKey={account}
+                  stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
+                  name={account}
+                  strokeWidth={2}
+                  strokeDasharray={chartData.findIndex(d => d.month === currentMonthKey) >= 0 ? undefined : "5 5"}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+          
+          {/* Historical/Forecast separator */}
+          {lastHistoricalIndex >= 0 && chartData.length > 1 && (
+            <div 
+              className="absolute top-0 bottom-0 border-l-2 border-dashed border-gray-400 pointer-events-none"
+              style={{ 
+                left: `${((lastHistoricalIndex + 0.5) / chartData.length) * 100}%`,
+                zIndex: 10
+              }}
+            >
+              <div className="absolute -top-6 left-2 text-xs text-gray-600 bg-white px-1 rounded">
+                Historisk | Prognos
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Legend */}
+        <div className="bg-muted/30 p-3 rounded-lg text-sm">
+          <p className="font-medium mb-1">Förklaring:</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-1 text-muted-foreground">
+            <div>• Heldragna linjer: Historiska data</div>
+            <div>• Streckade linjer: Prognoser</div>
+            <div>• Vertikal linje: Skillnad mellan historik och prognos</div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -5613,6 +5822,22 @@ const BudgetCalculator = () => {
                 </CardHeader>
                 <CardContent>
                   {renderHistoricalCharts()}
+                </CardContent>
+              </Card>
+
+              {/* Account Balance History and Forecast */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                    Historik och Prognos på konton
+                  </CardTitle>
+                  <CardDescription>
+                    Visa utvecklingen av kontosaldon med historiska data och prognoser
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {renderAccountBalanceChart()}
                 </CardContent>
               </Card>
 
