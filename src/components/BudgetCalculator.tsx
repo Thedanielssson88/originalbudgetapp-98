@@ -1278,6 +1278,7 @@ const BudgetCalculator = () => {
     console.log(`Available historical months:`, Object.keys(historicalData));
     console.log(`Previous month accountFinalBalances:`, prevMonthData?.accountFinalBalances);
     console.log(`Fresh final balances provided:`, freshFinalBalances);
+    console.log(`Full previous month data:`, JSON.stringify(prevMonthData, null, 2));
     
     if (!prevMonthData) {
       console.log('No previous month data found for:', prevMonthInfo.monthKey);
@@ -3340,14 +3341,9 @@ const BudgetCalculator = () => {
                       <div className="space-y-4">
                         {accounts.map(account => {
                           const currentBalance = accountBalances[account] || 0;
-                          const freshBalances = (window as any).__freshFinalBalances;
-                          const estimatedResult = getEstimatedAccountBalances(freshBalances);
-                          const estimatedBalance = estimatedResult?.[account] || 0;
-                          console.log(`=== DISPLAY DEBUG ===`);
-                          console.log(`Account ${account}: currentBalance=${currentBalance}, estimatedBalance=${estimatedBalance}, selectedMonth=${selectedBudgetMonth}`);
-                          console.log(`getEstimatedAccountBalances() result:`, estimatedResult);
-                          console.log(`Fresh balances used:`, freshBalances);
-                          console.log(`=== END DISPLAY DEBUG ===`);
+                           const freshBalances = (window as any).__freshFinalBalances;
+                           const estimatedResult = getEstimatedAccountBalances(freshBalances);
+                           const estimatedBalance = estimatedResult?.[account] || 0;
                           
                           return (
                             <div key={account} className="bg-white rounded border overflow-hidden">
@@ -3376,7 +3372,7 @@ const BudgetCalculator = () => {
                                   <div className="flex justify-between items-center">
                                     <span className="text-sm font-medium text-orange-700">Estimerat slutsaldo</span>
                                     <div className="flex items-center gap-2">
-                                      <span className="w-32 text-right text-sm text-orange-600">{estimatedBalance}</span>
+                                      <span className="w-32 text-right text-sm text-orange-600">{formatCurrency(estimatedBalance)}</span>
                                       <span className="text-sm text-orange-600 min-w-8">kr</span>
                                     </div>
                                   </div>
