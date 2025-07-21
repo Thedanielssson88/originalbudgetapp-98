@@ -1384,14 +1384,13 @@ const BudgetCalculator = () => {
           return sum + groupCosts;
         }, 0);
         
-        // Final balance (Slutsaldo) from previous month = original balance + savings + cost budget deposit (recurring only) - all costs
-        estimatedBalances[account] = originalBalance + accountSavings + accountRecurringCosts - accountAllCosts;
+        // Final balance (Slutsaldo) from previous month = original balance + savings - all costs (same as summary calculation)
+        estimatedBalances[account] = originalBalance + accountSavings - accountAllCosts;
         console.log(`=== DETAILED CALCULATION FOR ${account} ===`);
         console.log(`Original balance: ${originalBalance}`);
         console.log(`Savings: ${accountSavings}`);
-        console.log(`Recurring costs deposit: ${accountRecurringCosts}`);
         console.log(`All costs: ${accountAllCosts}`);
-        console.log(`Calculation: ${originalBalance} + ${accountSavings} + ${accountRecurringCosts} - ${accountAllCosts} = ${originalBalance + accountSavings + accountRecurringCosts - accountAllCosts}`);
+        console.log(`Calculation: ${originalBalance} + ${accountSavings} - ${accountAllCosts} = ${originalBalance + accountSavings - accountAllCosts}`);
         console.log(`=== END DETAILED CALCULATION ===`);
       }
     });
