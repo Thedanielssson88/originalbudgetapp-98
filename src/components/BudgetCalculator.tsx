@@ -2937,8 +2937,10 @@ const BudgetCalculator = () => {
       return estimatedBalances;
     };
 
-    // Ensure no duplicate months in final array
-    extendedMonthKeys = [...new Set(extendedMonthKeys)].sort();
+    // Ensure no duplicate months in final array (only for default behavior)
+    if (!useCustomTimeRange) {
+      extendedMonthKeys = [...new Set(extendedMonthKeys)].sort();
+    }
 
     // Calculate chart data
     const chartData = extendedMonthKeys.map((monthKey) => {
