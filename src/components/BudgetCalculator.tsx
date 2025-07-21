@@ -3123,111 +3123,94 @@ const BudgetCalculator = () => {
               <Tooltip 
                 formatter={(value: number, name: string, props: any) => [
                   formatCurrency(value), 
-                  useCustomTimeRange ? name : `${name} (${props.payload.isHistorical ? 'Faktiskt' : 'Estimerat'})`
+                  `${name} (${props.payload.isHistorical ? 'Faktiskt' : 'Estimerat'})`
                 ]} 
               />
               <Legend />
               
-              {/* When using custom time range, show simple solid lines for all data */}
-              {useCustomTimeRange ? (
-                selectedAccountsForChart.map((account, index) => (
-                  <Line
-                    key={account}
-                    type="monotone"
-                    dataKey={account}
-                    stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
-                    name={account}
-                    strokeWidth={2}
-                    connectNulls={true}
-                  />
-                ))
-              ) : (
-                <>
-                  {/* Account lines for historical data (solid) */}
-                  {selectedAccountsForChart.map((account, index) => (
-                    <Line
-                      key={`${account}-historical`}
-                      type="monotone"
-                      dataKey={account}
-                      stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
-                      name={`${account} (Historisk)`}
-                      strokeWidth={2}
-                      strokeDasharray={undefined}
-                      data={chartData.map(d => ({
-                        ...d,
-                        [account]: d.isHistorical ? d[account] : null
-                      }))}
-                      connectNulls={false}
-                    />
-                  ))}
-                  
-                  {/* Account lines for forecast (dashed) */}
-                  {selectedAccountsForChart.map((account, index) => (
-                    <Line
-                      key={`${account}-forecast`}
-                      type="monotone"
-                      dataKey={account}
-                      stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
-                      name={`${account} (Prognos)`}
-                      strokeWidth={2}
-                      strokeDasharray="5 5"
-                      data={chartData.map(d => ({
-                        ...d,
-                        [account]: !d.isHistorical ? d[account] : null
-                      }))}
-                      connectNulls={false}
-                    />
-                  ))}
+              {/* Account lines for historical data (solid) */}
+              {selectedAccountsForChart.map((account, index) => (
+                <Line
+                  key={`${account}-historical`}
+                  type="monotone"
+                  dataKey={account}
+                  stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
+                  name={`${account} (Historisk)`}
+                  strokeWidth={2}
+                  strokeDasharray={undefined}
+                  data={chartData.map(d => ({
+                    ...d,
+                    [account]: d.isHistorical ? d[account] : null
+                  }))}
+                  connectNulls={false}
+                />
+              ))}
+              
+              {/* Account lines for forecast (dashed) */}
+              {selectedAccountsForChart.map((account, index) => (
+                <Line
+                  key={`${account}-forecast`}
+                  type="monotone"
+                  dataKey={account}
+                  stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
+                  name={`${account} (Prognos)`}
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  data={chartData.map(d => ({
+                    ...d,
+                    [account]: !d.isHistorical ? d[account] : null
+                  }))}
+                  connectNulls={false}
+                />
+              ))}
 
-                  {/* Transition lines connecting last historical to first forecast point */}
-                  {selectedAccountsForChart.map((account, index) => {
-                    // Find the last historical point and first forecast point for this account
-                    const lastHistoricalIndex = chartData.map(d => d.isHistorical).lastIndexOf(true);
-                    const firstForecastIndex = chartData.findIndex(d => !d.isHistorical);
-                    
-                    // Only draw transition line if we have both historical and forecast data
-                    if (lastHistoricalIndex >= 0 && firstForecastIndex >= 0 && firstForecastIndex > lastHistoricalIndex) {
-                      // Create a minimal dataset with just the two connection points
-                      const transitionData = chartData.map((d, idx) => {
-                        if (idx === lastHistoricalIndex || idx === firstForecastIndex) {
-                          return {
-                            ...d,
-                            [account]: d[account]
-                          };
-                        }
-                        // For all other points, set the account value to null so the line doesn't connect through them
-                        return {
-                          ...d,
-                          [account]: null
-                        };
-                      });
-                      
-                      return (
-                        <Line
-                          key={`${account}-transition`}
-                          type="linear"
-                          dataKey={account}
-                          stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
-                          strokeWidth={2}
-                          strokeDasharray="8 4"
-                          data={transitionData}
-                          connectNulls={false}
-                          dot={false}
-                          legendType="none"
-                        />
-                      );
+              {/* Transition lines connecting last historical to first forecast point */}
+              {selectedAccountsForChart.map((account, index) => {
+                // Find the last historical point and first forecast point for this account
+                const lastHistoricalIndex = chartData.map(d => d.isHistorical).lastIndexOf(true);
+                const firstForecastIndex = chartData.findIndex(d => !d.isHistorical);
+                
+                // Only draw transition line if we have both historical and forecast data
+                if (lastHistoricalIndex >= 0 && firstForecastIndex >= 0 && firstForecastIndex > lastHistoricalIndex) {
+                  // Create a minimal dataset with just the two connection points
+                  const transitionData = chartData.map((d, idx) => {
+                    if (idx === lastHistoricalIndex || idx === firstForecastIndex) {
+                      return {
+                        ...d,
+                        [account]: d[account]
+                      };
                     }
-                    return null;
-                  })}
-                </>
-              )}
+                    // For all other points, set the account value to null so the line doesn't connect through them
+                    return {
+                      ...d,
+                      [account]: null
+                    };
+                  });
+                  
+                  return (
+                    <Line
+                      key={`${account}-transition`}
+                      type="linear"
+                      dataKey={account}
+                      stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
+                      strokeWidth={2}
+                      strokeDasharray="8 4"
+                      data={transitionData}
+                      connectNulls={false}
+                      dot={false}
+                      legendType="none"
+                    />
+                  );
+                }
+                return null;
+              })}
             
             
             </LineChart>
           </ResponsiveContainer>
           
-          {/* Historical/Forecast separator line - only show when not using custom time range */}
-          {!useCustomTimeRange && historicalSeparatorIndex >= 0 && chartData.length > 1 && (
+          {/* Historical/Forecast separator line */}
+          {historicalSeparatorIndex >= 0 && chartData.length > 1 && (
             <div 
               className="absolute top-0 bottom-0 border-l-2 border-dashed border-primary pointer-events-none"
               style={{ 
