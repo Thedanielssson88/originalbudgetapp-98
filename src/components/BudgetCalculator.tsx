@@ -1201,6 +1201,9 @@ const BudgetCalculator = () => {
     const prevMonthInfo = getPreviousMonthInfo();
     const prevMonthData = historicalData[prevMonthInfo.monthKey];
     
+    console.log(`Getting estimated balances for ${selectedBudgetMonth}, previous month: ${prevMonthInfo.monthKey}`);
+    console.log(`Previous month data exists:`, !!prevMonthData);
+    
     if (!prevMonthData) {
       console.log('No previous month data found for:', prevMonthInfo.monthKey);
       return null;
@@ -3230,6 +3233,7 @@ const BudgetCalculator = () => {
                         {accounts.map(account => {
                           const currentBalance = accountBalances[account] || 0;
                           const estimatedBalance = getEstimatedAccountBalances()?.[account] || 0;
+                          console.log(`Account ${account}: currentBalance=${currentBalance}, estimatedBalance=${estimatedBalance}, selectedMonth=${selectedBudgetMonth}`);
                           
                           return (
                             <div key={account} className="bg-white rounded border overflow-hidden">
@@ -3254,7 +3258,7 @@ const BudgetCalculator = () => {
                                 </div>
                                 
                                 {/* Estimerat slutsaldo */}
-                                {estimatedBalance > 0 && (
+                                {getEstimatedAccountBalances() && (
                                   <div className="flex justify-between items-center">
                                     <span className="text-sm font-medium text-orange-700">Estimerat slutsaldo</span>
                                     <div className="flex items-center gap-2">
