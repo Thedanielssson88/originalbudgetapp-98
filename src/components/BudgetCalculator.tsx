@@ -1797,13 +1797,19 @@ const BudgetCalculator = () => {
   // Function to handle month selection change
   const handleBudgetMonthChange = (monthKey: string) => {
     console.log(`=== MONTH CHANGE: Switching to ${monthKey} ===`);
+    console.log(`Current historicalData keys BEFORE operations:`, Object.keys(historicalData));
     
     // Save current data to current month before switching
+    console.log(`Saving current month data before switching...`);
     saveToSelectedMonth();
     
+    console.log(`Historical data keys AFTER saveToSelectedMonth:`, Object.keys(historicalData));
+    
     // Calculate and save final balances for the previous month of the target month
+    console.log(`Calculating previous month final balances...`);
     calculateAndSavePreviousMonthFinalBalances(monthKey);
     
+    console.log(`Historical data keys AFTER calculateAndSavePreviousMonthFinalBalances:`, Object.keys(historicalData));
     console.log(`Historical data after calculating previous month final balances:`, JSON.stringify(historicalData, null, 2));
     
     setSelectedBudgetMonth(monthKey);
