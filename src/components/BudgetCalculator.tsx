@@ -2775,12 +2775,21 @@ const BudgetCalculator = () => {
     let extendedMonthKeys: string[] = [];
     
     if (useCustomTimeRange && chartStartMonth && chartEndMonth) {
-      // Use custom time range - generate all months between start and end
+      // Use custom time range - generate all months between start and end (inclusive)
       const [startYear, startMonth] = chartStartMonth.split('-').map(Number);
       const [endYear, endMonth] = chartEndMonth.split('-').map(Number);
       
       let currentIterMonth = new Date(startYear, startMonth - 1, 1);
       const endDate = new Date(endYear, endMonth - 1, 1);
+      
+      // Make sure end date is not before start date
+      if (endDate < currentIterMonth) {
+        // Swap if end is before start
+        const tempMonth = chartStartMonth;
+        setChartStartMonth(chartEndMonth);
+        setChartEndMonth(tempMonth);
+        return <div className="text-center py-8"><p className="text-muted-foreground">Slutmånad kan inte vara före startmånad.</p></div>;
+      }
       
       while (currentIterMonth <= endDate) {
         const monthKey = `${currentIterMonth.getFullYear()}-${String(currentIterMonth.getMonth() + 1).padStart(2, '0')}`;
@@ -2992,14 +3001,25 @@ const BudgetCalculator = () => {
                     <SelectValue placeholder="Välj startmånad" />
                   </SelectTrigger>
                   <SelectContent>
-                    {savedMonthKeys.map(month => (
-                      <SelectItem key={month} value={month}>
-                        {new Date(month + '-01').toLocaleDateString('sv-SE', { 
-                          year: 'numeric', 
-                          month: 'long' 
-                        })}
-                      </SelectItem>
-                    ))}
+                    {(() => {
+                      const availableMonths = [...savedMonthKeys];
+                      // Add one month before the first saved month if we have saved data
+                      if (savedMonthKeys.length > 0) {
+                        const earliestMonth = savedMonthKeys[0];
+                        const [year, month] = earliestMonth.split('-').map(Number);
+                        const prevDate = new Date(year, month - 2, 1);
+                        const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+                        availableMonths.unshift(prevMonthKey);
+                      }
+                      return availableMonths.map(month => (
+                        <SelectItem key={month} value={month}>
+                          {new Date(month + '-01').toLocaleDateString('sv-SE', { 
+                            year: 'numeric', 
+                            month: 'long' 
+                          })}
+                        </SelectItem>
+                      ));
+                    })()}
                   </SelectContent>
                 </Select>
               </div>
@@ -3010,14 +3030,25 @@ const BudgetCalculator = () => {
                     <SelectValue placeholder="Välj slutmånad" />
                   </SelectTrigger>
                   <SelectContent>
-                    {savedMonthKeys.map(month => (
-                      <SelectItem key={month} value={month}>
-                        {new Date(month + '-01').toLocaleDateString('sv-SE', { 
-                          year: 'numeric', 
-                          month: 'long' 
-                        })}
-                      </SelectItem>
-                    ))}
+                    {(() => {
+                      const availableMonths = [...savedMonthKeys];
+                      // Add one month before the first saved month if we have saved data
+                      if (savedMonthKeys.length > 0) {
+                        const earliestMonth = savedMonthKeys[0];
+                        const [year, month] = earliestMonth.split('-').map(Number);
+                        const prevDate = new Date(year, month - 2, 1);
+                        const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+                        availableMonths.unshift(prevMonthKey);
+                      }
+                      return availableMonths.map(month => (
+                        <SelectItem key={month} value={month}>
+                          {new Date(month + '-01').toLocaleDateString('sv-SE', { 
+                            year: 'numeric', 
+                            month: 'long' 
+                          })}
+                        </SelectItem>
+                      ));
+                    })()}
                   </SelectContent>
                 </Select>
               </div>
