@@ -2784,14 +2784,15 @@ const BudgetCalculator = () => {
       
       // Make sure end date is not before start date
       if (endDate < currentIterMonth) {
-        return <div className="text-center py-8"><p className="text-muted-foreground">Slutmånad kan inte vara före startmånad.</p></div>;
-      }
-      
-      // Generate EXACTLY the months in the selected range - nothing else
-      while (currentIterMonth <= endDate) {
-        const monthKey = `${currentIterMonth.getFullYear()}-${String(currentIterMonth.getMonth() + 1).padStart(2, '0')}`;
-        extendedMonthKeys.push(monthKey);
-        currentIterMonth.setMonth(currentIterMonth.getMonth() + 1);
+        // Don't return early - show error but keep the interface visible
+        extendedMonthKeys = []; // Empty chart data but keep selectors visible
+      } else {
+        // Generate EXACTLY the months in the selected range - nothing else
+        while (currentIterMonth <= endDate) {
+          const monthKey = `${currentIterMonth.getFullYear()}-${String(currentIterMonth.getMonth() + 1).padStart(2, '0')}`;
+          extendedMonthKeys.push(monthKey);
+          currentIterMonth.setMonth(currentIterMonth.getMonth() + 1);
+        }
       }
       
       // Don't add anything else when using custom range!
@@ -2953,9 +2954,15 @@ const BudgetCalculator = () => {
     const historicalSeparatorIndex = chartData.findIndex(data => !data.isHistorical) - 0.5;
     
     if (chartData.length === 0) {
+      const hasInvalidRange = useCustomTimeRange && chartStartMonth && chartEndMonth && chartStartMonth > chartEndMonth;
       return (
         <div className="text-center py-8">
-          <p className="text-muted-foreground">Ingen data tillgänglig för kontosaldon.</p>
+          <p className="text-muted-foreground">
+            {hasInvalidRange 
+              ? "Slutmånad kan inte vara före startmånad. Välj ett giltigt intervall ovan."
+              : "Ingen data tillgänglig för kontosaldon."
+            }
+          </p>
         </div>
       );
     }
