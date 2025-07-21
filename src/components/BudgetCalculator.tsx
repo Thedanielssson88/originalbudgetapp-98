@@ -2989,6 +2989,8 @@ const BudgetCalculator = () => {
           dataPoint[`${account}_historical`] = null; 
           dataPoint[`${account}_forecast`] = balance;
         }
+        // Store original balance for transition line calculations
+        dataPoint[account] = balance;
       });
 
       return dataPoint;
@@ -2997,6 +2999,22 @@ const BudgetCalculator = () => {
       return accounts.some(account => 
         dataPoint[`${account}_historical`] !== 0 || dataPoint[`${account}_forecast`] !== 0
       );
+    });
+    
+    // Add transition data points for connecting historical to forecast
+    chartData.forEach((dataPoint, index) => {
+      accounts.forEach(account => {
+        // Find if this is a transition point (last historical or first forecast)
+        const lastHistoricalIndex = chartData.map(d => d.isHistorical).lastIndexOf(true);
+        const firstForecastIndex = chartData.findIndex(d => !d.isHistorical);
+        
+        if (lastHistoricalIndex >= 0 && firstForecastIndex >= 0 && 
+            (index === lastHistoricalIndex || index === firstForecastIndex)) {
+          dataPoint[`${account}_transition`] = dataPoint[account];
+        } else {
+          dataPoint[`${account}_transition`] = null;
+        }
+      });
     });
     
     console.log('📊 Final chart data:', chartData.map(d => ({ month: d.month, isHistorical: d.isHistorical })));
@@ -3204,6 +3222,21 @@ const BudgetCalculator = () => {
                   strokeWidth={2}
                   strokeDasharray="5 5"
                   connectNulls={false}
+                />
+              ))}
+
+              {/* Transition lines connecting last historical to first forecast point */}
+              {selectedAccountsForChart.map((account, index) => (
+                <Line
+                  key={`${account}-transition`}
+                  type="linear"
+                  dataKey={`${account}_transition`}
+                  stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
+                  strokeWidth={2}
+                  strokeDasharray="8 4"
+                  connectNulls={false}
+                  dot={false}
+                  legendType="none"
                 />
               ))}
 
