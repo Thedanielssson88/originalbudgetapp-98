@@ -5135,8 +5135,8 @@ const BudgetCalculator = () => {
                                // Calculate total costs for this account
                                const totalCosts = accountCostItems.reduce((sum, item) => sum + item.amount, 0);
                                
-                               // Calculate final balance (original + deposits - costs)
-                               const finalBalance = originalBalance + totalDeposits - totalCosts;
+                                // Calculate final balance (original + savings deposits + cost budget deposit - costs)
+                                const finalBalance = originalBalance + totalDeposits + totalCosts - totalCosts;
                                
                                console.log(`=== KONTOBELOPP EFTER BUDGET DEBUG FOR ${account} ===`);
                                console.log(`Original balance: ${originalBalance}`);
