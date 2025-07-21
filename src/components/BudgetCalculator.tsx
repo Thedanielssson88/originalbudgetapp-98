@@ -986,6 +986,7 @@ const BudgetCalculator = () => {
 
   // Function to calculate and save final balances for the previous month of a target month
   const calculateAndSavePreviousMonthFinalBalances = (targetMonthKey: string) => {
+    console.log(`=== CALCULATE AND SAVE PREVIOUS MONTH DEBUG ===`);
     // Get previous month info
     const [year, month] = targetMonthKey.split('-').map(Number);
     const prevMonth = month === 1 ? 12 : month - 1;
@@ -1002,6 +1003,7 @@ const BudgetCalculator = () => {
     }
     
     console.log(`Recalculating final balances for ${prevMonthKey} based on current data`);
+    console.log(`Previous month data before calculation:`, prevMonthData);
     
     // Always recalculate final balances based on previous month's current data
     const finalBalances: {[key: string]: number} = {};
@@ -1028,16 +1030,23 @@ const BudgetCalculator = () => {
       console.log(`${account}: ${originalBalance} + ${accountSavings} - ${accountCosts} = ${finalBalances[account]}`);
     });
     
+    console.log(`Final balances calculated:`, finalBalances);
+    
     // Always save the recalculated final balances to the previous month's data
-    setHistoricalData(prev => ({
-      ...prev,
-      [prevMonthKey]: {
-        ...prev[prevMonthKey],
-        accountFinalBalances: finalBalances
-      }
-    }));
+    setHistoricalData(prev => {
+      const updated = {
+        ...prev,
+        [prevMonthKey]: {
+          ...prev[prevMonthKey],
+          accountFinalBalances: finalBalances
+        }
+      };
+      console.log(`Updated historical data for ${prevMonthKey}:`, updated[prevMonthKey]);
+      return updated;
+    });
     
     console.log(`Final balances recalculated and saved for ${prevMonthKey}:`, finalBalances);
+    console.log(`=== END CALCULATE AND SAVE PREVIOUS MONTH DEBUG ===`);
   };
 
   const addCostGroup = () => {
@@ -1260,9 +1269,11 @@ const BudgetCalculator = () => {
     const prevMonthInfo = getPreviousMonthInfo();
     const prevMonthData = historicalData[prevMonthInfo.monthKey];
     
+    console.log(`=== GET ESTIMATED BALANCES DEBUG ===`);
     console.log(`Getting estimated balances for ${selectedBudgetMonth}, previous month: ${prevMonthInfo.monthKey}`);
     console.log(`Previous month data exists:`, !!prevMonthData);
     console.log(`Available historical months:`, Object.keys(historicalData));
+    console.log(`Previous month accountFinalBalances:`, prevMonthData?.accountFinalBalances);
     
     if (!prevMonthData) {
       console.log('No previous month data found for:', prevMonthInfo.monthKey);
@@ -1280,6 +1291,7 @@ const BudgetCalculator = () => {
         estimatedBalances[account] = prevMonthData.accountFinalBalances[account];
         console.log(`${account}: Using saved Slutsaldo: ${prevMonthData.accountFinalBalances[account]}`);
       } else {
+        console.log(`${account}: No saved final balance found, calculating...`);
         // Fallback: calculate from previous month's data
         const originalBalance = prevMonthData.accountBalances?.[account] || 0;
         
@@ -1303,6 +1315,7 @@ const BudgetCalculator = () => {
     });
     
     console.log('All estimated balances:', estimatedBalances);
+    console.log(`=== END GET ESTIMATED BALANCES DEBUG ===`);
     return estimatedBalances;
   };
 
@@ -1783,11 +1796,15 @@ const BudgetCalculator = () => {
 
   // Function to handle month selection change
   const handleBudgetMonthChange = (monthKey: string) => {
+    console.log(`=== MONTH CHANGE: Switching to ${monthKey} ===`);
+    
     // Save current data to current month before switching
     saveToSelectedMonth();
     
     // Calculate and save final balances for the previous month of the target month
     calculateAndSavePreviousMonthFinalBalances(monthKey);
+    
+    console.log(`Historical data after calculating previous month final balances:`, JSON.stringify(historicalData, null, 2));
     
     setSelectedBudgetMonth(monthKey);
     
@@ -3299,7 +3316,10 @@ const BudgetCalculator = () => {
                         {accounts.map(account => {
                           const currentBalance = accountBalances[account] || 0;
                           const estimatedBalance = getEstimatedAccountBalances()?.[account] || 0;
+                          console.log(`=== DISPLAY DEBUG ===`);
                           console.log(`Account ${account}: currentBalance=${currentBalance}, estimatedBalance=${estimatedBalance}, selectedMonth=${selectedBudgetMonth}`);
+                          console.log(`getEstimatedAccountBalances() result:`, getEstimatedAccountBalances());
+                          console.log(`=== END DISPLAY DEBUG ===`);
                           
                           return (
                             <div key={account} className="bg-white rounded border overflow-hidden">
