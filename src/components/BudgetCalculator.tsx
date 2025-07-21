@@ -1368,17 +1368,25 @@ const BudgetCalculator = () => {
           .filter((group: any) => group.account === account)
           .reduce((sum: number, group: any) => sum + group.amount, 0);
         
-        // Calculate costs for this account
-        const accountCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+        // Calculate costs for this account that are "Löpande kostnad" (for cost budget deposit)
+        const accountRecurringCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+          const groupCosts = group.subCategories
+            ?.filter((sub: any) => sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom))
+            .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+          return sum + groupCosts;
+        }, 0);
+        
+        // Calculate all costs for this account (for deduction)
+        const accountAllCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
           const groupCosts = group.subCategories
             ?.filter((sub: any) => sub.account === account)
             .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
           return sum + groupCosts;
         }, 0);
         
-        // Final balance (Slutsaldo) from previous month = original balance (estimated or actual) + savings + cost budget deposit - costs
-        estimatedBalances[account] = originalBalance + accountSavings + accountCosts - accountCosts;
-        console.log(`${account}: Calculated estimate - original: ${originalBalance}, savings: ${accountSavings}, costs: ${accountCosts}, final: ${estimatedBalances[account]}`);
+        // Final balance (Slutsaldo) from previous month = original balance + savings + cost budget deposit (recurring only) - all costs
+        estimatedBalances[account] = originalBalance + accountSavings + accountRecurringCosts - accountAllCosts;
+        console.log(`${account}: Calculated estimate - original: ${originalBalance}, savings: ${accountSavings}, recurring costs deposit: ${accountRecurringCosts}, all costs: ${accountAllCosts}, final: ${estimatedBalances[account]}`);
       }
     });
     
@@ -2603,16 +2611,24 @@ const BudgetCalculator = () => {
           .reduce((sum: number, group: any) => sum + group.amount, 0);
         
         // Calculate costs for this account from previous month
-        const accountCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+        // Calculate costs for this account that are "Löpande kostnad" (for cost budget deposit)
+        const accountRecurringCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+          const groupCosts = group.subCategories
+            ?.filter((sub: any) => sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom))
+            .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+          return sum + groupCosts;
+        }, 0);
+        
+        // Calculate all costs for this account (for deduction)
+        const accountAllCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
           const groupCosts = group.subCategories
             ?.filter((sub: any) => sub.account === account)
             .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
           return sum + groupCosts;
         }, 0);
         
-        // Final balance (Slutsaldo) from "Kontobelopp efter budget" = original balance + deposits - costs
-        // This is exactly what gets displayed as "Slutsaldo" in the previous month
-        const slutsaldo = originalBalance + accountSavings - accountCosts;
+        // Final balance (Slutsaldo) from "Kontobelopp efter budget" = original balance + savings + cost budget deposit (recurring only) - all costs
+        const slutsaldo = originalBalance + accountSavings + accountRecurringCosts - accountAllCosts;
         
         // Use this slutsaldo as the estimated starting balance for the next month
         estimatedBalances[account] = slutsaldo;
