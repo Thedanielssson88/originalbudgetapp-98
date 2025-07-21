@@ -6016,11 +6016,11 @@ const BudgetCalculator = () => {
                                  </div>
                                )}
                              </div>
-                                     );
-                                   })}
-                                 </div>
-                               );
-                             })}
+                                       );
+                                     })}
+                                   </div>
+                                 );
+                               })}
                        
                         {/* Account Management Section */}
                         <div className="p-4 bg-gray-50 rounded-lg">
