@@ -1199,15 +1199,30 @@ const BudgetCalculator = () => {
   // Helper function to get estimated account balances from previous month's final balances
   const getEstimatedAccountBalances = () => {
     const prevMonthInfo = getPreviousMonthInfo();
-    const prevMonthData = historicalData[prevMonthInfo.monthKey];
+    let prevMonthData = historicalData[prevMonthInfo.monthKey];
     
     console.log(`Getting estimated balances for ${selectedBudgetMonth}, previous month: ${prevMonthInfo.monthKey}`);
     console.log(`Previous month data exists:`, !!prevMonthData);
-    console.log(`Current date:`, new Date().toISOString());
     console.log(`Available historical months:`, Object.keys(historicalData));
     
+    // If no data for immediate previous month, look for the most recent month with data
     if (!prevMonthData) {
-      console.log('No previous month data found for:', prevMonthInfo.monthKey);
+      console.log('No data for immediate previous month, looking for most recent month with data');
+      const availableMonths = Object.keys(historicalData).sort().reverse();
+      const currentMonthDate = new Date(selectedBudgetMonth + '-01');
+      
+      for (const monthKey of availableMonths) {
+        const monthDate = new Date(monthKey + '-01');
+        if (monthDate < currentMonthDate && historicalData[monthKey]?.accountFinalBalances) {
+          prevMonthData = historicalData[monthKey];
+          console.log(`Found data for month ${monthKey}, using as previous month data`);
+          break;
+        }
+      }
+    }
+    
+    if (!prevMonthData) {
+      console.log('No historical data found for any previous month');
       return null;
     }
     
