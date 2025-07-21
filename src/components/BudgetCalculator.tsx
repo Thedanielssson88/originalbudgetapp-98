@@ -1374,8 +1374,8 @@ const BudgetCalculator = () => {
           return sum + groupCosts;
         }, 0);
         
-        // Final balance (Slutsaldo) from previous month = original balance (estimated or actual) + savings - costs
-        estimatedBalances[account] = originalBalance + accountSavings - accountCosts;
+        // Final balance (Slutsaldo) from previous month = original balance (estimated or actual) + savings + cost budget deposit - costs
+        estimatedBalances[account] = originalBalance + accountSavings + accountCosts - accountCosts;
         console.log(`${account}: Calculated estimate - original: ${originalBalance}, savings: ${accountSavings}, costs: ${accountCosts}, final: ${estimatedBalances[account]}`);
       }
     });
