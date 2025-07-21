@@ -1371,34 +1371,34 @@ const BudgetCalculator = () => {
           }
         }
         
-        // Calculate savings for this account
-        const accountSavings = (prevMonthData.savingsGroups || [])
+        // Calculate savings for this account from CURRENT month (what will be saved this month)
+        const accountSavings = savingsGroups
           .filter((group: any) => group.account === account)
           .reduce((sum: number, group: any) => sum + group.amount, 0);
         
-        // Calculate costs for this account that are "Löpande kostnad" (for cost budget deposit)
-        const accountRecurringCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+        // Calculate recurring costs for this account from CURRENT month (will be deposited as cost budget)
+        const accountRecurringCosts = costGroups.reduce((sum: number, group: any) => {
           const groupCosts = group.subCategories
             ?.filter((sub: any) => sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom))
             .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
           return sum + groupCosts;
         }, 0);
         
-        // Calculate non-recurring costs for this account (costs that are NOT "Löpande kostnad")
-        const accountNonRecurringCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+        // Calculate non-recurring costs for this account from CURRENT month (will be withdrawn)
+        const accountNonRecurringCosts = costGroups.reduce((sum: number, group: any) => {
           const groupCosts = group.subCategories
             ?.filter((sub: any) => sub.account === account && sub.financedFrom && sub.financedFrom !== 'Löpande kostnad')
             .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
           return sum + groupCosts;
         }, 0);
         
-        // Final balance (Slutsaldo) from previous month = original balance + savings + cost budget deposit (recurring costs) - non-recurring costs
+        // Final balance (Slutsaldo) from previous month = original balance + current month savings + current month recurring costs - current month non-recurring costs
         estimatedBalances[account] = originalBalance + accountSavings + accountRecurringCosts - accountNonRecurringCosts;
         console.log(`=== 🧮 DETALJERAD BERÄKNING FÖR ${account.toUpperCase()} ===`);
         console.log(`📈 Startbalans från ${prevMonthInfo.monthKey}: ${originalBalance} kr`);
-        console.log(`💾 Sparande under ${prevMonthInfo.monthKey}: ${accountSavings} kr`);
-        console.log(`💰 Insättning kostnadsbudget (Löpande kostnader): ${accountRecurringCosts} kr`);
-        console.log(`💸 Icke-löpande kostnader under ${prevMonthInfo.monthKey}: ${accountNonRecurringCosts} kr`);
+        console.log(`💾 Sparande under ${selectedBudgetMonth}: ${accountSavings} kr`);
+        console.log(`💰 Insättning kostnadsbudget (Löpande kostnader) under ${selectedBudgetMonth}: ${accountRecurringCosts} kr`);
+        console.log(`💸 Icke-löpande kostnader under ${selectedBudgetMonth}: ${accountNonRecurringCosts} kr`);
         console.log(`🔢 FORMEL: ${originalBalance} + ${accountSavings} + ${accountRecurringCosts} - ${accountNonRecurringCosts} = ${originalBalance + accountSavings + accountRecurringCosts - accountNonRecurringCosts} kr`);
         console.log(`✅ ESTIMERAT SLUTSALDO FÖR ${account}: ${originalBalance + accountSavings + accountRecurringCosts - accountNonRecurringCosts} kr`);
         console.log(`=== 🏁 SLUT DETALJERAD BERÄKNING ===`);
@@ -3464,8 +3464,8 @@ const BudgetCalculator = () => {
                                     </div>
                                     
                                     {/* Detailed calculation breakdown */}
-                                    <div className="pl-4 border-l-2 border-orange-200 bg-orange-50/50 p-2 rounded-r">
-                                      <div className="text-xs text-orange-700 font-medium mb-1">Beräkning från föregående månad:</div>
+                                     <div className="pl-4 border-l-2 border-orange-200 bg-orange-50/50 p-2 rounded-r">
+                                       <div className="text-xs text-orange-700 font-medium mb-1">Beräkning: Slutsaldo från föregående månad + denna månads sparande och löpande kostnader:</div>
                                       {(() => {
                                         const prevMonthInfo = getPreviousMonthInfo();
                                         const prevMonthData = historicalData[prevMonthInfo.monthKey];
@@ -3512,26 +3512,26 @@ const BudgetCalculator = () => {
                                            originalBalance = prevOriginalBalance + prevAccountSavings + prevAccountRecurringCosts - prevAccountNonRecurringCosts;
                                          }
                                         
-                                        // Calculate savings for this account
-                                        const accountSavings = (prevMonthData.savingsGroups || [])
-                                          .filter((group: any) => group.account === account)
-                                          .reduce((sum: number, group: any) => sum + group.amount, 0);
-                                        
-                                        // Calculate costs for this account that are "Löpande kostnad" (for cost budget deposit)
-                                        const accountRecurringCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-                                          const groupCosts = group.subCategories
-                                            ?.filter((sub: any) => sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom))
-                                            .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-                                          return sum + groupCosts;
-                                        }, 0);
-                                        
-                                        // Calculate non-recurring costs for this account
-                                        const accountNonRecurringCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-                                          const groupCosts = group.subCategories
-                                            ?.filter((sub: any) => sub.account === account && sub.financedFrom && sub.financedFrom !== 'Löpande kostnad')
-                                            .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-                                          return sum + groupCosts;
-                                        }, 0);
+                                         // Calculate savings for this account from CURRENT month data (what will be saved this month)
+                                         const accountSavings = savingsGroups
+                                           .filter((group: any) => group.account === account)
+                                           .reduce((sum: number, group: any) => sum + group.amount, 0);
+                                         
+                                         // Calculate recurring costs for this account from CURRENT month data (will be deposited as cost budget)
+                                         const accountRecurringCosts = costGroups.reduce((sum: number, group: any) => {
+                                           const groupCosts = group.subCategories
+                                             ?.filter((sub: any) => sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom))
+                                             .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+                                           return sum + groupCosts;
+                                         }, 0);
+                                         
+                                         // Calculate non-recurring costs for this account from CURRENT month data (will be withdrawn)
+                                         const accountNonRecurringCosts = costGroups.reduce((sum: number, group: any) => {
+                                           const groupCosts = group.subCategories
+                                             ?.filter((sub: any) => sub.account === account && sub.financedFrom && sub.financedFrom !== 'Löpande kostnad')
+                                             .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+                                           return sum + groupCosts;
+                                         }, 0);
                                         
                                         return (
                                           <div className="space-y-1">
