@@ -1189,11 +1189,12 @@ const BudgetCalculator = () => {
     let newMonthData;
     
     if (latestMonth && historicalData[latestMonth]) {
-      // Copy ALL data from the latest historical month
+      // Copy data from the latest historical month but exclude accountBalances
       newMonthData = {
         ...JSON.parse(JSON.stringify(historicalData[latestMonth])), // Deep copy everything
         month: monthKey,
-        date: new Date().toISOString()
+        date: new Date().toISOString(),
+        accountBalances: {} // Always start with empty account balances - user should fill manually
       };
       console.log(`Copying data from latest month: ${latestMonth} to new month: ${monthKey}`);
     } else {
@@ -1227,7 +1228,8 @@ const BudgetCalculator = () => {
         andreasPersonalCosts: JSON.parse(JSON.stringify(andreasPersonalCosts)),
         andreasPersonalSavings: JSON.parse(JSON.stringify(andreasPersonalSavings)),
         susannaPersonalCosts: JSON.parse(JSON.stringify(susannaPersonalCosts)),
-        susannaPersonalSavings: JSON.parse(JSON.stringify(susannaPersonalSavings))
+        susannaPersonalSavings: JSON.parse(JSON.stringify(susannaPersonalSavings)),
+        accountBalances: {} // Always start with empty account balances - user should fill manually
       };
       console.log(`No historical data found, using current form values for new month: ${monthKey}`);
     }
@@ -1385,8 +1387,8 @@ const BudgetCalculator = () => {
     setSusannaPersonalCosts(monthData.susannaPersonalCosts || []);
     setSusannaPersonalSavings(monthData.susannaPersonalSavings || []);
     
-    // Load account balances
-    setAccountBalances(monthData.accountBalances || {});
+    // Always start with empty account balances - user should fill manually
+    setAccountBalances({});
     setAccountFinalBalances(monthData.accountFinalBalances || {});
     
     // Update results if available
@@ -2027,7 +2029,7 @@ const BudgetCalculator = () => {
     
     if (!template || !month) return;
     
-    // Prepare the data to copy
+    // Prepare the data to copy (exclude accountBalances - user should fill manually)
     const templateDataToCopy = {
       month: month,
       date: new Date().toISOString(),
@@ -2046,7 +2048,8 @@ const BudgetCalculator = () => {
       andreasPersonalSavings: JSON.parse(JSON.stringify(template.andreasPersonalSavings || [])),
       susannaPersonalCosts: JSON.parse(JSON.stringify(template.susannaPersonalCosts || [])),
       susannaPersonalSavings: JSON.parse(JSON.stringify(template.susannaPersonalSavings || [])),
-      accounts: JSON.parse(JSON.stringify(template.accounts || ['Löpande', 'Sparkonto', 'Buffert']))
+      accounts: JSON.parse(JSON.stringify(template.accounts || ['Löpande', 'Sparkonto', 'Buffert'])),
+      // accountBalances: {} // Explicitly exclude - user should fill manually
     };
     
     // If we're updating the current month, apply changes directly
@@ -2065,8 +2068,9 @@ const BudgetCalculator = () => {
       setAndreasPersonalCosts(JSON.parse(JSON.stringify(template.andreasPersonalCosts || [])));
       setAndreasPersonalSavings(JSON.parse(JSON.stringify(template.andreasPersonalSavings || [])));
       setSusannaPersonalCosts(JSON.parse(JSON.stringify(template.susannaPersonalCosts || [])));
-      setSusannaPersonalSavings(JSON.parse(JSON.stringify(template.susannaPersonalSavings || [])));
       setAccounts(JSON.parse(JSON.stringify(template.accounts || ['Löpande', 'Sparkonto', 'Buffert'])));
+      // Always start with empty account balances - user should fill manually
+      setAccountBalances({});
     }
     
     // Add the copied data to historical data
