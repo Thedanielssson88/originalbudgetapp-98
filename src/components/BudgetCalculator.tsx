@@ -1201,15 +1201,21 @@ const BudgetCalculator = () => {
     const prevMonthInfo = getPreviousMonthInfo();
     const prevMonthData = historicalData[prevMonthInfo.monthKey];
     
-    if (!prevMonthData) return null;
+    if (!prevMonthData) {
+      console.log('No previous month data found for:', prevMonthInfo.monthKey);
+      return null;
+    }
     
     const estimatedBalances: {[key: string]: number} = {};
+    
+    console.log('Previous month data found:', prevMonthInfo.monthKey, prevMonthData);
     
     // Calculate final balances from previous month for each account
     accounts.forEach(account => {
       // Use saved "Slutsaldo" from previous month if available
       if (prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
         estimatedBalances[account] = prevMonthData.accountFinalBalances[account];
+        console.log(`${account}: Using saved Slutsaldo: ${prevMonthData.accountFinalBalances[account]}`);
       } else {
         // Fallback: calculate from previous month's data
         const originalBalance = prevMonthData.accountBalances?.[account] || 0;
@@ -1229,9 +1235,11 @@ const BudgetCalculator = () => {
         
         // Final balance (Slutsaldo) from previous month = original balance + savings - costs
         estimatedBalances[account] = originalBalance + accountSavings - accountCosts;
+        console.log(`${account}: Calculated estimate - original: ${originalBalance}, savings: ${accountSavings}, costs: ${accountCosts}, final: ${estimatedBalances[account]}`);
       }
     });
     
+    console.log('All estimated balances:', estimatedBalances);
     return estimatedBalances;
   };
 
@@ -3191,6 +3199,10 @@ const BudgetCalculator = () => {
                           const currentBalance = accountBalances[account] || 0;
                           const estimatedBalance = hasEmptyAccountBalances() ? getEstimatedAccountBalances()?.[account] || 0 : 0;
                           const showEstimated = hasEmptyAccountBalances() && estimatedBalance > 0;
+                          
+                          // Debug logging
+                          console.log(`UI Display - Account: ${account}, currentBalance: ${currentBalance}, estimatedBalance: ${estimatedBalance}, showEstimated: ${showEstimated}, hasEmptyAccountBalances: ${hasEmptyAccountBalances()}`);
+                          
                           
                           return (
                             <div key={account} className="flex justify-between items-center p-3 bg-white rounded border">
