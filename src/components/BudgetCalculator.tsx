@@ -1589,8 +1589,8 @@ const BudgetCalculator = () => {
             ...item,
             amount: 0
           })),
-          // Reset account balances to 0
-          accountBalances: {},
+          // Use previous month's final balances as starting balances
+          accountBalances: currentMonthData.accountFinalBalances ? { ...currentMonthData.accountFinalBalances } : {},
           accountFinalBalances: {},
           createdAt: new Date().toISOString()
         };
@@ -1616,7 +1616,7 @@ const BudgetCalculator = () => {
         susannaPersonalCosts: JSON.parse(JSON.stringify(template.susannaPersonalCosts || [])),
         susannaPersonalSavings: JSON.parse(JSON.stringify(template.susannaPersonalSavings || [])),
         accounts: JSON.parse(JSON.stringify(template.accounts || ['Löpande', 'Sparkonto', 'Buffert'])),
-        // Reset account balances to 0
+        // Use empty account balances for templates
         accountBalances: {},
         accountFinalBalances: {},
         createdAt: new Date().toISOString()
@@ -1628,8 +1628,8 @@ const BudgetCalculator = () => {
         newMonthData = {
           ...currentMonthData,
           // Keep all income values from the source month
-          // Reset account balances to 0
-          accountBalances: {},
+          // Use previous month's final balances as starting balances
+          accountBalances: currentMonthData.accountFinalBalances ? { ...currentMonthData.accountFinalBalances } : {},
           accountFinalBalances: {},
           createdAt: new Date().toISOString()
         };
