@@ -2953,16 +2953,104 @@ const BudgetCalculator = () => {
     // Find separation points
     const historicalSeparatorIndex = chartData.findIndex(data => !data.isHistorical) - 0.5;
     
-    if (chartData.length === 0) {
-      const hasInvalidRange = useCustomTimeRange && chartStartMonth && chartEndMonth && chartStartMonth > chartEndMonth;
-      return (
-        <div className="text-center py-8">
-          <p className="text-muted-foreground">
-            {hasInvalidRange 
-              ? "Slutmånad kan inte vara före startmånad. Välj ett giltigt intervall ovan."
-              : "Ingen data tillgänglig för kontosaldon."
-            }
+    // Check for invalid range but don't return early - show error in chart area
+    const hasInvalidRange = useCustomTimeRange && chartStartMonth && chartEndMonth && chartStartMonth > chartEndMonth;
+    
+    // Render the month selection UI first, then the chart/error
+    const monthSelectorUI = (
+      <div className="bg-muted/50 p-4 rounded-lg">
+        <div className="flex items-center space-x-2 mb-3">
+          <Checkbox 
+            checked={useCustomTimeRange}
+            onCheckedChange={(checked) => setUseCustomTimeRange(checked as boolean)}
+          />
+          <h4 className="font-medium">Anpassa tidsintervall</h4>
+        </div>
+        
+        {useCustomTimeRange && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="chart-start-month" className="text-sm">Startmånad:</Label>
+              <Select value={chartStartMonth} onValueChange={setChartStartMonth}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Välj startmånad" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(() => {
+                    const availableMonths = [...savedMonthKeys];
+                    // Add one month before the first saved month if we have saved data
+                    if (savedMonthKeys.length > 0) {
+                      const earliestMonth = savedMonthKeys[0];
+                      const [year, month] = earliestMonth.split('-').map(Number);
+                      const prevDate = new Date(year, month - 2, 1);
+                      const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+                      availableMonths.unshift(prevMonthKey);
+                    }
+                    return availableMonths.map(month => (
+                      <SelectItem key={month} value={month}>
+                        {new Date(month + '-01').toLocaleDateString('sv-SE', { 
+                          year: 'numeric', 
+                          month: 'long' 
+                        })}
+                      </SelectItem>
+                    ));
+                  })()}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="chart-end-month" className="text-sm">Slutmånad:</Label>
+              <Select value={chartEndMonth} onValueChange={setChartEndMonth}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Välj slutmånad" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(() => {
+                    const availableMonths = [...savedMonthKeys];
+                    // Add one month before the first saved month if we have saved data
+                    if (savedMonthKeys.length > 0) {
+                      const earliestMonth = savedMonthKeys[0];
+                      const [year, month] = earliestMonth.split('-').map(Number);
+                      const prevDate = new Date(year, month - 2, 1);
+                      const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+                      availableMonths.unshift(prevMonthKey);
+                    }
+                    return availableMonths.map(month => (
+                      <SelectItem key={month} value={month}>
+                        {new Date(month + '-01').toLocaleDateString('sv-SE', { 
+                          year: 'numeric', 
+                          month: 'long' 
+                        })}
+                      </SelectItem>
+                    ));
+                  })()}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+        
+        {!useCustomTimeRange && (
+          <p className="text-sm text-muted-foreground">
+            Standard: En månad före första sparade månaden till 6 månader framåt
           </p>
+        )}
+      </div>
+    );
+
+    // Show error if invalid range or no data
+    if (chartData.length === 0 || hasInvalidRange) {
+      return (
+        <div className="space-y-4">
+          {monthSelectorUI}
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">
+              {hasInvalidRange 
+                ? "Slutmånad kan inte vara före startmånad. Välj ett giltigt intervall ovan."
+                : "Ingen data tillgänglig för kontosaldon."
+              }
+            </p>
+          </div>
         </div>
       );
     }
@@ -2989,85 +3077,7 @@ const BudgetCalculator = () => {
 
     return (
       <div className="space-y-4">
-        {/* Time Range Selection */}
-        <div className="bg-muted/50 p-4 rounded-lg">
-          <div className="flex items-center space-x-2 mb-3">
-            <Checkbox 
-              checked={useCustomTimeRange}
-              onCheckedChange={(checked) => setUseCustomTimeRange(checked as boolean)}
-            />
-            <h4 className="font-medium">Anpassa tidsintervall</h4>
-          </div>
-          
-          {useCustomTimeRange && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="chart-start-month" className="text-sm">Startmånad:</Label>
-                <Select value={chartStartMonth} onValueChange={setChartStartMonth}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Välj startmånad" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(() => {
-                      const availableMonths = [...savedMonthKeys];
-                      // Add one month before the first saved month if we have saved data
-                      if (savedMonthKeys.length > 0) {
-                        const earliestMonth = savedMonthKeys[0];
-                        const [year, month] = earliestMonth.split('-').map(Number);
-                        const prevDate = new Date(year, month - 2, 1);
-                        const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-                        availableMonths.unshift(prevMonthKey);
-                      }
-                      return availableMonths.map(month => (
-                        <SelectItem key={month} value={month}>
-                          {new Date(month + '-01').toLocaleDateString('sv-SE', { 
-                            year: 'numeric', 
-                            month: 'long' 
-                          })}
-                        </SelectItem>
-                      ));
-                    })()}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="chart-end-month" className="text-sm">Slutmånad:</Label>
-                <Select value={chartEndMonth} onValueChange={setChartEndMonth}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Välj slutmånad" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(() => {
-                      const availableMonths = [...savedMonthKeys];
-                      // Add one month before the first saved month if we have saved data
-                      if (savedMonthKeys.length > 0) {
-                        const earliestMonth = savedMonthKeys[0];
-                        const [year, month] = earliestMonth.split('-').map(Number);
-                        const prevDate = new Date(year, month - 2, 1);
-                        const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-                        availableMonths.unshift(prevMonthKey);
-                      }
-                      return availableMonths.map(month => (
-                        <SelectItem key={month} value={month}>
-                          {new Date(month + '-01').toLocaleDateString('sv-SE', { 
-                            year: 'numeric', 
-                            month: 'long' 
-                          })}
-                        </SelectItem>
-                      ));
-                    })()}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-          
-          {!useCustomTimeRange && (
-            <p className="text-sm text-muted-foreground">
-              Standard: En månad före första sparade månaden till 6 månader framåt
-            </p>
-          )}
-        </div>
+        {monthSelectorUI}
 
         {/* Account Selection */}
         <div className="bg-muted/50 p-4 rounded-lg">
