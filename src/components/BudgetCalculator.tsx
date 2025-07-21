@@ -994,23 +994,16 @@ const BudgetCalculator = () => {
     
     console.log(`Calculating final balances for previous month ${prevMonthKey} when switching to ${targetMonthKey}`);
     
-    // Check if previous month has data but missing final balances
+    // Check if previous month has data
     const prevMonthData = historicalData[prevMonthKey];
     if (!prevMonthData) {
       console.log(`No data found for previous month ${prevMonthKey}`);
       return;
     }
     
-    // Check if final balances already exist and are complete
-    if (prevMonthData.accountFinalBalances && 
-        Object.keys(prevMonthData.accountFinalBalances).length > 0) {
-      console.log(`Final balances already exist for ${prevMonthKey}`);
-      return;
-    }
+    console.log(`Recalculating final balances for ${prevMonthKey} based on current data`);
     
-    console.log(`Calculating missing final balances for ${prevMonthKey}`);
-    
-    // Calculate final balances based on previous month's data
+    // Always recalculate final balances based on previous month's current data
     const finalBalances: {[key: string]: number} = {};
     const accountsToProcess = prevMonthData.accounts || ['Löpande', 'Sparkonto', 'Buffert'];
     
@@ -1035,7 +1028,7 @@ const BudgetCalculator = () => {
       console.log(`${account}: ${originalBalance} + ${accountSavings} - ${accountCosts} = ${finalBalances[account]}`);
     });
     
-    // Save the calculated final balances to the previous month's data
+    // Always save the recalculated final balances to the previous month's data
     setHistoricalData(prev => ({
       ...prev,
       [prevMonthKey]: {
@@ -1044,7 +1037,7 @@ const BudgetCalculator = () => {
       }
     }));
     
-    console.log(`Final balances saved for ${prevMonthKey}:`, finalBalances);
+    console.log(`Final balances recalculated and saved for ${prevMonthKey}:`, finalBalances);
   };
 
   const addCostGroup = () => {
