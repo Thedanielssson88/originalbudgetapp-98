@@ -918,25 +918,25 @@ const BudgetCalculator = () => {
         .filter((group: any) => group.account === account)
         .reduce((sum: number, group: any) => sum + group.amount, 0);
       
-      // Calculate cost budget deposits (Insättning kostnadsbudget) - money coming IN for recurring costs
-      const accountCostBudgetDeposits = costGroups.reduce((sum: number, group: any) => {
-        const groupCostBudgetDeposits = group.subCategories
-          ?.filter((sub: any) => sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom))
+      // Calculate only "Enskild kostnad" (one-time costs) that should be subtracted
+      const accountOneTimeCosts = costGroups.reduce((sum: number, group: any) => {
+        const groupOneTimeCosts = group.subCategories
+          ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
           .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-        return sum + groupCostBudgetDeposits;
+        return sum + groupOneTimeCosts;
       }, 0);
       
-      // Calculate total costs for this account from cost subcategories (money going OUT)
-      const accountCosts = costGroups.reduce((sum: number, group: any) => {
-        const groupCosts = group.subCategories
-          ?.filter((sub: any) => sub.account === account)
-          .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-        return sum + groupCosts;
-      }, 0);
+      console.log(`=== SLUTSALDO DEBUG FÖR ${account} ===`);
+      console.log(`Ursprungligt saldo: ${originalBalance}`);
+      console.log(`Sparande (savings): ${accountSavings}`);
+      console.log(`Enskilda kostnader (som dras av): ${accountOneTimeCosts}`);
       
-      // Final balance (Slutsaldo) = original balance + savings + cost budget deposits - costs
-      // Note: cost budget deposits represent money coming IN to pay for recurring costs
-      finalBalances[account] = originalBalance + accountSavings + accountCostBudgetDeposits - accountCosts;
+      // Final balance (Slutsaldo) = original balance + savings - only one-time costs
+      // Löpande kostnader are covered by the cost budget deposits and should not be subtracted again
+      const calculatedBalance = originalBalance + accountSavings - accountOneTimeCosts;
+      console.log(`Beräkning: ${originalBalance} + ${accountSavings} - ${accountOneTimeCosts} = ${calculatedBalance}`);
+      
+      finalBalances[account] = calculatedBalance;
     });
     
     // Update state with final balances
@@ -1048,26 +1048,18 @@ const BudgetCalculator = () => {
         .filter((group: any) => group.account === account)
         .reduce((sum: number, group: any) => sum + group.amount, 0);
       
-      // Calculate cost budget deposits (Insättning kostnadsbudget) - money coming IN for recurring costs
-      const accountCostBudgetDeposits = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-        const groupCostBudgetDeposits = group.subCategories
-          ?.filter((sub: any) => sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom))
+      // Calculate only "Enskild kostnad" (one-time costs) that should be subtracted
+      const accountOneTimeCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+        const groupOneTimeCosts = group.subCategories
+          ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
           .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-        return sum + groupCostBudgetDeposits;
+        return sum + groupOneTimeCosts;
       }, 0);
       
-      // Calculate total costs for this account from cost subcategories  
-      const accountCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-        const groupCosts = group.subCategories
-          ?.filter((sub: any) => sub.account === account)
-          .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-        return sum + groupCosts;
-      }, 0);
-      
-      // Final balance (Slutsaldo) = original balance (estimated or actual) + savings + cost budget deposits - costs
-      // Note: cost budget deposits represent money coming IN to pay for recurring costs
-      finalBalances[account] = originalBalance + accountSavings + accountCostBudgetDeposits - accountCosts;
-      console.log(`${account}: ${originalBalance} + ${accountSavings} - ${accountCosts} = ${finalBalances[account]}`);
+      // Final balance (Slutsaldo) = original balance + savings - only one-time costs
+      // Löpande kostnader are covered by the cost budget deposits and should not be subtracted again
+      finalBalances[account] = originalBalance + accountSavings - accountOneTimeCosts;
+      console.log(`${account}: ${originalBalance} + ${accountSavings} - ${accountOneTimeCosts} = ${finalBalances[account]}`);
     });
     
     console.log(`Final balances calculated:`, finalBalances);
