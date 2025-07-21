@@ -571,6 +571,28 @@ const BudgetCalculator = () => {
     calculateBudget();
   }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedBudgetMonth, transferAccount, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts]);
 
+  // Safety check to ensure accounts is always an array of strings
+  useEffect(() => {
+    if (accounts.some(account => typeof account !== 'string')) {
+      console.warn('Found non-string accounts, converting to strings:', accounts);
+      const stringAccounts = accounts.map(account => 
+        typeof account === 'string' ? account : (account as any).name || String(account)
+      );
+      setAccounts(stringAccounts);
+      // Clear localStorage to prevent re-loading corrupted data
+      const savedData = localStorage.getItem('budgetCalculatorData');
+      if (savedData) {
+        try {
+          const parsed = JSON.parse(savedData);
+          parsed.accounts = stringAccounts;
+          localStorage.setItem('budgetCalculatorData', JSON.stringify(parsed));
+        } catch (error) {
+          console.error('Error updating localStorage accounts:', error);
+        }
+      }
+    }
+  }, [accounts]);
+
   // Function to calculate weekdays and weekend days for a specific month
   const calculateDaysForMonth = (year: number, month: number) => {
     // Calculate from 25th of previous month to 24th of selected month
@@ -2732,25 +2754,28 @@ const BudgetCalculator = () => {
         <div className="bg-muted/50 p-4 rounded-lg">
           <h4 className="font-medium mb-3">Välj konton att visa:</h4>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {accounts.map((account, index) => (
-              <label key={account} className="flex items-center space-x-2 cursor-pointer">
-                <Checkbox 
-                  checked={selectedAccountsForChart.includes(account)}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      setSelectedAccountsForChart(prev => [...prev, account]);
-                    } else {
-                      setSelectedAccountsForChart(prev => prev.filter(a => a !== account));
-                    }
-                  }}
-                />
-                <span className="text-sm">{account}</span>
-                <div 
-                  className="w-3 h-3 rounded-full ml-1" 
-                  style={{ backgroundColor: accountColors[index % accountColors.length] }}
-                />
-              </label>
-            ))}
+            {accounts.map((account, index) => {
+              const accountName = typeof account === 'string' ? account : (account as any).name || '';
+              return (
+                <label key={accountName} className="flex items-center space-x-2 cursor-pointer">
+                  <Checkbox 
+                    checked={selectedAccountsForChart.includes(accountName)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedAccountsForChart(prev => [...prev, accountName]);
+                      } else {
+                        setSelectedAccountsForChart(prev => prev.filter(a => a !== accountName));
+                      }
+                    }}
+                  />
+                  <span className="text-sm">{accountName}</span>
+                  <div 
+                    className="w-3 h-3 rounded-full ml-1" 
+                    style={{ backgroundColor: accountColors[index % accountColors.length] }}
+                  />
+                 </label>
+               );
+             })}
           </div>
         </div>
 
@@ -3601,19 +3626,22 @@ const BudgetCalculator = () => {
                            </div>
                           
                            <div className="space-y-2">
-                             {accounts.map((account, index) => (
-                               <div key={account} className="flex justify-between items-center p-2 bg-white rounded border">
-                                 <span className="font-medium">{account}</span>
-                                 <Button
-                                   size="sm"
-                                   variant="ghost"
-                                   onClick={() => removeAccount(account)}
-                                   className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                                 >
-                                   <Trash2 className="h-4 w-4" />
-                                 </Button>
-                               </div>
-                             ))}
+                              {accounts.map((account, index) => {
+                                const accountName = typeof account === 'string' ? account : (account as any).name || '';
+                                return (
+                                  <div key={accountName} className="flex justify-between items-center p-2 bg-white rounded border">
+                                    <span className="font-medium">{accountName}</span>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => removeAccount(accountName)}
+                                      className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                );
+                              })}
                            </div>
                          </div>
                        )}
