@@ -4027,21 +4027,6 @@ const BudgetCalculator = () => {
                                         </SelectContent>
                                       </Select>
                                     </div>
-                                    <div className="flex gap-2 items-center pl-2">
-                                      <span className="text-sm text-muted-foreground min-w-16">Finansieras ifrån:</span>
-                                      <Select
-                                        value={group.financedFrom || 'Löpande kostnad'}
-                                        onValueChange={(value) => updateSavingsGroup(group.id, 'financedFrom', value as 'Löpande kostnad' | 'Enskild kostnad')}
-                                      >
-                                        <SelectTrigger className="w-36">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="Löpande kostnad">Löpande kostnad</SelectItem>
-                                          <SelectItem value="Enskild kostnad">Enskild kostnad</SelectItem>
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
                                  </div>
                                ) : (
                                  <div className="flex justify-between items-center">
@@ -7073,7 +7058,7 @@ const BudgetCalculator = () => {
                                               <h4 className="font-medium mb-2">Sparandekategorier</h4>
                                               {editingTemplateData.savingsGroups?.map((group: any) => (
                                                  <div key={group.id} className="mb-4 p-3 border rounded-md">
-                                                   <div className="grid grid-cols-4 gap-2">
+                                                   <div className="grid grid-cols-3 gap-2">
                                                      <div>
                                                        <Label className="text-xs">Kategori</Label>
                                                        <Input
@@ -7095,21 +7080,6 @@ const BudgetCalculator = () => {
                                                            {accounts.map(account => (
                                                              <SelectItem key={account} value={account}>{account}</SelectItem>
                                                            ))}
-                                                         </SelectContent>
-                                                       </Select>
-                                                     </div>
-                                                     <div>
-                                                       <Label className="text-xs">Finansieras ifrån</Label>
-                                                       <Select 
-                                                         value={group.financedFrom || 'Löpande kostnad'} 
-                                                         onValueChange={(value) => updateEditingTemplateGroup(group.id, 'financedFrom', value)}
-                                                       >
-                                                         <SelectTrigger className="h-8">
-                                                           <SelectValue />
-                                                         </SelectTrigger>
-                                                         <SelectContent>
-                                                           <SelectItem value="Löpande kostnad">Löpande kostnad</SelectItem>
-                                                           <SelectItem value="Enskild kostnad">Enskild kostnad</SelectItem>
                                                          </SelectContent>
                                                        </Select>
                                                      </div>
