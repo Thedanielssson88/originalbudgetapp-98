@@ -3030,16 +3030,20 @@ const BudgetCalculator = () => {
                 
                 // Only draw transition line if we have both historical and forecast data
                 if (lastHistoricalIndex >= 0 && firstForecastIndex >= 0 && firstForecastIndex > lastHistoricalIndex) {
-                  const transitionData = [
-                    {
-                      ...chartData[lastHistoricalIndex],
-                      [account]: chartData[lastHistoricalIndex][account]
-                    },
-                    {
-                      ...chartData[firstForecastIndex],
-                      [account]: chartData[firstForecastIndex][account]
+                  // Create a minimal dataset with just the two connection points
+                  const transitionData = chartData.map((d, idx) => {
+                    if (idx === lastHistoricalIndex || idx === firstForecastIndex) {
+                      return {
+                        ...d,
+                        [account]: d[account]
+                      };
                     }
-                  ];
+                    // For all other points, set the account value to null so the line doesn't connect through them
+                    return {
+                      ...d,
+                      [account]: null
+                    };
+                  });
                   
                   return (
                     <Line
@@ -3047,17 +3051,18 @@ const BudgetCalculator = () => {
                       type="linear"
                       dataKey={account}
                       stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
-                      name={`${account} (Övergång)`}
                       strokeWidth={2}
                       strokeDasharray="8 4"
                       data={transitionData}
                       connectNulls={false}
                       dot={false}
+                      legendType="none"
                     />
                   );
                 }
                 return null;
               })}
+            
             
             </LineChart>
           </ResponsiveContainer>
