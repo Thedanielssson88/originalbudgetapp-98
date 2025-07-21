@@ -158,6 +158,9 @@ const BudgetCalculator = () => {
   // Account balances state
   const [accountBalances, setAccountBalances] = useState<{[key: string]: number}>({});
   
+  // Account final balances (Slutsaldo) state - saved per month
+  const [accountFinalBalances, setAccountFinalBalances] = useState<{[key: string]: number}>({});
+  
   // Account chart selection state
   const [selectedAccountsForChart, setSelectedAccountsForChart] = useState<string[]>([]);
 
@@ -404,6 +407,9 @@ const BudgetCalculator = () => {
         // Load account balances
         setAccountBalances(parsed.accountBalances || {});
         
+        // Load account final balances
+        setAccountFinalBalances(parsed.accountFinalBalances || {});
+        
         // Load selected accounts for chart
         setSelectedAccountsForChart(parsed.selectedAccountsForChart || []);
         
@@ -488,6 +494,7 @@ const BudgetCalculator = () => {
       susannaPersonalSavings: JSON.parse(JSON.stringify(susannaPersonalSavings)),
       accounts: JSON.parse(JSON.stringify(accounts)),
       accountBalances: JSON.parse(JSON.stringify(accountBalances)),
+      accountFinalBalances: JSON.parse(JSON.stringify(accountFinalBalances)),
       // Include any existing calculated results if they exist
       ...(results && {
         totalMonthlyExpenses: results.totalMonthlyExpenses,
@@ -539,6 +546,7 @@ const BudgetCalculator = () => {
       andreasShareChecked,
       susannaShareChecked,
       accountBalances,
+      accountFinalBalances,
       selectedAccountsForChart
     };
     localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
@@ -550,7 +558,7 @@ const BudgetCalculator = () => {
       saveToLocalStorage();
       saveToSelectedMonth();
     }
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, selectedAccountsForChart, isInitialLoad]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountFinalBalances, selectedAccountsForChart, isInitialLoad]);
 
   // Auto-calculate budget whenever any input changes
   useEffect(() => {
@@ -941,6 +949,36 @@ const BudgetCalculator = () => {
         date: currentDate.toISOString() // Update timestamp
       }
     }));
+    
+    // Calculate and save final balances (Slutsaldo) for each account
+    calculateAndSaveFinalBalances();
+  };
+
+  // Function to calculate and save final balances (Slutsaldo) for each account
+  const calculateAndSaveFinalBalances = () => {
+    const finalBalances: {[key: string]: number} = {};
+    
+    accounts.forEach(account => {
+      const originalBalance = getAccountBalanceWithFallback(account);
+      
+      // Calculate total deposits for this account from savings groups
+      const accountSavings = savingsGroups
+        .filter((group: any) => group.account === account)
+        .reduce((sum: number, group: any) => sum + group.amount, 0);
+      
+      // Calculate total costs for this account from cost subcategories  
+      const accountCosts = costGroups.reduce((sum: number, group: any) => {
+        const groupCosts = group.subCategories
+          ?.filter((sub: any) => sub.account === account)
+          .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+        return sum + groupCosts;
+      }, 0);
+      
+      // Final balance (Slutsaldo) = original balance + savings - costs
+      finalBalances[account] = originalBalance + accountSavings - accountCosts;
+    });
+    
+    setAccountFinalBalances(finalBalances);
   };
 
   const addCostGroup = () => {
@@ -1169,23 +1207,29 @@ const BudgetCalculator = () => {
     
     // Calculate final balances from previous month for each account
     accounts.forEach(account => {
-      const originalBalance = prevMonthData.accountBalances?.[account] || 0;
-      
-      // Calculate savings for this account
-      const accountSavings = (prevMonthData.savingsGroups || [])
-        .filter((group: any) => group.account === account)
-        .reduce((sum: number, group: any) => sum + group.amount, 0);
-      
-      // Calculate costs for this account
-      const accountCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-        const groupCosts = group.subCategories
-          ?.filter((sub: any) => sub.account === account)
-          .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-        return sum + groupCosts;
-      }, 0);
-      
-      // Final balance (Slutsaldo) from previous month = original balance + savings - costs
-      estimatedBalances[account] = originalBalance + accountSavings - accountCosts;
+      // Use saved "Slutsaldo" from previous month if available
+      if (prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
+        estimatedBalances[account] = prevMonthData.accountFinalBalances[account];
+      } else {
+        // Fallback: calculate from previous month's data
+        const originalBalance = prevMonthData.accountBalances?.[account] || 0;
+        
+        // Calculate savings for this account
+        const accountSavings = (prevMonthData.savingsGroups || [])
+          .filter((group: any) => group.account === account)
+          .reduce((sum: number, group: any) => sum + group.amount, 0);
+        
+        // Calculate costs for this account
+        const accountCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+          const groupCosts = group.subCategories
+            ?.filter((sub: any) => sub.account === account)
+            .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+          return sum + groupCosts;
+        }, 0);
+        
+        // Final balance (Slutsaldo) from previous month = original balance + savings - costs
+        estimatedBalances[account] = originalBalance + accountSavings - accountCosts;
+      }
     });
     
     return estimatedBalances;
@@ -1242,6 +1286,7 @@ const BudgetCalculator = () => {
     
     // Load account balances
     setAccountBalances(monthData.accountBalances || {});
+    setAccountFinalBalances(monthData.accountFinalBalances || {});
     
     // Update results if available
     if (monthData.totalSalary !== undefined) {
@@ -1538,6 +1583,7 @@ const BudgetCalculator = () => {
           })),
           // Reset account balances to 0
           accountBalances: {},
+          accountFinalBalances: {},
           createdAt: new Date().toISOString()
         };
       }
@@ -1564,6 +1610,7 @@ const BudgetCalculator = () => {
         accounts: JSON.parse(JSON.stringify(template.accounts || ['Löpande', 'Sparkonto', 'Buffert'])),
         // Reset account balances to 0
         accountBalances: {},
+        accountFinalBalances: {},
         createdAt: new Date().toISOString()
       };
     } else if (type === 'copy') {
@@ -1575,6 +1622,7 @@ const BudgetCalculator = () => {
           // Keep all income values from the source month
           // Reset account balances to 0
           accountBalances: {},
+          accountFinalBalances: {},
           createdAt: new Date().toISOString()
         };
       }
@@ -1618,6 +1666,7 @@ const BudgetCalculator = () => {
             setSusannaShareChecked(monthData.susannaShareChecked !== undefined ? monthData.susannaShareChecked : true);
             // Set account balances (should be empty {} for new months)
             setAccountBalances(monthData.accountBalances || {});
+            setAccountFinalBalances(monthData.accountFinalBalances || {});
           }
         }, 0);
         
