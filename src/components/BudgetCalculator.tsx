@@ -959,7 +959,7 @@ const BudgetCalculator = () => {
     const finalBalances: {[key: string]: number} = {};
     
     accounts.forEach(account => {
-      const originalBalance = getAccountBalanceWithFallback(account);
+      const originalBalance = accountBalances[account] || 0;
       
       // Calculate total deposits for this account from savings groups
       const accountSavings = savingsGroups
