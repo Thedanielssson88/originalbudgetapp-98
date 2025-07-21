@@ -1203,6 +1203,8 @@ const BudgetCalculator = () => {
     
     console.log(`Getting estimated balances for ${selectedBudgetMonth}, previous month: ${prevMonthInfo.monthKey}`);
     console.log(`Previous month data exists:`, !!prevMonthData);
+    console.log(`Current date:`, new Date().toISOString());
+    console.log(`Available historical months:`, Object.keys(historicalData));
     
     if (!prevMonthData) {
       console.log('No previous month data found for:', prevMonthInfo.monthKey);
