@@ -5194,6 +5194,14 @@ const BudgetCalculator = () => {
                                           </div>
                                         ))}
                                       
+                                      {/* Cost budget deposits - costs as positive deposits */}
+                                      {totalCosts > 0 && (
+                                        <div className="flex justify-between text-sm">
+                                          <span className="text-gray-600">Insättning kostnadsbudget</span>
+                                          <span className="text-green-600">+{formatCurrency(totalCosts)}</span>
+                                        </div>
+                                      )}
+                                      
                                       {/* Individual cost items as negative values */}
                                       {accountCostItems.map(costItem => (
                                         <div key={`costbudget-cost-${costItem.id}`} className="flex justify-between text-sm">
