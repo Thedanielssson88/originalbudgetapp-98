@@ -131,6 +131,12 @@ const BudgetCalculator = () => {
   const [isEditingAccounts, setIsEditingAccounts] = useState<boolean>(false);
   const [expandedAccounts, setExpandedAccounts] = useState<{[key: string]: boolean}>({});
 
+  // Account categories states
+  const [accountCategories, setAccountCategories] = useState<string[]>(['Privat', 'Gemensam', 'Sparande']);
+  const [accountCategoryMapping, setAccountCategoryMapping] = useState<{[accountName: string]: string}>({});
+  const [newCategoryName, setNewCategoryName] = useState<string>('');
+  const [isEditingAccountCategories, setIsEditingAccountCategories] = useState<boolean>(false);
+
   // Budget template states
   const [budgetTemplates, setBudgetTemplates] = useState<{[key: string]: any}>({});
   const [newTemplateName, setNewTemplateName] = useState<string>('');
@@ -394,6 +400,10 @@ const BudgetCalculator = () => {
         // Load accounts data
         setAccounts(parsed.accounts || ['Löpande', 'Sparkonto', 'Buffert']);
         
+        // Load account categories data
+        setAccountCategories(parsed.accountCategories || ['Privat', 'Gemensam', 'Sparande']);
+        setAccountCategoryMapping(parsed.accountCategoryMapping || {});
+        
         // Load budget templates
         setBudgetTemplates(parsed.budgetTemplates || {});
         
@@ -544,6 +554,8 @@ const BudgetCalculator = () => {
       susannaPersonalSavings,
       historicalData,
       accounts,
+      accountCategories,
+      accountCategoryMapping,
       budgetTemplates,
       selectedBudgetMonth, // Save the selected month
       userName1,
@@ -564,7 +576,7 @@ const BudgetCalculator = () => {
       saveToLocalStorage();
       saveToSelectedMonth();
     }
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountFinalBalances, selectedAccountsForChart, isInitialLoad]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountFinalBalances, selectedAccountsForChart, isInitialLoad]);
 
   // Auto-calculate budget whenever any input changes
   useEffect(() => {
@@ -2404,6 +2416,39 @@ const BudgetCalculator = () => {
     setSavingsGroups(savingsGroups.map(group => 
       group.id === id ? { ...group, account: account || undefined } : group
     ));
+  };
+
+  // Account category management functions
+  const addAccountCategory = () => {
+    if (newCategoryName.trim() && !accountCategories.includes(newCategoryName.trim())) {
+      setAccountCategories([...accountCategories, newCategoryName.trim()]);
+      setNewCategoryName('');
+    }
+  };
+
+  const removeAccountCategory = (categoryName: string) => {
+    setAccountCategories(accountCategories.filter(category => category !== categoryName));
+    // Remove the category from all account mappings
+    const updatedMapping = { ...accountCategoryMapping };
+    Object.keys(updatedMapping).forEach(account => {
+      if (updatedMapping[account] === categoryName) {
+        delete updatedMapping[account];
+      }
+    });
+    setAccountCategoryMapping(updatedMapping);
+  };
+
+  const updateAccountCategory = (accountName: string, categoryName: string) => {
+    if (categoryName === 'none') {
+      const updatedMapping = { ...accountCategoryMapping };
+      delete updatedMapping[accountName];
+      setAccountCategoryMapping(updatedMapping);
+    } else {
+      setAccountCategoryMapping(prev => ({
+        ...prev,
+        [accountName]: categoryName
+      }));
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -7374,7 +7419,167 @@ const BudgetCalculator = () => {
                           ))}
                         </div>
                       </div>
-                    )}
+                     )}
+                 </CardContent>
+               </Card>
+
+               {/* Account Management Section */}
+               <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
+                 <CardHeader>
+                   <CardTitle className="flex items-center gap-2">
+                     <DollarSign className="h-5 w-5 text-primary" />
+                     Ändra konton
+                   </CardTitle>
+                   <CardDescription>
+                     Hantera konton och kontokategorier
+                   </CardDescription>
+                 </CardHeader>
+                 <CardContent className="space-y-6">
+                   {/* Account Categories Management */}
+                   <div className="space-y-4">
+                     <div className="flex items-center justify-between">
+                       <h3 className="text-lg font-semibold">Kontokategorier</h3>
+                       <Button 
+                         size="sm" 
+                         variant="outline" 
+                         onClick={() => setIsEditingAccountCategories(!isEditingAccountCategories)}
+                       >
+                         {isEditingAccountCategories ? 'Stäng' : 'Redigera kategorier'}
+                       </Button>
+                     </div>
+
+                     {isEditingAccountCategories && (
+                       <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
+                         <div className="flex gap-2">
+                           <Input
+                             placeholder="Ny kontokategori"
+                             value={newCategoryName}
+                             onChange={(e) => setNewCategoryName(e.target.value)}
+                             className="flex-1"
+                           />
+                           <Button onClick={addAccountCategory} disabled={!newCategoryName.trim()}>
+                             <Plus className="h-4 w-4" />
+                           </Button>
+                         </div>
+                         
+                         <div className="space-y-2">
+                           <h4 className="font-medium">Befintliga kategorier:</h4>
+                           {accountCategories.map((category) => (
+                             <div key={category} className="flex justify-between items-center p-2 bg-white rounded border">
+                               <span className="font-medium">{category}</span>
+                               <Button
+                                 size="sm"
+                                 variant="ghost"
+                                 onClick={() => removeAccountCategory(category)}
+                                 className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                               >
+                                 <Trash2 className="h-4 w-4" />
+                               </Button>
+                             </div>
+                           ))}
+                         </div>
+                       </div>
+                     )}
+                   </div>
+
+                   {/* Account Management */}
+                   <div className="space-y-4">
+                     <div className="flex items-center justify-between">
+                       <h3 className="text-lg font-semibold">Konton</h3>
+                       <Button 
+                         size="sm" 
+                         variant="outline" 
+                         onClick={() => setIsEditingAccounts(!isEditingAccounts)}
+                       >
+                         {isEditingAccounts ? 'Stäng' : 'Redigera konton'}
+                       </Button>
+                     </div>
+
+                     {isEditingAccounts && (
+                       <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
+                         <div className="flex gap-2">
+                           <Input
+                             placeholder="Nytt kontonamn"
+                             value={newAccountName}
+                             onChange={(e) => setNewAccountName(e.target.value)}
+                             className="flex-1"
+                           />
+                           <Button onClick={addAccount} disabled={!newAccountName.trim()}>
+                             <Plus className="h-4 w-4" />
+                           </Button>
+                         </div>
+                         
+                         <div className="space-y-2">
+                           <h4 className="font-medium">Befintliga konton:</h4>
+                           {accounts.map((account, index) => {
+                             const accountName = typeof account === 'string' ? account : (account as any).name || '';
+                             return (
+                               <div key={accountName} className="flex justify-between items-center p-2 bg-white rounded border">
+                                 <span className="font-medium">{accountName}</span>
+                                 <Button
+                                   size="sm"
+                                   variant="ghost"
+                                   onClick={() => removeAccount(accountName)}
+                                   className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                                 >
+                                   <Trash2 className="h-4 w-4" />
+                                 </Button>
+                               </div>
+                             );
+                           })}
+                         </div>
+                       </div>
+                     )}
+                   </div>
+
+                   {/* Account Category Mapping */}
+                   <div className="space-y-4">
+                     <h3 className="text-lg font-semibold">Kategorimappning</h3>
+                     <p className="text-sm text-muted-foreground">
+                       Koppla varje konto till en kontokategori för bättre organisation
+                     </p>
+                     
+                     <div className="space-y-3">
+                       {accounts.map((account) => {
+                         const accountName = typeof account === 'string' ? account : (account as any).name || '';
+                         return (
+                           <div key={accountName} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                             <span className="font-medium">{accountName}</span>
+                             <Select
+                               value={accountCategoryMapping[accountName] || 'none'}
+                               onValueChange={(value) => updateAccountCategory(accountName, value)}
+                             >
+                               <SelectTrigger className="w-48">
+                                 <SelectValue placeholder="Välj kategori" />
+                               </SelectTrigger>
+                               <SelectContent>
+                                 <SelectItem value="none">Ingen kategori</SelectItem>
+                                 {accountCategories.map((category) => (
+                                   <SelectItem key={category} value={category}>
+                                     {category}
+                                   </SelectItem>
+                                 ))}
+                               </SelectContent>
+                             </Select>
+                           </div>
+                         );
+                       })}
+                     </div>
+
+                     {Object.keys(accountCategoryMapping).length > 0 && (
+                       <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                         <h4 className="font-medium mb-2">Kategorimappning översikt:</h4>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                           {Object.entries(accountCategoryMapping).map(([account, category]) => (
+                             <div key={account} className="flex justify-between">
+                               <span className="text-muted-foreground">{account}:</span>
+                               <span className="font-medium">{category}</span>
+                             </div>
+                           ))}
+                         </div>
+                       </div>
+                     )}
+                   </div>
                  </CardContent>
                </Card>
               </div>
