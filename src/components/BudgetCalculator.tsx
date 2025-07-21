@@ -12,7 +12,6 @@ import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useSwipeGestures } from '@/hooks/useSwipeGestures';
 import CreateMonthDialog from './CreateMonthDialog';
-import AccountCategoriesManager from './AccountCategoriesManager';
 
 interface SubCategory {
   id: string;
@@ -47,7 +46,7 @@ const BudgetCalculator = () => {
   const [savingsGroups, setSavingsGroups] = useState<BudgetGroup[]>([]);
   const [dailyTransfer, setDailyTransfer] = useState<number>(300);
   const [weekendTransfer, setWeekendTransfer] = useState<number>(540);
-  const [isEditingBudgetCategories, setIsEditingBudgetCategories] = useState<boolean>(false);
+  const [isEditingCategories, setIsEditingCategories] = useState<boolean>(false);
   const [isEditingTransfers, setIsEditingTransfers] = useState<boolean>(false);
   const [isEditingHolidays, setIsEditingHolidays] = useState<boolean>(false);
   const [customHolidays, setCustomHolidays] = useState<{date: string, name: string}[]>([]);
@@ -128,17 +127,8 @@ const BudgetCalculator = () => {
   
   // Account management states
   const [accounts, setAccounts] = useState<string[]>(['Löpande', 'Sparkonto', 'Buffert']);
-  const [accountCategories, setAccountCategories] = useState<string[]>(['Huvudkonton', 'Sparande', 'Buffert']);
-  const [accountCategoryMapping, setAccountCategoryMapping] = useState<{[key: string]: string}>({
-    'Löpande': 'Huvudkonton',
-    'Sparkonto': 'Sparande', 
-    'Buffert': 'Buffert'
-  });
   const [newAccountName, setNewAccountName] = useState<string>('');
-  const [newAccountCategory, setNewAccountCategory] = useState<string>('');
-  const [newCategoryName, setNewCategoryName] = useState<string>('');
   const [isEditingAccounts, setIsEditingAccounts] = useState<boolean>(false);
-  const [isEditingAccountCategories, setIsEditingAccountCategories] = useState<boolean>(false);
   const [expandedAccounts, setExpandedAccounts] = useState<{[key: string]: boolean}>({});
 
   // Budget template states
@@ -404,23 +394,6 @@ const BudgetCalculator = () => {
         // Load accounts data
         setAccounts(parsed.accounts || ['Löpande', 'Sparkonto', 'Buffert']);
         
-        // Load account categories and mapping
-        setAccountCategories(parsed.accountCategories || ['Huvudkonton', 'Sparande', 'Buffert']);
-        setAccountCategoryMapping(parsed.accountCategoryMapping || {
-          'Löpande': 'Huvudkonton',
-          'Sparkonto': 'Sparande', 
-          'Buffert': 'Buffert'
-        });
-        
-        // Load account balances
-        setAccountBalances(parsed.accountBalances || {});
-        
-        // Load account final balances
-        setAccountFinalBalances(parsed.accountFinalBalances || {});
-        
-        // Load selected accounts for chart
-        setSelectedAccountsForChart(parsed.selectedAccountsForChart || []);
-        
         // Load budget templates
         setBudgetTemplates(parsed.budgetTemplates || {});
         
@@ -571,8 +544,6 @@ const BudgetCalculator = () => {
       susannaPersonalSavings,
       historicalData,
       accounts,
-      accountCategories,
-      accountCategoryMapping,
       budgetTemplates,
       selectedBudgetMonth, // Save the selected month
       userName1,
@@ -593,7 +564,7 @@ const BudgetCalculator = () => {
       saveToLocalStorage();
       saveToSelectedMonth();
     }
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountFinalBalances, selectedAccountsForChart, isInitialLoad]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountFinalBalances, selectedAccountsForChart, isInitialLoad]);
 
   // Auto-calculate budget whenever any input changes
   useEffect(() => {
@@ -2384,24 +2355,14 @@ const BudgetCalculator = () => {
 
   // Account management functions
   const addAccount = () => {
-    if (newAccountName.trim() && newAccountCategory.trim() && 
-        !accounts.some(acc => acc.name === newAccountName.trim())) {
-      const newId = Math.max(...accounts.map(acc => parseInt(acc.id))) + 1;
-      setAccounts([...accounts, { 
-        id: newId.toString(), 
-        name: newAccountName.trim(), 
-        category: newAccountCategory.trim() 
-      }]);
+    if (newAccountName.trim() && !accounts.includes(newAccountName.trim())) {
+      setAccounts([...accounts, newAccountName.trim()]);
       setNewAccountName('');
-      setNewAccountCategory('');
     }
   };
 
-  const removeAccount = (accountId: string) => {
-    const accountToRemove = accounts.find(acc => acc.id === accountId);
-    if (!accountToRemove) return;
-    
-    setAccounts(accounts.filter(account => account.id !== accountId));
+  const removeAccount = (accountName: string) => {
+    setAccounts(accounts.filter(account => account !== accountName));
     // Remove the account from all subcategories and savings groups
     setCostGroups(costGroups.map(group => ({
       ...group,
@@ -4135,7 +4096,7 @@ const BudgetCalculator = () => {
                               <Button size="sm" onClick={() => setIsEditingCategories(!isEditingCategories)}>
                                 {isEditingCategories ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
                               </Button>
-                  {isEditingBudgetCategories && (
+                              {isEditingCategories && (
                                 <Button size="sm" onClick={addSavingsGroup}>
                                   <Plus className="w-4 h-4" />
                                 </Button>
@@ -6525,16 +6486,6 @@ const BudgetCalculator = () => {
                   </div>
                 </CardContent>
               </Card>
-
-              {/* Account Categories Management */}
-              <AccountCategoriesManager
-                accounts={accounts}
-                accountCategories={accountCategories}
-                accountCategoryMapping={accountCategoryMapping}
-                onAccountsChange={setAccounts}
-                onCategoriesChange={setAccountCategories}
-                onCategoryMappingChange={setAccountCategoryMapping}
-              />
 
               {/* Backup Section */}
               <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
