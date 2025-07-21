@@ -2788,11 +2788,13 @@ const BudgetCalculator = () => {
         extendedMonthKeys = []; // Empty chart data but keep selectors visible
       } else {
         // Generate EXACTLY the months in the selected range - nothing else
+        const monthsSet = new Set<string>();
         while (currentIterMonth <= endDate) {
           const monthKey = `${currentIterMonth.getFullYear()}-${String(currentIterMonth.getMonth() + 1).padStart(2, '0')}`;
-          extendedMonthKeys.push(monthKey);
+          monthsSet.add(monthKey);
           currentIterMonth.setMonth(currentIterMonth.getMonth() + 1);
         }
+        extendedMonthKeys = Array.from(monthsSet).sort();
       }
       
       // Don't add anything else when using custom range!
