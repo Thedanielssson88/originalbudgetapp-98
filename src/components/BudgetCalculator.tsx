@@ -1010,7 +1010,27 @@ const BudgetCalculator = () => {
     const accountsToProcess = prevMonthData.accounts || ['Löpande', 'Sparkonto', 'Buffert'];
     
     accountsToProcess.forEach(account => {
-      const originalBalance = prevMonthData.accountBalances?.[account] || 0;
+      // Use the actual account balance if it exists and is not 0
+      let originalBalance = prevMonthData.accountBalances?.[account] || 0;
+      
+      // If account balance is 0 or empty, try to use estimated balance from the month before the previous month
+      if (originalBalance === 0) {
+        // Get the month before the previous month to check for estimated values
+        const prevPrevMonth = prevMonth === 1 ? 12 : prevMonth - 1;
+        const prevPrevYear = prevMonth === 1 ? prevYear - 1 : prevYear;
+        const prevPrevMonthKey = `${prevPrevYear}-${String(prevPrevMonth).padStart(2, '0')}`;
+        
+        console.log(`${account}: Account balance is 0, checking for estimated value from ${prevPrevMonthKey}`);
+        
+        // Check if there's saved final balance from the month before previous
+        const prevPrevMonthData = historicalData[prevPrevMonthKey];
+        if (prevPrevMonthData && prevPrevMonthData.accountFinalBalances && prevPrevMonthData.accountFinalBalances[account] !== undefined) {
+          originalBalance = prevPrevMonthData.accountFinalBalances[account];
+          console.log(`${account}: Using estimated starting balance from ${prevPrevMonthKey}: ${originalBalance}`);
+        }
+      }
+      
+      console.log(`${account}: Final starting balance: ${originalBalance}`);
       
       // Calculate total deposits for this account from savings groups
       const accountSavings = (prevMonthData.savingsGroups || [])
@@ -1025,7 +1045,7 @@ const BudgetCalculator = () => {
         return sum + groupCosts;
       }, 0);
       
-      // Final balance (Slutsaldo) = original balance + savings - costs
+      // Final balance (Slutsaldo) = original balance (estimated or actual) + savings - costs
       finalBalances[account] = originalBalance + accountSavings - accountCosts;
       console.log(`${account}: ${originalBalance} + ${accountSavings} - ${accountCosts} = ${finalBalances[account]}`);
     });
@@ -1323,7 +1343,23 @@ const BudgetCalculator = () => {
       } else {
         console.log(`${account}: No saved final balance found, calculating from raw data...`);
         // Fallback: calculate from previous month's data
-        const originalBalance = prevMonthData.accountBalances?.[account] || 0;
+        let originalBalance = prevMonthData.accountBalances?.[account] || 0;
+        
+        // If account balance is 0 or empty, try to use estimated balance from the month before
+        if (originalBalance === 0) {
+          const [prevYear, prevMonth] = prevMonthInfo.monthKey.split('-').map(Number);
+          const prevPrevMonth = prevMonth === 1 ? 12 : prevMonth - 1;
+          const prevPrevYear = prevMonth === 1 ? prevYear - 1 : prevYear;
+          const prevPrevMonthKey = `${prevPrevYear}-${String(prevPrevMonth).padStart(2, '0')}`;
+          
+          console.log(`${account}: Account balance is 0, checking for estimated value from ${prevPrevMonthKey}`);
+          
+          const prevPrevMonthData = historicalData[prevPrevMonthKey];
+          if (prevPrevMonthData && prevPrevMonthData.accountFinalBalances && prevPrevMonthData.accountFinalBalances[account] !== undefined) {
+            originalBalance = prevPrevMonthData.accountFinalBalances[account];
+            console.log(`${account}: Using estimated starting balance from ${prevPrevMonthKey}: ${originalBalance}`);
+          }
+        }
         
         // Calculate savings for this account
         const accountSavings = (prevMonthData.savingsGroups || [])
@@ -1338,7 +1374,7 @@ const BudgetCalculator = () => {
           return sum + groupCosts;
         }, 0);
         
-        // Final balance (Slutsaldo) from previous month = original balance + savings - costs
+        // Final balance (Slutsaldo) from previous month = original balance (estimated or actual) + savings - costs
         estimatedBalances[account] = originalBalance + accountSavings - accountCosts;
         console.log(`${account}: Calculated estimate - original: ${originalBalance}, savings: ${accountSavings}, costs: ${accountCosts}, final: ${estimatedBalances[account]}`);
       }
