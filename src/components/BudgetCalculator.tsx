@@ -473,6 +473,9 @@ const BudgetCalculator = () => {
     const currentDate = new Date();
     const monthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     
+    // Always calculate fresh final balances before saving
+    calculateAndSaveFinalBalances();
+    
     const monthSnapshot = {
       month: monthKey,
       date: currentDate.toISOString(),
@@ -509,6 +512,8 @@ const BudgetCalculator = () => {
         daysUntil25th: results.daysUntil25th
       })
     };
+    
+    console.log(`Saving month data for ${monthKey} with final balances:`, accountFinalBalances);
     
     setHistoricalData(prev => ({
       ...prev,
@@ -1199,30 +1204,14 @@ const BudgetCalculator = () => {
   // Helper function to get estimated account balances from previous month's final balances
   const getEstimatedAccountBalances = () => {
     const prevMonthInfo = getPreviousMonthInfo();
-    let prevMonthData = historicalData[prevMonthInfo.monthKey];
+    const prevMonthData = historicalData[prevMonthInfo.monthKey];
     
     console.log(`Getting estimated balances for ${selectedBudgetMonth}, previous month: ${prevMonthInfo.monthKey}`);
     console.log(`Previous month data exists:`, !!prevMonthData);
     console.log(`Available historical months:`, Object.keys(historicalData));
     
-    // If no data for immediate previous month, look for the most recent month with data
     if (!prevMonthData) {
-      console.log('No data for immediate previous month, looking for most recent month with data');
-      const availableMonths = Object.keys(historicalData).sort().reverse();
-      const currentMonthDate = new Date(selectedBudgetMonth + '-01');
-      
-      for (const monthKey of availableMonths) {
-        const monthDate = new Date(monthKey + '-01');
-        if (monthDate < currentMonthDate && historicalData[monthKey]?.accountFinalBalances) {
-          prevMonthData = historicalData[monthKey];
-          console.log(`Found data for month ${monthKey}, using as previous month data`);
-          break;
-        }
-      }
-    }
-    
-    if (!prevMonthData) {
-      console.log('No historical data found for any previous month');
+      console.log('No previous month data found for:', prevMonthInfo.monthKey);
       return null;
     }
     
