@@ -2326,9 +2326,9 @@ const BudgetCalculator = () => {
     const getEstimatedBalancesForMonth = (monthKey: string) => {
       console.log(`Calculating estimated balances for ${monthKey}`);
       const [year, month] = monthKey.split('-').map(Number);
-      const prevDate = new Date(year, month - 2, 1);
+      const prevDate = new Date(year, month - 1 - 1, 1); // month-1 for previous month, -1 for Date object
       const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-      console.log(`Looking for previous month data: ${prevMonthKey}`);
+      console.log(`For month ${monthKey}, looking for previous month data: ${prevMonthKey}`);
       
       const prevMonthData = historicalData[prevMonthKey];
       console.log(`Previous month data exists:`, !!prevMonthData);
