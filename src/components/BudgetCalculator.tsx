@@ -2451,6 +2451,33 @@ const BudgetCalculator = () => {
     }
   };
 
+  // Helper function to group accounts by category
+  const getAccountsByCategory = () => {
+    const grouped: {[category: string]: string[]} = {};
+    
+    // Add accounts with categories
+    Object.entries(accountCategoryMapping).forEach(([accountName, category]) => {
+      if (!grouped[category]) {
+        grouped[category] = [];
+      }
+      grouped[category].push(accountName);
+    });
+    
+    // Add accounts without categories to "Okategoriserade"
+    const accountsWithoutCategory = accounts.filter(account => {
+      const accountName = typeof account === 'string' ? account : (account as any).name || '';
+      return !accountCategoryMapping[accountName];
+    });
+    
+    if (accountsWithoutCategory.length > 0) {
+      grouped['Okategoriserade'] = accountsWithoutCategory.map(account => 
+        typeof account === 'string' ? account : (account as any).name || ''
+      );
+    }
+    
+    return grouped;
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('sv-SE', {
       style: 'currency',
@@ -3495,7 +3522,139 @@ const BudgetCalculator = () => {
                         Ange saldot på kontona den 24:e föregående månad, innan kontona fylls på med nya pengar den 25:e.
                       </p>
                       
-                      <div className="space-y-4">
+                       <div className="space-y-6">
+                         {(() => {
+                           const accountsByCategory = getAccountsByCategory();
+                           return Object.entries(accountsByCategory).map(([category, categoryAccounts]) => (
+                             <div key={category} className="space-y-4">
+                               {/* Category Header */}
+                               <div className="pb-2 border-b border-blue-300">
+                                 <h4 className="text-lg font-semibold text-blue-800">{category}</h4>
+                               </div>
+                               
+                               {/* Accounts in this category */}
+                               {categoryAccounts.map(account => {
+                                 const currentBalance = accountBalances[account] || 0;
+                                 const freshBalances = (window as any).__freshFinalBalances;
+                                 const estimatedResult = getEstimatedAccountBalances(freshBalances);
+                                 const estimatedBalance = estimatedResult?.[account] || 0;
+                                
+                                 return (
+                                   <div key={account} className="bg-white rounded border overflow-hidden ml-4">
+                                     <div className="p-3 bg-blue-50 border-b">
+                                       <h5 className="font-semibold text-blue-800">{account}</h5>
+                                     </div>
+                                     
+                                     <div className="p-3 space-y-3">
+                                       {/* Faktiskt kontosaldo */}
+                                       <div className="flex justify-between items-center">
+                                         <span className="text-sm font-medium text-blue-700">Faktiskt kontosaldo</span>
+                                         <div className="flex items-center gap-2">
+                                           <Input
+                                             type="number"
+                                             value={currentBalance || ''}
+                                             onChange={(e) => updateAccountBalance(account, Number(e.target.value) || 0)}
+                                             className="w-32 text-right"
+                                             placeholder="0"
+                                           />
+                                           <span className="text-sm text-blue-700 min-w-8">kr</span>
+                                         </div>
+                                       </div>
+                                       
+                                       {/* Estimerat slutsaldo */}
+                                       {estimatedResult && (
+                                         <div className="space-y-2">
+                                           <div className="flex justify-between items-center">
+                                             <span className="text-sm font-medium text-orange-700">Estimerat slutsaldo</span>
+                                             <div className="flex items-center gap-2">
+                                               <span className="w-32 text-right text-sm text-orange-600">{formatCurrency(estimatedBalance)}</span>
+                                               <span className="text-sm text-orange-600 min-w-8">kr</span>
+                                             </div>
+                                           </div>
+                                           
+                                           {/* Detailed calculation breakdown - keeping existing complex logic */}
+                                           <div className="pl-4 border-l-2 border-orange-200 bg-orange-50/50 p-2 rounded-r">
+                                             <div className="text-xs text-orange-700 font-medium mb-1">Beräkning från föregående månad:</div>
+                                             {(() => {
+                                               const prevMonthInfo = getPreviousMonthInfo();
+                                               const prevMonthData = historicalData[prevMonthInfo.monthKey];
+                                               
+                                               if (!prevMonthData) {
+                                                 return (
+                                                   <div className="text-xs text-orange-600">
+                                                     Ingen data från {prevMonthInfo.monthKey}
+                                                   </div>
+                                                 );
+                                               }
+                                               
+                                               let originalBalance = prevMonthData.accountBalances?.[account] || 0;
+                                               
+                                               // Use estimated balance if original is 0
+                                               if (originalBalance === 0 && estimatedResult) {
+                                                 originalBalance = estimatedResult[account] || 0;
+                                               }
+                                               
+                                               const accountSavings = (prevMonthData.savingsGroups || [])
+                                                 .filter((group: any) => group.account === account)
+                                                 .reduce((sum: number, group: any) => sum + group.amount, 0);
+                                               
+                                               const accountRecurringCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+                                                 const recurringCosts = group.subCategories
+                                                   ?.filter((sub: any) => sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom))
+                                                   .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+                                                 return sum + recurringCosts;
+                                               }, 0);
+                                               
+                                               const accountNonRecurringCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+                                                 const nonRecurringCosts = group.subCategories
+                                                   ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
+                                                   .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+                                                 return sum + nonRecurringCosts;
+                                               }, 0);
+                                               
+                                               return (
+                                                 <div className="space-y-1">
+                                                   <div className="flex justify-between text-xs">
+                                                     <span className="text-orange-700">Startbalans från {prevMonthInfo.monthKey}:</span>
+                                                     <span className="text-orange-600">+{formatCurrency(originalBalance)}</span>
+                                                   </div>
+                                                   {accountSavings > 0 && (
+                                                     <div className="flex justify-between text-xs">
+                                                       <span className="text-orange-700">Sparande:</span>
+                                                       <span className="text-green-600">+{formatCurrency(accountSavings)}</span>
+                                                     </div>
+                                                   )}
+                                                   {accountRecurringCosts > 0 && (
+                                                     <div className="flex justify-between text-xs">
+                                                       <span className="text-orange-700">Insättning kostnadsbudget:</span>
+                                                       <span className="text-green-600">+{formatCurrency(accountRecurringCosts)}</span>
+                                                     </div>
+                                                   )}
+                                                   {accountNonRecurringCosts > 0 && (
+                                                     <div className="flex justify-between text-xs">
+                                                       <span className="text-orange-700">Icke-löpande kostnader:</span>
+                                                       <span className="text-red-600">-{formatCurrency(accountNonRecurringCosts)}</span>
+                                                     </div>
+                                                   )}
+                                                   <div className="border-t border-orange-300 mt-1 pt-1">
+                                                     <div className="flex justify-between text-xs font-medium">
+                                                       <span className="text-orange-700">Totalt:</span>
+                                                       <span className="text-orange-600">{formatCurrency(estimatedBalance)}</span>
+                                                     </div>
+                                                   </div>
+                                                 </div>
+                                               );
+                                             })()}
+                                           </div>
+                                         </div>
+                                       )}
+                                     </div>
+                                   </div>
+                                 );
+                               })}
+                             </div>
+                           ));
+                         })()}
                         {accounts.map(account => {
                           const currentBalance = accountBalances[account] || 0;
                            const freshBalances = (window as any).__freshFinalBalances;
