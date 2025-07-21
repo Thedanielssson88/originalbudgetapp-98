@@ -3194,30 +3194,42 @@ const BudgetCalculator = () => {
                         Ange saldot på kontona den 24:e föregående månad, innan kontona fylls på med nya pengar den 25:e.
                       </p>
                       
-                      <div className="space-y-3">
+                      <div className="space-y-4">
                         {accounts.map(account => {
                           const currentBalance = accountBalances[account] || 0;
-                          const estimatedBalance = hasEmptyAccountBalances() ? getEstimatedAccountBalances()?.[account] || 0 : 0;
-                          const showEstimated = hasEmptyAccountBalances() && estimatedBalance > 0;
-                          
-                          // Debug logging
-                          console.log(`UI Display - Account: ${account}, currentBalance: ${currentBalance}, estimatedBalance: ${estimatedBalance}, showEstimated: ${showEstimated}, hasEmptyAccountBalances: ${hasEmptyAccountBalances()}`);
-                          
+                          const estimatedBalance = getEstimatedAccountBalances()?.[account] || 0;
                           
                           return (
-                            <div key={account} className="flex justify-between items-center p-3 bg-white rounded border">
-                              <span className="font-medium text-blue-800">{account}</span>
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  type="number"
-                                  value={currentBalance || ''}
-                                  onChange={(e) => updateAccountBalance(account, Number(e.target.value) || 0)}
-                                  className="w-32 text-right"
-                                  placeholder={showEstimated ? estimatedBalance.toString() : "0"}
-                                />
-                                <span className="text-sm text-blue-700 min-w-8">kr</span>
-                                {showEstimated && (
-                                  <span className="text-xs text-orange-600 ml-2">(Est: {estimatedBalance} kr)</span>
+                            <div key={account} className="bg-white rounded border overflow-hidden">
+                              <div className="p-3 bg-blue-50 border-b">
+                                <h4 className="font-semibold text-blue-800">{account}</h4>
+                              </div>
+                              
+                              <div className="p-3 space-y-3">
+                                {/* Faktiskt kontosaldo */}
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm font-medium text-blue-700">Faktiskt kontosaldo</span>
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      type="number"
+                                      value={currentBalance || ''}
+                                      onChange={(e) => updateAccountBalance(account, Number(e.target.value) || 0)}
+                                      className="w-32 text-right"
+                                      placeholder="0"
+                                    />
+                                    <span className="text-sm text-blue-700 min-w-8">kr</span>
+                                  </div>
+                                </div>
+                                
+                                {/* Estimerat slutsaldo */}
+                                {estimatedBalance > 0 && (
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-sm font-medium text-orange-700">Estimerat slutsaldo</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-32 text-right text-sm text-orange-600">{estimatedBalance}</span>
+                                      <span className="text-sm text-orange-600 min-w-8">kr</span>
+                                    </div>
+                                  </div>
                                 )}
                               </div>
                             </div>
