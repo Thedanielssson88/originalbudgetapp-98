@@ -3015,9 +3015,8 @@ const BudgetCalculator = () => {
           dataPoint[`${account}_historical`] = null; 
           dataPoint[`${account}_forecast`] = balance;
           dataPoint[`${account}_individual_costs_historical`] = null;
-          // For forecast, use current month's individual costs if available
-          const currentIndividualCosts = getIndividualCostsForMonth(currentMonthKey, account);
-          dataPoint[`${account}_individual_costs_forecast`] = currentIndividualCosts > 0 ? currentIndividualCosts : null;
+          // Don't show forecast individual costs - only show actual data
+          dataPoint[`${account}_individual_costs_forecast`] = null;
         }
         // Store original balance for transition line calculations
         dataPoint[account] = balance;
@@ -3313,19 +3312,6 @@ const BudgetCalculator = () => {
                 />
               ))}
 
-              {/* Individual Costs lines for forecast data (dashed red) */}
-              {selectedIndividualCostsForChart.map((account, index) => (
-                <Line
-                  key={`${account}-individual-costs-forecast`}
-                  type="monotone"
-                  dataKey={`${account}_individual_costs_forecast`}
-                  stroke="#ef4444"
-                  name={`${account} (Enskilda Kostnader - Prognos)`}
-                  strokeWidth={2}
-                  strokeDasharray="5 5"
-                  connectNulls={false}
-                />
-              ))}
 
               {/* No transition lines to avoid X-axis confusion */}
             
