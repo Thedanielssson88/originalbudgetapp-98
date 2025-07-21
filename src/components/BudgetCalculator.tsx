@@ -999,7 +999,7 @@ const BudgetCalculator = () => {
     const prevMonthData = historicalData[prevMonthKey];
     if (!prevMonthData) {
       console.log(`No data found for previous month ${prevMonthKey}`);
-      return;
+      return null;
     }
     
     console.log(`Recalculating final balances for ${prevMonthKey} based on current data`);
@@ -1047,6 +1047,9 @@ const BudgetCalculator = () => {
     
     console.log(`Final balances recalculated and saved for ${prevMonthKey}:`, finalBalances);
     console.log(`=== END CALCULATE AND SAVE PREVIOUS MONTH DEBUG ===`);
+    
+    // Return the calculated final balances so they can be used immediately
+    return finalBalances;
   };
 
   const addCostGroup = () => {
@@ -1265,7 +1268,7 @@ const BudgetCalculator = () => {
   };
 
   // Helper function to get estimated account balances from previous month's final balances
-  const getEstimatedAccountBalances = () => {
+  const getEstimatedAccountBalances = (freshFinalBalances?: {[key: string]: number}) => {
     const prevMonthInfo = getPreviousMonthInfo();
     const prevMonthData = historicalData[prevMonthInfo.monthKey];
     
@@ -1274,6 +1277,7 @@ const BudgetCalculator = () => {
     console.log(`Previous month data exists:`, !!prevMonthData);
     console.log(`Available historical months:`, Object.keys(historicalData));
     console.log(`Previous month accountFinalBalances:`, prevMonthData?.accountFinalBalances);
+    console.log(`Fresh final balances provided:`, freshFinalBalances);
     
     if (!prevMonthData) {
       console.log('No previous month data found for:', prevMonthInfo.monthKey);
@@ -1286,8 +1290,11 @@ const BudgetCalculator = () => {
     
     // Calculate final balances from previous month for each account
     accounts.forEach(account => {
-      // Use saved "Slutsaldo" from previous month if available
-      if (prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
+      // Use fresh final balances first (if just calculated), then saved final balances
+      if (freshFinalBalances && freshFinalBalances[account] !== undefined) {
+        estimatedBalances[account] = freshFinalBalances[account];
+        console.log(`${account}: Using fresh calculated Slutsaldo: ${freshFinalBalances[account]}`);
+      } else if (prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
         estimatedBalances[account] = prevMonthData.accountFinalBalances[account];
         console.log(`${account}: Using saved Slutsaldo: ${prevMonthData.accountFinalBalances[account]}`);
       } else {
@@ -1330,7 +1337,8 @@ const BudgetCalculator = () => {
     if (currentBalance !== 0) return currentBalance;
     
     if (hasEmptyAccountBalances()) {
-      const estimated = getEstimatedAccountBalances();
+      const freshBalances = (window as any).__freshFinalBalances;
+      const estimated = getEstimatedAccountBalances(freshBalances);
       return estimated?.[account] || 0;
     }
     
@@ -1351,7 +1359,12 @@ const BudgetCalculator = () => {
     if (!monthData) return;
     
     // Calculate and save final balances for the previous month before loading current month
-    calculateAndSavePreviousMonthFinalBalances(monthKey);
+    const freshFinalBalances = calculateAndSavePreviousMonthFinalBalances(monthKey);
+    
+    // Store the fresh final balances to use immediately for estimated balances
+    if (freshFinalBalances) {
+      (window as any).__freshFinalBalances = freshFinalBalances;
+    }
     
     // Load all the form data from the selected month
     setAndreasSalary(monthData.andreasSalary || 0);
@@ -1807,10 +1820,16 @@ const BudgetCalculator = () => {
     
     // Calculate and save final balances for the previous month of the target month
     console.log(`Calculating previous month final balances...`);
-    calculateAndSavePreviousMonthFinalBalances(monthKey);
+    const freshFinalBalances = calculateAndSavePreviousMonthFinalBalances(monthKey);
     
     console.log(`Historical data keys AFTER calculateAndSavePreviousMonthFinalBalances:`, Object.keys(historicalData));
     console.log(`Historical data after calculating previous month final balances:`, JSON.stringify(historicalData, null, 2));
+    
+    // Store the fresh final balances to use immediately for estimated balances
+    if (freshFinalBalances) {
+      (window as any).__freshFinalBalances = freshFinalBalances;
+      console.log(`Stored fresh final balances for immediate use:`, freshFinalBalances);
+    }
     
     setSelectedBudgetMonth(monthKey);
     
@@ -3321,10 +3340,13 @@ const BudgetCalculator = () => {
                       <div className="space-y-4">
                         {accounts.map(account => {
                           const currentBalance = accountBalances[account] || 0;
-                          const estimatedBalance = getEstimatedAccountBalances()?.[account] || 0;
+                          const freshBalances = (window as any).__freshFinalBalances;
+                          const estimatedResult = getEstimatedAccountBalances(freshBalances);
+                          const estimatedBalance = estimatedResult?.[account] || 0;
                           console.log(`=== DISPLAY DEBUG ===`);
                           console.log(`Account ${account}: currentBalance=${currentBalance}, estimatedBalance=${estimatedBalance}, selectedMonth=${selectedBudgetMonth}`);
-                          console.log(`getEstimatedAccountBalances() result:`, getEstimatedAccountBalances());
+                          console.log(`getEstimatedAccountBalances() result:`, estimatedResult);
+                          console.log(`Fresh balances used:`, freshBalances);
                           console.log(`=== END DISPLAY DEBUG ===`);
                           
                           return (
@@ -3350,7 +3372,7 @@ const BudgetCalculator = () => {
                                 </div>
                                 
                                 {/* Estimerat slutsaldo */}
-                                {getEstimatedAccountBalances() && (
+                                {estimatedResult && (
                                   <div className="flex justify-between items-center">
                                     <span className="text-sm font-medium text-orange-700">Estimerat slutsaldo</span>
                                     <div className="flex items-center gap-2">
@@ -4950,7 +4972,8 @@ const BudgetCalculator = () => {
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">
                           {(() => {
-                            const isEstimated = hasEmptyAccountBalances() && getEstimatedAccountBalances();
+                            const freshBalances = (window as any).__freshFinalBalances;
+                            const isEstimated = hasEmptyAccountBalances() && getEstimatedAccountBalances(freshBalances);
                             return isEstimated ? "Ursprungligt saldo (Est)" : "Ursprungligt saldo";
                           })()}
                         </span>
@@ -5094,7 +5117,8 @@ const BudgetCalculator = () => {
                                       <div className="flex justify-between text-sm">
                                         <span className="text-gray-600">
                                           {(() => {
-                                            const isEstimated = hasEmptyAccountBalances() && getEstimatedAccountBalances();
+                            const freshBalances = (window as any).__freshFinalBalances;
+                            const isEstimated = hasEmptyAccountBalances() && getEstimatedAccountBalances(freshBalances);
                                             return isEstimated ? "Ursprungligt saldo (Est)" : "Ursprungligt saldo";
                                           })()}
                                         </span>
