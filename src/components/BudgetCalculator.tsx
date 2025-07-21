@@ -1306,14 +1306,12 @@ const BudgetCalculator = () => {
     const prevMonthData = historicalData[prevMonthInfo.monthKey];
     
     console.log(`=== GET ESTIMATED BALANCES DEBUG ===`);
-    console.log(`Getting estimated balances for ${selectedBudgetMonth}, previous month: ${prevMonthInfo.monthKey}`);
-    console.log(`Previous month data exists:`, !!prevMonthData);
-    console.log(`Available historical months:`, Object.keys(historicalData));
-    console.log(`Previous month accountFinalBalances:`, prevMonthData?.accountFinalBalances);
-    console.log(`Fresh final balances provided:`, freshFinalBalances);
-    console.log(`Current selectedBudgetMonth:`, selectedBudgetMonth);
-    console.log(`Selected budget month:`, selectedBudgetMonth);
-    console.log(`All historicalData keys:`, Object.keys(historicalData));
+    console.log(`🔍 BERÄKNAR ESTIMERAT SLUTSALDO FÖR: ${selectedBudgetMonth || 'Aktuell månad'}`);
+    console.log(`📅 ANVÄNDER DATA FRÅN FÖREGÅENDE MÅNAD: ${prevMonthInfo.monthKey}`);
+    console.log(`📊 Föregående månads data finns:`, !!prevMonthData);
+    console.log(`📋 Tillgängliga historiska månader:`, Object.keys(historicalData));
+    console.log(`💰 Föregående månads slutsaldon:`, prevMonthData?.accountFinalBalances);
+    console.log(`🆕 Nya slutsaldon medskickade:`, freshFinalBalances);
     if (prevMonthData) {
       console.log(`Previous month data structure:`, {
         accountBalances: prevMonthData.accountBalances,
@@ -1325,7 +1323,9 @@ const BudgetCalculator = () => {
     }
     
     if (!prevMonthData) {
-      console.log('No previous month data found for:', prevMonthInfo.monthKey);
+      console.log(`❌ INGEN DATA HITTADES FÖR FÖREGÅENDE MÅNAD: ${prevMonthInfo.monthKey}`);
+      console.log(`   Detta betyder att estimerat slutsaldo inte kan beräknas.`);
+      console.log(`   För Augusti skulle vi behöva data från Juli för att beräkna.`);
       return null;
     }
     
@@ -1386,13 +1386,14 @@ const BudgetCalculator = () => {
         
         // Final balance (Slutsaldo) from previous month = original balance + savings + cost budget deposit (recurring costs) - all costs
         estimatedBalances[account] = originalBalance + accountSavings + accountRecurringCosts - accountAllCosts;
-        console.log(`=== DETAILED CALCULATION FOR ${account} ===`);
-        console.log(`Original balance: ${originalBalance}`);
-        console.log(`Savings: ${accountSavings}`);
-        console.log(`Recurring costs deposit: ${accountRecurringCosts}`);
-        console.log(`All costs: ${accountAllCosts}`);
-        console.log(`Calculation: ${originalBalance} + ${accountSavings} + ${accountRecurringCosts} - ${accountAllCosts} = ${originalBalance + accountSavings + accountRecurringCosts - accountAllCosts}`);
-        console.log(`=== END DETAILED CALCULATION ===`);
+        console.log(`=== 🧮 DETALJERAD BERÄKNING FÖR ${account.toUpperCase()} ===`);
+        console.log(`📈 Startbalans från ${prevMonthInfo.monthKey}: ${originalBalance} kr`);
+        console.log(`💾 Sparande under ${prevMonthInfo.monthKey}: ${accountSavings} kr`);
+        console.log(`💰 Insättning kostnadsbudget (Löpande kostnader): ${accountRecurringCosts} kr`);
+        console.log(`💸 Alla kostnader under ${prevMonthInfo.monthKey}: ${accountAllCosts} kr`);
+        console.log(`🔢 FORMEL: ${originalBalance} + ${accountSavings} + ${accountRecurringCosts} - ${accountAllCosts} = ${originalBalance + accountSavings + accountRecurringCosts - accountAllCosts} kr`);
+        console.log(`✅ ESTIMERAT SLUTSALDO FÖR ${account}: ${originalBalance + accountSavings + accountRecurringCosts - accountAllCosts} kr`);
+        console.log(`=== 🏁 SLUT DETALJERAD BERÄKNING ===`);
       }
     });
     
