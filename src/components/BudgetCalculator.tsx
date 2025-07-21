@@ -5165,7 +5165,7 @@ const BudgetCalculator = () => {
                           })()}
                         </span>
                         <span className={originalBalance >= 0 ? 'text-blue-600' : 'text-red-600'}>
-                          {formatCurrency(originalBalance)}
+                          {originalBalance >= 0 ? '+' : ''}{formatCurrency(Math.abs(originalBalance))}
                         </span>
                       </div>
                                       
@@ -5276,8 +5276,9 @@ const BudgetCalculator = () => {
                                 // Calculate total costs for this account (only Löpande kostnad)
                                 const totalCosts = accountCostItems.reduce((sum, item) => sum + item.amount, 0);
                                
-                                 // Calculate final balance (original + savings deposits + cost budget deposit)
-                                 const finalBalance = originalBalance + totalDeposits + totalCosts;
+                                 // Calculate final balance: original balance only, since cost budget deposits 
+                                 // and costs cancel each other out for Löpande kostnad
+                                 const finalBalance = originalBalance;
                                
                                console.log(`=== KONTOBELOPP EFTER BUDGET DEBUG FOR ${account} ===`);
                                console.log(`Original balance: ${originalBalance}`);
@@ -5321,7 +5322,7 @@ const BudgetCalculator = () => {
                                           })()}
                                         </span>
                                         <span className={originalBalance >= 0 ? 'text-blue-600' : 'text-red-600'}>
-                                          {formatCurrency(originalBalance)}
+                                          {originalBalance >= 0 ? '+' : ''}{formatCurrency(Math.abs(originalBalance))}
                                         </span>
                                       </div>
                                       
