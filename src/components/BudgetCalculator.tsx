@@ -2775,7 +2775,7 @@ const BudgetCalculator = () => {
     let extendedMonthKeys: string[] = [];
     
     if (useCustomTimeRange && chartStartMonth && chartEndMonth) {
-      // Use custom time range - generate all months between start and end (inclusive)
+      // Use ONLY custom time range - generate all months between start and end (inclusive)
       const [startYear, startMonth] = chartStartMonth.split('-').map(Number);
       const [endYear, endMonth] = chartEndMonth.split('-').map(Number);
       
@@ -2784,22 +2784,18 @@ const BudgetCalculator = () => {
       
       // Make sure end date is not before start date
       if (endDate < currentIterMonth) {
-        // Swap if end is before start
-        const tempMonth = chartStartMonth;
-        setChartStartMonth(chartEndMonth);
-        setChartEndMonth(tempMonth);
         return <div className="text-center py-8"><p className="text-muted-foreground">Slutmånad kan inte vara före startmånad.</p></div>;
       }
       
-      // Generate exactly the months in the selected range
+      // Generate EXACTLY the months in the selected range - nothing else
       while (currentIterMonth <= endDate) {
         const monthKey = `${currentIterMonth.getFullYear()}-${String(currentIterMonth.getMonth() + 1).padStart(2, '0')}`;
         extendedMonthKeys.push(monthKey);
         currentIterMonth.setMonth(currentIterMonth.getMonth() + 1);
       }
       
-      // For custom range, DON'T add any duplicates or sorting - use exactly what was generated
-      // extendedMonthKeys already contains the exact months we want to show
+      // Don't add anything else when using custom range!
+      
     } else {
       // Default behavior: 1 month before earliest saved month and 6 months forward
       if (savedMonthKeys.length > 0) {
