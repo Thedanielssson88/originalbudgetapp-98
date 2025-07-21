@@ -986,6 +986,69 @@ const BudgetCalculator = () => {
     setAccountFinalBalances(finalBalances);
   };
 
+  // Function to calculate and save final balances for the previous month of a target month
+  const calculateAndSavePreviousMonthFinalBalances = (targetMonthKey: string) => {
+    // Get previous month info
+    const [year, month] = targetMonthKey.split('-').map(Number);
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
+    const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+    
+    console.log(`Calculating final balances for previous month ${prevMonthKey} when switching to ${targetMonthKey}`);
+    
+    // Check if previous month has data but missing final balances
+    const prevMonthData = historicalData[prevMonthKey];
+    if (!prevMonthData) {
+      console.log(`No data found for previous month ${prevMonthKey}`);
+      return;
+    }
+    
+    // Check if final balances already exist and are complete
+    if (prevMonthData.accountFinalBalances && 
+        Object.keys(prevMonthData.accountFinalBalances).length > 0) {
+      console.log(`Final balances already exist for ${prevMonthKey}`);
+      return;
+    }
+    
+    console.log(`Calculating missing final balances for ${prevMonthKey}`);
+    
+    // Calculate final balances based on previous month's data
+    const finalBalances: {[key: string]: number} = {};
+    const accountsToProcess = prevMonthData.accounts || ['Löpande', 'Sparkonto', 'Buffert'];
+    
+    accountsToProcess.forEach(account => {
+      const originalBalance = prevMonthData.accountBalances?.[account] || 0;
+      
+      // Calculate total deposits for this account from savings groups
+      const accountSavings = (prevMonthData.savingsGroups || [])
+        .filter((group: any) => group.account === account)
+        .reduce((sum: number, group: any) => sum + group.amount, 0);
+      
+      // Calculate total costs for this account from cost subcategories  
+      const accountCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+        const groupCosts = group.subCategories
+          ?.filter((sub: any) => sub.account === account)
+          .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+        return sum + groupCosts;
+      }, 0);
+      
+      // Final balance (Slutsaldo) = original balance + savings - costs
+      finalBalances[account] = originalBalance + accountSavings - accountCosts;
+      console.log(`${account}: ${originalBalance} + ${accountSavings} - ${accountCosts} = ${finalBalances[account]}`);
+    });
+    
+    // Save the calculated final balances to the previous month's data
+    setHistoricalData(prev => ({
+      ...prev,
+      [prevMonthKey]: {
+        ...prev[prevMonthKey],
+        accountFinalBalances: finalBalances
+      }
+    }));
+    
+    console.log(`Final balances saved for ${prevMonthKey}:`, finalBalances);
+  };
+
   const addCostGroup = () => {
     const newGroup: BudgetGroup = {
       id: Date.now().toString(),
@@ -1282,6 +1345,9 @@ const BudgetCalculator = () => {
   const loadDataFromSelectedMonth = (monthKey: string) => {
     const monthData = historicalData[monthKey];
     if (!monthData) return;
+    
+    // Calculate and save final balances for the previous month before loading current month
+    calculateAndSavePreviousMonthFinalBalances(monthKey);
     
     // Load all the form data from the selected month
     setAndreasSalary(monthData.andreasSalary || 0);
@@ -1728,6 +1794,9 @@ const BudgetCalculator = () => {
   const handleBudgetMonthChange = (monthKey: string) => {
     // Save current data to current month before switching
     saveToSelectedMonth();
+    
+    // Calculate and save final balances for the previous month of the target month
+    calculateAndSavePreviousMonthFinalBalances(monthKey);
     
     setSelectedBudgetMonth(monthKey);
     
