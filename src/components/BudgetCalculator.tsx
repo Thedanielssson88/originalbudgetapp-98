@@ -1261,12 +1261,21 @@ const BudgetCalculator = () => {
       'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
     ];
     
-    return {
+    const result = {
       monthName: monthNames[adjustedPrevMonth],
       year: prevYear,
       date: `24 ${monthNames[adjustedPrevMonth]} ${prevYear}`,
       monthKey: `${prevYear}-${String(adjustedPrevMonth + 1).padStart(2, '0')}`
     };
+    
+    console.log(`=== GET PREVIOUS MONTH INFO DEBUG ===`);
+    console.log(`selectedBudgetMonth: ${selectedBudgetMonth}`);
+    console.log(`selectedYear: ${selectedYear}, selectedMonth: ${selectedMonth}`);
+    console.log(`prevYear: ${prevYear}, adjustedPrevMonth: ${adjustedPrevMonth}`);
+    console.log(`Previous month key: ${result.monthKey}`);
+    console.log(`=== END GET PREVIOUS MONTH INFO DEBUG ===`);
+    
+    return result;
   };
 
   // Helper function to get estimated account balances from previous month's final balances
@@ -1280,7 +1289,18 @@ const BudgetCalculator = () => {
     console.log(`Available historical months:`, Object.keys(historicalData));
     console.log(`Previous month accountFinalBalances:`, prevMonthData?.accountFinalBalances);
     console.log(`Fresh final balances provided:`, freshFinalBalances);
-    console.log(`Full previous month data:`, JSON.stringify(prevMonthData, null, 2));
+    console.log(`Current selectedBudgetMonth:`, selectedBudgetMonth);
+    console.log(`Selected budget month:`, selectedBudgetMonth);
+    console.log(`All historicalData keys:`, Object.keys(historicalData));
+    if (prevMonthData) {
+      console.log(`Previous month data structure:`, {
+        accountBalances: prevMonthData.accountBalances,
+        accountFinalBalances: prevMonthData.accountFinalBalances,
+        hasAccountFinalBalances: !!prevMonthData.accountFinalBalances,
+        accountFinalBalancesKeys: Object.keys(prevMonthData.accountFinalBalances || {}),
+        buffertFinalBalance: prevMonthData.accountFinalBalances?.['Buffert']
+      });
+    }
     
     if (!prevMonthData) {
       console.log('No previous month data found for:', prevMonthInfo.monthKey);
@@ -1301,7 +1321,7 @@ const BudgetCalculator = () => {
         estimatedBalances[account] = prevMonthData.accountFinalBalances[account];
         console.log(`${account}: Using saved Slutsaldo: ${prevMonthData.accountFinalBalances[account]}`);
       } else {
-        console.log(`${account}: No saved final balance found, calculating...`);
+        console.log(`${account}: No saved final balance found, calculating from raw data...`);
         // Fallback: calculate from previous month's data
         const originalBalance = prevMonthData.accountBalances?.[account] || 0;
         
