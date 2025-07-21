@@ -2728,6 +2728,9 @@ const BudgetCalculator = () => {
         // Calculate estimated balance for months without saved data
         const estimated = getEstimatedBalancesForMonth(monthKey);
         if (estimated && estimated[account] !== undefined) {
+          if (monthKey === '2025-08' && account === 'Löpande') {
+            console.log(`📈 getBalanceForMonth: Using estimated balance for ${monthKey} ${account}: ${estimated[account]}`);
+          }
           return estimated[account];
         }
         
@@ -2746,8 +2749,13 @@ const BudgetCalculator = () => {
       const prevDate = new Date(year, month - 2, 1);
       const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
       
+      console.log(`🔍 getEstimatedBalancesForMonth: Calculating for ${monthKey}, prev month: ${prevMonthKey}`);
+      
       const prevMonthData = historicalData[prevMonthKey];
-      if (!prevMonthData) return null;
+      if (!prevMonthData) {
+        console.log(`❌ No data found for previous month ${prevMonthKey}`);
+        return null;
+      }
       
       const estimatedBalances: {[key: string]: number} = {};
       
@@ -2755,6 +2763,7 @@ const BudgetCalculator = () => {
         // Use saved final balance from previous month if available
         if (prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
           estimatedBalances[account] = prevMonthData.accountFinalBalances[account];
+          console.log(`✅ Using final balance for ${account}: ${estimatedBalances[account]} from month ${prevMonthKey}`);
           return;
         }
         
@@ -2793,7 +2802,11 @@ const BudgetCalculator = () => {
       };
       
       accounts.forEach(account => {
-        dataPoint[account] = getBalanceForMonth(monthKey, account);
+        const balance = getBalanceForMonth(monthKey, account);
+        dataPoint[account] = balance;
+        if (monthKey === '2025-08' && account === 'Löpande') {
+          console.log(`📊 Chart data for ${monthKey} ${account}: ${balance}`);
+        }
       });
       
       return dataPoint;
