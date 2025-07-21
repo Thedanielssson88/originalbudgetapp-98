@@ -2814,17 +2814,34 @@ const BudgetCalculator = () => {
       for (let i = 0; i < 12; i++) { // Max 12 months to prevent infinite loops
         const monthKey = `${currentIterDate.getFullYear()}-${String(currentIterDate.getMonth() + 1).padStart(2, '0')}`;
         
-        // Check if this month has data or if we can calculate estimates
-        const hasData = historicalData[monthKey] || monthKey === currentMonthKey;
+        // Check if this month has actual data
+        const hasActualData = historicalData[monthKey] && (
+          historicalData[monthKey].accountFinalBalances || 
+          historicalData[monthKey].accountEstimatedFinalBalances
+        );
+        
+        // Check if this is current month (always include it)
+        const isCurrentMonth = monthKey === currentMonthKey;
+        
+        // Check if we can calculate a meaningful estimate (need previous month with final balances)
         const canCalculateEstimate = (() => {
-          if (monthKey === currentMonthKey) return true;
+          if (isCurrentMonth) return true;
+          if (hasActualData) return true;
+          
           const [year, month] = monthKey.split('-').map(Number);
           const prevDate = new Date(year, month - 2, 1);
           const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-          return historicalData[prevMonthKey] || prevMonthKey === currentMonthKey;
+          
+          // Previous month needs to have final balances to calculate estimate
+          const prevHasBalances = historicalData[prevMonthKey] && (
+            historicalData[prevMonthKey].accountFinalBalances || 
+            historicalData[prevMonthKey].accountEstimatedFinalBalances
+          );
+          
+          return prevHasBalances || prevMonthKey === currentMonthKey;
         })();
         
-        if (hasData || canCalculateEstimate) {
+        if (hasActualData || isCurrentMonth || canCalculateEstimate) {
           monthsToShow.push(monthKey);
           currentIterDate.setMonth(currentIterDate.getMonth() + 1);
         } else {
