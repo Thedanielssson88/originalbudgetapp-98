@@ -5276,9 +5276,15 @@ const BudgetCalculator = () => {
                                 // Calculate total costs for this account (only Löpande kostnad)
                                 const totalCosts = accountCostItems.reduce((sum, item) => sum + item.amount, 0);
                                
-                                 // Calculate final balance: original balance only, since cost budget deposits 
-                                 // and costs cancel each other out for Löpande kostnad
-                                 const finalBalance = originalBalance;
+                                 // Calculate final balance as sum of ALL entries shown in the table:
+                                 // original balance + savings deposits + cost budget deposits - all costs
+                                 const allCostItems = costGroups.reduce((items, group) => {
+                                   const groupCosts = group.subCategories?.filter(sub => sub.account === account) || [];
+                                   return items.concat(groupCosts);
+                                 }, []);
+                                 const totalAllCosts = allCostItems.reduce((sum, item) => sum + item.amount, 0);
+                                 
+                                 const finalBalance = originalBalance + totalDeposits + totalCosts - totalAllCosts;
                                
                                console.log(`=== KONTOBELOPP EFTER BUDGET DEBUG FOR ${account} ===`);
                                console.log(`Original balance: ${originalBalance}`);
