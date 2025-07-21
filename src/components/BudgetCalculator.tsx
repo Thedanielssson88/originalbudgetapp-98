@@ -473,8 +473,7 @@ const BudgetCalculator = () => {
     const currentDate = new Date();
     const monthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     
-    // Always calculate fresh final balances before saving
-    calculateAndSaveFinalBalances();
+    // Final balances are now calculated and saved directly in calculateBudget()
     
     const monthSnapshot = {
       month: monthKey,
@@ -907,6 +906,31 @@ const BudgetCalculator = () => {
     // Final balance should be 0 when individual shares are included
     const balanceLeft = preliminaryBalance - susannaShare - andreasShare;
     
+    // Calculate final balances (Slutsaldo) for each account FIRST
+    const finalBalances: {[key: string]: number} = {};
+    accounts.forEach(account => {
+      const originalBalance = accountBalances[account] || 0;
+      
+      // Calculate total deposits for this account from savings groups
+      const accountSavings = savingsGroups
+        .filter((group: any) => group.account === account)
+        .reduce((sum: number, group: any) => sum + group.amount, 0);
+      
+      // Calculate total costs for this account from cost subcategories  
+      const accountCosts = costGroups.reduce((sum: number, group: any) => {
+        const groupCosts = group.subCategories
+          ?.filter((sub: any) => sub.account === account)
+          .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+        return sum + groupCosts;
+      }, 0);
+      
+      // Final balance (Slutsaldo) = original balance + savings - costs
+      finalBalances[account] = originalBalance + accountSavings - accountCosts;
+    });
+    
+    // Update state with final balances
+    setAccountFinalBalances(finalBalances);
+    
     console.log('Holiday days calculated:', budgetData.holidayDays);
     setResults({
       totalSalary,
@@ -929,7 +953,7 @@ const BudgetCalculator = () => {
       remainingFridayCount: budgetData.remainingFridayCount
     });
     
-    // Update historical data for selected month with calculated results
+    // Update historical data for selected month with calculated results INCLUDING final balances
     const currentDate = new Date();
     const monthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     
@@ -951,40 +975,14 @@ const BudgetCalculator = () => {
         remainingDailyBudget: budgetData.remainingBudget,
         holidayDaysBudget: budgetData.holidayBudget,
         daysUntil25th: budgetData.daysUntil25th,
+        accountFinalBalances: finalBalances, // Save final balances directly to historical data
         date: currentDate.toISOString() // Update timestamp
       }
     }));
     
-    // Calculate and save final balances (Slutsaldo) for each account
-    calculateAndSaveFinalBalances();
+    console.log(`Final balances calculated and saved for ${monthKey}:`, finalBalances);
   };
 
-  // Function to calculate and save final balances (Slutsaldo) for each account
-  const calculateAndSaveFinalBalances = () => {
-    const finalBalances: {[key: string]: number} = {};
-    
-    accounts.forEach(account => {
-      const originalBalance = accountBalances[account] || 0;
-      
-      // Calculate total deposits for this account from savings groups
-      const accountSavings = savingsGroups
-        .filter((group: any) => group.account === account)
-        .reduce((sum: number, group: any) => sum + group.amount, 0);
-      
-      // Calculate total costs for this account from cost subcategories  
-      const accountCosts = costGroups.reduce((sum: number, group: any) => {
-        const groupCosts = group.subCategories
-          ?.filter((sub: any) => sub.account === account)
-          .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-        return sum + groupCosts;
-      }, 0);
-      
-      // Final balance (Slutsaldo) = original balance + savings - costs
-      finalBalances[account] = originalBalance + accountSavings - accountCosts;
-    });
-    
-    setAccountFinalBalances(finalBalances);
-  };
 
   // Function to calculate and save final balances for the previous month of a target month
   const calculateAndSavePreviousMonthFinalBalances = (targetMonthKey: string) => {
