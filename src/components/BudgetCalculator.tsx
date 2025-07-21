@@ -2544,8 +2544,16 @@ const BudgetCalculator = () => {
       
       // Calculate final balances from previous month for each account
       accounts.forEach(account => {
+        // Try to use saved final balance (Slutsaldo) from previous month first
+        if (prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
+          estimatedBalances[account] = prevMonthData.accountFinalBalances[account];
+          console.log(`${account}: Using saved Slutsaldo from previous month: ${prevMonthData.accountFinalBalances[account]}`);
+          return;
+        }
+        
+        // Fallback: calculate final balance from previous month's data
         const originalBalance = prevMonthData.accountBalances?.[account] || 0;
-        console.log(`Original balance for ${account}: ${originalBalance}`);
+        console.log(`${account}: Original balance for calculation: ${originalBalance}`);
         
         // Calculate savings/deposits for this account from previous month
         const accountSavings = (prevMonthData.savingsGroups || [])
@@ -2566,7 +2574,7 @@ const BudgetCalculator = () => {
         
         // Use this slutsaldo as the estimated starting balance for the next month
         estimatedBalances[account] = slutsaldo;
-        console.log(`Slutsaldo from previous month for ${account}: ${slutsaldo}`);
+        console.log(`${account}: Calculated Slutsaldo from previous month: ${slutsaldo}`);
       });
       
       console.log(`All estimated balances:`, estimatedBalances);
