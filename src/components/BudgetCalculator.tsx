@@ -3209,20 +3209,7 @@ const BudgetCalculator = () => {
             </LineChart>
           </ResponsiveContainer>
           
-          {/* Historical/Forecast separator line */}
-          {historicalSeparatorIndex >= 0 && chartData.length > 1 && (
-            <div 
-              className="absolute top-0 bottom-0 border-l-2 border-dashed border-primary pointer-events-none"
-              style={{ 
-                left: `${((historicalSeparatorIndex + 0.5) / chartData.length) * 100}%`,
-                zIndex: 10
-              }}
-            >
-              <div className="absolute -top-6 left-2 text-xs text-primary bg-white px-1 rounded shadow-sm border">
-                Historik | Prognos
-              </div>
-            </div>
-          )}
+          {/* Historical/Forecast separator line - removed per user request */}
           
           {/* Today's date line */}
           {todayPosition >= 0 && (
