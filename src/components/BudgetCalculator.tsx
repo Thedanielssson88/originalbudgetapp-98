@@ -2963,12 +2963,16 @@ const BudgetCalculator = () => {
       return estimatedBalances;
     };
 
-    // Ensure no duplicate months in final array (only for default behavior)
-    if (!useCustomTimeRange) {
-      extendedMonthKeys = [...new Set(extendedMonthKeys)].sort();
-    }
+    // Ensure no duplicate months in final array
+    extendedMonthKeys = [...new Set(extendedMonthKeys)];
+    
+    // Sort chronologically
+    extendedMonthKeys.sort((a, b) => a.localeCompare(b));
+    
+    // Debug logging
+    console.log('📅 Final month keys for chart:', extendedMonthKeys);
 
-    // Calculate chart data
+    // Calculate chart data and filter out months with no meaningful data
     const chartData = extendedMonthKeys.map((monthKey) => {
       const dataPoint: any = { 
         month: monthKey,
@@ -2979,9 +2983,14 @@ const BudgetCalculator = () => {
         const balance = getBalanceForMonth(monthKey, account);
         dataPoint[account] = balance;
       });
-      
+
       return dataPoint;
+    }).filter((dataPoint) => {
+      // Only include months that have at least one non-zero balance
+      return accounts.some(account => dataPoint[account] !== 0);
     });
+    
+    console.log('📊 Final chart data:', chartData.map(d => ({ month: d.month, hasData: accounts.some(acc => d[acc] !== 0) })));
 
     // Find separation points
     const historicalSeparatorIndex = chartData.findIndex(data => !data.isHistorical) - 0.5;
