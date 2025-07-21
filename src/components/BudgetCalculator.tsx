@@ -3143,9 +3143,9 @@ const BudgetCalculator = () => {
                   name={`${account} (Historisk)`}
                   strokeWidth={2}
                   strokeDasharray={undefined}
-                  data={chartData.map(d => ({
-                    ...d,
-                    [account]: d.isHistorical ? d[account] : null
+                  data={chartData.filter(d => d.isHistorical).map(d => ({
+                    month: d.month,
+                    [account]: d[account]
                   }))}
                   connectNulls={false}
                 />
@@ -3161,9 +3161,9 @@ const BudgetCalculator = () => {
                   name={`${account} (Prognos)`}
                   strokeWidth={2}
                   strokeDasharray="5 5"
-                  data={chartData.map(d => ({
-                    ...d,
-                    [account]: !d.isHistorical ? d[account] : null
+                  data={chartData.filter(d => !d.isHistorical).map(d => ({
+                    month: d.month,
+                    [account]: d[account]
                   }))}
                   connectNulls={false}
                 />
@@ -3178,19 +3178,16 @@ const BudgetCalculator = () => {
                 // Only draw transition line if we have both historical and forecast data
                 if (lastHistoricalIndex >= 0 && firstForecastIndex >= 0 && firstForecastIndex > lastHistoricalIndex) {
                   // Create a minimal dataset with just the two connection points
-                  const transitionData = chartData.map((d, idx) => {
-                    if (idx === lastHistoricalIndex || idx === firstForecastIndex) {
-                      return {
-                        ...d,
-                        [account]: d[account]
-                      };
+                  const transitionPoints = [
+                    {
+                      month: chartData[lastHistoricalIndex].month,
+                      [account]: chartData[lastHistoricalIndex][account]
+                    },
+                    {
+                      month: chartData[firstForecastIndex].month,
+                      [account]: chartData[firstForecastIndex][account]
                     }
-                    // For all other points, set the account value to null so the line doesn't connect through them
-                    return {
-                      ...d,
-                      [account]: null
-                    };
-                  });
+                  ];
                   
                   return (
                     <Line
@@ -3200,7 +3197,7 @@ const BudgetCalculator = () => {
                       stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
                       strokeWidth={2}
                       strokeDasharray="8 4"
-                      data={transitionData}
+                      data={transitionPoints}
                       connectNulls={false}
                       dot={false}
                       legendType="none"
