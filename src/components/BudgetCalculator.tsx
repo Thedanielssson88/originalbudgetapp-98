@@ -2342,11 +2342,25 @@ const BudgetCalculator = () => {
         const originalBalance = prevMonthData.accountBalances?.[account] || 0;
         console.log(`Original balance for ${account}: ${originalBalance}`);
         
-        // Calculate savings for this account from previous month
+        // Get total income for the previous month
+        const totalIncome = prevMonthData.totalSalary || 0;
+        
+        // Calculate account share of total income based on savings allocation
         const accountSavings = (prevMonthData.savingsGroups || [])
           .filter((group: any) => group.account === account)
           .reduce((sum: number, group: any) => sum + group.amount, 0);
-        console.log(`Account savings for ${account}: ${accountSavings}`);
+        
+        // Calculate what portion of total income goes to this account
+        const totalSavingsAllAccounts = (prevMonthData.savingsGroups || [])
+          .reduce((sum: number, group: any) => sum + group.amount, 0);
+        
+        // If this account has savings, calculate its proportional share of income
+        let accountIncomeShare = 0;
+        if (totalSavingsAllAccounts > 0) {
+          accountIncomeShare = (accountSavings / totalSavingsAllAccounts) * totalIncome;
+        }
+        
+        console.log(`Account income share for ${account}: ${accountIncomeShare}`);
         
         // Calculate costs for this account from previous month
         const accountCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
@@ -2357,9 +2371,8 @@ const BudgetCalculator = () => {
         }, 0);
         console.log(`Account costs for ${account}: ${accountCosts}`);
         
-        // Final balance from previous month becomes estimated starting balance
-        // This is the "Slutsaldo" calculation: original balance + savings - costs
-        estimatedBalances[account] = originalBalance + accountSavings - accountCosts;
+        // Final balance (Slutsaldo) = original balance + income share - costs
+        estimatedBalances[account] = originalBalance + accountIncomeShare - accountCosts;
         console.log(`Estimated balance for ${account}: ${estimatedBalances[account]}`);
       });
       
