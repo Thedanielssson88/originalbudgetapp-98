@@ -2972,7 +2972,7 @@ const BudgetCalculator = () => {
     // Debug logging
     console.log('📅 Final month keys for chart:', extendedMonthKeys);
 
-    // Calculate chart data and filter out months with no meaningful data
+    // Calculate chart data and create separate keys for historical vs forecast
     const chartData = extendedMonthKeys.map((monthKey) => {
       const dataPoint: any = { 
         month: monthKey,
@@ -2981,16 +2981,25 @@ const BudgetCalculator = () => {
       
       accounts.forEach(account => {
         const balance = getBalanceForMonth(monthKey, account);
-        dataPoint[account] = balance;
+        // Create separate dataKeys for historical and forecast data
+        if (dataPoint.isHistorical) {
+          dataPoint[`${account}_historical`] = balance;
+          dataPoint[`${account}_forecast`] = null;
+        } else {
+          dataPoint[`${account}_historical`] = null; 
+          dataPoint[`${account}_forecast`] = balance;
+        }
       });
 
       return dataPoint;
     }).filter((dataPoint) => {
       // Only include months that have at least one non-zero balance
-      return accounts.some(account => dataPoint[account] !== 0);
+      return accounts.some(account => 
+        dataPoint[`${account}_historical`] !== 0 || dataPoint[`${account}_forecast`] !== 0
+      );
     });
     
-    console.log('📊 Final chart data:', chartData.map(d => ({ month: d.month, hasData: accounts.some(acc => d[acc] !== 0) })));
+    console.log('📊 Final chart data:', chartData.map(d => ({ month: d.month, isHistorical: d.isHistorical })));
 
     // Find separation points
     const historicalSeparatorIndex = chartData.findIndex(data => !data.isHistorical) - 0.5;
@@ -3175,15 +3184,11 @@ const BudgetCalculator = () => {
                 <Line
                   key={`${account}-historical`}
                   type="monotone"
-                  dataKey={account}
+                  dataKey={`${account}_historical`}
                   stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
                   name={`${account} (Historisk)`}
                   strokeWidth={2}
                   strokeDasharray={undefined}
-                  data={chartData.map(d => ({
-                    ...d,
-                    [account]: d.isHistorical ? d[account] : null
-                  }))}
                   connectNulls={false}
                 />
               ))}
@@ -3193,59 +3198,16 @@ const BudgetCalculator = () => {
                 <Line
                   key={`${account}-forecast`}
                   type="monotone"
-                  dataKey={account}
+                  dataKey={`${account}_forecast`}
                   stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
                   name={`${account} (Prognos)`}
                   strokeWidth={2}
                   strokeDasharray="5 5"
-                  data={chartData.map(d => ({
-                    ...d,
-                    [account]: !d.isHistorical ? d[account] : null
-                  }))}
                   connectNulls={false}
                 />
               ))}
 
-              {/* Transition lines connecting last historical to first forecast point */}
-              {selectedAccountsForChart.map((account, index) => {
-                // Find the last historical point and first forecast point for this account
-                const lastHistoricalIndex = chartData.map(d => d.isHistorical).lastIndexOf(true);
-                const firstForecastIndex = chartData.findIndex(d => !d.isHistorical);
-                
-                // Only draw transition line if we have both historical and forecast data
-                if (lastHistoricalIndex >= 0 && firstForecastIndex >= 0 && firstForecastIndex > lastHistoricalIndex) {
-                  // Create a minimal dataset with just the two connection points
-                  const transitionData = chartData.map((d, idx) => {
-                    if (idx === lastHistoricalIndex || idx === firstForecastIndex) {
-                      return {
-                        ...d,
-                        [account]: d[account]
-                      };
-                    }
-                    // For all other points, set the account value to null so the line doesn't connect through them
-                    return {
-                      ...d,
-                      [account]: null
-                    };
-                  });
-                  
-                  return (
-                    <Line
-                      key={`${account}-transition`}
-                      type="linear"
-                      dataKey={account}
-                      stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
-                      strokeWidth={2}
-                      strokeDasharray="8 4"
-                      data={transitionData}
-                      connectNulls={false}
-                      dot={false}
-                      legendType="none"
-                    />
-                  );
-                }
-                return null;
-              })}
+              {/* No transition lines to avoid X-axis confusion */}
             
             
             </LineChart>
