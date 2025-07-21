@@ -1536,6 +1536,38 @@ const BudgetCalculator = () => {
       handleBudgetMonthChange(targetMonthKey);
       return;
     }
+
+    // Get estimated account balances for the new month from previous month's final balances
+    const getEstimatedBalancesForNewMonth = () => {
+      const currentMonthData = historicalData[selectedBudgetMonth];
+      if (!currentMonthData) return {};
+      
+      const estimatedBalances: {[key: string]: number} = {};
+      
+      // Use the final balances (Slutsaldo) from the current month as starting balances for the new month
+      accounts.forEach(account => {
+        if (currentMonthData.accountFinalBalances && currentMonthData.accountFinalBalances[account] !== undefined) {
+          estimatedBalances[account] = currentMonthData.accountFinalBalances[account];
+        } else {
+          // Fallback: calculate final balance from current month data
+          const originalBalance = currentMonthData.accountBalances?.[account] || 0;
+          const accountSavings = (currentMonthData.savingsGroups || [])
+            .filter((group: any) => group.account === account)
+            .reduce((sum: number, group: any) => sum + group.amount, 0);
+          const accountCosts = (currentMonthData.costGroups || []).reduce((sum: number, group: any) => {
+            const groupCosts = group.subCategories
+              ?.filter((sub: any) => sub.account === account)
+              .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+            return sum + groupCosts;
+          }, 0);
+          estimatedBalances[account] = originalBalance + accountSavings - accountCosts;
+        }
+      });
+      
+      return estimatedBalances;
+    };
+
+    const estimatedAccountBalances = getEstimatedBalancesForNewMonth();
     
     let newMonthData: any;
     
@@ -1589,8 +1621,8 @@ const BudgetCalculator = () => {
             ...item,
             amount: 0
           })),
-          // Reset account balances to 0
-          accountBalances: {},
+          // Use estimated account balances from previous month
+          accountBalances: estimatedAccountBalances,
           accountFinalBalances: {},
           createdAt: new Date().toISOString()
         };
@@ -1616,10 +1648,10 @@ const BudgetCalculator = () => {
         susannaPersonalCosts: JSON.parse(JSON.stringify(template.susannaPersonalCosts || [])),
         susannaPersonalSavings: JSON.parse(JSON.stringify(template.susannaPersonalSavings || [])),
         accounts: JSON.parse(JSON.stringify(template.accounts || ['Löpande', 'Sparkonto', 'Buffert'])),
-        // Reset account balances to 0
-        accountBalances: {},
-        accountFinalBalances: {},
-        createdAt: new Date().toISOString()
+          // Use estimated account balances from previous month
+          accountBalances: estimatedAccountBalances,
+          accountFinalBalances: {},
+          createdAt: new Date().toISOString()
       };
     } else if (type === 'copy') {
       // Copy current month with all data including income values
@@ -1628,8 +1660,8 @@ const BudgetCalculator = () => {
         newMonthData = {
           ...currentMonthData,
           // Keep all income values from the source month
-          // Reset account balances to 0
-          accountBalances: {},
+          // Use estimated account balances from previous month
+          accountBalances: estimatedAccountBalances,
           accountFinalBalances: {},
           createdAt: new Date().toISOString()
         };
