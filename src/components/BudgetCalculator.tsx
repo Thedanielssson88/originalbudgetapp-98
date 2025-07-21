@@ -2800,37 +2800,48 @@ const BudgetCalculator = () => {
       // Don't add anything else when using custom range!
       
     } else {
-      // Default behavior: 1 month before earliest saved month and 6 months forward
+      // Default behavior: Show months with actual data plus some forecast
+      const monthsWithData = new Set<string>();
+      
+      // Add all saved months
+      savedMonthKeys.forEach(month => monthsWithData.add(month));
+      
+      // Add current month
+      monthsWithData.add(currentMonthKey);
+      
+      // Add 1 month before earliest saved month if we have saved data
       if (savedMonthKeys.length > 0) {
         const earliestMonth = savedMonthKeys[0];
         const [year, month] = earliestMonth.split('-').map(Number);
-        
-        // Add 1 month before the earliest saved month
         const prevDate = new Date(year, month - 2, 1);
         const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-        extendedMonthKeys.push(prevMonthKey);
+        monthsWithData.add(prevMonthKey);
       }
       
-      // Add all saved months
-      extendedMonthKeys.push(...savedMonthKeys);
-      
-      // Add current month if not already included
-      if (!extendedMonthKeys.includes(currentMonthKey)) {
-        extendedMonthKeys.push(currentMonthKey);
-      }
-      
-      // Add 6 months after current month for forecast
+      // Add future months only up to where we can calculate estimates
       const [currentYear, currentMonth] = currentMonthKey.split('-').map(Number);
+      let lastMonthWithData = currentMonthKey;
+      
+      // Check up to 6 months ahead, but stop when we can't calculate estimates anymore
       for (let i = 1; i <= 6; i++) {
         const futureDate = new Date(currentYear, currentMonth - 1 + i, 1);
         const futureMonthKey = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}`;
-        if (!extendedMonthKeys.includes(futureMonthKey)) {
-          extendedMonthKeys.push(futureMonthKey);
+        
+        // Check if we can calculate estimate for this month (need previous month data)
+        const [futureYear, futureMonthNum] = futureMonthKey.split('-').map(Number);
+        const prevDate = new Date(futureYear, futureMonthNum - 2, 1);
+        const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+        
+        if (historicalData[prevMonthKey] || prevMonthKey === currentMonthKey) {
+          monthsWithData.add(futureMonthKey);
+          lastMonthWithData = futureMonthKey;
+        } else {
+          // Stop adding months if we can't calculate estimates
+          break;
         }
       }
       
-      // Remove duplicates and sort only for default behavior
-      extendedMonthKeys = [...new Set(extendedMonthKeys)].sort();
+      extendedMonthKeys = Array.from(monthsWithData).sort();
     }
 
     // Initialize selected accounts if empty
