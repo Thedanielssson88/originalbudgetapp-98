@@ -127,7 +127,15 @@ const BudgetCalculator = () => {
   
   // Account management states
   const [accounts, setAccounts] = useState<string[]>(['Löpande', 'Sparkonto', 'Buffert']);
+  const [accountCategories, setAccountCategories] = useState<string[]>(['Grundkonton', 'Sparkonton', 'Bufferkonton']);
+  const [accountCategoryMapping, setAccountCategoryMapping] = useState<{[accountName: string]: string}>({
+    'Löpande': 'Grundkonton',
+    'Sparkonto': 'Sparkonton', 
+    'Buffert': 'Bufferkonton'
+  });
   const [newAccountName, setNewAccountName] = useState<string>('');
+  const [newAccountCategory, setNewAccountCategory] = useState<string>('');
+  const [newCategoryName, setNewCategoryName] = useState<string>('');
   const [isEditingAccounts, setIsEditingAccounts] = useState<boolean>(false);
   const [expandedAccounts, setExpandedAccounts] = useState<{[key: string]: boolean}>({});
 
@@ -393,6 +401,16 @@ const BudgetCalculator = () => {
         
         // Load accounts data
         setAccounts(parsed.accounts || ['Löpande', 'Sparkonto', 'Buffert']);
+        
+        // Load account categories
+        setAccountCategories(parsed.accountCategories || ['Grundkonton', 'Sparkonton', 'Bufferkonton']);
+        
+        // Load account category mapping
+        setAccountCategoryMapping(parsed.accountCategoryMapping || {
+          'Löpande': 'Grundkonton',
+          'Sparkonto': 'Sparkonton', 
+          'Buffert': 'Bufferkonton'
+        });
         
         // Load budget templates
         setBudgetTemplates(parsed.budgetTemplates || {});
@@ -2337,6 +2355,12 @@ const BudgetCalculator = () => {
       setSusannaPersonalSavings(standardValues.susannaPersonalSavings || []);
       setHistoricalData(standardValues.historicalData || {});
       setAccounts(standardValues.accounts || ['Löpande', 'Sparkonto', 'Buffert']);
+      setAccountCategories(standardValues.accountCategories || ['Grundkonton', 'Sparkonton', 'Bufferkonton']);
+      setAccountCategoryMapping(standardValues.accountCategoryMapping || {
+        'Löpande': 'Grundkonton',
+        'Sparkonto': 'Sparkonton', 
+        'Buffert': 'Bufferkonton'
+      });
       setBudgetTemplates(standardValues.budgetTemplates || {});
       console.log('Backup loaded successfully - all data replaced');
     }
@@ -2355,10 +2379,36 @@ const BudgetCalculator = () => {
 
   // Account management functions
   const addAccount = () => {
-    if (newAccountName.trim() && !accounts.includes(newAccountName.trim())) {
+    if (newAccountName.trim() && newAccountCategory.trim() && 
+        !accounts.includes(newAccountName.trim())) {
       setAccounts([...accounts, newAccountName.trim()]);
+      setAccountCategoryMapping({
+        ...accountCategoryMapping,
+        [newAccountName.trim()]: newAccountCategory.trim()
+      });
       setNewAccountName('');
+      setNewAccountCategory('');
     }
+  };
+
+  const addAccountCategory = () => {
+    if (newCategoryName.trim() && !accountCategories.includes(newCategoryName.trim())) {
+      setAccountCategories([...accountCategories, newCategoryName.trim()]);
+      setNewCategoryName('');
+    }
+  };
+
+  const removeAccountCategory = (categoryToRemove: string) => {
+    // Check if any accounts use this category
+    const accountsUsingCategory = Object.entries(accountCategoryMapping)
+      .filter(([_, category]) => category === categoryToRemove)
+      .map(([accountName, _]) => accountName);
+    
+    if (accountsUsingCategory.length > 0) {
+      alert(`Kan inte ta bort kategorin "${categoryToRemove}" eftersom den används av konton: ${accountsUsingCategory.join(', ')}`);
+      return;
+    }
+    setAccountCategories(accountCategories.filter(cat => cat !== categoryToRemove));
   };
 
   const removeAccount = (accountName: string) => {
@@ -3426,13 +3476,20 @@ const BudgetCalculator = () => {
                       </p>
                       
                       <div className="space-y-4">
-                        {accounts.map(account => {
-                          const currentBalance = accountBalances[account] || 0;
+                         {accountCategories.map(category => {
+                           const categoryAccounts = accounts.filter(account => accountCategoryMapping[account] === category);
+                           if (categoryAccounts.length === 0) return null;
+                           
+                           return (
+                             <div key={category} className="space-y-2">
+                               <h4 className="font-semibold text-primary border-b border-primary/20 pb-1">{category}</h4>
+                               {categoryAccounts.map(account => {
+                                 const currentBalance = accountBalances[account] || 0;
                            const freshBalances = (window as any).__freshFinalBalances;
                            const estimatedResult = getEstimatedAccountBalances(freshBalances);
                            const estimatedBalance = estimatedResult?.[account] || 0;
                           
-                          return (
+                                 return (
                             <div key={account} className="bg-white rounded border overflow-hidden">
                               <div className="p-3 bg-blue-50 border-b">
                                 <h4 className="font-semibold text-blue-800">{account}</h4>
@@ -3555,8 +3612,11 @@ const BudgetCalculator = () => {
                                 )}
                               </div>
                             </div>
-                          );
-                        })}
+                                 );
+                               })}
+                             </div>
+                           );
+                         })}
                       </div>
                       
                       <div className="mt-4 pt-4 border-t border-blue-200">
@@ -3586,19 +3646,49 @@ const BudgetCalculator = () => {
                           </Button>
                         </div>
                        
-                       {isEditingAccounts && (
-                         <div className="space-y-4">
-                           <div className="flex gap-2">
-                             <Input
-                               placeholder="Nytt kontonamn"
-                               value={newAccountName}
-                               onChange={(e) => setNewAccountName(e.target.value)}
-                               className="flex-1"
-                             />
-                             <Button onClick={addAccount} disabled={!newAccountName.trim()}>
-                               <Plus className="h-4 w-4" />
-                             </Button>
-                           </div>
+                        {isEditingAccounts && (
+                          <div className="space-y-4">
+                            {/* Add Category */}
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">Lägg till kategori</Label>
+                              <div className="flex gap-2">
+                                <Input
+                                  placeholder="Ny kategori"
+                                  value={newCategoryName}
+                                  onChange={(e) => setNewCategoryName(e.target.value)}
+                                  className="flex-1"
+                                />
+                                <Button onClick={addAccountCategory} disabled={!newCategoryName.trim()}>
+                                  <Plus className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            {/* Add Account */}
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">Lägg till konto</Label>
+                              <div className="grid grid-cols-2 gap-2">
+                                <Input
+                                  placeholder="Kontonamn"
+                                  value={newAccountName}
+                                  onChange={(e) => setNewAccountName(e.target.value)}
+                                />
+                                <Select value={newAccountCategory} onValueChange={setNewAccountCategory}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Välj kategori" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {accountCategories.map(category => (
+                                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <Button onClick={addAccount} disabled={!newAccountName.trim() || !newAccountCategory.trim()} className="w-full">
+                                <Plus className="h-4 w-4 mr-1" />
+                                Lägg till konto
+                              </Button>
+                            </div>
                           
                            <div className="space-y-2">
                              {accounts.map((account, index) => (
@@ -3963,10 +4053,10 @@ const BudgetCalculator = () => {
                                                   <SelectValue placeholder="Välj konto" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                  <SelectItem value="none">Inget konto</SelectItem>
-                                                  {accounts.map((account) => (
-                                                    <SelectItem key={account} value={account}>
-                                                      {account}
+                                                   <SelectItem value="none">Inget konto</SelectItem>
+                                                   {accounts.map((account) => (
+                                                     <SelectItem key={account} value={account}>
+                                                       {account}
                                                     </SelectItem>
                                                   ))}
                                                 </SelectContent>
@@ -4140,10 +4230,10 @@ const BudgetCalculator = () => {
                                           <SelectValue placeholder="Välj konto" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                          <SelectItem value="none">Inget konto</SelectItem>
-                                          {accounts.map((account) => (
-                                            <SelectItem key={account} value={account}>
-                                              {account}
+                                           <SelectItem value="none">Inget konto</SelectItem>
+                                           {accounts.map((account) => (
+                                             <SelectItem key={account} value={account}>
+                                               {account}
                                             </SelectItem>
                                           ))}
                                         </SelectContent>
@@ -5058,20 +5148,49 @@ const BudgetCalculator = () => {
                              </Button>
                            </div>
                            
-                           {isEditingAccounts && (
-                             <div className="space-y-4">
-                               <div className="flex gap-2">
-                                 <Input
-                                   placeholder="Nytt kontonamn"
-                                   value={newAccountName}
-                                   onChange={(e) => setNewAccountName(e.target.value)}
-                                   className="flex-1"
-                                 />
-                                 <Button onClick={addAccount} disabled={!newAccountName.trim()}>
-                                   <Plus className="w-4 h-4 mr-1" />
-                                   Lägg till
-                                 </Button>
-                               </div>
+                            {isEditingAccounts && (
+                              <div className="space-y-4">
+                                {/* Add Category */}
+                                <div className="space-y-2">
+                                  <Label className="text-sm font-medium">Lägg till kategori</Label>
+                                  <div className="flex gap-2">
+                                    <Input
+                                      placeholder="Ny kategori"
+                                      value={newCategoryName}
+                                      onChange={(e) => setNewCategoryName(e.target.value)}
+                                      className="flex-1"
+                                    />
+                                    <Button onClick={addAccountCategory} disabled={!newCategoryName.trim()}>
+                                      <Plus className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                                
+                                {/* Add Account */}
+                                <div className="space-y-2">
+                                  <Label className="text-sm font-medium">Lägg till konto</Label>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <Input
+                                      placeholder="Kontonamn"
+                                      value={newAccountName}
+                                      onChange={(e) => setNewAccountName(e.target.value)}
+                                    />
+                                    <Select value={newAccountCategory} onValueChange={setNewAccountCategory}>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Välj kategori" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {accountCategories.map(category => (
+                                          <SelectItem key={category} value={category}>{category}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <Button onClick={addAccount} disabled={!newAccountName.trim() || !newAccountCategory.trim()} className="w-full">
+                                    <Plus className="w-4 h-4 mr-1" />
+                                    Lägg till konto
+                                  </Button>
+                                </div>
                                
                                <div className="space-y-2">
                                  <h5 className="text-sm font-medium">Befintliga konton:</h5>
@@ -5246,8 +5365,15 @@ const BudgetCalculator = () => {
                         <div className="mt-4 space-y-4">
                           {/* Cost Budget Account Summary List */}
                           <div className="space-y-3">
-                            {accounts.map(account => {
-                              // Get original balance from first page or use estimated balance
+                             {accountCategories.map(category => {
+                               const categoryAccounts = accounts.filter(account => accountCategoryMapping[account] === category);
+                               if (categoryAccounts.length === 0) return null;
+                               
+                               return (
+                                 <div key={category} className="space-y-2">
+                                   <h4 className="font-semibold text-green-700 border-b border-green-200 pb-1">{category}</h4>
+                                   {categoryAccounts.map(account => {
+                                     // Get original balance from first page or use estimated balance
                               const originalBalance = getAccountBalanceWithFallback(account);
                               
                               // Calculate total deposits (savings + costs as positive) for this account
@@ -5890,9 +6016,11 @@ const BudgetCalculator = () => {
                                  </div>
                                )}
                              </div>
-                           );
-                          })}
-                        </div>
+                                     );
+                                   })}
+                                 </div>
+                               );
+                             })}
                        
                         {/* Account Management Section */}
                         <div className="p-4 bg-gray-50 rounded-lg">
@@ -5906,20 +6034,49 @@ const BudgetCalculator = () => {
                             </Button>
                           </div>
                          
-                         {isEditingAccounts && (
-                           <div className="space-y-4">
-                             <div className="flex gap-2">
-                               <Input
-                                 placeholder="Nytt kontonamn"
-                                 value={newAccountName}
-                                 onChange={(e) => setNewAccountName(e.target.value)}
-                                 className="flex-1"
-                               />
-                               <Button onClick={addAccount} disabled={!newAccountName.trim()}>
-                                 <Plus className="w-4 h-4 mr-1" />
-                                 Lägg till
-                               </Button>
-                             </div>
+                          {isEditingAccounts && (
+                            <div className="space-y-4">
+                              {/* Add Category */}
+                              <div className="space-y-2">
+                                <Label className="text-sm font-medium">Lägg till kategori</Label>
+                                <div className="flex gap-2">
+                                  <Input
+                                    placeholder="Ny kategori"
+                                    value={newCategoryName}
+                                    onChange={(e) => setNewCategoryName(e.target.value)}
+                                    className="flex-1"
+                                  />
+                                  <Button onClick={addAccountCategory} disabled={!newCategoryName.trim()}>
+                                    <Plus className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                              
+                              {/* Add Account */}
+                              <div className="space-y-2">
+                                <Label className="text-sm font-medium">Lägg till konto</Label>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <Input
+                                    placeholder="Kontonamn"
+                                    value={newAccountName}
+                                    onChange={(e) => setNewAccountName(e.target.value)}
+                                  />
+                                  <Select value={newAccountCategory} onValueChange={setNewAccountCategory}>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Välj kategori" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {accountCategories.map(category => (
+                                        <SelectItem key={category} value={category}>{category}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <Button onClick={addAccount} disabled={!newAccountName.trim() || !newAccountCategory.trim()} className="w-full">
+                                  <Plus className="w-4 h-4 mr-1" />
+                                  Lägg till konto
+                                </Button>
+                              </div>
                              
                              <div className="space-y-2">
                                <h5 className="text-sm font-medium">Befintliga konton:</h5>
@@ -7096,8 +7253,8 @@ const BudgetCalculator = () => {
                                                            <SelectValue placeholder="Välj konto" />
                                                          </SelectTrigger>
                                                          <SelectContent>
-                                                           {accounts.map(account => (
-                                                             <SelectItem key={account} value={account}>{account}</SelectItem>
+                                                            {accounts.map(account => (
+                                                              <SelectItem key={account} value={account}>{account}</SelectItem>
                                                            ))}
                                                          </SelectContent>
                                                        </Select>
@@ -7150,8 +7307,8 @@ const BudgetCalculator = () => {
                                                                <SelectValue placeholder="Konto" />
                                                              </SelectTrigger>
                                                              <SelectContent>
-                                                               {accounts.map(account => (
-                                                                 <SelectItem key={account} value={account}>{account}</SelectItem>
+                                                                {accounts.map(account => (
+                                                                  <SelectItem key={account} value={account}>{account}</SelectItem>
                                                                ))}
                                                              </SelectContent>
                                                            </Select>
@@ -7206,8 +7363,8 @@ const BudgetCalculator = () => {
                                                            <SelectValue placeholder="Välj konto" />
                                                          </SelectTrigger>
                                                          <SelectContent>
-                                                           {accounts.map(account => (
-                                                             <SelectItem key={account} value={account}>{account}</SelectItem>
+                                                            {accounts.map(account => (
+                                                              <SelectItem key={account} value={account}>{account}</SelectItem>
                                                            ))}
                                                          </SelectContent>
                                                        </Select>
