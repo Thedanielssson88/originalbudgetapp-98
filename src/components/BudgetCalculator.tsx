@@ -918,16 +918,24 @@ const BudgetCalculator = () => {
         .filter((group: any) => group.account === account)
         .reduce((sum: number, group: any) => sum + group.amount, 0);
       
-      // Calculate total costs for this account from cost subcategories  
-      const accountCosts = costGroups.reduce((sum: number, group: any) => {
+      // Calculate recurring costs for this account (Löpande kostnader) - these are deposited as cost budget
+      const accountRecurringCosts = costGroups.reduce((sum: number, group: any) => {
         const groupCosts = group.subCategories
-          ?.filter((sub: any) => sub.account === account)
+          ?.filter((sub: any) => sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom))
           .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
         return sum + groupCosts;
       }, 0);
       
-      // Final balance (Slutsaldo) = original balance + savings - costs
-      finalBalances[account] = originalBalance + accountSavings - accountCosts;
+      // Calculate non-recurring costs for this account (costs that are NOT "Löpande kostnad")
+      const accountNonRecurringCosts = costGroups.reduce((sum: number, group: any) => {
+        const groupCosts = group.subCategories
+          ?.filter((sub: any) => sub.account === account && sub.financedFrom && sub.financedFrom !== 'Löpande kostnad')
+          .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+        return sum + groupCosts;
+      }, 0);
+      
+      // Final balance (Slutsaldo) = original balance + savings + recurring costs (cost budget deposit) - non-recurring costs
+      finalBalances[account] = originalBalance + accountSavings + accountRecurringCosts - accountNonRecurringCosts;
     });
     
     // Update state with final balances
@@ -3470,21 +3478,39 @@ const BudgetCalculator = () => {
                                           );
                                         }
                                         
-                                        // Get original balance from previous previous month's final balance or initial balance
-                                        let originalBalance = prevMonthData.accountBalances?.[account] || 0;
-                                        if (freshBalances && freshBalances[account] !== undefined) {
-                                          originalBalance = freshBalances[account];
-                                        } else if (prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
-                                          originalBalance = prevMonthData.accountFinalBalances[account];
-                                        } else {
-                                          // Try to get from previous previous month if available
-                                          const prevPrevMonthDate = new Date(prevMonthInfo.year, new Date().getMonth() - 2, 1);
-                                          const prevPrevMonthKey = `${prevPrevMonthDate.getFullYear()}-${String(prevPrevMonthDate.getMonth() + 1).padStart(2, '0')}`;
-                                          const prevPrevMonthData = historicalData[prevPrevMonthKey];
-                                          if (prevPrevMonthData && prevPrevMonthData.accountFinalBalances && prevPrevMonthData.accountFinalBalances[account] !== undefined) {
-                                            originalBalance = prevPrevMonthData.accountFinalBalances[account];
-                                          }
-                                        }
+                                         // Get original balance (Ursprungligt saldo) from previous month's final balance (Slutsaldo)
+                                         let originalBalance = 0;
+                                         if (freshBalances && freshBalances[account] !== undefined) {
+                                           originalBalance = freshBalances[account];
+                                         } else if (prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
+                                           originalBalance = prevMonthData.accountFinalBalances[account];
+                                         } else {
+                                           // Fallback: calculate from previous month's data if final balance not saved
+                                           const prevOriginalBalance = prevMonthData.accountBalances?.[account] || 0;
+                                           
+                                           // Calculate savings for previous month
+                                           const prevAccountSavings = (prevMonthData.savingsGroups || [])
+                                             .filter((group: any) => group.account === account)
+                                             .reduce((sum: number, group: any) => sum + group.amount, 0);
+                                           
+                                           // Calculate recurring costs for previous month
+                                           const prevAccountRecurringCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+                                             const groupCosts = group.subCategories
+                                               ?.filter((sub: any) => sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom))
+                                               .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+                                             return sum + groupCosts;
+                                           }, 0);
+                                           
+                                           // Calculate non-recurring costs for previous month
+                                           const prevAccountNonRecurringCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+                                             const groupCosts = group.subCategories
+                                               ?.filter((sub: any) => sub.account === account && sub.financedFrom && sub.financedFrom !== 'Löpande kostnad')
+                                               .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+                                             return sum + groupCosts;
+                                           }, 0);
+                                           
+                                           originalBalance = prevOriginalBalance + prevAccountSavings + prevAccountRecurringCosts - prevAccountNonRecurringCosts;
+                                         }
                                         
                                         // Calculate savings for this account
                                         const accountSavings = (prevMonthData.savingsGroups || [])
@@ -3519,12 +3545,12 @@ const BudgetCalculator = () => {
                                                 <span className="text-green-600">+{formatCurrency(accountSavings)}</span>
                                               </div>
                                             )}
-                                            {accountRecurringCosts > 0 && (
-                                              <div className="flex justify-between text-xs">
-                                                <span className="text-orange-700">Insättning kostnadsbudget:</span>
-                                                <span className="text-green-600">+{formatCurrency(accountRecurringCosts)}</span>
-                                              </div>
-                                            )}
+                                             {accountRecurringCosts > 0 && (
+                                               <div className="flex justify-between text-xs">
+                                                 <span className="text-orange-700">Löpande kostnader (insättning):</span>
+                                                 <span className="text-green-600">+{formatCurrency(accountRecurringCosts)}</span>
+                                               </div>
+                                             )}
                                             {accountNonRecurringCosts > 0 && (
                                               <div className="flex justify-between text-xs">
                                                 <span className="text-orange-700">Icke-löpande kostnader:</span>
