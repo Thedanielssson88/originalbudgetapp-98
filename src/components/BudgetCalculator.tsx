@@ -175,6 +175,9 @@ const BudgetCalculator = () => {
   // Account chart selection state
   const [selectedAccountsForChart, setSelectedAccountsForChart] = useState<string[]>([]);
   
+  // Individual costs chart selection state (for "Enskilda kostnader")
+  const [selectedIndividualCostsForChart, setSelectedIndividualCostsForChart] = useState<string[]>([]);
+  
   // Chart time range selection state
   const [useCustomTimeRange, setUseCustomTimeRange] = useState<boolean>(false);
   const [chartStartMonth, setChartStartMonth] = useState<string>('');
@@ -436,6 +439,9 @@ const BudgetCalculator = () => {
         // Load selected accounts for chart
         setSelectedAccountsForChart(parsed.selectedAccountsForChart || []);
         
+        // Load selected individual costs for chart
+        setSelectedIndividualCostsForChart(parsed.selectedIndividualCostsForChart || []);
+        
         // Load chart time range settings
         setUseCustomTimeRange(parsed.useCustomTimeRange || false);
         setChartStartMonth(parsed.chartStartMonth || '');
@@ -592,6 +598,7 @@ const BudgetCalculator = () => {
       accountFinalBalances,
       accountEstimatedFinalBalances,
       selectedAccountsForChart,
+      selectedIndividualCostsForChart,
       useCustomTimeRange,
       chartStartMonth,
       chartEndMonth
@@ -605,7 +612,7 @@ const BudgetCalculator = () => {
       saveToLocalStorage();
       saveToSelectedMonth();
     }
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountFinalBalances, accountEstimatedFinalBalances, selectedAccountsForChart, useCustomTimeRange, chartStartMonth, chartEndMonth, isInitialLoad]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountFinalBalances, accountEstimatedFinalBalances, selectedAccountsForChart, selectedIndividualCostsForChart, useCustomTimeRange, chartStartMonth, chartEndMonth, isInitialLoad]);
   // Calculate estimated final balances when budget month changes
   useEffect(() => {
     if (!isInitialLoad && selectedBudgetMonth) {
@@ -2972,6 +2979,21 @@ const BudgetCalculator = () => {
     // Debug logging
     console.log('📅 Final month keys for chart:', extendedMonthKeys);
 
+    // Helper function to get individual costs for a specific month and account
+    const getIndividualCostsForMonth = (monthKey: string, account: string) => {
+      const monthData = historicalData[monthKey];
+      if (!monthData) return 0;
+      
+      const individualCosts = (monthData.costGroups || []).reduce((sum: number, group: any) => {
+        const groupIndividualCosts = group.subCategories
+          ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
+          .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+        return sum + groupIndividualCosts;
+      }, 0);
+      
+      return individualCosts;
+    };
+
     // Calculate chart data and create separate keys for historical vs forecast
     const chartData = extendedMonthKeys.map((monthKey) => {
       const dataPoint: any = { 
@@ -2981,13 +3003,21 @@ const BudgetCalculator = () => {
       
       accounts.forEach(account => {
         const balance = getBalanceForMonth(monthKey, account);
+        const individualCosts = getIndividualCostsForMonth(monthKey, account);
+        
         // Create separate dataKeys for historical and forecast data
         if (dataPoint.isHistorical) {
           dataPoint[`${account}_historical`] = balance;
           dataPoint[`${account}_forecast`] = null;
+          dataPoint[`${account}_individual_costs_historical`] = individualCosts > 0 ? individualCosts : null;
+          dataPoint[`${account}_individual_costs_forecast`] = null;
         } else {
           dataPoint[`${account}_historical`] = null; 
           dataPoint[`${account}_forecast`] = balance;
+          dataPoint[`${account}_individual_costs_historical`] = null;
+          // For forecast, use current month's individual costs if available
+          const currentIndividualCosts = getIndividualCostsForMonth(currentMonthKey, account);
+          dataPoint[`${account}_individual_costs_forecast`] = currentIndividualCosts > 0 ? currentIndividualCosts : null;
         }
         // Store original balance for transition line calculations
         dataPoint[account] = balance;
@@ -3182,6 +3212,35 @@ const BudgetCalculator = () => {
           </div>
         </div>
 
+        {/* Individual Costs Selection */}
+        <div className="bg-muted/50 p-4 rounded-lg">
+          <h4 className="font-medium mb-3">Välj Enskilda Kostnader att visa:</h4>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {accounts.map((account, index) => {
+              const accountName = typeof account === 'string' ? account : (account as any).name || '';
+              return (
+                <label key={`individual-${accountName}`} className="flex items-center space-x-2 cursor-pointer">
+                  <Checkbox 
+                    checked={selectedIndividualCostsForChart.includes(accountName)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedIndividualCostsForChart(prev => [...prev, accountName]);
+                      } else {
+                        setSelectedIndividualCostsForChart(prev => prev.filter(a => a !== accountName));
+                      }
+                    }}
+                  />
+                  <span className="text-sm text-red-600">{accountName} (Enskilda Kostnader)</span>
+                  <div 
+                    className="w-3 h-3 rounded-full ml-1" 
+                    style={{ backgroundColor: '#ef4444' }}
+                  />
+                 </label>
+                );
+             })}
+          </div>
+        </div>
+
         {/* Chart */}
         <div className="h-96 relative">
           <ResponsiveContainer width="100%" height="100%">
@@ -3237,6 +3296,34 @@ const BudgetCalculator = () => {
                   connectNulls={false}
                   dot={false}
                   legendType="none"
+                />
+              ))}
+
+              {/* Individual Costs lines for historical data (solid red) */}
+              {selectedIndividualCostsForChart.map((account, index) => (
+                <Line
+                  key={`${account}-individual-costs-historical`}
+                  type="monotone"
+                  dataKey={`${account}_individual_costs_historical`}
+                  stroke="#ef4444"
+                  name={`${account} (Enskilda Kostnader - Historisk)`}
+                  strokeWidth={2}
+                  strokeDasharray={undefined}
+                  connectNulls={false}
+                />
+              ))}
+
+              {/* Individual Costs lines for forecast data (dashed red) */}
+              {selectedIndividualCostsForChart.map((account, index) => (
+                <Line
+                  key={`${account}-individual-costs-forecast`}
+                  type="monotone"
+                  dataKey={`${account}_individual_costs_forecast`}
+                  stroke="#ef4444"
+                  name={`${account} (Enskilda Kostnader - Prognos)`}
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  connectNulls={false}
                 />
               ))}
 
