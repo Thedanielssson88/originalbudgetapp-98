@@ -5184,13 +5184,15 @@ const BudgetCalculator = () => {
                                         </span>
                                       </div>
                                       
-                                      {/* Total deposits grouped as "Insättning" */}
-                                      {totalDeposits > 0 && (
-                                        <div className="flex justify-between text-sm">
-                                          <span className="text-gray-600">Insättning</span>
-                                          <span className="text-green-600">+{formatCurrency(totalDeposits)}</span>
-                                        </div>
-                                      )}
+                                      {/* Individual savings items (deposits) */}
+                                      {savingsGroups
+                                        .filter(group => group.account === account)
+                                        .map(savingsGroup => (
+                                          <div key={`costbudget-savings-${savingsGroup.id}`} className="flex justify-between text-sm">
+                                            <span className="text-gray-600">{savingsGroup.name} (Insättning)</span>
+                                            <span className="text-green-600">+{formatCurrency(savingsGroup.amount)}</span>
+                                          </div>
+                                        ))}
                                       
                                       {/* Individual cost items as negative values */}
                                       {accountCostItems.map(costItem => (
