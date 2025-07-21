@@ -1387,8 +1387,8 @@ const BudgetCalculator = () => {
     setSusannaPersonalCosts(monthData.susannaPersonalCosts || []);
     setSusannaPersonalSavings(monthData.susannaPersonalSavings || []);
     
-    // Always start with empty account balances - user should fill manually
-    setAccountBalances({});
+    // Load saved account balances, or start with empty if none exist
+    setAccountBalances(monthData.accountBalances || {});
     setAccountFinalBalances(monthData.accountFinalBalances || {});
     
     // Update results if available
