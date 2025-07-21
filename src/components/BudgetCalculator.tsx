@@ -3021,6 +3021,44 @@ const BudgetCalculator = () => {
                   connectNulls={false}
                 />
               ))}
+
+              {/* Transition lines connecting last historical to first forecast point */}
+              {selectedAccountsForChart.map((account, index) => {
+                // Find the last historical point and first forecast point for this account
+                const lastHistoricalIndex = chartData.map(d => d.isHistorical).lastIndexOf(true);
+                const firstForecastIndex = chartData.findIndex(d => !d.isHistorical);
+                
+                // Only draw transition line if we have both historical and forecast data
+                if (lastHistoricalIndex >= 0 && firstForecastIndex >= 0 && firstForecastIndex > lastHistoricalIndex) {
+                  const transitionData = [
+                    {
+                      ...chartData[lastHistoricalIndex],
+                      [account]: chartData[lastHistoricalIndex][account]
+                    },
+                    {
+                      ...chartData[firstForecastIndex],
+                      [account]: chartData[firstForecastIndex][account]
+                    }
+                  ];
+                  
+                  return (
+                    <Line
+                      key={`${account}-transition`}
+                      type="linear"
+                      dataKey={account}
+                      stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
+                      name={`${account} (Övergång)`}
+                      strokeWidth={2}
+                      strokeDasharray="8 4"
+                      data={transitionData}
+                      connectNulls={false}
+                      dot={false}
+                    />
+                  );
+                }
+                return null;
+              })}
+            
             </LineChart>
           </ResponsiveContainer>
           
