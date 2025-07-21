@@ -5365,15 +5365,17 @@ const BudgetCalculator = () => {
                         <div className="mt-4 space-y-4">
                           {/* Cost Budget Account Summary List */}
                           <div className="space-y-3">
-                             {accountCategories.map(category => {
-                               const categoryAccounts = accounts.filter(account => accountCategoryMapping[account] === category);
-                               if (categoryAccounts.length === 0) return null;
+                             {accounts.map(account => {
+                               // Get original balance from first page or use estimated balance
+                               const originalBalance = getAccountBalanceWithFallback(account);
                                
-                               return (
-                                 <div key={category} className="space-y-2">
-                                   <h4 className="font-semibold text-green-700 border-b border-green-200 pb-1">{category}</h4>
-                                   {categoryAccounts.map(account => {
-                                     // Get original balance from first page or use estimated balance
+                               // Calculate total deposits (savings + costs as positive) for this account
+                               const savingsAmount = savingsGroups
+                                 .filter(group => group.account === account)
+                                 .reduce((sum, group) => sum + group.amount, 0);
+                               
+                               // Calculate total costs for this account (only Löpande kostnad)
+                               const totalCosts = accountCostItems.reduce((sum, item) => sum + item.amount, 0);
                               const originalBalance = getAccountBalanceWithFallback(account);
                               
                               // Calculate total deposits (savings + costs as positive) for this account
@@ -6012,22 +6014,23 @@ const BudgetCalculator = () => {
                                             <span className="text-red-600">{formatCurrency(sub.amount)}</span>
                                           </div>
                                        ))
-                                   )}
-                                 </div>
-                               )}
-                             </div>
-                                       );
-                                     })}
-                                   </div>
-                                 );
-                               })}
-                       
-                        {/* Account Management Section */}
-                        <div className="p-4 bg-gray-50 rounded-lg">
-                          <div className="flex justify-center mb-4">
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
+                                });
+                              })}
+                           </div>
+                         )}
+                       </div>
+
+                         {/* Account Management Section */}
+                         <div className="p-4 bg-gray-50 rounded-lg">
+                           <div className="flex justify-center mb-4">
+                             <Button 
+                               size="sm" 
+                               variant="outline" 
+                               onClick={() => setIsEditingAccounts(!isEditingAccounts)}
+                             >
+                               {isEditingAccounts ? 'Stäng' : 'Redigera konton'}
+                             </Button>
+                           </div>
                               onClick={() => setIsEditingAccounts(!isEditingAccounts)}
                             >
                               {isEditingAccounts ? 'Stäng' : 'Redigera konton'}
