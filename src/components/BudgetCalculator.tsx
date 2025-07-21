@@ -2791,11 +2791,15 @@ const BudgetCalculator = () => {
         return <div className="text-center py-8"><p className="text-muted-foreground">Slutmånad kan inte vara före startmånad.</p></div>;
       }
       
+      // Generate exactly the months in the selected range
       while (currentIterMonth <= endDate) {
         const monthKey = `${currentIterMonth.getFullYear()}-${String(currentIterMonth.getMonth() + 1).padStart(2, '0')}`;
         extendedMonthKeys.push(monthKey);
         currentIterMonth.setMonth(currentIterMonth.getMonth() + 1);
       }
+      
+      // For custom range, DON'T add any duplicates or sorting - use exactly what was generated
+      // extendedMonthKeys already contains the exact months we want to show
     } else {
       // Default behavior: 1 month before earliest saved month and 6 months forward
       if (savedMonthKeys.length > 0) {
@@ -2825,10 +2829,10 @@ const BudgetCalculator = () => {
           extendedMonthKeys.push(futureMonthKey);
         }
       }
+      
+      // Remove duplicates and sort only for default behavior
+      extendedMonthKeys = [...new Set(extendedMonthKeys)].sort();
     }
-    
-    // Remove duplicates and sort
-    extendedMonthKeys = [...new Set(extendedMonthKeys)].sort();
 
     // Initialize selected accounts if empty
     if (selectedAccountsForChart.length === 0 && accounts.length > 0) {
