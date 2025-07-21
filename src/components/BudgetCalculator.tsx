@@ -5071,19 +5071,28 @@ const BudgetCalculator = () => {
                                 return sum + groupCosts;
                               }, 0);
                               
-                              const totalDeposits = savingsAmount + costsAmount;
-                              
-                              // Get all cost subcategories for this account
-                              const accountCostItems = costGroups.reduce((items, group) => {
-                                const groupCosts = group.subCategories?.filter(sub => sub.account === account) || [];
-                                return items.concat(groupCosts);
-                              }, []);
-                              
-                              // Calculate total costs for this account
-                              const totalCosts = accountCostItems.reduce((sum, item) => sum + item.amount, 0);
-                              
-                              // Calculate final balance (original + deposits - costs)
-                              const finalBalance = originalBalance + totalDeposits - totalCosts;
+                               // Only count savings as deposits, not costs
+                               const totalDeposits = savingsAmount;
+                               
+                               // Get all cost subcategories for this account
+                               const accountCostItems = costGroups.reduce((items, group) => {
+                                 const groupCosts = group.subCategories?.filter(sub => sub.account === account) || [];
+                                 return items.concat(groupCosts);
+                               }, []);
+                               
+                               // Calculate total costs for this account
+                               const totalCosts = accountCostItems.reduce((sum, item) => sum + item.amount, 0);
+                               
+                               // Calculate final balance (original + deposits - costs)
+                               const finalBalance = originalBalance + totalDeposits - totalCosts;
+                               
+                               console.log(`=== KONTOBELOPP EFTER BUDGET DEBUG FOR ${account} ===`);
+                               console.log(`Original balance: ${originalBalance}`);
+                               console.log(`Savings (deposits): ${savingsAmount}`);
+                               console.log(`Costs: ${totalCosts}`);
+                               console.log(`Final balance (Slutsaldo): ${finalBalance}`);
+                               console.log(`Month: ${selectedBudgetMonth}`);
+                               console.log(`=== END DEBUG ===`);
                               
                               const hasDetails = totalDeposits > 0 || accountCostItems.length > 0 || originalBalance !== 0;
                               
