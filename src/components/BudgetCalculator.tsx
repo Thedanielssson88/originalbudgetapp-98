@@ -2342,25 +2342,10 @@ const BudgetCalculator = () => {
         const originalBalance = prevMonthData.accountBalances?.[account] || 0;
         console.log(`Original balance for ${account}: ${originalBalance}`);
         
-        // Get total income for the previous month
-        const totalIncome = prevMonthData.totalSalary || 0;
-        
-        // Calculate account share of total income based on savings allocation
+        // Calculate savings/deposits for this account from previous month
         const accountSavings = (prevMonthData.savingsGroups || [])
           .filter((group: any) => group.account === account)
           .reduce((sum: number, group: any) => sum + group.amount, 0);
-        
-        // Calculate what portion of total income goes to this account
-        const totalSavingsAllAccounts = (prevMonthData.savingsGroups || [])
-          .reduce((sum: number, group: any) => sum + group.amount, 0);
-        
-        // If this account has savings, calculate its proportional share of income
-        let accountIncomeShare = 0;
-        if (totalSavingsAllAccounts > 0) {
-          accountIncomeShare = (accountSavings / totalSavingsAllAccounts) * totalIncome;
-        }
-        
-        console.log(`Account income share for ${account}: ${accountIncomeShare}`);
         
         // Calculate costs for this account from previous month
         const accountCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
@@ -2369,11 +2354,14 @@ const BudgetCalculator = () => {
             .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
           return sum + groupCosts;
         }, 0);
-        console.log(`Account costs for ${account}: ${accountCosts}`);
         
-        // Final balance (Slutsaldo) = original balance + income share - costs
-        estimatedBalances[account] = originalBalance + accountIncomeShare - accountCosts;
-        console.log(`Estimated balance for ${account}: ${estimatedBalances[account]}`);
+        // Final balance (Slutsaldo) from "Kontobelopp efter budget" = original balance + deposits - costs
+        // This is exactly what gets displayed as "Slutsaldo" in the previous month
+        const slutsaldo = originalBalance + accountSavings - accountCosts;
+        
+        // Use this slutsaldo as the estimated starting balance for the next month
+        estimatedBalances[account] = slutsaldo;
+        console.log(`Slutsaldo from previous month for ${account}: ${slutsaldo}`);
       });
       
       console.log(`All estimated balances:`, estimatedBalances);
