@@ -174,6 +174,11 @@ const BudgetCalculator = () => {
   
   // Account chart selection state
   const [selectedAccountsForChart, setSelectedAccountsForChart] = useState<string[]>([]);
+  
+  // Chart time range selection state
+  const [useCustomTimeRange, setUseCustomTimeRange] = useState<boolean>(false);
+  const [chartStartMonth, setChartStartMonth] = useState<string>('');
+  const [chartEndMonth, setChartEndMonth] = useState<string>('');
 
   // Tab navigation helper functions
   const getTabOrder = () => {
@@ -431,6 +436,11 @@ const BudgetCalculator = () => {
         // Load selected accounts for chart
         setSelectedAccountsForChart(parsed.selectedAccountsForChart || []);
         
+        // Load chart time range settings
+        setUseCustomTimeRange(parsed.useCustomTimeRange || false);
+        setChartStartMonth(parsed.chartStartMonth || '');
+        setChartEndMonth(parsed.chartEndMonth || '');
+        
         if (parsed.results) {
           setResults(parsed.results);
         }
@@ -581,7 +591,10 @@ const BudgetCalculator = () => {
       accountBalances,
       accountFinalBalances,
       accountEstimatedFinalBalances,
-      selectedAccountsForChart
+      selectedAccountsForChart,
+      useCustomTimeRange,
+      chartStartMonth,
+      chartEndMonth
     };
     localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
   };
@@ -592,7 +605,7 @@ const BudgetCalculator = () => {
       saveToLocalStorage();
       saveToSelectedMonth();
     }
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountFinalBalances, accountEstimatedFinalBalances, selectedAccountsForChart, isInitialLoad]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountFinalBalances, accountEstimatedFinalBalances, selectedAccountsForChart, useCustomTimeRange, chartStartMonth, chartEndMonth, isInitialLoad]);
   // Calculate estimated final balances when budget month changes
   useEffect(() => {
     if (!isInitialLoad && selectedBudgetMonth) {
@@ -2758,37 +2771,55 @@ const BudgetCalculator = () => {
     // Get all saved months from historical data and sort them
     const savedMonthKeys = Object.keys(historicalData).sort();
     
-    // Create extended month list including previous and future months
-    const extendedMonthKeys: string[] = [];
+    // Create extended month list based on user selection or default behavior
+    let extendedMonthKeys: string[] = [];
     
-    // Add 6 months before the earliest saved month
-    if (savedMonthKeys.length > 0) {
-      const earliestMonth = savedMonthKeys[0];
-      const [year, month] = earliestMonth.split('-').map(Number);
-      for (let i = 6; i >= 1; i--) {
-        const prevDate = new Date(year, month - 1 - i, 1);
+    if (useCustomTimeRange && chartStartMonth && chartEndMonth) {
+      // Use custom time range - generate all months between start and end
+      const [startYear, startMonth] = chartStartMonth.split('-').map(Number);
+      const [endYear, endMonth] = chartEndMonth.split('-').map(Number);
+      
+      let currentIterMonth = new Date(startYear, startMonth - 1, 1);
+      const endDate = new Date(endYear, endMonth - 1, 1);
+      
+      while (currentIterMonth <= endDate) {
+        const monthKey = `${currentIterMonth.getFullYear()}-${String(currentIterMonth.getMonth() + 1).padStart(2, '0')}`;
+        extendedMonthKeys.push(monthKey);
+        currentIterMonth.setMonth(currentIterMonth.getMonth() + 1);
+      }
+    } else {
+      // Default behavior: 1 month before earliest saved month and 6 months forward
+      if (savedMonthKeys.length > 0) {
+        const earliestMonth = savedMonthKeys[0];
+        const [year, month] = earliestMonth.split('-').map(Number);
+        
+        // Add 1 month before the earliest saved month
+        const prevDate = new Date(year, month - 2, 1);
         const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
         extendedMonthKeys.push(prevMonthKey);
       }
-    }
-    
-    // Add all saved months
-    extendedMonthKeys.push(...savedMonthKeys);
-    
-    // Add current month if not already included
-    if (!extendedMonthKeys.includes(currentMonthKey)) {
-      extendedMonthKeys.push(currentMonthKey);
-    }
-    
-    // Add 6 months after current month for forecast
-    const [currentYear, currentMonth] = currentMonthKey.split('-').map(Number);
-    for (let i = 1; i <= 6; i++) {
-      const futureDate = new Date(currentYear, currentMonth - 1 + i, 1);
-      const futureMonthKey = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}`;
-      if (!extendedMonthKeys.includes(futureMonthKey)) {
-        extendedMonthKeys.push(futureMonthKey);
+      
+      // Add all saved months
+      extendedMonthKeys.push(...savedMonthKeys);
+      
+      // Add current month if not already included
+      if (!extendedMonthKeys.includes(currentMonthKey)) {
+        extendedMonthKeys.push(currentMonthKey);
+      }
+      
+      // Add 6 months after current month for forecast
+      const [currentYear, currentMonth] = currentMonthKey.split('-').map(Number);
+      for (let i = 1; i <= 6; i++) {
+        const futureDate = new Date(currentYear, currentMonth - 1 + i, 1);
+        const futureMonthKey = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}`;
+        if (!extendedMonthKeys.includes(futureMonthKey)) {
+          extendedMonthKeys.push(futureMonthKey);
+        }
       }
     }
+    
+    // Remove duplicates and sort
+    extendedMonthKeys = [...new Set(extendedMonthKeys)].sort();
 
     // Initialize selected accounts if empty
     if (selectedAccountsForChart.length === 0 && accounts.length > 0) {
@@ -2942,6 +2973,64 @@ const BudgetCalculator = () => {
 
     return (
       <div className="space-y-4">
+        {/* Time Range Selection */}
+        <div className="bg-muted/50 p-4 rounded-lg">
+          <div className="flex items-center space-x-2 mb-3">
+            <Checkbox 
+              checked={useCustomTimeRange}
+              onCheckedChange={(checked) => setUseCustomTimeRange(checked as boolean)}
+            />
+            <h4 className="font-medium">Anpassa tidsintervall</h4>
+          </div>
+          
+          {useCustomTimeRange && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="chart-start-month" className="text-sm">Startmånad:</Label>
+                <Select value={chartStartMonth} onValueChange={setChartStartMonth}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Välj startmånad" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {savedMonthKeys.map(month => (
+                      <SelectItem key={month} value={month}>
+                        {new Date(month + '-01').toLocaleDateString('sv-SE', { 
+                          year: 'numeric', 
+                          month: 'long' 
+                        })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="chart-end-month" className="text-sm">Slutmånad:</Label>
+                <Select value={chartEndMonth} onValueChange={setChartEndMonth}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Välj slutmånad" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {savedMonthKeys.map(month => (
+                      <SelectItem key={month} value={month}>
+                        {new Date(month + '-01').toLocaleDateString('sv-SE', { 
+                          year: 'numeric', 
+                          month: 'long' 
+                        })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          
+          {!useCustomTimeRange && (
+            <p className="text-sm text-muted-foreground">
+              Standard: En månad före första sparade månaden till 6 månader framåt
+            </p>
+          )}
+        </div>
+
         {/* Account Selection */}
         <div className="bg-muted/50 p-4 rounded-lg">
           <h4 className="font-medium mb-3">Välj konton att visa:</h4>
