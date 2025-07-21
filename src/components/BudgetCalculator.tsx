@@ -918,7 +918,15 @@ const BudgetCalculator = () => {
         .filter((group: any) => group.account === account)
         .reduce((sum: number, group: any) => sum + group.amount, 0);
       
-      // Calculate total costs for this account from cost subcategories  
+      // Calculate cost budget deposits (Insättning kostnadsbudget) - money coming IN for recurring costs
+      const accountCostBudgetDeposits = costGroups.reduce((sum: number, group: any) => {
+        const groupCostBudgetDeposits = group.subCategories
+          ?.filter((sub: any) => sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom))
+          .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+        return sum + groupCostBudgetDeposits;
+      }, 0);
+      
+      // Calculate total costs for this account from cost subcategories (money going OUT)
       const accountCosts = costGroups.reduce((sum: number, group: any) => {
         const groupCosts = group.subCategories
           ?.filter((sub: any) => sub.account === account)
@@ -926,8 +934,9 @@ const BudgetCalculator = () => {
         return sum + groupCosts;
       }, 0);
       
-      // Final balance (Slutsaldo) = original balance + savings - costs
-      finalBalances[account] = originalBalance + accountSavings - accountCosts;
+      // Final balance (Slutsaldo) = original balance + savings + cost budget deposits - costs
+      // Note: cost budget deposits represent money coming IN to pay for recurring costs
+      finalBalances[account] = originalBalance + accountSavings + accountCostBudgetDeposits - accountCosts;
     });
     
     // Update state with final balances
@@ -1039,6 +1048,14 @@ const BudgetCalculator = () => {
         .filter((group: any) => group.account === account)
         .reduce((sum: number, group: any) => sum + group.amount, 0);
       
+      // Calculate cost budget deposits (Insättning kostnadsbudget) - money coming IN for recurring costs
+      const accountCostBudgetDeposits = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+        const groupCostBudgetDeposits = group.subCategories
+          ?.filter((sub: any) => sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom))
+          .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+        return sum + groupCostBudgetDeposits;
+      }, 0);
+      
       // Calculate total costs for this account from cost subcategories  
       const accountCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
         const groupCosts = group.subCategories
@@ -1047,8 +1064,9 @@ const BudgetCalculator = () => {
         return sum + groupCosts;
       }, 0);
       
-      // Final balance (Slutsaldo) = original balance (estimated or actual) + savings - costs
-      finalBalances[account] = originalBalance + accountSavings - accountCosts;
+      // Final balance (Slutsaldo) = original balance (estimated or actual) + savings + cost budget deposits - costs
+      // Note: cost budget deposits represent money coming IN to pay for recurring costs
+      finalBalances[account] = originalBalance + accountSavings + accountCostBudgetDeposits - accountCosts;
       console.log(`${account}: ${originalBalance} + ${accountSavings} - ${accountCosts} = ${finalBalances[account]}`);
     });
     
