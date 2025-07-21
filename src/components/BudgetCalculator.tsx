@@ -2358,7 +2358,8 @@ const BudgetCalculator = () => {
         console.log(`Account costs for ${account}: ${accountCosts}`);
         
         // Final balance from previous month becomes estimated starting balance
-        estimatedBalances[account] = originalBalance + accountSavings + accountCosts;
+        // This is the "Slutsaldo" calculation: original balance + savings - costs
+        estimatedBalances[account] = originalBalance + accountSavings - accountCosts;
         console.log(`Estimated balance for ${account}: ${estimatedBalances[account]}`);
       });
       
