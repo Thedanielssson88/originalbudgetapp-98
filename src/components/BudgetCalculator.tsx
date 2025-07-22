@@ -214,16 +214,34 @@ const BudgetCalculator = () => {
       const [year, month] = monthKey.split('-');
       const monthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 
                          'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
-      const monthName = monthNames[parseInt(month) - 1];
+      
+      // Calculate previous month for display
+      const currentYear = parseInt(year);
+      const currentMonth = parseInt(month);
+      
+      let displayYear: number;
+      let displayMonth: number;
+      
+      if (currentMonth === 1) {
+        // January -> December of previous year
+        displayYear = currentYear - 1;
+        displayMonth = 12;
+      } else {
+        // Any other month -> previous month of same year
+        displayYear = currentYear;
+        displayMonth = currentMonth - 1;
+      }
+      
+      const displayMonthName = monthNames[displayMonth - 1];
       
       accounts.forEach(account => {
         const { balance, isEstimated } = getCalcKontosaldoForTable(monthKey, account);
         const calcDescr = isEstimated ? "(Est)" : "";
         
         rows.push({
-          year: parseInt(year),
-          month: monthName,
-          monthKey,
+          year: displayYear,
+          month: displayMonthName,
+          monthKey, // Keep original monthKey for data lookup
           account,
           calcKontosaldo: balance,
           calcDescr
