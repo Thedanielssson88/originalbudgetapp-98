@@ -3230,101 +3230,44 @@ const BudgetCalculator = () => {
                   }}
                 />
                 
-                {/* Account lines with segment-based styling */}
+                {/* Account lines */}
                 {selectedAccountsForChart.map((account, index) => {
-                  const accountColor = accountColors[accounts.indexOf(account) % accountColors.length];
+                  // Check if this account has any estimated values
+                  const hasEstimatedValues = chartData.some(point => point[`${account}_isEstimated`]);
+                  const shouldShowDashed = showEstimatedBudgetAmounts && hasEstimatedValues;
                   
-                  if (!showEstimatedBudgetAmounts) {
-                    // If not showing estimated amounts, use normal solid line
-                    return (
-                      <Line
-                        key={account}
-                        type="monotone"
-                        dataKey={account}
-                        stroke={accountColor}
-                        name={account}
-                        strokeWidth={2}
-                        connectNulls={false}
-                        dot={(props: any) => (
-                          <circle cx={props.cx} cy={props.cy} r={3} fill={accountColor} />
-                        )}
-                      />
-                    );
-                  }
-
-                  // When showing estimated amounts, create individual line segments
-                  const segments = [];
-                  
-                  // Create segments for each adjacent pair of points
-                  for (let i = 0; i < chartData.length - 1; i++) {
-                    const currentPoint = chartData[i];
-                    const nextPoint = chartData[i + 1];
-                    
-                    // Skip if either point doesn't have data for this account
-                    if (currentPoint[account] == null || nextPoint[account] == null) continue;
-                    
-                    const currentIsEstimated = currentPoint[`${account}_isEstimated`];
-                    const nextIsEstimated = nextPoint[`${account}_isEstimated`];
-                    
-                    // Determine line style based on transition
-                    let strokeDasharray = undefined; // solid by default
-                    
-                    // Line from non-estimated to estimated should be dashed
-                    if (!currentIsEstimated && nextIsEstimated) {
-                      strokeDasharray = "5 5";
-                    }
-                    
-                    // Create segment data with only these two points
-                    const segmentData = [currentPoint, nextPoint];
-                    
-                    segments.push(
-                      <Line
-                        key={`${account}-segment-${i}`}
-                        type="linear" // Use linear to ensure straight line between points
-                        dataKey={account}
-                        stroke={accountColor}
-                        strokeWidth={2}
-                        strokeDasharray={strokeDasharray}
-                        connectNulls={false}
-                        dot={false} // Don't show dots on segments
-                        data={segmentData}
-                      />
-                    );
-                  }
-                  
-                  // Add dots separately
-                  segments.push(
+                  return (
                     <Line
-                      key={`${account}-dots`}
+                      key={account}
                       type="monotone"
                       dataKey={account}
-                      stroke="transparent"
-                      strokeWidth={0}
+                      stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
+                      name={account}
+                      strokeWidth={2}
                       connectNulls={false}
+                      strokeDasharray={shouldShowDashed ? "5 5" : undefined}
                       dot={(props: any) => {
                         // Check if this point is estimated
                         const isEstimated = props.payload?.[`${account}_isEstimated`];
-                        if (isEstimated) {
+                        if (showEstimatedBudgetAmounts && isEstimated) {
                           // Show special dot for estimated values
                           return (
                             <circle 
                               cx={props.cx} 
                               cy={props.cy} 
                               r={4} 
-                              fill={accountColor}
-                              stroke={accountColor}
+                              fill={accountColors[accounts.indexOf(account) % accountColors.length]}
+                              stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
                               strokeWidth={2}
                               strokeDasharray="3 3"
                             />
                           );
                         }
                         // Regular dot for non-estimated values
-                        return <circle cx={props.cx} cy={props.cy} r={3} fill={accountColor} />;
+                        return <circle cx={props.cx} cy={props.cy} r={3} fill={accountColors[accounts.indexOf(account) % accountColors.length]} />;
                       }}
                     />
                   );
-                  
-                  return segments;
                 })}
                 
                 {/* Individual costs lines - only show if enabled */}
