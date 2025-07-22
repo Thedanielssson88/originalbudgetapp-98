@@ -2955,8 +2955,15 @@ const BudgetCalculator = () => {
       const monthData = historicalData[monthKey];
       
       if (!monthData) {
+        console.log(`🔍 No month data for ${monthKey}, returning 0`);
         return 0;
       }
+      
+      console.log(`🔍 Getting balance for ${account} in ${monthKey}:`);
+      console.log(`📊 accountBalances:`, monthData.accountBalances);
+      console.log(`📊 accountBalancesSet:`, monthData.accountBalancesSet);
+      console.log(`📊 accountFinalBalances:`, monthData.accountFinalBalances);
+      console.log(`📊 accountEstimatedFinalBalances:`, monthData.accountEstimatedFinalBalances);
       
       // Check if "Faktiskt Kontosaldo" is available and explicitly set
       const isAccountBalanceSet = monthData.accountBalancesSet && 
@@ -2966,21 +2973,25 @@ const BudgetCalculator = () => {
       if (isAccountBalanceSet && 
           monthData.accountBalances && 
           monthData.accountBalances[account] !== undefined) {
+        console.log(`✅ Using Faktiskt Kontosaldo: ${monthData.accountBalances[account]}`);
         return monthData.accountBalances[account];
       }
       
       // Priority 2: Use "Faktiskt slutsaldo" if it's explicitly set 
       if (monthData.accountFinalBalances && 
           monthData.accountFinalBalances[account] !== undefined) {
+        console.log(`✅ Using Faktiskt slutsaldo: ${monthData.accountFinalBalances[account]}`);
         return monthData.accountFinalBalances[account];
       }
       
       // Priority 3: Use "Estimerat slutsaldo" as final fallback
       if (monthData.accountEstimatedFinalBalances && 
           monthData.accountEstimatedFinalBalances[account] !== undefined) {
+        console.log(`✅ Using Estimerat slutsaldo: ${monthData.accountEstimatedFinalBalances[account]}`);
         return monthData.accountEstimatedFinalBalances[account];
       }
       
+      console.log(`❌ No balance found for ${account} in ${monthKey}, returning 0`);
       return 0;
     };
     
