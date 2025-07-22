@@ -2957,26 +2957,20 @@ const BudgetCalculator = () => {
         return 0;
       }
       
-      // Debug logging for July 2025 Löpande account specifically
-      if (monthKey === '2025-07' && account === 'Löpande') {
-        console.log(`=== DEBUG: getBalanceForMonth ${monthKey} ${account} ===`);
-        console.log('monthData:', monthData);
-        console.log('accountBalancesSet:', monthData.accountBalancesSet);
-        console.log('accountFinalBalances:', monthData.accountFinalBalances);
-        console.log('accountEstimatedFinalBalances:', monthData.accountEstimatedFinalBalances);
+      // Priority 1: Use "Faktiskt slutsaldo" if it exists and has a value
+      if (monthData.accountFinalBalances && 
+          monthData.accountFinalBalances[account] !== undefined && 
+          monthData.accountFinalBalances[account] !== null) {
+        return monthData.accountFinalBalances[account];
       }
       
-      // Check if account balance is explicitly set (not "Ej ifyllt")
-      const accountBalancesSet = monthData.accountBalancesSet || {};
-      const isAccountBalanceSet = accountBalancesSet[account] === true;
-      
-      if (isAccountBalanceSet) {
-        // Account does NOT have "Ej ifyllt" → Use "Faktiskt slutsaldo"
-        return monthData.accountFinalBalances?.[account] || 0;
-      } else {
-        // Account has "Ej ifyllt" → Use "Estimerat slutsaldo"
-        return monthData.accountEstimatedFinalBalances?.[account] || 0;
+      // Priority 2: Use "Estimerat slutsaldo" as fallback
+      if (monthData.accountEstimatedFinalBalances && 
+          monthData.accountEstimatedFinalBalances[account] !== undefined) {
+        return monthData.accountEstimatedFinalBalances[account];
       }
+      
+      return 0;
     };
     
     // Helper function to calculate estimated balances for any month
@@ -3038,26 +3032,20 @@ const BudgetCalculator = () => {
         return { isEstimated: true, source: 'Estimerat slutsaldo' };
       }
       
-      // Debug logging for July 2025 Löpande account specifically
-      if (monthKey === '2025-07' && account === 'Löpande') {
-        console.log(`=== DEBUG: getBalanceSourceInfo ${monthKey} ${account} ===`);
-        console.log('monthData:', monthData);
-        console.log('accountBalancesSet:', monthData.accountBalancesSet);
-        console.log('accountFinalBalances:', monthData.accountFinalBalances);
-        console.log('accountEstimatedFinalBalances:', monthData.accountEstimatedFinalBalances);
+      // Priority 1: Use "Faktiskt slutsaldo" if it exists and has a value
+      if (monthData.accountFinalBalances && 
+          monthData.accountFinalBalances[account] !== undefined && 
+          monthData.accountFinalBalances[account] !== null) {
+        return { isEstimated: false, source: 'Faktiskt slutsaldo' };
       }
       
-      // Check if account balance is explicitly set (not "Ej ifyllt")
-      const accountBalancesSet = monthData.accountBalancesSet || {};
-      const isAccountBalanceSet = accountBalancesSet[account] === true;
-      
-      if (isAccountBalanceSet) {
-        // Account does NOT have "Ej ifyllt" → Using "Faktiskt slutsaldo"
-        return { isEstimated: false, source: 'Faktiskt slutsaldo' };
-      } else {
-        // Account has "Ej ifyllt" → Using "Estimerat slutsaldo"
+      // Priority 2: Use "Estimerat slutsaldo" as fallback
+      if (monthData.accountEstimatedFinalBalances && 
+          monthData.accountEstimatedFinalBalances[account] !== undefined) {
         return { isEstimated: true, source: 'Estimerat slutsaldo' };
       }
+      
+      return { isEstimated: true, source: 'Estimerat slutsaldo' };
     };
 
     // Ensure no duplicate months in final array
