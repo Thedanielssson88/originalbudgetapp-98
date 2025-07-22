@@ -182,6 +182,9 @@ const BudgetCalculator = () => {
   // Individual costs chart selection state (for "Enskilda kostnader")
   const [showIndividualCostsOutsideBudget, setShowIndividualCostsOutsideBudget] = useState<boolean>(false);
 
+  // Estimated budget amounts chart selection state
+  const [showEstimatedBudgetAmounts, setShowEstimatedBudgetAmounts] = useState<boolean>(false);
+
   // Calculate structured account data for table view
   const accountDataRows: AccountDataRow[] = React.useMemo(() => {
     // Helper function to get Calc.Kontosaldo for a month and account
@@ -2981,7 +2984,11 @@ const BudgetCalculator = () => {
       accounts.forEach(account => {
         const { balance, isEstimated } = getCalcKontosaldo(monthKey, account);
         dataPoint[account] = balance;
-        dataPoint[`${account}_estimated`] = isEstimated;
+        
+        // Add estimated line data if enabled and this account has estimated data
+        if (showEstimatedBudgetAmounts && isEstimated) {
+          dataPoint[`${account}_estimated`] = balance;
+        }
         
         // Add individual costs if enabled
         if (showIndividualCostsOutsideBudget) {
@@ -3123,6 +3130,35 @@ const BudgetCalculator = () => {
           </div>
         </div>
 
+        {/* Estimated Budget Amounts Option */}
+        <div className="bg-muted/50 p-4 rounded-lg">
+          <h4 className="font-medium mb-3">Visa estimerade budgetbelopp?</h4>
+          <div className="flex gap-4">
+            <div className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id="estimated-amounts-yes"
+                name="estimated-amounts"
+                checked={showEstimatedBudgetAmounts === true}
+                onChange={() => setShowEstimatedBudgetAmounts(true)}
+                className="w-4 h-4"
+              />
+              <Label htmlFor="estimated-amounts-yes" className="text-sm">Ja</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id="estimated-amounts-no"
+                name="estimated-amounts"
+                checked={showEstimatedBudgetAmounts === false}
+                onChange={() => setShowEstimatedBudgetAmounts(false)}
+                className="w-4 h-4"
+              />
+              <Label htmlFor="estimated-amounts-no" className="text-sm">Nej</Label>
+            </div>
+          </div>
+        </div>
+
         {/* Chart */}
         <div className="h-96 relative">
           {hasInvalidRange ? (
@@ -3154,8 +3190,30 @@ const BudgetCalculator = () => {
                         <p className="font-medium text-sm mb-1">{label}</p>
                         {payload.map((entry: any) => {
                           const accountName = entry.dataKey;
-                          // Only consider non-individual cost entries for estimation display
-                          if (!accountName.includes('_individual')) {
+                          // Handle estimated values
+                          if (accountName.includes('_estimated')) {
+                            const baseAccountName = accountName.replace('_estimated', '');
+                            return (
+                              <div key={accountName} className="text-sm">
+                                <span>
+                                  {baseAccountName} (Estimerat): {formatCurrency(entry.value)} kr
+                                </span>
+                              </div>
+                            );
+                          }
+                          // Handle individual costs
+                          else if (accountName.includes('_individual')) {
+                            const baseAccountName = accountName.replace('_individual', '');
+                            return (
+                              <div key={accountName} className="text-sm">
+                                <span>
+                                  {baseAccountName} (Enskilda Kostnader): {formatCurrency(entry.value)} kr
+                                </span>
+                              </div>
+                            );
+                          }
+                          // Handle regular account values
+                          else {
                             // Find the corresponding row in accountDataRows for this month and account
                             const dataRow = accountDataRows.find(row => 
                               row.monthKey === label && row.account === accountName
@@ -3165,15 +3223,7 @@ const BudgetCalculator = () => {
                             return (
                               <div key={accountName} className="text-sm">
                                 <span>
-                                  {accountName}: {formatCurrency(entry.value)} kr{isEstimated ? ' (Est)' : ''}
-                                </span>
-                              </div>
-                            );
-                          } else {
-                            return (
-                              <div key={accountName} className="text-sm">
-                                <span>
-                                  {accountName}: {formatCurrency(entry.value)} kr
+                                  {accountName}: {formatCurrency(entry.value)} kr{isEstimated && !showEstimatedBudgetAmounts ? ' (Est)' : ''}
                                 </span>
                               </div>
                             );
@@ -3208,6 +3258,21 @@ const BudgetCalculator = () => {
                     strokeWidth={1}
                     strokeDasharray="5 5"
                     connectNulls={false}
+                  />
+                ))}
+                
+                {/* Estimated budget lines - only show if enabled */}
+                {showEstimatedBudgetAmounts && selectedAccountsForChart.map((account, index) => (
+                  <Line
+                    key={`${account}-estimated`}
+                    type="monotone"
+                    dataKey={`${account}_estimated`}
+                    stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
+                    name={`${account} (Estimerat)`}
+                    strokeWidth={2}
+                    strokeDasharray="10 5"
+                    connectNulls={false}
+                    dot={{ fill: accountColors[accounts.indexOf(account) % accountColors.length], strokeWidth: 2, r: 4 }}
                   />
                 ))}
               </LineChart>
@@ -3264,6 +3329,33 @@ const BudgetCalculator = () => {
                         <span className="text-xs">{account} (Enskilda Kostnader)</span>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Estimated values legend - only show if enabled */}
+              {showEstimatedBudgetAmounts && selectedAccountsForChart.length > 0 && (
+                <div className="space-y-2 border-t pt-3">
+                  <p className="font-medium mb-2">Estimerade budgetbelopp:</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {selectedAccountsForChart.map((account) => {
+                      const color = accountColors[accounts.indexOf(account) % accountColors.length];
+                      return (
+                        <div key={`${account}-estimated`} className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <div 
+                              className="w-3 h-0.5 rounded border-dashed border-2" 
+                              style={{ borderColor: color }}
+                            />
+                            <div 
+                              className="w-1 h-1 rounded-full border-2" 
+                              style={{ borderColor: color, backgroundColor: color }}
+                            />
+                          </div>
+                          <span className="text-xs">{account} (Estimerat)</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
