@@ -1977,8 +1977,9 @@ const BudgetCalculator = () => {
             ...item,
             amount: 0
           })),
-          // Use estimated account balances from previous month
-          accountBalances: estimatedAccountBalances,
+          // Use empty account balances for new months - user should fill manually 
+          accountBalances: {},
+          accountBalancesSet: {}, // All balances start as not set, so they show "Ej ifyllt"
           accountFinalBalances: {},
           createdAt: new Date().toISOString()
         };
@@ -2004,8 +2005,9 @@ const BudgetCalculator = () => {
         susannaPersonalCosts: JSON.parse(JSON.stringify(template.susannaPersonalCosts || [])),
         susannaPersonalSavings: JSON.parse(JSON.stringify(template.susannaPersonalSavings || [])),
         accounts: JSON.parse(JSON.stringify(template.accounts || ['Löpande', 'Sparkonto', 'Buffert'])),
-          // Use estimated account balances from previous month
-          accountBalances: estimatedAccountBalances,
+          // Use empty account balances for new months - user should fill manually 
+          accountBalances: {},
+          accountBalancesSet: {}, // All balances start as not set, so they show "Ej ifyllt"
           accountFinalBalances: {},
           createdAt: new Date().toISOString()
       };
@@ -2016,8 +2018,9 @@ const BudgetCalculator = () => {
         newMonthData = {
           ...currentMonthData,
           // Keep all income values from the source month
-          // Use estimated account balances from previous month
-          accountBalances: estimatedAccountBalances,
+          // Use empty account balances for new months - user should fill manually 
+          accountBalances: {},
+          accountBalancesSet: {}, // All balances start as not set, so they show "Ej ifyllt"
           accountFinalBalances: {},
           createdAt: new Date().toISOString()
         };
@@ -2065,11 +2068,17 @@ const BudgetCalculator = () => {
             setAccountBalances(loadedBalances);
             setAccountFinalBalances(monthData.accountFinalBalances || {});
             
-            // Set accountBalancesSet based on which accounts have explicit values
+            // Set accountBalancesSet - for new months this should be empty so all show "Ej ifyllt"
             const balancesSet: {[key: string]: boolean} = {};
-            Object.keys(loadedBalances).forEach(account => {
-              balancesSet[account] = loadedBalances[account] !== undefined && loadedBalances[account] !== null;
-            });
+            if (monthData.accountBalancesSet) {
+              // Use saved accountBalancesSet if it exists
+              Object.assign(balancesSet, monthData.accountBalancesSet);
+            } else {
+              // For new months or months without accountBalancesSet, mark all as not set
+              Object.keys(loadedBalances).forEach(account => {
+                balancesSet[account] = false; // Always show "Ej ifyllt" for new months
+              });
+            }
             setAccountBalancesSet(balancesSet);
           }
         }, 0);
