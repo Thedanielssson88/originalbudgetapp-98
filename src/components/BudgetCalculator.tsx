@@ -3042,12 +3042,9 @@ const BudgetCalculator = () => {
         const monthData = historicalData[monthKey];
         if (!monthData || !monthData.savingsGroups) return 0;
         
-        return monthData.savingsGroups.reduce((total: number, group: any) => {
-          const groupSavings = group.subCategories
-            ?.filter((sub: any) => sub.account === account)
-            .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-          return total + groupSavings;
-        }, 0);
+        return monthData.savingsGroups
+          .filter((group: any) => group.account === account)
+          .reduce((sum: number, group: any) => sum + group.amount, 0);
       };
 
     // Calculate chart data
