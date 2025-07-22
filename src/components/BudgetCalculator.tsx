@@ -2844,18 +2844,14 @@ const BudgetCalculator = () => {
     let extendedMonthKeys: string[] = [];
     
     if (useCustomTimeRange && chartStartMonth && chartEndMonth) {
-      // Use ONLY custom time range - generate all months between start and end (inclusive)
+      // Use custom time range - generate all months between start and end (inclusive)
       const [startYear, startMonth] = chartStartMonth.split('-').map(Number);
       const [endYear, endMonth] = chartEndMonth.split('-').map(Number);
       
       let currentIterMonth = new Date(startYear, startMonth - 1, 1);
       const endDate = new Date(endYear, endMonth - 1, 1);
       
-      // Make sure end date is not before start date
-      if (endDate < currentIterMonth) {
-        extendedMonthKeys = []; // Empty chart data but keep selectors visible
-      } else {
-        // Generate months in chronological order
+      if (endDate >= currentIterMonth) {
         while (currentIterMonth <= endDate) {
           const monthKey = `${currentIterMonth.getFullYear()}-${String(currentIterMonth.getMonth() + 1).padStart(2, '0')}`;
           extendedMonthKeys.push(monthKey);
@@ -2863,317 +2859,67 @@ const BudgetCalculator = () => {
         }
       }
     } else {
-      // Default behavior: Generate chronological sequence
-      const monthsToShow: string[] = [];
-      
-      // Determine the range
-      let startMonthKey = currentMonthKey;
-      if (savedMonthKeys.length > 0) {
-        const earliestMonth = savedMonthKeys[0];
-        const [year, month] = earliestMonth.split('-').map(Number);
-        const prevDate = new Date(year, month - 2, 1);
-        startMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+      // Default behavior: show saved months plus current month
+      extendedMonthKeys = [...savedMonthKeys];
+      if (!extendedMonthKeys.includes(currentMonthKey)) {
+        extendedMonthKeys.push(currentMonthKey);
       }
-      
-      // Generate chronological sequence starting from start month
-      const [startYear, startMonth] = startMonthKey.split('-').map(Number);
-      let currentIterDate = new Date(startYear, startMonth - 1, 1);
-      
-      // Add months chronologically until we reach a reasonable end point
-      for (let i = 0; i < 12; i++) { // Max 12 months to prevent infinite loops
-        const monthKey = `${currentIterDate.getFullYear()}-${String(currentIterDate.getMonth() + 1).padStart(2, '0')}`;
-        
-        // Check if this month has actual data
-        const hasActualData = historicalData[monthKey] && (
-          historicalData[monthKey].accountFinalBalances || 
-          historicalData[monthKey].accountEstimatedFinalBalances
-        );
-        
-        // Check if this is current month (always include it)
-        const isCurrentMonth = monthKey === currentMonthKey;
-        
-        // Check if we can calculate a meaningful estimate (need previous month with final balances)
-        const canCalculateEstimate = (() => {
-          if (isCurrentMonth) return true;
-          if (hasActualData) return true;
-          
-          const [year, month] = monthKey.split('-').map(Number);
-          const prevDate = new Date(year, month - 2, 1);
-          const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-          
-          // Previous month needs to have final balances to calculate estimate
-          const prevHasBalances = historicalData[prevMonthKey] && (
-            historicalData[prevMonthKey].accountFinalBalances || 
-            historicalData[prevMonthKey].accountEstimatedFinalBalances
-          );
-          
-          return prevHasBalances || prevMonthKey === currentMonthKey;
-        })();
-        
-        if (hasActualData || isCurrentMonth || canCalculateEstimate) {
-          monthsToShow.push(monthKey);
-          currentIterDate.setMonth(currentIterDate.getMonth() + 1);
-        } else {
-          // Stop when we can't show meaningful data
-          break;
-        }
-        
-        // Also stop if we're too far in the future (max 6 months ahead of current)
-        const [currentYear, currentMonth] = currentMonthKey.split('-').map(Number);
-        const [iterYear, iterMonth] = monthKey.split('-').map(Number);
-        const monthsDiff = (iterYear - currentYear) * 12 + (iterMonth - currentMonth);
-        if (monthsDiff > 6) break;
-      }
-      
-      extendedMonthKeys = monthsToShow;
+      extendedMonthKeys.sort();
     }
 
-    // Initialize selected accounts to show ALL accounts by default (user can deselect what they don't want)
+    // Initialize selected accounts to show ALL accounts by default
     if (selectedAccountsForChart.length === 0 && accounts.length > 0) {
-      setSelectedAccountsForChart([...accounts]); // Start with all accounts selected
+      setSelectedAccountsForChart([...accounts]);
     }
     
-    // Helper function to check if a month is historical (before current month)
-    const isHistoricalMonth = (monthKey: string) => {
-      return monthKey < currentMonthKey;
-    };
-    
-    // Helper function to check if any account has "Faktiskt kontosaldo" > 0 for a given month
-    const hasActualBalance = (monthKey: string) => {
-      const monthData = historicalData[monthKey];
-      if (!monthData || !monthData.accountBalances) return false;
-      
-      return accounts.some(account => {
-        const actualBalance = monthData.accountBalances[account] || 0;
-        return actualBalance > 0;
-      });
-    };
-    
-    // Helper function to get the appropriate balance for a month and account
-    // Prioritizes "Faktiskt Kontosaldo" first, then "Faktiskt slutsaldo", then "Estimerat slutsaldo"
-    const getBalanceForMonth = (monthKey: string, account: string) => {
+    // Helper function to get Calc.Kontosaldo for a month and account (same logic as the main page)
+    const getCalcKontosaldo = (monthKey: string, account: string) => {
       const monthData = historicalData[monthKey];
       
       if (!monthData) {
-        console.log(`🔍 No month data for ${monthKey}, returning 0`);
-        return 0;
+        return { balance: 0, isEstimated: true };
       }
       
-      console.log(`🔍 Getting balance for ${account} in ${monthKey}:`);
-      console.log(`📊 accountBalances:`, monthData.accountBalances);
-      console.log(`📊 accountBalancesSet:`, monthData.accountBalancesSet);
-      console.log(`📊 accountFinalBalances:`, monthData.accountFinalBalances);
-      console.log(`📊 accountEstimatedFinalBalances:`, monthData.accountEstimatedFinalBalances);
+      // Check if "Faktiskt Kontosaldo" is explicitly set (same logic as Calc.Kontosaldo)
+      const hasActualBalance = monthData.accountBalancesSet && 
+                              monthData.accountBalancesSet[account] === true;
       
-      // Check if "Faktiskt Kontosaldo" is available and explicitly set
-      const isAccountBalanceSet = monthData.accountBalancesSet && 
-                                  monthData.accountBalancesSet[account] === true;
-      
-      // Priority 1: Use "Faktiskt Kontosaldo" if it's explicitly set (not "Ej ifyllt")
-      if (isAccountBalanceSet && 
-          monthData.accountBalances && 
-          monthData.accountBalances[account] !== undefined) {
-        console.log(`✅ Using Faktiskt Kontosaldo: ${monthData.accountBalances[account]}`);
-        return monthData.accountBalances[account];
+      if (hasActualBalance && monthData.accountBalances && monthData.accountBalances[account] !== undefined) {
+        // Use actual balance
+        return { balance: monthData.accountBalances[account], isEstimated: false };
+      } else {
+        // Use estimated balance
+        const estimatedBalance = monthData.accountEstimatedFinalBalances?.[account] || 0;
+        return { balance: estimatedBalance, isEstimated: true };
       }
-      
-      // Priority 2: Use "Faktiskt slutsaldo" if it's explicitly set 
-      if (monthData.accountFinalBalances && 
-          monthData.accountFinalBalances[account] !== undefined) {
-        console.log(`✅ Using Faktiskt slutsaldo: ${monthData.accountFinalBalances[account]}`);
-        return monthData.accountFinalBalances[account];
-      }
-      
-      // Priority 3: Use "Estimerat slutsaldo" as final fallback
-      if (monthData.accountEstimatedFinalBalances && 
-          monthData.accountEstimatedFinalBalances[account] !== undefined) {
-        console.log(`✅ Using Estimerat slutsaldo: ${monthData.accountEstimatedFinalBalances[account]}`);
-        return monthData.accountEstimatedFinalBalances[account];
-      }
-      
-      console.log(`❌ No balance found for ${account} in ${monthKey}, returning 0`);
-      return 0;
-    };
-    
-    // Helper function to calculate estimated balances for any month
-    const getEstimatedBalancesForMonth = (monthKey: string) => {
-      const [year, month] = monthKey.split('-').map(Number);
-      const prevDate = new Date(year, month - 2, 1);
-      const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-      
-      const prevMonthData = historicalData[prevMonthKey];
-      if (!prevMonthData) return null;
-      
-      const estimatedBalances: {[key: string]: number} = {};
-      
-      accounts.forEach(account => {
-        // First try to use saved estimated final balance from previous month
-        if (prevMonthData.accountEstimatedFinalBalances && prevMonthData.accountEstimatedFinalBalances[account] !== undefined) {
-          estimatedBalances[account] = prevMonthData.accountEstimatedFinalBalances[account];
-          return;
-        }
-        
-        // Then try to use saved actual final balance from previous month
-        if (prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
-          estimatedBalances[account] = prevMonthData.accountFinalBalances[account];
-          return;
-        }
-        
-        // Fallback calculation
-        const originalBalance = prevMonthData.accountBalances?.[account] || 0;
-        const accountSavings = (prevMonthData.savingsGroups || [])
-          .filter((group: any) => group.account === account)
-          .reduce((sum: number, group: any) => sum + group.amount, 0);
-        
-        const accountRecurringCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-          const groupCosts = group.subCategories
-            ?.filter((sub: any) => sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom))
-            .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-          return sum + groupCosts;
-        }, 0);
-        
-        const accountAllCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-          const groupCosts = group.subCategories
-            ?.filter((sub: any) => sub.account === account)
-            .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-          return sum + groupCosts;
-        }, 0);
-        
-        const slutsaldo = originalBalance + accountSavings + accountRecurringCosts - accountAllCosts;
-        estimatedBalances[account] = slutsaldo;
-      });
-      
-      return estimatedBalances;
-    };
-    
-    // Helper function to determine if a balance is estimated and get the source type
-    // Returns correct source information matching the balance priority logic
-    const getBalanceSourceInfo = (monthKey: string, account: string) => {
-      const monthData = historicalData[monthKey];
-      
-      if (!monthData) {
-        return { isEstimated: true, source: 'Estimerat slutsaldo' };
-      }
-      
-      // Check if "Faktiskt Kontosaldo" is available and explicitly set
-      const isAccountBalanceSet = monthData.accountBalancesSet && 
-                                  monthData.accountBalancesSet[account] === true;
-      
-      // Priority 1: Use "Faktiskt Kontosaldo" if it's explicitly set (not "Ej ifyllt")
-      if (isAccountBalanceSet && 
-          monthData.accountBalances && 
-          monthData.accountBalances[account] !== undefined) {
-        return { isEstimated: false, source: 'Faktiskt Kontosaldo' };
-      }
-      
-      // Priority 2: Use "Faktiskt slutsaldo" if it's explicitly set
-      if (monthData.accountFinalBalances && 
-          monthData.accountFinalBalances[account] !== undefined) {
-        return { isEstimated: false, source: 'Faktiskt slutsaldo' };
-      }
-      
-      // Priority 3: Use "Estimerat slutsaldo" as final fallback
-      return { isEstimated: true, source: 'Estimerat slutsaldo' };
     };
 
-    // Ensure no duplicate months in final array
-    extendedMonthKeys = [...new Set(extendedMonthKeys)];
-    
-    // Sort chronologically
-    extendedMonthKeys.sort((a, b) => a.localeCompare(b));
-    
-    // Debug logging
-    console.log('📅 Final month keys for chart:', extendedMonthKeys);
-
-    // Helper function to get individual costs for a specific month and account
-    const getIndividualCostsForMonth = (monthKey: string, account: string) => {
-      const monthData = historicalData[monthKey];
-      if (!monthData) return 0;
-      
-      const individualCosts = (monthData.costGroups || []).reduce((sum: number, group: any) => {
-        const groupIndividualCosts = group.subCategories
-          ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
-          .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-        return sum + groupIndividualCosts;
-      }, 0);
-      
-      return individualCosts;
-    };
-
-    // Calculate chart data and create separate keys for historical vs forecast
+    // Calculate chart data
     const chartData = extendedMonthKeys.map((monthKey) => {
-      // Check if this month is after today's date (should be forecast)
-      const [year, month] = monthKey.split('-').map(Number);
-      const monthDate = new Date(year, month - 1, 1);
-      const today = new Date();
-      const isAfterToday = monthDate > today;
-      
-      const dataPoint: any = { 
-        month: monthKey,
-        isHistorical: !isAfterToday && (isHistoricalMonth(monthKey) || hasActualBalance(monthKey))
-      };
+      const dataPoint: any = { month: monthKey };
       
       accounts.forEach(account => {
-        const balance = getBalanceForMonth(monthKey, account);
-        const individualCosts = getIndividualCostsForMonth(monthKey, account);
-        
-        // Determine if this balance is estimated for the tooltip
-        const balanceSourceInfo = getBalanceSourceInfo(monthKey, account);
-        
-        // Create separate dataKeys for historical and forecast data
-        if (dataPoint.isHistorical) {
-          dataPoint[`${account}_historical`] = balance;
-          dataPoint[`${account}_forecast`] = null;
-          dataPoint[`${account}_individual_costs_historical`] = individualCosts > 0 ? individualCosts : null;
-          dataPoint[`${account}_individual_costs_forecast`] = null;
-          dataPoint[`${account}_estimated`] = balanceSourceInfo.isEstimated;
-          dataPoint[`${account}_source`] = balanceSourceInfo.source;
-        } else {
-          dataPoint[`${account}_historical`] = null; 
-          dataPoint[`${account}_forecast`] = balance;
-          dataPoint[`${account}_individual_costs_historical`] = null;
-          // Don't show forecast individual costs - only show actual data
-          dataPoint[`${account}_individual_costs_forecast`] = null;
-          dataPoint[`${account}_estimated`] = balanceSourceInfo.isEstimated;
-          dataPoint[`${account}_source`] = balanceSourceInfo.source;
-        }
-        // Store original balance for transition line calculations
+        const { balance, isEstimated } = getCalcKontosaldo(monthKey, account);
         dataPoint[account] = balance;
+        dataPoint[`${account}_estimated`] = isEstimated;
       });
 
       return dataPoint;
     }).filter((dataPoint) => {
-      // Only include months that have at least one non-zero balance
-      return accounts.some(account => 
-        dataPoint[`${account}_historical`] !== 0 || dataPoint[`${account}_forecast`] !== 0
-      );
+      // Only include months that have at least one account with data
+      return accounts.some(account => dataPoint[account] !== 0);
     });
-    
-    // Add transition data points for connecting historical to forecast
-    chartData.forEach((dataPoint, index) => {
-      accounts.forEach(account => {
-        // Find if this is a transition point (last historical or first forecast)
-        const lastHistoricalIndex = chartData.map(d => d.isHistorical).lastIndexOf(true);
-        const firstForecastIndex = chartData.findIndex(d => !d.isHistorical);
-        
-        if (lastHistoricalIndex >= 0 && firstForecastIndex >= 0 && 
-            (index === lastHistoricalIndex || index === firstForecastIndex)) {
-          dataPoint[`${account}_transition`] = dataPoint[account];
-        } else {
-          dataPoint[`${account}_transition`] = null;
-        }
-      });
-    });
-    
-    console.log('📊 Final chart data:', chartData.map(d => ({ month: d.month, isHistorical: d.isHistorical })));
 
-    // Find separation points
-    const historicalSeparatorIndex = chartData.findIndex(data => !data.isHistorical) - 0.5;
-    
-    // Check for invalid range but don't return early - show error in chart area
+    // Account colors for the chart
+    const accountColors = [
+      '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', 
+      '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'
+    ];
+
+    // Check for invalid range
     const hasInvalidRange = useCustomTimeRange && chartStartMonth && chartEndMonth && chartStartMonth > chartEndMonth;
     
-    // Render the month selection UI first, then the chart/error
+    // Render month selection UI
     const monthSelectorUI = (
       <div className="bg-muted/50 p-4 rounded-lg">
         <div className="flex items-center space-x-2 mb-3">
@@ -3193,25 +2939,9 @@ const BudgetCalculator = () => {
                   <SelectValue placeholder="Välj startmånad" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(() => {
-                    const availableMonths = [...savedMonthKeys];
-                    // Add one month before the first saved month if we have saved data
-                    if (savedMonthKeys.length > 0) {
-                      const earliestMonth = savedMonthKeys[0];
-                      const [year, month] = earliestMonth.split('-').map(Number);
-                      const prevDate = new Date(year, month - 2, 1);
-                      const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-                      availableMonths.unshift(prevMonthKey);
-                    }
-                    return availableMonths.map(month => (
-                      <SelectItem key={month} value={month}>
-                        {new Date(month + '-01').toLocaleDateString('sv-SE', { 
-                          year: 'numeric', 
-                          month: 'long' 
-                        })}
-                      </SelectItem>
-                    ));
-                  })()}
+                  {savedMonthKeys.map(month => (
+                    <SelectItem key={month} value={month}>{month}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -3222,299 +2952,96 @@ const BudgetCalculator = () => {
                   <SelectValue placeholder="Välj slutmånad" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(() => {
-                    const availableMonths = [...savedMonthKeys];
-                    // Add one month before the first saved month if we have saved data
-                    if (savedMonthKeys.length > 0) {
-                      const earliestMonth = savedMonthKeys[0];
-                      const [year, month] = earliestMonth.split('-').map(Number);
-                      const prevDate = new Date(year, month - 2, 1);
-                      const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-                      availableMonths.unshift(prevMonthKey);
-                    }
-                    return availableMonths.map(month => (
-                      <SelectItem key={month} value={month}>
-                        {new Date(month + '-01').toLocaleDateString('sv-SE', { 
-                          year: 'numeric', 
-                          month: 'long' 
-                        })}
-                      </SelectItem>
-                    ));
-                  })()}
+                  {savedMonthKeys.map(month => (
+                    <SelectItem key={month} value={month}>{month}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
         )}
-        
-        {!useCustomTimeRange && (
-          <p className="text-sm text-muted-foreground">
-            Standard: En månad före första sparade månaden till 6 månader framåt
-          </p>
-        )}
-        {useCustomTimeRange && (
-          <p className="text-sm text-muted-foreground">
-            Anpassat intervall: Visar endast det valda tidsintervallet
-          </p>
-        )}
       </div>
     );
 
-    // Show error if invalid range or no data
-    if (chartData.length === 0 || hasInvalidRange) {
-      return (
-        <div className="space-y-4">
-          {monthSelectorUI}
-          <div className="text-center py-8">
-            <p className="text-muted-foreground">
-              {hasInvalidRange 
-                ? "Slutmånad kan inte vara före startmånad. Välj ett giltigt intervall ovan."
-                : "Ingen data tillgänglig för kontosaldon."
-              }
-            </p>
-          </div>
-        </div>
-      );
-    }
-
-    // Colors for different accounts
-    const accountColors = [
-      '#22c55e', '#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', 
-      '#ec4899', '#06b6d4', '#10b981', '#f97316', '#6366f1'
-    ];
-
-    // Calculate date positions for vertical lines
-    const today = new Date();
-    const todayStr = today.toISOString().slice(0, 10); // YYYY-MM-DD
-    const currentMonthData = chartData.find(d => d.month === currentMonthKey);
-    const currentMonthIndex = chartData.findIndex(d => d.month === currentMonthKey);
-    
-    // Calculate position for today within current month (approximate)
-    const todayPosition = currentMonthIndex >= 0 ? 
-      currentMonthIndex + (today.getDate() / new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()) : -1;
-    
-    // Calculate position for 25th of current month
-    const day25Position = currentMonthIndex >= 0 ? 
-      currentMonthIndex + (25 / new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()) : -1;
-
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         {monthSelectorUI}
 
         {/* Account Selection */}
         <div className="bg-muted/50 p-4 rounded-lg">
           <h4 className="font-medium mb-3">Välj konton att visa:</h4>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {accounts.map((account, index) => {
-              const accountName = typeof account === 'string' ? account : (account as any).name || '';
-              return (
-                <label key={accountName} className="flex items-center space-x-2 cursor-pointer">
-                  <Checkbox 
-                    checked={selectedAccountsForChart.includes(accountName)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedAccountsForChart(prev => [...prev, accountName]);
-                      } else {
-                        setSelectedAccountsForChart(prev => prev.filter(a => a !== accountName));
-                      }
-                    }}
-                  />
-                  <span className="text-sm">{accountName}</span>
-                  <div 
-                    className="w-3 h-3 rounded-full ml-1" 
-                    style={{ backgroundColor: accountColors[index % accountColors.length] }}
-                  />
-                 </label>
-               );
-             })}
+            {accounts.map((accountName) => (
+              <div key={accountName} className="flex items-center space-x-2">
+                <Checkbox
+                  checked={selectedAccountsForChart.includes(accountName)}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedAccountsForChart(prev => [...prev, accountName]);
+                    } else {
+                      setSelectedAccountsForChart(prev => prev.filter(a => a !== accountName));
+                    }
+                  }}
+                />
+                <Label className="text-sm">{accountName}</Label>
+              </div>
+            ))}
           </div>
-        </div>
-
-        {/* Individual Costs Outside Budget Selection */}
-        <div className="bg-muted/50 p-4 rounded-lg">
-          <h4 className="font-medium mb-3">Visa enskilda kostnader utanför budget?</h4>
-          <RadioGroup 
-            value={showIndividualCostsOutsideBudget ? "yes" : "no"} 
-            onValueChange={(value) => setShowIndividualCostsOutsideBudget(value === "yes")}
-            className="flex flex-row space-x-6"
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="yes" id="individual-costs-yes" />
-              <Label htmlFor="individual-costs-yes" className="cursor-pointer">Ja</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="no" id="individual-costs-no" />
-              <Label htmlFor="individual-costs-no" className="cursor-pointer">Nej</Label>
-            </div>
-          </RadioGroup>
-          {showIndividualCostsOutsideBudget && (
-            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-700">
-                Visar enskilda kostnader för de konton som är valda under "Välj konton att visa:"
-              </p>
-            </div>
-          )}
         </div>
 
         {/* Chart */}
         <div className="h-96 relative">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis tickFormatter={(value: number) => formatCurrency(value)} />
-              <Tooltip 
-                content={({ active, payload, label }) => {
-                  if (!active || !payload || !payload.length) return null;
-                  
-                  // Group data by account name to avoid duplicates
-                  const accountData = new Map();
-                  
-                  payload.forEach((entry: any) => {
-                    const { dataKey, value, name } = entry;
-                    if (value === null || value === undefined) return;
-                    
-                    // Extract account name from dataKey (remove suffixes like _historical, _forecast, _transition)
-                    let accountName = dataKey.replace(/_historical$|_forecast$|_transition$|_individual_costs_historical$|_individual_costs_forecast$/, '');
-                    let isIndividualCost = dataKey.includes('_individual');
-                    
-                    // Skip if we already have data for this account (prioritize historical > forecast > transition)
-                    if (accountData.has(accountName)) {
-                      const existing = accountData.get(accountName);
-                      // Keep historical over forecast, forecast over transition
-                      if (dataKey.includes('_historical') || 
-                          (dataKey.includes('_forecast') && existing.type === 'transition')) {
-                        const isEstimated = chartData.find(d => d.month === label)?.[`${accountName}_estimated`] || false;
-                        const source = chartData.find(d => d.month === label)?.[`${accountName}_source`] || 'Okänd';
-                        accountData.set(accountName, { 
-                          value, 
-                          isIndividualCost, 
-                          type: dataKey.includes('_historical') ? 'historical' : 'forecast',
-                          isEstimated,
-                          source
-                        });
-                      }
-                    } else {
-                      const type = dataKey.includes('_historical') ? 'historical' : 
-                                   dataKey.includes('_forecast') ? 'forecast' : 'transition';
-                      const isEstimated = chartData.find(d => d.month === label)?.[`${accountName}_estimated`] || false;
-                      const source = chartData.find(d => d.month === label)?.[`${accountName}_source`] || 'Okänd';
-                      accountData.set(accountName, { value, isIndividualCost, type, isEstimated, source });
-                    }
-                  });
-                  
-                  return (
-                    <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-2 max-w-xs">
-                      <p className="font-medium text-sm mb-1">{label}</p>
-                      {Array.from(accountData.entries()).map(([accountName, data]) => (
-                        <div key={accountName} className="text-sm">
-                          <span className={data.isIndividualCost ? "text-red-600 font-medium" : ""}>
-                            {data.isIndividualCost 
-                              ? `${accountName.replace('_individual_costs', '')} enskilda kostnader: -${formatCurrency(data.value)}` 
-                              : `${accountName}: ${formatCurrency(data.value)} kr${data.isEstimated ? ' (Est)' : ''}`
-                            }
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                }}
-              />
-              
-              {/* Account lines for historical data (solid) */}
-              {selectedAccountsForChart.map((account, index) => (
-                <Line
-                  key={`${account}-historical`}
-                  type="monotone"
-                  dataKey={`${account}_historical`}
-                  stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
-                  name={`${account} (Historisk)`}
-                  strokeWidth={2}
-                  strokeDasharray={undefined}
-                  connectNulls={false}
-                />
-              ))}
-              
-              {/* Account lines for forecast (dashed) */}
-              {selectedAccountsForChart.map((account, index) => (
-                <Line
-                  key={`${account}-forecast`}
-                  type="monotone"
-                  dataKey={`${account}_forecast`}
-                  stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
-                  name={`${account} (Prognos)`}
-                  strokeWidth={2}
-                  strokeDasharray="5 5"
-                  connectNulls={false}
-                />
-              ))}
-
-              {/* Transition lines connecting last historical to first forecast point */}
-              {selectedAccountsForChart.map((account, index) => (
-                <Line
-                  key={`${account}-transition`}
-                  type="linear"
-                  dataKey={`${account}_transition`}
-                  stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
-                  strokeWidth={2}
-                  strokeDasharray="8 4"
-                  connectNulls={false}
-                  dot={false}
-                  legendType="none"
-                />
-              ))}
-
-              {/* Individual Costs lines for historical data (solid red) - only if enabled and account is selected */}
-              {showIndividualCostsOutsideBudget && selectedAccountsForChart.map((account, index) => (
-                <Line
-                  key={`${account}-individual-costs-historical`}
-                  type="monotone"
-                  dataKey={`${account}_individual_costs_historical`}
-                  stroke="#ef4444"
-                  name={`${account} (Enskilda Kostnader - Historisk)`}
-                  strokeWidth={2}
-                  strokeDasharray={undefined}
-                  connectNulls={false}
-                />
-              ))}
-
-
-              {/* No transition lines to avoid X-axis confusion */}
-            
-            
-            </LineChart>
-          </ResponsiveContainer>
-          
-          {/* Historical/Forecast separator line - removed per user request */}
-          
-          {/* Today's date line */}
-          {todayPosition >= 0 && (
-            <div 
-              className="absolute top-0 bottom-0 border-l border-solid border-green-500 pointer-events-none"
-              style={{ 
-                left: `${(todayPosition / chartData.length) * 100}%`,
-                zIndex: 8
-              }}
-            >
-              <div className="absolute -top-6 left-1 text-xs text-green-600 bg-white px-1 rounded shadow-sm border">
-                Idag
-              </div>
+          {hasInvalidRange ? (
+            <div className="flex items-center justify-center h-full text-red-500">
+              <p>Felaktigt datumintervall: Slutmånad måste vara efter startmånad</p>
             </div>
-          )}
-          
-          {/* 25th of current month line */}
-          {day25Position >= 0 && day25Position !== todayPosition && (
-            <div 
-              className="absolute top-0 bottom-0 border-l border-solid border-orange-500 pointer-events-none"
-              style={{ 
-                left: `${(day25Position / chartData.length) * 100}%`,
-                zIndex: 8
-              }}
-            >
-              <div className="absolute -top-6 left-1 text-xs text-orange-600 bg-white px-1 rounded shadow-sm border">
-                25:e
-              </div>
+          ) : chartData.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              <p>Ingen data att visa för det valda intervallet</p>
             </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis tickFormatter={(value: number) => formatCurrency(value)} />
+                <Tooltip 
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload || !payload.length) return null;
+                    
+                    return (
+                      <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-2 max-w-xs">
+                        <p className="font-medium text-sm mb-1">{label}</p>
+                        {payload.map((entry: any) => {
+                          const accountName = entry.dataKey;
+                          const isEstimated = chartData.find(d => d.month === label)?.[`${accountName}_estimated`] || false;
+                          return (
+                            <div key={accountName} className="text-sm">
+                              <span>
+                                {accountName}: {formatCurrency(entry.value)} kr{isEstimated ? ' (Est)' : ''}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  }}
+                />
+                
+                {/* Account lines */}
+                {selectedAccountsForChart.map((account, index) => (
+                  <Line
+                    key={account}
+                    type="monotone"
+                    dataKey={account}
+                    stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
+                    name={account}
+                    strokeWidth={2}
+                    connectNulls={false}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
           )}
         </div>
 
