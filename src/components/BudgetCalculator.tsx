@@ -3268,10 +3268,48 @@ const BudgetCalculator = () => {
               <XAxis dataKey="month" />
               <YAxis tickFormatter={(value: number) => formatCurrency(value)} />
               <Tooltip 
-                formatter={(value: number, name: string, props: any) => [
-                  formatCurrency(value), 
-                  `${name} (${props.payload.isHistorical ? 'Faktiskt' : 'Estimerat'})`
-                ]} 
+                content={({ active, payload, label }) => {
+                  if (!active || !payload || !payload.length) return null;
+                  
+                  // Group data by account name to avoid duplicates
+                  const accountData = new Map();
+                  
+                  payload.forEach((entry: any) => {
+                    const { dataKey, value, name } = entry;
+                    if (value === null || value === undefined) return;
+                    
+                    // Extract account name from dataKey (remove suffixes like _historical, _forecast, _transition)
+                    let accountName = dataKey.replace(/_historical$|_forecast$|_transition$|_individual$/, '');
+                    let isIndividualCost = dataKey.includes('_individual');
+                    
+                    // Skip if we already have data for this account (prioritize historical > forecast > transition)
+                    if (accountData.has(accountName)) {
+                      const existing = accountData.get(accountName);
+                      // Keep historical over forecast, forecast over transition
+                      if (dataKey.includes('_historical') || 
+                          (dataKey.includes('_forecast') && existing.type === 'transition')) {
+                        accountData.set(accountName, { value, isIndividualCost, type: dataKey.includes('_historical') ? 'historical' : 'forecast' });
+                      }
+                    } else {
+                      const type = dataKey.includes('_historical') ? 'historical' : 
+                                   dataKey.includes('_forecast') ? 'forecast' : 'transition';
+                      accountData.set(accountName, { value, isIndividualCost, type });
+                    }
+                  });
+                  
+                  return (
+                    <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-2 max-w-xs">
+                      <p className="font-medium text-sm mb-1">{label}</p>
+                      {Array.from(accountData.entries()).map(([accountName, data]) => (
+                        <div key={accountName} className="text-sm">
+                          <span className={data.isIndividualCost ? "text-red-600 font-medium" : ""}>
+                            {accountName}: {data.isIndividualCost ? '-' : ''}{formatCurrency(data.value)} kr
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }}
               />
               
               {/* Account lines for historical data (solid) */}
