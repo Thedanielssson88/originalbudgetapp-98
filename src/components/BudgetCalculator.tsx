@@ -3126,6 +3126,7 @@ const BudgetCalculator = () => {
         
         // Determine if this balance is estimated for the tooltip
         const balanceSourceInfo = getBalanceSourceInfo(monthKey, account);
+        console.log(`Debug: Balance source info for ${account} in ${monthKey}:`, balanceSourceInfo);
         
         // Create separate dataKeys for historical and forecast data
         if (dataPoint.isHistorical) {
