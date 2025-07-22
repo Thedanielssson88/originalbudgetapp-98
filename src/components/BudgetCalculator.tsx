@@ -2880,18 +2880,16 @@ const BudgetCalculator = () => {
         return { balance: 0, isEstimated: true };
       }
       
-      // Check if "Faktiskt Kontosaldo" is explicitly set (same logic as Calc.Kontosaldo)
+      // Same logic as main page Calc.Kontosaldo
       const hasActualBalance = monthData.accountBalancesSet && 
                               monthData.accountBalancesSet[account] === true;
+      const currentBalance = monthData.accountBalances?.[account] || 0;
+      const estimatedBalance = monthData.accountEstimatedFinalBalances?.[account] || 0;
       
-      if (hasActualBalance && monthData.accountBalances && monthData.accountBalances[account] !== undefined) {
-        // Use actual balance
-        return { balance: monthData.accountBalances[account], isEstimated: false };
-      } else {
-        // Use estimated balance
-        const estimatedBalance = monthData.accountEstimatedFinalBalances?.[account] || 0;
-        return { balance: estimatedBalance, isEstimated: true };
-      }
+      const calcBalance = hasActualBalance ? currentBalance : estimatedBalance;
+      const isUsingEstimated = !hasActualBalance;
+      
+      return { balance: calcBalance, isEstimated: isUsingEstimated };
     };
 
     // Calculate chart data
