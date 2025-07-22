@@ -3107,21 +3107,9 @@ const BudgetCalculator = () => {
                           const accountName = entry.dataKey;
                           // Only consider non-individual cost entries for estimation display
                           if (!accountName.includes('_individual')) {
-                            // Get the month data point from chart data
-                            const dataPoint = chartData.find(d => d.month === label);
-                            
-                            // The estimation logic should match the one used in calculateAccountBalance
-                            // An account is estimated if no actual balance is set (accountBalancesSet is false)
+                            // Use the exact same logic as getCalcKontosaldo
                             const monthKey = label;
-                            const monthData = historicalData[monthKey];
-                            const hasActualBalance = monthData?.accountBalancesSet?.[accountName] === true;
-                            const isEstimated = !hasActualBalance;
-                            
-                            console.log(`Tooltip debug for ${monthKey} ${accountName}:`, {
-                              hasActualBalance,
-                              isEstimated,
-                              accountBalancesSet: monthData?.accountBalancesSet
-                            });
+                            const { isEstimated } = getCalcKontosaldo(monthKey, accountName);
                             
                             return (
                               <div key={accountName} className="text-sm">
