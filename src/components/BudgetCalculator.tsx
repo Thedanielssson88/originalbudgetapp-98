@@ -3062,16 +3062,18 @@ const BudgetCalculator = () => {
         if (isEstimated) {
           dataPoint[`${account}_isEstimated`] = true;
         }
-        
-        // Add individual costs if enabled - show them in the month they actually occurred
-        if (showIndividualCostsOutsideBudget) {
+      });
+
+      // Add individual costs if enabled - always show them regardless of estimated budget setting
+      if (showIndividualCostsOutsideBudget) {
+        accounts.forEach(account => {
           // For individual costs, we want to show them in the month they actually occurred,
           // which corresponds to the displayed month, not the balance calculation month
           const displayedMonthKey = getDisplayedMonthKey(monthKey);
           const individualCosts = getIndividualCosts(displayedMonthKey, account);
           dataPoint[`${account}_individual`] = individualCosts;
-        }
-      });
+        });
+      }
 
       return dataPoint;
     }).filter((dataPoint) => {
