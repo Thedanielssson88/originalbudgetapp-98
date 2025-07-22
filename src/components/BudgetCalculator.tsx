@@ -176,7 +176,7 @@ const BudgetCalculator = () => {
   const [selectedAccountsForChart, setSelectedAccountsForChart] = useState<string[]>([]);
   
   // Individual costs chart selection state (for "Enskilda kostnader")
-  const [selectedIndividualCostsForChart, setSelectedIndividualCostsForChart] = useState<string[]>([]);
+  const [showIndividualCostsOutsideBudget, setShowIndividualCostsOutsideBudget] = useState<boolean>(false);
   
   // Chart time range selection state
   const [useCustomTimeRange, setUseCustomTimeRange] = useState<boolean>(false);
@@ -447,8 +447,8 @@ const BudgetCalculator = () => {
         // Load selected accounts for chart
         setSelectedAccountsForChart(parsed.selectedAccountsForChart || []);
         
-        // Load selected individual costs for chart
-        setSelectedIndividualCostsForChart(parsed.selectedIndividualCostsForChart || []);
+        // Load show individual costs outside budget setting
+        setShowIndividualCostsOutsideBudget(parsed.showIndividualCostsOutsideBudget || false);
         
         // Load chart time range settings
         setUseCustomTimeRange(parsed.useCustomTimeRange || false);
@@ -614,7 +614,7 @@ const BudgetCalculator = () => {
       accountFinalBalances,
       accountEstimatedFinalBalances,
       selectedAccountsForChart,
-      selectedIndividualCostsForChart,
+      showIndividualCostsOutsideBudget,
       useCustomTimeRange,
       chartStartMonth,
       chartEndMonth
@@ -628,7 +628,7 @@ const BudgetCalculator = () => {
       saveToLocalStorage();
       saveToSelectedMonth();
     }
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountFinalBalances, accountEstimatedFinalBalances, selectedAccountsForChart, selectedIndividualCostsForChart, useCustomTimeRange, chartStartMonth, chartEndMonth, isInitialLoad]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountFinalBalances, accountEstimatedFinalBalances, selectedAccountsForChart, showIndividualCostsOutsideBudget, useCustomTimeRange, chartStartMonth, chartEndMonth, isInitialLoad]);
   // Calculate estimated final balances when budget month changes
   useEffect(() => {
     if (!isInitialLoad && selectedBudgetMonth) {
@@ -2479,7 +2479,8 @@ const BudgetCalculator = () => {
       susannaPersonalSavings,
       historicalData,
       accounts,
-      budgetTemplates
+      budgetTemplates,
+      showIndividualCostsOutsideBudget
     };
     localStorage.setItem('budgetCalculatorBackup', JSON.stringify(backupData));
     setStandardValues(backupData);
@@ -3230,33 +3231,30 @@ const BudgetCalculator = () => {
           </div>
         </div>
 
-        {/* Individual Costs Selection */}
+        {/* Individual Costs Outside Budget Selection */}
         <div className="bg-muted/50 p-4 rounded-lg">
-          <h4 className="font-medium mb-3">Välj Enskilda Kostnader att visa:</h4>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {accounts.map((account, index) => {
-              const accountName = typeof account === 'string' ? account : (account as any).name || '';
-              return (
-                <label key={`individual-${accountName}`} className="flex items-center space-x-2 cursor-pointer">
-                  <Checkbox 
-                    checked={selectedIndividualCostsForChart.includes(accountName)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedIndividualCostsForChart(prev => [...prev, accountName]);
-                      } else {
-                        setSelectedIndividualCostsForChart(prev => prev.filter(a => a !== accountName));
-                      }
-                    }}
-                  />
-                  <span className="text-sm text-red-600">{accountName} (Enskilda Kostnader)</span>
-                  <div 
-                    className="w-3 h-3 rounded-full ml-1" 
-                    style={{ backgroundColor: '#ef4444' }}
-                  />
-                 </label>
-                );
-             })}
-          </div>
+          <h4 className="font-medium mb-3">Visa enskilda kostnader utanför budget?</h4>
+          <RadioGroup 
+            value={showIndividualCostsOutsideBudget ? "yes" : "no"} 
+            onValueChange={(value) => setShowIndividualCostsOutsideBudget(value === "yes")}
+            className="flex flex-row space-x-6"
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="yes" id="individual-costs-yes" />
+              <Label htmlFor="individual-costs-yes" className="cursor-pointer">Ja</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="no" id="individual-costs-no" />
+              <Label htmlFor="individual-costs-no" className="cursor-pointer">Nej</Label>
+            </div>
+          </RadioGroup>
+          {showIndividualCostsOutsideBudget && (
+            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-700">
+                Visar enskilda kostnader för de konton som är valda under "Välj konton att visa:"
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Chart */}
@@ -3317,8 +3315,8 @@ const BudgetCalculator = () => {
                 />
               ))}
 
-              {/* Individual Costs lines for historical data (solid red) */}
-              {selectedIndividualCostsForChart.map((account, index) => (
+              {/* Individual Costs lines for historical data (solid red) - only if enabled and account is selected */}
+              {showIndividualCostsOutsideBudget && selectedAccountsForChart.map((account, index) => (
                 <Line
                   key={`${account}-individual-costs-historical`}
                   type="monotone"
@@ -7208,7 +7206,8 @@ const BudgetCalculator = () => {
                                 userName2,
                                 transferChecks,
                                 andreasShareChecked,
-                                susannaShareChecked
+                                susannaShareChecked,
+                                showIndividualCostsOutsideBudget
                               };
                               localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
                               
