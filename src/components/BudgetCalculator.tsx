@@ -2898,14 +2898,45 @@ const BudgetCalculator = () => {
       return { balance: calcBalance, isEstimated: isUsingEstimated };
     };
 
+    // Helper function to format month for display
+    const formatMonthForDisplay = (monthKey: string) => {
+      const [year, monthNum] = monthKey.split('-');
+      const monthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 
+                         'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
+      const monthName = monthNames[parseInt(monthNum) - 1];
+      return `${year} - ${monthName}`;
+    };
+
+    // Helper function to get individual costs for an account in a month
+    const getIndividualCosts = (monthKey: string, account: string) => {
+      const monthData = historicalData[monthKey];
+      if (!monthData || !monthData.costGroups) return 0;
+      
+      return monthData.costGroups.reduce((total: number, group: any) => {
+        const groupCosts = group.subCategories
+          ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
+          .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+        return total + groupCosts;
+      }, 0);
+    };
+
     // Calculate chart data
     const chartData = extendedMonthKeys.map((monthKey) => {
-      const dataPoint: any = { month: monthKey };
+      const dataPoint: any = { 
+        month: monthKey,
+        displayMonth: formatMonthForDisplay(monthKey)
+      };
       
       accounts.forEach(account => {
         const { balance, isEstimated } = getCalcKontosaldo(monthKey, account);
         dataPoint[account] = balance;
         dataPoint[`${account}_estimated`] = isEstimated;
+        
+        // Add individual costs if enabled
+        if (showIndividualCostsOutsideBudget) {
+          const individualCosts = getIndividualCosts(monthKey, account);
+          dataPoint[`${account}_individual`] = individualCosts;
+        }
       });
 
       return dataPoint;
@@ -2943,9 +2974,15 @@ const BudgetCalculator = () => {
                   <SelectValue placeholder="Välj startmånad" />
                 </SelectTrigger>
                 <SelectContent>
-                  {savedMonthKeys.map(month => (
-                    <SelectItem key={month} value={month}>{month}</SelectItem>
-                  ))}
+                  {savedMonthKeys.map(month => {
+                    const [year, monthNum] = month.split('-');
+                    const monthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 
+                                       'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
+                    const monthName = monthNames[parseInt(monthNum) - 1];
+                    return (
+                      <SelectItem key={month} value={month}>{year} - {monthName}</SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -2956,9 +2993,15 @@ const BudgetCalculator = () => {
                   <SelectValue placeholder="Välj slutmånad" />
                 </SelectTrigger>
                 <SelectContent>
-                  {savedMonthKeys.map(month => (
-                    <SelectItem key={month} value={month}>{month}</SelectItem>
-                  ))}
+                  {savedMonthKeys.map(month => {
+                    const [year, monthNum] = month.split('-');
+                    const monthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 
+                                       'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
+                    const monthName = monthNames[parseInt(monthNum) - 1];
+                    return (
+                      <SelectItem key={month} value={month}>{year} - {monthName}</SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -2975,21 +3018,57 @@ const BudgetCalculator = () => {
         <div className="bg-muted/50 p-4 rounded-lg">
           <h4 className="font-medium mb-3">Välj konton att visa:</h4>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {accounts.map((accountName) => (
-              <div key={accountName} className="flex items-center space-x-2">
-                <Checkbox
-                  checked={selectedAccountsForChart.includes(accountName)}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      setSelectedAccountsForChart(prev => [...prev, accountName]);
-                    } else {
-                      setSelectedAccountsForChart(prev => prev.filter(a => a !== accountName));
-                    }
-                  }}
-                />
-                <Label className="text-sm">{accountName}</Label>
-              </div>
-            ))}
+            {accounts.map((accountName, index) => {
+              const color = accountColors[index % accountColors.length];
+              return (
+                <div key={accountName} className="flex items-center space-x-2">
+                  <Checkbox
+                    checked={selectedAccountsForChart.includes(accountName)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedAccountsForChart(prev => [...prev, accountName]);
+                      } else {
+                        setSelectedAccountsForChart(prev => prev.filter(a => a !== accountName));
+                      }
+                    }}
+                  />
+                  <div 
+                    className="w-3 h-3 rounded-full border border-gray-300" 
+                    style={{ backgroundColor: color }}
+                  />
+                  <Label className="text-sm">{accountName}</Label>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Individual Costs Option */}
+        <div className="bg-muted/50 p-4 rounded-lg">
+          <h4 className="font-medium mb-3">Visa enskilda kostnader utanför budget?</h4>
+          <div className="flex gap-4">
+            <div className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id="individual-costs-yes"
+                name="individual-costs"
+                checked={showIndividualCostsOutsideBudget === true}
+                onChange={() => setShowIndividualCostsOutsideBudget(true)}
+                className="w-4 h-4"
+              />
+              <Label htmlFor="individual-costs-yes" className="text-sm">Ja</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id="individual-costs-no"
+                name="individual-costs"
+                checked={showIndividualCostsOutsideBudget === false}
+                onChange={() => setShowIndividualCostsOutsideBudget(false)}
+                className="w-4 h-4"
+              />
+              <Label htmlFor="individual-costs-no" className="text-sm">Nej</Label>
+            </div>
           </div>
         </div>
 
@@ -3007,7 +3086,13 @@ const BudgetCalculator = () => {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
+                <XAxis 
+                  dataKey="displayMonth" 
+                  angle={-45}
+                  textAnchor="end"
+                  height={100}
+                  interval={0}
+                />
                 <YAxis tickFormatter={(value: number) => formatCurrency(value)} />
                 <Tooltip 
                   content={({ active, payload, label }) => {
@@ -3041,6 +3126,20 @@ const BudgetCalculator = () => {
                     stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
                     name={account}
                     strokeWidth={2}
+                    connectNulls={false}
+                  />
+                ))}
+                
+                {/* Individual costs lines - only show if enabled */}
+                {showIndividualCostsOutsideBudget && selectedAccountsForChart.map((account, index) => (
+                  <Line
+                    key={`${account}-individual`}
+                    type="monotone"
+                    dataKey={`${account}_individual`}
+                    stroke="#ef4444"
+                    name={`${account} (Enskilda Kostnader)`}
+                    strokeWidth={1}
+                    strokeDasharray="5 5"
                     connectNulls={false}
                   />
                 ))}
