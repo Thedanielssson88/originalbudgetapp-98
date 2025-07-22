@@ -2950,7 +2950,7 @@ const BudgetCalculator = () => {
     };
     
     // Helper function to get the appropriate balance for a month and account
-    // Prioritizes "Faktiskt slutsaldo" only if it's explicitly set (not "Ej ifyllt")
+    // Prioritizes "Faktiskt Kontosaldo" first, then "Faktiskt slutsaldo", then "Estimerat slutsaldo"
     const getBalanceForMonth = (monthKey: string, account: string) => {
       const monthData = historicalData[monthKey];
       
@@ -2958,18 +2958,24 @@ const BudgetCalculator = () => {
         return 0;
       }
       
-      // Check if "Faktiskt slutsaldo" is explicitly filled in (not "Ej ifyllt")
-      const isFinalBalanceSet = monthData.accountBalancesSet && 
-                                monthData.accountBalancesSet[account] === true;
+      // Check if "Faktiskt Kontosaldo" is available and explicitly set
+      const isAccountBalanceSet = monthData.accountBalancesSet && 
+                                  monthData.accountBalancesSet[account] === true;
       
-      // Priority 1: Use "Faktiskt slutsaldo" if it's explicitly set (not "Ej ifyllt")
-      if (isFinalBalanceSet && 
-          monthData.accountFinalBalances && 
+      // Priority 1: Use "Faktiskt Kontosaldo" if it's explicitly set (not "Ej ifyllt")
+      if (isAccountBalanceSet && 
+          monthData.accountBalances && 
+          monthData.accountBalances[account] !== undefined) {
+        return monthData.accountBalances[account];
+      }
+      
+      // Priority 2: Use "Faktiskt slutsaldo" if it's explicitly set 
+      if (monthData.accountFinalBalances && 
           monthData.accountFinalBalances[account] !== undefined) {
         return monthData.accountFinalBalances[account];
       }
       
-      // Priority 2: Use "Estimerat slutsaldo" as fallback (when "Faktiskt slutsaldo" is "Ej ifyllt")
+      // Priority 3: Use "Estimerat slutsaldo" as final fallback
       if (monthData.accountEstimatedFinalBalances && 
           monthData.accountEstimatedFinalBalances[account] !== undefined) {
         return monthData.accountEstimatedFinalBalances[account];
@@ -3030,7 +3036,7 @@ const BudgetCalculator = () => {
     };
     
     // Helper function to determine if a balance is estimated and get the source type
-    // Returns correct source information based on "Ej ifyllt" status
+    // Returns correct source information matching the balance priority logic
     const getBalanceSourceInfo = (monthKey: string, account: string) => {
       const monthData = historicalData[monthKey];
       
@@ -3038,18 +3044,24 @@ const BudgetCalculator = () => {
         return { isEstimated: true, source: 'Estimerat slutsaldo' };
       }
       
-      // Check if "Faktiskt slutsaldo" is explicitly filled in (not "Ej ifyllt")
-      const isFinalBalanceSet = monthData.accountBalancesSet && 
-                                monthData.accountBalancesSet[account] === true;
+      // Check if "Faktiskt Kontosaldo" is available and explicitly set
+      const isAccountBalanceSet = monthData.accountBalancesSet && 
+                                  monthData.accountBalancesSet[account] === true;
       
-      // Priority 1: Use "Faktiskt slutsaldo" if it's explicitly set (not "Ej ifyllt")
-      if (isFinalBalanceSet && 
-          monthData.accountFinalBalances && 
+      // Priority 1: Use "Faktiskt Kontosaldo" if it's explicitly set (not "Ej ifyllt")
+      if (isAccountBalanceSet && 
+          monthData.accountBalances && 
+          monthData.accountBalances[account] !== undefined) {
+        return { isEstimated: false, source: 'Faktiskt Kontosaldo' };
+      }
+      
+      // Priority 2: Use "Faktiskt slutsaldo" if it's explicitly set
+      if (monthData.accountFinalBalances && 
           monthData.accountFinalBalances[account] !== undefined) {
         return { isEstimated: false, source: 'Faktiskt slutsaldo' };
       }
       
-      // Priority 2: Use "Estimerat slutsaldo" as fallback (when "Faktiskt slutsaldo" is "Ej ifyllt")
+      // Priority 3: Use "Estimerat slutsaldo" as final fallback
       return { isEstimated: true, source: 'Estimerat slutsaldo' };
     };
 
