@@ -2959,19 +2959,7 @@ const BudgetCalculator = () => {
       
       const nextMonthData = historicalData[nextMonthKey];
       
-      // Determine if we should use "Faktiskt kontosaldo" or "Estimerat slutsaldo" from NEXT month
-      const useActualBalance = isHistoricalMonth(nextMonthKey) || hasActualBalance(nextMonthKey);
-      
-      if (useActualBalance && nextMonthData?.accountBalances) {
-        // Use "Faktiskt kontosaldo" from next month
-        return nextMonthData.accountBalances[account] || 0;
-      } else if (nextMonthData?.accountEstimatedFinalBalances) {
-        // Use saved "Estimerat slutsaldo" from next month
-        return nextMonthData.accountEstimatedFinalBalances[account] || 0;
-      } else if (nextMonthData?.accountFinalBalances) {
-        // Fallback to "Faktiskt slutsaldo" from next month if no estimated available
-        return nextMonthData.accountFinalBalances[account] || 0;
-      } else {
+      if (!nextMonthData) {
         // Calculate estimated balance for months without saved data from next month
         const estimated = getEstimatedBalancesForMonth(nextMonthKey);
         if (estimated && estimated[account] !== undefined) {
@@ -2985,6 +2973,25 @@ const BudgetCalculator = () => {
         
         return 0;
       }
+      
+      // Check if this specific account has "Ej ifyllt" (accountBalancesSet is false/missing)
+      const accountBalancesSet = nextMonthData.accountBalancesSet || {};
+      const isAccountBalanceSet = accountBalancesSet[account] === true;
+      
+      if (isAccountBalanceSet && nextMonthData?.accountBalances) {
+        // This account has an explicit value set → use "Faktiskt kontosaldo"
+        return nextMonthData.accountBalances[account] || 0;
+      } else {
+        // This account has "Ej ifyllt" → use "Estimerat slutsaldo"
+        if (nextMonthData?.accountEstimatedFinalBalances) {
+          return nextMonthData.accountEstimatedFinalBalances[account] || 0;
+        } else if (nextMonthData?.accountFinalBalances) {
+          // Fallback to "Faktiskt slutsaldo" if no estimated available
+          return nextMonthData.accountFinalBalances[account] || 0;
+        }
+      }
+      
+      return 0;
     };
     
     // Helper function to calculate estimated balances for any month
