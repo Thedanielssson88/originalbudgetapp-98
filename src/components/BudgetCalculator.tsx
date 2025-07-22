@@ -1594,49 +1594,18 @@ const BudgetCalculator = () => {
     return accounts.every(account => (accountBalances[account] || 0) === 0);
   };
 
-  // Helper function to get previous month's Calc.Kontosaldo and description
-  const getPreviousMonthCalcData = (account: string) => {
-    const currentMonthKey = selectedBudgetMonth;
-    if (!currentMonthKey) return { balance: 0, isEstimated: false };
-    
-    const [year, month] = currentMonthKey.split('-').map(Number);
-    let prevMonth = month - 1;
-    let prevYear = year;
-    
-    if (prevMonth === 0) {
-      prevMonth = 12;
-      prevYear = year - 1;
-    }
-    
-    const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
-    const prevMonthData = historicalData[prevMonthKey];
-    
-    if (!prevMonthData) {
-      return { balance: 0, isEstimated: false };
-    }
-    
-    const hasActualBalance = prevMonthData.accountBalancesSet && 
-                            prevMonthData.accountBalancesSet[account] === true;
-    const currentBalance = prevMonthData.accountBalances?.[account] || 0;
-    const estimatedBalance = prevMonthData.accountEstimatedFinalBalances?.[account] || 0;
-    
-    const calcBalance = hasActualBalance ? currentBalance : estimatedBalance;
-    const isUsingEstimated = !hasActualBalance;
-    
-    return { balance: calcBalance, isEstimated: isUsingEstimated };
-  };
-
   // Helper function to get account balance with fallback to estimated
   const getAccountBalanceWithFallback = (account: string) => {
-    // Always use previous month's Calc.Kontosaldo as the original balance
-    const prevMonthData = getPreviousMonthCalcData(account);
-    return prevMonthData.balance;
-  };
-
-  // Helper function to check if original balance should show "(Est)"
-  const isOriginalBalanceEstimated = (account: string) => {
-    const prevMonthData = getPreviousMonthCalcData(account);
-    return prevMonthData.isEstimated;
+    const currentBalance = accountBalances[account] || 0;
+    if (currentBalance !== 0) return currentBalance;
+    
+    if (hasEmptyAccountBalances()) {
+      const freshBalances = (window as any).__freshFinalBalances;
+      const estimated = getEstimatedAccountBalances(freshBalances);
+      return estimated?.[account] || 0;
+    }
+    
+    return currentBalance;
   };
 
   // Function to update account balance
@@ -3022,39 +2991,14 @@ const BudgetCalculator = () => {
       return { balance: calcBalance, isEstimated: isUsingEstimated };
     };
 
-     // Helper function to format month for display (shows previous month)
+     // Helper function to format month for display (shows actual month)
      const formatMonthForDisplay = (monthKey: string) => {
        const [year, monthNum] = monthKey.split('-').map(Number);
        
-       // Calculate previous month for display
-       let displayYear = year;
-       let displayMonth = monthNum - 1;
-       
-       if (displayMonth === 0) {
-         displayYear = year - 1;
-         displayMonth = 12;
-       }
-       
        const monthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 
                           'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
-       const monthName = monthNames[displayMonth - 1];
-       return `${displayYear} - ${monthName}`;
-     };
-
-     // Helper function to get the month key that corresponds to the displayed month
-     const getDisplayedMonthKey = (monthKey: string) => {
-       const [year, monthNum] = monthKey.split('-').map(Number);
-       
-       // Calculate previous month (which is what gets displayed)
-       let displayYear = year;
-       let displayMonth = monthNum - 1;
-       
-       if (displayMonth === 0) {
-         displayYear = year - 1;
-         displayMonth = 12;
-       }
-       
-       return `${displayYear}-${displayMonth.toString().padStart(2, '0')}`;
+       const monthName = monthNames[monthNum - 1];
+       return `${year} - ${monthName}`;
      };
 
      // Helper function to get individual costs for an account in a month
@@ -3098,10 +3042,8 @@ const BudgetCalculator = () => {
       // Add individual costs if enabled - always show them regardless of estimated budget setting
       if (showIndividualCostsOutsideBudget) {
         accounts.forEach(account => {
-          // For individual costs, we want to show them in the month they actually occurred,
-          // which corresponds to the displayed month, not the balance calculation month
-          const displayedMonthKey = getDisplayedMonthKey(monthKey);
-          const individualCosts = getIndividualCosts(displayedMonthKey, account);
+          // Individual costs are now shown in the actual month they occurred
+          const individualCosts = getIndividualCosts(monthKey, account);
           dataPoint[`${account}_individual`] = individualCosts;
         });
       }
@@ -5798,7 +5740,11 @@ const BudgetCalculator = () => {
                       {/* Original balance */}
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">
-                          {isOriginalBalanceEstimated(account) ? "Ursprungligt saldo (Est)" : "Ursprungligt saldo"}
+                          {(() => {
+                            const freshBalances = (window as any).__freshFinalBalances;
+                            const isEstimated = hasEmptyAccountBalances() && getEstimatedAccountBalances(freshBalances);
+                            return isEstimated ? "Ursprungligt saldo (Est)" : "Ursprungligt saldo";
+                          })()}
                         </span>
                         <span className={originalBalance >= 0 ? 'text-blue-600' : 'text-red-600'}>
                           {originalBalance >= 0 ? '+' : ''}{formatCurrency(Math.abs(originalBalance))}
@@ -5956,9 +5902,13 @@ const BudgetCalculator = () => {
                                     <div className="mt-3 pt-3 border-t space-y-2">
                                       {/* Original balance */}
                                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">
-                          {isOriginalBalanceEstimated(account) ? "Ursprungligt saldo (Est)" : "Ursprungligt saldo"}
-                        </span>
+                                        <span className="text-gray-600">
+                                          {(() => {
+                            const freshBalances = (window as any).__freshFinalBalances;
+                            const isEstimated = hasEmptyAccountBalances() && getEstimatedAccountBalances(freshBalances);
+                                            return isEstimated ? "Ursprungligt saldo (Est)" : "Ursprungligt saldo";
+                                          })()}
+                                        </span>
                                         <span className={originalBalance >= 0 ? 'text-blue-600' : 'text-red-600'}>
                                           {originalBalance >= 0 ? '+' : ''}{formatCurrency(Math.abs(originalBalance))}
                                         </span>
