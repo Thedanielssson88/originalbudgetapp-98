@@ -412,8 +412,16 @@ const BudgetCalculator = () => {
         setAccounts(parsed.accounts || ['Löpande', 'Sparkonto', 'Buffert']);
         
         // Load account categories data
-        setAccountCategories(parsed.accountCategories || ['Privat', 'Gemensam', 'Sparande', 'Hushåll']);
+        const loadedCategories = parsed.accountCategories || ['Privat', 'Gemensam', 'Sparande', 'Hushåll'];
+        setAccountCategories(loadedCategories);
         setAccountCategoryMapping(parsed.accountCategoryMapping || {});
+        
+        // Initialize all account categories as expanded
+        const expandedCategoriesState = loadedCategories.reduce((acc: {[key: string]: boolean}, category: string) => {
+          acc[category] = true;
+          return acc;
+        }, {});
+        setExpandedAccounts(expandedCategoriesState);
         
         // Load budget templates
         setBudgetTemplates(parsed.budgetTemplates || {});
@@ -481,6 +489,14 @@ const BudgetCalculator = () => {
       const currentDate = new Date();
       const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
       setSelectedBudgetMonth(currentMonthKey);
+      
+      // Initialize all default account categories as expanded
+      const defaultCategories = ['Privat', 'Gemensam', 'Sparande', 'Hushåll'];
+      const expandedCategoriesState = defaultCategories.reduce((acc: {[key: string]: boolean}, category: string) => {
+        acc[category] = true;
+        return acc;
+      }, {});
+      setExpandedAccounts(expandedCategoriesState);
     }
     
     // Mark initial load as complete
