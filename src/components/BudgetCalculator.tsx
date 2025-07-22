@@ -3109,14 +3109,12 @@ const BudgetCalculator = () => {
                           if (!accountName.includes('_individual')) {
                             // Get the month data point
                             const dataPoint = chartData.find(d => d.month === label);
-                            // Need to explicitly check for the month key to match and verify account has actual balance set to false
+                            // Use the actual Calc.Descr to determine if it's estimated
                             const monthKey = label;
                             const monthData = historicalData[monthKey];
-                            // Account is estimated if no actual balance is set (Ej ifyllt)
-                            const hasActualBalance = monthData && 
-                                                   monthData.accountBalancesSet && 
-                                                   monthData.accountBalancesSet[accountName] === true;
-                            const isEstimated = !hasActualBalance;
+                            const accountData = monthData?.accounts?.[accountName];
+                            // Check if Calc.Descr contains "Estimerat slutsaldo"
+                            const isEstimated = accountData?.["Calc.Descr"] === "Estimerat slutsaldo";
                             
                             return (
                               <div key={accountName} className="text-sm">
