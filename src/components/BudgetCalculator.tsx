@@ -2978,9 +2978,14 @@ const BudgetCalculator = () => {
       const accountBalancesSet = nextMonthData.accountBalancesSet || {};
       const isAccountBalanceSet = accountBalancesSet[account] === true;
       
-      if (isAccountBalanceSet && nextMonthData?.accountBalances) {
-        // This account has an explicit value set → use "Faktiskt kontosaldo"
-        return nextMonthData.accountBalances[account] || 0;
+      if (isAccountBalanceSet) {
+        // This account has an explicit value set → prioritize "Faktiskt slutsaldo" if available
+        if (nextMonthData?.accountFinalBalances && nextMonthData.accountFinalBalances[account] !== undefined) {
+          return nextMonthData.accountFinalBalances[account];
+        } else if (nextMonthData?.accountBalances) {
+          // Fallback to "Faktiskt kontosaldo" if no final balance available
+          return nextMonthData.accountBalances[account] || 0;
+        }
       } else {
         // This account has "Ej ifyllt" → use "Estimerat slutsaldo"
         if (nextMonthData?.accountEstimatedFinalBalances) {
