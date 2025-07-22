@@ -3107,12 +3107,16 @@ const BudgetCalculator = () => {
                           const accountName = entry.dataKey;
                           // Only consider non-individual cost entries for estimation display
                           if (!accountName.includes('_individual')) {
-                            // Get the month data point
-                            const dataPoint = chartData.find(d => d.month === label);
-                            // Use the actual Calc.Descr to determine if it's estimated
+                            // Debug logging
                             const monthKey = label;
                             const monthData = historicalData[monthKey];
                             const accountData = monthData?.accounts?.[accountName];
+                            console.log(`Debug tooltip for ${monthKey} ${accountName}:`, {
+                              monthData: monthData,
+                              accountData: accountData,
+                              calcDescr: accountData?.["Calc.Descr"]
+                            });
+                            
                             // Check if Calc.Descr contains "(Est)"
                             const isEstimated = accountData?.["Calc.Descr"] === "(Est)";
                             
