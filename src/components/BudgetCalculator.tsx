@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useSwipeGestures } from '@/hooks/useSwipeGestures';
+import { AccountDataTable, AccountDataRow } from '@/components/AccountDataTable';
 import CreateMonthDialog from './CreateMonthDialog';
 
 interface SubCategory {
@@ -180,6 +181,54 @@ const BudgetCalculator = () => {
   
   // Individual costs chart selection state (for "Enskilda kostnader")
   const [showIndividualCostsOutsideBudget, setShowIndividualCostsOutsideBudget] = useState<boolean>(false);
+
+  // Calculate structured account data for table view
+  const accountDataRows: AccountDataRow[] = React.useMemo(() => {
+    // Helper function to get Calc.Kontosaldo for a month and account
+    const getCalcKontosaldoForTable = (monthKey: string, account: string) => {
+      const monthData = historicalData[monthKey];
+      
+      if (!monthData) {
+        return { balance: 0, isEstimated: true };
+      }
+      
+      const hasActualBalance = monthData.accountBalancesSet && 
+                              monthData.accountBalancesSet[account] === true;
+      const currentBalance = monthData.accountBalances?.[account] || 0;
+      const estimatedBalance = monthData.accountEstimatedFinalBalances?.[account] || 0;
+      
+      const calcBalance = hasActualBalance ? currentBalance : estimatedBalance;
+      const isUsingEstimated = !hasActualBalance;
+      
+      return { balance: calcBalance, isEstimated: isUsingEstimated };
+    };
+
+    const rows: AccountDataRow[] = [];
+    const allMonthKeys = Object.keys(historicalData).sort();
+    
+    allMonthKeys.forEach(monthKey => {
+      const [year, month] = monthKey.split('-');
+      const monthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 
+                         'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
+      const monthName = monthNames[parseInt(month) - 1];
+      
+      accounts.forEach(account => {
+        const { balance, isEstimated } = getCalcKontosaldoForTable(monthKey, account);
+        const calcDescr = isEstimated ? "(Est)" : "";
+        
+        rows.push({
+          year: parseInt(year),
+          month: monthName,
+          monthKey,
+          account,
+          calcKontosaldo: balance,
+          calcDescr
+        });
+      });
+    });
+    
+    return rows;
+  }, [historicalData, accounts]);
   
   // Chart legend expandable state
   const [isChartLegendExpanded, setIsChartLegendExpanded] = useState<boolean>(false);
@@ -3107,9 +3156,11 @@ const BudgetCalculator = () => {
                           const accountName = entry.dataKey;
                           // Only consider non-individual cost entries for estimation display
                           if (!accountName.includes('_individual')) {
-                            // Use the _estimated flag that's already in the chart data
-                            const dataPoint = chartData.find(d => d.month === label);
-                            const isEstimated = dataPoint?.[`${accountName}_estimated`] === true;
+                            // Find the corresponding row in accountDataRows for this month and account
+                            const dataRow = accountDataRows.find(row => 
+                              row.monthKey === label && row.account === accountName
+                            );
+                            const isEstimated = dataRow?.calcDescr === "(Est)";
                             
                             return (
                               <div key={accountName} className="text-sm">
@@ -6872,6 +6923,12 @@ const BudgetCalculator = () => {
                   {renderAccountBalanceChart()}
                 </CardContent>
               </Card>
+
+              {/* Account Data Table */}
+              <AccountDataTable 
+                data={accountDataRows}
+                className="w-full"
+              />
 
               {/* Month Selector and Data Display */}
               <Card>
