@@ -3105,7 +3105,9 @@ const BudgetCalculator = () => {
                           const accountName = entry.dataKey;
                           // Only consider non-individual cost entries for estimation display
                           if (!accountName.includes('_individual')) {
-                            const isEstimated = chartData.find(d => d.month === label)?.[`${accountName}_estimated`];
+                            const dataPoint = chartData.find(d => d.month === label);
+                            // Check explicitly if isEstimated is true (important for August fix)
+                            const isEstimated = dataPoint && dataPoint[`${accountName}_estimated`] === true;
                             return (
                               <div key={accountName} className="text-sm">
                                 <span>
