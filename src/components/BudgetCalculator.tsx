@@ -3103,14 +3103,25 @@ const BudgetCalculator = () => {
                         <p className="font-medium text-sm mb-1">{label}</p>
                         {payload.map((entry: any) => {
                           const accountName = entry.dataKey;
-                          const isEstimated = chartData.find(d => d.month === label)?.[`${accountName}_estimated`] || false;
-                          return (
-                            <div key={accountName} className="text-sm">
-                              <span>
-                                {accountName}: {formatCurrency(entry.value)} kr{isEstimated ? ' (Est)' : ''}
-                              </span>
-                            </div>
-                          );
+                          // Only consider non-individual cost entries for estimation display
+                          if (!accountName.includes('_individual')) {
+                            const isEstimated = chartData.find(d => d.month === label)?.[`${accountName}_estimated`];
+                            return (
+                              <div key={accountName} className="text-sm">
+                                <span>
+                                  {accountName}: {formatCurrency(entry.value)} kr{isEstimated ? ' (Est)' : ''}
+                                </span>
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <div key={accountName} className="text-sm">
+                                <span>
+                                  {accountName}: {formatCurrency(entry.value)} kr
+                                </span>
+                              </div>
+                            );
+                          }
                         })}
                       </div>
                     );
