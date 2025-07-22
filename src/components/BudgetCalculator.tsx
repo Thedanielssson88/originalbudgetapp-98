@@ -3113,8 +3113,8 @@ const BudgetCalculator = () => {
                             const monthKey = label;
                             const monthData = historicalData[monthKey];
                             const accountData = monthData?.accounts?.[accountName];
-                            // Check if Calc.Descr contains "Estimerat slutsaldo"
-                            const isEstimated = accountData?.["Calc.Descr"] === "Estimerat slutsaldo";
+                            // Check if Calc.Descr contains "(Est)"
+                            const isEstimated = accountData?.["Calc.Descr"] === "(Est)";
                             
                             return (
                               <div key={accountName} className="text-sm">
