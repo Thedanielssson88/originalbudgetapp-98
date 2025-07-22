@@ -214,10 +214,12 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                 const nextIsEstimated = nextPoint[`${account}_isEstimated`];
 
                 // Line from non-estimated to estimated should be dashed
-                if (!currentIsEstimated && nextIsEstimated) {
+                // Line from estimated to non-estimated should also be dashed
+                if ((!currentIsEstimated && nextIsEstimated) || (currentIsEstimated && !nextIsEstimated)) {
                   strokeDasharray = "5 5";
                 }
-                // All other combinations are solid lines
+                // Lines between two non-estimated values are solid
+                // Lines between two estimated values are solid
               }
 
               segments.push(
