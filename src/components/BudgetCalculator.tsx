@@ -3977,64 +3977,118 @@ const BudgetCalculator = () => {
                         Ange saldot på kontona den 24:e föregående månad, innan kontona fylls på med nya pengar den 25:e.
                       </p>
                       
-                       <div className="space-y-6">
-                         {(() => {
-                            const accountsByCategory = getAccountsByCategory();
-                            return Object.entries(accountsByCategory).map(([category, categoryAccounts]) => (
-                              <div key={category} className="space-y-4">
-                                {/* Category Header */}
-                                <div className="pb-2 border-b border-blue-300">
-                                  <h4 className="text-lg font-semibold text-blue-800">{category}</h4>
-                                </div>
-                                
-                                {/* Accounts in this category */}
-                                {categoryAccounts.map(account => {
-                                  const currentBalance = accountBalances[account] || 0;
-                                  const freshBalances = (window as any).__freshFinalBalances;
-                                  const estimatedResult = getEstimatedAccountBalances(freshBalances);
-                                  const estimatedBalance = estimatedResult?.[account] || 0;
-                                 
-                                  return (
-                                    <div key={account} className="bg-white rounded border overflow-hidden ml-4">
-                                      <div className="p-3 bg-blue-50 border-b">
-                                        <h5 className="font-semibold text-blue-800">{account}</h5>
-                                      </div>
-                                      
-                                      <div className="p-3 space-y-3">
-                                        {/* Faktiskt kontosaldo */}
-                                        <div className="flex justify-between items-center">
-                                          <span className="text-sm font-medium text-blue-700">Faktiskt kontosaldo</span>
-                                          <div className="flex items-center gap-2">
-                                            <Input
-                                              type="number"
-                                              value={currentBalance || ''}
-                                              onChange={(e) => updateAccountBalance(account, Number(e.target.value) || 0)}
-                                              className="w-32 text-right"
-                                              placeholder="0"
-                                            />
-                                            <span className="text-sm text-blue-700 min-w-8">kr</span>
-                                          </div>
-                                        </div>
+                        <div className="space-y-6">
+                          {(() => {
+                             const accountsByCategory = getAccountsByCategory();
+                             const currentDate = new Date();
+                             const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                             const isHistorical = selectedBudgetMonth < currentMonthKey;
+                             const isCurrent = selectedBudgetMonth === currentMonthKey;
+                             
+                             // Check if any accounts have filled-in balances for current month
+                             const hasFilledBalances = isCurrent && accounts.some(account => {
+                               const balance = accountBalances[account];
+                               return balance && balance !== 0;
+                             });
+                             
+                             const shouldShowEstimated = !isHistorical && (!isCurrent || !hasFilledBalances);
+                             
+                             return Object.entries(accountsByCategory).map(([category, categoryAccounts]) => {
+                               // Calculate category total
+                               let categoryTotal = 0;
+                               let isEstimated = false;
+                               
+                               if (shouldShowEstimated) {
+                                 // Use estimated balances
+                                 const freshBalances = (window as any).__freshFinalBalances;
+                                 const estimatedResult = getEstimatedAccountBalances(freshBalances);
+                                 categoryTotal = categoryAccounts.reduce((sum, account) => {
+                                   return sum + (estimatedResult?.[account] || 0);
+                                 }, 0);
+                                 isEstimated = true;
+                               } else {
+                                 // Use actual balances
+                                 categoryTotal = categoryAccounts.reduce((sum, account) => {
+                                   return sum + (accountBalances[account] || 0);
+                                 }, 0);
+                               }
+                               
+                               return (
+                                 <div key={category} className="space-y-4">
+                                   {/* Category Header with Summary */}
+                                   <div className="pb-2 border-b border-blue-300">
+                                     <h4 className="text-lg font-semibold text-blue-800">{category}</h4>
+                                     <div className="text-blue-700 font-medium">
+                                       {isEstimated ? 'Estimerat: ' : ''}{formatCurrency(categoryTotal)}
+                                     </div>
+                                   </div>
+                                   
+                                   {/* Expandable accounts in this category */}
+                                   <Collapsible 
+                                     open={expandedAccounts[category]} 
+                                     onOpenChange={(open) => setExpandedAccounts(prev => ({ ...prev, [category]: open }))}
+                                   >
+                                     <CollapsibleTrigger asChild>
+                                       <Button 
+                                         variant="ghost" 
+                                         size="sm" 
+                                         className="w-full justify-between text-blue-700 hover:bg-blue-100"
+                                       >
+                                         <span>Visa konton ({categoryAccounts.length})</span>
+                                         <ChevronDown className={`h-4 w-4 transition-transform ${expandedAccounts[category] ? 'rotate-180' : ''}`} />
+                                       </Button>
+                                     </CollapsibleTrigger>
+                                     <CollapsibleContent className="space-y-3 mt-3">
+                                       {categoryAccounts.map(account => {
+                                         const currentBalance = accountBalances[account] || 0;
+                                         const freshBalances = (window as any).__freshFinalBalances;
+                                         const estimatedResult = getEstimatedAccountBalances(freshBalances);
+                                         const estimatedBalance = estimatedResult?.[account] || 0;
                                         
-                                        {/* Estimerat slutsaldo */}
-                                        {estimatedResult && (
-                                          <div className="space-y-2">
-                                            <div className="flex justify-between items-center">
-                                              <span className="text-sm font-medium text-orange-700">Estimerat slutsaldo</span>
-                                              <div className="flex items-center gap-2">
-                                                <span className="w-32 text-right text-sm text-orange-600">{formatCurrency(estimatedBalance)}</span>
-                                                <span className="text-sm text-orange-600 min-w-8">kr</span>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            ));
-                           })()}
+                                         return (
+                                           <div key={account} className="bg-white rounded border overflow-hidden ml-4">
+                                             <div className="p-3 bg-blue-50 border-b">
+                                               <h5 className="font-semibold text-blue-800">{account}</h5>
+                                             </div>
+                                             
+                                             <div className="p-3 space-y-3">
+                                               {/* Faktiskt kontosaldo */}
+                                               <div className="flex justify-between items-center">
+                                                 <span className="text-sm font-medium text-blue-700">Faktiskt kontosaldo</span>
+                                                 <div className="flex items-center gap-2">
+                                                   <Input
+                                                     type="number"
+                                                     value={currentBalance || ''}
+                                                     onChange={(e) => updateAccountBalance(account, Number(e.target.value) || 0)}
+                                                     className="w-32 text-right"
+                                                     placeholder="0"
+                                                   />
+                                                   <span className="text-sm text-blue-700 min-w-8">kr</span>
+                                                 </div>
+                                               </div>
+                                               
+                                               {/* Estimerat slutsaldo */}
+                                               {estimatedResult && (
+                                                 <div className="space-y-2">
+                                                   <div className="flex justify-between items-center">
+                                                     <span className="text-sm font-medium text-orange-700">Estimerat slutsaldo</span>
+                                                     <div className="flex items-center gap-2">
+                                                       <span className="w-32 text-right text-sm text-orange-600">{formatCurrency(estimatedBalance)}</span>
+                                                       <span className="text-sm text-orange-600 min-w-8">kr</span>
+                                                     </div>
+                                                   </div>
+                                                 </div>
+                                               )}
+                                             </div>
+                                           </div>
+                                         );
+                                       })}
+                                     </CollapsibleContent>
+                                   </Collapsible>
+                                 </div>
+                               );
+                             });
+                            })()}
                       </div>
                       
                       <div className="mt-4 pt-4 border-t border-blue-200">
