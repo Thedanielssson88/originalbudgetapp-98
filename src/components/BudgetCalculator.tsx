@@ -3107,22 +3107,9 @@ const BudgetCalculator = () => {
                           const accountName = entry.dataKey;
                           // Only consider non-individual cost entries for estimation display
                           if (!accountName.includes('_individual')) {
-                            // Let's debug exactly what data we have
-                            console.log(`=== TOOLTIP DEBUG ${label} ${accountName} ===`);
-                            console.log('historicalData keys:', Object.keys(historicalData));
-                            console.log('chartData entry:', entry);
-                            console.log('chart payload:', payload);
-                            
-                            // Look for the actual estimated flag in the chart data itself
+                            // Use the _estimated flag that's already in the chart data
                             const dataPoint = chartData.find(d => d.month === label);
-                            const estimatedKey = `${accountName}_estimated`;
-                            const isEstimatedFromChart = dataPoint?.[estimatedKey];
-                            
-                            console.log('dataPoint:', dataPoint);
-                            console.log('estimatedKey:', estimatedKey);
-                            console.log('isEstimatedFromChart:', isEstimatedFromChart);
-                            
-                            const isEstimated = isEstimatedFromChart === true;
+                            const isEstimated = dataPoint?.[`${accountName}_estimated`] === true;
                             
                             return (
                               <div key={accountName} className="text-sm">
