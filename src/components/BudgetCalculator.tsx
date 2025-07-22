@@ -2990,13 +2990,12 @@ const BudgetCalculator = () => {
           return;
         }
         
-        // If showing estimated amounts is enabled and this is estimated data, 
-        // only add to the estimated line, not the regular line
-        if (showEstimatedBudgetAmounts && isEstimated) {
-          dataPoint[`${account}_estimated`] = balance;
-        } else {
-          // Add to regular line only if it's not estimated, or if estimated amounts are not being shown
-          dataPoint[account] = balance;
+        // Always add the main account data
+        dataPoint[account] = balance;
+        
+        // Mark if this point is estimated for styling purposes
+        if (isEstimated) {
+          dataPoint[`${account}_isEstimated`] = true;
         }
         
         // Add individual costs if enabled
@@ -3199,19 +3198,8 @@ const BudgetCalculator = () => {
                         <p className="font-medium text-sm mb-1">{label}</p>
                         {payload.map((entry: any) => {
                           const accountName = entry.dataKey;
-                          // Handle estimated values
-                          if (accountName.includes('_estimated')) {
-                            const baseAccountName = accountName.replace('_estimated', '');
-                            return (
-                              <div key={accountName} className="text-sm">
-                                <span>
-                                  {baseAccountName} (Estimerat): {formatCurrency(entry.value)} kr
-                                </span>
-                              </div>
-                            );
-                          }
                           // Handle individual costs
-                          else if (accountName.includes('_individual')) {
+                          if (accountName.includes('_individual')) {
                             const baseAccountName = accountName.replace('_individual', '');
                             return (
                               <div key={accountName} className="text-sm">
@@ -3223,16 +3211,15 @@ const BudgetCalculator = () => {
                           }
                           // Handle regular account values
                           else {
-                            // Find the corresponding row in accountDataRows for this month and account
-                            const dataRow = accountDataRows.find(row => 
-                              row.monthKey === label && row.account === accountName
-                            );
-                            const isEstimated = dataRow?.calcDescr === "(Est)";
+                            // Check if this data point is estimated
+                            const isEstimated = entry.payload?.[`${accountName}_isEstimated`];
+                            const displayLabel = showEstimatedBudgetAmounts && isEstimated ? 
+                              `${accountName} (Estimerat)` : accountName;
                             
                             return (
                               <div key={accountName} className="text-sm">
                                 <span>
-                                  {accountName}: {formatCurrency(entry.value)} kr{isEstimated && !showEstimatedBudgetAmounts ? ' (Est)' : ''}
+                                  {displayLabel}: {formatCurrency(entry.value)} kr
                                 </span>
                               </div>
                             );
@@ -3244,17 +3231,44 @@ const BudgetCalculator = () => {
                 />
                 
                 {/* Account lines */}
-                {selectedAccountsForChart.map((account, index) => (
-                  <Line
-                    key={account}
-                    type="monotone"
-                    dataKey={account}
-                    stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
-                    name={account}
-                    strokeWidth={2}
-                    connectNulls={false}
-                  />
-                ))}
+                {selectedAccountsForChart.map((account, index) => {
+                  // Check if this account has any estimated values
+                  const hasEstimatedValues = chartData.some(point => point[`${account}_isEstimated`]);
+                  const shouldShowDashed = showEstimatedBudgetAmounts && hasEstimatedValues;
+                  
+                  return (
+                    <Line
+                      key={account}
+                      type="monotone"
+                      dataKey={account}
+                      stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
+                      name={account}
+                      strokeWidth={2}
+                      connectNulls={false}
+                      strokeDasharray={shouldShowDashed ? "5 5" : undefined}
+                      dot={(props: any) => {
+                        // Check if this point is estimated
+                        const isEstimated = props.payload?.[`${account}_isEstimated`];
+                        if (showEstimatedBudgetAmounts && isEstimated) {
+                          // Show special dot for estimated values
+                          return (
+                            <circle 
+                              cx={props.cx} 
+                              cy={props.cy} 
+                              r={4} 
+                              fill={accountColors[accounts.indexOf(account) % accountColors.length]}
+                              stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
+                              strokeWidth={2}
+                              strokeDasharray="3 3"
+                            />
+                          );
+                        }
+                        // Regular dot for non-estimated values
+                        return <circle cx={props.cx} cy={props.cy} r={3} fill={accountColors[accounts.indexOf(account) % accountColors.length]} />;
+                      }}
+                    />
+                  );
+                })}
                 
                 {/* Individual costs lines - only show if enabled */}
                 {showIndividualCostsOutsideBudget && selectedAccountsForChart.map((account, index) => (
@@ -3267,21 +3281,6 @@ const BudgetCalculator = () => {
                     strokeWidth={1}
                     strokeDasharray="5 5"
                     connectNulls={false}
-                  />
-                ))}
-                
-                {/* Estimated budget lines - only show if enabled */}
-                {showEstimatedBudgetAmounts && selectedAccountsForChart.map((account, index) => (
-                  <Line
-                    key={`${account}-estimated`}
-                    type="monotone"
-                    dataKey={`${account}_estimated`}
-                    stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
-                    name={`${account} (Estimerat)`}
-                    strokeWidth={2}
-                    strokeDasharray="10 5"
-                    connectNulls={false}
-                    dot={{ fill: accountColors[accounts.indexOf(account) % accountColors.length], strokeWidth: 2, r: 4 }}
                   />
                 ))}
               </LineChart>
