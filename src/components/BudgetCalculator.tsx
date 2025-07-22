@@ -2017,11 +2017,13 @@ const BudgetCalculator = () => {
           susannaSalary: 0,
           susannaförsäkringskassan: 0,
           susannabarnbidrag: 0,
-          // Reset all category amounts to 0
+          // Reset all category amounts to 0, but exclude "Enskilda kostnader"
           costGroups: (currentMonthData.costGroups || []).map((group: any) => ({
             ...group,
             amount: 0,
-            subCategories: (group.subCategories || []).map((sub: any) => ({
+            subCategories: (group.subCategories || []).filter((sub: any) => 
+              sub.financedFrom !== 'Enskild kostnad'
+            ).map((sub: any) => ({
               ...sub,
               amount: 0
             }))
@@ -2072,7 +2074,12 @@ const BudgetCalculator = () => {
         susannaSalary: template.susannaSalary || 0,
         susannaförsäkringskassan: template.susannaförsäkringskassan || 0,
         susannabarnbidrag: template.susannabarnbidrag || 0,
-        costGroups: JSON.parse(JSON.stringify(template.costGroups || [])),
+        costGroups: JSON.parse(JSON.stringify(template.costGroups || [])).map((group: any) => ({
+          ...group,
+          subCategories: (group.subCategories || []).filter((sub: any) => 
+            sub.financedFrom !== 'Enskild kostnad'
+          )
+        })),
         savingsGroups: JSON.parse(JSON.stringify(template.savingsGroups || [])),
         dailyTransfer: template.dailyTransfer || 300,
         weekendTransfer: template.weekendTransfer || 540,
@@ -2095,6 +2102,13 @@ const BudgetCalculator = () => {
         newMonthData = {
           ...currentMonthData,
           // Keep all income values from the source month
+          // Filter out "Enskilda kostnader" from cost groups
+          costGroups: (currentMonthData.costGroups || []).map((group: any) => ({
+            ...group,
+            subCategories: (group.subCategories || []).filter((sub: any) => 
+              sub.financedFrom !== 'Enskild kostnad'
+            )
+          })),
           // Use empty account balances for new months - user should fill manually 
           accountBalances: {},
           accountBalancesSet: {}, // All balances start as not set, so they show "Ej ifyllt"
@@ -2216,10 +2230,16 @@ const BudgetCalculator = () => {
     if (!sourceData || !templateName.trim()) return;
     
     // Create template with complete cost and savings data including subcategories and accounts
+    // Exclude "Enskilda kostnader" from the template
     const templateData = {
       name: templateName.trim(),
       date: new Date().toISOString(),
-      costGroups: JSON.parse(JSON.stringify(sourceData.costGroups || [])),
+      costGroups: JSON.parse(JSON.stringify(sourceData.costGroups || [])).map((group: any) => ({
+        ...group,
+        subCategories: (group.subCategories || []).filter((sub: any) => 
+          sub.financedFrom !== 'Enskild kostnad'
+        )
+      })),
       savingsGroups: JSON.parse(JSON.stringify(sourceData.savingsGroups || [])),
       dailyTransfer: sourceData.dailyTransfer || 300,
       weekendTransfer: sourceData.weekendTransfer || 540,
