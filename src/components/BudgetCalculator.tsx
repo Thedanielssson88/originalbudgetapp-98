@@ -2951,7 +2951,30 @@ const BudgetCalculator = () => {
     
     // Helper function to get the appropriate balance for a month and account
     const getBalanceForMonth = (monthKey: string, account: string) => {
-      // Get the NEXT month's data to shift display to previous month
+      // First check current month's data for actual balances
+      const currentMonthData = historicalData[monthKey];
+      
+      if (currentMonthData) {
+        // Priority 1: Use current month's "Faktiskt slutsaldo" if it exists
+        if (currentMonthData.accountFinalBalances && currentMonthData.accountFinalBalances[account] !== undefined) {
+          return currentMonthData.accountFinalBalances[account];
+        }
+        
+        // Priority 2: Use current month's "Faktiskt kontosaldo" if explicitly set
+        const accountBalancesSet = currentMonthData.accountBalancesSet || {};
+        const isAccountBalanceSet = accountBalancesSet[account] === true;
+        
+        if (isAccountBalanceSet && currentMonthData.accountBalances && currentMonthData.accountBalances[account] !== undefined) {
+          return currentMonthData.accountBalances[account];
+        }
+        
+        // Priority 3: Use current month's "Estimerat slutsaldo" if available
+        if (currentMonthData.accountEstimatedFinalBalances && currentMonthData.accountEstimatedFinalBalances[account] !== undefined) {
+          return currentMonthData.accountEstimatedFinalBalances[account];
+        }
+      }
+      
+      // Fallback: Check next month's data (for end-of-month balance calculation)
       const [year, month] = monthKey.split('-').map(Number);
       const nextMonth = month === 12 ? 1 : month + 1;
       const nextYear = month === 12 ? year + 1 : year;
@@ -2974,22 +2997,19 @@ const BudgetCalculator = () => {
         return 0;
       }
       
-      // Priority 1: Use "Faktiskt slutsaldo" if it exists
-      if (nextMonthData?.accountFinalBalances && nextMonthData.accountFinalBalances[account] !== undefined) {
+      // Fallback priorities from next month data
+      if (nextMonthData.accountFinalBalances && nextMonthData.accountFinalBalances[account] !== undefined) {
         return nextMonthData.accountFinalBalances[account];
       }
       
-      // Priority 2: Check if account balance is explicitly set (not "Ej ifyllt")
-      const accountBalancesSet = nextMonthData.accountBalancesSet || {};
-      const isAccountBalanceSet = accountBalancesSet[account] === true;
+      const nextAccountBalancesSet = nextMonthData.accountBalancesSet || {};
+      const isNextAccountBalanceSet = nextAccountBalancesSet[account] === true;
       
-      if (isAccountBalanceSet && nextMonthData?.accountBalances) {
-        // Account has explicit kontosaldo set → use it as fallback
+      if (isNextAccountBalanceSet && nextMonthData.accountBalances) {
         return nextMonthData.accountBalances[account] || 0;
       }
       
-      // Priority 3: Use "Estimerat slutsaldo" as final fallback
-      if (nextMonthData?.accountEstimatedFinalBalances) {
+      if (nextMonthData.accountEstimatedFinalBalances) {
         return nextMonthData.accountEstimatedFinalBalances[account] || 0;
       }
       
@@ -3049,7 +3069,30 @@ const BudgetCalculator = () => {
     
     // Helper function to determine if a balance is estimated and get the source type
     const getBalanceSourceInfo = (monthKey: string, account: string) => {
-      // Get the NEXT month's data to match the getBalanceForMonth logic
+      // First check current month's data to match the getBalanceForMonth logic
+      const currentMonthData = historicalData[monthKey];
+      
+      if (currentMonthData) {
+        // Priority 1: Use current month's "Faktiskt slutsaldo" if it exists
+        if (currentMonthData.accountFinalBalances && currentMonthData.accountFinalBalances[account] !== undefined) {
+          return { isEstimated: false, source: 'Faktiskt slutsaldo' };
+        }
+        
+        // Priority 2: Use current month's "Faktiskt kontosaldo" if explicitly set
+        const accountBalancesSet = currentMonthData.accountBalancesSet || {};
+        const isAccountBalanceSet = accountBalancesSet[account] === true;
+        
+        if (isAccountBalanceSet && currentMonthData.accountBalances && currentMonthData.accountBalances[account] !== undefined) {
+          return { isEstimated: false, source: 'Faktiskt kontosaldo' };
+        }
+        
+        // Priority 3: Use current month's "Estimerat slutsaldo" if available
+        if (currentMonthData.accountEstimatedFinalBalances && currentMonthData.accountEstimatedFinalBalances[account] !== undefined) {
+          return { isEstimated: true, source: 'Estimerat slutsaldo' };
+        }
+      }
+      
+      // Fallback: Check next month's data
       const [year, month] = monthKey.split('-').map(Number);
       const nextMonth = month === 12 ? 1 : month + 1;
       const nextYear = month === 12 ? year + 1 : year;
@@ -3058,25 +3101,20 @@ const BudgetCalculator = () => {
       const nextMonthData = historicalData[nextMonthKey];
       
       if (!nextMonthData) {
-        return { isEstimated: true, source: 'Estimerat slutsaldo' }; // No data means it's estimated
+        return { isEstimated: true, source: 'Estimerat slutsaldo' };
       }
       
-      // Priority 1: Use "Faktiskt slutsaldo" if it exists
-      if (nextMonthData?.accountFinalBalances && nextMonthData.accountFinalBalances[account] !== undefined) {
+      // Fallback priorities from next month data
+      if (nextMonthData.accountFinalBalances && nextMonthData.accountFinalBalances[account] !== undefined) {
         return { isEstimated: false, source: 'Faktiskt slutsaldo' };
       }
       
-      // Priority 2: Check if account balance is explicitly set (not "Ej ifyllt")
-      const accountBalancesSet = nextMonthData.accountBalancesSet || {};
-      const isAccountBalanceSet = accountBalancesSet[account] === true;
+      const nextAccountBalancesSet = nextMonthData.accountBalancesSet || {};
+      const isNextAccountBalanceSet = nextAccountBalancesSet[account] === true;
       
-      if (isAccountBalanceSet && nextMonthData?.accountBalances) {
-        // Account has explicit kontosaldo set → use it as fallback
+      if (isNextAccountBalanceSet && nextMonthData.accountBalances) {
         return { isEstimated: false, source: 'Faktiskt kontosaldo' };
       }
-      
-      // Priority 3: Use "Estimerat slutsaldo" as final fallback
-      return { isEstimated: true, source: 'Estimerat slutsaldo' };
       
       return { isEstimated: true, source: 'Estimerat slutsaldo' };
     };
