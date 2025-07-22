@@ -3252,61 +3252,45 @@ const BudgetCalculator = () => {
                     );
                   }
 
-                  // When showing estimated amounts, create multiple line segments
+                  // When showing estimated amounts, create individual line segments
                   const segments = [];
                   
-                  // Create data for solid line segments (non-estimated to non-estimated and estimated to non-estimated)
-                  const solidSegments = [];
-                  const dashedSegments = [];
-                  
+                  // Create segments for each adjacent pair of points
                   for (let i = 0; i < chartData.length - 1; i++) {
                     const currentPoint = chartData[i];
                     const nextPoint = chartData[i + 1];
                     
+                    // Skip if either point doesn't have data for this account
+                    if (currentPoint[account] == null || nextPoint[account] == null) continue;
+                    
                     const currentIsEstimated = currentPoint[`${account}_isEstimated`];
                     const nextIsEstimated = nextPoint[`${account}_isEstimated`];
                     
+                    // Determine line style based on transition
+                    let strokeDasharray = undefined; // solid by default
+                    
                     // Line from non-estimated to estimated should be dashed
                     if (!currentIsEstimated && nextIsEstimated) {
-                      dashedSegments.push([currentPoint, nextPoint]);
-                    } else {
-                      // All other combinations should be solid
-                      solidSegments.push([currentPoint, nextPoint]);
+                      strokeDasharray = "5 5";
                     }
+                    
+                    // Create segment data with only these two points
+                    const segmentData = [currentPoint, nextPoint];
+                    
+                    segments.push(
+                      <Line
+                        key={`${account}-segment-${i}`}
+                        type="linear" // Use linear to ensure straight line between points
+                        dataKey={account}
+                        stroke={accountColor}
+                        strokeWidth={2}
+                        strokeDasharray={strokeDasharray}
+                        connectNulls={false}
+                        dot={false} // Don't show dots on segments
+                        data={segmentData}
+                      />
+                    );
                   }
-                  
-                  // Render solid segments
-                  solidSegments.forEach((segment, segIndex) => {
-                    segments.push(
-                      <Line
-                        key={`${account}-solid-${segIndex}`}
-                        type="monotone"
-                        dataKey={account}
-                        stroke={accountColor}
-                        strokeWidth={2}
-                        connectNulls={false}
-                        dot={false}
-                        data={segment}
-                      />
-                    );
-                  });
-                  
-                  // Render dashed segments
-                  dashedSegments.forEach((segment, segIndex) => {
-                    segments.push(
-                      <Line
-                        key={`${account}-dashed-${segIndex}`}
-                        type="monotone"
-                        dataKey={account}
-                        stroke={accountColor}
-                        strokeWidth={2}
-                        strokeDasharray="5 5"
-                        connectNulls={false}
-                        dot={false}
-                        data={segment}
-                      />
-                    );
-                  });
                   
                   // Add dots separately
                   segments.push(
