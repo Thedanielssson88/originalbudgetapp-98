@@ -236,35 +236,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
               );
             }
 
-            // Generate individual costs line segments if enabled
-            if (showIndividualCostsOutsideBudget) {
-              for (let i = 0; i < data.length - 1; i++) {
-                const currentPoint = data[i];
-                const nextPoint = data[i + 1];
-
-                const currentValue = currentPoint[`${account}_individual`];
-                const nextValue = nextPoint[`${account}_individual`];
-
-                if (currentValue != null && nextValue != null) {
-                  const x1 = xScale(i);
-                  const y1 = yScale(currentValue);
-                  const x2 = xScale(i + 1);
-                  const y2 = yScale(nextValue);
-
-                  segments.push(
-                    <CustomLineSegment
-                      key={`${account}-individual-${i}`}
-                      x1={x1}
-                      y1={y1}
-                      x2={x2}
-                      y2={y2}
-                      stroke="#ef4444"
-                      strokeWidth={2}
-                    />
-                  );
-                }
-              }
-            }
+            // Individual costs don't have line segments - only markers
 
             // Generate dots for main account values
             data.forEach((point, index) => {
