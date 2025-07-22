@@ -16,6 +16,7 @@ interface CustomLineChartProps {
   margin: { top: number; right: number; bottom: number; left: number };
   formatCurrency: (value: number) => string;
   showIndividualCostsOutsideBudget?: boolean;
+  showSavingsSeparately?: boolean;
 }
 
 export const CustomLineChart: React.FC<CustomLineChartProps> = ({
@@ -27,7 +28,8 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
   height,
   margin,
   formatCurrency,
-  showIndividualCostsOutsideBudget = false
+  showIndividualCostsOutsideBudget = false,
+  showSavingsSeparately = false
 }) => {
   const [tooltip, setTooltip] = useState<{
     visible: boolean;
@@ -63,12 +65,16 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
   const chartWidth = width - margin.left - margin.right;
   const chartHeight = height - margin.top - margin.bottom;
 
-  // Find min and max values for Y axis scaling (include individual costs if enabled)
+  // Find min and max values for Y axis scaling (include individual costs and savings if enabled)
   const allValues = data.flatMap(point => {
     const mainValues = accounts.map(account => point[account]).filter(val => val != null);
     if (showIndividualCostsOutsideBudget) {
       const individualValues = accounts.map(account => point[`${account}_individual`]).filter(val => val != null);
-      return [...mainValues, ...individualValues];
+      allValues.push(...individualValues);
+    }
+    if (showSavingsSeparately) {
+      const savingsValues = accounts.map(account => point[`${account}_savings`]).filter(val => val != null);
+      allValues.push(...savingsValues);
     }
     return mainValues;
   });
@@ -158,12 +164,13 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
           y: event.clientY - rect.top,
           content: {
             month: point.displayMonth,
-            accounts: accountsWithData.map(account => ({
-              name: account,
-              value: point[account],
-              isEstimated: point[`${account}_isEstimated`],
-              individual: point[`${account}_individual`]
-            }))
+              accounts: accountsWithData.map(account => ({
+                name: account,
+                value: point[account],
+                isEstimated: point[`${account}_isEstimated`],
+                individual: point[`${account}_individual`],
+                savings: point[`${account}_savings`]
+              }))
           }
         });
       }
@@ -299,6 +306,29 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
               });
             }
 
+            // Generate dots for savings if enabled
+            if (showSavingsSeparately) {
+              data.forEach((point, index) => {
+                const savingsValue = point[`${account}_savings`];
+                if (savingsValue == null || savingsValue === 0) return;
+
+                const x = xScale(index);
+                const y = yScale(savingsValue);
+
+                dots.push(
+                  <circle
+                    key={`${account}-savings-dot-${index}`}
+                    cx={x}
+                    cy={y}
+                    r={8}
+                    fill="#22c55e"
+                    stroke="#16a34a"
+                    strokeWidth={2}
+                  />
+                );
+              });
+            }
+
             return [segments, dots];
           })}
 
@@ -355,6 +385,13 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                 <div className="text-sm text-red-600">
                   <span>
                     {account.name} (Enskilda Kostnader): {formatCurrency(account.individual)} kr
+                  </span>
+                </div>
+              )}
+              {showSavingsSeparately && account.savings != null && (
+                <div className="text-sm text-green-600">
+                  <span>
+                    {account.name} (Sparande): {formatCurrency(account.savings)} kr
                   </span>
                 </div>
               )}

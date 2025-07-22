@@ -182,6 +182,9 @@ const BudgetCalculator = () => {
   
   // Individual costs chart selection state (for "Enskilda kostnader")
   const [showIndividualCostsOutsideBudget, setShowIndividualCostsOutsideBudget] = useState<boolean>(false);
+  
+  // Savings chart selection state (for "Sparande")
+  const [showSavingsSeparately, setShowSavingsSeparately] = useState<boolean>(false);
 
   // Estimated budget amounts chart selection state
   const [showEstimatedBudgetAmounts, setShowEstimatedBudgetAmounts] = useState<boolean>(false);
@@ -529,6 +532,9 @@ const BudgetCalculator = () => {
         // Load show individual costs outside budget setting
         setShowIndividualCostsOutsideBudget(parsed.showIndividualCostsOutsideBudget || false);
         
+        // Load show savings separately setting
+        setShowSavingsSeparately(parsed.showSavingsSeparately || false);
+        
         // Load chart time range settings
         setUseCustomTimeRange(parsed.useCustomTimeRange || false);
         setChartStartMonth(parsed.chartStartMonth || '');
@@ -696,6 +702,7 @@ const BudgetCalculator = () => {
       accountEstimatedFinalBalances,
       selectedAccountsForChart,
       showIndividualCostsOutsideBudget,
+      showSavingsSeparately,
       useCustomTimeRange,
       chartStartMonth,
       chartEndMonth
@@ -709,7 +716,7 @@ const BudgetCalculator = () => {
       saveToLocalStorage();
       saveToSelectedMonth();
     }
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountBalancesSet, accountFinalBalances, accountEstimatedFinalBalances, selectedAccountsForChart, showIndividualCostsOutsideBudget, useCustomTimeRange, chartStartMonth, chartEndMonth, isInitialLoad]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountBalancesSet, accountFinalBalances, accountEstimatedFinalBalances, selectedAccountsForChart, showIndividualCostsOutsideBudget, showSavingsSeparately, useCustomTimeRange, chartStartMonth, chartEndMonth, isInitialLoad]);
   // Calculate estimated final balances when budget month changes
   useEffect(() => {
     if (!isInitialLoad && selectedBudgetMonth) {
@@ -2634,7 +2641,8 @@ const BudgetCalculator = () => {
       historicalData,
       accounts,
       budgetTemplates,
-      showIndividualCostsOutsideBudget
+      showIndividualCostsOutsideBudget,
+      showSavingsSeparately
     };
     localStorage.setItem('budgetCalculatorBackup', JSON.stringify(backupData));
     setStandardValues(backupData);
@@ -3016,18 +3024,31 @@ const BudgetCalculator = () => {
        return `${year} - ${monthName}`;
      };
 
-     // Helper function to get individual costs for an account in a month
-     const getIndividualCosts = (monthKey: string, account: string) => {
-       const monthData = historicalData[monthKey];
-       if (!monthData || !monthData.costGroups) return 0;
-       
-       return monthData.costGroups.reduce((total: number, group: any) => {
-         const groupCosts = group.subCategories
-           ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
-           .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-         return total + groupCosts;
-       }, 0);
-     };
+      // Helper function to get individual costs for an account in a month
+      const getIndividualCosts = (monthKey: string, account: string) => {
+        const monthData = historicalData[monthKey];
+        if (!monthData || !monthData.costGroups) return 0;
+        
+        return monthData.costGroups.reduce((total: number, group: any) => {
+          const groupCosts = group.subCategories
+            ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
+            .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+          return total + groupCosts;
+        }, 0);
+      };
+
+      // Helper function to get savings for an account in a month
+      const getSavingsForAccount = (monthKey: string, account: string) => {
+        const monthData = historicalData[monthKey];
+        if (!monthData || !monthData.savingsGroups) return 0;
+        
+        return monthData.savingsGroups.reduce((total: number, group: any) => {
+          const groupSavings = group.subCategories
+            ?.filter((sub: any) => sub.account === account)
+            .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+          return total + groupSavings;
+        }, 0);
+      };
 
     // Calculate chart data
     const chartData = extendedMonthKeys.map((monthKey) => {
@@ -3060,6 +3081,15 @@ const BudgetCalculator = () => {
           // Individual costs are now shown in the actual month they occurred
           const individualCosts = getIndividualCosts(monthKey, account);
           dataPoint[`${account}_individual`] = individualCosts;
+        });
+      }
+
+      // Add savings if enabled - always show them regardless of estimated budget setting
+      if (showSavingsSeparately) {
+        accounts.forEach(account => {
+          // Savings are shown in the actual month they occurred
+          const savings = getSavingsForAccount(monthKey, account);
+          dataPoint[`${account}_savings`] = savings;
         });
       }
 
@@ -3215,6 +3245,35 @@ const BudgetCalculator = () => {
           </div>
         </div>
 
+        {/* Savings Option */}
+        <div className="bg-muted/50 p-4 rounded-lg">
+          <h4 className="font-medium mb-3">Visa sparande separat?</h4>
+          <div className="flex gap-4">
+            <div className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id="savings-yes"
+                name="savings"
+                checked={showSavingsSeparately === true}
+                onChange={() => setShowSavingsSeparately(true)}
+                className="w-4 h-4"
+              />
+              <Label htmlFor="savings-yes" className="text-sm">Ja</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id="savings-no"
+                name="savings"
+                checked={showSavingsSeparately === false}
+                onChange={() => setShowSavingsSeparately(false)}
+                className="w-4 h-4"
+              />
+              <Label htmlFor="savings-no" className="text-sm">Nej</Label>
+            </div>
+          </div>
+        </div>
+
         {/* Estimated Budget Amounts Option */}
         <div className="bg-muted/50 p-4 rounded-lg">
           <h4 className="font-medium mb-3">Visa estimerade budgetbelopp?</h4>
@@ -3262,6 +3321,7 @@ const BudgetCalculator = () => {
                 accountColors={accountColors}
                 showEstimatedBudgetAmounts={showEstimatedBudgetAmounts}
                 showIndividualCostsOutsideBudget={showIndividualCostsOutsideBudget}
+                showSavingsSeparately={showSavingsSeparately}
                 width={0} // Will be set dynamically
                 height={384}
                 margin={{ top: 20, right: 30, bottom: 80, left: 80 }}
@@ -3312,14 +3372,25 @@ const BudgetCalculator = () => {
               {/* Individual costs legend - only show if enabled */}
               {showIndividualCostsOutsideBudget && selectedAccountsForChart.length > 0 && (
                 <div className="space-y-2 border-t pt-3">
-                  <p className="font-medium mb-2">Enskilda kostnader:</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {selectedAccountsForChart.map((account) => (
-                      <div key={`${account}-individual`} className="flex items-center gap-2">
-                        <div className="w-3 h-0.5 rounded bg-red-500" />
-                        <span className="text-xs">{account} (Enskilda Kostnader)</span>
-                      </div>
-                    ))}
+                  <h4 className="font-medium text-sm">Enskilda kostnader</h4>
+                  <div className="flex items-center space-x-2">
+                    <div 
+                      className="w-4 h-4 rounded-full bg-red-500"
+                    />
+                    <Label className="text-sm">Enskilda kostnader (röd cirkel)</Label>
+                  </div>
+                </div>
+              )}
+
+              {/* Savings legend - only show if enabled */}
+              {showSavingsSeparately && selectedAccountsForChart.length > 0 && (
+                <div className="space-y-2 border-t pt-3">
+                  <h4 className="font-medium text-sm">Sparande</h4>
+                  <div className="flex items-center space-x-2">
+                    <div 
+                      className="w-4 h-4 rounded-full bg-green-500"
+                    />
+                    <Label className="text-sm">Sparande (grön cirkel)</Label>
                   </div>
                 </div>
               )}
@@ -7253,7 +7324,8 @@ const BudgetCalculator = () => {
                                 transferChecks,
                                 andreasShareChecked,
                                 susannaShareChecked,
-                                showIndividualCostsOutsideBudget
+                                showIndividualCostsOutsideBudget,
+                                showSavingsSeparately
                               };
                               localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
                               
