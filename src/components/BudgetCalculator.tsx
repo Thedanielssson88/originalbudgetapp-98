@@ -3411,7 +3411,7 @@ const BudgetCalculator = () => {
                           <span className={data.isIndividualCost ? "text-red-600 font-medium" : ""}>
                             {data.isIndividualCost 
                               ? `${accountName.replace('_individual_costs', '')} enskilda kostnader: -${formatCurrency(data.value)}` 
-                              : `${accountName}: ${formatCurrency(data.value)} (${data.source})`
+                              : `${accountName}: ${formatCurrency(data.value)} kr${data.isEstimated ? ' (Est)' : ''}`
                             }
                           </span>
                         </div>
