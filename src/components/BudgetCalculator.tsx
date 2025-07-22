@@ -2896,6 +2896,8 @@ const BudgetCalculator = () => {
       const isUsingEstimated = !hasActualBalance;
       
       return { balance: calcBalance, isEstimated: isUsingEstimated };
+      
+      return { balance: calcBalance, isEstimated: isUsingEstimated };
     };
 
     // Helper function to format month for display
@@ -3105,9 +3107,17 @@ const BudgetCalculator = () => {
                           const accountName = entry.dataKey;
                           // Only consider non-individual cost entries for estimation display
                           if (!accountName.includes('_individual')) {
+                            // Get the month data point
                             const dataPoint = chartData.find(d => d.month === label);
-                            // Check explicitly if isEstimated is true (important for August fix)
-                            const isEstimated = dataPoint && dataPoint[`${accountName}_estimated`] === true;
+                            // Need to explicitly check for the month key to match and verify account has actual balance set to false
+                            const monthKey = label;
+                            const monthData = historicalData[monthKey];
+                            // Account is estimated if no actual balance is set (Ej ifyllt)
+                            const hasActualBalance = monthData && 
+                                                   monthData.accountBalancesSet && 
+                                                   monthData.accountBalancesSet[accountName] === true;
+                            const isEstimated = !hasActualBalance;
+                            
                             return (
                               <div key={accountName} className="text-sm">
                                 <span>
