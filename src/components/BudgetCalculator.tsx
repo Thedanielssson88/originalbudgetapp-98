@@ -132,7 +132,7 @@ const BudgetCalculator = () => {
   const [expandedAccounts, setExpandedAccounts] = useState<{[key: string]: boolean}>({});
 
   // Account categories states
-  const [accountCategories, setAccountCategories] = useState<string[]>(['Privat', 'Gemensam', 'Sparande']);
+  const [accountCategories, setAccountCategories] = useState<string[]>(['Privat', 'Gemensam', 'Sparande', 'Hushåll']);
   const [accountCategoryMapping, setAccountCategoryMapping] = useState<{[accountName: string]: string}>({});
   const [newCategoryName, setNewCategoryName] = useState<string>('');
   const [isEditingAccountCategories, setIsEditingAccountCategories] = useState<boolean>(false);
@@ -412,7 +412,7 @@ const BudgetCalculator = () => {
         setAccounts(parsed.accounts || ['Löpande', 'Sparkonto', 'Buffert']);
         
         // Load account categories data
-        setAccountCategories(parsed.accountCategories || ['Privat', 'Gemensam', 'Sparande']);
+        setAccountCategories(parsed.accountCategories || ['Privat', 'Gemensam', 'Sparande', 'Hushåll']);
         setAccountCategoryMapping(parsed.accountCategoryMapping || {});
         
         // Load budget templates
@@ -2583,16 +2583,19 @@ const BudgetCalculator = () => {
       grouped[category].push(accountName);
     });
     
-    // Add accounts without categories to "Okategoriserade"
+    // Add accounts without categories to "Hushåll" by default
     const accountsWithoutCategory = accounts.filter(account => {
       const accountName = typeof account === 'string' ? account : (account as any).name || '';
       return !accountCategoryMapping[accountName];
     });
     
     if (accountsWithoutCategory.length > 0) {
-      grouped['Okategoriserade'] = accountsWithoutCategory.map(account => 
+      if (!grouped['Hushåll']) {
+        grouped['Hushåll'] = [];
+      }
+      grouped['Hushåll'].push(...accountsWithoutCategory.map(account => 
         typeof account === 'string' ? account : (account as any).name || ''
-      );
+      ));
     }
     
     return grouped;
