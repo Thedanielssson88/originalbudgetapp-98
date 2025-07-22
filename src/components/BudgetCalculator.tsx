@@ -562,6 +562,7 @@ const BudgetCalculator = () => {
       susannaPersonalSavings: JSON.parse(JSON.stringify(susannaPersonalSavings)),
       accounts: JSON.parse(JSON.stringify(accounts)),
       accountBalances: JSON.parse(JSON.stringify(accountBalances)),
+      accountBalancesSet: JSON.parse(JSON.stringify(accountBalancesSet)),
       accountFinalBalances: JSON.parse(JSON.stringify(accountFinalBalances)),
       accountEstimatedFinalBalances: JSON.parse(JSON.stringify(accountEstimatedFinalBalances)),
       // Include any existing calculated results if they exist
@@ -1586,12 +1587,17 @@ const BudgetCalculator = () => {
     setAccountFinalBalances(monthData.accountFinalBalances || {});
     setAccountEstimatedFinalBalances(monthData.accountEstimatedFinalBalances || {});
     
-    // Set accountBalancesSet based on which accounts have explicit values
-    const balancesSet: {[key: string]: boolean} = {};
-    Object.keys(loadedBalances).forEach(account => {
-      balancesSet[account] = loadedBalances[account] !== undefined && loadedBalances[account] !== null;
-    });
-    setAccountBalancesSet(balancesSet);
+    // Load saved accountBalancesSet, or calculate it if not available
+    if (monthData.accountBalancesSet) {
+      setAccountBalancesSet(monthData.accountBalancesSet);
+    } else {
+      // Fallback: Set accountBalancesSet based on which accounts have explicit values
+      const balancesSet: {[key: string]: boolean} = {};
+      Object.keys(loadedBalances).forEach(account => {
+        balancesSet[account] = loadedBalances[account] !== undefined && loadedBalances[account] !== null;
+      });
+      setAccountBalancesSet(balancesSet);
+    }
     
     // Update results if available
     if (monthData.totalSalary !== undefined) {
