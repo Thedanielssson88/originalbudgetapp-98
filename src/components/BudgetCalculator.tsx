@@ -1594,18 +1594,49 @@ const BudgetCalculator = () => {
     return accounts.every(account => (accountBalances[account] || 0) === 0);
   };
 
-  // Helper function to get account balance with fallback to estimated
-  const getAccountBalanceWithFallback = (account: string) => {
-    const currentBalance = accountBalances[account] || 0;
-    if (currentBalance !== 0) return currentBalance;
+  // Helper function to get previous month's Calc.Kontosaldo and description
+  const getPreviousMonthCalcData = (account: string) => {
+    const currentMonthKey = selectedBudgetMonth;
+    if (!currentMonthKey) return { balance: 0, isEstimated: false };
     
-    if (hasEmptyAccountBalances()) {
-      const freshBalances = (window as any).__freshFinalBalances;
-      const estimated = getEstimatedAccountBalances(freshBalances);
-      return estimated?.[account] || 0;
+    const [year, month] = currentMonthKey.split('-').map(Number);
+    let prevMonth = month - 1;
+    let prevYear = year;
+    
+    if (prevMonth === 0) {
+      prevMonth = 12;
+      prevYear = year - 1;
     }
     
-    return currentBalance;
+    const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+    const prevMonthData = historicalData[prevMonthKey];
+    
+    if (!prevMonthData) {
+      return { balance: 0, isEstimated: false };
+    }
+    
+    const hasActualBalance = prevMonthData.accountBalancesSet && 
+                            prevMonthData.accountBalancesSet[account] === true;
+    const currentBalance = prevMonthData.accountBalances?.[account] || 0;
+    const estimatedBalance = prevMonthData.accountEstimatedFinalBalances?.[account] || 0;
+    
+    const calcBalance = hasActualBalance ? currentBalance : estimatedBalance;
+    const isUsingEstimated = !hasActualBalance;
+    
+    return { balance: calcBalance, isEstimated: isUsingEstimated };
+  };
+
+  // Helper function to get account balance with fallback to estimated
+  const getAccountBalanceWithFallback = (account: string) => {
+    // Always use previous month's Calc.Kontosaldo as the original balance
+    const prevMonthData = getPreviousMonthCalcData(account);
+    return prevMonthData.balance;
+  };
+
+  // Helper function to check if original balance should show "(Est)"
+  const isOriginalBalanceEstimated = (account: string) => {
+    const prevMonthData = getPreviousMonthCalcData(account);
+    return prevMonthData.isEstimated;
   };
 
   // Function to update account balance
@@ -5767,11 +5798,7 @@ const BudgetCalculator = () => {
                       {/* Original balance */}
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">
-                          {(() => {
-                            const freshBalances = (window as any).__freshFinalBalances;
-                            const isEstimated = hasEmptyAccountBalances() && getEstimatedAccountBalances(freshBalances);
-                            return isEstimated ? "Ursprungligt saldo (Est)" : "Ursprungligt saldo";
-                          })()}
+                          {isOriginalBalanceEstimated(account) ? "Ursprungligt saldo (Est)" : "Ursprungligt saldo"}
                         </span>
                         <span className={originalBalance >= 0 ? 'text-blue-600' : 'text-red-600'}>
                           {originalBalance >= 0 ? '+' : ''}{formatCurrency(Math.abs(originalBalance))}
@@ -5929,13 +5956,9 @@ const BudgetCalculator = () => {
                                     <div className="mt-3 pt-3 border-t space-y-2">
                                       {/* Original balance */}
                                       <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">
-                                          {(() => {
-                            const freshBalances = (window as any).__freshFinalBalances;
-                            const isEstimated = hasEmptyAccountBalances() && getEstimatedAccountBalances(freshBalances);
-                                            return isEstimated ? "Ursprungligt saldo (Est)" : "Ursprungligt saldo";
-                                          })()}
-                                        </span>
+                        <span className="text-gray-600">
+                          {isOriginalBalanceEstimated(account) ? "Ursprungligt saldo (Est)" : "Ursprungligt saldo"}
+                        </span>
                                         <span className={originalBalance >= 0 ? 'text-blue-600' : 'text-red-600'}>
                                           {originalBalance >= 0 ? '+' : ''}{formatCurrency(Math.abs(originalBalance))}
                                         </span>
