@@ -3179,17 +3179,19 @@ const BudgetCalculator = () => {
               <p>Ingen data att visa för det valda intervallet</p>
             </div>
           ) : (
-            <CustomLineChart
-              data={chartData}
-              accounts={selectedAccountsForChart}
-              accountColors={accountColors}
-              showEstimatedBudgetAmounts={showEstimatedBudgetAmounts}
-              showIndividualCostsOutsideBudget={showIndividualCostsOutsideBudget}
-              width={800}
-              height={384}
-              margin={{ top: 20, right: 30, bottom: 80, left: 80 }}
-              formatCurrency={formatCurrency}
-            />
+            <div className="w-full h-96">
+              <CustomLineChart
+                data={chartData}
+                accounts={selectedAccountsForChart}
+                accountColors={accountColors}
+                showEstimatedBudgetAmounts={showEstimatedBudgetAmounts}
+                showIndividualCostsOutsideBudget={showIndividualCostsOutsideBudget}
+                width={0} // Will be set dynamically
+                height={384}
+                margin={{ top: 20, right: 30, bottom: 80, left: 80 }}
+                formatCurrency={formatCurrency}
+              />
+            </div>
           )}
         </div>
 

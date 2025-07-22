@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { CustomLineSegment } from './CustomLineSegment';
 
 interface ChartDataPoint {
@@ -11,7 +11,7 @@ interface CustomLineChartProps {
   accounts: string[];
   accountColors: string[];
   showEstimatedBudgetAmounts: boolean;
-  width: number;
+  width: number; // Can be 0 for auto-sizing
   height: number;
   margin: { top: number; right: number; bottom: number; left: number };
   formatCurrency: (value: number) => string;
@@ -23,7 +23,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
   accounts,
   accountColors,
   showEstimatedBudgetAmounts,
-  width,
+  width: propWidth,
   height,
   margin,
   formatCurrency,
@@ -36,7 +36,30 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
     content: any;
   }>({ visible: false, x: 0, y: 0, content: null });
   
+  const [actualWidth, setActualWidth] = useState(propWidth || 800);
+  
   const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Use ResizeObserver to detect container width changes
+  useEffect(() => {
+    if (!containerRef.current || propWidth > 0) return;
+
+    const resizeObserver = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const { width } = entry.contentRect;
+        setActualWidth(Math.max(width, 300)); // Minimum width of 300px
+      }
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [propWidth]);
+
+  const width = propWidth || actualWidth;
   const chartWidth = width - margin.left - margin.right;
   const chartHeight = height - margin.top - margin.bottom;
 
@@ -152,8 +175,8 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
   };
 
   return (
-    <div style={{ width, height, position: 'relative' }}>
-      <svg 
+    <div ref={containerRef} style={{ width: '100%', height, position: 'relative' }}>
+      <svg
         ref={svgRef}
         width={width} 
         height={height}
