@@ -67,16 +67,19 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
 
   // Find min and max values for Y axis scaling (include individual costs and savings if enabled)
   const allValues = data.flatMap(point => {
+    const values = [];
     const mainValues = accounts.map(account => point[account]).filter(val => val != null);
+    values.push(...mainValues);
+    
     if (showIndividualCostsOutsideBudget) {
       const individualValues = accounts.map(account => point[`${account}_individual`]).filter(val => val != null);
-      allValues.push(...individualValues);
+      values.push(...individualValues);
     }
     if (showSavingsSeparately) {
       const savingsValues = accounts.map(account => point[`${account}_savings`]).filter(val => val != null);
-      allValues.push(...savingsValues);
+      values.push(...savingsValues);
     }
-    return mainValues;
+    return values;
   });
   const minValue = Math.min(...allValues);
   const maxValue = Math.max(...allValues);
