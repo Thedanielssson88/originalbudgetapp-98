@@ -2957,6 +2957,15 @@ const BudgetCalculator = () => {
         return 0;
       }
       
+      // Debug logging for July 2025 Löpande account specifically
+      if (monthKey === '2025-07' && account === 'Löpande') {
+        console.log(`=== DEBUG: getBalanceForMonth ${monthKey} ${account} ===`);
+        console.log('monthData:', monthData);
+        console.log('accountBalancesSet:', monthData.accountBalancesSet);
+        console.log('accountFinalBalances:', monthData.accountFinalBalances);
+        console.log('accountEstimatedFinalBalances:', monthData.accountEstimatedFinalBalances);
+      }
+      
       // Check if account balance is explicitly set (not "Ej ifyllt")
       const accountBalancesSet = monthData.accountBalancesSet || {};
       const isAccountBalanceSet = accountBalancesSet[account] === true;
@@ -3027,6 +3036,15 @@ const BudgetCalculator = () => {
       
       if (!monthData) {
         return { isEstimated: true, source: 'Estimerat slutsaldo' };
+      }
+      
+      // Debug logging for July 2025 Löpande account specifically
+      if (monthKey === '2025-07' && account === 'Löpande') {
+        console.log(`=== DEBUG: getBalanceSourceInfo ${monthKey} ${account} ===`);
+        console.log('monthData:', monthData);
+        console.log('accountBalancesSet:', monthData.accountBalancesSet);
+        console.log('accountFinalBalances:', monthData.accountFinalBalances);
+        console.log('accountEstimatedFinalBalances:', monthData.accountEstimatedFinalBalances);
       }
       
       // Check if account balance is explicitly set (not "Ej ifyllt")
