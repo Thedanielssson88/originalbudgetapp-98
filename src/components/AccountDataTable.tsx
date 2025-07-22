@@ -24,34 +24,55 @@ export const AccountDataTable: React.FC<AccountDataTableProps> = ({ data, classN
       </CardHeader>
       <CardContent>
         <div className="max-h-96 overflow-y-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>År</TableHead>
-                <TableHead>Månad</TableHead>
-                <TableHead>Konto</TableHead>
-                <TableHead className="text-right">Calc.Kontosaldo</TableHead>
-                <TableHead>Calc.Descr</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.map((row, index) => (
-                <TableRow key={`${row.monthKey}-${row.account}-${index}`}>
-                  <TableCell>{row.year}</TableCell>
-                  <TableCell>{row.month}</TableCell>
-                  <TableCell>{row.account}</TableCell>
-                  <TableCell className="text-right">
-                    {row.calcKontosaldo.toLocaleString()} kr
-                  </TableCell>
-                  <TableCell>
-                    <span className={row.calcDescr === "(Est)" ? "text-orange-600 font-medium" : ""}>
-                      {row.calcDescr || "-"}
-                    </span>
-                  </TableCell>
+          {/* Mobile view */}
+          <div className="block md:hidden space-y-2">
+            {data.map((row, index) => (
+              <div key={`${row.monthKey}-${row.account}-${index}`} className="border rounded-lg p-3 space-y-1">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-sm">{row.year} - {row.month}</span>
+                  <span className={`text-xs ${row.calcDescr === "(Est)" ? "text-orange-600 font-medium" : "text-muted-foreground"}`}>
+                    {row.calcDescr || "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">{row.account}</span>
+                  <span className="font-medium text-sm">{row.calcKontosaldo.toLocaleString()} kr</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {/* Desktop view */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>År</TableHead>
+                  <TableHead>Månad</TableHead>
+                  <TableHead>Konto</TableHead>
+                  <TableHead className="text-right">Calc.Kontosaldo</TableHead>
+                  <TableHead>Calc.Descr</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {data.map((row, index) => (
+                  <TableRow key={`${row.monthKey}-${row.account}-${index}`}>
+                    <TableCell>{row.year}</TableCell>
+                    <TableCell>{row.month}</TableCell>
+                    <TableCell>{row.account}</TableCell>
+                    <TableCell className="text-right">
+                      {row.calcKontosaldo.toLocaleString()} kr
+                    </TableCell>
+                    <TableCell>
+                      <span className={row.calcDescr === "(Est)" ? "text-orange-600 font-medium" : ""}>
+                        {row.calcDescr || "-"}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </CardContent>
     </Card>

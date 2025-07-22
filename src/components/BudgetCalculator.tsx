@@ -2971,14 +2971,24 @@ const BudgetCalculator = () => {
       return { balance: calcBalance, isEstimated: isUsingEstimated };
     };
 
-    // Helper function to format month for display
-    const formatMonthForDisplay = (monthKey: string) => {
-      const [year, monthNum] = monthKey.split('-');
-      const monthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 
-                         'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
-      const monthName = monthNames[parseInt(monthNum) - 1];
-      return `${year} - ${monthName}`;
-    };
+     // Helper function to format month for display (shows previous month)
+     const formatMonthForDisplay = (monthKey: string) => {
+       const [year, monthNum] = monthKey.split('-').map(Number);
+       
+       // Calculate previous month for display
+       let displayYear = year;
+       let displayMonth = monthNum - 1;
+       
+       if (displayMonth === 0) {
+         displayYear = year - 1;
+         displayMonth = 12;
+       }
+       
+       const monthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 
+                          'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
+       const monthName = monthNames[displayMonth - 1];
+       return `${displayYear} - ${monthName}`;
+     };
 
     // Helper function to get individual costs for an account in a month
     const getIndividualCosts = (monthKey: string, account: string) => {
@@ -3052,25 +3062,44 @@ const BudgetCalculator = () => {
         
         {useCustomTimeRange && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="chart-start-month" className="text-sm">Startmånad:</Label>
-              <Select value={chartStartMonth} onValueChange={setChartStartMonth}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Välj startmånad" />
-                </SelectTrigger>
-                <SelectContent>
-                  {savedMonthKeys.map(month => {
-                    const [year, monthNum] = month.split('-');
-                    const monthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 
-                                       'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
-                    const monthName = monthNames[parseInt(monthNum) - 1];
-                    return (
-                      <SelectItem key={month} value={month}>{year} - {monthName}</SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
+             <div>
+               <Label htmlFor="chart-start-month" className="text-sm">Startmånad:</Label>
+               <Select value={chartStartMonth} onValueChange={setChartStartMonth}>
+                 <SelectTrigger>
+                   <SelectValue placeholder="Välj startmånad" />
+                 </SelectTrigger>
+                 <SelectContent>
+                   {(() => {
+                     // Create options starting one month before the first saved month
+                     const allOptions = [...savedMonthKeys];
+                     if (savedMonthKeys.length > 0) {
+                       const firstMonth = savedMonthKeys[0];
+                       const [year, monthNum] = firstMonth.split('-').map(Number);
+                       let prevYear = year;
+                       let prevMonth = monthNum - 1;
+                       
+                       if (prevMonth === 0) {
+                         prevYear = year - 1;
+                         prevMonth = 12;
+                       }
+                       
+                       const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+                       allOptions.unshift(prevMonthKey);
+                     }
+                     
+                     return allOptions.map(month => {
+                       const [year, monthNum] = month.split('-');
+                       const monthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 
+                                          'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
+                       const monthName = monthNames[parseInt(monthNum) - 1];
+                       return (
+                         <SelectItem key={month} value={month}>{year} - {monthName}</SelectItem>
+                       );
+                     });
+                   })()}
+                 </SelectContent>
+               </Select>
+             </div>
             <div>
               <Label htmlFor="chart-end-month" className="text-sm">Slutmånad:</Label>
               <Select value={chartEndMonth} onValueChange={setChartEndMonth}>
