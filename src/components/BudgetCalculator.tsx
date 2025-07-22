@@ -2912,29 +2912,35 @@ const BudgetCalculator = () => {
     
     // Helper function to get the appropriate balance for a month and account
     const getBalanceForMonth = (monthKey: string, account: string) => {
-      const monthData = historicalData[monthKey];
+      // Get the NEXT month's data to shift display to previous month
+      const [year, month] = monthKey.split('-').map(Number);
+      const nextMonth = month === 12 ? 1 : month + 1;
+      const nextYear = month === 12 ? year + 1 : year;
+      const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
       
-      // Determine if we should use "Faktiskt kontosaldo" or "Estimerat slutsaldo"
-      const useActualBalance = isHistoricalMonth(monthKey) || hasActualBalance(monthKey);
+      const nextMonthData = historicalData[nextMonthKey];
       
-      if (useActualBalance && monthData?.accountBalances) {
-        // Use "Faktiskt kontosaldo"
-        return monthData.accountBalances[account] || 0;
-      } else if (monthData?.accountEstimatedFinalBalances) {
-        // Use saved "Estimerat slutsaldo" 
-        return monthData.accountEstimatedFinalBalances[account] || 0;
-      } else if (monthData?.accountFinalBalances) {
-        // Fallback to "Faktiskt slutsaldo" if no estimated available
-        return monthData.accountFinalBalances[account] || 0;
+      // Determine if we should use "Faktiskt kontosaldo" or "Estimerat slutsaldo" from NEXT month
+      const useActualBalance = isHistoricalMonth(nextMonthKey) || hasActualBalance(nextMonthKey);
+      
+      if (useActualBalance && nextMonthData?.accountBalances) {
+        // Use "Faktiskt kontosaldo" from next month
+        return nextMonthData.accountBalances[account] || 0;
+      } else if (nextMonthData?.accountEstimatedFinalBalances) {
+        // Use saved "Estimerat slutsaldo" from next month
+        return nextMonthData.accountEstimatedFinalBalances[account] || 0;
+      } else if (nextMonthData?.accountFinalBalances) {
+        // Fallback to "Faktiskt slutsaldo" from next month if no estimated available
+        return nextMonthData.accountFinalBalances[account] || 0;
       } else {
-        // Calculate estimated balance for months without saved data
-        const estimated = getEstimatedBalancesForMonth(monthKey);
+        // Calculate estimated balance for months without saved data from next month
+        const estimated = getEstimatedBalancesForMonth(nextMonthKey);
         if (estimated && estimated[account] !== undefined) {
           return estimated[account];
         }
         
-        // Fallback for current month
-        if (monthKey === currentMonthKey) {
+        // Fallback for current month (show next month's balance)
+        if (nextMonthKey === currentMonthKey) {
           return getAccountBalanceWithFallback(account);
         }
         
