@@ -2983,6 +2983,13 @@ const BudgetCalculator = () => {
       
       accounts.forEach(account => {
         const { balance, isEstimated } = getCalcKontosaldo(monthKey, account);
+        
+        // If showing estimated amounts is disabled and this is estimated data, don't include it
+        if (!showEstimatedBudgetAmounts && isEstimated) {
+          // Don't add this data point
+          return;
+        }
+        
         dataPoint[account] = balance;
         
         // Add estimated line data if enabled and this account has estimated data
