@@ -2991,14 +2991,39 @@ const BudgetCalculator = () => {
       return { balance: calcBalance, isEstimated: isUsingEstimated };
     };
 
-     // Helper function to format month for display (shows actual month)
+     // Helper function to format month for display (shows previous month)
      const formatMonthForDisplay = (monthKey: string) => {
        const [year, monthNum] = monthKey.split('-').map(Number);
        
+       // Calculate previous month for display
+       let displayYear = year;
+       let displayMonth = monthNum - 1;
+       
+       if (displayMonth === 0) {
+         displayYear = year - 1;
+         displayMonth = 12;
+       }
+       
        const monthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 
                           'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
-       const monthName = monthNames[monthNum - 1];
-       return `${year} - ${monthName}`;
+       const monthName = monthNames[displayMonth - 1];
+       return `${displayYear} - ${monthName}`;
+     };
+
+     // Helper function to get the month key that corresponds to the displayed month
+     const getDisplayedMonthKey = (monthKey: string) => {
+       const [year, monthNum] = monthKey.split('-').map(Number);
+       
+       // Calculate previous month (which is what gets displayed)
+       let displayYear = year;
+       let displayMonth = monthNum - 1;
+       
+       if (displayMonth === 0) {
+         displayYear = year - 1;
+         displayMonth = 12;
+       }
+       
+       return `${displayYear}-${displayMonth.toString().padStart(2, '0')}`;
      };
 
      // Helper function to get individual costs for an account in a month
@@ -3042,8 +3067,10 @@ const BudgetCalculator = () => {
       // Add individual costs if enabled - always show them regardless of estimated budget setting
       if (showIndividualCostsOutsideBudget) {
         accounts.forEach(account => {
-          // Individual costs are now shown in the actual month they occurred
-          const individualCosts = getIndividualCosts(monthKey, account);
+          // For individual costs, we want to show them in the month they actually occurred,
+          // which corresponds to the displayed month, not the balance calculation month
+          const displayedMonthKey = getDisplayedMonthKey(monthKey);
+          const individualCosts = getIndividualCosts(displayedMonthKey, account);
           dataPoint[`${account}_individual`] = individualCosts;
         });
       }
