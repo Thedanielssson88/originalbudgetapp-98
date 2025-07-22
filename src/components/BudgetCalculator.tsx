@@ -3050,8 +3050,8 @@ const BudgetCalculator = () => {
       return estimatedBalances;
     };
     
-    // Helper function to determine if a balance is estimated
-    const isBalanceEstimated = (monthKey: string, account: string) => {
+    // Helper function to determine if a balance is estimated and get the source type
+    const getBalanceSourceInfo = (monthKey: string, account: string) => {
       // Get the NEXT month's data to match the getBalanceForMonth logic
       const [year, month] = monthKey.split('-').map(Number);
       const nextMonth = month === 12 ? 1 : month + 1;
@@ -3061,20 +3061,26 @@ const BudgetCalculator = () => {
       const nextMonthData = historicalData[nextMonthKey];
       
       if (!nextMonthData) {
-        return true; // No data means it's estimated
+        return { isEstimated: true, source: 'Estimerat slutsaldo' }; // No data means it's estimated
       }
       
       // Check if this specific account has "Ej ifyllt" (accountBalancesSet is false/missing)
       const accountBalancesSet = nextMonthData.accountBalancesSet || {};
       const isAccountBalanceSet = accountBalancesSet[account] === true;
       
-      if (isAccountBalanceSet && nextMonthData?.accountBalances) {
-        // This account has an explicit value set → use "Faktiskt kontosaldo" (not estimated)
-        return false;
+      if (isAccountBalanceSet) {
+        // This account has an explicit value set → check what we actually use
+        if (nextMonthData?.accountFinalBalances && nextMonthData.accountFinalBalances[account] !== undefined) {
+          return { isEstimated: false, source: 'Faktiskt slutsaldo' };
+        } else if (nextMonthData?.accountBalances) {
+          return { isEstimated: false, source: 'Faktiskt kontosaldo' };
+        }
       } else {
-        // This account has "Ej ifyllt" → using "Estimerat slutsaldo" (estimated)
-        return true;
+        // This account has "Ej ifyllt" → using estimated values
+        return { isEstimated: true, source: 'Estimerat slutsaldo' };
       }
+      
+      return { isEstimated: true, source: 'Estimerat slutsaldo' };
     };
 
     // Ensure no duplicate months in final array
@@ -3119,7 +3125,7 @@ const BudgetCalculator = () => {
         const individualCosts = getIndividualCostsForMonth(monthKey, account);
         
         // Determine if this balance is estimated for the tooltip
-        const isEstimatedBalance = isBalanceEstimated(monthKey, account);
+        const balanceSourceInfo = getBalanceSourceInfo(monthKey, account);
         
         // Create separate dataKeys for historical and forecast data
         if (dataPoint.isHistorical) {
@@ -3127,14 +3133,16 @@ const BudgetCalculator = () => {
           dataPoint[`${account}_forecast`] = null;
           dataPoint[`${account}_individual_costs_historical`] = individualCosts > 0 ? individualCosts : null;
           dataPoint[`${account}_individual_costs_forecast`] = null;
-          dataPoint[`${account}_estimated`] = isEstimatedBalance;
+          dataPoint[`${account}_estimated`] = balanceSourceInfo.isEstimated;
+          dataPoint[`${account}_source`] = balanceSourceInfo.source;
         } else {
           dataPoint[`${account}_historical`] = null; 
           dataPoint[`${account}_forecast`] = balance;
           dataPoint[`${account}_individual_costs_historical`] = null;
           // Don't show forecast individual costs - only show actual data
           dataPoint[`${account}_individual_costs_forecast`] = null;
-          dataPoint[`${account}_estimated`] = isEstimatedBalance;
+          dataPoint[`${account}_estimated`] = balanceSourceInfo.isEstimated;
+          dataPoint[`${account}_source`] = balanceSourceInfo.source;
         }
         // Store original balance for transition line calculations
         dataPoint[account] = balance;
@@ -3384,18 +3392,21 @@ const BudgetCalculator = () => {
                       if (dataKey.includes('_historical') || 
                           (dataKey.includes('_forecast') && existing.type === 'transition')) {
                         const isEstimated = chartData.find(d => d.month === label)?.[`${accountName}_estimated`] || false;
+                        const source = chartData.find(d => d.month === label)?.[`${accountName}_source`] || 'Okänd';
                         accountData.set(accountName, { 
                           value, 
                           isIndividualCost, 
                           type: dataKey.includes('_historical') ? 'historical' : 'forecast',
-                          isEstimated 
+                          isEstimated,
+                          source
                         });
                       }
                     } else {
                       const type = dataKey.includes('_historical') ? 'historical' : 
                                    dataKey.includes('_forecast') ? 'forecast' : 'transition';
                       const isEstimated = chartData.find(d => d.month === label)?.[`${accountName}_estimated`] || false;
-                      accountData.set(accountName, { value, isIndividualCost, type, isEstimated });
+                      const source = chartData.find(d => d.month === label)?.[`${accountName}_source`] || 'Okänd';
+                      accountData.set(accountName, { value, isIndividualCost, type, isEstimated, source });
                     }
                   });
                   
@@ -3407,7 +3418,7 @@ const BudgetCalculator = () => {
                           <span className={data.isIndividualCost ? "text-red-600 font-medium" : ""}>
                             {data.isIndividualCost 
                               ? `${accountName.replace('_individual_costs', '')} enskilda kostnader: -${formatCurrency(data.value)}` 
-                              : `${accountName}: ${data.isIndividualCost ? '-' : ''}${formatCurrency(data.value)}${data.isEstimated ? ' (Est)' : ''}`
+                              : `${accountName}: ${formatCurrency(data.value)} (${data.source})`
                             }
                           </span>
                         </div>
