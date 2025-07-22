@@ -2974,26 +2974,23 @@ const BudgetCalculator = () => {
         return 0;
       }
       
-      // Check if this specific account has "Ej ifyllt" (accountBalancesSet is false/missing)
+      // Priority 1: Use "Faktiskt slutsaldo" if it exists
+      if (nextMonthData?.accountFinalBalances && nextMonthData.accountFinalBalances[account] !== undefined) {
+        return nextMonthData.accountFinalBalances[account];
+      }
+      
+      // Priority 2: Check if account balance is explicitly set (not "Ej ifyllt")
       const accountBalancesSet = nextMonthData.accountBalancesSet || {};
       const isAccountBalanceSet = accountBalancesSet[account] === true;
       
-      if (isAccountBalanceSet) {
-        // This account has an explicit value set → prioritize "Faktiskt slutsaldo" if available
-        if (nextMonthData?.accountFinalBalances && nextMonthData.accountFinalBalances[account] !== undefined) {
-          return nextMonthData.accountFinalBalances[account];
-        } else if (nextMonthData?.accountBalances) {
-          // Fallback to "Faktiskt kontosaldo" if no final balance available
-          return nextMonthData.accountBalances[account] || 0;
-        }
-      } else {
-        // This account has "Ej ifyllt" → use "Estimerat slutsaldo"
-        if (nextMonthData?.accountEstimatedFinalBalances) {
-          return nextMonthData.accountEstimatedFinalBalances[account] || 0;
-        } else if (nextMonthData?.accountFinalBalances) {
-          // Fallback to "Faktiskt slutsaldo" if no estimated available
-          return nextMonthData.accountFinalBalances[account] || 0;
-        }
+      if (isAccountBalanceSet && nextMonthData?.accountBalances) {
+        // Account has explicit kontosaldo set → use it as fallback
+        return nextMonthData.accountBalances[account] || 0;
+      }
+      
+      // Priority 3: Use "Estimerat slutsaldo" as final fallback
+      if (nextMonthData?.accountEstimatedFinalBalances) {
+        return nextMonthData.accountEstimatedFinalBalances[account] || 0;
       }
       
       return 0;
@@ -3064,21 +3061,22 @@ const BudgetCalculator = () => {
         return { isEstimated: true, source: 'Estimerat slutsaldo' }; // No data means it's estimated
       }
       
-      // Check if this specific account has "Ej ifyllt" (accountBalancesSet is false/missing)
+      // Priority 1: Use "Faktiskt slutsaldo" if it exists
+      if (nextMonthData?.accountFinalBalances && nextMonthData.accountFinalBalances[account] !== undefined) {
+        return { isEstimated: false, source: 'Faktiskt slutsaldo' };
+      }
+      
+      // Priority 2: Check if account balance is explicitly set (not "Ej ifyllt")
       const accountBalancesSet = nextMonthData.accountBalancesSet || {};
       const isAccountBalanceSet = accountBalancesSet[account] === true;
       
-      if (isAccountBalanceSet) {
-        // This account has an explicit value set → check what we actually use
-        if (nextMonthData?.accountFinalBalances && nextMonthData.accountFinalBalances[account] !== undefined) {
-          return { isEstimated: false, source: 'Faktiskt slutsaldo' };
-        } else if (nextMonthData?.accountBalances) {
-          return { isEstimated: false, source: 'Faktiskt kontosaldo' };
-        }
-      } else {
-        // This account has "Ej ifyllt" → using estimated values
-        return { isEstimated: true, source: 'Estimerat slutsaldo' };
+      if (isAccountBalanceSet && nextMonthData?.accountBalances) {
+        // Account has explicit kontosaldo set → use it as fallback
+        return { isEstimated: false, source: 'Faktiskt kontosaldo' };
       }
+      
+      // Priority 3: Use "Estimerat slutsaldo" as final fallback
+      return { isEstimated: true, source: 'Estimerat slutsaldo' };
       
       return { isEstimated: true, source: 'Estimerat slutsaldo' };
     };
@@ -3126,7 +3124,6 @@ const BudgetCalculator = () => {
         
         // Determine if this balance is estimated for the tooltip
         const balanceSourceInfo = getBalanceSourceInfo(monthKey, account);
-        console.log(`Debug: Balance source info for ${account} in ${monthKey}:`, balanceSourceInfo);
         
         // Create separate dataKeys for historical and forecast data
         if (dataPoint.isHistorical) {
