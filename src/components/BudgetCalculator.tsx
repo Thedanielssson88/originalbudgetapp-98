@@ -1608,6 +1608,21 @@ const BudgetCalculator = () => {
     return currentBalance;
   };
 
+  // Helper function to get Calc.Kontosaldo for same month (for Ursprungligt saldo)
+  const getCalcKontosaldoSameMonth = (account: string) => {
+    const hasActualBalance = accountBalancesSet[account] === true;
+    const currentBalance = accountBalances[account] || 0;
+    const estimatedBalance = accountEstimatedFinalBalances[account] || 0;
+    
+    return hasActualBalance ? currentBalance : estimatedBalance;
+  };
+
+  // Helper function to check if Calc.Descr for same month is (Est)
+  const isCalcDescrEstimatedSameMonth = (account: string) => {
+    const hasActualBalance = accountBalancesSet[account] === true;
+    return !hasActualBalance;
+  };
+
   // Function to update account balance
   const updateAccountBalance = (account: string, balance: number) => {
     setAccountBalances(prev => ({
@@ -5694,8 +5709,8 @@ const BudgetCalculator = () => {
                           {/* Final Account Summary List */}
                           <div className="space-y-3">
                             {accounts.map(account => {
-                              // Get original balance from first page or use estimated balance
-                              const originalBalance = getAccountBalanceWithFallback(account);
+                              // Get original balance using Calc.Kontosaldo from same month
+                              const originalBalance = getCalcKontosaldoSameMonth(account);
                               
                               // Calculate savings for this account
                               const accountSavings = savingsGroups
@@ -5740,11 +5755,7 @@ const BudgetCalculator = () => {
                       {/* Original balance */}
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">
-                          {(() => {
-                            const freshBalances = (window as any).__freshFinalBalances;
-                            const isEstimated = hasEmptyAccountBalances() && getEstimatedAccountBalances(freshBalances);
-                            return isEstimated ? "Ursprungligt saldo (Est)" : "Ursprungligt saldo";
-                          })()}
+                          {isCalcDescrEstimatedSameMonth(account) ? "Ursprungligt saldo (Est)" : "Ursprungligt saldo"}
                         </span>
                         <span className={originalBalance >= 0 ? 'text-blue-600' : 'text-red-600'}>
                           {originalBalance >= 0 ? '+' : ''}{formatCurrency(Math.abs(originalBalance))}
@@ -5829,8 +5840,8 @@ const BudgetCalculator = () => {
                           {/* Cost Budget Account Summary List */}
                           <div className="space-y-3">
                             {accounts.map(account => {
-                              // Get original balance from first page or use estimated balance
-                              const originalBalance = getAccountBalanceWithFallback(account);
+                              // Get original balance using Calc.Kontosaldo from same month
+                              const originalBalance = getCalcKontosaldoSameMonth(account);
                               
                               // Calculate total deposits (savings + costs as positive) for this account
                               const savingsAmount = savingsGroups
@@ -5902,13 +5913,9 @@ const BudgetCalculator = () => {
                                     <div className="mt-3 pt-3 border-t space-y-2">
                                       {/* Original balance */}
                                       <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">
-                                          {(() => {
-                            const freshBalances = (window as any).__freshFinalBalances;
-                            const isEstimated = hasEmptyAccountBalances() && getEstimatedAccountBalances(freshBalances);
-                                            return isEstimated ? "Ursprungligt saldo (Est)" : "Ursprungligt saldo";
-                                          })()}
-                                        </span>
+                                         <span className="text-gray-600">
+                                           {isCalcDescrEstimatedSameMonth(account) ? "Ursprungligt saldo (Est)" : "Ursprungligt saldo"}
+                                         </span>
                                         <span className={originalBalance >= 0 ? 'text-blue-600' : 'text-red-600'}>
                                           {originalBalance >= 0 ? '+' : ''}{formatCurrency(Math.abs(originalBalance))}
                                         </span>
