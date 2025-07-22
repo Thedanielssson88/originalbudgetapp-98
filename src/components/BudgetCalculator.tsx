@@ -3071,9 +3071,15 @@ const BudgetCalculator = () => {
 
     // Calculate chart data and create separate keys for historical vs forecast
     const chartData = extendedMonthKeys.map((monthKey) => {
+      // Check if this month is after today's date (should be forecast)
+      const [year, month] = monthKey.split('-').map(Number);
+      const monthDate = new Date(year, month - 1, 1);
+      const today = new Date();
+      const isAfterToday = monthDate > today;
+      
       const dataPoint: any = { 
         month: monthKey,
-        isHistorical: isHistoricalMonth(monthKey) || hasActualBalance(monthKey)
+        isHistorical: !isAfterToday && (isHistoricalMonth(monthKey) || hasActualBalance(monthKey))
       };
       
       accounts.forEach(account => {
