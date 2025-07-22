@@ -259,8 +259,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                       x2={x2}
                       y2={y2}
                       stroke="#ef4444"
-                      strokeWidth={1}
-                      strokeDasharray="5 5"
+                      strokeWidth={2}
                     />
                   );
                 }
@@ -307,7 +306,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
             if (showIndividualCostsOutsideBudget) {
               data.forEach((point, index) => {
                 const individualValue = point[`${account}_individual`];
-                if (individualValue == null) return;
+                if (individualValue == null || individualValue === 0) return;
 
                 const x = xScale(index);
                 const y = yScale(individualValue);
@@ -317,10 +316,10 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                     key={`${account}-individual-dot-${index}`}
                     cx={x}
                     cy={y}
-                    r={2}
+                    r={6}
                     fill="#ef4444"
-                    stroke="#ef4444"
-                    strokeWidth={1}
+                    stroke="#dc2626"
+                    strokeWidth={2}
                   />
                 );
               });

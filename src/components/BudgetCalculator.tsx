@@ -3010,18 +3010,34 @@ const BudgetCalculator = () => {
        return `${displayYear} - ${monthName}`;
      };
 
-    // Helper function to get individual costs for an account in a month
-    const getIndividualCosts = (monthKey: string, account: string) => {
-      const monthData = historicalData[monthKey];
-      if (!monthData || !monthData.costGroups) return 0;
-      
-      return monthData.costGroups.reduce((total: number, group: any) => {
-        const groupCosts = group.subCategories
-          ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
-          .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-        return total + groupCosts;
-      }, 0);
-    };
+     // Helper function to get the month key that corresponds to the displayed month
+     const getDisplayedMonthKey = (monthKey: string) => {
+       const [year, monthNum] = monthKey.split('-').map(Number);
+       
+       // Calculate previous month (which is what gets displayed)
+       let displayYear = year;
+       let displayMonth = monthNum - 1;
+       
+       if (displayMonth === 0) {
+         displayYear = year - 1;
+         displayMonth = 12;
+       }
+       
+       return `${displayYear}-${displayMonth.toString().padStart(2, '0')}`;
+     };
+
+     // Helper function to get individual costs for an account in a month
+     const getIndividualCosts = (monthKey: string, account: string) => {
+       const monthData = historicalData[monthKey];
+       if (!monthData || !monthData.costGroups) return 0;
+       
+       return monthData.costGroups.reduce((total: number, group: any) => {
+         const groupCosts = group.subCategories
+           ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
+           .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+         return total + groupCosts;
+       }, 0);
+     };
 
     // Calculate chart data
     const chartData = extendedMonthKeys.map((monthKey) => {
@@ -3047,9 +3063,12 @@ const BudgetCalculator = () => {
           dataPoint[`${account}_isEstimated`] = true;
         }
         
-        // Add individual costs if enabled
+        // Add individual costs if enabled - show them in the month they actually occurred
         if (showIndividualCostsOutsideBudget) {
-          const individualCosts = getIndividualCosts(monthKey, account);
+          // For individual costs, we want to show them in the month they actually occurred,
+          // which corresponds to the displayed month, not the balance calculation month
+          const displayedMonthKey = getDisplayedMonthKey(monthKey);
+          const individualCosts = getIndividualCosts(displayedMonthKey, account);
           dataPoint[`${account}_individual`] = individualCosts;
         }
       });
