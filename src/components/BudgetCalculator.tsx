@@ -13,6 +13,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useSwipeGestures } from '@/hooks/useSwipeGestures';
 import { AccountDataTable, AccountDataRow } from '@/components/AccountDataTable';
 import CreateMonthDialog from './CreateMonthDialog';
+import { CustomLineChart } from './CustomLineChart';
 
 interface SubCategory {
   id: string;
@@ -3178,113 +3179,17 @@ const BudgetCalculator = () => {
               <p>Ingen data att visa för det valda intervallet</p>
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="displayMonth" 
-                  angle={-45}
-                  textAnchor="end"
-                  height={100}
-                  interval={0}
-                />
-                <YAxis tickFormatter={(value: number) => formatCurrency(value)} />
-                <Tooltip 
-                  content={({ active, payload, label }) => {
-                    if (!active || !payload || !payload.length) return null;
-                    
-                    return (
-                      <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-2 max-w-xs">
-                        <p className="font-medium text-sm mb-1">{label}</p>
-                        {payload.map((entry: any) => {
-                          const accountName = entry.dataKey;
-                          // Handle individual costs
-                          if (accountName.includes('_individual')) {
-                            const baseAccountName = accountName.replace('_individual', '');
-                            return (
-                              <div key={accountName} className="text-sm">
-                                <span>
-                                  {baseAccountName} (Enskilda Kostnader): {formatCurrency(entry.value)} kr
-                                </span>
-                              </div>
-                            );
-                          }
-                          // Handle regular account values
-                          else {
-                            // Check if this data point is estimated
-                            const isEstimated = entry.payload?.[`${accountName}_isEstimated`];
-                            const displayLabel = showEstimatedBudgetAmounts && isEstimated ? 
-                              `${accountName} (Estimerat)` : accountName;
-                            
-                            return (
-                              <div key={accountName} className="text-sm">
-                                <span>
-                                  {displayLabel}: {formatCurrency(entry.value)} kr
-                                </span>
-                              </div>
-                            );
-                          }
-                        })}
-                      </div>
-                    );
-                  }}
-                />
-                
-                {/* Account lines */}
-                {selectedAccountsForChart.map((account, index) => {
-                  // Check if this account has any estimated values
-                  const hasEstimatedValues = chartData.some(point => point[`${account}_isEstimated`]);
-                  const shouldShowDashed = showEstimatedBudgetAmounts && hasEstimatedValues;
-                  
-                  return (
-                    <Line
-                      key={account}
-                      type="monotone"
-                      dataKey={account}
-                      stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
-                      name={account}
-                      strokeWidth={2}
-                      connectNulls={false}
-                      strokeDasharray={shouldShowDashed ? "5 5" : undefined}
-                      dot={(props: any) => {
-                        // Check if this point is estimated
-                        const isEstimated = props.payload?.[`${account}_isEstimated`];
-                        if (showEstimatedBudgetAmounts && isEstimated) {
-                          // Show special dot for estimated values
-                          return (
-                            <circle 
-                              cx={props.cx} 
-                              cy={props.cy} 
-                              r={4} 
-                              fill={accountColors[accounts.indexOf(account) % accountColors.length]}
-                              stroke={accountColors[accounts.indexOf(account) % accountColors.length]}
-                              strokeWidth={2}
-                              strokeDasharray="3 3"
-                            />
-                          );
-                        }
-                        // Regular dot for non-estimated values
-                        return <circle cx={props.cx} cy={props.cy} r={3} fill={accountColors[accounts.indexOf(account) % accountColors.length]} />;
-                      }}
-                    />
-                  );
-                })}
-                
-                {/* Individual costs lines - only show if enabled */}
-                {showIndividualCostsOutsideBudget && selectedAccountsForChart.map((account, index) => (
-                  <Line
-                    key={`${account}-individual`}
-                    type="monotone"
-                    dataKey={`${account}_individual`}
-                    stroke="#ef4444"
-                    name={`${account} (Enskilda Kostnader)`}
-                    strokeWidth={1}
-                    strokeDasharray="5 5"
-                    connectNulls={false}
-                  />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
+            <CustomLineChart
+              data={chartData}
+              accounts={selectedAccountsForChart}
+              accountColors={accountColors}
+              showEstimatedBudgetAmounts={showEstimatedBudgetAmounts}
+              showIndividualCostsOutsideBudget={showIndividualCostsOutsideBudget}
+              width={800}
+              height={384}
+              margin={{ top: 20, right: 30, bottom: 80, left: 80 }}
+              formatCurrency={formatCurrency}
+            />
           )}
         </div>
 

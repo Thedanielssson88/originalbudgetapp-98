@@ -1,0 +1,369 @@
+import React, { useState, useRef } from 'react';
+import { CustomLineSegment } from './CustomLineSegment';
+
+interface ChartDataPoint {
+  [key: string]: any;
+  displayMonth?: string;
+}
+
+interface CustomLineChartProps {
+  data: ChartDataPoint[];
+  accounts: string[];
+  accountColors: string[];
+  showEstimatedBudgetAmounts: boolean;
+  width: number;
+  height: number;
+  margin: { top: number; right: number; bottom: number; left: number };
+  formatCurrency: (value: number) => string;
+  showIndividualCostsOutsideBudget?: boolean;
+}
+
+export const CustomLineChart: React.FC<CustomLineChartProps> = ({
+  data,
+  accounts,
+  accountColors,
+  showEstimatedBudgetAmounts,
+  width,
+  height,
+  margin,
+  formatCurrency,
+  showIndividualCostsOutsideBudget = false
+}) => {
+  const [tooltip, setTooltip] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    content: any;
+  }>({ visible: false, x: 0, y: 0, content: null });
+  
+  const svgRef = useRef<SVGSVGElement>(null);
+  const chartWidth = width - margin.left - margin.right;
+  const chartHeight = height - margin.top - margin.bottom;
+
+  // Find min and max values for Y axis scaling (include individual costs if enabled)
+  const allValues = data.flatMap(point => {
+    const mainValues = accounts.map(account => point[account]).filter(val => val != null);
+    if (showIndividualCostsOutsideBudget) {
+      const individualValues = accounts.map(account => point[`${account}_individual`]).filter(val => val != null);
+      return [...mainValues, ...individualValues];
+    }
+    return mainValues;
+  });
+  const minValue = Math.min(...allValues);
+  const maxValue = Math.max(...allValues);
+  const valueRange = maxValue - minValue;
+  const padding = valueRange * 0.1; // 10% padding
+  const yMin = minValue - padding;
+  const yMax = maxValue + padding;
+
+  // Scale functions
+  const xScale = (index: number) => (index / (data.length - 1)) * chartWidth;
+  const yScale = (value: number) => chartHeight - ((value - yMin) / (yMax - yMin)) * chartHeight;
+
+  // Generate Y axis ticks
+  const yTicks = [];
+  const tickCount = 5;
+  for (let i = 0; i <= tickCount; i++) {
+    const value = yMin + (yMax - yMin) * (i / tickCount);
+    yTicks.push({
+      value,
+      y: yScale(value)
+    });
+  }
+
+  // Generate grid lines
+  const gridLines = yTicks.map(tick => (
+    <line
+      key={tick.value}
+      x1={0}
+      y1={tick.y}
+      x2={chartWidth}
+      y2={tick.y}
+      stroke="#e0e0e0"
+      strokeDasharray="3 3"
+      strokeWidth={1}
+    />
+  ));
+
+  // Generate X axis labels
+  const xAxisLabels = data.map((point, index) => (
+    <text
+      key={index}
+      x={xScale(index)}
+      y={chartHeight + 20}
+      textAnchor="middle"
+      fontSize="12"
+      fill="#666"
+      transform={`rotate(-45 ${xScale(index)} ${chartHeight + 20})`}
+    >
+      {point.displayMonth}
+    </text>
+  ));
+
+  // Generate Y axis labels
+  const yAxisLabels = yTicks.map(tick => (
+    <text
+      key={tick.value}
+      x={-10}
+      y={tick.y + 4}
+      textAnchor="end"
+      fontSize="12"
+      fill="#666"
+    >
+      {formatCurrency(tick.value)}
+    </text>
+  ));
+
+  // Handle mouse events for tooltip
+  const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
+    if (!svgRef.current) return;
+    
+    const rect = svgRef.current.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left - margin.left;
+    const mouseY = event.clientY - rect.top - margin.top;
+    
+    // Find closest data point
+    const closestIndex = Math.round((mouseX / chartWidth) * (data.length - 1));
+    if (closestIndex >= 0 && closestIndex < data.length) {
+      const point = data[closestIndex];
+      const accountsWithData = accounts.filter(account => point[account] != null);
+      
+      if (accountsWithData.length > 0) {
+        setTooltip({
+          visible: true,
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+          content: {
+            month: point.displayMonth,
+            accounts: accountsWithData.map(account => ({
+              name: account,
+              value: point[account],
+              isEstimated: point[`${account}_isEstimated`],
+              individual: point[`${account}_individual`]
+            }))
+          }
+        });
+      }
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setTooltip({ visible: false, x: 0, y: 0, content: null });
+  };
+
+  return (
+    <div style={{ width, height, position: 'relative' }}>
+      <svg 
+        ref={svgRef}
+        width={width} 
+        height={height}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        style={{ cursor: 'crosshair' }}
+      >
+        <g transform={`translate(${margin.left}, ${margin.top})`}>
+          {/* Grid lines */}
+          {gridLines}
+          
+          {/* Chart lines and segments */}
+          {accounts.map((account, accountIndex) => {
+            const accountColor = accountColors[accountIndex % accountColors.length];
+            const segments = [];
+            const dots = [];
+
+            // Generate main account line segments
+            for (let i = 0; i < data.length - 1; i++) {
+              const currentPoint = data[i];
+              const nextPoint = data[i + 1];
+
+              // Skip if either point doesn't have data for this account
+              if (currentPoint[account] == null || nextPoint[account] == null) continue;
+
+              const x1 = xScale(i);
+              const y1 = yScale(currentPoint[account]);
+              const x2 = xScale(i + 1);
+              const y2 = yScale(nextPoint[account]);
+
+              let strokeDasharray = undefined; // solid by default
+
+              if (showEstimatedBudgetAmounts) {
+                const currentIsEstimated = currentPoint[`${account}_isEstimated`];
+                const nextIsEstimated = nextPoint[`${account}_isEstimated`];
+
+                // Line from non-estimated to estimated should be dashed
+                if (!currentIsEstimated && nextIsEstimated) {
+                  strokeDasharray = "5 5";
+                }
+                // All other combinations are solid lines
+              }
+
+              segments.push(
+                <CustomLineSegment
+                  key={`${account}-segment-${i}`}
+                  x1={x1}
+                  y1={y1}
+                  x2={x2}
+                  y2={y2}
+                  stroke={accountColor}
+                  strokeWidth={2}
+                  strokeDasharray={strokeDasharray}
+                />
+              );
+            }
+
+            // Generate individual costs line segments if enabled
+            if (showIndividualCostsOutsideBudget) {
+              for (let i = 0; i < data.length - 1; i++) {
+                const currentPoint = data[i];
+                const nextPoint = data[i + 1];
+
+                const currentValue = currentPoint[`${account}_individual`];
+                const nextValue = nextPoint[`${account}_individual`];
+
+                if (currentValue != null && nextValue != null) {
+                  const x1 = xScale(i);
+                  const y1 = yScale(currentValue);
+                  const x2 = xScale(i + 1);
+                  const y2 = yScale(nextValue);
+
+                  segments.push(
+                    <CustomLineSegment
+                      key={`${account}-individual-${i}`}
+                      x1={x1}
+                      y1={y1}
+                      x2={x2}
+                      y2={y2}
+                      stroke="#ef4444"
+                      strokeWidth={1}
+                      strokeDasharray="5 5"
+                    />
+                  );
+                }
+              }
+            }
+
+            // Generate dots for main account values
+            data.forEach((point, index) => {
+              if (point[account] == null) return;
+
+              const x = xScale(index);
+              const y = yScale(point[account]);
+              const isEstimated = point[`${account}_isEstimated`];
+
+              if (showEstimatedBudgetAmounts && isEstimated) {
+                // Special dot for estimated values
+                dots.push(
+                  <circle
+                    key={`${account}-dot-${index}`}
+                    cx={x}
+                    cy={y}
+                    r={4}
+                    fill={accountColor}
+                    stroke={accountColor}
+                    strokeWidth={2}
+                    strokeDasharray="3 3"
+                  />
+                );
+              } else {
+                // Regular dot for non-estimated values
+                dots.push(
+                  <circle
+                    key={`${account}-dot-${index}`}
+                    cx={x}
+                    cy={y}
+                    r={3}
+                    fill={accountColor}
+                  />
+                );
+              }
+            });
+
+            // Generate dots for individual costs if enabled
+            if (showIndividualCostsOutsideBudget) {
+              data.forEach((point, index) => {
+                const individualValue = point[`${account}_individual`];
+                if (individualValue == null) return;
+
+                const x = xScale(index);
+                const y = yScale(individualValue);
+
+                dots.push(
+                  <circle
+                    key={`${account}-individual-dot-${index}`}
+                    cx={x}
+                    cy={y}
+                    r={2}
+                    fill="#ef4444"
+                    stroke="#ef4444"
+                    strokeWidth={1}
+                  />
+                );
+              });
+            }
+
+            return [segments, dots];
+          })}
+
+          {/* X axis */}
+          <line
+            x1={0}
+            y1={chartHeight}
+            x2={chartWidth}
+            y2={chartHeight}
+            stroke="#666"
+            strokeWidth={1}
+          />
+
+          {/* Y axis */}
+          <line
+            x1={0}
+            y1={0}
+            x2={0}
+            y2={chartHeight}
+            stroke="#666"
+            strokeWidth={1}
+          />
+
+          {/* Y axis labels */}
+          {yAxisLabels}
+        </g>
+
+        {/* X axis labels */}
+        <g transform={`translate(${margin.left}, ${margin.top})`}>
+          {xAxisLabels}
+        </g>
+      </svg>
+
+      {/* Tooltip */}
+      {tooltip.visible && tooltip.content && (
+        <div
+          className="absolute bg-white border border-gray-300 rounded-lg shadow-lg p-2 max-w-xs z-10 pointer-events-none"
+          style={{
+            left: tooltip.x + 10,
+            top: tooltip.y - 10,
+            transform: tooltip.x > width / 2 ? 'translateX(-100%)' : 'none'
+          }}
+        >
+          <p className="font-medium text-sm mb-1">{tooltip.content.month}</p>
+          {tooltip.content.accounts.map((account: any) => (
+            <div key={account.name}>
+              <div className="text-sm">
+                <span>
+                  {showEstimatedBudgetAmounts && account.isEstimated ? 
+                    `${account.name} (Estimerat)` : account.name}: {formatCurrency(account.value)} kr
+                </span>
+              </div>
+              {showIndividualCostsOutsideBudget && account.individual != null && (
+                <div className="text-sm text-red-600">
+                  <span>
+                    {account.name} (Enskilda Kostnader): {formatCurrency(account.individual)} kr
+                  </span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
