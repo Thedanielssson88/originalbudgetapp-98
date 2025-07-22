@@ -2990,11 +2990,13 @@ const BudgetCalculator = () => {
           return;
         }
         
-        dataPoint[account] = balance;
-        
-        // Add estimated line data if enabled and this account has estimated data
+        // If showing estimated amounts is enabled and this is estimated data, 
+        // only add to the estimated line, not the regular line
         if (showEstimatedBudgetAmounts && isEstimated) {
           dataPoint[`${account}_estimated`] = balance;
+        } else {
+          // Add to regular line only if it's not estimated, or if estimated amounts are not being shown
+          dataPoint[account] = balance;
         }
         
         // Add individual costs if enabled
