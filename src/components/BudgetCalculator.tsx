@@ -4332,35 +4332,35 @@ const BudgetCalculator = () => {
                                                   </div>
                                                 )}
 
-                                                {/* Calc.Kontosaldo */}
-                                                {(() => {
-                                                  const hasActualBalance = accountBalancesSet[account] === true;
-                                                  const calcBalance = hasActualBalance ? currentBalance : estimatedBalance;
-                                                  const isUsingEstimated = !hasActualBalance;
-                                                  
-                                                  return (
-                                                    <div className="space-y-2 pt-2 border-t border-gray-200">
-                                                      <div className="flex justify-between items-center">
-                                                        <span className="text-sm font-medium text-green-700">Calc.Kontosaldo</span>
-                                                        <div className="flex items-center gap-2">
-                                                          <span className="w-32 text-right text-sm text-green-600">{formatCurrency(calcBalance)}</span>
-                                                          <span className="text-sm text-green-600 min-w-8">kr</span>
-                                                        </div>
-                                                      </div>
-                                                      
-                                                      {/* Calc.Descr */}
-                                                      <div className="flex justify-between items-center">
-                                                        <span className="text-sm font-medium text-green-700">Calc.Descr</span>
-                                                        <div className="flex items-center gap-2">
-                                                          <span className="w-32 text-right text-sm text-green-600">
-                                                            {isUsingEstimated ? "(Est)" : ""}
-                                                          </span>
-                                                          <span className="text-sm text-green-600 min-w-8"></span>
-                                                        </div>
-                                                      </div>
-                                                    </div>
-                                                  );
-                                                })()}
+                                                 {/* Calc.Kontosaldo */}
+                                                 {(() => {
+                                                   const hasActualBalance = accountBalancesSet[account] === true;
+                                                   const calcBalance = hasActualBalance ? currentBalance : estimatedBalance;
+                                                   const isUsingEstimated = !hasActualBalance;
+                                                   
+                                                   return (
+                                                     <div className="space-y-2 pt-2 border-t border-gray-200">
+                                                       <div className="flex justify-between items-center">
+                                                         <span className="text-sm font-medium text-green-700">Calc.Kontosaldo</span>
+                                                         <div className="flex items-center gap-2">
+                                                           <span className="w-32 text-right text-sm text-green-600">{formatCurrency(calcBalance || 0)}</span>
+                                                           <span className="text-sm text-green-600 min-w-8">kr</span>
+                                                         </div>
+                                                       </div>
+                                                       
+                                                       {/* Calc.Descr */}
+                                                       <div className="flex justify-between items-center">
+                                                         <span className="text-sm font-medium text-green-700">Calc.Descr</span>
+                                                         <div className="flex items-center gap-2">
+                                                           <span className="w-32 text-right text-sm text-green-600">
+                                                             {isUsingEstimated ? "(Est)" : ""}
+                                                           </span>
+                                                           <span className="text-sm text-green-600 min-w-8"></span>
+                                                         </div>
+                                                       </div>
+                                                     </div>
+                                                   );
+                                                 })()}
                                              </div>
                                            </div>
                                          );
