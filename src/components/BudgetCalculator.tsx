@@ -7051,6 +7051,51 @@ const BudgetCalculator = () => {
                 </CardContent>
               </Card>
 
+              {/* Update All Months Button */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-primary" />
+                    Uppdatera alla månader
+                  </CardTitle>
+                  <CardDescription>
+                    Gå igenom alla månader automatiskt för att uppdatera tabellen och grafen
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button 
+                    onClick={() => {
+                      const monthsWithData = getMonthsWithSavedData();
+                      if (monthsWithData.length === 0) return;
+                      
+                      let currentIndex = 0;
+                      const updateAllMonths = () => {
+                        if (currentIndex < monthsWithData.length) {
+                          const monthKey = monthsWithData[currentIndex];
+                          handleBudgetMonthChange(monthKey);
+                          currentIndex++;
+                          
+                          // Use setTimeout to allow React to update between month changes
+                          setTimeout(updateAllMonths, 50);
+                        }
+                      };
+                      
+                      updateAllMonths();
+                    }}
+                    disabled={getMonthsWithSavedData().length === 0}
+                    className="w-full"
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Uppdateras
+                  </Button>
+                  {getMonthsWithSavedData().length > 0 && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Kommer att gå igenom {getMonthsWithSavedData().length} månader: {getMonthsWithSavedData().join(', ')}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Account Balance History and Forecast */}
               <Card>
                 <CardHeader>
