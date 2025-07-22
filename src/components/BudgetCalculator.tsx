@@ -178,6 +178,9 @@ const BudgetCalculator = () => {
   // Individual costs chart selection state (for "Enskilda kostnader")
   const [showIndividualCostsOutsideBudget, setShowIndividualCostsOutsideBudget] = useState<boolean>(false);
   
+  // Chart legend expandable state
+  const [isChartLegendExpanded, setIsChartLegendExpanded] = useState<boolean>(false);
+  
   // Chart time range selection state
   const [useCustomTimeRange, setUseCustomTimeRange] = useState<boolean>(false);
   const [chartStartMonth, setChartStartMonth] = useState<string>('');
@@ -3270,7 +3273,6 @@ const BudgetCalculator = () => {
                   `${name} (${props.payload.isHistorical ? 'Faktiskt' : 'Estimerat'})`
                 ]} 
               />
-              <Legend />
               
               {/* Account lines for historical data (solid) */}
               {selectedAccountsForChart.map((account, index) => (
@@ -3369,17 +3371,72 @@ const BudgetCalculator = () => {
           )}
         </div>
 
-        {/* Legend */}
-        <div className="bg-muted/30 p-3 rounded-lg text-sm">
-          <p className="font-medium mb-1">Förklaring:</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-1 text-muted-foreground">
-            <div>• Heldragna linjer: Historiska data (Faktiskt kontosaldo)</div>
-            <div>• Streckade linjer: Prognoser (Estimerat slutsaldo)</div>
-            <div>• Blå vertikal linje: Avgränsning historik/prognos</div>
-            <div>• Grön linje: Dagens datum</div>
-            <div>• Orange linje: 25:e i månaden</div>
-          </div>
-        </div>
+        {/* Chart Legend - Expandable */}
+        <Collapsible open={isChartLegendExpanded} onOpenChange={setIsChartLegendExpanded}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full justify-between p-3 h-auto">
+              <span className="font-medium">Diagramförklaring</span>
+              <ChevronDown className={`h-4 w-4 transition-transform ${isChartLegendExpanded ? 'rotate-180' : ''}`} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="bg-muted/30 p-4 rounded-lg text-sm space-y-3">
+              {/* Dynamic legend based on selected accounts and settings */}
+              <div className="space-y-2">
+                <p className="font-medium mb-2">Kontosaldon:</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {selectedAccountsForChart.map((account, index) => {
+                    const color = accountColors[accounts.indexOf(account) % accountColors.length];
+                    return (
+                      <div key={account} className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-0.5 rounded" 
+                            style={{ backgroundColor: color }}
+                          />
+                          <span className="text-xs">{account} (Historisk)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-0.5 rounded border-dashed border-2" 
+                            style={{ borderColor: color }}
+                          />
+                          <span className="text-xs">{account} (Prognos)</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Individual costs legend - only show if enabled */}
+              {showIndividualCostsOutsideBudget && selectedAccountsForChart.length > 0 && (
+                <div className="space-y-2 border-t pt-3">
+                  <p className="font-medium mb-2">Enskilda kostnader:</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {selectedAccountsForChart.map((account) => (
+                      <div key={`${account}-individual`} className="flex items-center gap-2">
+                        <div className="w-3 h-0.5 rounded bg-red-500" />
+                        <span className="text-xs">{account} (Enskilda Kostnader)</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* General legend */}
+              <div className="border-t pt-3">
+                <p className="font-medium mb-2">Allmän förklaring:</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-1 text-muted-foreground text-xs">
+                  <div>• Heldragna linjer: Historiska data</div>
+                  <div>• Streckade linjer: Prognoser</div>
+                  <div>• Grön linje: Dagens datum</div>
+                  <div>• Orange linje: 25:e i månaden</div>
+                </div>
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
     );
   };
