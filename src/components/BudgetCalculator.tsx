@@ -3303,7 +3303,7 @@ const BudgetCalculator = () => {
                       {Array.from(accountData.entries()).map(([accountName, data]) => (
                         <div key={accountName} className="text-sm">
                           <span className={data.isIndividualCost ? "text-red-600 font-medium" : ""}>
-                            {accountName}: {data.isIndividualCost ? '-' : ''}{formatCurrency(data.value)} kr
+                            {data.isIndividualCost ? "Löpande enskilda kostnader" : accountName}: {data.isIndividualCost ? '-' : ''}{formatCurrency(data.value)} kr
                           </span>
                         </div>
                       ))}
