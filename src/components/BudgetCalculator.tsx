@@ -1329,7 +1329,8 @@ const BudgetCalculator = () => {
         ...JSON.parse(JSON.stringify(historicalData[latestMonth])), // Deep copy everything
         month: monthKey,
         date: new Date().toISOString(),
-        accountBalances: {} // Always start with empty account balances - user should fill manually
+        accountBalances: {}, // Always start with empty account balances - user should fill manually
+        accountBalancesSet: {} // All balances start as not set, so they show "Ej ifyllt"
       };
       console.log(`Copying data from latest month: ${latestMonth} to new month: ${monthKey}`);
     } else {
@@ -1364,7 +1365,8 @@ const BudgetCalculator = () => {
         andreasPersonalSavings: JSON.parse(JSON.stringify(andreasPersonalSavings)),
         susannaPersonalCosts: JSON.parse(JSON.stringify(susannaPersonalCosts)),
         susannaPersonalSavings: JSON.parse(JSON.stringify(susannaPersonalSavings)),
-        accountBalances: {} // Always start with empty account balances - user should fill manually
+        accountBalances: {}, // Always start with empty account balances - user should fill manually
+        accountBalancesSet: {} // All balances start as not set, so they show "Ej ifyllt"
       };
       console.log(`No historical data found, using current form values for new month: ${monthKey}`);
     }
@@ -2338,6 +2340,7 @@ const BudgetCalculator = () => {
       setAccounts(JSON.parse(JSON.stringify(template.accounts || ['Löpande', 'Sparkonto', 'Buffert'])));
       // Always start with empty account balances - user should fill manually
       setAccountBalances({});
+      setAccountBalancesSet({}); // All balances start as not set, so they show "Ej ifyllt"
     }
     
     // Add the copied data to historical data
@@ -4221,7 +4224,19 @@ const BudgetCalculator = () => {
                                                       }}
                                                       onFocus={(e) => {
                                                         if (e.target.value === "Ej ifyllt") {
-                                                          e.target.value = "";
+                                                          // Clear the "Ej ifyllt" text when focusing
+                                                          setAccountBalances(prev => ({
+                                                            ...prev,
+                                                            [account]: 0
+                                                          }));
+                                                          setAccountBalancesSet(prev => ({
+                                                            ...prev,
+                                                            [account]: true
+                                                          }));
+                                                          // Set the input value to empty for easy editing
+                                                          setTimeout(() => {
+                                                            e.target.value = "";
+                                                          }, 0);
                                                         }
                                                       }}
                                                       className="w-32 text-right"
