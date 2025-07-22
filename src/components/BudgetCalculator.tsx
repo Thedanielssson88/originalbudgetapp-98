@@ -166,6 +166,9 @@ const BudgetCalculator = () => {
   // Account balances state
   const [accountBalances, setAccountBalances] = useState<{[key: string]: number}>({});
   
+  // Track which account balances have been explicitly set (to distinguish 0 from empty)
+  const [accountBalancesSet, setAccountBalancesSet] = useState<{[key: string]: boolean}>({});
+  
   // Account final balances (Slutsaldo) state - saved per month
   const [accountFinalBalances, setAccountFinalBalances] = useState<{[key: string]: number}>({});
   
@@ -439,7 +442,9 @@ const BudgetCalculator = () => {
         setSusannaShareChecked(parsed.susannaShareChecked || false);
         
         // Load account balances
-        setAccountBalances(parsed.accountBalances || {});
+        const loadedBalances = parsed.accountBalances || {};
+        setAccountBalances(loadedBalances);
+        setAccountBalancesSet(parsed.accountBalancesSet || {});
         
         // Load account final balances
         setAccountFinalBalances(parsed.accountFinalBalances || {});
@@ -614,6 +619,7 @@ const BudgetCalculator = () => {
       andreasShareChecked,
       susannaShareChecked,
       accountBalances,
+      accountBalancesSet,
       accountFinalBalances,
       accountEstimatedFinalBalances,
       selectedAccountsForChart,
@@ -631,7 +637,7 @@ const BudgetCalculator = () => {
       saveToLocalStorage();
       saveToSelectedMonth();
     }
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountFinalBalances, accountEstimatedFinalBalances, selectedAccountsForChart, showIndividualCostsOutsideBudget, useCustomTimeRange, chartStartMonth, chartEndMonth, isInitialLoad]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountBalancesSet, accountFinalBalances, accountEstimatedFinalBalances, selectedAccountsForChart, showIndividualCostsOutsideBudget, useCustomTimeRange, chartStartMonth, chartEndMonth, isInitialLoad]);
   // Calculate estimated final balances when budget month changes
   useEffect(() => {
     if (!isInitialLoad && selectedBudgetMonth) {
@@ -1534,6 +1540,11 @@ const BudgetCalculator = () => {
       ...prev,
       [account]: balance
     }));
+    // Mark this account balance as explicitly set
+    setAccountBalancesSet(prev => ({
+      ...prev,
+      [account]: true
+    }));
   };
 
   // Function to load data from selected month into current form
@@ -1568,9 +1579,17 @@ const BudgetCalculator = () => {
     setSusannaPersonalSavings(monthData.susannaPersonalSavings || []);
     
     // Load saved account balances, or start with empty if none exist
-    setAccountBalances(monthData.accountBalances || {});
+    const loadedBalances = monthData.accountBalances || {};
+    setAccountBalances(loadedBalances);
     setAccountFinalBalances(monthData.accountFinalBalances || {});
     setAccountEstimatedFinalBalances(monthData.accountEstimatedFinalBalances || {});
+    
+    // Set accountBalancesSet based on which accounts have explicit values
+    const balancesSet: {[key: string]: boolean} = {};
+    Object.keys(loadedBalances).forEach(account => {
+      balancesSet[account] = loadedBalances[account] !== undefined && loadedBalances[account] !== null;
+    });
+    setAccountBalancesSet(balancesSet);
     
     // Update results if available
     if (monthData.totalSalary !== undefined) {
@@ -2040,8 +2059,16 @@ const BudgetCalculator = () => {
             setAndreasShareChecked(monthData.andreasShareChecked !== undefined ? monthData.andreasShareChecked : true);
             setSusannaShareChecked(monthData.susannaShareChecked !== undefined ? monthData.susannaShareChecked : true);
             // Set account balances (should be empty {} for new months)
-            setAccountBalances(monthData.accountBalances || {});
+            const loadedBalances = monthData.accountBalances || {};
+            setAccountBalances(loadedBalances);
             setAccountFinalBalances(monthData.accountFinalBalances || {});
+            
+            // Set accountBalancesSet based on which accounts have explicit values
+            const balancesSet: {[key: string]: boolean} = {};
+            Object.keys(loadedBalances).forEach(account => {
+              balancesSet[account] = loadedBalances[account] !== undefined && loadedBalances[account] !== null;
+            });
+            setAccountBalancesSet(balancesSet);
           }
         }, 0);
         
@@ -4167,20 +4194,42 @@ const BudgetCalculator = () => {
                                              </div>
                                              
                                              <div className="p-3 space-y-3">
-                                               {/* Faktiskt kontosaldo */}
-                                               <div className="flex justify-between items-center">
-                                                 <span className="text-sm font-medium text-blue-700">Faktiskt kontosaldo</span>
-                                                 <div className="flex items-center gap-2">
-                                                   <Input
-                                                     type="number"
-                                                     value={currentBalance || ''}
-                                                     onChange={(e) => updateAccountBalance(account, Number(e.target.value) || 0)}
-                                                     className="w-32 text-right"
-                                                     placeholder="0"
-                                                   />
-                                                   <span className="text-sm text-blue-700 min-w-8">kr</span>
-                                                 </div>
-                                               </div>
+                                                {/* Faktiskt kontosaldo */}
+                                                <div className="flex justify-between items-center">
+                                                  <span className="text-sm font-medium text-blue-700">Faktiskt kontosaldo</span>
+                                                  <div className="flex items-center gap-2">
+                                                    <Input
+                                                      type="text"
+                                                      value={accountBalancesSet[account] 
+                                                        ? currentBalance.toString() 
+                                                        : (currentBalance === 0 ? "Ej ifyllt" : currentBalance.toString())
+                                                      }
+                                                      onChange={(e) => {
+                                                        const value = e.target.value;
+                                                        if (value === "Ej ifyllt" || value === "") {
+                                                          updateAccountBalance(account, 0);
+                                                          setAccountBalancesSet(prev => ({
+                                                            ...prev,
+                                                            [account]: false
+                                                          }));
+                                                        } else {
+                                                          const numValue = Number(value);
+                                                          if (!isNaN(numValue)) {
+                                                            updateAccountBalance(account, numValue);
+                                                          }
+                                                        }
+                                                      }}
+                                                      onFocus={(e) => {
+                                                        if (e.target.value === "Ej ifyllt") {
+                                                          e.target.value = "";
+                                                        }
+                                                      }}
+                                                      className="w-32 text-right"
+                                                      placeholder="Ej ifyllt"
+                                                    />
+                                                    <span className="text-sm text-blue-700 min-w-8">kr</span>
+                                                  </div>
+                                                </div>
                                                
                                                {/* Estimerat slutsaldo */}
                                                {estimatedResult && (
