@@ -73,7 +73,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
     // Calculate final balances for each account
     accounts.forEach(account => {
       if (point[account] != null) {
-        const startingBalance = point[`${account}_startingBalance`] || 1000;
+        const startingBalance = point[`${account}_startingBalance`] || 0;
         const savings = point[`${account}_savings`] || 0;
         const runningDeposits = point[`${account}_runningDeposits`] || 500;
         const runningCosts = point[`${account}_runningCosts`] || 500;
@@ -209,7 +209,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
     
     // For the starting balance, use the current month's starting value or previous month's closing balance
     // Based on your data, this should be the Calc.Kontosaldo value (1000 kr for July)
-    const startingBalance = currentPoint[`${account.name}_startingBalance`] || 1000;
+    const startingBalance = currentPoint[`${account.name}_startingBalance`] || 0;
     
     // Get values directly from the data structure
     const savings = account.savings || 0;
@@ -270,14 +270,14 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
               if (currentPoint[account] == null || nextPoint[account] == null) continue;
 
               // Calculate final balances for line positioning
-              const currentStartingBalance = currentPoint[`${account}_startingBalance`] || 1000;
+              const currentStartingBalance = currentPoint[`${account}_startingBalance`] || 0;
               const currentSavings = currentPoint[`${account}_savings`] || 0;
               const currentRunningDeposits = currentPoint[`${account}_runningDeposits`] || 500;
               const currentRunningCosts = currentPoint[`${account}_runningCosts`] || 500;
               const currentIndividualCosts = Math.abs(currentPoint[`${account}_individual`] || 0);
               const currentFinalBalance = currentStartingBalance + currentSavings + currentRunningDeposits - currentRunningCosts - currentIndividualCosts;
 
-              const nextStartingBalance = nextPoint[`${account}_startingBalance`] || 1000;
+              const nextStartingBalance = nextPoint[`${account}_startingBalance`] || 0;
               const nextSavings = nextPoint[`${account}_savings`] || 0;
               const nextRunningDeposits = nextPoint[`${account}_runningDeposits`] || 500;
               const nextRunningCosts = nextPoint[`${account}_runningCosts`] || 500;
@@ -329,7 +329,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
               const x = xScale(index);
               
               // Calculate the final balance for dot positioning
-              const startingBalance = point[`${account}_startingBalance`] || 1000;
+              const startingBalance = point[`${account}_startingBalance`] || 0;
               const savings = point[`${account}_savings`] || 0;
               const runningDeposits = point[`${account}_runningDeposits`] || 500;
               const runningCosts = point[`${account}_runningCosts`] || 500;
@@ -377,7 +377,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                 const y = yScale(individualValue);
                 
                 // Calculate the final balance for main balance y position
-                const startingBalance = point[`${account}_startingBalance`] || 1000;
+                const startingBalance = point[`${account}_startingBalance`] || 0;
                 const savings = point[`${account}_savings`] || 0;
                 const runningDeposits = point[`${account}_runningDeposits`] || 500;
                 const runningCosts = point[`${account}_runningCosts`] || 500;
@@ -409,7 +409,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                 const y = yScale(savingsValue);
                 
                 // Calculate the final balance for main balance y position
-                const startingBalance = point[`${account}_startingBalance`] || 1000;
+                const startingBalance = point[`${account}_startingBalance`] || 0;
                 const savings = point[`${account}_savings`] || 0;
                 const runningDeposits = point[`${account}_runningDeposits`] || 500;
                 const runningCosts = point[`${account}_runningCosts`] || 500;
