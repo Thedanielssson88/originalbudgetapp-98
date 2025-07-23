@@ -190,19 +190,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
     setExpandedAccounts(new Set());
   };
 
-  // Handle outside click to close tooltip
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (tooltip.visible && tooltipRef.current && !tooltipRef.current.contains(event.target as Node)) {
-        closeTooltip();
-      }
-    };
-
-    if (tooltip.visible) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [tooltip.visible]);
+  // Tooltip only closes via close button - no outside click detection
 
   // Helper function to calculate account details for tooltip
   const calculateAccountDetails = (account: any, closestIndex: number) => {
