@@ -38,6 +38,8 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
     content: any;
   }>({ visible: false, x: 0, y: 0, content: null });
   
+  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
+  
   const [actualWidth, setActualWidth] = useState(propWidth || 800);
   
   const svgRef = useRef<SVGSVGElement>(null);
@@ -167,13 +169,14 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
           y: event.clientY - rect.top,
           content: {
             month: point.displayMonth,
-              accounts: accountsWithData.map(account => ({
-                name: account,
-                value: point[account],
-                isEstimated: point[`${account}_isEstimated`],
-                individual: point[`${account}_individual`],
-                savings: point[`${account}_savings`]
-              }))
+            closestIndex,
+            accounts: accountsWithData.map(account => ({
+              name: account,
+              value: point[account],
+              isEstimated: point[`${account}_isEstimated`],
+              individual: point[`${account}_individual`],
+              savings: point[`${account}_savings`]
+            }))
           }
         });
       }
@@ -182,6 +185,50 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
 
   const handleMouseLeave = () => {
     setTooltip({ visible: false, x: 0, y: 0, content: null });
+    setExpandedAccounts(new Set()); // Reset expanded accounts when tooltip disappears
+  };
+
+  // Helper function to calculate account details for tooltip
+  const calculateAccountDetails = (account: any, closestIndex: number) => {
+    const currentPoint = data[closestIndex];
+    const prevPoint = closestIndex > 0 ? data[closestIndex - 1] : null;
+    
+    // Calculate starting balance (previous month's balance)
+    const startingBalance = prevPoint?.[account.name] || 0;
+    
+    // Savings amount
+    const savings = account.savings || 0;
+    
+    // Individual costs (always negative)
+    const individualCosts = account.individual || 0;
+    
+    // Calculate running deposits and costs from the difference
+    // Current balance = starting balance + deposits - costs + savings - individual costs
+    // So: deposits - costs = current balance - starting balance - savings + individual costs
+    const netRunning = account.value - startingBalance - savings + Math.abs(individualCosts);
+    
+    // For simplicity, we'll show net running as either deposits (if positive) or costs (if negative)
+    const runningDeposits = netRunning > 0 ? netRunning : 0;
+    const runningCosts = netRunning < 0 ? Math.abs(netRunning) : 0;
+    
+    return {
+      startingBalance,
+      savings,
+      runningDeposits,
+      runningCosts,
+      individualCosts: Math.abs(individualCosts),
+      closingBalance: account.value
+    };
+  };
+
+  const toggleAccountExpansion = (accountName: string) => {
+    const newExpanded = new Set(expandedAccounts);
+    if (newExpanded.has(accountName)) {
+      newExpanded.delete(accountName);
+    } else {
+      newExpanded.add(accountName);
+    }
+    setExpandedAccounts(newExpanded);
   };
 
   return (
@@ -370,38 +417,81 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
       {/* Tooltip */}
       {tooltip.visible && tooltip.content && (
         <div
-          className="absolute bg-white border border-gray-300 rounded-lg shadow-lg p-2 max-w-xs z-10 pointer-events-none"
+          className="absolute bg-white border border-gray-300 rounded-lg shadow-lg p-3 max-w-sm z-10 pointer-events-auto"
           style={{
             left: tooltip.x + 10,
             top: tooltip.y - 10,
             transform: tooltip.x > width / 2 ? 'translateX(-100%)' : 'none'
           }}
         >
-          <p className="font-medium text-sm mb-1">{tooltip.content.month}</p>
-          {tooltip.content.accounts.map((account: any) => (
-            <div key={account.name}>
-              <div className="text-sm">
-                <span>
-                  {showEstimatedBudgetAmounts && account.isEstimated ? 
-                    `${account.name} (Estimerat)` : account.name}: {formatCurrency(account.value)} kr
-                </span>
+          <p className="font-medium text-sm mb-3 text-center border-b pb-2">{tooltip.content.month}</p>
+          {tooltip.content.accounts.map((account: any) => {
+            const details = calculateAccountDetails(account, tooltip.content.closestIndex);
+            const isExpanded = expandedAccounts.has(account.name);
+            
+            return (
+              <div key={account.name} className="mb-3 last:mb-0">
+                {/* Account Header */}
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-sm">{account.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-800">
+                      Slutsaldo: {formatCurrency(details.closingBalance)} kr
+                    </span>
+                    <button
+                      onClick={() => toggleAccountExpansion(account.name)}
+                      className="text-xs bg-blue-100 hover:bg-blue-200 px-2 py-1 rounded text-blue-800 transition-colors"
+                    >
+                      {isExpanded ? 'Dölj detaljer' : 'Visa detaljer'}
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Expanded Details */}
+                {isExpanded && (
+                  <div className="mt-2 ml-2 space-y-1 text-xs border-l-2 border-gray-200 pl-3">
+                    <div className="flex justify-between">
+                      <span>Ingående saldo:</span>
+                      <span className="text-gray-800 font-medium">{formatCurrency(details.startingBalance)} kr</span>
+                    </div>
+                    
+                    {details.savings > 0 && (
+                      <div className="flex justify-between">
+                        <span>Sparande:</span>
+                        <span className="text-green-600 font-medium">+{formatCurrency(details.savings)} kr</span>
+                      </div>
+                    )}
+                    
+                    {details.runningDeposits > 0 && (
+                      <div className="flex justify-between">
+                        <span>Löpande Insättningar:</span>
+                        <span className="text-green-600 font-medium">+{formatCurrency(details.runningDeposits)} kr</span>
+                      </div>
+                    )}
+                    
+                    {details.runningCosts > 0 && (
+                      <div className="flex justify-between">
+                        <span>Löpande Kostnader:</span>
+                        <span className="text-red-600 font-medium">-{formatCurrency(details.runningCosts)} kr</span>
+                      </div>
+                    )}
+                    
+                    {details.individualCosts > 0 && (
+                      <div className="flex justify-between">
+                        <span>Enskilda kostnader:</span>
+                        <span className="text-red-600 font-medium">-{formatCurrency(details.individualCosts)} kr</span>
+                      </div>
+                    )}
+                    
+                    <div className="flex justify-between pt-1 border-t border-gray-200 mt-2">
+                      <span className="font-medium">Slutsaldo inför nästa månad:</span>
+                      <span className="text-gray-800 font-medium">{formatCurrency(details.closingBalance)} kr</span>
+                    </div>
+                  </div>
+                )}
               </div>
-              {showIndividualCostsOutsideBudget && account.individual != null && (
-                <div className="text-sm text-red-600">
-                  <span>
-                    {account.name} (Enskilda Kostnader): {formatCurrency(account.individual)} kr
-                  </span>
-                </div>
-              )}
-              {showSavingsSeparately && account.savings != null && (
-                <div className="text-sm text-green-600">
-                  <span>
-                    {account.name} (Sparande): {formatCurrency(account.savings)} kr
-                  </span>
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
