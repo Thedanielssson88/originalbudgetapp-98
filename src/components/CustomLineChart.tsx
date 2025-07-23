@@ -375,7 +375,15 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
 
                 const x = xScale(index);
                 const y = yScale(individualValue);
-                const mainY = yScale(point[account]); // Main balance y position
+                
+                // Calculate the final balance for main balance y position
+                const startingBalance = point[`${account}_startingBalance`] || 1000;
+                const savings = point[`${account}_savings`] || 0;
+                const runningDeposits = point[`${account}_runningDeposits`] || 500;
+                const runningCosts = point[`${account}_runningCosts`] || 500;
+                const individualCosts = Math.abs(point[`${account}_individual`] || 0);
+                const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts;
+                const mainY = yScale(finalBalance);
 
 
                 // Add red triangle below the main balance point pointing down
@@ -399,7 +407,15 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
 
                 const x = xScale(index);
                 const y = yScale(savingsValue);
-                const mainY = yScale(point[account]); // Main balance y position
+                
+                // Calculate the final balance for main balance y position
+                const startingBalance = point[`${account}_startingBalance`] || 1000;
+                const savings = point[`${account}_savings`] || 0;
+                const runningDeposits = point[`${account}_runningDeposits`] || 500;
+                const runningCosts = point[`${account}_runningCosts`] || 500;
+                const individualCosts = Math.abs(point[`${account}_individual`] || 0);
+                const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts;
+                const mainY = yScale(finalBalance);
 
 
                 // Add green triangle above the main balance point pointing up
