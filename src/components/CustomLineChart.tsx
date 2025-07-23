@@ -290,10 +290,11 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
             if (showIndividualCostsOutsideBudget) {
               data.forEach((point, index) => {
                 const individualValue = point[`${account}_individual`];
-                if (individualValue == null || individualValue === 0) return;
+                if (individualValue == null || individualValue === 0 || point[account] == null) return;
 
                 const x = xScale(index);
                 const y = yScale(individualValue);
+                const mainY = yScale(point[account]); // Main balance y position
 
                 dots.push(
                   <circle
@@ -307,11 +308,11 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                   />
                 );
 
-                // Add red triangle below the circle pointing down
+                // Add red triangle below the main balance point pointing down
                 dots.push(
                   <polygon
                     key={`${account}-individual-triangle-${index}`}
-                    points={`${x},${y + 12} ${x - 6},${y + 22} ${x + 6},${y + 22}`}
+                    points={`${x},${mainY + 24} ${x - 6},${mainY + 14} ${x + 6},${mainY + 14}`}
                     fill="#ef4444"
                     stroke="#dc2626"
                     strokeWidth={1}
@@ -324,10 +325,11 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
             if (showSavingsSeparately) {
               data.forEach((point, index) => {
                 const savingsValue = point[`${account}_savings`];
-                if (savingsValue == null || savingsValue === 0) return;
+                if (savingsValue == null || savingsValue === 0 || point[account] == null) return;
 
                 const x = xScale(index);
                 const y = yScale(savingsValue);
+                const mainY = yScale(point[account]); // Main balance y position
 
                 dots.push(
                   <circle
@@ -341,11 +343,11 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                   />
                 );
 
-                // Add green triangle above the circle pointing up
+                // Add green triangle above the main balance point pointing up
                 dots.push(
                   <polygon
                     key={`${account}-savings-triangle-${index}`}
-                    points={`${x},${y - 14} ${x - 6},${y - 24} ${x + 6},${y - 24}`}
+                    points={`${x},${mainY - 24} ${x - 6},${mainY - 14} ${x + 6},${mainY - 14}`}
                     fill="#22c55e"
                     stroke="#16a34a"
                     strokeWidth={1}
