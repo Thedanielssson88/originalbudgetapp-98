@@ -66,11 +66,22 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
   const chartWidth = width - margin.left - margin.right;
   const chartHeight = height - margin.top - margin.bottom;
 
-  // Find min and max values for Y axis scaling (include individual costs and savings if enabled)
+  // Find min and max values for Y axis scaling (include calculated final balances)
   const allValues = data.flatMap(point => {
     const values = [];
-    const mainValues = accounts.map(account => point[account]).filter(val => val != null);
-    values.push(...mainValues);
+    
+    // Calculate final balances for each account
+    accounts.forEach(account => {
+      if (point[account] != null) {
+        const startingBalance = point[`${account}_startingBalance`] || 1000;
+        const savings = point[`${account}_savings`] || 0;
+        const runningDeposits = point[`${account}_runningDeposits`] || 500;
+        const runningCosts = point[`${account}_runningCosts`] || 500;
+        const individualCosts = Math.abs(point[`${account}_individual`] || 0);
+        const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts;
+        values.push(finalBalance);
+      }
+    });
     
     if (showIndividualCostsOutsideBudget) {
       const individualValues = accounts.map(account => point[`${account}_individual`]).filter(val => val != null);
@@ -258,10 +269,25 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
               // Skip if either point doesn't have data for this account
               if (currentPoint[account] == null || nextPoint[account] == null) continue;
 
+              // Calculate final balances for line positioning
+              const currentStartingBalance = currentPoint[`${account}_startingBalance`] || 1000;
+              const currentSavings = currentPoint[`${account}_savings`] || 0;
+              const currentRunningDeposits = currentPoint[`${account}_runningDeposits`] || 500;
+              const currentRunningCosts = currentPoint[`${account}_runningCosts`] || 500;
+              const currentIndividualCosts = Math.abs(currentPoint[`${account}_individual`] || 0);
+              const currentFinalBalance = currentStartingBalance + currentSavings + currentRunningDeposits - currentRunningCosts - currentIndividualCosts;
+
+              const nextStartingBalance = nextPoint[`${account}_startingBalance`] || 1000;
+              const nextSavings = nextPoint[`${account}_savings`] || 0;
+              const nextRunningDeposits = nextPoint[`${account}_runningDeposits`] || 500;
+              const nextRunningCosts = nextPoint[`${account}_runningCosts`] || 500;
+              const nextIndividualCosts = Math.abs(nextPoint[`${account}_individual`] || 0);
+              const nextFinalBalance = nextStartingBalance + nextSavings + nextRunningDeposits - nextRunningCosts - nextIndividualCosts;
+
               const x1 = xScale(i);
-              const y1 = yScale(currentPoint[account]);
+              const y1 = yScale(currentFinalBalance);
               const x2 = xScale(i + 1);
-              const y2 = yScale(nextPoint[account]);
+              const y2 = yScale(nextFinalBalance);
 
               let strokeDasharray = undefined; // solid by default
 
@@ -301,7 +327,16 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
               if (point[account] == null) return;
 
               const x = xScale(index);
-              const y = yScale(point[account]);
+              
+              // Calculate the final balance for dot positioning
+              const startingBalance = point[`${account}_startingBalance`] || 1000;
+              const savings = point[`${account}_savings`] || 0;
+              const runningDeposits = point[`${account}_runningDeposits`] || 500;
+              const runningCosts = point[`${account}_runningCosts`] || 500;
+              const individualCosts = Math.abs(point[`${account}_individual`] || 0);
+              const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts;
+              
+              const y = yScale(finalBalance);
               const isEstimated = point[`${account}_isEstimated`];
 
               if (showEstimatedBudgetAmounts && isEstimated) {
