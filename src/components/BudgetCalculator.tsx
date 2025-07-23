@@ -3167,19 +3167,9 @@ const BudgetCalculator = () => {
         // Always add the main account data
         dataPoint[account] = balance;
         
-        // The starting balance should be the current month's Calc.Kontosaldo value (for tooltip)
-        // Use the same logic as Ursprungligt saldo in the breakdown sections
-        if (monthKey === currentMonthKey) {
-          dataPoint[`${account}_startingBalance`] = getCalcKontosaldoSameMonth(account);
-        } else {
-          // For historical months, use their stored account balance
-          const monthData = historicalData[monthKey];
-          if (monthData && monthData.accountBalances && monthData.accountBalances[account] !== undefined) {
-            dataPoint[`${account}_startingBalance`] = monthData.accountBalances[account];
-          } else {
-            dataPoint[`${account}_startingBalance`] = 0;
-          }
-        }
+        // The starting balance should always be the Calc.Kontosaldo value for tooltip consistency
+        // This is the same value that's calculated by getCalcKontosaldo above
+        dataPoint[`${account}_startingBalance`] = balance;
         
         // Mark if this point is estimated for styling purposes
         if (isEstimated) {
