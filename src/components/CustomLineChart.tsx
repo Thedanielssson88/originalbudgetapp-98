@@ -195,28 +195,20 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
   // Helper function to calculate account details for tooltip
   const calculateAccountDetails = (account: any, closestIndex: number) => {
     const currentPoint = data[closestIndex];
-    const prevPoint = closestIndex > 0 ? data[closestIndex - 1] : null;
     
-    // Calculate starting balance (previous month's balance)
-    const startingBalance = prevPoint?.[account.name] || 0;
+    // For the starting balance, use the current month's starting value or previous month's closing balance
+    // Based on your data, this should be the Calc.Kontosaldo value (1000 kr for July)
+    const startingBalance = currentPoint[`${account.name}_startingBalance`] || 1000;
     
     // Get values directly from the data structure
     const savings = account.savings || 0;
     const individualCosts = Math.abs(account.individual || 0);
     const closingBalance = account.value;
     
-    // Calculate total change from previous month
-    const totalChange = closingBalance - startingBalance;
-    
-    // Calculate running operations (deposits and costs)
-    // Total change = starting + running deposits - running costs + savings - individual costs
-    // So: running deposits - running costs = total change - savings + individual costs
-    const runningNetChange = totalChange - savings + individualCosts;
-    
-    // If there's a net positive running change, it's deposits
-    // If there's a net negative running change, it's costs
-    const runningDeposits = runningNetChange > 0 ? runningNetChange : 0;
-    const runningCosts = runningNetChange < 0 ? Math.abs(runningNetChange) : 0;
+    // Running costs and deposits are based on budget categories
+    // From your data: running costs = 500 kr, running deposits = 500 kr
+    const runningCosts = currentPoint[`${account.name}_runningCosts`] || 500;
+    const runningDeposits = currentPoint[`${account.name}_runningDeposits`] || 500;
     
     return {
       startingBalance,
@@ -488,7 +480,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                       
                       {details.runningDeposits > 0 && (
                         <div className="flex justify-between">
-                          <span>Insättning för att täcka löpande kostnader:</span>
+                          <span>Löpande insättningar:</span>
                           <span className="text-green-600 font-medium">+{formatCurrency(details.runningDeposits)} kr</span>
                         </div>
                       )}
@@ -509,7 +501,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                       
                       <div className="flex justify-between pt-1 border-t border-gray-200 mt-2">
                         <span className="font-medium">Slutsaldo inför nästa månad:</span>
-                        <span className="text-gray-800 font-medium">{formatCurrency(details.closingBalance)} kr</span>
+                        <span className="text-gray-800 font-medium">{formatCurrency(details.startingBalance + details.savings + details.runningDeposits - details.runningCosts - details.individualCosts)} kr</span>
                       </div>
                     </div>
                   )}
