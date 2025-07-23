@@ -2193,6 +2193,81 @@ const BudgetCalculator = () => {
               });
             }
             setAccountBalancesSet(balancesSet);
+            
+            // Calculate estimated final balances immediately for the new month
+            // This ensures "Estimerat slutsaldo" is calculated correctly based on previous month
+            setTimeout(() => {
+              // Use the updated historicalData that includes the new month
+              const tempCalculateEstimatedBalances = (monthKey: string, dataSource: any) => {
+                const monthData = dataSource[monthKey];
+                if (!monthData) return {};
+                
+                console.log(`🔢 Calculating estimated final balances for new month ${monthKey}`);
+                
+                // Calculate estimated balances based on previous month
+                const [year, month] = monthKey.split('-').map(Number);
+                const prevDate = new Date(year, month - 2, 1);
+                const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+                
+                const prevMonthData = dataSource[prevMonthKey];
+                if (!prevMonthData) {
+                  console.log(`❌ No previous month data found for ${prevMonthKey}`);
+                  return {};
+                }
+                
+                const estimatedFinalBalances: {[key: string]: number} = {};
+                
+                accounts.forEach(account => {
+                  // Use saved final balance from previous month if available
+                  if (prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
+                    estimatedFinalBalances[account] = prevMonthData.accountFinalBalances[account];
+                    console.log(`📊 Estimated final balance for ${account}: ${estimatedFinalBalances[account]} (from prev month final)`);
+                  } else {
+                    // Fallback calculation if previous month doesn't have final balances
+                    const originalBalance = prevMonthData.accountBalances?.[account] || 0;
+                    const accountSavings = (prevMonthData.savingsGroups || [])
+                      .filter((group: any) => group.account === account)
+                      .reduce((sum: number, group: any) => sum + group.amount, 0);
+                    
+                    const accountRecurringCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+                      const groupCosts = group.subCategories
+                        ?.filter((sub: any) => sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom))
+                        .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+                      return sum + groupCosts;
+                    }, 0);
+                    
+                    const accountAllCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+                      const groupCosts = group.subCategories
+                        ?.filter((sub: any) => sub.account === account)
+                        .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+                      return sum + groupCosts;
+                    }, 0);
+                    
+                    const slutsaldo = originalBalance + accountSavings + accountRecurringCosts - accountAllCosts;
+                    estimatedFinalBalances[account] = slutsaldo;
+                    console.log(`📊 Estimated final balance for ${account}: ${slutsaldo} (calculated)`);
+                  }
+                });
+                
+                return estimatedFinalBalances;
+              };
+              
+              const estimatedBalances = tempCalculateEstimatedBalances(targetMonthKey, updatedData);
+              
+              // Update the state immediately
+              setAccountEstimatedFinalBalances(estimatedBalances);
+              
+              // Also save to historicalData
+              setHistoricalData(prev => ({
+                ...prev,
+                [targetMonthKey]: {
+                  ...prev[targetMonthKey],
+                  accountEstimatedFinalBalances: estimatedBalances
+                }
+              }));
+              
+              console.log(`💾 Saved estimated final balances for new month ${targetMonthKey}:`, estimatedBalances);
+            }, 50);
           }
         }, 0);
         
