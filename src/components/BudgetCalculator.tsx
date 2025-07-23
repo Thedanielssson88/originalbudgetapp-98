@@ -3148,34 +3148,6 @@ const BudgetCalculator = () => {
           .reduce((sum: number, group: any) => sum + group.amount, 0);
       };
 
-    // Helper function to get previous month's final balance
-    const getPreviousMonthFinalBalance = (monthKey: string, account: string) => {
-      const [year, month] = monthKey.split('-').map(Number);
-      let prevYear = year;
-      let prevMonth = month - 1;
-      
-      if (prevMonth === 0) {
-        prevYear = year - 1;
-        prevMonth = 12;
-      }
-      
-      const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
-      const prevMonthData = historicalData[prevMonthKey];
-      
-      if (!prevMonthData) {
-        // If no previous month data, return 0 as starting balance
-        return 0;
-      }
-      
-      // Use the same logic as getCalcKontosaldo to get the final balance of previous month
-      const hasActualBalance = prevMonthData.accountBalancesSet && 
-                              prevMonthData.accountBalancesSet[account] === true;
-      const currentBalance = prevMonthData.accountBalances?.[account] || 0;
-      const estimatedBalance = prevMonthData.accountEstimatedFinalBalances?.[account] || 0;
-      
-      return hasActualBalance ? currentBalance : estimatedBalance;
-    };
-
     // Calculate chart data
     const chartData = extendedMonthKeys.map((monthKey) => {
       const dataPoint: any = { 
@@ -3195,8 +3167,9 @@ const BudgetCalculator = () => {
         // Always add the main account data
         dataPoint[account] = balance;
         
-        // The starting balance should be the previous month's final balance
-        dataPoint[`${account}_startingBalance`] = getPreviousMonthFinalBalance(monthKey, account);
+        // The starting balance should always be the Calc.Kontosaldo value for tooltip consistency
+        // This is the same value that's calculated by getCalcKontosaldo above
+        dataPoint[`${account}_startingBalance`] = balance;
         
         // Mark if this point is estimated for styling purposes
         if (isEstimated) {
