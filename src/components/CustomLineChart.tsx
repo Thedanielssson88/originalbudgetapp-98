@@ -306,6 +306,17 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                     strokeWidth={2}
                   />
                 );
+
+                // Add red triangle below the circle pointing down
+                dots.push(
+                  <polygon
+                    key={`${account}-individual-triangle-${index}`}
+                    points={`${x},${y + 12} ${x - 6},${y + 22} ${x + 6},${y + 22}`}
+                    fill="#ef4444"
+                    stroke="#dc2626"
+                    strokeWidth={1}
+                  />
+                );
               });
             }
 
@@ -327,6 +338,17 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                     fill="#22c55e"
                     stroke="#16a34a"
                     strokeWidth={2}
+                  />
+                );
+
+                // Add green triangle above the circle pointing up
+                dots.push(
+                  <polygon
+                    key={`${account}-savings-triangle-${index}`}
+                    points={`${x},${y - 14} ${x - 6},${y - 24} ${x + 6},${y - 24}`}
+                    fill="#22c55e"
+                    stroke="#16a34a"
+                    strokeWidth={1}
                   />
                 );
               });
