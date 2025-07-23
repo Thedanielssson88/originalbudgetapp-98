@@ -33,10 +33,8 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
 }) => {
   const [tooltip, setTooltip] = useState<{
     visible: boolean;
-    x: number;
-    y: number;
     content: any;
-  }>({ visible: false, x: 0, y: 0, content: null });
+  }>({ visible: false, content: null });
   
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
   
@@ -165,8 +163,6 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
       if (accountsWithData.length > 0) {
         setTooltip({
           visible: true,
-          x: event.clientX - rect.left,
-          y: event.clientY - rect.top,
           content: {
             month: point.displayMonth,
             closestIndex,
@@ -184,9 +180,28 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
   };
 
   const handleMouseLeave = () => {
-    setTooltip({ visible: false, x: 0, y: 0, content: null });
+    setTooltip({ visible: false, content: null });
     setExpandedAccounts(new Set()); // Reset expanded accounts when tooltip disappears
   };
+
+  const closeTooltip = () => {
+    setTooltip({ visible: false, content: null });
+    setExpandedAccounts(new Set());
+  };
+
+  // Handle outside click to close tooltip
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (tooltip.visible && containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        closeTooltip();
+      }
+    };
+
+    if (tooltip.visible) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [tooltip.visible]);
 
   // Helper function to calculate account details for tooltip
   const calculateAccountDetails = (account: any, closestIndex: number) => {
@@ -202,20 +217,27 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
     // Individual costs (always negative)
     const individualCosts = account.individual || 0;
     
-    // Calculate running deposits and costs from the difference
-    // Current balance = starting balance + deposits - costs + savings - individual costs
-    // So: deposits - costs = current balance - starting balance - savings + individual costs
-    const netRunning = account.value - startingBalance - savings + Math.abs(individualCosts);
+    // Calculate the total change for the month
+    const totalChange = account.value - startingBalance;
     
-    // For simplicity, we'll show net running as either deposits (if positive) or costs (if negative)
-    const runningDeposits = netRunning > 0 ? netRunning : 0;
-    const runningCosts = netRunning < 0 ? Math.abs(netRunning) : 0;
+    // Calculate running costs and deposits separately for better visibility
+    // If there are individual costs, separate them from running costs
+    const runningChange = totalChange - savings + Math.abs(individualCosts);
+    
+    // Show both deposits and costs separately when there's a complex transaction
+    const runningDeposits = Math.max(0, runningChange);
+    const runningCosts = Math.max(0, -runningChange);
+    
+    // Also check if there are implicit running costs even when net is positive
+    // This helps show "Löpande kostnader" more often when there are expenses
+    const hasImplicitCosts = savings > 0 || Math.abs(individualCosts) > 0 || startingBalance !== account.value;
+    const implicitRunningCosts = hasImplicitCosts && runningCosts === 0 ? Math.max(0, savings - runningChange) : 0;
     
     return {
       startingBalance,
       savings,
       runningDeposits,
-      runningCosts,
+      runningCosts: Math.max(runningCosts, implicitRunningCosts),
       individualCosts: Math.abs(individualCosts),
       closingBalance: account.value
     };
@@ -417,81 +439,98 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
       {/* Tooltip */}
       {tooltip.visible && tooltip.content && (
         <div
-          className="absolute bg-white border border-gray-300 rounded-lg shadow-lg p-3 max-w-sm z-10 pointer-events-auto"
-          style={{
-            left: tooltip.x + 10,
-            top: tooltip.y - 10,
-            transform: tooltip.x > width / 2 ? 'translateX(-100%)' : 'none'
-          }}
+          className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
+          style={{ backdropFilter: 'blur(1px)', backgroundColor: 'rgba(0, 0, 0, 0.1)' }}
         >
-          <p className="font-medium text-sm mb-3 text-center border-b pb-2">{tooltip.content.month}</p>
-          {tooltip.content.accounts.map((account: any) => {
-            const details = calculateAccountDetails(account, tooltip.content.closestIndex);
-            const isExpanded = expandedAccounts.has(account.name);
+          <div
+            className="bg-white border border-gray-300 rounded-lg shadow-xl p-4 max-w-md w-full mx-4 max-h-[70vh] overflow-y-auto pointer-events-auto"
+            style={{ touchAction: 'pan-y' }}
+            onClick={(e) => e.stopPropagation()}
+            onScroll={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <div className="flex items-center justify-between mb-3 border-b pb-2">
+              <p className="font-medium text-sm text-center flex-1">{tooltip.content.month}</p>
+              <button
+                onClick={closeTooltip}
+                className="text-gray-400 hover:text-gray-600 text-lg font-bold leading-none"
+                aria-label="Stäng"
+              >
+                ×
+              </button>
+            </div>
             
-            return (
-              <div key={account.name} className="mb-3 last:mb-0">
-                {/* Account Header */}
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-sm">{account.name}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-800">
-                      Slutsaldo: {formatCurrency(details.closingBalance)} kr
-                    </span>
-                    <button
-                      onClick={() => toggleAccountExpansion(account.name)}
-                      className="text-xs bg-blue-100 hover:bg-blue-200 px-2 py-1 rounded text-blue-800 transition-colors"
-                    >
-                      {isExpanded ? 'Dölj detaljer' : 'Visa detaljer'}
-                    </button>
+            {tooltip.content.accounts.map((account: any) => {
+              const details = calculateAccountDetails(account, tooltip.content.closestIndex);
+              const isExpanded = expandedAccounts.has(account.name);
+              
+              return (
+                <div key={account.name} className="mb-3 last:mb-0">
+                  {/* Account Header */}
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-sm">{account.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-800">
+                        Slutsaldo: {formatCurrency(details.closingBalance)} kr
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleAccountExpansion(account.name);
+                        }}
+                        className="text-xs bg-blue-100 hover:bg-blue-200 px-2 py-1 rounded text-blue-800 transition-colors"
+                      >
+                        {isExpanded ? 'Dölj detaljer' : 'Visa detaljer'}
+                      </button>
+                    </div>
                   </div>
+                  
+                  {/* Expanded Details */}
+                  {isExpanded && (
+                    <div className="mt-2 ml-2 space-y-1 text-xs border-l-2 border-gray-200 pl-3">
+                      <div className="flex justify-between">
+                        <span>Ingående saldo:</span>
+                        <span className="text-gray-800 font-medium">{formatCurrency(details.startingBalance)} kr</span>
+                      </div>
+                      
+                      {details.savings > 0 && (
+                        <div className="flex justify-between">
+                          <span>Sparande:</span>
+                          <span className="text-green-600 font-medium">+{formatCurrency(details.savings)} kr</span>
+                        </div>
+                      )}
+                      
+                      {details.runningDeposits > 0 && (
+                        <div className="flex justify-between">
+                          <span>Löpande Insättningar:</span>
+                          <span className="text-green-600 font-medium">+{formatCurrency(details.runningDeposits)} kr</span>
+                        </div>
+                      )}
+                      
+                      {details.runningCosts > 0 && (
+                        <div className="flex justify-between">
+                          <span>Löpande Kostnader:</span>
+                          <span className="text-red-600 font-medium">-{formatCurrency(details.runningCosts)} kr</span>
+                        </div>
+                      )}
+                      
+                      {details.individualCosts > 0 && (
+                        <div className="flex justify-between">
+                          <span>Enskilda kostnader:</span>
+                          <span className="text-red-600 font-medium">-{formatCurrency(details.individualCosts)} kr</span>
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-between pt-1 border-t border-gray-200 mt-2">
+                        <span className="font-medium">Slutsaldo inför nästa månad:</span>
+                        <span className="text-gray-800 font-medium">{formatCurrency(details.closingBalance)} kr</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                
-                {/* Expanded Details */}
-                {isExpanded && (
-                  <div className="mt-2 ml-2 space-y-1 text-xs border-l-2 border-gray-200 pl-3">
-                    <div className="flex justify-between">
-                      <span>Ingående saldo:</span>
-                      <span className="text-gray-800 font-medium">{formatCurrency(details.startingBalance)} kr</span>
-                    </div>
-                    
-                    {details.savings > 0 && (
-                      <div className="flex justify-between">
-                        <span>Sparande:</span>
-                        <span className="text-green-600 font-medium">+{formatCurrency(details.savings)} kr</span>
-                      </div>
-                    )}
-                    
-                    {details.runningDeposits > 0 && (
-                      <div className="flex justify-between">
-                        <span>Löpande Insättningar:</span>
-                        <span className="text-green-600 font-medium">+{formatCurrency(details.runningDeposits)} kr</span>
-                      </div>
-                    )}
-                    
-                    {details.runningCosts > 0 && (
-                      <div className="flex justify-between">
-                        <span>Löpande Kostnader:</span>
-                        <span className="text-red-600 font-medium">-{formatCurrency(details.runningCosts)} kr</span>
-                      </div>
-                    )}
-                    
-                    {details.individualCosts > 0 && (
-                      <div className="flex justify-between">
-                        <span>Enskilda kostnader:</span>
-                        <span className="text-red-600 font-medium">-{formatCurrency(details.individualCosts)} kr</span>
-                      </div>
-                    )}
-                    
-                    <div className="flex justify-between pt-1 border-t border-gray-200 mt-2">
-                      <span className="font-medium">Slutsaldo inför nästa månad:</span>
-                      <span className="text-gray-800 font-medium">{formatCurrency(details.closingBalance)} kr</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
