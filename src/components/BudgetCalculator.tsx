@@ -7133,15 +7133,52 @@ const BudgetCalculator = () => {
                       const monthsWithData = getMonthsWithSavedData();
                       if (monthsWithData.length === 0) return;
                       
+                      console.log('🔄 Starting update of all months:', monthsWithData);
+                      
                       let currentIndex = 0;
-                      const updateAllMonths = () => {
+                      const updateAllMonths = async () => {
                         if (currentIndex < monthsWithData.length) {
                           const monthKey = monthsWithData[currentIndex];
-                          handleBudgetMonthChange(monthKey);
+                          console.log(`🔄 Processing month ${currentIndex + 1}/${monthsWithData.length}: ${monthKey}`);
+                          
+                          // Switch to the month and load its data
+                          setSelectedBudgetMonth(monthKey);
+                          
+                          // Wait for state to update
+                          await new Promise(resolve => setTimeout(resolve, 50));
+                          
+                          // Load the month's data if it exists
+                          if (historicalData[monthKey]) {
+                            loadDataFromSelectedMonth(monthKey);
+                            await new Promise(resolve => setTimeout(resolve, 50));
+                          }
+                          
+                          // Perform calculations for this month
+                          console.log(`📊 Calculating budget for ${monthKey}`);
+                          calculateBudget();
+                          await new Promise(resolve => setTimeout(resolve, 50));
+                          
+                          // Calculate and save estimated final balances for this month
+                          console.log(`💾 Calculating and saving estimated final balances for ${monthKey}`);
+                          calculateAndSaveEstimatedFinalBalances(monthKey);
+                          await new Promise(resolve => setTimeout(resolve, 50));
+                          
+                          // Save the month's data with all calculations
+                          console.log(`💾 Saving month data for ${monthKey}`);
+                          saveToSelectedMonth();
+                          await new Promise(resolve => setTimeout(resolve, 50));
+                          
                           currentIndex++;
                           
-                          // Use setTimeout to allow React to update between month changes
-                          setTimeout(updateAllMonths, 50);
+                          // Continue with next month
+                          setTimeout(updateAllMonths, 100);
+                        } else {
+                          console.log('✅ All months updated successfully');
+                          // Return to the originally selected month
+                          const originalMonth = selectedBudgetMonth;
+                          if (originalMonth && historicalData[originalMonth]) {
+                            handleBudgetMonthChange(originalMonth);
+                          }
                         }
                       };
                       
@@ -7151,7 +7188,7 @@ const BudgetCalculator = () => {
                     className="w-full"
                   >
                     <Calendar className="mr-2 h-4 w-4" />
-                    Uppdateras
+                    Uppdatera alla månader
                   </Button>
                   {getMonthsWithSavedData().length > 0 && (
                     <p className="text-sm text-muted-foreground mt-2">
