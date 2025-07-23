@@ -42,6 +42,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
   
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
 
   // Use ResizeObserver to detect container width changes
   useEffect(() => {
@@ -192,7 +193,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
   // Handle outside click to close tooltip
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (tooltip.visible && containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      if (tooltip.visible && tooltipRef.current && !tooltipRef.current.contains(event.target as Node)) {
         closeTooltip();
       }
     };
@@ -443,6 +444,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
           style={{ backdropFilter: 'blur(1px)', backgroundColor: 'rgba(0, 0, 0, 0.1)' }}
         >
           <div
+            ref={tooltipRef}
             className="bg-white border border-gray-300 rounded-lg shadow-xl p-4 max-w-md w-full mx-4 max-h-[70vh] overflow-y-auto pointer-events-auto"
             style={{ touchAction: 'pan-y' }}
             onClick={(e) => e.stopPropagation()}
