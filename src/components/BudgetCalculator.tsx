@@ -1638,26 +1638,31 @@ const BudgetCalculator = () => {
   const getCalcKontosaldoSameMonth = (account: string) => {
     console.log(`=== DEBUG getCalcKontosaldoSameMonth FOR ${account} ===`);
     console.log(`Current month: ${selectedBudgetMonth}`);
-    console.log(`accountBalancesSet[${account}]:`, accountBalancesSet[account]);
-    console.log(`accountBalances[${account}]:`, accountBalances[account]);
     
-    // Always return the current account balance (which represents the Calc.Kontosaldo)
-    const hasActualBalance = accountBalancesSet[account] === true;
-    const currentBalance = accountBalances[account] || 0;
+    // Use the same logic as the main Calc.Kontosaldo calculation
+    const hasActualBalance = accountBalancesSet && accountBalancesSet[account] === true;
+    const currentBalance = accountBalances?.[account] || 0;
     
     console.log(`hasActualBalance: ${hasActualBalance}`);
     console.log(`currentBalance: ${currentBalance}`);
     
-    // If actual balance is set, use it; otherwise use estimated balance
     if (hasActualBalance) {
       console.log(`Using actual balance: ${currentBalance}`);
       return currentBalance;
     } else {
-      // Use the estimated balance calculation
-      const fallbackBalance = getAccountBalanceWithFallback(account);
-      console.log(`Using fallback balance: ${fallbackBalance}`);
-      console.log(`=== END DEBUG getCalcKontosaldoSameMonth ===`);
-      return fallbackBalance;
+      // For estimated months, use estimated final balances from previous month
+      const currentData = historicalData[selectedBudgetMonth];
+      if (currentData && currentData.accountEstimatedFinalBalances && currentData.accountEstimatedFinalBalances[account] !== undefined) {
+        const estimatedBalance = currentData.accountEstimatedFinalBalances[account];
+        console.log(`Using stored estimated balance: ${estimatedBalance}`);
+        return estimatedBalance;
+      }
+      
+      // Fallback: calculate estimated balance
+      const estimated = getEstimatedAccountBalances();
+      const result = estimated?.[account] || 0;
+      console.log(`Using calculated estimated balance: ${result}`);
+      return result;
     }
   };
 
