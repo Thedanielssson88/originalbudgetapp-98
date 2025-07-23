@@ -7196,27 +7196,22 @@ const BudgetCalculator = () => {
                             const progress = Math.round((currentIndex / monthsWithData.length) * 100);
                             setUpdateProgress(progress);
                             
-                            // Switch to the month and load its data
-                            setSelectedBudgetMonth(monthKey);
+                            // Properly switch to the month - this loads data and triggers calculations
+                            console.log(`📂 Switching to month: ${monthKey}`);
+                            handleBudgetMonthChange(monthKey);
                             
-                            // Wait for state to update
-                            await new Promise(resolve => setTimeout(resolve, 50));
+                            // Wait for month switching and all calculations to complete
+                            await new Promise(resolve => setTimeout(resolve, 300));
                             
-                            // Load the month's data if it exists
-                            if (historicalData[monthKey]) {
-                              loadDataFromSelectedMonth(monthKey);
-                              await new Promise(resolve => setTimeout(resolve, 50));
-                            }
-                            
-                            // Perform calculations for this month
-                            console.log(`📊 Calculating budget for ${monthKey}`);
+                            // Force recalculation to ensure all values are current
+                            console.log(`📊 Recalculating budget for ${monthKey}`);
                             calculateBudget();
-                            await new Promise(resolve => setTimeout(resolve, 50));
+                            await new Promise(resolve => setTimeout(resolve, 100));
                             
-                            // Calculate and save estimated final balances for this month
+                            // Calculate and save estimated final balances for this month  
                             console.log(`💾 Calculating and saving estimated final balances for ${monthKey}`);
                             calculateAndSaveEstimatedFinalBalances(monthKey);
-                            await new Promise(resolve => setTimeout(resolve, 50));
+                            await new Promise(resolve => setTimeout(resolve, 100));
                             
                             // Save the month's data with all calculations
                             console.log(`💾 Saving month data for ${monthKey}`);
