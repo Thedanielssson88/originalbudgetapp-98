@@ -207,9 +207,17 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
   const calculateAccountDetails = (account: any, closestIndex: number) => {
     const currentPoint = data[closestIndex];
     
+    console.log(`=== TOOLTIP DEBUG for ${account.name} ===`);
+    console.log(`Month: ${currentPoint.displayMonth || currentPoint.month}`);
+    console.log(`closestIndex: ${closestIndex}`);
+    console.log(`currentPoint:`, currentPoint);
+    
     // For the starting balance, use the current month's starting value or previous month's closing balance
     // Based on your data, this should be the Calc.Kontosaldo value (1000 kr for July)
     const startingBalance = currentPoint[`${account.name}_startingBalance`] || 0;
+    
+    console.log(`startingBalance from data: ${startingBalance}`);
+    console.log(`Key used: ${account.name}_startingBalance`);
     
     // Get values directly from the data structure
     const savings = account.savings || 0;
@@ -220,6 +228,8 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
     // From your data: running costs = 500 kr, running deposits = 500 kr
     const runningCosts = currentPoint[`${account.name}_runningCosts`] || 500;
     const runningDeposits = currentPoint[`${account.name}_runningDeposits`] || 500;
+    
+    console.log(`=== END TOOLTIP DEBUG ===`);
     
     return {
       startingBalance,
