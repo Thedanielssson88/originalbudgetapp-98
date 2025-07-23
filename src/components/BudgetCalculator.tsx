@@ -3070,8 +3070,6 @@ const BudgetCalculator = () => {
       const isUsingEstimated = !hasActualBalance;
       
       return { balance: calcBalance, isEstimated: isUsingEstimated };
-      
-      return { balance: calcBalance, isEstimated: isUsingEstimated };
     };
 
      // Helper function to format month for display (shows actual month)
@@ -3149,7 +3147,7 @@ const BudgetCalculator = () => {
       };
 
     // Calculate chart data
-    const chartData = extendedMonthKeys.map((monthKey) => {
+    const chartData = extendedMonthKeys.map((monthKey, index) => {
       const dataPoint: any = { 
         month: monthKey,
         displayMonth: formatMonthForDisplay(monthKey)
@@ -3164,11 +3162,11 @@ const BudgetCalculator = () => {
           return;
         }
         
-        // Always add the main account data
+        // Always add the main account data (this is the final balance for the month)
         dataPoint[account] = balance;
         
-        // The starting balance should always be the Calc.Kontosaldo value for tooltip consistency
-        // This is the same value that's calculated by getCalcKontosaldo above
+        // The starting balance should be the Calc.Kontosaldo from the same month
+        // According to user: "Ingående saldo ska alltid alltid använda Calc.Kontosaldo från samma månad"
         dataPoint[`${account}_startingBalance`] = balance;
         
         // Mark if this point is estimated for styling purposes
