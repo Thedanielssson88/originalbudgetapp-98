@@ -1606,30 +1606,58 @@ const BudgetCalculator = () => {
 
   // Helper function to get account balance with fallback to estimated
   const getAccountBalanceWithFallback = (account: string) => {
+    console.log(`=== DEBUG getAccountBalanceWithFallback FOR ${account} ===`);
     const currentBalance = accountBalances[account] || 0;
-    if (currentBalance !== 0) return currentBalance;
+    console.log(`currentBalance from accountBalances[${account}]: ${currentBalance}`);
     
-    if (hasEmptyAccountBalances()) {
-      const freshBalances = (window as any).__freshFinalBalances;
-      const estimated = getEstimatedAccountBalances(freshBalances);
-      return estimated?.[account] || 0;
+    if (currentBalance !== 0) {
+      console.log(`Returning currentBalance: ${currentBalance}`);
+      return currentBalance;
     }
     
+    const isEmpty = hasEmptyAccountBalances();
+    console.log(`hasEmptyAccountBalances(): ${isEmpty}`);
+    
+    if (isEmpty) {
+      const freshBalances = (window as any).__freshFinalBalances;
+      console.log(`freshBalances from window:`, freshBalances);
+      const estimated = getEstimatedAccountBalances(freshBalances);
+      console.log(`estimated from getEstimatedAccountBalances:`, estimated);
+      const result = estimated?.[account] || 0;
+      console.log(`estimated[${account}]: ${result}`);
+      console.log(`=== END DEBUG getAccountBalanceWithFallback ===`);
+      return result;
+    }
+    
+    console.log(`Returning currentBalance (default): ${currentBalance}`);
+    console.log(`=== END DEBUG getAccountBalanceWithFallback ===`);
     return currentBalance;
   };
 
   // Helper function to get Calc.Kontosaldo for same month (for Ursprungligt saldo)
   const getCalcKontosaldoSameMonth = (account: string) => {
+    console.log(`=== DEBUG getCalcKontosaldoSameMonth FOR ${account} ===`);
+    console.log(`Current month: ${selectedBudgetMonth}`);
+    console.log(`accountBalancesSet[${account}]:`, accountBalancesSet[account]);
+    console.log(`accountBalances[${account}]:`, accountBalances[account]);
+    
     // Always return the current account balance (which represents the Calc.Kontosaldo)
     const hasActualBalance = accountBalancesSet[account] === true;
     const currentBalance = accountBalances[account] || 0;
     
+    console.log(`hasActualBalance: ${hasActualBalance}`);
+    console.log(`currentBalance: ${currentBalance}`);
+    
     // If actual balance is set, use it; otherwise use estimated balance
     if (hasActualBalance) {
+      console.log(`Using actual balance: ${currentBalance}`);
       return currentBalance;
     } else {
       // Use the estimated balance calculation
-      return getAccountBalanceWithFallback(account);
+      const fallbackBalance = getAccountBalanceWithFallback(account);
+      console.log(`Using fallback balance: ${fallbackBalance}`);
+      console.log(`=== END DEBUG getCalcKontosaldoSameMonth ===`);
+      return fallbackBalance;
     }
   };
 
