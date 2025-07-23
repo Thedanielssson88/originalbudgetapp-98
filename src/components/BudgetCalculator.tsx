@@ -3090,7 +3090,7 @@ const BudgetCalculator = () => {
         }
         
         if (totalIndividualCosts !== 0) {
-          console.log(`Total individual costs for ${account} in ${monthKey}: ${totalIndividualCosts}`);
+        console.log(`💰 Total individual costs for ${account} in ${monthKey}: ${totalIndividualCosts}`);
         }
         
         return totalIndividualCosts;
@@ -3137,6 +3137,9 @@ const BudgetCalculator = () => {
           // Individual costs are now shown in the actual month they occurred
           const individualCosts = getIndividualCosts(monthKey, account);
           dataPoint[`${account}_individual`] = individualCosts;
+          if (individualCosts !== 0) {
+            console.log(`📍 Adding individual costs to chart data - Month: ${monthKey}, Account: ${account}, Amount: ${individualCosts}`);
+          }
         });
       }
 
@@ -3282,7 +3285,10 @@ const BudgetCalculator = () => {
                 id="individual-costs-yes"
                 name="individual-costs"
                 checked={showIndividualCostsOutsideBudget === true}
-                onChange={() => setShowIndividualCostsOutsideBudget(true)}
+                onChange={() => {
+                  console.log('🔧 Setting showIndividualCostsOutsideBudget to true');
+                  setShowIndividualCostsOutsideBudget(true);
+                }}
                 className="w-4 h-4"
               />
               <Label htmlFor="individual-costs-yes" className="text-sm">Ja</Label>
