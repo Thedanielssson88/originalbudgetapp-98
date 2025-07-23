@@ -181,8 +181,8 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
   };
 
   const handleMouseLeave = () => {
-    setTooltip({ visible: false, content: null });
-    setExpandedAccounts(new Set()); // Reset expanded accounts when tooltip disappears
+    // Don't close tooltip on mouse leave when it's in modal mode
+    // Tooltip should only close via close button
   };
 
   const closeTooltip = () => {
