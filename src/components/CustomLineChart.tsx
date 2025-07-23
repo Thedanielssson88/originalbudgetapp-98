@@ -200,35 +200,31 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
     // Calculate starting balance (previous month's balance)
     const startingBalance = prevPoint?.[account.name] || 0;
     
-    // Savings amount
+    // Get values directly from the data structure
     const savings = account.savings || 0;
+    const individualCosts = Math.abs(account.individual || 0);
+    const closingBalance = account.value;
     
-    // Individual costs (always negative)
-    const individualCosts = account.individual || 0;
+    // Calculate total change from previous month
+    const totalChange = closingBalance - startingBalance;
     
-    // Calculate the total change for the month
-    const totalChange = account.value - startingBalance;
+    // Calculate running operations (deposits and costs)
+    // Total change = starting + running deposits - running costs + savings - individual costs
+    // So: running deposits - running costs = total change - savings + individual costs
+    const runningNetChange = totalChange - savings + individualCosts;
     
-    // Calculate running costs and deposits separately for better visibility
-    // If there are individual costs, separate them from running costs
-    const runningChange = totalChange - savings + Math.abs(individualCosts);
-    
-    // Show both deposits and costs separately when there's a complex transaction
-    const runningDeposits = Math.max(0, runningChange);
-    const runningCosts = Math.max(0, -runningChange);
-    
-    // Also check if there are implicit running costs even when net is positive
-    // This helps show "Löpande kostnader" more often when there are expenses
-    const hasImplicitCosts = savings > 0 || Math.abs(individualCosts) > 0 || startingBalance !== account.value;
-    const implicitRunningCosts = hasImplicitCosts && runningCosts === 0 ? Math.max(0, savings - runningChange) : 0;
+    // If there's a net positive running change, it's deposits
+    // If there's a net negative running change, it's costs
+    const runningDeposits = runningNetChange > 0 ? runningNetChange : 0;
+    const runningCosts = runningNetChange < 0 ? Math.abs(runningNetChange) : 0;
     
     return {
       startingBalance,
       savings,
       runningDeposits,
-      runningCosts: Math.max(runningCosts, implicitRunningCosts),
-      individualCosts: Math.abs(individualCosts),
-      closingBalance: account.value
+      runningCosts,
+      individualCosts,
+      closingBalance
     };
   };
 
@@ -492,7 +488,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                       
                       {details.runningDeposits > 0 && (
                         <div className="flex justify-between">
-                          <span>Löpande Insättningar:</span>
+                          <span>Insättning för att täcka löpande kostnader:</span>
                           <span className="text-green-600 font-medium">+{formatCurrency(details.runningDeposits)} kr</span>
                         </div>
                       )}
