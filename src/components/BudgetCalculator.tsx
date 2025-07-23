@@ -3111,7 +3111,7 @@ const BudgetCalculator = () => {
       };
 
     // Calculate chart data
-    const chartData = extendedMonthKeys.map((monthKey) => {
+    const chartData = extendedMonthKeys.map((monthKey, index) => {
       const dataPoint: any = { 
         month: monthKey,
         displayMonth: formatMonthForDisplay(monthKey)
@@ -3129,8 +3129,17 @@ const BudgetCalculator = () => {
         // Always add the main account data
         dataPoint[account] = balance;
         
-        // Add the starting balance (Calc.Kontosaldo value) for the tooltip
-        dataPoint[`${account}_startingBalance`] = balance;
+        // Calculate starting balance (previous month's final balance)
+        let startingBalance = 0;
+        if (index > 0) {
+          // For months after the first, use the previous month's Calc.Kontosaldo
+          const prevMonthKey = extendedMonthKeys[index - 1];
+          const { balance: prevBalance } = getCalcKontosaldo(prevMonthKey, account);
+          startingBalance = prevBalance;
+        }
+        // For the first month, starting balance is 0
+        
+        dataPoint[`${account}_startingBalance`] = startingBalance;
         
         // Mark if this point is estimated for styling purposes
         if (isEstimated) {
