@@ -3129,6 +3129,9 @@ const BudgetCalculator = () => {
         // Always add the main account data
         dataPoint[account] = balance;
         
+        // Add the starting balance (Calc.Kontosaldo value) for the tooltip
+        dataPoint[`${account}_startingBalance`] = balance;
+        
         // Mark if this point is estimated for styling purposes
         if (isEstimated) {
           dataPoint[`${account}_isEstimated`] = true;
