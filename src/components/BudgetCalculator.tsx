@@ -3047,12 +3047,53 @@ const BudgetCalculator = () => {
         const monthData = historicalData[monthKey];
         if (!monthData || !monthData.costGroups) return 0;
         
-        return monthData.costGroups.reduce((total: number, group: any) => {
-          const groupCosts = group.subCategories
-            ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
-            .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-          return total + groupCosts;
-        }, 0);
+        let totalIndividualCosts = 0;
+        
+        // Check both costGroups and savingsGroups for individual costs
+        if (monthData.costGroups) {
+          monthData.costGroups.forEach((group: any) => {
+            if (group.subCategories) {
+              group.subCategories
+                .filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
+                .forEach((sub: any) => {
+                  totalIndividualCosts += sub.amount;
+                  console.log(`Individual cost found in costGroups - Month: ${monthKey}, Account: ${account}, Amount: ${sub.amount}, Name: ${sub.name}`);
+                });
+            }
+            
+            // Also check if the group itself is an individual cost
+            if (group.account === account && group.financedFrom === 'Enskild kostnad') {
+              totalIndividualCosts += group.amount;
+              console.log(`Individual cost found as group - Month: ${monthKey}, Account: ${account}, Amount: ${group.amount}, Name: ${group.name}`);
+            }
+          });
+        }
+        
+        // Also check savingsGroups for individual costs
+        if (monthData.savingsGroups) {
+          monthData.savingsGroups.forEach((group: any) => {
+            if (group.subCategories) {
+              group.subCategories
+                .filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
+                .forEach((sub: any) => {
+                  totalIndividualCosts += sub.amount;
+                  console.log(`Individual cost found in savingsGroups subCategories - Month: ${monthKey}, Account: ${account}, Amount: ${sub.amount}, Name: ${sub.name}`);
+                });
+            }
+            
+            // Also check if the savings group itself is an individual cost
+            if (group.account === account && group.financedFrom === 'Enskild kostnad') {
+              totalIndividualCosts += group.amount;
+              console.log(`Individual cost found as savings group - Month: ${monthKey}, Account: ${account}, Amount: ${group.amount}, Name: ${group.name}`);
+            }
+          });
+        }
+        
+        if (totalIndividualCosts !== 0) {
+          console.log(`Total individual costs for ${account} in ${monthKey}: ${totalIndividualCosts}`);
+        }
+        
+        return totalIndividualCosts;
       };
 
       // Helper function to get savings for an account in a month
