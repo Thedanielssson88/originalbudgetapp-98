@@ -1622,9 +1622,10 @@ const BudgetCalculator = () => {
   const getCalcKontosaldoSameMonth = (account: string) => {
     const hasActualBalance = accountBalancesSet[account] === true;
     const currentBalance = accountBalances[account] || 0;
-    const estimatedBalance = accountEstimatedFinalBalances[account] || 0;
     
-    return hasActualBalance ? currentBalance : estimatedBalance;
+    // For "Ursprungligt saldo (Est)", we should use the actual account balance
+    // If no actual balance is set, it should be 0 (not estimated final balance)
+    return hasActualBalance ? currentBalance : 0;
   };
 
   // Helper function to check if Calc.Descr for same month is (Est)
