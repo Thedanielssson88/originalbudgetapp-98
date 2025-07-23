@@ -296,17 +296,6 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                 const y = yScale(individualValue);
                 const mainY = yScale(point[account]); // Main balance y position
 
-                dots.push(
-                  <circle
-                    key={`${account}-individual-dot-${index}`}
-                    cx={x}
-                    cy={y}
-                    r={6}
-                    fill="#ef4444"
-                    stroke="#dc2626"
-                    strokeWidth={2}
-                  />
-                );
 
                 // Add red triangle below the main balance point pointing down
                 dots.push(
@@ -331,17 +320,6 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                 const y = yScale(savingsValue);
                 const mainY = yScale(point[account]); // Main balance y position
 
-                dots.push(
-                  <circle
-                    key={`${account}-savings-dot-${index}`}
-                    cx={x}
-                    cy={y}
-                    r={8}
-                    fill="#22c55e"
-                    stroke="#16a34a"
-                    strokeWidth={2}
-                  />
-                );
 
                 // Add green triangle above the main balance point pointing up
                 dots.push(
