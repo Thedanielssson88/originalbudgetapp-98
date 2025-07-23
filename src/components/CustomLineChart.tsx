@@ -449,7 +449,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                     <span className="font-semibold text-sm">{account.name}</span>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-800">
-                        Slutsaldo: {formatCurrency(details.closingBalance)} kr
+                        Slutsaldo: {formatCurrency(details.startingBalance + details.savings + details.runningDeposits - details.runningCosts - details.individualCosts)} kr
                       </span>
                       <button
                         onClick={(e) => {
