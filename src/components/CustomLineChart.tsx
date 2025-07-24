@@ -410,7 +410,8 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                 const runningDeposits = point[`${account}_runningDeposits`] || 500;
                 const runningCosts = point[`${account}_runningCosts`] || 500;
                 const individualCosts = Math.abs(point[`${account}_individual`] || 0);
-                const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts;
+                const actualExtraCosts = point[`${account}_actualExtraCosts`] || 0;
+                const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts + actualExtraCosts;
                 const displayBalance = balanceType === 'starting' ? startingBalance : finalBalance;
                 const mainY = yScale(displayBalance);
 
@@ -443,7 +444,8 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                 const runningDeposits = point[`${account}_runningDeposits`] || 500;
                 const runningCosts = point[`${account}_runningCosts`] || 500;
                 const individualCosts = Math.abs(point[`${account}_individual`] || 0);
-                const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts;
+                const actualExtraCosts = point[`${account}_actualExtraCosts`] || 0;
+                const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts + actualExtraCosts;
                 const displayBalance = balanceType === 'starting' ? startingBalance : finalBalance;
                 const mainY = yScale(displayBalance);
 
