@@ -151,9 +151,9 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
   const universalMaxValue = Math.max(maxDepositValue, maxWithdrawalValue);
 
   // Base triangle height (doubled from current 10px)
-  const baseTriangleHeight = 20;
+  const baseTriangleHeight = 40;
   // Constant triangle width
-  const triangleWidth = 6;
+  const triangleWidth = 3;
 
   // Function to calculate triangle height proportional to value using universal max
   const calculateTriangleHeight = (value: number) => {
