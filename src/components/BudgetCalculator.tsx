@@ -2355,9 +2355,43 @@ const BudgetCalculator = () => {
     console.log(`🔄 Triggering final calculation before saving current month data...`);
     calculateBudget(); // This will trigger the latest calculation with the fixed logic
     
-    // Save current data to current month before switching
-    console.log(`Saving current month data before switching...`);
-    saveToSelectedMonth();
+    // CRITICAL FIX: Force-update final balances with current displayed values before saving
+    console.log(`🔄 Ensuring accountFinalBalances state reflects current calculations...`);
+    const currentFinalBalances: {[key: string]: number} = {};
+    accounts.forEach(account => {
+      // Use the same calculation logic as in calculateBudget to get the ACTUAL current ending balance
+      const originalBalance = accountBalances[account] || 0;
+      
+      // Calculate account savings
+      const accountSavings = savingsGroups
+        .filter(group => group.account === account)
+        .reduce((sum, group) => sum + group.amount, 0);
+      
+      // Calculate account one-time costs (enskild kostnad)
+      const accountOneTimeCosts = costGroups.reduce((sum: number, group: any) => {
+        const groupOneTimeCosts = group.subCategories
+          ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
+          .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+        return sum + groupOneTimeCosts;
+      }, 0);
+      
+      // Calculate the actual ending balance as displayed
+      const calculatedBalance = originalBalance + accountSavings - accountOneTimeCosts;
+      currentFinalBalances[account] = calculatedBalance;
+      
+      console.log(`📊 ${account}: originalBalance(${originalBalance}) + savings(${accountSavings}) - oneTimeCosts(${accountOneTimeCosts}) = ${calculatedBalance}`);
+    });
+    
+    // Update the state to match current calculations
+    setAccountFinalBalances(currentFinalBalances);
+    console.log(`💾 Updated accountFinalBalances to current values:`, currentFinalBalances);
+    
+    // Small delay to ensure state update completes
+    setTimeout(() => {
+      // Save current data to current month after ensuring all values are current
+      console.log(`Saving current month data with updated final balances...`);
+      saveToSelectedMonth();
+    }, 50);
     
     console.log(`Historical data keys AFTER saveToSelectedMonth:`, Object.keys(historicalData));
     
