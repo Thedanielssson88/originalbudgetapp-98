@@ -1107,13 +1107,25 @@ const BudgetCalculator = () => {
     // Calculate final balances (Slutsaldo) for each account FIRST
     const finalBalances: {[key: string]: number} = {};
     accounts.forEach(account => {
-      // CRITICAL FIX: ALWAYS use the ACTUAL account balance from user input, NEVER estimated
-      // When user sets "Faktiskt kontosaldo" to 0, we MUST use 0, not any estimated value
+      // CRITICAL FIX: Check if user has explicitly set the balance vs. not filled it
+      const isBalanceSet = accountBalancesSet[account] === true;
       const actualBalance = accountBalances[account];
-      const originalBalance = (actualBalance !== undefined && actualBalance !== null) ? actualBalance : 0;
+      
+      let originalBalance: number;
+      
+      if (isBalanceSet) {
+        // User has explicitly set this balance (could be 0 or any other value)
+        originalBalance = actualBalance || 0;
+        console.log(`✅ ${account}: User explicitly set balance to ${originalBalance}`);
+      } else {
+        // User hasn't filled this field, use estimated opening balance
+        const estimated = getEstimatedAccountBalances();
+        originalBalance = estimated?.[account] || 0;
+        console.log(`📊 ${account}: Using estimated opening balance ${originalBalance} (not filled by user)`);
+      }
       
       // CRITICAL DEBUG FOR WHEN FAKTISKT KONTOSALDO IS 0
-      if (originalBalance === 0 && account === 'Löpande') {
+      if (originalBalance === 0 && account === 'Löpande' && isBalanceSet) {
         console.log(`🚨🚨🚨 FAKTISKT KONTOSALDO IS 0 - CRITICAL DEBUG 🚨🚨🚨`);
         console.log(`📅 Month: ${selectedBudgetMonth}`);
         console.log(`🏠 Account: ${account}`);
