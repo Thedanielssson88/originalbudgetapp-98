@@ -1577,14 +1577,16 @@ const BudgetCalculator = () => {
         const endingBalanceKey = `${account}.${prevYear}.${prevMonth}.Endbalance`;
         
         console.log(`🔑 Looking for ending balance key: "${endingBalanceKey}"`);
-        console.log(`📊 Previous month data structure:`, prevMonthData);
-        console.log(`💾 accountEndingBalances:`, prevMonthData.accountEndingBalances);
-        console.log(`💰 accountFinalBalances:`, prevMonthData.accountFinalBalances);
+        console.log(`📊 Previous month data ALL KEYS:`, Object.keys(prevMonthData));
+        console.log(`💾 accountEndingBalances FULL OBJECT:`, prevMonthData.accountEndingBalances);
+        console.log(`💾 accountEndingBalances keys:`, prevMonthData.accountEndingBalances ? Object.keys(prevMonthData.accountEndingBalances) : 'undefined');
+        console.log(`💰 accountFinalBalances FULL OBJECT:`, prevMonthData.accountFinalBalances);
+        console.log(`💰 accountFinalBalances keys:`, prevMonthData.accountFinalBalances ? Object.keys(prevMonthData.accountFinalBalances) : 'undefined');
         
         // First, try to get the specifically formatted ending balance
         let openingBalance = prevMonthData.accountEndingBalances?.[endingBalanceKey];
         
-        console.log(`✅ Found ending balance key value: ${openingBalance}`);
+        console.log(`✅ Direct lookup result for "${endingBalanceKey}": ${openingBalance} (type: ${typeof openingBalance})`);
         
         // If not found, fallback to accountFinalBalances
         if (openingBalance === undefined || openingBalance === null) {
@@ -1622,11 +1624,28 @@ const BudgetCalculator = () => {
         // The estimated opening balance is the previous month's ending balance
         estimatedBalances[account] = openingBalance || 0;
         
+        // CRITICAL DEBUG FOR DECEMBER LÖPANDE
+        if (selectedBudgetMonth?.includes('12') && account === 'Löpande') {
+          console.log(`🚨🚨🚨 CRITICAL DECEMBER LÖPANDE CALCULATION 🚨🚨🚨`);
+          console.log(`🔢 Final calculated value: ${estimatedBalances[account]}`);
+          console.log(`🔢 openingBalance was: ${openingBalance}`);
+          console.log(`🔢 This should be 1000, not 6001!`);
+          console.log(`🚨🚨🚨 END CRITICAL DEBUG 🚨🚨🚨`);
+        }
+        
         console.log(`=== 📊 ESTIMATED OPENING BALANCE FOR ${account.toUpperCase()} ===`);
         console.log(`📈 Previous month ending balance (${endingBalanceKey}): ${openingBalance || 0} kr`);
         console.log(`✅ ESTIMATED OPENING BALANCE: ${estimatedBalances[account]} kr`);
         console.log(`=== 🏁 END ===`);
     });
+    
+    // CRITICAL DEBUG: Check if December Löpande is in the final result
+    if (selectedBudgetMonth?.includes('12') && estimatedBalances['Löpande']) {
+      console.log(`🚨🚨🚨 FINAL ESTIMATED BALANCES CHECK 🚨🚨🚨`);
+      console.log(`🔢 Löpande in final result: ${estimatedBalances['Löpande']}`);
+      console.log(`🔢 All estimated balances:`, estimatedBalances);
+      console.log(`🚨🚨🚨 THIS IS WHAT GETS RETURNED 🚨🚨🚨`);
+    }
     
     console.log('All estimated balances:', estimatedBalances);
     console.log(`=== END GET ESTIMATED BALANCES DEBUG ===`);
@@ -4009,14 +4028,20 @@ const BudgetCalculator = () => {
                       console.log(`💾 Force-saving: ${endingBalanceKey} = ${finalBalance}`);
                     });
                     
+                    console.log(`💾 About to save ending balances:`, currentEndingBalanceKeys);
+                    
                     // Update historical data with ending balances
-                    setHistoricalData(prev => ({
-                      ...prev,
-                      [selectedBudgetMonth]: {
-                        ...prev[selectedBudgetMonth],
-                        accountEndingBalances: currentEndingBalanceKeys
-                      }
-                    }));
+                    setHistoricalData(prev => {
+                      const updated = {
+                        ...prev,
+                        [selectedBudgetMonth]: {
+                          ...prev[selectedBudgetMonth],
+                          accountEndingBalances: currentEndingBalanceKeys
+                        }
+                      };
+                      console.log(`💾 Updated historical data for ${selectedBudgetMonth}:`, updated[selectedBudgetMonth]);
+                      return updated;
+                    });
                   }
                   
                   setSelectedBudgetMonth(value);
@@ -4355,18 +4380,27 @@ const BudgetCalculator = () => {
                                      <CollapsibleContent className="space-y-3 mt-3">
                                        {categoryAccounts.map(account => {
                                          const currentBalance = accountBalances[account] || 0;
-                          const freshBalances = (window as any).__freshFinalBalances;
-                          const estimatedResult = getEstimatedAccountBalances(freshBalances);
-                          const estimatedBalance = estimatedResult?.[account] || 0;
-                          
-                          // Debug logging for December issue
-                          if (selectedBudgetMonth?.includes('12') && account === 'Löpande') {
-                            console.log(`🚨 DECEMBER DEBUG FOR ${account}:`);
-                            console.log(`📅 Selected month: ${selectedBudgetMonth}`);
-                            console.log(`💰 Estimated balance from function: ${estimatedBalance}`);
-                            console.log(`📊 EstimatedResult object:`, estimatedResult);
-                            console.log(`🔍 Fresh balances:`, freshBalances);
-                          }
+                           const freshBalances = (window as any).__freshFinalBalances;
+                           const estimatedResult = getEstimatedAccountBalances(freshBalances);
+                           const estimatedBalance = estimatedResult?.[account] || 0;
+                           
+                           // CRITICAL DEBUGGING - Check if this is where 6001 is coming from
+                           if (selectedBudgetMonth?.includes('12') && account === 'Löpande') {
+                             console.log(`🚨 UI LAYER DEBUG - DECEMBER LÖPANDE:`);
+                             console.log(`📅 selectedBudgetMonth: ${selectedBudgetMonth}`);
+                             console.log(`🏠 account: ${account}`);
+                             console.log(`📊 freshBalances:`, freshBalances);
+                             console.log(`🔍 estimatedResult:`, estimatedResult);
+                             console.log(`💰 estimatedBalance (UI DISPLAY): ${estimatedBalance}`);
+                             console.log(`🚨 THIS IS THE VALUE SHOWN IN UI!`);
+                             
+                             // Check if the value is 6001 and trace where it came from
+                             if (estimatedBalance === 6001) {
+                               console.log(`🔥🔥🔥 FOUND THE 6001 VALUE! 🔥🔥🔥`);
+                               console.log(`🔍 It came from getEstimatedAccountBalances function`);
+                               console.log(`📊 estimatedResult object:`, estimatedResult);
+                             }
+                           }
                                         
                                          return (
                                            <div key={account} className="bg-white rounded border overflow-hidden ml-4">
