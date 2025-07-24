@@ -1109,6 +1109,16 @@ const BudgetCalculator = () => {
     accounts.forEach(account => {
       const originalBalance = accountBalances[account] || 0;
       
+      // CRITICAL DEBUG FOR NOVEMBER LÖPANDE CALCULATION
+      if (selectedBudgetMonth?.includes('11') && account === 'Löpande') {
+        console.log(`🚨🚨🚨 NOVEMBER LÖPANDE FINAL BALANCE CALCULATION 🚨🚨🚨`);
+        console.log(`📅 Month: ${selectedBudgetMonth}`);
+        console.log(`🏠 Account: ${account}`);
+        console.log(`💰 originalBalance (from accountBalances): ${originalBalance}`);
+        console.log(`📊 accountBalances[${account}]: ${accountBalances[account]}`);
+        console.log(`📊 accountBalancesSet[${account}]: ${accountBalancesSet[account]}`);
+      }
+      
       // Calculate total deposits for this account from savings groups
       const accountSavings = savingsGroups
         .filter((group: any) => group.account === account)
@@ -1131,6 +1141,14 @@ const BudgetCalculator = () => {
       // Löpande kostnader are covered by the cost budget deposits and should not be subtracted again
       const calculatedBalance = originalBalance + accountSavings - accountOneTimeCosts;
       console.log(`Beräkning: ${originalBalance} + ${accountSavings} - ${accountOneTimeCosts} = ${calculatedBalance}`);
+      
+      // CRITICAL DEBUG FOR NOVEMBER LÖPANDE CALCULATION
+      if (selectedBudgetMonth?.includes('11') && account === 'Löpande') {
+        console.log(`🚨🚨🚨 NOVEMBER LÖPANDE FINAL RESULT: ${calculatedBalance} 🚨🚨🚨`);
+        console.log(`🔢 This will be saved as accountFinalBalances[Löpande]`);
+        console.log(`🔢 And later as Löpande.2025.11.Endbalance`);
+        console.log(`🔢 This should be 1000, not ${calculatedBalance}!`);
+      }
       
       finalBalances[account] = calculatedBalance;
     });
