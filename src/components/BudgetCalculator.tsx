@@ -4272,9 +4272,18 @@ const BudgetCalculator = () => {
                                      <CollapsibleContent className="space-y-3 mt-3">
                                        {categoryAccounts.map(account => {
                                          const currentBalance = accountBalances[account] || 0;
-                                         const freshBalances = (window as any).__freshFinalBalances;
-                                         const estimatedResult = getEstimatedAccountBalances(freshBalances);
-                                         const estimatedBalance = estimatedResult?.[account] || 0;
+                          const freshBalances = (window as any).__freshFinalBalances;
+                          const estimatedResult = getEstimatedAccountBalances(freshBalances);
+                          const estimatedBalance = estimatedResult?.[account] || 0;
+                          
+                          // Debug logging for December issue
+                          if (selectedBudgetMonth?.includes('12') && account === 'Löpande') {
+                            console.log(`🚨 DECEMBER DEBUG FOR ${account}:`);
+                            console.log(`📅 Selected month: ${selectedBudgetMonth}`);
+                            console.log(`💰 Estimated balance from function: ${estimatedBalance}`);
+                            console.log(`📊 EstimatedResult object:`, estimatedResult);
+                            console.log(`🔍 Fresh balances:`, freshBalances);
+                          }
                                         
                                          return (
                                            <div key={account} className="bg-white rounded border overflow-hidden ml-4">
