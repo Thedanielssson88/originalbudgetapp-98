@@ -396,14 +396,15 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                 const x = xScale(index);
                 const y = yScale(individualValue);
                 
-                // Calculate the final balance for main balance y position
+                // Calculate the balance for main balance y position based on selected balance type
                 const startingBalance = point[`${account}_startingBalance`] || 0;
                 const savings = point[`${account}_savings`] || 0;
                 const runningDeposits = point[`${account}_runningDeposits`] || 500;
                 const runningCosts = point[`${account}_runningCosts`] || 500;
                 const individualCosts = Math.abs(point[`${account}_individual`] || 0);
                 const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts;
-                const mainY = yScale(finalBalance);
+                const displayBalance = balanceType === 'starting' ? startingBalance : finalBalance;
+                const mainY = yScale(displayBalance);
 
 
                 // Add red triangle below the main balance point pointing down
@@ -428,14 +429,15 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                 const x = xScale(index);
                 const y = yScale(savingsValue);
                 
-                // Calculate the final balance for main balance y position
+                // Calculate the balance for main balance y position based on selected balance type
                 const startingBalance = point[`${account}_startingBalance`] || 0;
                 const savings = point[`${account}_savings`] || 0;
                 const runningDeposits = point[`${account}_runningDeposits`] || 500;
                 const runningCosts = point[`${account}_runningCosts`] || 500;
                 const individualCosts = Math.abs(point[`${account}_individual`] || 0);
                 const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts;
-                const mainY = yScale(finalBalance);
+                const displayBalance = balanceType === 'starting' ? startingBalance : finalBalance;
+                const mainY = yScale(displayBalance);
 
 
                 // Add green triangle above the main balance point pointing up
