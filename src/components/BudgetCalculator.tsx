@@ -1570,15 +1570,21 @@ const BudgetCalculator = () => {
     // Calculate estimated opening balances for current month
     // This should load the specific "AccountName.Year.Month.Endbalance" value from previous month
     accounts.forEach(account => {
-        console.log(`${account}: Looking for previous month's ending balance...`);
+        console.log(`🔍 === DEBUGGING ${account} FOR ${selectedBudgetMonth} ===`);
+        console.log(`🎯 Looking for previous month's ending balance...`);
         
         const [prevYear, prevMonth] = prevMonthInfo.monthKey.split('-');
         const endingBalanceKey = `${account}.${prevYear}.${prevMonth}.Endbalance`;
         
+        console.log(`🔑 Looking for ending balance key: "${endingBalanceKey}"`);
+        console.log(`📊 Previous month data structure:`, prevMonthData);
+        console.log(`💾 accountEndingBalances:`, prevMonthData.accountEndingBalances);
+        console.log(`💰 accountFinalBalances:`, prevMonthData.accountFinalBalances);
+        
         // First, try to get the specifically formatted ending balance
         let openingBalance = prevMonthData.accountEndingBalances?.[endingBalanceKey];
         
-        console.log(`${account}: Looking for key "${endingBalanceKey}": ${openingBalance}`);
+        console.log(`✅ Found ending balance key value: ${openingBalance}`);
         
         // If not found, fallback to accountFinalBalances
         if (openingBalance === undefined || openingBalance === null) {
@@ -1648,9 +1654,26 @@ const BudgetCalculator = () => {
     
     if (isEmpty) {
       const freshBalances = (window as any).__freshFinalBalances;
-      console.log(`freshBalances from window:`, freshBalances);
+      console.log(`🚨 CRITICAL DEBUG - freshBalances from window:`, freshBalances);
+      
+      // Add special debugging for December Löpande issue
+      if (selectedBudgetMonth?.includes('12') && account === 'Löpande') {
+        console.log(`🔥 DECEMBER LÖPANDE CRITICAL DEBUG:`);
+        console.log(`📅 selectedBudgetMonth: ${selectedBudgetMonth}`);
+        console.log(`🏠 account: ${account}`);
+        console.log(`💾 freshBalances:`, freshBalances);
+        
+        // Let's trace what getEstimatedAccountBalances returns
+        console.log(`🔧 About to call getEstimatedAccountBalances...`);
+      }
+      
       const estimated = getEstimatedAccountBalances(freshBalances);
-      console.log(`estimated from getEstimatedAccountBalances:`, estimated);
+      console.log(`🔍 estimated from getEstimatedAccountBalances:`, estimated);
+      
+      if (selectedBudgetMonth?.includes('12') && account === 'Löpande') {
+        console.log(`🔥 DECEMBER LÖPANDE - ESTIMATED RESULT: ${estimated?.[account] || 0}`);
+      }
+      
       const result = estimated?.[account] || 0;
       console.log(`estimated[${account}]: ${result}`);
       console.log(`=== END DEBUG getAccountBalanceWithFallback ===`);
@@ -3972,10 +3995,38 @@ const BudgetCalculator = () => {
               <Select 
                 value={selectedBudgetMonth} 
                 onValueChange={(value) => {
+                  console.log(`🔄 === MONTH CHANGE DEBUG ===`);
+                  console.log(`📅 Switching from ${selectedBudgetMonth} to ${value}`);
+                  
+                  // First, force-save current month's ending balances with proper format
+                  if (selectedBudgetMonth) {
+                    const [currentYear, currentMonth] = selectedBudgetMonth.split('-');
+                    const currentEndingBalanceKeys: {[key: string]: number} = {};
+                    accounts.forEach(account => {
+                      const finalBalance = accountFinalBalances[account] || 0;
+                      const endingBalanceKey = `${account}.${currentYear}.${currentMonth}.Endbalance`;
+                      currentEndingBalanceKeys[endingBalanceKey] = finalBalance;
+                      console.log(`💾 Force-saving: ${endingBalanceKey} = ${finalBalance}`);
+                    });
+                    
+                    // Update historical data with ending balances
+                    setHistoricalData(prev => ({
+                      ...prev,
+                      [selectedBudgetMonth]: {
+                        ...prev[selectedBudgetMonth],
+                        accountEndingBalances: currentEndingBalanceKeys
+                      }
+                    }));
+                  }
+                  
                   setSelectedBudgetMonth(value);
                   if (historicalData[value]) {
-                    loadDataFromSelectedMonth(value);
+                    setTimeout(() => {
+                      loadDataFromSelectedMonth(value);
+                    }, 100);
                   }
+                  
+                  console.log(`🔄 === END MONTH CHANGE DEBUG ===`);
                 }}
               >
                 <SelectTrigger className="w-auto min-w-[200px] border-none bg-transparent text-xl font-semibold text-primary hover:bg-muted/50 transition-colors text-center justify-center">
