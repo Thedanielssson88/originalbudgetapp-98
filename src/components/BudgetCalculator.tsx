@@ -177,6 +177,9 @@ const BudgetCalculator = () => {
   // Account final balances (Slutsaldo) state - saved per month
   const [accountFinalBalances, setAccountFinalBalances] = useState<{[key: string]: number}>({});
   
+  // Track which account final balances have been explicitly set (to distinguish 0 from empty)
+  const [accountFinalBalancesSet, setAccountFinalBalancesSet] = useState<{[key: string]: boolean}>({});
+  
   // Account estimated final balances state - calculated and saved per month
   const [accountEstimatedFinalBalances, setAccountEstimatedFinalBalances] = useState<{[key: string]: number}>({});
   
@@ -529,6 +532,9 @@ const BudgetCalculator = () => {
         // Load account final balances
         setAccountFinalBalances(parsed.accountFinalBalances || {});
         
+        // Load account final balances set tracking
+        setAccountFinalBalancesSet(parsed.accountFinalBalancesSet || {});
+        
         // Load account estimated final balances
         setAccountEstimatedFinalBalances(parsed.accountEstimatedFinalBalances || {});
         
@@ -647,6 +653,7 @@ const BudgetCalculator = () => {
       accountBalances: JSON.parse(JSON.stringify(accountBalances)),
       accountBalancesSet: JSON.parse(JSON.stringify(accountBalancesSet)),
       accountFinalBalances: JSON.parse(JSON.stringify(accountFinalBalances)),
+      accountFinalBalancesSet: JSON.parse(JSON.stringify(accountFinalBalancesSet)),
       accountEstimatedFinalBalances: JSON.parse(JSON.stringify(accountEstimatedFinalBalances)),
       // Include any existing calculated results if they exist
       ...(results && {
@@ -705,6 +712,7 @@ const BudgetCalculator = () => {
       accountBalances,
       accountBalancesSet,
       accountFinalBalances,
+      accountFinalBalancesSet,
       accountEstimatedFinalBalances,
       selectedAccountsForChart,
       showIndividualCostsOutsideBudget,
@@ -722,7 +730,7 @@ const BudgetCalculator = () => {
       saveToLocalStorage();
       saveToSelectedMonth();
     }
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountBalancesSet, accountFinalBalances, accountEstimatedFinalBalances, selectedAccountsForChart, showIndividualCostsOutsideBudget, showSavingsSeparately, useCustomTimeRange, chartStartMonth, chartEndMonth, isInitialLoad]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountBalancesSet, accountFinalBalances, accountFinalBalancesSet, accountEstimatedFinalBalances, selectedAccountsForChart, showIndividualCostsOutsideBudget, showSavingsSeparately, useCustomTimeRange, chartStartMonth, chartEndMonth, isInitialLoad]);
   // Calculate estimated final balances when budget month changes
   useEffect(() => {
     if (!isInitialLoad && selectedBudgetMonth) {
@@ -1129,6 +1137,13 @@ const BudgetCalculator = () => {
     
     // Update state with final balances
     setAccountFinalBalances(finalBalances);
+    
+    // Mark all final balances as calculated (not user-input)
+    const finalBalancesSetState: {[key: string]: boolean} = {};
+    accounts.forEach(account => {
+      finalBalancesSetState[account] = true; // These are calculated, so they're "set"
+    });
+    setAccountFinalBalancesSet(finalBalancesSetState);
     
     console.log('Holiday days calculated:', budgetData.holidayDays);
     setResults({
@@ -1723,6 +1738,7 @@ const BudgetCalculator = () => {
     const loadedBalances = monthData.accountBalances || {};
     setAccountBalances(loadedBalances);
     setAccountFinalBalances(monthData.accountFinalBalances || {});
+    setAccountFinalBalancesSet(monthData.accountFinalBalancesSet || {});
     setAccountEstimatedFinalBalances(monthData.accountEstimatedFinalBalances || {});
     
     // Load saved accountBalancesSet, or calculate it if not available
@@ -1789,10 +1805,18 @@ const BudgetCalculator = () => {
     const estimatedFinalBalances: {[key: string]: number} = {};
     
     accounts.forEach(account => {
-      // Use saved final balance from previous month if available
-      if (prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
+      // Check if previous month has explicitly set final balance (including 0)
+      const hasPrevFinalBalance = prevMonthData.accountFinalBalancesSet && 
+                                  prevMonthData.accountFinalBalancesSet[account] === true;
+      
+      // Use saved final balance from previous month if it was explicitly set
+      if (hasPrevFinalBalance && prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
         estimatedFinalBalances[account] = prevMonthData.accountFinalBalances[account];
-        console.log(`📊 Estimated final balance for ${account}: ${estimatedFinalBalances[account]} (from prev month final)`);
+        console.log(`📊 Estimated final balance for ${account}: ${estimatedFinalBalances[account]} (from prev month final, explicitly set)`);
+      } else if (!hasPrevFinalBalance && prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
+        // If not explicitly set but value exists, still use it (backward compatibility)
+        estimatedFinalBalances[account] = prevMonthData.accountFinalBalances[account];
+        console.log(`📊 Estimated final balance for ${account}: ${estimatedFinalBalances[account]} (from prev month final, legacy)`);
       } else {
         // Fallback calculation if previous month doesn't have final balances
         const originalBalance = prevMonthData.accountBalances?.[account] || 0;
