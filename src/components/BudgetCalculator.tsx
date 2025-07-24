@@ -1885,29 +1885,33 @@ const BudgetCalculator = () => {
           // If not explicitly set but value exists, still use it (backward compatibility)
           estimatedFinalBalances[account] = prevMonthData.accountFinalBalances[account];
         } else {
-          // Fallback calculation if previous month doesn't have final balances
+          // November doesn't have explicit "Faktiskt kontosaldo" set, so calculate actual ending balance
+          console.log(`🔢 Calculating actual ending balance for ${account} from November budget data`);
+          
           const originalBalance = prevMonthData.accountBalances?.[account] || 0;
+          console.log(`📊 Original balance: ${originalBalance}`);
+          
+          // Calculate account savings (positive)
           const accountSavings = (prevMonthData.savingsGroups || [])
             .filter((group: any) => group.account === account)
             .reduce((sum: number, group: any) => sum + group.amount, 0);
+          console.log(`💰 Account savings: ${accountSavings}`);
           
-          const accountRecurringCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-            const groupCosts = group.subCategories
-              ?.filter((sub: any) => sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom))
+          // Calculate account one-time costs (enskild kostnad) - these reduce the balance
+          const accountOneTimeCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+            const groupOneTimeCosts = group.subCategories
+              ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
               .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-            return sum + groupCosts;
+            return sum + groupOneTimeCosts;
           }, 0);
+          console.log(`💸 Account one-time costs: ${accountOneTimeCosts}`);
           
-          const accountAllCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-            const groupCosts = group.subCategories
-              ?.filter((sub: any) => sub.account === account)
-              .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-            return sum + groupCosts;
-          }, 0);
+          // Calculate the actual ending balance: original + savings - one-time costs
+          const actualEndingBalance = originalBalance + accountSavings - accountOneTimeCosts;
+          console.log(`🎯 Calculated actual ending balance: ${originalBalance} + ${accountSavings} - ${accountOneTimeCosts} = ${actualEndingBalance}`);
           
-          const slutsaldo = originalBalance + accountSavings + accountRecurringCosts - accountAllCosts;
-          estimatedFinalBalances[account] = slutsaldo;
-          console.log(`📊 Estimated final balance for ${account}: ${slutsaldo} (calculated)`);
+          estimatedFinalBalances[account] = actualEndingBalance;
+          console.log(`📊 Estimated final balance for ${account}: ${actualEndingBalance} (calculated from budget data)`);
         }
       }
     });
