@@ -1728,19 +1728,9 @@ const BudgetCalculator = () => {
       console.log(`Using actual balance: ${currentBalance}`);
       return currentBalance;
     } else {
-      // For estimated months, use estimated final balances from previous month
-      const currentData = historicalData[selectedBudgetMonth];
-      if (currentData && currentData.accountEstimatedFinalBalances && currentData.accountEstimatedFinalBalances[account] !== undefined) {
-        const estimatedBalance = currentData.accountEstimatedFinalBalances[account];
-        console.log(`Using stored estimated balance: ${estimatedBalance}`);
-        return estimatedBalance;
-      }
-      
-      // Fallback: calculate estimated balance
-      const estimated = getEstimatedAccountBalances();
-      const result = estimated?.[account] || 0;
-      console.log(`Using calculated estimated balance: ${result}`);
-      return result;
+      // CRITICAL FIX: When "Ej ifyllt", ALWAYS return 0, NEVER use estimates
+      console.log(`🚨 FIXED: "Ej ifyllt" treated as 0, not estimates: ${currentBalance}`);
+      return currentBalance || 0;
     }
   };
 
