@@ -4405,28 +4405,30 @@ const BudgetCalculator = () => {
                                      </CollapsibleTrigger>
                                      <CollapsibleContent className="space-y-3 mt-3">
                                        {categoryAccounts.map(account => {
-                                         const currentBalance = accountBalances[account] || 0;
-                           const freshBalances = (window as any).__freshFinalBalances;
-                           const estimatedResult = getEstimatedAccountBalances(freshBalances);
-                           const estimatedBalance = estimatedResult?.[account] || 0;
+                                          const currentBalance = accountBalances[account] || 0;
+                            
+                            // CRITICAL FIX: When user sets "Faktiskt kontosaldo" to 0, 
+                            // the "Estimerad ingående balans" should ALSO be 0, not estimated
+                            let estimatedBalance = 0;
+                            
+                            // Only show estimated opening balance if user has NOT set actual balance
+                            const hasSetActualBalance = accountBalancesSet[account] === true;
+                            if (!hasSetActualBalance) {
+                              const freshBalances = (window as any).__freshFinalBalances;
+                              const estimatedResult = getEstimatedAccountBalances(freshBalances);
+                              estimatedBalance = estimatedResult?.[account] || 0;
+                            }
                            
-                           // CRITICAL DEBUGGING - Check if this is where 6001 is coming from
-                           if (selectedBudgetMonth?.includes('12') && account === 'Löpande') {
-                             console.log(`🚨 UI LAYER DEBUG - DECEMBER LÖPANDE:`);
-                             console.log(`📅 selectedBudgetMonth: ${selectedBudgetMonth}`);
-                             console.log(`🏠 account: ${account}`);
-                             console.log(`📊 freshBalances:`, freshBalances);
-                             console.log(`🔍 estimatedResult:`, estimatedResult);
-                             console.log(`💰 estimatedBalance (UI DISPLAY): ${estimatedBalance}`);
-                             console.log(`🚨 THIS IS THE VALUE SHOWN IN UI!`);
-                             
-                             // Check if the value is 6001 and trace where it came from
-                             if (estimatedBalance === 6001) {
-                               console.log(`🔥🔥🔥 FOUND THE 6001 VALUE! 🔥🔥🔥`);
-                               console.log(`🔍 It came from getEstimatedAccountBalances function`);
-                               console.log(`📊 estimatedResult object:`, estimatedResult);
-                             }
-                           }
+                            // CRITICAL DEBUGGING - Fixed estimated balance calculation
+                            if (currentBalance === 0 && account === 'Löpande') {
+                              console.log(`🚨🚨🚨 FIXED: FAKTISKT KONTOSALDO = 0 🚨🚨🚨`);
+                              console.log(`📅 selectedBudgetMonth: ${selectedBudgetMonth}`);
+                              console.log(`🏠 account: ${account}`);
+                              console.log(`💰 currentBalance: ${currentBalance}`);
+                              console.log(`💰 estimatedBalance (should be 0): ${estimatedBalance}`);
+                              console.log(`📊 hasSetActualBalance: ${hasSetActualBalance}`);
+                              console.log(`✅ Now using correct logic - when Faktiskt kontosaldo = 0, Estimerad ingående balans = 0`);
+                            }
                                         
                                          return (
                                            <div key={account} className="bg-white rounded border overflow-hidden ml-4">
@@ -4484,8 +4486,8 @@ const BudgetCalculator = () => {
                                                   </div>
                                                 </div>
                                                
-                                                {/* Estimerat slutsaldo */}
-                                                {estimatedResult && (
+                                                 {/* Estimerat slutsaldo */}
+                                                 {!hasSetActualBalance && (
                                                   <div className="space-y-2">
                                                     <div className="flex justify-between items-center">
                                                       <span className="text-sm font-medium text-orange-700">Estimerad ingående balans</span>
