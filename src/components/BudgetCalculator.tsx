@@ -1107,6 +1107,7 @@ const BudgetCalculator = () => {
     // Calculate final balances (Slutsaldo) for each account FIRST
     const finalBalances: {[key: string]: number} = {};
     accounts.forEach(account => {
+      // CRITICAL FIX: Always use the actual account balance, never estimated
       const originalBalance = accountBalances[account] || 0;
       
       // CRITICAL DEBUG FOR NOVEMBER LÖPANDE CALCULATION
@@ -1115,8 +1116,10 @@ const BudgetCalculator = () => {
         console.log(`📅 Month: ${selectedBudgetMonth}`);
         console.log(`🏠 Account: ${account}`);
         console.log(`💰 originalBalance (from accountBalances): ${originalBalance}`);
-        console.log(`📊 accountBalances[${account}]: ${accountBalances[account]}`);
+        console.log(`📊 Direct accountBalances[${account}]: ${accountBalances[account]}`);
         console.log(`📊 accountBalancesSet[${account}]: ${accountBalancesSet[account]}`);
+        console.log(`🔍 Type of accountBalances[${account}]: ${typeof accountBalances[account]}`);
+        console.log(`🔍 Full accountBalances object:`, accountBalances);
       }
       
       // Calculate total deposits for this account from savings groups
