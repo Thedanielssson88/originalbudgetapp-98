@@ -1789,27 +1789,12 @@ const BudgetCalculator = () => {
     const estimatedFinalBalances: {[key: string]: number} = {};
     
     accounts.forEach(account => {
-      // Check for previous month's actual balance first (Faktiskt kontosaldo)
-      const prevActualBalance = prevMonthData.accountBalancesSet?.[account] === true 
-        ? prevMonthData.accountBalances?.[account] || 0 
-        : null;
-      
-      let startingBalance = 0;
-      
-      if (prevActualBalance !== null && prevActualBalance !== 0) {
-        // If previous month has actual balance set, use it
-        startingBalance = prevActualBalance;
-        console.log(`📊 Starting balance for ${account}: ${startingBalance} (from prev month actual balance)`);
-      } else if (prevMonthData.accountEstimatedFinalBalances && prevMonthData.accountEstimatedFinalBalances[account] !== undefined) {
-        // If no actual balance, use previous month's estimated final balance (Estimerat slutsaldo)
-        startingBalance = prevMonthData.accountEstimatedFinalBalances[account];
-        console.log(`📊 Starting balance for ${account}: ${startingBalance} (from prev month estimated final)`);
-      } else if (prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
-        // Fallback to calculated final balance
-        startingBalance = prevMonthData.accountFinalBalances[account];
-        console.log(`📊 Starting balance for ${account}: ${startingBalance} (from prev month calculated final)`);
+      // Use saved final balance from previous month if available
+      if (prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
+        estimatedFinalBalances[account] = prevMonthData.accountFinalBalances[account];
+        console.log(`📊 Estimated final balance for ${account}: ${estimatedFinalBalances[account]} (from prev month final)`);
       } else {
-        // Last resort: calculate from previous month's data
+        // Fallback calculation if previous month doesn't have final balances
         const originalBalance = prevMonthData.accountBalances?.[account] || 0;
         const accountSavings = (prevMonthData.savingsGroups || [])
           .filter((group: any) => group.account === account)
@@ -1829,12 +1814,10 @@ const BudgetCalculator = () => {
           return sum + groupCosts;
         }, 0);
         
-        startingBalance = originalBalance + accountSavings + accountRecurringCosts - accountAllCosts;
-        console.log(`📊 Starting balance for ${account}: ${startingBalance} (calculated from scratch)`);
+        const slutsaldo = originalBalance + accountSavings + accountRecurringCosts - accountAllCosts;
+        estimatedFinalBalances[account] = slutsaldo;
+        console.log(`📊 Estimated final balance for ${account}: ${slutsaldo} (calculated)`);
       }
-      
-      // Set the estimated final balance (this becomes the Calc.Kontosaldo)
-      estimatedFinalBalances[account] = startingBalance;
     });
     
     // Save estimated final balances to the month data
@@ -3166,50 +3149,6 @@ const BudgetCalculator = () => {
           .reduce((sum: number, group: any) => sum + group.amount, 0);
       };
 
-      // Helper function to get running costs for an account in a month
-      const getRunningCosts = (monthKey: string, account: string) => {
-        const monthData = historicalData[monthKey];
-        if (!monthData || !monthData.costGroups) return 0;
-        
-        let totalRunningCosts = 0;
-        
-        // Check costGroups for running costs (Löpande kostnad)
-        if (monthData.costGroups) {
-          monthData.costGroups.forEach((group: any) => {
-            if (group.subCategories) {
-              group.subCategories.forEach((sub: any) => {
-                if (sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom)) {
-                  totalRunningCosts += sub.amount;
-                }
-              });
-            }
-          });
-        }
-        
-        return totalRunningCosts;
-      };
-
-      // Helper function to get running deposits for an account in a month 
-      const getRunningDeposits = (monthKey: string, account: string) => {
-        const monthData = historicalData[monthKey];
-        if (!monthData) return 0;
-        
-        let totalRunningDeposits = 0;
-        
-        // Running deposits come from budget transfers and income allocations
-        // This is a simplified calculation - in practice this would be based on 
-        // the budget transfer system and daily budget allocations
-        // For now, we'll return a default value that matches the current tooltip logic
-        
-        // TODO: Implement proper running deposits calculation based on:
-        // - Budget transfers (dailyTransfer, weekendTransfer) 
-        // - Income shares allocated to this account
-        // - Any other regular deposits
-        
-        // For now, return 500 as default to match current tooltip behavior
-        return 500;
-      };
-
     // Calculate chart data
     const chartData = extendedMonthKeys.map((monthKey, index) => {
       const dataPoint: any = { 
@@ -3258,17 +3197,6 @@ const BudgetCalculator = () => {
           // No next month available
           dataPoint[`${account}_actualExtraCosts`] = 0;
         }
-      });
-
-      // Add running costs and deposits for all accounts
-      accounts.forEach(account => {
-        // Calculate running costs (Löpande kostnader) for this account
-        const runningCosts = getRunningCosts(monthKey, account);
-        dataPoint[`${account}_runningCosts`] = runningCosts;
-        
-        // Calculate running deposits (Löpande insättningar) for this account 
-        const runningDeposits = getRunningDeposits(monthKey, account);
-        dataPoint[`${account}_runningDeposits`] = runningDeposits;
       });
 
       // Add individual costs if enabled - always show them regardless of estimated budget setting
@@ -7321,7 +7249,7 @@ const BudgetCalculator = () => {
                 <CardContent>
                   {!isUpdatingAllMonths ? (
                     <Button 
-                      onClick={async () => {
+                      onClick={() => {
                         const monthsWithData = getMonthsWithSavedData();
                         if (monthsWithData.length === 0) return;
                         
@@ -7329,44 +7257,65 @@ const BudgetCalculator = () => {
                         setIsUpdatingAllMonths(true);
                         setUpdateProgress(0);
                         
-                        console.log('🔄 Starting month-by-month update (mimicking manual browsing):', monthsWithData);
-                        const originalMonth = selectedBudgetMonth;
+                        console.log('🔄 Starting update of all months:', monthsWithData);
                         
-                        try {
-                          // Simply navigate through each month exactly like manual browsing
-                          for (let i = 0; i < monthsWithData.length; i++) {
-                            const monthKey = monthsWithData[i];
-                            const progress = Math.round((i / monthsWithData.length) * 100);
+                        let currentIndex = 0;
+                        const updateAllMonths = async () => {
+                          if (currentIndex < monthsWithData.length) {
+                            const monthKey = monthsWithData[currentIndex];
+                            console.log(`🔄 Processing month ${currentIndex + 1}/${monthsWithData.length}: ${monthKey}`);
+                            
+                            // Update progress
+                            const progress = Math.round((currentIndex / monthsWithData.length) * 100);
                             setUpdateProgress(progress);
                             
-                            console.log(`📅 Navigating to month ${i + 1}/${monthsWithData.length}: ${monthKey}`);
-                            
-                            // Use the exact same function as manual browsing
+                            // Properly switch to the month - this loads data and triggers calculations
+                            console.log(`📂 Switching to month: ${monthKey}`);
                             handleBudgetMonthChange(monthKey);
                             
-                            // Wait for the month change to complete (same as manual browsing speed)
-                            await new Promise(resolve => setTimeout(resolve, 200));
+                            // Wait for month switching and all calculations to complete
+                            await new Promise(resolve => setTimeout(resolve, 300));
+                            
+                            // Force recalculation to ensure all values are current
+                            console.log(`📊 Recalculating budget for ${monthKey}`);
+                            calculateBudget();
+                            await new Promise(resolve => setTimeout(resolve, 100));
+                            
+                            // Calculate and save estimated final balances for this month  
+                            console.log(`💾 Calculating and saving estimated final balances for ${monthKey}`);
+                            calculateAndSaveEstimatedFinalBalances(monthKey);
+                            await new Promise(resolve => setTimeout(resolve, 100));
+                            
+                            // Save the month's data with all calculations
+                            console.log(`💾 Saving month data for ${monthKey}`);
+                            saveToSelectedMonth();
+                            await new Promise(resolve => setTimeout(resolve, 50));
+                            
+                            currentIndex++;
+                            
+                            // Continue with next month
+                            setTimeout(updateAllMonths, 100);
+                          } else {
+                            console.log('✅ All months updated successfully');
+                            // Set progress to 100%
+                            setUpdateProgress(100);
+                            
+                            // Wait a moment to show 100% completion
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                            
+                            // Hide progress and show button again
+                            setIsUpdatingAllMonths(false);
+                            setUpdateProgress(0);
+                            
+                            // Return to the originally selected month
+                            const originalMonth = selectedBudgetMonth;
+                            if (originalMonth && historicalData[originalMonth]) {
+                              handleBudgetMonthChange(originalMonth);
+                            }
                           }
-                          
-                          console.log('✅ All months updated successfully using manual browsing logic');
-                          setUpdateProgress(100);
-                          
-                          // Wait to show completion
-                          await new Promise(resolve => setTimeout(resolve, 500));
-                          
-                        } catch (error) {
-                          console.error('❌ Error during month updates:', error);
-                        } finally {
-                          // Hide progress and show button again
-                          setIsUpdatingAllMonths(false);
-                          setUpdateProgress(0);
-                          
-                          // Return to the originally selected month if it exists
-                          if (originalMonth && historicalData[originalMonth]) {
-                            console.log(`🔙 Returning to original month: ${originalMonth}`);
-                            handleBudgetMonthChange(originalMonth);
-                          }
-                        }
+                        };
+                        
+                        updateAllMonths();
                       }}
                       disabled={getMonthsWithSavedData().length === 0}
                       className="w-full"
