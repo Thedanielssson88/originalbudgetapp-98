@@ -192,6 +192,9 @@ const BudgetCalculator = () => {
   // Estimated budget amounts chart selection state
   const [showEstimatedBudgetAmounts, setShowEstimatedBudgetAmounts] = useState<boolean>(false);
 
+  // Balance type chart selection state
+  const [balanceType, setBalanceType] = useState<'starting' | 'closing'>('closing');
+
   // Calculate structured account data for table view
   const accountDataRows: AccountDataRow[] = React.useMemo(() => {
     // Helper function to get Calc.Kontosaldo for a month and account
@@ -3380,6 +3383,35 @@ const BudgetCalculator = () => {
           </div>
         </div>
 
+        {/* Balance Type Option */}
+        <div className="bg-muted/50 p-4 rounded-lg">
+          <h4 className="font-medium mb-3">Y-axel visar:</h4>
+          <div className="flex gap-4">
+            <div className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id="balance-type-starting"
+                name="balance-type"
+                checked={balanceType === 'starting'}
+                onChange={() => setBalanceType('starting')}
+                className="w-4 h-4"
+              />
+              <Label htmlFor="balance-type-starting" className="text-sm">Ingående Saldo</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id="balance-type-closing"
+                name="balance-type"
+                checked={balanceType === 'closing'}
+                onChange={() => setBalanceType('closing')}
+                className="w-4 h-4"
+              />
+              <Label htmlFor="balance-type-closing" className="text-sm">Slutsaldo inför nästa månad</Label>
+            </div>
+          </div>
+        </div>
+
         {/* Estimated Budget Amounts Option */}
         <div className="bg-muted/50 p-4 rounded-lg">
           <h4 className="font-medium mb-3">Visa estimerade budgetbelopp?</h4>
@@ -3428,6 +3460,7 @@ const BudgetCalculator = () => {
                 showEstimatedBudgetAmounts={showEstimatedBudgetAmounts}
                 showIndividualCostsOutsideBudget={showIndividualCostsOutsideBudget}
                 showSavingsSeparately={showSavingsSeparately}
+                balanceType={balanceType}
                 width={0} // Will be set dynamically
                 height={384}
                 margin={{ top: 20, right: 30, bottom: 80, left: 80 }}

@@ -17,6 +17,7 @@ interface CustomLineChartProps {
   formatCurrency: (value: number) => string;
   showIndividualCostsOutsideBudget?: boolean;
   showSavingsSeparately?: boolean;
+  balanceType?: 'starting' | 'closing';
 }
 
 export const CustomLineChart: React.FC<CustomLineChartProps> = ({
@@ -29,7 +30,8 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
   margin,
   formatCurrency,
   showIndividualCostsOutsideBudget = false,
-  showSavingsSeparately = false
+  showSavingsSeparately = false,
+  balanceType = 'closing'
 }) => {
   const [tooltip, setTooltip] = useState<{
     visible: boolean;
@@ -66,11 +68,10 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
   const chartWidth = width - margin.left - margin.right;
   const chartHeight = height - margin.top - margin.bottom;
 
-  // Find min and max values for Y axis scaling (include calculated final balances)
+  // Find min and max values for Y axis scaling based on balance type
   const allValues = data.flatMap(point => {
     const values = [];
     
-    // Calculate final balances for each account
     accounts.forEach(account => {
       if (point[account] != null) {
         const startingBalance = point[`${account}_startingBalance`] || 0;
@@ -79,7 +80,10 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
         const runningCosts = point[`${account}_runningCosts`] || 500;
         const individualCosts = Math.abs(point[`${account}_individual`] || 0);
         const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts;
-        values.push(finalBalance);
+        
+        // Use either starting balance or closing balance based on selection
+        const valueToUse = balanceType === 'starting' ? startingBalance : finalBalance;
+        values.push(valueToUse);
       }
     });
     
@@ -279,7 +283,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
               // Skip if either point doesn't have data for this account
               if (currentPoint[account] == null || nextPoint[account] == null) continue;
 
-              // Calculate final balances for line positioning
+              // Calculate balances for line positioning based on balance type
               const currentStartingBalance = currentPoint[`${account}_startingBalance`] || 0;
               const currentSavings = currentPoint[`${account}_savings`] || 0;
               const currentRunningDeposits = currentPoint[`${account}_runningDeposits`] || 500;
@@ -294,10 +298,14 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
               const nextIndividualCosts = Math.abs(nextPoint[`${account}_individual`] || 0);
               const nextFinalBalance = nextStartingBalance + nextSavings + nextRunningDeposits - nextRunningCosts - nextIndividualCosts;
 
+              // Use either starting balance or final balance based on selection
+              const currentDisplayValue = balanceType === 'starting' ? currentStartingBalance : currentFinalBalance;
+              const nextDisplayValue = balanceType === 'starting' ? nextStartingBalance : nextFinalBalance;
+
               const x1 = xScale(i);
-              const y1 = yScale(currentFinalBalance);
+              const y1 = yScale(currentDisplayValue);
               const x2 = xScale(i + 1);
-              const y2 = yScale(nextFinalBalance);
+              const y2 = yScale(nextDisplayValue);
 
               let strokeDasharray = undefined; // solid by default
 
@@ -338,7 +346,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
 
               const x = xScale(index);
               
-              // Calculate the final balance for dot positioning
+              // Calculate balances for dot positioning
               const startingBalance = point[`${account}_startingBalance`] || 0;
               const savings = point[`${account}_savings`] || 0;
               const runningDeposits = point[`${account}_runningDeposits`] || 500;
@@ -346,7 +354,9 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
               const individualCosts = Math.abs(point[`${account}_individual`] || 0);
               const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts;
               
-              const y = yScale(finalBalance);
+              // Use either starting balance or final balance for dot positioning
+              const displayValue = balanceType === 'starting' ? startingBalance : finalBalance;
+              const y = yScale(displayValue);
               const isEstimated = point[`${account}_isEstimated`];
 
               if (showEstimatedBudgetAmounts && isEstimated) {
@@ -508,10 +518,10 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                   {/* Account Header */}
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-sm">{account.name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-800">
-                        Slutsaldo: {formatCurrency(details.startingBalance + details.savings + details.runningDeposits - details.runningCosts - details.individualCosts)} kr
-                      </span>
+                     <div className="flex items-center gap-2">
+                       <span className="text-sm text-gray-800">
+                         {balanceType === 'starting' ? 'Ingående' : 'Slutsaldo'}: {formatCurrency(balanceType === 'starting' ? details.startingBalance : (details.startingBalance + details.savings + details.runningDeposits - details.runningCosts - details.individualCosts))} kr
+                       </span>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
