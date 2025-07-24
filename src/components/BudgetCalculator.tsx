@@ -7312,122 +7312,30 @@ const BudgetCalculator = () => {
                         setIsUpdatingAllMonths(true);
                         setUpdateProgress(0);
                         
-                        console.log('🔄 Starting efficient update of all months:', monthsWithData);
+                        console.log('🔄 Starting month-by-month update (mimicking manual browsing):', monthsWithData);
                         const originalMonth = selectedBudgetMonth;
                         
                         try {
-                          // Recalculate all months sequentially to ensure data dependencies are properly handled
+                          // Simply navigate through each month exactly like manual browsing
                           for (let i = 0; i < monthsWithData.length; i++) {
                             const monthKey = monthsWithData[i];
                             const progress = Math.round((i / monthsWithData.length) * 100);
                             setUpdateProgress(progress);
                             
-                            console.log(`🔄 Processing month ${i + 1}/${monthsWithData.length}: ${monthKey}`);
+                            console.log(`📅 Navigating to month ${i + 1}/${monthsWithData.length}: ${monthKey}`);
                             
-                            // Load the month data without triggering state updates that could interfere
-                            await new Promise<void>((resolve) => {
-                              // Switch to month and wait for state to settle
-                              console.log(`📂 Switching to month: ${monthKey}`);
-                              setSelectedBudgetMonth(monthKey);
-                              
-                              // Update starting balances from previous month BEFORE loading current month data
-                              if (i > 0) {
-                                const prevMonthKey = monthsWithData[i - 1];
-                                console.log(`🔄 Setting starting balances for ${monthKey} from ${prevMonthKey}`);
-                                
-                                // Get previous month's final balances
-                                const prevMonthData = historicalData[prevMonthKey];
-                                if (prevMonthData && prevMonthData.estimatedFinalBalances) {
-                                  console.log(`📊 Using final balances from ${prevMonthKey}:`, prevMonthData.estimatedFinalBalances);
-                                  
-                                  // Create new starting balances
-                                  const newStartingBalances = {};
-                                  Object.keys(prevMonthData.estimatedFinalBalances).forEach(account => {
-                                    if (prevMonthData.estimatedFinalBalances[account] !== null) {
-                                      newStartingBalances[account] = prevMonthData.estimatedFinalBalances[account];
-                                      console.log(`💰 Setting ${account} starting balance to: ${prevMonthData.estimatedFinalBalances[account]}`);
-                                    }
-                                  });
-                                  
-                                  // Set the balances immediately
-                                  setAccountBalances(newStartingBalances);
-                                  
-                                  // Create proper boolean flags for accountBalancesSet
-                                  const newBalancesSet = {};
-                                  Object.keys(newStartingBalances).forEach(account => {
-                                    newBalancesSet[account] = true; // These balances are now explicitly set
-                                  });
-                                  setAccountBalancesSet(newBalancesSet);
-                                }
-                              }
-                              
-                              // Use timeout to ensure state update completes
-                              setTimeout(() => {
-                                // Load month data manually to avoid side effects
-                                const monthData = historicalData[monthKey];
-                                if (monthData) {
-                                  console.log(`📥 Loading data for ${monthKey}`);
-                                  
-                                  // Load all state from the month data
-                                  if (monthData.andreasSalary !== undefined) setAndreasSalary(monthData.andreasSalary);
-                                  if (monthData.andreasförsäkringskassan !== undefined) setAndreasförsäkringskassan(monthData.andreasförsäkringskassan);
-                                  if (monthData.andreasbarnbidrag !== undefined) setAndreasbarnbidrag(monthData.andreasbarnbidrag);
-                                  if (monthData.susannaSalary !== undefined) setSusannaSalary(monthData.susannaSalary);
-                                  if (monthData.susannaförsäkringskassan !== undefined) setSusannaförsäkringskassan(monthData.susannaförsäkringskassan);
-                                  if (monthData.susannabarnbidrag !== undefined) setSusannabarnbidrag(monthData.susannabarnbidrag);
-                                  if (monthData.costGroups) setCostGroups(JSON.parse(JSON.stringify(monthData.costGroups)));
-                                  if (monthData.savingsGroups) setSavingsGroups(JSON.parse(JSON.stringify(monthData.savingsGroups)));
-                                  if (monthData.dailyTransfer !== undefined) setDailyTransfer(monthData.dailyTransfer);
-                                  if (monthData.weekendTransfer !== undefined) setWeekendTransfer(monthData.weekendTransfer);
-                                  if (monthData.customHolidays) setCustomHolidays(JSON.parse(JSON.stringify(monthData.customHolidays)));
-                                  // Only load account balances if this is the first month or they weren't already set from previous month
-                                  if (i === 0) {
-                                    if (monthData.accountBalances) setAccountBalances(JSON.parse(JSON.stringify(monthData.accountBalances)));
-                                    if (monthData.accountBalancesSet) setAccountBalancesSet(JSON.parse(JSON.stringify(monthData.accountBalancesSet)));
-                                  } else {
-                                    console.log(`⚠️ Skipping account balance loading for ${monthKey} - using previous month's final balances as starting balances`);
-                                  }
-                                  if (monthData.accounts) setAccounts(JSON.parse(JSON.stringify(monthData.accounts)));
-                                }
-                                resolve();
-                              }, 50);
-                            });
+                            // Use the exact same function as manual browsing
+                            handleBudgetMonthChange(monthKey);
                             
-                            // Wait for state to settle before calculations
-                            await new Promise(resolve => setTimeout(resolve, 100));
-                            
-                            // Force recalculation of all dependent values
-                            console.log(`📊 Recalculating budget for ${monthKey}`);
-                            calculateBudget();
-                            
-                            // Wait for calculation to complete
-                            await new Promise(resolve => setTimeout(resolve, 150));
-                            
-                            // Calculate estimated final balances based on current calculations
-                            console.log(`💰 Calculating estimated final balances for ${monthKey}`);
-                            calculateAndSaveEstimatedFinalBalances(monthKey);
-                            
-                            // Wait for estimated balances calculation
-                            await new Promise(resolve => setTimeout(resolve, 100));
-                            
-                            // Save current state 
-                            console.log(`💾 Saving calculated state for ${monthKey}`);
-                            saveToSelectedMonth();
-                            await new Promise(resolve => setTimeout(resolve, 50));
-                            
-                            // Save all calculated data for this month
-                            console.log(`💾 Saving recalculated data for ${monthKey}`);
-                            saveToSelectedMonth();
-                            
-                            // Small delay before processing next month
-                            await new Promise(resolve => setTimeout(resolve, 50));
+                            // Wait for the month change to complete (same as manual browsing speed)
+                            await new Promise(resolve => setTimeout(resolve, 200));
                           }
                           
-                          console.log('✅ All months recalculated successfully');
+                          console.log('✅ All months updated successfully using manual browsing logic');
                           setUpdateProgress(100);
                           
                           // Wait to show completion
-                          await new Promise(resolve => setTimeout(resolve, 1000));
+                          await new Promise(resolve => setTimeout(resolve, 500));
                           
                         } catch (error) {
                           console.error('❌ Error during month updates:', error);
@@ -7436,7 +7344,7 @@ const BudgetCalculator = () => {
                           setIsUpdatingAllMonths(false);
                           setUpdateProgress(0);
                           
-                          // Return to the originally selected month
+                          // Return to the originally selected month if it exists
                           if (originalMonth && historicalData[originalMonth]) {
                             console.log(`🔙 Returning to original month: ${originalMonth}`);
                             handleBudgetMonthChange(originalMonth);
