@@ -597,7 +597,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                           </span>
                         </div>
                         
-                        <div className="flex justify-between pt-1 mt-2">
+                        <div className="flex justify-between pt-1 border-t border-gray-200 mt-2">
                           <span className="font-medium text-black">Totala insättningar:</span>
                           <span className="text-black font-medium">
                             +{formatCurrency(details.actualExtraCosts >= 0 ? details.savings + details.actualExtraCosts : details.savings)} kr
