@@ -109,6 +109,54 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
   const xScale = (index: number) => (index / (data.length - 1)) * chartWidth;
   const yScale = (value: number) => chartHeight - ((value - yMin) / (yMax - yMin)) * chartHeight;
 
+  // Calculate max values for triangle scaling
+  const getAllDepositValues = () => {
+    const depositValues: number[] = [];
+    data.forEach(point => {
+      accounts.forEach(account => {
+        if (point[account] != null) {
+          const savings = point[`${account}_savings`] || 0;
+          const actualExtraCosts = point[`${account}_actualExtraCosts`] || 0;
+          const totalDeposits = actualExtraCosts >= 0 ? savings + actualExtraCosts : savings;
+          if (totalDeposits > 0) {
+            depositValues.push(totalDeposits);
+          }
+        }
+      });
+    });
+    return depositValues;
+  };
+
+  const getAllWithdrawalValues = () => {
+    const withdrawalValues: number[] = [];
+    data.forEach(point => {
+      accounts.forEach(account => {
+        if (point[account] != null) {
+          const individualCosts = Math.abs(point[`${account}_individual`] || 0);
+          const actualExtraCosts = point[`${account}_actualExtraCosts`] || 0;
+          const totalWithdrawals = actualExtraCosts < 0 ? individualCosts + Math.abs(actualExtraCosts) : individualCosts;
+          if (totalWithdrawals > 0) {
+            withdrawalValues.push(totalWithdrawals);
+          }
+        }
+      });
+    });
+    return withdrawalValues;
+  };
+
+  const maxDepositValue = Math.max(...getAllDepositValues(), 0);
+  const maxWithdrawalValue = Math.max(...getAllWithdrawalValues(), 0);
+
+  // Base triangle height (doubled from current 10px)
+  const baseTriangleHeight = 20;
+
+  // Function to calculate triangle height proportional to value
+  const calculateTriangleHeight = (value: number, maxValue: number, isDeposit: boolean) => {
+    if (maxValue === 0) return baseTriangleHeight;
+    const proportion = value / maxValue;
+    return baseTriangleHeight * proportion;
+  };
+
   // Generate Y axis ticks
   const yTicks = [];
   const tickCount = 5;
@@ -416,14 +464,17 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                 const mainY = yScale(displayBalance);
 
                 // Calculate total withdrawals
-                const totalWithdrawals = -(actualExtraCosts < 0 ? individualCosts + Math.abs(actualExtraCosts) : individualCosts);
+                const totalWithdrawalsValue = actualExtraCosts < 0 ? individualCosts + Math.abs(actualExtraCosts) : individualCosts;
 
-                // Add red triangle below the main balance point pointing down - only if total withdrawals < 0
-                if (totalWithdrawals < 0) {
+                // Add red triangle below the main balance point pointing down - only if total withdrawals > 0
+                if (totalWithdrawalsValue > 0) {
+                  const triangleHeight = calculateTriangleHeight(totalWithdrawalsValue, maxWithdrawalValue, false);
+                  const triangleWidth = Math.max(6, triangleHeight * 0.6); // Proportional width
+                  
                   dots.push(
                     <polygon
                       key={`${account}-individual-triangle-${index}`}
-                      points={`${x},${mainY + 24} ${x - 6},${mainY + 14} ${x + 6},${mainY + 14}`}
+                      points={`${x},${mainY + triangleHeight + 4} ${x - triangleWidth},${mainY + 4} ${x + triangleWidth},${mainY + 4}`}
                       fill="#ef4444"
                       stroke="#dc2626"
                       strokeWidth={1}
@@ -458,10 +509,13 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
 
                 // Add green triangle above the main balance point pointing up - only if total deposits > 0
                 if (totalDeposits > 0) {
+                  const triangleHeight = calculateTriangleHeight(totalDeposits, maxDepositValue, true);
+                  const triangleWidth = Math.max(6, triangleHeight * 0.6); // Proportional width
+                  
                   dots.push(
                     <polygon
                       key={`${account}-savings-triangle-${index}`}
-                      points={`${x},${mainY - 24} ${x - 6},${mainY - 14} ${x + 6},${mainY - 14}`}
+                      points={`${x},${mainY - triangleHeight - 4} ${x - triangleWidth},${mainY - 4} ${x + triangleWidth},${mainY - 4}`}
                       fill="#22c55e"
                       stroke="#16a34a"
                       strokeWidth={1}
