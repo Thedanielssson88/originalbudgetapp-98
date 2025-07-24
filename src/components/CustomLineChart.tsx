@@ -150,16 +150,17 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
   // Use the highest absolute value between deposits and withdrawals as the universal maximum
   const universalMaxValue = Math.max(maxDepositValue, maxWithdrawalValue);
 
-  // Base triangle height (doubled from current 10px)
-  const baseTriangleHeight = 40;
+  // Triangle height configuration
+  const minTriangleHeight = 15;
+  const maxTriangleHeight = 40;
   // Constant triangle width
   const triangleWidth = 3;
 
   // Function to calculate triangle height proportional to value using universal max
   const calculateTriangleHeight = (value: number) => {
-    if (universalMaxValue === 0) return baseTriangleHeight;
+    if (universalMaxValue === 0) return minTriangleHeight;
     const proportion = value / universalMaxValue;
-    return baseTriangleHeight * proportion;
+    return minTriangleHeight + (maxTriangleHeight - minTriangleHeight) * proportion;
   };
 
   // Generate Y axis ticks
