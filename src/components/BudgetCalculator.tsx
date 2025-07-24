@@ -6229,9 +6229,14 @@ const BudgetCalculator = () => {
                                            </span>
                                          </div>
                                          
-                                         {/* Calc.År.Månad.Slutsaldo row */}
+                                         {/* Account.År.Månad.Endbalance row */}
                                          <div className="flex justify-between text-sm font-medium mt-1">
-                                           <span className="text-gray-800">Calc.År.Månad.Slutsaldo</span>
+                                           <span className="text-gray-800">
+                                             {(() => {
+                                               const [year, month] = (selectedBudgetMonth || '').split('-');
+                                               return `${account}.${year}.${month}.Endbalance`;
+                                             })()}
+                                           </span>
                                            <span className={finalBalance >= 0 ? 'text-green-600' : 'text-red-600'}>
                                              {formatCurrency(finalBalance)}
                                            </span>
