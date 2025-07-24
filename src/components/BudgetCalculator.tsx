@@ -3165,15 +3165,9 @@ const BudgetCalculator = () => {
         // Always add the main account data (this is the final balance for the month)
         dataPoint[account] = balance;
         
-        // The starting balance should be based on "Slutsaldo inför nästa månad" from the previous month
-        let startingBalance = balance; // Default fallback
-        if (index > 0) {
-          // Get the previous month's closing balance
-          const prevMonthKey = extendedMonthKeys[index - 1];
-          const { balance: prevBalance } = getCalcKontosaldo(prevMonthKey, account);
-          startingBalance = prevBalance;
-        }
-        dataPoint[`${account}_startingBalance`] = startingBalance;
+        // The starting balance should be the Calc.Kontosaldo from the same month
+        // According to user: "Ingående saldo ska alltid alltid använda Calc.Kontosaldo från samma månad"
+        dataPoint[`${account}_startingBalance`] = balance;
         
         // Mark if this point is estimated for styling purposes
         if (isEstimated) {
