@@ -4507,9 +4507,41 @@ const BudgetCalculator = () => {
                                                             </span>
                                                             <span className="text-sm text-green-600 min-w-8">kr</span>
                                                           </div>
-                                                        </div>
-                                                     </div>
-                                                   );
+                                                         </div>
+                                                         
+                                                         {/* Calc.Est */}
+                                                         <div className="flex justify-between items-center">
+                                                           <span className="text-sm font-medium text-green-700">Calc.Est</span>
+                                                           <div className="flex items-center gap-2">
+                                                             <span className="w-32 text-right text-sm text-green-600">
+                                                               {(() => {
+                                                                 // Get previous month's ending balance for this account
+                                                                 const prevMonthInfo = getPreviousMonthInfo();
+                                                                 const prevMonthData = historicalData[prevMonthInfo.monthKey];
+                                                                 
+                                                                 if (prevMonthData && prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
+                                                                   const prevEndingBalance = prevMonthData.accountFinalBalances[account];
+                                                                   return formatCurrency(prevEndingBalance);
+                                                                 }
+                                                                 
+                                                                 // Fallback to formatted ending balance key if available
+                                                                 if (prevMonthData && prevMonthData.accountEndingBalances) {
+                                                                   const [prevYear, prevMonth] = prevMonthInfo.monthKey.split('-');
+                                                                   const endingBalanceKey = `${account}.${prevYear}.${prevMonth}.Endbalance`;
+                                                                   const prevEndingBalance = prevMonthData.accountEndingBalances[endingBalanceKey];
+                                                                   if (prevEndingBalance !== undefined) {
+                                                                     return formatCurrency(prevEndingBalance);
+                                                                   }
+                                                                 }
+                                                                 
+                                                                 return formatCurrency(0);
+                                                               })()}
+                                                             </span>
+                                                             <span className="text-sm text-green-600 min-w-8">kr</span>
+                                                           </div>
+                                                         </div>
+                                                       </div>
+                                                    );
                                                  })()}
                                              </div>
                                            </div>
