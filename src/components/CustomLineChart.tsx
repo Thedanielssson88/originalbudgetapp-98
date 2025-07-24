@@ -489,7 +489,59 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
               });
             }
 
-            // Generate dots for savings if enabled
+            // Always show triangles for deposits and withdrawals (regardless of showSavingsSeparately/showIndividualCostsOutsideBudget)
+            data.forEach((point, index) => {
+              if (point[account] == null) return;
+
+              const x = xScale(index);
+              
+              // Calculate the balance for main balance y position based on selected balance type
+              const startingBalance = point[`${account}_startingBalance`] || 0;
+              const savings = point[`${account}_savings`] || 0;
+              const runningDeposits = point[`${account}_runningDeposits`] || 500;
+              const runningCosts = point[`${account}_runningCosts`] || 500;
+              const individualCosts = Math.abs(point[`${account}_individual`] || 0);
+              const actualExtraCosts = point[`${account}_actualExtraCosts`] || 0;
+              const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts + actualExtraCosts;
+              const displayBalance = balanceType === 'starting' ? startingBalance : finalBalance;
+              const mainY = yScale(displayBalance);
+
+              // Calculate total deposits and withdrawals
+              const totalDeposits = actualExtraCosts >= 0 ? savings + actualExtraCosts : savings;
+              const totalWithdrawals = actualExtraCosts < 0 ? individualCosts + Math.abs(actualExtraCosts) : individualCosts;
+
+              // Add green triangle above the main balance point pointing up - only if total deposits > 0
+              if (totalDeposits > 0) {
+                const triangleHeight = calculateTriangleHeight(totalDeposits);
+                
+                dots.push(
+                  <polygon
+                    key={`${account}-deposits-triangle-${index}`}
+                    points={`${x},${mainY - triangleHeight - 4} ${x - triangleWidth},${mainY - 4} ${x + triangleWidth},${mainY - 4}`}
+                    fill="#22c55e"
+                    stroke="#16a34a"
+                    strokeWidth={1}
+                  />
+                );
+              }
+
+              // Add red triangle below the main balance point pointing down - only if total withdrawals > 0
+              if (totalWithdrawals > 0) {
+                const triangleHeight = calculateTriangleHeight(totalWithdrawals);
+                
+                dots.push(
+                  <polygon
+                    key={`${account}-withdrawals-triangle-${index}`}
+                    points={`${x},${mainY + triangleHeight + 4} ${x - triangleWidth},${mainY + 4} ${x + triangleWidth},${mainY + 4}`}
+                    fill="#ef4444"
+                    stroke="#dc2626"
+                    strokeWidth={1}
+                  />
+                );
+              }
+            });
+
+            // Generate dots for savings if enabled (additional to the always-shown triangles)
             if (showSavingsSeparately) {
               data.forEach((point, index) => {
                 const savingsValue = point[`${account}_savings`];
