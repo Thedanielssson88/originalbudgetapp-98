@@ -2351,6 +2351,10 @@ const BudgetCalculator = () => {
     console.log(`=== MONTH CHANGE: Switching to ${monthKey} ===`);
     console.log(`Current historicalData keys BEFORE operations:`, Object.keys(historicalData));
     
+    // CRITICAL: Ensure all calculations are completed and up-to-date before saving
+    console.log(`🔄 Triggering final calculation before saving current month data...`);
+    calculateBudget(); // This will trigger the latest calculation with the fixed logic
+    
     // Save current data to current month before switching
     console.log(`Saving current month data before switching...`);
     saveToSelectedMonth();
@@ -4020,44 +4024,13 @@ const BudgetCalculator = () => {
               <Select 
                 value={selectedBudgetMonth} 
                 onValueChange={(value) => {
-                  console.log(`🔄 === MONTH CHANGE DEBUG ===`);
+                  console.log(`🔄 === DROPDOWN MONTH CHANGE ===`);
                   console.log(`📅 Switching from ${selectedBudgetMonth} to ${value}`);
                   
-                  // First, force-save current month's ending balances with proper format
-                  if (selectedBudgetMonth) {
-                    const [currentYear, currentMonth] = selectedBudgetMonth.split('-');
-                    const currentEndingBalanceKeys: {[key: string]: number} = {};
-                    accounts.forEach(account => {
-                      const finalBalance = accountFinalBalances[account] || 0;
-                      const endingBalanceKey = `${account}.${currentYear}.${currentMonth}.Endbalance`;
-                      currentEndingBalanceKeys[endingBalanceKey] = finalBalance;
-                      console.log(`💾 Force-saving: ${endingBalanceKey} = ${finalBalance}`);
-                    });
-                    
-                    console.log(`💾 About to save ending balances:`, currentEndingBalanceKeys);
-                    
-                    // Update historical data with ending balances
-                    setHistoricalData(prev => {
-                      const updated = {
-                        ...prev,
-                        [selectedBudgetMonth]: {
-                          ...prev[selectedBudgetMonth],
-                          accountEndingBalances: currentEndingBalanceKeys
-                        }
-                      };
-                      console.log(`💾 Updated historical data for ${selectedBudgetMonth}:`, updated[selectedBudgetMonth]);
-                      return updated;
-                    });
-                  }
+                  // Use the same logic as navigation buttons to ensure consistency
+                  handleBudgetMonthChange(value);
                   
-                  setSelectedBudgetMonth(value);
-                  if (historicalData[value]) {
-                    setTimeout(() => {
-                      loadDataFromSelectedMonth(value);
-                    }, 100);
-                  }
-                  
-                  console.log(`🔄 === END MONTH CHANGE DEBUG ===`);
+                  console.log(`🔄 === END DROPDOWN MONTH CHANGE ===`);
                 }}
               >
                 <SelectTrigger className="w-auto min-w-[200px] border-none bg-transparent text-xl font-semibold text-primary hover:bg-muted/50 transition-colors text-center justify-center">
