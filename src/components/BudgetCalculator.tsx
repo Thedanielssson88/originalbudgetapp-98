@@ -1552,23 +1552,23 @@ const BudgetCalculator = () => {
     // ALWAYS calculate from previous month's data to ensure consistency
     // Estimerat slutsaldo ska alltid baseras på beräknad slutsaldo från föregående månad
     accounts.forEach(account => {
-        console.log(`${account}: No saved final balance found, calculating from raw data...`);
-        // Fallback: calculate from previous month's data
-        let originalBalance = prevMonthData.accountBalances?.[account] || 0;
+        console.log(`${account}: Calculating estimated balance from previous month's final balance...`);
+        // Use the calculated final balance from previous month (Slutsaldo) as starting point
+        let originalBalance = prevMonthData.accountFinalBalances?.[account] || 0;
         
-        // If account balance is 0 or empty, try to use estimated balance from the month before
+        // If final balance is 0 or empty, try to use final balance from the month before
         if (originalBalance === 0) {
           const [prevYear, prevMonth] = prevMonthInfo.monthKey.split('-').map(Number);
           const prevPrevMonth = prevMonth === 1 ? 12 : prevMonth - 1;
           const prevPrevYear = prevMonth === 1 ? prevYear - 1 : prevYear;
           const prevPrevMonthKey = `${prevPrevYear}-${String(prevPrevMonth).padStart(2, '0')}`;
           
-          console.log(`${account}: Account balance is 0, checking for estimated value from ${prevPrevMonthKey}`);
+          console.log(`${account}: Final balance is 0, checking for final balance from ${prevPrevMonthKey}`);
           
           const prevPrevMonthData = historicalData[prevPrevMonthKey];
           if (prevPrevMonthData && prevPrevMonthData.accountFinalBalances && prevPrevMonthData.accountFinalBalances[account] !== undefined) {
             originalBalance = prevPrevMonthData.accountFinalBalances[account];
-            console.log(`${account}: Using estimated starting balance from ${prevPrevMonthKey}: ${originalBalance}`);
+            console.log(`${account}: Using final balance from ${prevPrevMonthKey}: ${originalBalance}`);
           }
         }
         
@@ -1593,10 +1593,10 @@ const BudgetCalculator = () => {
           return sum + groupCosts;
         }, 0);
         
-        // Final balance (Slutsaldo) from previous month = original balance + savings - non-recurring costs
+        // Final balance (Slutsaldo) from previous month = previous month's final balance + savings - non-recurring costs
         estimatedBalances[account] = originalBalance + accountSavings - accountNonRecurringCosts;
         console.log(`=== 🧮 DETALJERAD BERÄKNING FÖR ${account.toUpperCase()} ===`);
-        console.log(`📈 Startbalans från ${prevMonthInfo.monthKey}: ${originalBalance} kr`);
+        console.log(`📈 Slutsaldo från ${prevMonthInfo.monthKey}: ${originalBalance} kr`);
         console.log(`💾 Sparande under ${prevMonthInfo.monthKey}: ${accountSavings} kr`);
         console.log(`💸 Icke-löpande kostnader under ${prevMonthInfo.monthKey}: ${accountNonRecurringCosts} kr`);
         console.log(`🔢 FORMEL: ${originalBalance} + ${accountSavings} - ${accountNonRecurringCosts} = ${originalBalance + accountSavings - accountNonRecurringCosts} kr`);
