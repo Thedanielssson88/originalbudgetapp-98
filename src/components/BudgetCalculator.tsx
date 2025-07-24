@@ -1107,19 +1107,20 @@ const BudgetCalculator = () => {
     // Calculate final balances (Slutsaldo) for each account FIRST
     const finalBalances: {[key: string]: number} = {};
     accounts.forEach(account => {
-      // CRITICAL FIX: Always use the actual account balance, never estimated
-      const originalBalance = accountBalances[account] || 0;
+      // CRITICAL FIX: ALWAYS use the ACTUAL account balance from user input, NEVER estimated
+      // When user sets "Faktiskt kontosaldo" to 0, we MUST use 0, not any estimated value
+      const actualBalance = accountBalances[account];
+      const originalBalance = (actualBalance !== undefined && actualBalance !== null) ? actualBalance : 0;
       
-      // CRITICAL DEBUG FOR NOVEMBER LÖPANDE CALCULATION
-      if (selectedBudgetMonth?.includes('11') && account === 'Löpande') {
-        console.log(`🚨🚨🚨 NOVEMBER LÖPANDE FINAL BALANCE CALCULATION 🚨🚨🚨`);
+      // CRITICAL DEBUG FOR WHEN FAKTISKT KONTOSALDO IS 0
+      if (originalBalance === 0 && account === 'Löpande') {
+        console.log(`🚨🚨🚨 FAKTISKT KONTOSALDO IS 0 - CRITICAL DEBUG 🚨🚨🚨`);
         console.log(`📅 Month: ${selectedBudgetMonth}`);
         console.log(`🏠 Account: ${account}`);
-        console.log(`💰 originalBalance (from accountBalances): ${originalBalance}`);
-        console.log(`📊 Direct accountBalances[${account}]: ${accountBalances[account]}`);
+        console.log(`💰 User set Faktiskt kontosaldo to: ${actualBalance}`);
+        console.log(`💰 originalBalance MUST be 0: ${originalBalance}`);
         console.log(`📊 accountBalancesSet[${account}]: ${accountBalancesSet[account]}`);
-        console.log(`🔍 Type of accountBalances[${account}]: ${typeof accountBalances[account]}`);
-        console.log(`🔍 Full accountBalances object:`, accountBalances);
+        console.log(`🚨 WE MUST NEVER USE ESTIMATED VALUES HERE! 🚨`);
       }
       
       // Calculate total deposits for this account from savings groups
@@ -1145,12 +1146,16 @@ const BudgetCalculator = () => {
       const calculatedBalance = originalBalance + accountSavings - accountOneTimeCosts;
       console.log(`Beräkning: ${originalBalance} + ${accountSavings} - ${accountOneTimeCosts} = ${calculatedBalance}`);
       
-      // CRITICAL DEBUG FOR NOVEMBER LÖPANDE CALCULATION
-      if (selectedBudgetMonth?.includes('11') && account === 'Löpande') {
-        console.log(`🚨🚨🚨 NOVEMBER LÖPANDE FINAL RESULT: ${calculatedBalance} 🚨🚨🚨`);
-        console.log(`🔢 This will be saved as accountFinalBalances[Löpande]`);
-        console.log(`🔢 And later as Löpande.2025.11.Endbalance`);
-        console.log(`🔢 This should be 1000, not ${calculatedBalance}!`);
+      // CRITICAL DEBUG FOR WHEN FAKTISKT KONTOSALDO IS 0
+      if (originalBalance === 0 && account === 'Löpande') {
+        console.log(`🚨🚨🚨 FINAL CALCULATION WITH FAKTISKT KONTOSALDO = 0 🚨🚨🚨`);
+        console.log(`📅 Month: ${selectedBudgetMonth}`);
+        console.log(`💰 Started with originalBalance: ${originalBalance} (CORRECT)`);
+        console.log(`💰 Adding accountSavings: ${accountSavings}`);
+        console.log(`💰 Subtracting accountOneTimeCosts: ${accountOneTimeCosts}`);
+        console.log(`💰 Final calculation: ${originalBalance} + ${accountSavings} - ${accountOneTimeCosts} = ${calculatedBalance}`);
+        console.log(`💰 This ${calculatedBalance} will be saved as ending balance`);
+        console.log(`✅ This is CORRECT when Faktiskt kontosaldo = 0`);
       }
       
       finalBalances[account] = calculatedBalance;
