@@ -6220,15 +6220,23 @@ const BudgetCalculator = () => {
                                          </div>
                                        ))}
                                       
-                                      {/* Final calculation line */}
-                                      <div className="pt-2 mt-2 border-t border-gray-200">
-                                        <div className="flex justify-between text-sm font-medium">
-                                          <span className="text-gray-800">Slutsaldo</span>
-                                          <span className={finalBalance >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                            {formatCurrency(finalBalance)}
-                                          </span>
-                                        </div>
-                                      </div>
+                                       {/* Final calculation line */}
+                                       <div className="pt-2 mt-2 border-t border-gray-200">
+                                         <div className="flex justify-between text-sm font-medium">
+                                           <span className="text-gray-800">Slutsaldo</span>
+                                           <span className={finalBalance >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                             {formatCurrency(finalBalance)}
+                                           </span>
+                                         </div>
+                                         
+                                         {/* Calc.År.Månad.Slutsaldo row */}
+                                         <div className="flex justify-between text-sm font-medium mt-1">
+                                           <span className="text-gray-800">Calc.År.Månad.Slutsaldo</span>
+                                           <span className={finalBalance >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                             {formatCurrency(finalBalance)}
+                                           </span>
+                                         </div>
+                                       </div>
                                     </div>
                                   )}
                                 </div>
