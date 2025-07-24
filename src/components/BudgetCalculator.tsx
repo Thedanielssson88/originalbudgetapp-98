@@ -4350,7 +4350,7 @@ const BudgetCalculator = () => {
                                                 {estimatedResult && (
                                                   <div className="space-y-2">
                                                     <div className="flex justify-between items-center">
-                                                      <span className="text-sm font-medium text-orange-700">Estimerat slutsaldo</span>
+                                                      <span className="text-sm font-medium text-orange-700">Estimerad ingående balans</span>
                                                       <div className="flex items-center gap-2">
                                                         <span className="w-32 text-right text-sm text-orange-600">{formatCurrency(estimatedBalance)}</span>
                                                         <span className="text-sm text-orange-600 min-w-8">kr</span>
