@@ -582,17 +582,31 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                          </div>
                        )}
                        
-                       <div className="flex justify-between">
-                         <span>Faktiska extra kostnader/intäkter:</span>
-                         <span className={`font-medium ${details.actualExtraCosts >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                           {details.actualExtraCosts >= 0 ? '+' : ''}{formatCurrency(details.actualExtraCosts)} kr
-                         </span>
-                       </div>
-                       
-                       <div className="flex justify-between pt-1 border-t border-gray-200 mt-2">
-                         <span className="font-medium">Slutsaldo inför nästa månad:</span>
-                         <span className="text-gray-800 font-medium">{formatCurrency(details.startingBalance + details.savings + details.runningDeposits - details.runningCosts - details.individualCosts + details.actualExtraCosts)} kr</span>
-                       </div>
+                        <div className="flex justify-between">
+                          <span>Faktiska extra kostnader/intäkter:</span>
+                          <span className={`font-medium ${details.actualExtraCosts >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {details.actualExtraCosts >= 0 ? '+' : ''}{formatCurrency(details.actualExtraCosts)} kr
+                          </span>
+                        </div>
+                        
+                        <div className="flex justify-between pt-1 mt-2">
+                          <span className="font-medium text-black">Totala insättningar:</span>
+                          <span className="text-black font-medium">
+                            {formatCurrency(details.actualExtraCosts >= 0 ? details.savings + details.actualExtraCosts : details.savings)} kr
+                          </span>
+                        </div>
+                        
+                        <div className="flex justify-between">
+                          <span className="font-medium text-black">Totala uttag:</span>
+                          <span className="text-black font-medium">
+                            {formatCurrency(details.actualExtraCosts < 0 ? details.individualCosts + Math.abs(details.actualExtraCosts) : details.individualCosts)} kr
+                          </span>
+                        </div>
+                        
+                        <div className="flex justify-between pt-1 border-t border-gray-200 mt-2">
+                          <span className="font-medium">Slutsaldo inför nästa månad:</span>
+                          <span className="text-gray-800 font-medium">{formatCurrency(details.startingBalance + details.savings + details.runningDeposits - details.runningCosts - details.individualCosts + details.actualExtraCosts)} kr</span>
+                        </div>
                     </div>
                   )}
                 </div>
