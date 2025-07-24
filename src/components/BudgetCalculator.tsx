@@ -1861,6 +1861,14 @@ const BudgetCalculator = () => {
       
       // Use saved final balance from previous month if it was explicitly set
       if (hasPrevFinalBalance && prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
+        // CRITICAL DEBUG: Check if this is the wrong value being loaded
+        if (account === 'Löpande' && monthKey.includes('12')) {
+          console.log(`🚨🚨🚨 DECEMBER LÖPANDE - LOADING FROM NOVEMBER DATA 🚨🚨🚨`);
+          console.log(`📅 Loading December estimates from November data`);
+          console.log(`📊 November accountFinalBalances['Löpande']: ${prevMonthData.accountFinalBalances[account]}`);
+          console.log(`💡 This should be 1000, but if it's 2001, then November's saved data is wrong`);
+          console.log(`🚨🚨🚨 END DEBUG 🚨🚨🚨`);
+        }
         estimatedFinalBalances[account] = prevMonthData.accountFinalBalances[account];
         console.log(`📊 Estimated final balance for ${account}: ${estimatedFinalBalances[account]} (from prev month final, explicitly set)`);
       } else if (!hasPrevFinalBalance && prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
