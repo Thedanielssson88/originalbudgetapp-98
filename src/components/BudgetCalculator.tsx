@@ -4406,28 +4406,18 @@ const BudgetCalculator = () => {
                                      <CollapsibleContent className="space-y-3 mt-3">
                                        {categoryAccounts.map(account => {
                                           const currentBalance = accountBalances[account] || 0;
+                            const freshBalances = (window as any).__freshFinalBalances;
+                            const estimatedResult = getEstimatedAccountBalances(freshBalances);
+                            const estimatedBalance = estimatedResult?.[account] || 0;
                             
-                            // CRITICAL FIX: When user sets "Faktiskt kontosaldo" to 0, 
-                            // the "Estimerad ingående balans" should ALSO be 0, not estimated
-                            let estimatedBalance = 0;
-                            
-                            // Only show estimated opening balance if user has NOT set actual balance
-                            const hasSetActualBalance = accountBalancesSet[account] === true;
-                            if (!hasSetActualBalance) {
-                              const freshBalances = (window as any).__freshFinalBalances;
-                              const estimatedResult = getEstimatedAccountBalances(freshBalances);
-                              estimatedBalance = estimatedResult?.[account] || 0;
-                            }
-                           
-                            // CRITICAL DEBUGGING - Fixed estimated balance calculation
+                            // CRITICAL DEBUGGING - Check where wrong calculation happens
                             if (currentBalance === 0 && account === 'Löpande') {
-                              console.log(`🚨🚨🚨 FIXED: FAKTISKT KONTOSALDO = 0 🚨🚨🚨`);
+                              console.log(`🚨🚨🚨 DEBUGGING CALC.KONTOSALDO ISSUE 🚨🚨🚨`);
                               console.log(`📅 selectedBudgetMonth: ${selectedBudgetMonth}`);
                               console.log(`🏠 account: ${account}`);
-                              console.log(`💰 currentBalance: ${currentBalance}`);
-                              console.log(`💰 estimatedBalance (should be 0): ${estimatedBalance}`);
-                              console.log(`📊 hasSetActualBalance: ${hasSetActualBalance}`);
-                              console.log(`✅ Now using correct logic - when Faktiskt kontosaldo = 0, Estimerad ingående balans = 0`);
+                              console.log(`💰 currentBalance (Faktiskt): ${currentBalance}`);
+                              console.log(`💰 estimatedBalance (Estimerad ingående): ${estimatedBalance}`);
+                              console.log(`📊 accountBalancesSet[${account}]: ${accountBalancesSet[account]}`);
                             }
                                         
                                          return (
@@ -4487,7 +4477,7 @@ const BudgetCalculator = () => {
                                                 </div>
                                                
                                                  {/* Estimerat slutsaldo */}
-                                                 {!hasSetActualBalance && (
+                                                 {estimatedResult && (
                                                   <div className="space-y-2">
                                                     <div className="flex justify-between items-center">
                                                       <span className="text-sm font-medium text-orange-700">Estimerad ingående balans</span>
@@ -4500,10 +4490,28 @@ const BudgetCalculator = () => {
                                                 )}
 
                                                  {/* Calc.Kontosaldo */}
-                                                 {(() => {
-                                                   const hasActualBalance = accountBalancesSet[account] === true;
-                                                   const calcBalance = hasActualBalance ? currentBalance : estimatedBalance;
-                                                   const isUsingEstimated = !hasActualBalance;
+                                                  {(() => {
+                                                    const hasActualBalance = accountBalancesSet[account] === true;
+                                                    const calcBalance = hasActualBalance ? currentBalance : estimatedBalance;
+                                                    const isUsingEstimated = !hasActualBalance;
+                                                    
+                                                    // CRITICAL DEBUG - Check if this is the wrong calculation
+                                                    if (currentBalance === 0 && account === 'Löpande') {
+                                                      console.log(`🚨🚨🚨 CALC.KONTOSALDO CALCULATION DEBUG 🚨🚨🚨`);
+                                                      console.log(`📅 selectedBudgetMonth: ${selectedBudgetMonth}`);
+                                                      console.log(`🏠 account: ${account}`);
+                                                      console.log(`💰 currentBalance (Faktiskt): ${currentBalance}`);
+                                                      console.log(`💰 estimatedBalance (Estimerad): ${estimatedBalance}`);
+                                                      console.log(`📊 accountBalancesSet[${account}]: ${accountBalancesSet[account]}`);
+                                                      console.log(`🎯 hasActualBalance: ${hasActualBalance}`);
+                                                      console.log(`🎯 calcBalance (FINAL RESULT): ${calcBalance}`);
+                                                      console.log(`🎯 isUsingEstimated: ${isUsingEstimated}`);
+                                                      
+                                                      if (calcBalance !== 0) {
+                                                        console.log(`🔥🔥🔥 ERROR: calcBalance should be 0 but it's ${calcBalance}! 🔥🔥🔥`);
+                                                        console.log(`🔍 This means hasActualBalance is false when it should be true`);
+                                                      }
+                                                    }
                                                    
                                                    return (
                                                      <div className="space-y-2 pt-2 border-t border-gray-200">
