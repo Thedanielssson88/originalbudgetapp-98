@@ -1689,6 +1689,18 @@ const BudgetCalculator = () => {
     const currentBalance = accountBalances[account] || 0;
     console.log(`currentBalance from accountBalances[${account}]: ${currentBalance}`);
     
+    // CRITICAL FIX: Check if this account balance has been explicitly set by the user
+    const isExplicitlySet = accountBalancesSet[account] === true;
+    console.log(`accountBalancesSet[${account}]: ${isExplicitlySet}`);
+    
+    // If user has explicitly set the balance (even to 0), ALWAYS use that value
+    if (isExplicitlySet) {
+      console.log(`✅ Balance explicitly set by user: ${currentBalance}`);
+      console.log(`=== END DEBUG getAccountBalanceWithFallback ===`);
+      return currentBalance;
+    }
+    
+    // Only fall back to estimated if balance is non-zero
     if (currentBalance !== 0) {
       console.log(`Returning currentBalance: ${currentBalance}`);
       return currentBalance;
@@ -1701,23 +1713,8 @@ const BudgetCalculator = () => {
       const freshBalances = (window as any).__freshFinalBalances;
       console.log(`🚨 CRITICAL DEBUG - freshBalances from window:`, freshBalances);
       
-      // Add special debugging for December Löpande issue
-      if (selectedBudgetMonth?.includes('12') && account === 'Löpande') {
-        console.log(`🔥 DECEMBER LÖPANDE CRITICAL DEBUG:`);
-        console.log(`📅 selectedBudgetMonth: ${selectedBudgetMonth}`);
-        console.log(`🏠 account: ${account}`);
-        console.log(`💾 freshBalances:`, freshBalances);
-        
-        // Let's trace what getEstimatedAccountBalances returns
-        console.log(`🔧 About to call getEstimatedAccountBalances...`);
-      }
-      
       const estimated = getEstimatedAccountBalances(freshBalances);
       console.log(`🔍 estimated from getEstimatedAccountBalances:`, estimated);
-      
-      if (selectedBudgetMonth?.includes('12') && account === 'Löpande') {
-        console.log(`🔥 DECEMBER LÖPANDE - ESTIMATED RESULT: ${estimated?.[account] || 0}`);
-      }
       
       const result = estimated?.[account] || 0;
       console.log(`estimated[${account}]: ${result}`);
