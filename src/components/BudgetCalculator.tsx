@@ -1555,9 +1555,23 @@ const BudgetCalculator = () => {
         estimatedBalances[account] = freshFinalBalances[account];
         console.log(`${account}: Using fresh calculated Slutsaldo: ${freshFinalBalances[account]}`);
       } else if (prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
-        estimatedBalances[account] = prevMonthData.accountFinalBalances[account];
-        console.log(`${account}: Using saved Slutsaldo: ${prevMonthData.accountFinalBalances[account]}`);
-      } else {
+        // Check if this final balance was explicitly set by the user (not just calculated)
+        const wasExplicitlySet = prevMonthData.accountFinalBalancesSet && 
+                                prevMonthData.accountFinalBalancesSet[account] === true;
+        
+        // If the final balance is 0 and it was explicitly set, don't use it for estimation
+        // Instead, fall back to the calculated Slutsaldo from the previous month
+        if (prevMonthData.accountFinalBalances[account] === 0 && wasExplicitlySet) {
+          console.log(`${account}: Faktiskt slutsaldo is 0, falling back to calculated Slutsaldo from previous month`);
+          // Continue to calculation logic below
+        } else {
+          estimatedBalances[account] = prevMonthData.accountFinalBalances[account];
+          console.log(`${account}: Using saved Slutsaldo: ${prevMonthData.accountFinalBalances[account]}`);
+        }
+      }
+      
+      // If we reach here, we need to calculate from previous month's data
+      if (estimatedBalances[account] === undefined) {
         console.log(`${account}: No saved final balance found, calculating from raw data...`);
         // Fallback: calculate from previous month's data
         let originalBalance = prevMonthData.accountBalances?.[account] || 0;
