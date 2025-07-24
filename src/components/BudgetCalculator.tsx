@@ -1563,7 +1563,7 @@ const BudgetCalculator = () => {
         }
         
         // If still no balance found, try to use final balance from the month before
-        if (openingBalance === 0 || openingBalance === undefined || openingBalance === null) {
+        if (openingBalance === undefined || openingBalance === null) {
           const [prevYear, prevMonth] = prevMonthInfo.monthKey.split('-').map(Number);
           const prevPrevMonth = prevMonth === 1 ? 12 : prevMonth - 1;
           const prevPrevYear = prevMonth === 1 ? prevYear - 1 : prevYear;
