@@ -7351,7 +7351,13 @@ const BudgetCalculator = () => {
                                   
                                   // Set the balances immediately
                                   setAccountBalances(newStartingBalances);
-                                  setAccountBalancesSet(newStartingBalances);
+                                  
+                                  // Create proper boolean flags for accountBalancesSet
+                                  const newBalancesSet = {};
+                                  Object.keys(newStartingBalances).forEach(account => {
+                                    newBalancesSet[account] = true; // These balances are now explicitly set
+                                  });
+                                  setAccountBalancesSet(newBalancesSet);
                                 }
                               }
                               
