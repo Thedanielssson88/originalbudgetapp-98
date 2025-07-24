@@ -1,8 +1,8 @@
 import React from 'react';
-import BudgetCalculator from '@/components/BudgetCalculator';
+import BudgetCalculatorDB from '@/components/BudgetCalculatorDB';
 
 const Index = () => {
-  return <BudgetCalculator />;
+  return <BudgetCalculatorDB />;
 };
 
 export default Index;
