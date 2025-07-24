@@ -490,14 +490,13 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
             }
 
 
+
             // Generate dots for savings if enabled
             if (showSavingsSeparately) {
               data.forEach((point, index) => {
-                const savingsValue = point[`${account}_savings`];
-                if (savingsValue == null || savingsValue === 0 || point[account] == null) return;
+                if (point[account] == null) return;
 
                 const x = xScale(index);
-                const y = yScale(savingsValue);
                 
                 // Calculate the balance for main balance y position based on selected balance type
                 const startingBalance = point[`${account}_startingBalance`] || 0;
