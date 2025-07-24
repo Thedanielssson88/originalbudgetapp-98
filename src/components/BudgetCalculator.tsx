@@ -1593,15 +1593,14 @@ const BudgetCalculator = () => {
           return sum + groupCosts;
         }, 0);
         
-        // Final balance (Slutsaldo) from previous month = original balance + savings + cost budget deposit (recurring costs) - non-recurring costs
-        estimatedBalances[account] = originalBalance + accountSavings + accountRecurringCosts - accountNonRecurringCosts;
+        // Final balance (Slutsaldo) from previous month = original balance + savings - non-recurring costs
+        estimatedBalances[account] = originalBalance + accountSavings - accountNonRecurringCosts;
         console.log(`=== 🧮 DETALJERAD BERÄKNING FÖR ${account.toUpperCase()} ===`);
         console.log(`📈 Startbalans från ${prevMonthInfo.monthKey}: ${originalBalance} kr`);
         console.log(`💾 Sparande under ${prevMonthInfo.monthKey}: ${accountSavings} kr`);
-        console.log(`💰 Insättning kostnadsbudget (Löpande kostnader): ${accountRecurringCosts} kr`);
         console.log(`💸 Icke-löpande kostnader under ${prevMonthInfo.monthKey}: ${accountNonRecurringCosts} kr`);
-        console.log(`🔢 FORMEL: ${originalBalance} + ${accountSavings} + ${accountRecurringCosts} - ${accountNonRecurringCosts} = ${originalBalance + accountSavings + accountRecurringCosts - accountNonRecurringCosts} kr`);
-        console.log(`✅ ESTIMERAT SLUTSALDO FÖR ${account}: ${originalBalance + accountSavings + accountRecurringCosts - accountNonRecurringCosts} kr`);
+        console.log(`🔢 FORMEL: ${originalBalance} + ${accountSavings} - ${accountNonRecurringCosts} = ${originalBalance + accountSavings - accountNonRecurringCosts} kr`);
+        console.log(`✅ ESTIMERAT SLUTSALDO FÖR ${account}: ${originalBalance + accountSavings - accountNonRecurringCosts} kr`);
         console.log(`=== 🏁 SLUT DETALJERAD BERÄKNING ===`);
     });
     
