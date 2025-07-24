@@ -3149,6 +3149,50 @@ const BudgetCalculator = () => {
           .reduce((sum: number, group: any) => sum + group.amount, 0);
       };
 
+      // Helper function to get running costs for an account in a month
+      const getRunningCosts = (monthKey: string, account: string) => {
+        const monthData = historicalData[monthKey];
+        if (!monthData || !monthData.costGroups) return 0;
+        
+        let totalRunningCosts = 0;
+        
+        // Check costGroups for running costs (Löpande kostnad)
+        if (monthData.costGroups) {
+          monthData.costGroups.forEach((group: any) => {
+            if (group.subCategories) {
+              group.subCategories.forEach((sub: any) => {
+                if (sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom)) {
+                  totalRunningCosts += sub.amount;
+                }
+              });
+            }
+          });
+        }
+        
+        return totalRunningCosts;
+      };
+
+      // Helper function to get running deposits for an account in a month 
+      const getRunningDeposits = (monthKey: string, account: string) => {
+        const monthData = historicalData[monthKey];
+        if (!monthData) return 0;
+        
+        let totalRunningDeposits = 0;
+        
+        // Running deposits come from budget transfers and income allocations
+        // This is a simplified calculation - in practice this would be based on 
+        // the budget transfer system and daily budget allocations
+        // For now, we'll return a default value that matches the current tooltip logic
+        
+        // TODO: Implement proper running deposits calculation based on:
+        // - Budget transfers (dailyTransfer, weekendTransfer) 
+        // - Income shares allocated to this account
+        // - Any other regular deposits
+        
+        // For now, return 500 as default to match current tooltip behavior
+        return 500;
+      };
+
     // Calculate chart data
     const chartData = extendedMonthKeys.map((monthKey, index) => {
       const dataPoint: any = { 
@@ -3197,6 +3241,17 @@ const BudgetCalculator = () => {
           // No next month available
           dataPoint[`${account}_actualExtraCosts`] = 0;
         }
+      });
+
+      // Add running costs and deposits for all accounts
+      accounts.forEach(account => {
+        // Calculate running costs (Löpande kostnader) for this account
+        const runningCosts = getRunningCosts(monthKey, account);
+        dataPoint[`${account}_runningCosts`] = runningCosts;
+        
+        // Calculate running deposits (Löpande insättningar) for this account 
+        const runningDeposits = getRunningDeposits(monthKey, account);
+        dataPoint[`${account}_runningDeposits`] = runningDeposits;
       });
 
       // Add individual costs if enabled - always show them regardless of estimated budget setting
@@ -7318,6 +7373,14 @@ const BudgetCalculator = () => {
                             
                             // Wait for estimated balances calculation
                             await new Promise(resolve => setTimeout(resolve, 100));
+                            
+                            // Force re-calculation of previous month's final balances if this affects dependencies
+                            if (i > 0) {
+                              const prevMonthKey = monthsWithData[i - 1];
+                              console.log(`🔄 Recalculating previous month final balances for ${prevMonthKey}`);
+                              calculateAndSavePreviousMonthFinalBalances(monthKey);
+                              await new Promise(resolve => setTimeout(resolve, 50));
+                            }
                             
                             // Save all calculated data for this month
                             console.log(`💾 Saving recalculated data for ${monthKey}`);
