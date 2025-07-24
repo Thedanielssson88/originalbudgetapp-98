@@ -1107,32 +1107,24 @@ const BudgetCalculator = () => {
     // Calculate final balances (Slutsaldo) for each account FIRST
     const finalBalances: {[key: string]: number} = {};
     accounts.forEach(account => {
-      // CRITICAL FIX: Check if user has explicitly set the balance vs. not filled it
-      const isBalanceSet = accountBalancesSet[account] === true;
-      const actualBalance = accountBalances[account];
+      // CRITICAL FIX: ALWAYS use Calc.Kontosaldo for ending balance calculation
+      // Calc.Kontosaldo = user input when filled, 0 when "Ej ifyllt"
+      // NEVER use estimated values in ending balance calculations
+      const actualBalance = accountBalances[account] || 0;
+      const originalBalance = actualBalance;
       
-      let originalBalance: number;
+      console.log(`=== ENDING BALANCE CALCULATION FOR ${account} ===`);
+      console.log(`💰 Calc.Kontosaldo (used for calculation): ${originalBalance}`);
+      console.log(`📊 accountBalancesSet[${account}]: ${accountBalancesSet[account]}`);
+      console.log(`🚨 ALWAYS using Calc.Kontosaldo, NEVER estimated values`);
       
-      if (isBalanceSet) {
-        // User has explicitly set this balance (could be 0 or any other value)
-        originalBalance = actualBalance || 0;
-        console.log(`✅ ${account}: User explicitly set balance to ${originalBalance}`);
-      } else {
-        // User hasn't filled this field, use estimated opening balance
-        const estimated = getEstimatedAccountBalances();
-        originalBalance = estimated?.[account] || 0;
-        console.log(`📊 ${account}: Using estimated opening balance ${originalBalance} (not filled by user)`);
-      }
-      
-      // CRITICAL DEBUG FOR WHEN FAKTISKT KONTOSALDO IS 0
-      if (originalBalance === 0 && account === 'Löpande' && isBalanceSet) {
-        console.log(`🚨🚨🚨 FAKTISKT KONTOSALDO IS 0 - CRITICAL DEBUG 🚨🚨🚨`);
+      // CRITICAL DEBUG FOR WHEN FAKTISKT KONTOSALDO IS 0 OR EJ IFYLLT
+      if (originalBalance === 0 && account === 'Löpande') {
+        console.log(`🚨🚨🚨 CALC.KONTOSALDO IS 0 - ENDING BALANCE CALCULATION 🚨🚨🚨`);
         console.log(`📅 Month: ${selectedBudgetMonth}`);
         console.log(`🏠 Account: ${account}`);
-        console.log(`💰 User set Faktiskt kontosaldo to: ${actualBalance}`);
-        console.log(`💰 originalBalance MUST be 0: ${originalBalance}`);
-        console.log(`📊 accountBalancesSet[${account}]: ${accountBalancesSet[account]}`);
-        console.log(`🚨 WE MUST NEVER USE ESTIMATED VALUES HERE! 🚨`);
+        console.log(`💰 Calc.Kontosaldo: ${originalBalance}`);
+        console.log(`✅ Using Calc.Kontosaldo for ending balance calculation (CORRECT)`);
       }
       
       // Calculate total deposits for this account from savings groups
