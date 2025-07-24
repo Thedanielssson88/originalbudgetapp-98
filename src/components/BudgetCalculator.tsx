@@ -1855,65 +1855,33 @@ const BudgetCalculator = () => {
     const estimatedFinalBalances: {[key: string]: number} = {};
     
     accounts.forEach(account => {
-      // Check if previous month has explicitly set actual balance (Faktiskt kontosaldo)
-      const hasPrevActualBalance = prevMonthData.accountBalancesSet && 
-                                   prevMonthData.accountBalancesSet[account] === true;
+      // ALWAYS calculate actual ending balance from previous month's budget data
+      console.log(`🔢 Calculating actual ending balance for ${account} from previous month budget data`);
       
-      // CRITICAL FIX: Use actual balance when user has set "Faktiskt kontosaldo"
-      if (hasPrevActualBalance && prevMonthData.accountBalances && prevMonthData.accountBalances[account] !== undefined) {
-        // CRITICAL DEBUG: Check if this is the wrong value being loaded
-        if (account === 'Löpande' && monthKey.includes('12')) {
-          console.log(`🚨🚨🚨 DECEMBER LÖPANDE - USING ACTUAL NOVEMBER BALANCE 🚨🚨🚨`);
-          console.log(`📅 Loading December estimates from November ACTUAL balance`);
-          console.log(`📊 November accountBalances['Löpande'] (ACTUAL): ${prevMonthData.accountBalances[account]}`);
-          console.log(`✅ This should be the correct value (1000 if user set it to 1000)`);
-          console.log(`🚨🚨🚨 END DEBUG 🚨🚨🚨`);
-        }
-        // Use the ACTUAL balance from previous month, not the estimated final balance
-        estimatedFinalBalances[account] = prevMonthData.accountBalances[account];
-        console.log(`📊 Estimated final balance for ${account}: ${estimatedFinalBalances[account]} (from prev month ACTUAL balance)`);
-      } else {
-        // Check if previous month has calculated final balance
-        const hasPrevFinalBalance = prevMonthData.accountFinalBalancesSet && 
-                                    prevMonthData.accountFinalBalancesSet[account] === true;
-        
-        // Use saved final balance from previous month if it was calculated
-        if (hasPrevFinalBalance && prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
-          estimatedFinalBalances[account] = prevMonthData.accountFinalBalances[account];
-          console.log(`📊 Estimated final balance for ${account}: ${estimatedFinalBalances[account]} (from prev month final, explicitly set)`);
-        } else if (!hasPrevFinalBalance && prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
-          // If not explicitly set but value exists, still use it (backward compatibility)
-          estimatedFinalBalances[account] = prevMonthData.accountFinalBalances[account];
-        } else {
-          // November doesn't have explicit "Faktiskt kontosaldo" set, so calculate actual ending balance
-          console.log(`🔢 Calculating actual ending balance for ${account} from November budget data`);
-          
-          const originalBalance = prevMonthData.accountBalances?.[account] || 0;
-          console.log(`📊 Original balance: ${originalBalance}`);
-          
-          // Calculate account savings (positive)
-          const accountSavings = (prevMonthData.savingsGroups || [])
-            .filter((group: any) => group.account === account)
-            .reduce((sum: number, group: any) => sum + group.amount, 0);
-          console.log(`💰 Account savings: ${accountSavings}`);
-          
-          // Calculate account one-time costs (enskild kostnad) - these reduce the balance
-          const accountOneTimeCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-            const groupOneTimeCosts = group.subCategories
-              ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
-              .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-            return sum + groupOneTimeCosts;
-          }, 0);
-          console.log(`💸 Account one-time costs: ${accountOneTimeCosts}`);
-          
-          // Calculate the actual ending balance: original + savings - one-time costs
-          const actualEndingBalance = originalBalance + accountSavings - accountOneTimeCosts;
-          console.log(`🎯 Calculated actual ending balance: ${originalBalance} + ${accountSavings} - ${accountOneTimeCosts} = ${actualEndingBalance}`);
-          
-          estimatedFinalBalances[account] = actualEndingBalance;
-          console.log(`📊 Estimated final balance for ${account}: ${actualEndingBalance} (calculated from budget data)`);
-        }
-      }
+      const originalBalance = prevMonthData.accountBalances?.[account] || 0;
+      console.log(`📊 Original balance: ${originalBalance}`);
+      
+      // Calculate account savings (positive)
+      const accountSavings = (prevMonthData.savingsGroups || [])
+        .filter((group: any) => group.account === account)
+        .reduce((sum: number, group: any) => sum + group.amount, 0);
+      console.log(`💰 Account savings: ${accountSavings}`);
+      
+      // Calculate account one-time costs (enskild kostnad) - these reduce the balance
+      const accountOneTimeCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+        const groupOneTimeCosts = group.subCategories
+          ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
+          .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+        return sum + groupOneTimeCosts;
+      }, 0);
+      console.log(`💸 Account one-time costs: ${accountOneTimeCosts}`);
+      
+      // Calculate the actual ending balance: original + savings - one-time costs
+      const actualEndingBalance = originalBalance + accountSavings - accountOneTimeCosts;
+      console.log(`🎯 Calculated actual ending balance: ${originalBalance} + ${accountSavings} - ${accountOneTimeCosts} = ${actualEndingBalance}`);
+      
+      estimatedFinalBalances[account] = actualEndingBalance;
+      console.log(`📊 Estimated final balance for ${account}: ${actualEndingBalance} (always calculated from budget data)`);
     });
     
     // Save estimated final balances to the month data
