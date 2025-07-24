@@ -1548,60 +1548,46 @@ const BudgetCalculator = () => {
     
     console.log('Previous month data found:', prevMonthInfo.monthKey, prevMonthData);
     
-    // Calculate final balances from previous month for each account
-    // ALWAYS calculate from previous month's data to ensure consistency
-    // Estimerat slutsaldo ska alltid baseras på beräknad slutsaldo från föregående månad
+    // Calculate estimated opening balances for current month
+    // This should simply be the previous month's final balance (Account.Year.Month.Endbalance)
     accounts.forEach(account => {
-        console.log(`${account}: Calculating estimated balance from previous month's final balance...`);
-        // Use the calculated final balance from previous month (Slutsaldo) as starting point
-        let originalBalance = prevMonthData.accountFinalBalances?.[account] || 0;
+        console.log(`${account}: Using previous month's final balance as opening balance...`);
         
-        // If final balance is 0 or empty, try to use final balance from the month before
-        if (originalBalance === 0) {
+        // The estimated opening balance should be exactly the previous month's final balance
+        let openingBalance = prevMonthData.accountFinalBalances?.[account];
+        
+        // If final balance is not set, try to get it from accountBalances as fallback
+        if (openingBalance === undefined || openingBalance === null) {
+          openingBalance = prevMonthData.accountBalances?.[account] || 0;
+          console.log(`${account}: No final balance found, using account balance: ${openingBalance}`);
+        }
+        
+        // If still no balance found, try to use final balance from the month before
+        if (openingBalance === 0 || openingBalance === undefined || openingBalance === null) {
           const [prevYear, prevMonth] = prevMonthInfo.monthKey.split('-').map(Number);
           const prevPrevMonth = prevMonth === 1 ? 12 : prevMonth - 1;
           const prevPrevYear = prevMonth === 1 ? prevYear - 1 : prevYear;
           const prevPrevMonthKey = `${prevPrevYear}-${String(prevPrevMonth).padStart(2, '0')}`;
           
-          console.log(`${account}: Final balance is 0, checking for final balance from ${prevPrevMonthKey}`);
+          console.log(`${account}: Balance is 0/undefined, checking for final balance from ${prevPrevMonthKey}`);
           
           const prevPrevMonthData = historicalData[prevPrevMonthKey];
           if (prevPrevMonthData && prevPrevMonthData.accountFinalBalances && prevPrevMonthData.accountFinalBalances[account] !== undefined) {
-            originalBalance = prevPrevMonthData.accountFinalBalances[account];
-            console.log(`${account}: Using final balance from ${prevPrevMonthKey}: ${originalBalance}`);
+            openingBalance = prevPrevMonthData.accountFinalBalances[account];
+            console.log(`${account}: Using final balance from ${prevPrevMonthKey}: ${openingBalance}`);
+          } else {
+            openingBalance = 0;
           }
         }
         
-        // Calculate savings for this account
-        const accountSavings = (prevMonthData.savingsGroups || [])
-          .filter((group: any) => group.account === account)
-          .reduce((sum: number, group: any) => sum + group.amount, 0);
+        // The estimated opening balance is simply the previous month's ending balance
+        estimatedBalances[account] = openingBalance || 0;
         
-        // Calculate costs for this account that are "Löpande kostnad" (for cost budget deposit)
-        const accountRecurringCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-          const groupCosts = group.subCategories
-            ?.filter((sub: any) => sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom))
-            .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-          return sum + groupCosts;
-        }, 0);
-        
-        // Calculate non-recurring costs for this account (costs that are NOT "Löpande kostnad")
-        const accountNonRecurringCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-          const groupCosts = group.subCategories
-            ?.filter((sub: any) => sub.account === account && sub.financedFrom && sub.financedFrom !== 'Löpande kostnad')
-            .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-          return sum + groupCosts;
-        }, 0);
-        
-        // Final balance (Slutsaldo) from previous month = previous month's final balance + savings - non-recurring costs
-        estimatedBalances[account] = originalBalance + accountSavings - accountNonRecurringCosts;
-        console.log(`=== 🧮 DETALJERAD BERÄKNING FÖR ${account.toUpperCase()} ===`);
-        console.log(`📈 Slutsaldo från ${prevMonthInfo.monthKey}: ${originalBalance} kr`);
-        console.log(`💾 Sparande under ${prevMonthInfo.monthKey}: ${accountSavings} kr`);
-        console.log(`💸 Icke-löpande kostnader under ${prevMonthInfo.monthKey}: ${accountNonRecurringCosts} kr`);
-        console.log(`🔢 FORMEL: ${originalBalance} + ${accountSavings} - ${accountNonRecurringCosts} = ${originalBalance + accountSavings - accountNonRecurringCosts} kr`);
-        console.log(`✅ ESTIMERAT SLUTSALDO FÖR ${account}: ${originalBalance + accountSavings - accountNonRecurringCosts} kr`);
-        console.log(`=== 🏁 SLUT DETALJERAD BERÄKNING ===`);
+        const [prevYear, prevMonth] = prevMonthInfo.monthKey.split('-');
+        console.log(`=== 📊 ESTIMATED OPENING BALANCE FOR ${account.toUpperCase()} ===`);
+        console.log(`📈 Previous month ending balance (${account}.${prevYear}.${prevMonth}.Endbalance): ${openingBalance || 0} kr`);
+        console.log(`✅ ESTIMATED OPENING BALANCE: ${estimatedBalances[account]} kr`);
+        console.log(`=== 🏁 END ===`);
     });
     
     console.log('All estimated balances:', estimatedBalances);
