@@ -1833,18 +1833,50 @@ const BudgetCalculator = () => {
     }, 100);
   };
   
-  // Function to calculate and save estimated final balances for a month
+  // Function to get the actual displayed ending balance from a specific month
+  const getActualEndingBalanceFromMonth = (monthKey: string, account: string): number => {
+    const monthData = historicalData[monthKey];
+    if (!monthData) return 0;
+    
+    console.log(`🎯 Getting actual ending balance for ${account} from ${monthKey}`);
+    
+    // Get the original balance
+    const originalBalance = monthData.accountBalances?.[account] || 0;
+    console.log(`📊 Original balance: ${originalBalance}`);
+    
+    // Calculate account savings (positive)
+    const accountSavings = (monthData.savingsGroups || [])
+      .filter((group: any) => group.account === account)
+      .reduce((sum: number, group: any) => sum + group.amount, 0);
+    console.log(`💰 Account savings: ${accountSavings}`);
+    
+    // Calculate account one-time costs (enskild kostnad) - these reduce the balance
+    const accountOneTimeCosts = (monthData.costGroups || []).reduce((sum: number, group: any) => {
+      const groupOneTimeCosts = group.subCategories
+        ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
+        .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+      return sum + groupOneTimeCosts;
+    }, 0);
+    console.log(`💸 Account one-time costs: ${accountOneTimeCosts}`);
+    
+    // Calculate the actual ending balance exactly as displayed in Slutsaldo
+    const slutsaldo = originalBalance + accountSavings - accountOneTimeCosts;
+    console.log(`🎯 Actual ending balance (Slutsaldo): ${originalBalance} + ${accountSavings} - ${accountOneTimeCosts} = ${slutsaldo}`);
+    
+    return slutsaldo;
+  };
+
+  // Function to calculate and save estimated final balances for a month using previous month's actual ending balance
   const calculateAndSaveEstimatedFinalBalances = (monthKey: string) => {
     const monthData = historicalData[monthKey];
     if (!monthData) return;
     
-    console.log(`🔢 Calculating estimated final balances for ${monthKey} (always calculated)`);
+    console.log(`🔢 Loading December starting balances from November actual ending balances`);
     
-    // Calculate estimated balances based on previous month
+    // Calculate estimated balances based on previous month's actual ending balance
     const [year, month] = monthKey.split('-').map(Number);
     const prevDate = new Date(year, month - 2, 1);
     const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-    
     
     const prevMonthData = historicalData[prevMonthKey];
     if (!prevMonthData) {
@@ -1855,33 +1887,19 @@ const BudgetCalculator = () => {
     const estimatedFinalBalances: {[key: string]: number} = {};
     
     accounts.forEach(account => {
-      // ALWAYS calculate actual ending balance from previous month's budget data
-      console.log(`🔢 Calculating actual ending balance for ${account} from previous month budget data`);
+      // ALWAYS use the actual ending balance from previous month (Slutsaldo)
+      const actualEndingBalance = getActualEndingBalanceFromMonth(prevMonthKey, account);
       
-      const originalBalance = prevMonthData.accountBalances?.[account] || 0;
-      console.log(`📊 Original balance: ${originalBalance}`);
-      
-      // Calculate account savings (positive)
-      const accountSavings = (prevMonthData.savingsGroups || [])
-        .filter((group: any) => group.account === account)
-        .reduce((sum: number, group: any) => sum + group.amount, 0);
-      console.log(`💰 Account savings: ${accountSavings}`);
-      
-      // Calculate account one-time costs (enskild kostnad) - these reduce the balance
-      const accountOneTimeCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-        const groupOneTimeCosts = group.subCategories
-          ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
-          .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-        return sum + groupOneTimeCosts;
-      }, 0);
-      console.log(`💸 Account one-time costs: ${accountOneTimeCosts}`);
-      
-      // Calculate the actual ending balance: original + savings - one-time costs
-      const actualEndingBalance = originalBalance + accountSavings - accountOneTimeCosts;
-      console.log(`🎯 Calculated actual ending balance: ${originalBalance} + ${accountSavings} - ${accountOneTimeCosts} = ${actualEndingBalance}`);
+      if (account === 'Löpande' && monthKey.includes('12')) {
+        console.log(`🚨🚨🚨 DECEMBER LÖPANDE - USING NOVEMBER SLUTSALDO 🚨🚨🚨`);
+        console.log(`📅 December starting balance = November ending balance (Slutsaldo)`);
+        console.log(`📊 November Slutsaldo for ${account}: ${actualEndingBalance}`);
+        console.log(`✅ This should be 1000 (the exact value shown in November's Slutsaldo)`);
+        console.log(`🚨🚨🚨 END DEBUG 🚨🚨🚨`);
+      }
       
       estimatedFinalBalances[account] = actualEndingBalance;
-      console.log(`📊 Estimated final balance for ${account}: ${actualEndingBalance} (always calculated from budget data)`);
+      console.log(`📊 December starting balance for ${account}: ${actualEndingBalance} (from November Slutsaldo)`);
     });
     
     // Save estimated final balances to the month data
