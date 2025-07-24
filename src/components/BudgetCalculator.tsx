@@ -2386,47 +2386,51 @@ const BudgetCalculator = () => {
     setAccountFinalBalances(currentFinalBalances);
     console.log(`💾 Updated accountFinalBalances to current values:`, currentFinalBalances);
     
-    // Small delay to ensure state update completes
+    // CRITICAL FIX: Ensure save completes before switching months
     setTimeout(() => {
       // Save current data to current month after ensuring all values are current
       console.log(`Saving current month data with updated final balances...`);
       saveToSelectedMonth();
+      
+      // WAIT for save to complete, then proceed with month switch
+      setTimeout(() => {
+        console.log(`Historical data keys AFTER saveToSelectedMonth:`, Object.keys(historicalData));
+        
+        // Calculate and save final balances for the previous month of the target month
+        console.log(`Calculating previous month final balances...`);
+        const freshFinalBalances = calculateAndSavePreviousMonthFinalBalances(monthKey);
+        
+        console.log(`Historical data keys AFTER calculateAndSavePreviousMonthFinalBalances:`, Object.keys(historicalData));
+        console.log(`Historical data after calculating previous month final balances:`, JSON.stringify(historicalData, null, 2));
+        
+        // Store the fresh final balances to use immediately for estimated balances
+        if (freshFinalBalances) {
+          (window as any).__freshFinalBalances = freshFinalBalances;
+          console.log(`Stored fresh final balances for immediate use:`, freshFinalBalances);
+        }
+        
+        // Now switch to the new month after all saves are complete
+        setSelectedBudgetMonth(monthKey);
+        
+        // Check if switching away from current month while on Överföring tab
+        const currentDate = new Date();
+        const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+        const isCurrentMonth = monthKey === currentMonthKey;
+        
+        // If switching to non-current month and currently on Överföring tab, switch to a valid tab
+        if (!isCurrentMonth && activeTab === 'overforing') {
+          setActiveTab('sammanstallning');
+        }
+        
+        // If the month exists in historical data, load it
+        if (historicalData[monthKey]) {
+          loadDataFromSelectedMonth(monthKey);
+        } else {
+          // If it's a new month, add it with data copied from current month
+          addNewBudgetMonth(monthKey, true);
+        }
+      }, 100);
     }, 50);
-    
-    console.log(`Historical data keys AFTER saveToSelectedMonth:`, Object.keys(historicalData));
-    
-    // Calculate and save final balances for the previous month of the target month
-    console.log(`Calculating previous month final balances...`);
-    const freshFinalBalances = calculateAndSavePreviousMonthFinalBalances(monthKey);
-    
-    console.log(`Historical data keys AFTER calculateAndSavePreviousMonthFinalBalances:`, Object.keys(historicalData));
-    console.log(`Historical data after calculating previous month final balances:`, JSON.stringify(historicalData, null, 2));
-    
-    // Store the fresh final balances to use immediately for estimated balances
-    if (freshFinalBalances) {
-      (window as any).__freshFinalBalances = freshFinalBalances;
-      console.log(`Stored fresh final balances for immediate use:`, freshFinalBalances);
-    }
-    
-    setSelectedBudgetMonth(monthKey);
-    
-    // Check if switching away from current month while on Överföring tab
-    const currentDate = new Date();
-    const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-    const isCurrentMonth = monthKey === currentMonthKey;
-    
-    // If switching to non-current month and currently on Överföring tab, switch to a valid tab
-    if (!isCurrentMonth && activeTab === 'overforing') {
-      setActiveTab('sammanstallning');
-    }
-    
-    // If the month exists in historical data, load it
-    if (historicalData[monthKey]) {
-      loadDataFromSelectedMonth(monthKey);
-    } else {
-      // If it's a new month, add it with data copied from current month
-      addNewBudgetMonth(monthKey, true);
-    }
   };
 
   // Budget template functions
