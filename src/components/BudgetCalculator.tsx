@@ -7330,6 +7330,31 @@ const BudgetCalculator = () => {
                               console.log(`📂 Switching to month: ${monthKey}`);
                               setSelectedBudgetMonth(monthKey);
                               
+                              // Update starting balances from previous month BEFORE loading current month data
+                              if (i > 0) {
+                                const prevMonthKey = monthsWithData[i - 1];
+                                console.log(`🔄 Setting starting balances for ${monthKey} from ${prevMonthKey}`);
+                                
+                                // Get previous month's final balances
+                                const prevMonthData = historicalData[prevMonthKey];
+                                if (prevMonthData && prevMonthData.estimatedFinalBalances) {
+                                  console.log(`📊 Using final balances from ${prevMonthKey}:`, prevMonthData.estimatedFinalBalances);
+                                  
+                                  // Create new starting balances
+                                  const newStartingBalances = {};
+                                  Object.keys(prevMonthData.estimatedFinalBalances).forEach(account => {
+                                    if (prevMonthData.estimatedFinalBalances[account] !== null) {
+                                      newStartingBalances[account] = prevMonthData.estimatedFinalBalances[account];
+                                      console.log(`💰 Setting ${account} starting balance to: ${prevMonthData.estimatedFinalBalances[account]}`);
+                                    }
+                                  });
+                                  
+                                  // Set the balances immediately
+                                  setAccountBalances(newStartingBalances);
+                                  setAccountBalancesSet(newStartingBalances);
+                                }
+                              }
+                              
                               // Use timeout to ensure state update completes
                               setTimeout(() => {
                                 // Load month data manually to avoid side effects
@@ -7349,8 +7374,13 @@ const BudgetCalculator = () => {
                                   if (monthData.dailyTransfer !== undefined) setDailyTransfer(monthData.dailyTransfer);
                                   if (monthData.weekendTransfer !== undefined) setWeekendTransfer(monthData.weekendTransfer);
                                   if (monthData.customHolidays) setCustomHolidays(JSON.parse(JSON.stringify(monthData.customHolidays)));
-                                  if (monthData.accountBalances) setAccountBalances(JSON.parse(JSON.stringify(monthData.accountBalances)));
-                                  if (monthData.accountBalancesSet) setAccountBalancesSet(JSON.parse(JSON.stringify(monthData.accountBalancesSet)));
+                                  // Only load account balances if this is the first month or they weren't already set from previous month
+                                  if (i === 0) {
+                                    if (monthData.accountBalances) setAccountBalances(JSON.parse(JSON.stringify(monthData.accountBalances)));
+                                    if (monthData.accountBalancesSet) setAccountBalancesSet(JSON.parse(JSON.stringify(monthData.accountBalancesSet)));
+                                  } else {
+                                    console.log(`⚠️ Skipping account balance loading for ${monthKey} - using previous month's final balances as starting balances`);
+                                  }
                                   if (monthData.accounts) setAccounts(JSON.parse(JSON.stringify(monthData.accounts)));
                                 }
                                 resolve();
@@ -7374,39 +7404,10 @@ const BudgetCalculator = () => {
                             // Wait for estimated balances calculation
                             await new Promise(resolve => setTimeout(resolve, 100));
                             
-                            // Update starting balances for this month based on previous month's final balances
-                            if (i > 0) {
-                              const prevMonthKey = monthsWithData[i - 1];
-                              console.log(`🔄 Updating starting balances for ${monthKey} based on ${prevMonthKey}`);
-                              
-                              // Get previous month's final balances
-                              const prevMonthData = historicalData[prevMonthKey];
-                              if (prevMonthData && prevMonthData.estimatedFinalBalances) {
-                                console.log(`📊 Using final balances from ${prevMonthKey}:`, prevMonthData.estimatedFinalBalances);
-                                
-                                // Update current month's starting balances
-                                const updatedBalances = { ...accountBalances };
-                                Object.keys(prevMonthData.estimatedFinalBalances).forEach(account => {
-                                  if (prevMonthData.estimatedFinalBalances[account] !== null) {
-                                    updatedBalances[account] = prevMonthData.estimatedFinalBalances[account];
-                                    console.log(`💰 Updated ${account} starting balance to: ${prevMonthData.estimatedFinalBalances[account]}`);
-                                  }
-                                });
-                                
-                                setAccountBalances(updatedBalances);
-                                await new Promise(resolve => setTimeout(resolve, 50));
-                                
-                                // Recalculate budget with updated starting balances
-                                console.log(`🔄 Recalculating budget for ${monthKey} with updated starting balances`);
-                                calculateBudget();
-                                await new Promise(resolve => setTimeout(resolve, 100));
-                                
-                                // Recalculate estimated final balances
-                                console.log(`💰 Recalculating estimated final balances for ${monthKey}`);
-                                calculateAndSaveEstimatedFinalBalances(monthKey);
-                                await new Promise(resolve => setTimeout(resolve, 100));
-                              }
-                            }
+                            // Save current state 
+                            console.log(`💾 Saving calculated state for ${monthKey}`);
+                            saveToSelectedMonth();
+                            await new Promise(resolve => setTimeout(resolve, 50));
                             
                             // Save all calculated data for this month
                             console.log(`💾 Saving recalculated data for ${monthKey}`);
