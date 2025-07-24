@@ -1855,50 +1855,60 @@ const BudgetCalculator = () => {
     const estimatedFinalBalances: {[key: string]: number} = {};
     
     accounts.forEach(account => {
-      // Check if previous month has explicitly set final balance (including 0)
-      const hasPrevFinalBalance = prevMonthData.accountFinalBalancesSet && 
-                                  prevMonthData.accountFinalBalancesSet[account] === true;
+      // Check if previous month has explicitly set actual balance (Faktiskt kontosaldo)
+      const hasPrevActualBalance = prevMonthData.accountBalancesSet && 
+                                   prevMonthData.accountBalancesSet[account] === true;
       
-      // Use saved final balance from previous month if it was explicitly set
-      if (hasPrevFinalBalance && prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
+      // CRITICAL FIX: Use actual balance when user has set "Faktiskt kontosaldo"
+      if (hasPrevActualBalance && prevMonthData.accountBalances && prevMonthData.accountBalances[account] !== undefined) {
         // CRITICAL DEBUG: Check if this is the wrong value being loaded
         if (account === 'Löpande' && monthKey.includes('12')) {
-          console.log(`🚨🚨🚨 DECEMBER LÖPANDE - LOADING FROM NOVEMBER DATA 🚨🚨🚨`);
-          console.log(`📅 Loading December estimates from November data`);
-          console.log(`📊 November accountFinalBalances['Löpande']: ${prevMonthData.accountFinalBalances[account]}`);
-          console.log(`💡 This should be 1000, but if it's 2001, then November's saved data is wrong`);
+          console.log(`🚨🚨🚨 DECEMBER LÖPANDE - USING ACTUAL NOVEMBER BALANCE 🚨🚨🚨`);
+          console.log(`📅 Loading December estimates from November ACTUAL balance`);
+          console.log(`📊 November accountBalances['Löpande'] (ACTUAL): ${prevMonthData.accountBalances[account]}`);
+          console.log(`✅ This should be the correct value (1000 if user set it to 1000)`);
           console.log(`🚨🚨🚨 END DEBUG 🚨🚨🚨`);
         }
-        estimatedFinalBalances[account] = prevMonthData.accountFinalBalances[account];
-        console.log(`📊 Estimated final balance for ${account}: ${estimatedFinalBalances[account]} (from prev month final, explicitly set)`);
-      } else if (!hasPrevFinalBalance && prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
-        // If not explicitly set but value exists, still use it (backward compatibility)
-        estimatedFinalBalances[account] = prevMonthData.accountFinalBalances[account];
-        console.log(`📊 Estimated final balance for ${account}: ${estimatedFinalBalances[account]} (from prev month final, legacy)`);
+        // Use the ACTUAL balance from previous month, not the estimated final balance
+        estimatedFinalBalances[account] = prevMonthData.accountBalances[account];
+        console.log(`📊 Estimated final balance for ${account}: ${estimatedFinalBalances[account]} (from prev month ACTUAL balance)`);
       } else {
-        // Fallback calculation if previous month doesn't have final balances
-        const originalBalance = prevMonthData.accountBalances?.[account] || 0;
-        const accountSavings = (prevMonthData.savingsGroups || [])
-          .filter((group: any) => group.account === account)
-          .reduce((sum: number, group: any) => sum + group.amount, 0);
+        // Check if previous month has calculated final balance
+        const hasPrevFinalBalance = prevMonthData.accountFinalBalancesSet && 
+                                    prevMonthData.accountFinalBalancesSet[account] === true;
         
-        const accountRecurringCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-          const groupCosts = group.subCategories
-            ?.filter((sub: any) => sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom))
-            .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-          return sum + groupCosts;
-        }, 0);
-        
-        const accountAllCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-          const groupCosts = group.subCategories
-            ?.filter((sub: any) => sub.account === account)
-            .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-          return sum + groupCosts;
-        }, 0);
-        
-        const slutsaldo = originalBalance + accountSavings + accountRecurringCosts - accountAllCosts;
-        estimatedFinalBalances[account] = slutsaldo;
-        console.log(`📊 Estimated final balance for ${account}: ${slutsaldo} (calculated)`);
+        // Use saved final balance from previous month if it was calculated
+        if (hasPrevFinalBalance && prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
+          estimatedFinalBalances[account] = prevMonthData.accountFinalBalances[account];
+          console.log(`📊 Estimated final balance for ${account}: ${estimatedFinalBalances[account]} (from prev month final, explicitly set)`);
+        } else if (!hasPrevFinalBalance && prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
+          // If not explicitly set but value exists, still use it (backward compatibility)
+          estimatedFinalBalances[account] = prevMonthData.accountFinalBalances[account];
+        } else {
+          // Fallback calculation if previous month doesn't have final balances
+          const originalBalance = prevMonthData.accountBalances?.[account] || 0;
+          const accountSavings = (prevMonthData.savingsGroups || [])
+            .filter((group: any) => group.account === account)
+            .reduce((sum: number, group: any) => sum + group.amount, 0);
+          
+          const accountRecurringCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+            const groupCosts = group.subCategories
+              ?.filter((sub: any) => sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom))
+              .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+            return sum + groupCosts;
+          }, 0);
+          
+          const accountAllCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+            const groupCosts = group.subCategories
+              ?.filter((sub: any) => sub.account === account)
+              .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+            return sum + groupCosts;
+          }, 0);
+          
+          const slutsaldo = originalBalance + accountSavings + accountRecurringCosts - accountAllCosts;
+          estimatedFinalBalances[account] = slutsaldo;
+          console.log(`📊 Estimated final balance for ${account}: ${slutsaldo} (calculated)`);
+        }
       }
     });
     
