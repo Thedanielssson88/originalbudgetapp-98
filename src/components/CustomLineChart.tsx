@@ -415,17 +415,21 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                 const displayBalance = balanceType === 'starting' ? startingBalance : finalBalance;
                 const mainY = yScale(displayBalance);
 
+                // Calculate total withdrawals
+                const totalWithdrawals = -(actualExtraCosts < 0 ? individualCosts + Math.abs(actualExtraCosts) : individualCosts);
 
-                // Add red triangle below the main balance point pointing down
-                dots.push(
-                  <polygon
-                    key={`${account}-individual-triangle-${index}`}
-                    points={`${x},${mainY + 24} ${x - 6},${mainY + 14} ${x + 6},${mainY + 14}`}
-                    fill="#ef4444"
-                    stroke="#dc2626"
-                    strokeWidth={1}
-                  />
-                );
+                // Add red triangle below the main balance point pointing down - only if total withdrawals < 0
+                if (totalWithdrawals < 0) {
+                  dots.push(
+                    <polygon
+                      key={`${account}-individual-triangle-${index}`}
+                      points={`${x},${mainY + 24} ${x - 6},${mainY + 14} ${x + 6},${mainY + 14}`}
+                      fill="#ef4444"
+                      stroke="#dc2626"
+                      strokeWidth={1}
+                    />
+                  );
+                }
               });
             }
 
@@ -449,17 +453,21 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                 const displayBalance = balanceType === 'starting' ? startingBalance : finalBalance;
                 const mainY = yScale(displayBalance);
 
+                // Calculate total deposits
+                const totalDeposits = actualExtraCosts >= 0 ? savings + actualExtraCosts : savings;
 
-                // Add green triangle above the main balance point pointing up
-                dots.push(
-                  <polygon
-                    key={`${account}-savings-triangle-${index}`}
-                    points={`${x},${mainY - 24} ${x - 6},${mainY - 14} ${x + 6},${mainY - 14}`}
-                    fill="#22c55e"
-                    stroke="#16a34a"
-                    strokeWidth={1}
-                  />
-                );
+                // Add green triangle above the main balance point pointing up - only if total deposits > 0
+                if (totalDeposits > 0) {
+                  dots.push(
+                    <polygon
+                      key={`${account}-savings-triangle-${index}`}
+                      points={`${x},${mainY - 24} ${x - 6},${mainY - 14} ${x + 6},${mainY - 14}`}
+                      fill="#22c55e"
+                      stroke="#16a34a"
+                      strokeWidth={1}
+                    />
+                  );
+                }
               });
             }
 
@@ -592,14 +600,14 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                         <div className="flex justify-between pt-1 mt-2">
                           <span className="font-medium text-black">Totala insättningar:</span>
                           <span className="text-black font-medium">
-                            {formatCurrency(details.actualExtraCosts >= 0 ? details.savings + details.actualExtraCosts : details.savings)} kr
+                            +{formatCurrency(details.actualExtraCosts >= 0 ? details.savings + details.actualExtraCosts : details.savings)} kr
                           </span>
                         </div>
                         
                         <div className="flex justify-between">
                           <span className="font-medium text-black">Totala uttag:</span>
                           <span className="text-black font-medium">
-                            {formatCurrency(details.actualExtraCosts < 0 ? details.individualCosts + Math.abs(details.actualExtraCosts) : details.individualCosts)} kr
+                            -{formatCurrency(details.actualExtraCosts < 0 ? details.individualCosts + Math.abs(details.actualExtraCosts) : details.individualCosts)} kr
                           </span>
                         </div>
                         
