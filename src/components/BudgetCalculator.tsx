@@ -1789,12 +1789,27 @@ const BudgetCalculator = () => {
     const estimatedFinalBalances: {[key: string]: number} = {};
     
     accounts.forEach(account => {
-      // Use saved final balance from previous month if available
-      if (prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
-        estimatedFinalBalances[account] = prevMonthData.accountFinalBalances[account];
-        console.log(`📊 Estimated final balance for ${account}: ${estimatedFinalBalances[account]} (from prev month final)`);
+      // Check for previous month's actual balance first (Faktiskt kontosaldo)
+      const prevActualBalance = prevMonthData.accountBalancesSet?.[account] === true 
+        ? prevMonthData.accountBalances?.[account] || 0 
+        : null;
+      
+      let startingBalance = 0;
+      
+      if (prevActualBalance !== null && prevActualBalance !== 0) {
+        // If previous month has actual balance set, use it
+        startingBalance = prevActualBalance;
+        console.log(`📊 Starting balance for ${account}: ${startingBalance} (from prev month actual balance)`);
+      } else if (prevMonthData.accountEstimatedFinalBalances && prevMonthData.accountEstimatedFinalBalances[account] !== undefined) {
+        // If no actual balance, use previous month's estimated final balance (Estimerat slutsaldo)
+        startingBalance = prevMonthData.accountEstimatedFinalBalances[account];
+        console.log(`📊 Starting balance for ${account}: ${startingBalance} (from prev month estimated final)`);
+      } else if (prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
+        // Fallback to calculated final balance
+        startingBalance = prevMonthData.accountFinalBalances[account];
+        console.log(`📊 Starting balance for ${account}: ${startingBalance} (from prev month calculated final)`);
       } else {
-        // Fallback calculation if previous month doesn't have final balances
+        // Last resort: calculate from previous month's data
         const originalBalance = prevMonthData.accountBalances?.[account] || 0;
         const accountSavings = (prevMonthData.savingsGroups || [])
           .filter((group: any) => group.account === account)
@@ -1814,10 +1829,12 @@ const BudgetCalculator = () => {
           return sum + groupCosts;
         }, 0);
         
-        const slutsaldo = originalBalance + accountSavings + accountRecurringCosts - accountAllCosts;
-        estimatedFinalBalances[account] = slutsaldo;
-        console.log(`📊 Estimated final balance for ${account}: ${slutsaldo} (calculated)`);
+        startingBalance = originalBalance + accountSavings + accountRecurringCosts - accountAllCosts;
+        console.log(`📊 Starting balance for ${account}: ${startingBalance} (calculated from scratch)`);
       }
+      
+      // Set the estimated final balance (this becomes the Calc.Kontosaldo)
+      estimatedFinalBalances[account] = startingBalance;
     });
     
     // Save estimated final balances to the month data
