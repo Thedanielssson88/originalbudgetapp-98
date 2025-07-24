@@ -147,13 +147,18 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
   const maxDepositValue = Math.max(...getAllDepositValues(), 0);
   const maxWithdrawalValue = Math.max(...getAllWithdrawalValues(), 0);
 
+  // Use the highest absolute value between deposits and withdrawals as the universal maximum
+  const universalMaxValue = Math.max(maxDepositValue, maxWithdrawalValue);
+
   // Base triangle height (doubled from current 10px)
   const baseTriangleHeight = 20;
+  // Constant triangle width
+  const triangleWidth = 6;
 
-  // Function to calculate triangle height proportional to value
-  const calculateTriangleHeight = (value: number, maxValue: number, isDeposit: boolean) => {
-    if (maxValue === 0) return baseTriangleHeight;
-    const proportion = value / maxValue;
+  // Function to calculate triangle height proportional to value using universal max
+  const calculateTriangleHeight = (value: number) => {
+    if (universalMaxValue === 0) return baseTriangleHeight;
+    const proportion = value / universalMaxValue;
     return baseTriangleHeight * proportion;
   };
 
@@ -468,8 +473,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
 
                 // Add red triangle below the main balance point pointing down - only if total withdrawals > 0
                 if (totalWithdrawalsValue > 0) {
-                  const triangleHeight = calculateTriangleHeight(totalWithdrawalsValue, maxWithdrawalValue, false);
-                  const triangleWidth = Math.max(6, triangleHeight * 0.6); // Proportional width
+                  const triangleHeight = calculateTriangleHeight(totalWithdrawalsValue);
                   
                   dots.push(
                     <polygon
@@ -509,8 +513,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
 
                 // Add green triangle above the main balance point pointing up - only if total deposits > 0
                 if (totalDeposits > 0) {
-                  const triangleHeight = calculateTriangleHeight(totalDeposits, maxDepositValue, true);
-                  const triangleWidth = Math.max(6, triangleHeight * 0.6); // Proportional width
+                  const triangleHeight = calculateTriangleHeight(totalDeposits);
                   
                   dots.push(
                     <polygon
