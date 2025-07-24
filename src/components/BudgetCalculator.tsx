@@ -4338,16 +4338,37 @@ const BudgetCalculator = () => {
                                                          </div>
                                                        </div>
                                                        
-                                                       {/* Calc.Descr */}
-                                                       <div className="flex justify-between items-center">
-                                                         <span className="text-sm font-medium text-green-700">Calc.Descr</span>
-                                                         <div className="flex items-center gap-2">
-                                                           <span className="w-32 text-right text-sm text-green-600">
-                                                             {isUsingEstimated ? "(Est)" : ""}
-                                                           </span>
-                                                           <span className="text-sm text-green-600 min-w-8"></span>
-                                                         </div>
-                                                       </div>
+                                                        {/* Calc.Descr */}
+                                                        <div className="flex justify-between items-center">
+                                                          <span className="text-sm font-medium text-green-700">Calc.Descr</span>
+                                                          <div className="flex items-center gap-2">
+                                                            <span className="w-32 text-right text-sm text-green-600">
+                                                              {isUsingEstimated ? "(Est)" : ""}
+                                                            </span>
+                                                            <span className="text-sm text-green-600 min-w-8"></span>
+                                                          </div>
+                                                        </div>
+                                                        
+                                                        {/* Calc.diff */}
+                                                        <div className="flex justify-between items-center">
+                                                          <span className="text-sm font-medium text-green-700">Calc.diff</span>
+                                                          <div className="flex items-center gap-2">
+                                                            <span className="w-32 text-right text-sm text-green-600">
+                                                              {(() => {
+                                                                // If "Faktiskt kontosaldo" has a value (not "Ej ifyllt"):
+                                                                // Calc.diff = Faktiskt kontosaldo - Estimerat Slutsaldo
+                                                                // If "Faktiskt kontosaldo" is "Ej ifyllt": Calc.diff = 0
+                                                                if (hasActualBalance) {
+                                                                  const diff = currentBalance - estimatedBalance;
+                                                                  return formatCurrency(diff);
+                                                                } else {
+                                                                  return formatCurrency(0);
+                                                                }
+                                                              })()}
+                                                            </span>
+                                                            <span className="text-sm text-green-600 min-w-8">kr</span>
+                                                          </div>
+                                                        </div>
                                                      </div>
                                                    );
                                                  })()}
