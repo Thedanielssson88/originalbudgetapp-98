@@ -1704,29 +1704,10 @@ const BudgetCalculator = () => {
       return currentBalance;
     }
     
-    // Only fall back to estimated if balance is non-zero
-    if (currentBalance !== 0) {
-      console.log(`Returning currentBalance: ${currentBalance}`);
-      return currentBalance;
-    }
-    
-    const isEmpty = hasEmptyAccountBalances();
-    console.log(`hasEmptyAccountBalances(): ${isEmpty}`);
-    
-    if (isEmpty) {
-      const freshBalances = (window as any).__freshFinalBalances;
-      console.log(`🚨 CRITICAL DEBUG - freshBalances from window:`, freshBalances);
-      
-      const estimated = getEstimatedAccountBalances(freshBalances);
-      console.log(`🔍 estimated from getEstimatedAccountBalances:`, estimated);
-      
-      const result = estimated?.[account] || 0;
-      console.log(`estimated[${account}]: ${result}`);
-      console.log(`=== END DEBUG getAccountBalanceWithFallback ===`);
-      return result;
-    }
-    
-    console.log(`Returning currentBalance (default): ${currentBalance}`);
+    // CRITICAL FIX FOR "EJ IFYLLT" ISSUE:
+    // NEVER use estimated values for Calc.Kontosaldo calculation
+    // "Ej ifyllt" should ALWAYS be treated as 0, never use estimates
+    console.log(`🚨 FIXED: When balance is 0 or not explicitly set, ALWAYS return 0 (never estimates)`);
     console.log(`=== END DEBUG getAccountBalanceWithFallback ===`);
     return currentBalance;
   };
