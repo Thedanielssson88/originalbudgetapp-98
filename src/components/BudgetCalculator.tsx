@@ -1171,6 +1171,14 @@ const BudgetCalculator = () => {
     const currentDate = new Date();
     const monthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     
+    // Create specifically formatted ending balance keys for each account
+    const [currentYear, currentMonth] = monthKey.split('-');
+    const endingBalanceKeys: {[key: string]: number} = {};
+    accounts.forEach(account => {
+      const endingBalanceKey = `${account}.${currentYear}.${currentMonth}.Endbalance`;
+      endingBalanceKeys[endingBalanceKey] = finalBalances[account];
+    });
+    
     // Update the existing month data with calculated results
     setHistoricalData(prev => ({
       ...prev,
@@ -1190,11 +1198,13 @@ const BudgetCalculator = () => {
         holidayDaysBudget: budgetData.holidayBudget,
         daysUntil25th: budgetData.daysUntil25th,
         accountFinalBalances: finalBalances, // Save final balances directly to historical data
+        accountEndingBalances: endingBalanceKeys, // Save formatted ending balances
         date: currentDate.toISOString() // Update timestamp
       }
     }));
     
     console.log(`Final balances calculated and saved for ${monthKey}:`, finalBalances);
+    console.log(`Ending balance keys saved:`, endingBalanceKeys);
   };
 
 
@@ -1202,9 +1212,9 @@ const BudgetCalculator = () => {
   const calculateAndSavePreviousMonthFinalBalances = (targetMonthKey: string) => {
     console.log(`=== CALCULATE AND SAVE PREVIOUS MONTH DEBUG ===`);
     // Get previous month info
-    const [year, month] = targetMonthKey.split('-').map(Number);
-    const prevMonth = month === 1 ? 12 : month - 1;
-    const prevYear = month === 1 ? year - 1 : year;
+    const [targetYear, targetMonth] = targetMonthKey.split('-').map(Number);
+    const prevMonth = targetMonth === 1 ? 12 : targetMonth - 1;
+    const prevYear = targetMonth === 1 ? targetYear - 1 : targetYear;
     const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
     
     console.log(`Calculating final balances for previous month ${prevMonthKey} when switching to ${targetMonthKey}`);
@@ -1268,12 +1278,20 @@ const BudgetCalculator = () => {
     console.log(`Final balances calculated:`, finalBalances);
     
     // Always save the recalculated final balances to the previous month's data
+    const [prevYearStr, prevMonthStr] = prevMonthKey.split('-');
+    const prevEndingBalanceKeys: {[key: string]: number} = {};
+    accounts.forEach(account => {
+      const endingBalanceKey = `${account}.${prevYearStr}.${prevMonthStr}.Endbalance`;
+      prevEndingBalanceKeys[endingBalanceKey] = finalBalances[account];
+    });
+    
     setHistoricalData(prev => {
       const updated = {
         ...prev,
         [prevMonthKey]: {
           ...prev[prevMonthKey],
-          accountFinalBalances: finalBalances
+          accountFinalBalances: finalBalances,
+          accountEndingBalances: prevEndingBalanceKeys
         }
       };
       console.log(`Updated historical data for ${prevMonthKey}:`, updated[prevMonthKey]);
@@ -1281,6 +1299,7 @@ const BudgetCalculator = () => {
     });
     
     console.log(`Final balances recalculated and saved for ${prevMonthKey}:`, finalBalances);
+    console.log(`Ending balance keys saved for ${prevMonthKey}:`, prevEndingBalanceKeys);
     console.log(`=== END CALCULATE AND SAVE PREVIOUS MONTH DEBUG ===`);
     
     // Return the calculated final balances so they can be used immediately
@@ -1549,14 +1568,25 @@ const BudgetCalculator = () => {
     console.log('Previous month data found:', prevMonthInfo.monthKey, prevMonthData);
     
     // Calculate estimated opening balances for current month
-    // This should simply be the previous month's final balance (Account.Year.Month.Endbalance)
+    // This should load the specific "AccountName.Year.Month.Endbalance" value from previous month
     accounts.forEach(account => {
-        console.log(`${account}: Using previous month's final balance as opening balance...`);
+        console.log(`${account}: Looking for previous month's ending balance...`);
         
-        // The estimated opening balance should be exactly the previous month's final balance
-        let openingBalance = prevMonthData.accountFinalBalances?.[account];
+        const [prevYear, prevMonth] = prevMonthInfo.monthKey.split('-');
+        const endingBalanceKey = `${account}.${prevYear}.${prevMonth}.Endbalance`;
         
-        // If final balance is not set, try to get it from accountBalances as fallback
+        // First, try to get the specifically formatted ending balance
+        let openingBalance = prevMonthData.accountEndingBalances?.[endingBalanceKey];
+        
+        console.log(`${account}: Looking for key "${endingBalanceKey}": ${openingBalance}`);
+        
+        // If not found, fallback to accountFinalBalances
+        if (openingBalance === undefined || openingBalance === null) {
+          openingBalance = prevMonthData.accountFinalBalances?.[account];
+          console.log(`${account}: Using accountFinalBalances fallback: ${openingBalance}`);
+        }
+        
+        // If still not found, try to get it from accountBalances as fallback
         if (openingBalance === undefined || openingBalance === null) {
           openingBalance = prevMonthData.accountBalances?.[account] || 0;
           console.log(`${account}: No final balance found, using account balance: ${openingBalance}`);
@@ -1564,15 +1594,18 @@ const BudgetCalculator = () => {
         
         // If still no balance found, try to use final balance from the month before
         if (openingBalance === undefined || openingBalance === null) {
-          const [prevYear, prevMonth] = prevMonthInfo.monthKey.split('-').map(Number);
-          const prevPrevMonth = prevMonth === 1 ? 12 : prevMonth - 1;
-          const prevPrevYear = prevMonth === 1 ? prevYear - 1 : prevYear;
+          const prevPrevMonth = parseInt(prevMonth) === 1 ? 12 : parseInt(prevMonth) - 1;
+          const prevPrevYear = parseInt(prevMonth) === 1 ? parseInt(prevYear) - 1 : parseInt(prevYear);
           const prevPrevMonthKey = `${prevPrevYear}-${String(prevPrevMonth).padStart(2, '0')}`;
+          const prevPrevEndingBalanceKey = `${account}.${prevPrevYear}.${String(prevPrevMonth).padStart(2, '0')}.Endbalance`;
           
-          console.log(`${account}: Balance is 0/undefined, checking for final balance from ${prevPrevMonthKey}`);
+          console.log(`${account}: Balance is undefined/null, checking for ending balance from ${prevPrevMonthKey}`);
           
           const prevPrevMonthData = historicalData[prevPrevMonthKey];
-          if (prevPrevMonthData && prevPrevMonthData.accountFinalBalances && prevPrevMonthData.accountFinalBalances[account] !== undefined) {
+          if (prevPrevMonthData?.accountEndingBalances?.[prevPrevEndingBalanceKey] !== undefined) {
+            openingBalance = prevPrevMonthData.accountEndingBalances[prevPrevEndingBalanceKey];
+            console.log(`${account}: Using ending balance from ${prevPrevMonthKey}: ${openingBalance}`);
+          } else if (prevPrevMonthData?.accountFinalBalances?.[account] !== undefined) {
             openingBalance = prevPrevMonthData.accountFinalBalances[account];
             console.log(`${account}: Using final balance from ${prevPrevMonthKey}: ${openingBalance}`);
           } else {
@@ -1580,12 +1613,11 @@ const BudgetCalculator = () => {
           }
         }
         
-        // The estimated opening balance is simply the previous month's ending balance
+        // The estimated opening balance is the previous month's ending balance
         estimatedBalances[account] = openingBalance || 0;
         
-        const [prevYear, prevMonth] = prevMonthInfo.monthKey.split('-');
         console.log(`=== 📊 ESTIMATED OPENING BALANCE FOR ${account.toUpperCase()} ===`);
-        console.log(`📈 Previous month ending balance (${account}.${prevYear}.${prevMonth}.Endbalance): ${openingBalance || 0} kr`);
+        console.log(`📈 Previous month ending balance (${endingBalanceKey}): ${openingBalance || 0} kr`);
         console.log(`✅ ESTIMATED OPENING BALANCE: ${estimatedBalances[account]} kr`);
         console.log(`=== 🏁 END ===`);
     });
