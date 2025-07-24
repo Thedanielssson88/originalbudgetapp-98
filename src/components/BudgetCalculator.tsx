@@ -4473,9 +4473,10 @@ const BudgetCalculator = () => {
 
                                                  {/* Calc.Kontosaldo */}
                                                   {(() => {
-                                                    const hasActualBalance = accountBalancesSet[account] === true;
-                                                    const calcBalance = hasActualBalance ? currentBalance : estimatedBalance;
-                                                    const isUsingEstimated = !hasActualBalance;
+                                                     const hasActualBalance = accountBalancesSet[account] === true;
+                                                     // CRITICAL FIX: ALWAYS use currentBalance (0 when "Ej ifyllt"), NEVER estimated
+                                                     const calcBalance = currentBalance || 0;
+                                                     const isUsingEstimated = false; // Never use estimated for Calc.Kontosaldo
                                                     
                                                     // CRITICAL DEBUG - Check if this is the wrong calculation
                                                     if (currentBalance === 0 && account === 'Löpande') {
