@@ -79,7 +79,8 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
         const runningDeposits = point[`${account}_runningDeposits`] || 500;
         const runningCosts = point[`${account}_runningCosts`] || 500;
         const individualCosts = Math.abs(point[`${account}_individual`] || 0);
-        const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts;
+        const actualExtraCosts = point[`${account}_actualExtraCosts`] || 0;
+        const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts + actualExtraCosts;
         
         // Use either starting balance or closing balance based on selection
         const valueToUse = balanceType === 'starting' ? startingBalance : finalBalance;
@@ -233,6 +234,9 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
     const runningCosts = currentPoint[`${account.name}_runningCosts`] || 500;
     const runningDeposits = currentPoint[`${account.name}_runningDeposits`] || 500;
     
+    // Get "Faktiska extra kostnader/intäkter" from next month's Calc.diff
+    const actualExtraCosts = currentPoint[`${account.name}_actualExtraCosts`] || 0;
+    
     console.log(`=== END TOOLTIP DEBUG ===`);
     
     return {
@@ -241,6 +245,7 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
       runningDeposits,
       runningCosts,
       individualCosts,
+      actualExtraCosts,
       closingBalance
     };
   };
@@ -289,14 +294,16 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
               const currentRunningDeposits = currentPoint[`${account}_runningDeposits`] || 500;
               const currentRunningCosts = currentPoint[`${account}_runningCosts`] || 500;
               const currentIndividualCosts = Math.abs(currentPoint[`${account}_individual`] || 0);
-              const currentFinalBalance = currentStartingBalance + currentSavings + currentRunningDeposits - currentRunningCosts - currentIndividualCosts;
+              const currentActualExtraCosts = currentPoint[`${account}_actualExtraCosts`] || 0;
+              const currentFinalBalance = currentStartingBalance + currentSavings + currentRunningDeposits - currentRunningCosts - currentIndividualCosts + currentActualExtraCosts;
 
               const nextStartingBalance = nextPoint[`${account}_startingBalance`] || 0;
               const nextSavings = nextPoint[`${account}_savings`] || 0;
               const nextRunningDeposits = nextPoint[`${account}_runningDeposits`] || 500;
               const nextRunningCosts = nextPoint[`${account}_runningCosts`] || 500;
               const nextIndividualCosts = Math.abs(nextPoint[`${account}_individual`] || 0);
-              const nextFinalBalance = nextStartingBalance + nextSavings + nextRunningDeposits - nextRunningCosts - nextIndividualCosts;
+              const nextActualExtraCosts = nextPoint[`${account}_actualExtraCosts`] || 0;
+              const nextFinalBalance = nextStartingBalance + nextSavings + nextRunningDeposits - nextRunningCosts - nextIndividualCosts + nextActualExtraCosts;
 
               // Use either starting balance or final balance based on selection
               const currentDisplayValue = balanceType === 'starting' ? currentStartingBalance : currentFinalBalance;
@@ -352,7 +359,8 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
               const runningDeposits = point[`${account}_runningDeposits`] || 500;
               const runningCosts = point[`${account}_runningCosts`] || 500;
               const individualCosts = Math.abs(point[`${account}_individual`] || 0);
-              const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts;
+              const actualExtraCosts = point[`${account}_actualExtraCosts`] || 0;
+              const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts + actualExtraCosts;
               
               // Use either starting balance or final balance for dot positioning
               const displayValue = balanceType === 'starting' ? startingBalance : finalBalance;
@@ -521,9 +529,9 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-sm">{account.name}</span>
                      <div className="flex items-center gap-2">
-                       <span className="text-sm text-gray-800">
-                         {balanceType === 'starting' ? 'Ingående' : 'Slutsaldo'}: {formatCurrency(balanceType === 'starting' ? details.startingBalance : (details.startingBalance + details.savings + details.runningDeposits - details.runningCosts - details.individualCosts))} kr
-                       </span>
+                        <span className="text-sm text-gray-800">
+                          {balanceType === 'starting' ? 'Ingående' : 'Slutsaldo'}: {formatCurrency(balanceType === 'starting' ? details.startingBalance : (details.startingBalance + details.savings + details.runningDeposits - details.runningCosts - details.individualCosts + details.actualExtraCosts))} kr
+                        </span>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -565,17 +573,24 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                         </div>
                       )}
                       
-                      {details.individualCosts > 0 && (
-                        <div className="flex justify-between">
-                          <span>Enskilda kostnader:</span>
-                          <span className="text-red-600 font-medium">-{formatCurrency(details.individualCosts)} kr</span>
-                        </div>
-                      )}
-                      
-                      <div className="flex justify-between pt-1 border-t border-gray-200 mt-2">
-                        <span className="font-medium">Slutsaldo inför nästa månad:</span>
-                        <span className="text-gray-800 font-medium">{formatCurrency(details.startingBalance + details.savings + details.runningDeposits - details.runningCosts - details.individualCosts)} kr</span>
-                      </div>
+                       {details.individualCosts > 0 && (
+                         <div className="flex justify-between">
+                           <span>Enskilda kostnader:</span>
+                           <span className="text-red-600 font-medium">-{formatCurrency(details.individualCosts)} kr</span>
+                         </div>
+                       )}
+                       
+                       <div className="flex justify-between">
+                         <span>Faktiska extra kostnader/intäkter:</span>
+                         <span className={`font-medium ${details.actualExtraCosts >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                           {details.actualExtraCosts >= 0 ? '+' : ''}{formatCurrency(details.actualExtraCosts)} kr
+                         </span>
+                       </div>
+                       
+                       <div className="flex justify-between pt-1 border-t border-gray-200 mt-2">
+                         <span className="font-medium">Slutsaldo inför nästa månad:</span>
+                         <span className="text-gray-800 font-medium">{formatCurrency(details.startingBalance + details.savings + details.runningDeposits - details.runningCosts - details.individualCosts + details.actualExtraCosts)} kr</span>
+                       </div>
                     </div>
                   )}
                 </div>

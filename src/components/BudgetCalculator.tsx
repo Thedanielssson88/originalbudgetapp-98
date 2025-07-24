@@ -3176,6 +3176,27 @@ const BudgetCalculator = () => {
         if (isEstimated) {
           dataPoint[`${account}_isEstimated`] = true;
         }
+        
+        // Calculate "Faktiska extra kostnader/intäkter" from next month's Calc.diff
+        const nextMonthIndex = index + 1;
+        if (nextMonthIndex < extendedMonthKeys.length) {
+          const nextMonthKey = extendedMonthKeys[nextMonthIndex];
+          const nextMonthData = historicalData[nextMonthKey];
+          
+          if (nextMonthData && nextMonthData.accountBalancesSet && nextMonthData.accountBalancesSet[account]) {
+            // Next month has actual balance, calculate its Calc.diff
+            const nextActualBalance = nextMonthData.accountBalances?.[account] || 0;
+            const nextEstimatedBalance = nextMonthData.accountEstimatedFinalBalances?.[account] || 0;
+            const nextCalcDiff = nextActualBalance - nextEstimatedBalance;
+            dataPoint[`${account}_actualExtraCosts`] = nextCalcDiff;
+          } else {
+            // Next month doesn't have actual balance, so Calc.diff = 0
+            dataPoint[`${account}_actualExtraCosts`] = 0;
+          }
+        } else {
+          // No next month available
+          dataPoint[`${account}_actualExtraCosts`] = 0;
+        }
       });
 
       // Add individual costs if enabled - always show them regardless of estimated budget setting
