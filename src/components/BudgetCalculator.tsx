@@ -1885,7 +1885,7 @@ const BudgetCalculator = () => {
       return;
     }
     
-    const estimatedFinalBalances: {[key: string]: number} = {};
+    const estimatedStartBalances: {[key: string]: number} = {};
     
     accounts.forEach(account => {
       // Check if previous month has explicitly set final balance (including 0)
@@ -1902,12 +1902,12 @@ const BudgetCalculator = () => {
           console.log(`💡 This should be 1000, but if it's 2001, then November's saved data is wrong`);
           console.log(`🚨🚨🚨 END DEBUG 🚨🚨🚨`);
         }
-        estimatedFinalBalances[account] = prevMonthData.accountFinalBalances[account];
-        console.log(`📊 Estimated final balance for ${account}: ${estimatedFinalBalances[account]} (from prev month final, explicitly set)`);
+        estimatedStartBalances[account] = prevMonthData.accountFinalBalances[account];
+        console.log(`📊 Estimated start balance for ${account}: ${estimatedStartBalances[account]} (from prev month final, explicitly set)`);
       } else if (!hasPrevFinalBalance && prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
         // If not explicitly set but value exists, still use it (backward compatibility)
-        estimatedFinalBalances[account] = prevMonthData.accountFinalBalances[account];
-        console.log(`📊 Estimated final balance for ${account}: ${estimatedFinalBalances[account]} (from prev month final, legacy)`);
+        estimatedStartBalances[account] = prevMonthData.accountFinalBalances[account];
+        console.log(`📊 Estimated start balance for ${account}: ${estimatedStartBalances[account]} (from prev month final, legacy)`);
       } else {
         // Fallback calculation if previous month doesn't have final balances
         const originalBalance = prevMonthData.accountBalances?.[account] || 0;
@@ -1930,8 +1930,8 @@ const BudgetCalculator = () => {
         }, 0);
         
         const slutsaldo = originalBalance + accountSavings + accountRecurringCosts - accountAllCosts;
-        estimatedFinalBalances[account] = slutsaldo;
-        console.log(`📊 Estimated final balance for ${account}: ${slutsaldo} (calculated)`);
+        estimatedStartBalances[account] = slutsaldo;
+        console.log(`📊 Estimated start balance for ${account}: ${slutsaldo} (calculated)`);
       }
     });
     
@@ -1949,7 +1949,7 @@ const BudgetCalculator = () => {
       setAccountEstimatedStartBalances(estimatedStartBalances);
     }
     
-    console.log(`💾 Saved estimated final balances for ${monthKey}:`, estimatedFinalBalances);
+    console.log(`💾 Saved estimated start balances for ${monthKey}:`, estimatedStartBalances);
   };
 
   // Function to get available months with saved data
