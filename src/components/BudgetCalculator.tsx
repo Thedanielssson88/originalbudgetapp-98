@@ -1632,10 +1632,16 @@ const BudgetCalculator = () => {
         console.log(`💰 accountFinalBalances FULL OBJECT:`, prevMonthData.accountFinalBalances);
         console.log(`💰 accountFinalBalances keys:`, prevMonthData.accountFinalBalances ? Object.keys(prevMonthData.accountFinalBalances) : 'undefined');
         
-        // First, try to get the specifically formatted ending balance
-        let openingBalance = prevMonthData.accountEndingBalances?.[endingBalanceKey];
+        // First, try to get from accountEstimatedFinalBalances (our new primary source)
+        let openingBalance = prevMonthData.accountEstimatedFinalBalances?.[account];
         
-        console.log(`✅ Direct lookup result for "${endingBalanceKey}": ${openingBalance} (type: ${typeof openingBalance})`);
+        console.log(`✅ accountEstimatedFinalBalances lookup for "${account}": ${openingBalance} (type: ${typeof openingBalance})`);
+        
+        // If not found, try the specifically formatted ending balance
+        if (openingBalance === undefined || openingBalance === null) {
+          openingBalance = prevMonthData.accountEndingBalances?.[endingBalanceKey];
+          console.log(`✅ Direct lookup result for "${endingBalanceKey}": ${openingBalance} (type: ${typeof openingBalance})`);
+        }
         
         // If not found, fallback to accountFinalBalances (this should have the actual budget calculation result)
         if (openingBalance === undefined || openingBalance === null) {
