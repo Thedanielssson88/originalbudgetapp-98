@@ -1246,6 +1246,7 @@ const BudgetCalculator = () => {
         daysUntil25th: budgetData.daysUntil25th,
         accountFinalBalances: finalBalances, // Save final balances directly to historical data
         accountEndingBalances: endingBalanceKeys, // Save formatted ending balances
+        accountEstimatedFinalBalances: finalBalances, // Save the calculated Slutsaldo to accountEstimatedFinalBalances
         date: currentDate.toISOString() // Update timestamp
       }
     }));
@@ -1338,7 +1339,8 @@ const BudgetCalculator = () => {
         [prevMonthKey]: {
           ...prev[prevMonthKey],
           accountFinalBalances: finalBalances,
-          accountEndingBalances: prevEndingBalanceKeys
+          accountEndingBalances: prevEndingBalanceKeys,
+          accountEstimatedFinalBalances: finalBalances // Save the calculated Slutsaldo to accountEstimatedFinalBalances
         }
       };
       console.log(`Updated historical data for ${prevMonthKey}:`, updated[prevMonthKey]);
