@@ -211,9 +211,26 @@ const BudgetCalculator = () => {
       const hasActualBalance = monthData.accountBalancesSet && 
                               monthData.accountBalancesSet[account] === true;
       const currentBalance = monthData.accountBalances?.[account] || 0;
-      const estimatedBalance = monthData.accountEstimatedFinalBalances?.[account] || 0;
       
-      const calcBalance = hasActualBalance ? currentBalance : estimatedBalance;
+      // If Faktiskt kontosaldo is "Ej ifyllt" (not filled), use estimated opening balance
+      let estimatedOpeningBalance = 0;
+      if (!hasActualBalance) {
+        // Get estimated opening balance for this month by looking at previous month's ending balance
+        const [currentYear, currentMonth] = monthKey.split('-').map(Number);
+        const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+        const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+        const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+        const prevMonthData = historicalData[prevMonthKey];
+        
+        if (prevMonthData) {
+          const endingBalanceKey = `${account}.${prevYear}.${String(prevMonth).padStart(2, '0')}.Endbalance`;
+          estimatedOpeningBalance = prevMonthData.accountEndingBalances?.[endingBalanceKey] || 
+                                   prevMonthData.accountFinalBalances?.[account] || 
+                                   prevMonthData.accountBalances?.[account] || 0;
+        }
+      }
+      
+      const calcBalance = hasActualBalance ? currentBalance : estimatedOpeningBalance;
       const isUsingEstimated = !hasActualBalance;
       
       return { balance: calcBalance, isEstimated: isUsingEstimated };
