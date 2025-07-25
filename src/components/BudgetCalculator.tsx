@@ -7761,15 +7761,23 @@ const BudgetCalculator = () => {
                             setIsUpdatingAllMonths(false);
                             setUpdateProgress(0);
                             
-                            // Return to the originally selected month and ensure graph is updated
+                            // Return to the originally selected month without triggering full recalculation
                             const originalMonth = selectedBudgetMonth;
                             if (originalMonth && historicalData[originalMonth]) {
-                              console.log(`🔄 Returning to original month ${originalMonth} and updating graph`);
-                              handleBudgetMonthChange(originalMonth);
+                              console.log(`🔄 Returning to original month ${originalMonth} without recalculation`);
                               
-                              // Force a final calculation to ensure graph shows updated values
+                              // Simply set the month and load its data without triggering handleBudgetMonthChange
+                              // which would recalculate and potentially override the correct sequential calculations
+                              setSelectedBudgetMonth(originalMonth);
+                              
+                              // Load the data for the original month
+                              if (historicalData[originalMonth]) {
+                                loadDataFromSelectedMonth(originalMonth);
+                              }
+                              
+                              // Force a final chart update with the loaded data
                               setTimeout(() => {
-                                console.log(`📊 Final graph update after sequential processing`);
+                                console.log(`📊 Final chart update for original month ${originalMonth}`);
                                 calculateBudget();
                               }, 300);
                             }
