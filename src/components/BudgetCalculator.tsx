@@ -1635,13 +1635,19 @@ const BudgetCalculator = () => {
         
         console.log(`✅ Direct lookup result for "${endingBalanceKey}": ${openingBalance} (type: ${typeof openingBalance})`);
         
-        // If not found, fallback to accountFinalBalances
+        // If not found, fallback to accountFinalBalances (this should have the actual budget calculation result)
         if (openingBalance === undefined || openingBalance === null) {
           openingBalance = prevMonthData.accountFinalBalances?.[account];
-          console.log(`${account}: Using accountFinalBalances fallback: ${openingBalance}`);
+          console.log(`${account}: Using accountFinalBalances (budget result): ${openingBalance}`);
         }
         
-        // If still not found, try to get it from accountBalances as fallback
+        // If still not found, try estimated final balances
+        if (openingBalance === undefined || openingBalance === null) {
+          openingBalance = prevMonthData.accountEstimatedFinalBalances?.[account];
+          console.log(`${account}: Using accountEstimatedFinalBalances: ${openingBalance}`);
+        }
+        
+        // If still not found, try to get it from accountBalances as final fallback
         if (openingBalance === undefined || openingBalance === null) {
           openingBalance = prevMonthData.accountBalances?.[account] || 0;
           console.log(`${account}: No final balance found, using account balance: ${openingBalance}`);
