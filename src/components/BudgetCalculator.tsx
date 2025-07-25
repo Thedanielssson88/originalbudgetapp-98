@@ -7732,35 +7732,14 @@ const BudgetCalculator = () => {
                               setDailyTransfer(monthData.dailyTransfer || 300);
                               setAccounts(monthData.accounts || ['Löpande', 'Sparkonto', 'Buffert']);
                               
-                              // Set account balances - only update "Faktiskt kontosaldo" if it's "Ej ifyllt"
+                              // Set account balances - NEVER automatically update "Faktiskt kontosaldo"
                               const storedBalances = monthData.accountBalances || {};
                               const storedBalancesSet = monthData.accountBalancesSet || {};
                               
-                              if (carryForwardBalances && currentIndex > 0) {
-                                console.log(`📊 Checking if we should update balances for ${monthKey}:`, carryForwardBalances);
-                                
-                                // Only update balances that are "Ej ifyllt" (not explicitly set)
-                                const updatedBalances = { ...storedBalances };
-                                const updatedBalancesSet = { ...storedBalancesSet };
-                                
-                                Object.keys(carryForwardBalances).forEach(account => {
-                                  // Only update if the balance was not explicitly set by user (is "Ej ifyllt")
-                                  if (!storedBalancesSet[account]) {
-                                    console.log(`💾 Updating ${account} from "Ej ifyllt" to carried forward balance:`, carryForwardBalances[account]);
-                                    updatedBalances[account] = carryForwardBalances[account];
-                                    // Don't mark as explicitly set since this is an estimated value
-                                  } else {
-                                    console.log(`🔒 Keeping manually set balance for ${account}:`, storedBalances[account]);
-                                  }
-                                });
-                                
-                                setAccountBalances(updatedBalances);
-                                setAccountBalancesSet(updatedBalancesSet);
-                              } else {
-                                // First month or no carry forward - use stored balances
-                                setAccountBalances(storedBalances);
-                                setAccountBalancesSet(storedBalancesSet);
-                              }
+                              // IMPORTANT: Faktiskt kontosaldo should NEVER be updated automatically
+                              // It should remain "Ej ifyllt" by default and only be changed manually by user
+                              setAccountBalances(storedBalances);
+                              setAccountBalancesSet(storedBalancesSet);
                               
                               // Wait for state updates
                               await new Promise(resolve => setTimeout(resolve, 100));
