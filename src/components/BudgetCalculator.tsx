@@ -7732,21 +7732,34 @@ const BudgetCalculator = () => {
                               setDailyTransfer(monthData.dailyTransfer || 300);
                               setAccounts(monthData.accounts || ['Löpande', 'Sparkonto', 'Buffert']);
                               
-                              // Set account balances - use carried forward balances if available
+                              // Set account balances - only update "Faktiskt kontosaldo" if it's "Ej ifyllt"
+                              const storedBalances = monthData.accountBalances || {};
+                              const storedBalancesSet = monthData.accountBalancesSet || {};
+                              
                               if (carryForwardBalances && currentIndex > 0) {
-                                console.log(`📊 Using carried forward balances for ${monthKey}:`, carryForwardBalances);
-                                setAccountBalances(carryForwardBalances);
+                                console.log(`📊 Checking if we should update balances for ${monthKey}:`, carryForwardBalances);
                                 
-                                // Mark all balances as set for proper calculation
-                                const balancesSet: {[key: string]: boolean} = {};
+                                // Only update balances that are "Ej ifyllt" (not explicitly set)
+                                const updatedBalances = { ...storedBalances };
+                                const updatedBalancesSet = { ...storedBalancesSet };
+                                
                                 Object.keys(carryForwardBalances).forEach(account => {
-                                  balancesSet[account] = true;
+                                  // Only update if the balance was not explicitly set by user (is "Ej ifyllt")
+                                  if (!storedBalancesSet[account]) {
+                                    console.log(`💾 Updating ${account} from "Ej ifyllt" to carried forward balance:`, carryForwardBalances[account]);
+                                    updatedBalances[account] = carryForwardBalances[account];
+                                    // Don't mark as explicitly set since this is an estimated value
+                                  } else {
+                                    console.log(`🔒 Keeping manually set balance for ${account}:`, storedBalances[account]);
+                                  }
                                 });
-                                setAccountBalancesSet(balancesSet);
+                                
+                                setAccountBalances(updatedBalances);
+                                setAccountBalancesSet(updatedBalancesSet);
                               } else {
                                 // First month or no carry forward - use stored balances
-                                setAccountBalances(monthData.accountBalances || {});
-                                setAccountBalancesSet(monthData.accountBalancesSet || {});
+                                setAccountBalances(storedBalances);
+                                setAccountBalancesSet(storedBalancesSet);
                               }
                               
                               // Wait for state updates
