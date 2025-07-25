@@ -2096,6 +2096,32 @@ const BudgetCalculator = () => {
       .sort((a, b) => a.localeCompare(b)); // Sort chronologically (oldest first)
   };
 
+  // Function to get months that need updating (from first false flag onwards)
+  const getMonthsToUpdate = () => {
+    const allMonths = getMonthsWithSavedData();
+    
+    // Find the first month with flag set to false
+    let firstFalseIndex = -1;
+    for (let i = 0; i < allMonths.length; i++) {
+      const monthKey = allMonths[i];
+      const monthData = historicalData[monthKey];
+      const flagValue = monthData?.monthFinalBalances || false;
+      
+      if (!flagValue) {
+        firstFalseIndex = i;
+        break;
+      }
+    }
+    
+    // If no month has flag false, return empty array (nothing to update)
+    if (firstFalseIndex === -1) {
+      return [];
+    }
+    
+    // Return all months from the first false flag onwards
+    return allMonths.slice(firstFalseIndex);
+  };
+
   // Function to navigate to previous month with saved data
   const navigateToPreviousMonth = () => {
     const monthsWithData = getMonthsWithSavedData();
@@ -7662,23 +7688,23 @@ const BudgetCalculator = () => {
                   {!isUpdatingAllMonths ? (
                     <Button 
                       onClick={() => {
-                        const monthsWithData = getMonthsWithSavedData();
-                        if (monthsWithData.length === 0) return;
+                        const monthsToUpdate = getMonthsToUpdate();
+                        if (monthsToUpdate.length === 0) return;
                         
                         // Show progress and hide button
                         setIsUpdatingAllMonths(true);
                         setUpdateProgress(0);
                         
-                        console.log('🔄 Starting update of all months:', monthsWithData);
+                        console.log('🔄 Starting update from first month with false flag:', monthsToUpdate);
                         
                         let currentIndex = 0;
                         const updateAllMonths = async () => {
-                          if (currentIndex < monthsWithData.length) {
-                            const monthKey = monthsWithData[currentIndex];
-                            console.log(`🔄 Processing month ${currentIndex + 1}/${monthsWithData.length}: ${monthKey}`);
+                          if (currentIndex < monthsToUpdate.length) {
+                            const monthKey = monthsToUpdate[currentIndex];
+                            console.log(`🔄 Processing month ${currentIndex + 1}/${monthsToUpdate.length}: ${monthKey}`);
                             
                             // Update progress
-                            const progress = Math.round((currentIndex / monthsWithData.length) * 100);
+                            const progress = Math.round((currentIndex / monthsToUpdate.length) * 100);
                             setUpdateProgress(progress);
                             
                             // Properly switch to the month - this loads data and triggers calculations
@@ -7701,6 +7727,27 @@ const BudgetCalculator = () => {
                             // Save the month's data with all calculations
                             console.log(`💾 Saving month data for ${monthKey}`);
                             saveToSelectedMonth();
+                            await new Promise(resolve => setTimeout(resolve, 50));
+                            
+                            // Set the monthFinalBalances flag to true for this month
+                            console.log(`✅ Setting monthFinalBalances flag to true for ${monthKey}`);
+                            setMonthFinalBalances(prev => ({
+                              ...prev,
+                              [monthKey]: true
+                            }));
+                            
+                            // Also update it in historicalData
+                            setHistoricalData(prevHistoricalData => {
+                              const updated = { ...prevHistoricalData };
+                              if (updated[monthKey]) {
+                                updated[monthKey] = {
+                                  ...updated[monthKey],
+                                  monthFinalBalances: true
+                                };
+                              }
+                              return updated;
+                            });
+                            
                             await new Promise(resolve => setTimeout(resolve, 50));
                             
                             currentIndex++;
@@ -7729,7 +7776,7 @@ const BudgetCalculator = () => {
                         
                         updateAllMonths();
                       }}
-                      disabled={getMonthsWithSavedData().length === 0}
+                      disabled={getMonthsToUpdate().length === 0}
                       className="w-full"
                     >
                       <Calendar className="mr-2 h-4 w-4" />
@@ -7744,9 +7791,14 @@ const BudgetCalculator = () => {
                       <Progress value={updateProgress} className="w-full" />
                     </div>
                   )}
-                  {getMonthsWithSavedData().length > 0 && (
+                  {getMonthsToUpdate().length > 0 && (
                     <p className="text-sm text-muted-foreground mt-2">
-                      Kommer att gå igenom {getMonthsWithSavedData().length} månader: {getMonthsWithSavedData().join(', ')}
+                      Kommer att gå igenom {getMonthsToUpdate().length} månader från första månad med flagga falsk: {getMonthsToUpdate().join(', ')}
+                    </p>
+                  )}
+                  {getMonthsToUpdate().length === 0 && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Alla månader är redan uppdaterade (alla flaggor är sanna)
                     </p>
                   )}
                 </CardContent>
