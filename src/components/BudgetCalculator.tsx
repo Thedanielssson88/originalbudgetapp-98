@@ -689,10 +689,29 @@ const BudgetCalculator = () => {
     
     console.log(`Saving month data for ${monthKey} with final balances:`, accountEstimatedFinalBalances);
     
-    setHistoricalData(prev => ({
-      ...prev,
-      [monthKey]: monthSnapshot
-    }));
+    setHistoricalData(prev => {
+      const updated = {
+        ...prev,
+        [monthKey]: monthSnapshot
+      };
+      
+      // Also save accountEstimatedFinalBalances to next month's accountEstimatedStartBalances
+      const [year, month] = monthKey.split('-').map(Number);
+      const nextMonth = month === 12 ? 1 : month + 1;
+      const nextYear = month === 12 ? year + 1 : year;
+      const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+      
+      // If next month exists, update its accountEstimatedStartBalances
+      if (updated[nextMonthKey]) {
+        console.log(`📊 Updating ${nextMonthKey} accountEstimatedStartBalances from ${monthKey} accountEstimatedFinalBalances`);
+        updated[nextMonthKey] = {
+          ...updated[nextMonthKey],
+          accountEstimatedStartBalances: JSON.parse(JSON.stringify(accountEstimatedFinalBalances))
+        };
+      }
+      
+      return updated;
+    });
   };
 
   // Save data to localStorage whenever values change
