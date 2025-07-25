@@ -1307,6 +1307,37 @@ const BudgetCalculator = () => {
       console.log(`📝 Updated MonthFinalBalances flags:`, updated);
       return updated;
     });
+
+    // Also update historicalData to persist the flag changes
+    setHistoricalData(prevHistoricalData => {
+      const updatedHistoricalData = { ...prevHistoricalData };
+      
+      // Update current month's flag in historicalData
+      if (updatedHistoricalData[currentMonthKey]) {
+        updatedHistoricalData[currentMonthKey] = {
+          ...updatedHistoricalData[currentMonthKey],
+          monthFinalBalances: false
+        };
+      }
+      
+      // Update all future months' flags in historicalData
+      const currentMonthKeys = Object.keys(updatedHistoricalData).sort();
+      const currentIndex = currentMonthKeys.indexOf(currentMonthKey);
+      if (currentIndex !== -1) {
+        for (let i = currentIndex + 1; i < currentMonthKeys.length; i++) {
+          const futureMonthKey = currentMonthKeys[i];
+          if (updatedHistoricalData[futureMonthKey]) {
+            updatedHistoricalData[futureMonthKey] = {
+              ...updatedHistoricalData[futureMonthKey],
+              monthFinalBalances: false
+            };
+          }
+        }
+      }
+      
+      console.log(`💾 Updated flags in historicalData for ${currentMonthKey} and future months`);
+      return updatedHistoricalData;
+    });
   };
 
   // Function to check if we can set MonthFinalBalances flag to true
