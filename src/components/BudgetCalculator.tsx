@@ -1956,11 +1956,17 @@ const BudgetCalculator = () => {
       setAccountBalancesSet(balancesSet);
     }
     
-    // Load MonthFinalBalances flag from month data
-    setMonthFinalBalances(prev => ({
-      ...prev,
-      [monthKey]: monthData.monthFinalBalances || false
-    }));
+    // Load ALL MonthFinalBalances flags from historicalData to ensure consistency
+    const allFlags: {[key: string]: boolean} = {};
+    Object.keys(historicalData).forEach(key => {
+      const data = historicalData[key];
+      allFlags[key] = data.monthFinalBalances || false;
+    });
+    
+    // Set current month flag specifically
+    allFlags[monthKey] = monthData.monthFinalBalances || false;
+    
+    setMonthFinalBalances(allFlags);
     
     // Update results if available
     if (monthData.totalSalary !== undefined) {
