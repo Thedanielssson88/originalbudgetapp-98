@@ -7736,6 +7736,10 @@ const BudgetCalculator = () => {
                               const storedBalances = monthData.accountBalances || {};
                               const storedBalancesSet = monthData.accountBalancesSet || {};
                               
+                              // CRITICAL: Preserve stored final balances - NEVER overwrite "Faktiskt slutsaldo"
+                              const storedFinalBalances = monthData.accountEstimatedFinalBalances || {};
+                              const storedFinalBalancesSet = monthData.accountEstimatedFinalBalancesSet || {};
+                              
                               if (carryForwardBalances && currentIndex > 0) {
                                 console.log(`📊 Checking if we should update balances for ${monthKey}:`, carryForwardBalances);
                                 
@@ -7762,6 +7766,10 @@ const BudgetCalculator = () => {
                                 setAccountBalancesSet(storedBalancesSet);
                               }
                               
+                              // CRITICAL: Always preserve existing final balances - NEVER overwrite them automatically
+                              setAccountEstimatedFinalBalances(storedFinalBalances);
+                              setAccountEstimatedFinalBalancesSet(storedFinalBalancesSet);
+                              
                               // Wait for state updates
                               await new Promise(resolve => setTimeout(resolve, 100));
                               
@@ -7776,10 +7784,27 @@ const BudgetCalculator = () => {
                               carryForwardBalances = { ...accountEstimatedFinalBalances };
                               console.log(`💾 Final balances calculated for ${monthKey}:`, carryForwardBalances);
                               
-                              // Save the month data with calculated final balances
+                              // CRITICAL: Preserve manually set "Faktiskt slutsaldo" - only save calculated values for "Ej ifyllt"
+                              const preservedFinalBalances = { ...storedFinalBalances };
+                              const preservedFinalBalancesSet = { ...storedFinalBalancesSet };
+                              
+                              Object.keys(carryForwardBalances).forEach(account => {
+                                // Only save calculated final balance if it wasn't manually set by user
+                                if (!storedFinalBalancesSet[account]) {
+                                  console.log(`💾 Saving calculated final balance for ${account} (was "Ej ifyllt"):`, carryForwardBalances[account]);
+                                  preservedFinalBalances[account] = carryForwardBalances[account];
+                                  // Mark as calculated (not manually set)
+                                  preservedFinalBalancesSet[account] = false;
+                                } else {
+                                  console.log(`🔒 Preserving manually set "Faktiskt slutsaldo" for ${account}:`, storedFinalBalances[account]);
+                                }
+                              });
+                              
+                              // Save the month data with preserved final balances
                               const updatedData = {
                                 ...monthData,
-                                accountEstimatedFinalBalances: carryForwardBalances,
+                                accountEstimatedFinalBalances: preservedFinalBalances,
+                                accountEstimatedFinalBalancesSet: preservedFinalBalancesSet,
                                 monthFinalBalances: true
                               };
                               
