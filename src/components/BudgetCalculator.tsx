@@ -1288,19 +1288,25 @@ const BudgetCalculator = () => {
   // Function to reset MonthFinalBalances flag for current and future months when manual values change
   const resetMonthFinalBalancesFlag = (currentMonthKey: string) => {
     console.log(`🚨 RESETTING MonthFinalBalances flag for ${currentMonthKey} and all future months`);
+    console.log(`🔍 Current historicalData keys:`, Object.keys(historicalData).sort());
+    console.log(`🔍 Current monthFinalBalances state:`, monthFinalBalances);
     
     setMonthFinalBalances(prev => {
       const updated = { ...prev };
       
       // Reset current month
       updated[currentMonthKey] = false;
+      console.log(`🔄 Set flag to false for current month ${currentMonthKey}`);
       
       // Reset all future months
       const currentMonthKeys = Object.keys(historicalData).sort();
       const currentIndex = currentMonthKeys.indexOf(currentMonthKey);
+      console.log(`🔍 Current month ${currentMonthKey} is at index ${currentIndex} in sorted keys:`, currentMonthKeys);
+      
       if (currentIndex !== -1) {
         for (let i = currentIndex + 1; i < currentMonthKeys.length; i++) {
           updated[currentMonthKeys[i]] = false;
+          console.log(`🔄 Set flag to false for future month ${currentMonthKeys[i]}`);
         }
       }
       
@@ -1318,6 +1324,7 @@ const BudgetCalculator = () => {
           ...updatedHistoricalData[currentMonthKey],
           monthFinalBalances: false
         };
+        console.log(`💾 Set flag to false in historicalData for current month ${currentMonthKey}`);
       }
       
       // Update all future months' flags in historicalData
@@ -1331,11 +1338,16 @@ const BudgetCalculator = () => {
               ...updatedHistoricalData[futureMonthKey],
               monthFinalBalances: false
             };
+            console.log(`💾 Set flag to false in historicalData for future month ${futureMonthKey}`);
           }
         }
       }
       
       console.log(`💾 Updated flags in historicalData for ${currentMonthKey} and future months`);
+      console.log(`💾 Final historicalData flags:`, Object.keys(updatedHistoricalData).reduce((acc, key) => {
+        acc[key] = updatedHistoricalData[key].monthFinalBalances;
+        return acc;
+      }, {} as any));
       return updatedHistoricalData;
     });
   };
@@ -1957,15 +1969,19 @@ const BudgetCalculator = () => {
     }
     
     // Load ALL MonthFinalBalances flags from historicalData to ensure consistency
+    console.log(`🔄 Loading month data for ${monthKey}, loading ALL flags from historicalData`);
     const allFlags: {[key: string]: boolean} = {};
     Object.keys(historicalData).forEach(key => {
       const data = historicalData[key];
       allFlags[key] = data.monthFinalBalances || false;
+      console.log(`📋 Loaded flag for ${key}: ${allFlags[key]}`);
     });
     
     // Set current month flag specifically
     allFlags[monthKey] = monthData.monthFinalBalances || false;
+    console.log(`📋 Set current month ${monthKey} flag to: ${allFlags[monthKey]}`);
     
+    console.log(`📋 Final flags being set:`, allFlags);
     setMonthFinalBalances(allFlags);
     
     // Update results if available
