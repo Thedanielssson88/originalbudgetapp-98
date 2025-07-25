@@ -1734,14 +1734,21 @@ const BudgetCalculator = () => {
     console.log(`=== DEBUG getCalcKontosaldoSameMonth FOR ${account} ===`);
     console.log(`Current month: ${selectedBudgetMonth}`);
     
-    // Use the EXACT same logic as the main Calc.Kontosaldo calculation (lines 4498-4500)
     const hasActualBalance = accountBalancesSet[account] === true;
     const currentBalance = accountBalances?.[account] || 0;
-    // CRITICAL FIX: ALWAYS use currentBalance (0 when "Ej ifyllt"), NEVER estimated
-    const calcBalance = currentBalance || 0;
+    
+    // Calculate estimated balance using the same logic as the main calculation
+    const freshBalances = (window as any).__freshFinalBalances;
+    const estimatedResult = getEstimatedAccountBalances(freshBalances);
+    const estimatedBalance = estimatedResult?.[account] || 0;
+    
+    // When "Ej ifyllt" (hasActualBalance = false), use estimated balance
+    // When filled with actual value, use that value
+    const calcBalance = hasActualBalance ? currentBalance : estimatedBalance;
     
     console.log(`hasActualBalance: ${hasActualBalance}`);
     console.log(`currentBalance: ${currentBalance}`);
+    console.log(`estimatedBalance: ${estimatedBalance}`);
     console.log(`calcBalance (FINAL): ${calcBalance}`);
     
     return calcBalance;
@@ -4490,11 +4497,11 @@ const BudgetCalculator = () => {
                                                 )}
 
                                                  {/* Calc.Kontosaldo */}
-                                                  {(() => {
-                                                     const hasActualBalance = accountBalancesSet[account] === true;
-                                                     // CRITICAL FIX: ALWAYS use currentBalance (0 when "Ej ifyllt"), NEVER estimated
-                                                     const calcBalance = currentBalance || 0;
-                                                     const isUsingEstimated = false; // Never use estimated for Calc.Kontosaldo
+                                                   {(() => {
+                                                      const hasActualBalance = accountBalancesSet[account] === true;
+                                                      // FIXED: When "Ej ifyllt" (hasActualBalance = false), use estimated balance
+                                                      const calcBalance = hasActualBalance ? currentBalance : estimatedBalance;
+                                                      const isUsingEstimated = !hasActualBalance; // Using estimated when not filled
                                                     
                                                     // CRITICAL DEBUG - Check if this is the wrong calculation
                                                     if (currentBalance === 0 && account === 'Löpande') {
