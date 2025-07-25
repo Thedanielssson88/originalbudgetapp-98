@@ -180,8 +180,8 @@ const BudgetCalculator = () => {
   // Track which account final balances have been explicitly set (to distinguish 0 from empty)
   const [accountFinalBalancesSet, setAccountFinalBalancesSet] = useState<{[key: string]: boolean}>({});
   
-  // Account estimated final balances state - calculated and saved per month
-  const [accountEstimatedFinalBalances, setAccountEstimatedFinalBalances] = useState<{[key: string]: number}>({});
+  // Account estimated start balances state - calculated and saved per month
+  const [accountEstimatedStartBalances, setAccountEstimatedStartBalances] = useState<{[key: string]: number}>({});
   
   // Account chart selection state
   const [selectedAccountsForChart, setSelectedAccountsForChart] = useState<string[]>([]);
@@ -552,8 +552,8 @@ const BudgetCalculator = () => {
         // Load account final balances set tracking
         setAccountFinalBalancesSet(parsed.accountFinalBalancesSet || {});
         
-        // Load account estimated final balances
-        setAccountEstimatedFinalBalances(parsed.accountEstimatedFinalBalances || {});
+        // Load account estimated start balances
+        setAccountEstimatedStartBalances(parsed.accountEstimatedStartBalances || {});
         
         // Load selected accounts for chart
         setSelectedAccountsForChart(parsed.selectedAccountsForChart || []);
@@ -671,7 +671,7 @@ const BudgetCalculator = () => {
       accountBalancesSet: JSON.parse(JSON.stringify(accountBalancesSet)),
       accountFinalBalances: JSON.parse(JSON.stringify(accountFinalBalances)),
       accountFinalBalancesSet: JSON.parse(JSON.stringify(accountFinalBalancesSet)),
-      accountEstimatedFinalBalances: JSON.parse(JSON.stringify(accountEstimatedFinalBalances)),
+      accountEstimatedStartBalances: JSON.parse(JSON.stringify(accountEstimatedStartBalances)),
       // Include any existing calculated results if they exist
       ...(results && {
         totalMonthlyExpenses: results.totalMonthlyExpenses,
@@ -730,7 +730,7 @@ const BudgetCalculator = () => {
       accountBalancesSet,
       accountFinalBalances,
       accountFinalBalancesSet,
-      accountEstimatedFinalBalances,
+      accountEstimatedStartBalances,
       selectedAccountsForChart,
       showIndividualCostsOutsideBudget,
       showSavingsSeparately,
@@ -747,7 +747,7 @@ const BudgetCalculator = () => {
       saveToLocalStorage();
       saveToSelectedMonth();
     }
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountBalancesSet, accountFinalBalances, accountFinalBalancesSet, accountEstimatedFinalBalances, selectedAccountsForChart, showIndividualCostsOutsideBudget, showSavingsSeparately, useCustomTimeRange, chartStartMonth, chartEndMonth, isInitialLoad]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountBalancesSet, accountFinalBalances, accountFinalBalancesSet, accountEstimatedStartBalances, selectedAccountsForChart, showIndividualCostsOutsideBudget, showSavingsSeparately, useCustomTimeRange, chartStartMonth, chartEndMonth, isInitialLoad]);
   // Calculate estimated final balances when budget month changes
   useEffect(() => {
     if (!isInitialLoad && selectedBudgetMonth) {
@@ -1643,8 +1643,8 @@ const BudgetCalculator = () => {
         
         // If still not found, try estimated final balances
         if (openingBalance === undefined || openingBalance === null) {
-          openingBalance = prevMonthData.accountEstimatedFinalBalances?.[account];
-          console.log(`${account}: Using accountEstimatedFinalBalances: ${openingBalance}`);
+          openingBalance = prevMonthData.accountEstimatedStartBalances?.[account];
+          console.log(`${account}: Using accountEstimatedStartBalances: ${openingBalance}`);
         }
         
         // If still not found, try to get it from accountBalances as final fallback
@@ -1821,7 +1821,7 @@ const BudgetCalculator = () => {
     setAccountBalances(loadedBalances);
     setAccountFinalBalances(monthData.accountFinalBalances || {});
     setAccountFinalBalancesSet(monthData.accountFinalBalancesSet || {});
-    setAccountEstimatedFinalBalances(monthData.accountEstimatedFinalBalances || {});
+    setAccountEstimatedStartBalances(monthData.accountEstimatedStartBalances || {});
     
     // Load saved accountBalancesSet, or calculate it if not available
     if (monthData.accountBalancesSet) {
@@ -1939,13 +1939,13 @@ const BudgetCalculator = () => {
       ...prev,
       [monthKey]: {
         ...prev[monthKey],
-        accountEstimatedFinalBalances: estimatedFinalBalances
+        accountEstimatedStartBalances: estimatedFinalBalances
       }
     }));
     
     // Also update current state if this is the selected month
     if (monthKey === selectedBudgetMonth) {
-      setAccountEstimatedFinalBalances(estimatedFinalBalances);
+      setAccountEstimatedStartBalances(estimatedFinalBalances);
     }
     
     console.log(`💾 Saved estimated final balances for ${monthKey}:`, estimatedFinalBalances);
@@ -3219,7 +3219,7 @@ const BudgetCalculator = () => {
       const hasActualBalance = monthData.accountBalancesSet && 
                               monthData.accountBalancesSet[account] === true;
       const currentBalance = monthData.accountBalances?.[account] || 0;
-      const estimatedBalance = monthData.accountEstimatedFinalBalances?.[account] || 0;
+      const estimatedBalance = monthData.accountEstimatedStartBalances?.[account] || 0;
       
       const calcBalance = hasActualBalance ? currentBalance : estimatedBalance;
       const isUsingEstimated = !hasActualBalance;
@@ -3338,7 +3338,7 @@ const BudgetCalculator = () => {
           if (nextMonthData && nextMonthData.accountBalancesSet && nextMonthData.accountBalancesSet[account]) {
             // Next month has actual balance, calculate its Calc.diff
             const nextActualBalance = nextMonthData.accountBalances?.[account] || 0;
-            const nextEstimatedBalance = nextMonthData.accountEstimatedFinalBalances?.[account] || 0;
+            const nextEstimatedBalance = nextMonthData.accountEstimatedStartBalances?.[account] || 0;
             const nextCalcDiff = nextActualBalance - nextEstimatedBalance;
             dataPoint[`${account}_actualExtraCosts`] = nextCalcDiff;
           } else {
