@@ -1762,6 +1762,12 @@ const BudgetCalculator = () => {
       ...prev,
       [account]: true
     }));
+    
+    // Trigger recalculation of estimated final balances for the month
+    // This ensures accountEstimatedFinalBalances is updated when Faktiskt kontosaldo changes
+    setTimeout(() => {
+      calculateBudget();
+    }, 0);
   };
 
   // Function to load data from selected month into current form
