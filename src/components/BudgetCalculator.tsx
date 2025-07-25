@@ -1734,21 +1734,17 @@ const BudgetCalculator = () => {
     console.log(`=== DEBUG getCalcKontosaldoSameMonth FOR ${account} ===`);
     console.log(`Current month: ${selectedBudgetMonth}`);
     
-    // Use the same logic as the main Calc.Kontosaldo calculation
-    const hasActualBalance = accountBalancesSet && accountBalancesSet[account] === true;
+    // Use the EXACT same logic as the main Calc.Kontosaldo calculation (lines 4498-4500)
+    const hasActualBalance = accountBalancesSet[account] === true;
     const currentBalance = accountBalances?.[account] || 0;
+    // CRITICAL FIX: ALWAYS use currentBalance (0 when "Ej ifyllt"), NEVER estimated
+    const calcBalance = currentBalance || 0;
     
     console.log(`hasActualBalance: ${hasActualBalance}`);
     console.log(`currentBalance: ${currentBalance}`);
+    console.log(`calcBalance (FINAL): ${calcBalance}`);
     
-    if (hasActualBalance) {
-      console.log(`Using actual balance: ${currentBalance}`);
-      return currentBalance;
-    } else {
-      // CRITICAL FIX: When "Ej ifyllt", ALWAYS return 0, NEVER use estimates
-      console.log(`🚨 FIXED: "Ej ifyllt" treated as 0, not estimates: ${currentBalance}`);
-      return currentBalance || 0;
-    }
+    return calcBalance;
   };
 
   // Helper function to check if Calc.Descr for same month is (Est)
