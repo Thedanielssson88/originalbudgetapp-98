@@ -5284,7 +5284,12 @@ const BudgetCalculator = () => {
                                  id="daily-transfer"
                                  type="number"
                                  value={dailyTransfer || ''}
-                                 onChange={(e) => setDailyTransfer(Number(e.target.value))}
+                                  onChange={(e) => {
+                                    setDailyTransfer(Number(e.target.value));
+                                    const currentDate = new Date();
+                                    const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                                    resetMonthFinalBalancesFlag(currentMonthKey);
+                                  }}
                                  disabled={!isEditingTransfers}
                                />
                              </div>
@@ -5294,7 +5299,12 @@ const BudgetCalculator = () => {
                                  id="weekend-transfer"
                                  type="number"
                                  value={weekendTransfer || ''}
-                                 onChange={(e) => setWeekendTransfer(Number(e.target.value))}
+                                  onChange={(e) => {
+                                    setWeekendTransfer(Number(e.target.value));
+                                    const currentDate = new Date();
+                                    const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                                    resetMonthFinalBalancesFlag(currentMonthKey);
+                                  }}
                                  disabled={!isEditingTransfers}
                                />
                              </div>
