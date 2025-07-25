@@ -1581,13 +1581,13 @@ const BudgetCalculator = () => {
     return result;
   };
 
-  // Helper function to get estimated account balances from previous month's final balances
-  const getEstimatedAccountBalances = (freshFinalBalances?: {[key: string]: number}) => {
+  // Helper function to get estimated opening balances from previous month's final balances
+  const getEstimatedOpeningBalances = (freshFinalBalances?: {[key: string]: number}) => {
     const prevMonthInfo = getPreviousMonthInfo();
     const prevMonthData = historicalData[prevMonthInfo.monthKey];
     
-    console.log(`=== GET ESTIMATED BALANCES DEBUG ===`);
-    console.log(`🔍 BERÄKNAR ESTIMERAT SLUTSALDO FÖR: ${selectedBudgetMonth || 'Aktuell månad'}`);
+    console.log(`=== GET ESTIMATED OPENING BALANCES DEBUG ===`);
+    console.log(`🔍 BERÄKNAR ESTIMERAD INGÅENDE BALANS FÖR: ${selectedBudgetMonth || 'Aktuell månad'}`);
     console.log(`📅 ANVÄNDER DATA FRÅN FÖREGÅENDE MÅNAD: ${prevMonthInfo.monthKey}`);
     console.log(`📊 Föregående månads data finns:`, !!prevMonthData);
     console.log(`📋 Tillgängliga historiska månader:`, Object.keys(historicalData));
@@ -1605,12 +1605,12 @@ const BudgetCalculator = () => {
     
     if (!prevMonthData) {
       console.log(`❌ INGEN DATA HITTADES FÖR FÖREGÅENDE MÅNAD: ${prevMonthInfo.monthKey}`);
-      console.log(`   Detta betyder att estimerat slutsaldo inte kan beräknas.`);
-      console.log(`   För Augusti skulle vi behöva data från Juli för att beräkna.`);
+      console.log(`   Detta betyder att estimerad ingående balans inte kan beräknas.`);
+      console.log(`   För Juni skulle vi behöva data från Maj för att beräkna.`);
       return null;
     }
     
-    const estimatedBalances: {[key: string]: number} = {};
+    const estimatedOpeningBalances: {[key: string]: number} = {};
     
     console.log('Previous month data found:', prevMonthInfo.monthKey, prevMonthData);
     
@@ -1675,34 +1675,40 @@ const BudgetCalculator = () => {
         }
         
         // The estimated opening balance is the previous month's ending balance
-        estimatedBalances[account] = openingBalance || 0;
+        estimatedOpeningBalances[account] = openingBalance || 0;
         
-        // CRITICAL DEBUG FOR DECEMBER LÖPANDE
-        if (selectedBudgetMonth?.includes('12') && account === 'Löpande') {
-          console.log(`🚨🚨🚨 CRITICAL DECEMBER LÖPANDE CALCULATION 🚨🚨🚨`);
-          console.log(`🔢 Final calculated value: ${estimatedBalances[account]}`);
-          console.log(`🔢 openingBalance was: ${openingBalance}`);
-          console.log(`🔢 This should be 1000, not 6001!`);
-          console.log(`🚨🚨🚨 END CRITICAL DEBUG 🚨🚨🚨`);
-        }
+         // CRITICAL DEBUG FOR DECEMBER LÖPANDE
+         if (selectedBudgetMonth?.includes('12') && account === 'Löpande') {
+           console.log(`🚨🚨🚨 CRITICAL DECEMBER LÖPANDE CALCULATION 🚨🚨🚨`);
+           console.log(`🔢 Final calculated value: ${estimatedOpeningBalances[account]}`);
+           console.log(`🔢 openingBalance was: ${openingBalance}`);
+           console.log(`🔢 This should be 1000, not 6001!`);
+           console.log(`🚨🚨🚨 END CRITICAL DEBUG 🚨🚨🚨`);
+         }
         
         console.log(`=== 📊 ESTIMATED OPENING BALANCE FOR ${account.toUpperCase()} ===`);
         console.log(`📈 Previous month ending balance (${endingBalanceKey}): ${openingBalance || 0} kr`);
-        console.log(`✅ ESTIMATED OPENING BALANCE: ${estimatedBalances[account]} kr`);
+        console.log(`✅ ESTIMATED OPENING BALANCE: ${estimatedOpeningBalances[account]} kr`);
         console.log(`=== 🏁 END ===`);
     });
     
     // CRITICAL DEBUG: Check if December Löpande is in the final result
-    if (selectedBudgetMonth?.includes('12') && estimatedBalances['Löpande']) {
-      console.log(`🚨🚨🚨 FINAL ESTIMATED BALANCES CHECK 🚨🚨🚨`);
-      console.log(`🔢 Löpande in final result: ${estimatedBalances['Löpande']}`);
-      console.log(`🔢 All estimated balances:`, estimatedBalances);
-      console.log(`🚨🚨🚨 THIS IS WHAT GETS RETURNED 🚨🚨🚨`);
+    if (selectedBudgetMonth?.includes('12') && estimatedOpeningBalances['Löpande']) {
+      console.log(`🚨🚨🚨 FINAL ESTIMATED OPENING BALANCES CHECK 🚨🚨🚨`);
+      console.log(`🔢 Löpande in final result: ${estimatedOpeningBalances['Löpande']}`);
+      console.log(`🔢 All estimated opening balances:`, estimatedOpeningBalances);
+      console.log(`🚨🚨🚨 THIS IS WHAT GETS RETURNED FOR OPENING BALANCES 🚨🚨🚨`);
     }
     
-    console.log('All estimated balances:', estimatedBalances);
-    console.log(`=== END GET ESTIMATED BALANCES DEBUG ===`);
-    return estimatedBalances;
+    console.log('All estimated opening balances:', estimatedOpeningBalances);
+    console.log(`=== END GET ESTIMATED OPENING BALANCES DEBUG ===`);
+    return estimatedOpeningBalances;
+  };
+
+  // Keep original function for backwards compatibility (for estimated final balances)
+  const getEstimatedAccountBalances = (freshFinalBalances?: {[key: string]: number}) => {
+    // This now just calls the opening balances function since that's what it was doing
+    return getEstimatedOpeningBalances(freshFinalBalances);
   };
 
   // Helper function to check if current month has empty account balances
@@ -1745,7 +1751,7 @@ const BudgetCalculator = () => {
     
     // Calculate estimated balance using the same logic as the main calculation
     const freshBalances = (window as any).__freshFinalBalances;
-    const estimatedResult = getEstimatedAccountBalances(freshBalances);
+    const estimatedResult = getEstimatedOpeningBalances(freshBalances);
     const estimatedBalance = estimatedResult?.[account] || 0;
     
     // When "Ej ifyllt" (hasActualBalance = false), use estimated balance
@@ -4379,7 +4385,7 @@ const BudgetCalculator = () => {
                                if (shouldShowEstimated) {
                                  // Use estimated balances
                                  const freshBalances = (window as any).__freshFinalBalances;
-                                 const estimatedResult = getEstimatedAccountBalances(freshBalances);
+                                  const estimatedResult = getEstimatedOpeningBalances(freshBalances);
                                  categoryTotal = categoryAccounts.reduce((sum, account) => {
                                    return sum + (estimatedResult?.[account] || 0);
                                  }, 0);
@@ -4419,9 +4425,13 @@ const BudgetCalculator = () => {
                                      <CollapsibleContent className="space-y-3 mt-3">
                                        {categoryAccounts.map(account => {
                                           const currentBalance = accountBalances[account] || 0;
-                            const freshBalances = (window as any).__freshFinalBalances;
-                            const estimatedResult = getEstimatedAccountBalances(freshBalances);
-                            const estimatedBalance = estimatedResult?.[account] || 0;
+                             const freshBalances = (window as any).__freshFinalBalances;
+                             const estimatedResult = getEstimatedAccountBalances(freshBalances);
+                             const estimatedBalance = estimatedResult?.[account] || 0;
+                             
+                             // Get OPENING balance for "Estimerad ingående balans" display  
+                             const openingBalanceResult = getEstimatedOpeningBalances(freshBalances);
+                             const estimatedOpeningBalance = openingBalanceResult?.[account] || 0;
                             
                             // CRITICAL DEBUGGING - Check where wrong calculation happens
                             if (currentBalance === 0 && account === 'Löpande') {
@@ -4495,7 +4505,7 @@ const BudgetCalculator = () => {
                                                     <div className="flex justify-between items-center">
                                                       <span className="text-sm font-medium text-orange-700">Estimerad ingående balans</span>
                                                       <div className="flex items-center gap-2">
-                                                        <span className="w-32 text-right text-sm text-orange-600">{formatCurrency(estimatedBalance)}</span>
+                                                        <span className="w-32 text-right text-sm text-orange-600">{formatCurrency(estimatedOpeningBalance)}</span>
                                                         <span className="text-sm text-orange-600 min-w-8">kr</span>
                                                       </div>
                                                     </div>
