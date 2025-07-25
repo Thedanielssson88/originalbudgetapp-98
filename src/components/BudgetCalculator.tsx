@@ -1244,15 +1244,13 @@ const BudgetCalculator = () => {
         remainingDailyBudget: budgetData.remainingBudget,
         holidayDaysBudget: budgetData.holidayBudget,
         daysUntil25th: budgetData.daysUntil25th,
-        accountFinalBalances: finalBalances, // Save final balances directly to historical data
-        accountEndingBalances: endingBalanceKeys, // Save formatted ending balances
         accountEstimatedFinalBalances: finalBalances, // Save the calculated Slutsaldo to accountEstimatedFinalBalances
         date: currentDate.toISOString() // Update timestamp
       }
     }));
     
+    console.log(`🔥 SAVING accountEstimatedFinalBalances for ${monthKey}:`, finalBalances);
     console.log(`Final balances calculated and saved for ${monthKey}:`, finalBalances);
-    console.log(`Ending balance keys saved:`, endingBalanceKeys);
   };
 
 
@@ -1294,11 +1292,11 @@ const BudgetCalculator = () => {
         
         console.log(`${account}: Account balance is 0, checking for estimated value from ${prevPrevMonthKey}`);
         
-        // Check if there's saved final balance from the month before previous
+        // Check if there's saved estimated final balance from the month before previous
         const prevPrevMonthData = historicalData[prevPrevMonthKey];
-        if (prevPrevMonthData && prevPrevMonthData.accountFinalBalances && prevPrevMonthData.accountFinalBalances[account] !== undefined) {
-          originalBalance = prevPrevMonthData.accountFinalBalances[account];
-          console.log(`${account}: Using estimated starting balance from ${prevPrevMonthKey}: ${originalBalance}`);
+        if (prevPrevMonthData && prevPrevMonthData.accountEstimatedFinalBalances && prevPrevMonthData.accountEstimatedFinalBalances[account] !== undefined) {
+          originalBalance = prevPrevMonthData.accountEstimatedFinalBalances[account];
+          console.log(`${account}: Using estimated final balance from ${prevPrevMonthKey}: ${originalBalance}`);
         }
       }
       
@@ -1338,8 +1336,6 @@ const BudgetCalculator = () => {
         ...prev,
         [prevMonthKey]: {
           ...prev[prevMonthKey],
-          accountFinalBalances: finalBalances,
-          accountEndingBalances: prevEndingBalanceKeys,
           accountEstimatedFinalBalances: finalBalances // Save the calculated Slutsaldo to accountEstimatedFinalBalances
         }
       };
@@ -1632,72 +1628,15 @@ const BudgetCalculator = () => {
         console.log(`💰 accountFinalBalances FULL OBJECT:`, prevMonthData.accountFinalBalances);
         console.log(`💰 accountFinalBalances keys:`, prevMonthData.accountFinalBalances ? Object.keys(prevMonthData.accountFinalBalances) : 'undefined');
         
-        // First, try to get from accountEstimatedFinalBalances (our new primary source)
+        // Use accountEstimatedFinalBalances as the single source of truth
         let openingBalance = prevMonthData.accountEstimatedFinalBalances?.[account];
         
         console.log(`✅ accountEstimatedFinalBalances lookup for "${account}": ${openingBalance} (type: ${typeof openingBalance})`);
         
-        // If not found, try the specifically formatted ending balance
+        // If not found, use 0 as default (no fallbacks to old properties)
         if (openingBalance === undefined || openingBalance === null) {
-          openingBalance = prevMonthData.accountEndingBalances?.[endingBalanceKey];
-          console.log(`✅ Direct lookup result for "${endingBalanceKey}": ${openingBalance} (type: ${typeof openingBalance})`);
-        }
-        
-        // If not found, fallback to accountFinalBalances (this should have the actual budget calculation result)
-        if (openingBalance === undefined || openingBalance === null) {
-          openingBalance = prevMonthData.accountFinalBalances?.[account];
-          console.log(`${account}: Using accountFinalBalances (budget result): ${openingBalance}`);
-          
-          // CRITICAL DEBUG: Check if this is the Löpande September issue
-          if (account === 'Löpande' && endingBalanceKey === 'Löpande.2025.09.Endbalance') {
-            console.log(`🚨 CRITICAL: Löpande September ending balance issue detected`);
-            console.log(`🔍 Expected ending balance: 5500`);
-            console.log(`📊 Actually retrieved: ${openingBalance}`);
-            console.log(`💾 accountEndingBalances missing or undefined: ${!prevMonthData.accountEndingBalances}`);
-            console.log(`💡 This suggests September final balance calculation is wrong or not saved`);
-            
-            // Let's check what September's actual data looks like
-            console.log(`📋 September full data breakdown:`);
-            console.log(`   - accountBalances.Löpande: ${prevMonthData.accountBalances?.Löpande}`);
-            console.log(`   - Savings for Löpande: ${(prevMonthData.savingsGroups || []).filter((g: any) => g.account === 'Löpande').reduce((sum: number, g: any) => sum + g.amount, 0)}`);
-            console.log(`   - One-time costs for Löpande: ${(prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-              const costs = group.subCategories?.filter((sub: any) => sub.account === 'Löpande' && sub.financedFrom === 'Enskild kostnad').reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-              return sum + costs;
-            }, 0)}`);
-          }
-        }
-        
-        // If still not found, try estimated final balances
-        if (openingBalance === undefined || openingBalance === null) {
-          openingBalance = prevMonthData.accountEstimatedStartBalances?.[account];
-          console.log(`${account}: Using accountEstimatedStartBalances: ${openingBalance}`);
-        }
-        
-        // If still not found, try to get it from accountBalances as final fallback
-        if (openingBalance === undefined || openingBalance === null) {
-          openingBalance = prevMonthData.accountBalances?.[account] || 0;
-          console.log(`${account}: No final balance found, using account balance: ${openingBalance}`);
-        }
-        
-        // If still no balance found, try to use final balance from the month before
-        if (openingBalance === undefined || openingBalance === null) {
-          const prevPrevMonth = parseInt(prevMonth) === 1 ? 12 : parseInt(prevMonth) - 1;
-          const prevPrevYear = parseInt(prevMonth) === 1 ? parseInt(prevYear) - 1 : parseInt(prevYear);
-          const prevPrevMonthKey = `${prevPrevYear}-${String(prevPrevMonth).padStart(2, '0')}`;
-          const prevPrevEndingBalanceKey = `${account}.${prevPrevYear}.${String(prevPrevMonth).padStart(2, '0')}.Endbalance`;
-          
-          console.log(`${account}: Balance is undefined/null, checking for ending balance from ${prevPrevMonthKey}`);
-          
-          const prevPrevMonthData = historicalData[prevPrevMonthKey];
-          if (prevPrevMonthData?.accountEndingBalances?.[prevPrevEndingBalanceKey] !== undefined) {
-            openingBalance = prevPrevMonthData.accountEndingBalances[prevPrevEndingBalanceKey];
-            console.log(`${account}: Using ending balance from ${prevPrevMonthKey}: ${openingBalance}`);
-          } else if (prevPrevMonthData?.accountFinalBalances?.[account] !== undefined) {
-            openingBalance = prevPrevMonthData.accountFinalBalances[account];
-            console.log(`${account}: Using final balance from ${prevPrevMonthKey}: ${openingBalance}`);
-          } else {
-            openingBalance = 0;
-          }
+          openingBalance = 0;
+          console.log(`${account}: No estimated final balance found, using 0`);
         }
         
         // The estimated opening balance is the previous month's ending balance
@@ -1846,8 +1785,7 @@ const BudgetCalculator = () => {
     // Load saved account balances, or start with empty if none exist
     const loadedBalances = monthData.accountBalances || {};
     setAccountBalances(loadedBalances);
-    setAccountFinalBalances(monthData.accountFinalBalances || {});
-    setAccountFinalBalancesSet(monthData.accountFinalBalancesSet || {});
+    // Note: We no longer load accountFinalBalances since we use accountEstimatedFinalBalances as single source
     setAccountEstimatedStartBalances(monthData.accountEstimatedStartBalances || {});
     
     // Load saved accountBalancesSet, or calculate it if not available
@@ -1914,26 +1852,10 @@ const BudgetCalculator = () => {
     const estimatedStartBalances: {[key: string]: number} = {};
     
     accounts.forEach(account => {
-      // Check if previous month has explicitly set final balance (including 0)
-      const hasPrevFinalBalance = prevMonthData.accountFinalBalancesSet && 
-                                  prevMonthData.accountFinalBalancesSet[account] === true;
-      
-      // Use saved final balance from previous month if it was explicitly set
-      if (hasPrevFinalBalance && prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
-        // CRITICAL DEBUG: Check if this is the wrong value being loaded
-        if (account === 'Löpande' && monthKey.includes('12')) {
-          console.log(`🚨🚨🚨 DECEMBER LÖPANDE - LOADING FROM NOVEMBER DATA 🚨🚨🚨`);
-          console.log(`📅 Loading December estimates from November data`);
-          console.log(`📊 November accountFinalBalances['Löpande']: ${prevMonthData.accountFinalBalances[account]}`);
-          console.log(`💡 This should be 1000, but if it's 2001, then November's saved data is wrong`);
-          console.log(`🚨🚨🚨 END DEBUG 🚨🚨🚨`);
-        }
-        estimatedStartBalances[account] = prevMonthData.accountFinalBalances[account];
-        console.log(`📊 Estimated start balance for ${account}: ${estimatedStartBalances[account]} (from prev month final, explicitly set)`);
-      } else if (!hasPrevFinalBalance && prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
-        // If not explicitly set but value exists, still use it (backward compatibility)
-        estimatedStartBalances[account] = prevMonthData.accountFinalBalances[account];
-        console.log(`📊 Estimated start balance for ${account}: ${estimatedStartBalances[account]} (from prev month final, legacy)`);
+      // Use accountEstimatedFinalBalances as the single source of truth
+      if (prevMonthData.accountEstimatedFinalBalances && prevMonthData.accountEstimatedFinalBalances[account] !== undefined) {
+        estimatedStartBalances[account] = prevMonthData.accountEstimatedFinalBalances[account];
+        console.log(`📊 Estimated start balance for ${account}: ${estimatedStartBalances[account]} (from prev month estimated final balances)`);
       } else {
         // Fallback calculation if previous month doesn't have final balances
         const originalBalance = prevMonthData.accountBalances?.[account] || 0;
