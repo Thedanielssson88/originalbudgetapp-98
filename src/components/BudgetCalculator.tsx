@@ -3166,12 +3166,24 @@ const BudgetCalculator = () => {
         }
       }
     } else {
-      // Default behavior: show saved months plus current month
-      extendedMonthKeys = [...savedMonthKeys];
-      if (!extendedMonthKeys.includes(currentMonthKey)) {
-        extendedMonthKeys.push(currentMonthKey);
+      // Default behavior: show all months from earliest saved to current month (continuous range)
+      if (savedMonthKeys.length > 0) {
+        const earliestMonth = savedMonthKeys[0];
+        const [startYear, startMonth] = earliestMonth.split('-').map(Number);
+        const [currentYear, currentMonth] = currentMonthKey.split('-').map(Number);
+        
+        let iterMonth = new Date(startYear, startMonth - 1, 1);
+        const endDate = new Date(currentYear, currentMonth - 1, 1);
+        
+        while (iterMonth <= endDate) {
+          const monthKey = `${iterMonth.getFullYear()}-${String(iterMonth.getMonth() + 1).padStart(2, '0')}`;
+          extendedMonthKeys.push(monthKey);
+          iterMonth.setMonth(iterMonth.getMonth() + 1);
+        }
+      } else {
+        // No saved data, just show current month
+        extendedMonthKeys = [currentMonthKey];
       }
-      extendedMonthKeys.sort();
     }
 
     // Initialize selected accounts to show ALL accounts by default
@@ -3283,9 +3295,9 @@ const BudgetCalculator = () => {
       accounts.forEach(account => {
         const { balance, isEstimated } = getCalcKontosaldo(monthKey, account);
         
-        // If showing estimated amounts is disabled and this is estimated data, don't include it
+        // If showing estimated amounts is disabled and this is estimated data, skip this account
         if (!showEstimatedBudgetAmounts && isEstimated) {
-          // Don't add this data point
+          // Skip this account but continue with other accounts
           return;
         }
         
