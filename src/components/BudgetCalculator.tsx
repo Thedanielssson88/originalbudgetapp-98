@@ -198,6 +198,9 @@ const BudgetCalculator = () => {
   // Balance type chart selection state
   const [balanceType, setBalanceType] = useState<'starting' | 'closing'>('closing');
 
+  // Month final balances completion flags - tracks when calculations are complete
+  const [monthFinalBalances, setMonthFinalBalances] = useState<{[key: string]: boolean}>({});
+
   // Calculate structured account data for table view
   const accountDataRows: AccountDataRow[] = React.useMemo(() => {
     // Helper function to get Calc.Kontosaldo for a month and account
@@ -552,6 +555,9 @@ const BudgetCalculator = () => {
         // Load account final balances set tracking
         setAccountEstimatedFinalBalancesSet(parsed.accountEstimatedFinalBalancesSet || {});
         
+        // Load month final balances flags
+        setMonthFinalBalances(parsed.monthFinalBalances || {});
+        
         // Load account estimated start balances
         setAccountEstimatedStartBalances(parsed.accountEstimatedStartBalances || {});
         
@@ -672,6 +678,7 @@ const BudgetCalculator = () => {
       accountEstimatedFinalBalances: JSON.parse(JSON.stringify(accountEstimatedFinalBalances)),
       accountEstimatedFinalBalancesSet: JSON.parse(JSON.stringify(accountEstimatedFinalBalancesSet)),
       accountEstimatedStartBalances: JSON.parse(JSON.stringify(accountEstimatedStartBalances)),
+      monthFinalBalances: monthFinalBalances[monthKey] || false,
       // Include any existing calculated results if they exist
       ...(results && {
         totalMonthlyExpenses: results.totalMonthlyExpenses,
@@ -755,7 +762,8 @@ const BudgetCalculator = () => {
       showSavingsSeparately,
       useCustomTimeRange,
       chartStartMonth,
-      chartEndMonth
+      chartEndMonth,
+      monthFinalBalances
     };
     localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
   };
@@ -766,7 +774,7 @@ const BudgetCalculator = () => {
       saveToLocalStorage();
       saveToSelectedMonth();
     }
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountBalancesSet, accountEstimatedFinalBalances, accountEstimatedFinalBalancesSet, accountEstimatedStartBalances, selectedAccountsForChart, showIndividualCostsOutsideBudget, showSavingsSeparately, useCustomTimeRange, chartStartMonth, chartEndMonth, isInitialLoad]);
+  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountBalancesSet, accountEstimatedFinalBalances, accountEstimatedFinalBalancesSet, accountEstimatedStartBalances, selectedAccountsForChart, showIndividualCostsOutsideBudget, showSavingsSeparately, useCustomTimeRange, chartStartMonth, chartEndMonth, monthFinalBalances, isInitialLoad]);
   // Calculate estimated final balances when budget month changes
   useEffect(() => {
     if (!isInitialLoad && selectedBudgetMonth) {
@@ -1197,6 +1205,11 @@ const BudgetCalculator = () => {
     });
     setAccountEstimatedFinalBalancesSet(finalBalancesSetState);
     
+    // Check and set MonthFinalBalances flag when final balances are calculated and saved
+    const currentDateForFlag = new Date();
+    const monthKeyForFlag = selectedBudgetMonth || `${currentDateForFlag.getFullYear()}-${String(currentDateForFlag.getMonth() + 1).padStart(2, '0')}`;
+    checkAndSetMonthFinalBalancesFlag(monthKeyForFlag);
+    
     console.log('Holiday days calculated:', budgetData.holidayDays);
     setResults({
       totalSalary,
@@ -1271,6 +1284,65 @@ const BudgetCalculator = () => {
     console.log(`   - Will be used as opening balance for October`);
   };
 
+
+  // Function to reset MonthFinalBalances flag for current and future months when manual values change
+  const resetMonthFinalBalancesFlag = (currentMonthKey: string) => {
+    console.log(`🚨 RESETTING MonthFinalBalances flag for ${currentMonthKey} and all future months`);
+    
+    setMonthFinalBalances(prev => {
+      const updated = { ...prev };
+      
+      // Reset current month
+      updated[currentMonthKey] = false;
+      
+      // Reset all future months
+      const currentMonthKeys = Object.keys(historicalData).sort();
+      const currentIndex = currentMonthKeys.indexOf(currentMonthKey);
+      if (currentIndex !== -1) {
+        for (let i = currentIndex + 1; i < currentMonthKeys.length; i++) {
+          updated[currentMonthKeys[i]] = false;
+        }
+      }
+      
+      console.log(`📝 Updated MonthFinalBalances flags:`, updated);
+      return updated;
+    });
+  };
+
+  // Function to check if we can set MonthFinalBalances flag to true
+  const checkAndSetMonthFinalBalancesFlag = (monthKey: string) => {
+    console.log(`🔍 Checking if we can set MonthFinalBalances flag to true for ${monthKey}`);
+    
+    // Get previous month
+    const [year, month] = monthKey.split('-').map(Number);
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
+    const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+    
+    // Check if this is the first month with saved data
+    const allMonthKeys = Object.keys(historicalData).sort();
+    const isFirstMonth = allMonthKeys.length === 0 || allMonthKeys[0] === monthKey;
+    
+    // Check if previous month flag is true
+    const prevMonthFlagSet = monthFinalBalances[prevMonthKey] === true;
+    
+    console.log(`📊 Flag check for ${monthKey}:`);
+    console.log(`   - Is first month: ${isFirstMonth}`);
+    console.log(`   - Previous month (${prevMonthKey}) flag: ${monthFinalBalances[prevMonthKey]}`);
+    console.log(`   - Can set flag: ${isFirstMonth || prevMonthFlagSet}`);
+    
+    if (isFirstMonth || prevMonthFlagSet) {
+      setMonthFinalBalances(prev => ({
+        ...prev,
+        [monthKey]: true
+      }));
+      console.log(`✅ Set MonthFinalBalances flag to true for ${monthKey}`);
+      return true;
+    } else {
+      console.log(`❌ Cannot set MonthFinalBalances flag for ${monthKey} - previous month flag not set`);
+      return false;
+    }
+  };
 
   // Function to calculate and save final balances for the previous month of a target month
   const calculateAndSavePreviousMonthFinalBalances = (targetMonthKey: string) => {
@@ -1378,6 +1450,11 @@ const BudgetCalculator = () => {
       subCategories: []
     };
     setCostGroups([...costGroups, newGroup]);
+    
+    // Reset MonthFinalBalances flag when manual values are changed
+    const currentDate = new Date();
+    const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    resetMonthFinalBalancesFlag(currentMonthKey);
   };
 
   const addSavingsGroup = () => {
@@ -1402,6 +1479,11 @@ const BudgetCalculator = () => {
     setCostGroups(costGroups.map(group => 
       group.id === id ? { ...group, [field]: value } : group
     ));
+    
+    // Reset MonthFinalBalances flag when manual values are changed
+    const currentDate = new Date();
+    const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    resetMonthFinalBalancesFlag(currentMonthKey);
   };
 
   const updateSavingsGroup = (id: string, field: 'name' | 'amount' | 'account' | 'financedFrom', value: string | number) => {
@@ -1782,6 +1864,11 @@ const BudgetCalculator = () => {
       [account]: true
     }));
     
+    // Reset MonthFinalBalances flag when manual values are changed
+    const currentDate = new Date();
+    const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    resetMonthFinalBalancesFlag(currentMonthKey);
+    
     // Trigger recalculation of estimated final balances for the month
     // This ensures accountEstimatedFinalBalances is updated when Faktiskt kontosaldo changes
     setTimeout(() => {
@@ -1837,6 +1924,12 @@ const BudgetCalculator = () => {
       });
       setAccountBalancesSet(balancesSet);
     }
+    
+    // Load MonthFinalBalances flag from month data
+    setMonthFinalBalances(prev => ({
+      ...prev,
+      [monthKey]: monthData.monthFinalBalances || false
+    }));
     
     // Update results if available
     if (monthData.totalSalary !== undefined) {
@@ -2891,6 +2984,11 @@ const BudgetCalculator = () => {
         ) || []
       } : group
     ));
+    
+    // Reset MonthFinalBalances flag when manual values are changed
+    const currentDate = new Date();
+    const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    resetMonthFinalBalancesFlag(currentMonthKey);
   };
 
   // Account management functions
@@ -4056,7 +4154,7 @@ const BudgetCalculator = () => {
         {/* Month Selector */}
         <Card className="mb-6">
           <CardHeader className="text-center">
-            <CardTitle className="text-xl">
+            <CardTitle className={`text-xl ${monthFinalBalances[selectedBudgetMonth || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`] === true ? 'text-foreground' : 'text-red-500'}`}>
               Aktuell månad
             </CardTitle>
           </CardHeader>
@@ -4245,7 +4343,12 @@ const BudgetCalculator = () => {
                             type="number"
                             placeholder="Ange månadslön"
                             value={andreasSalary || ''}
-                            onChange={(e) => setAndreasSalary(Number(e.target.value))}
+                            onChange={(e) => {
+                              setAndreasSalary(Number(e.target.value));
+                              const currentDate = new Date();
+                              const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                              resetMonthFinalBalancesFlag(currentMonthKey);
+                            }}
                             className="text-lg bg-white/70"
                           />
                         </div>
@@ -4287,7 +4390,12 @@ const BudgetCalculator = () => {
                             type="number"
                             placeholder="Ange månadslön"
                             value={susannaSalary || ''}
-                            onChange={(e) => setSusannaSalary(Number(e.target.value))}
+                            onChange={(e) => {
+                              setSusannaSalary(Number(e.target.value));
+                              const currentDate = new Date();
+                              const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                              resetMonthFinalBalancesFlag(currentMonthKey);
+                            }}
                             className="text-lg bg-white/70"
                           />
                         </div>
