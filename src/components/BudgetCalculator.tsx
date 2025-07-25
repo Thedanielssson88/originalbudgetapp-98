@@ -1833,50 +1833,18 @@ const BudgetCalculator = () => {
     }, 100);
   };
   
-  // Function to get the actual displayed ending balance from a specific month
-  const getActualEndingBalanceFromMonth = (monthKey: string, account: string): number => {
-    const monthData = historicalData[monthKey];
-    if (!monthData) return 0;
-    
-    console.log(`🎯 Getting actual ending balance for ${account} from ${monthKey}`);
-    
-    // Get the original balance
-    const originalBalance = monthData.accountBalances?.[account] || 0;
-    console.log(`📊 Original balance: ${originalBalance}`);
-    
-    // Calculate account savings (positive)
-    const accountSavings = (monthData.savingsGroups || [])
-      .filter((group: any) => group.account === account)
-      .reduce((sum: number, group: any) => sum + group.amount, 0);
-    console.log(`💰 Account savings: ${accountSavings}`);
-    
-    // Calculate account one-time costs (enskild kostnad) - these reduce the balance
-    const accountOneTimeCosts = (monthData.costGroups || []).reduce((sum: number, group: any) => {
-      const groupOneTimeCosts = group.subCategories
-        ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
-        .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-      return sum + groupOneTimeCosts;
-    }, 0);
-    console.log(`💸 Account one-time costs: ${accountOneTimeCosts}`);
-    
-    // Calculate the actual ending balance exactly as displayed in Slutsaldo
-    const slutsaldo = originalBalance + accountSavings - accountOneTimeCosts;
-    console.log(`🎯 Actual ending balance (Slutsaldo): ${originalBalance} + ${accountSavings} - ${accountOneTimeCosts} = ${slutsaldo}`);
-    
-    return slutsaldo;
-  };
-
-  // Function to calculate and save estimated final balances for a month using previous month's actual ending balance
+  // Function to calculate and save estimated final balances for a month
   const calculateAndSaveEstimatedFinalBalances = (monthKey: string) => {
     const monthData = historicalData[monthKey];
     if (!monthData) return;
     
-    console.log(`🔢 Loading December starting balances from November actual ending balances`);
+    console.log(`🔢 Calculating estimated final balances for ${monthKey} (always calculated)`);
     
-    // Calculate estimated balances based on previous month's actual ending balance
+    // Calculate estimated balances based on previous month
     const [year, month] = monthKey.split('-').map(Number);
     const prevDate = new Date(year, month - 2, 1);
     const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+    
     
     const prevMonthData = historicalData[prevMonthKey];
     if (!prevMonthData) {
@@ -1887,19 +1855,51 @@ const BudgetCalculator = () => {
     const estimatedFinalBalances: {[key: string]: number} = {};
     
     accounts.forEach(account => {
-      // ALWAYS use the actual ending balance from previous month (Slutsaldo)
-      const actualEndingBalance = getActualEndingBalanceFromMonth(prevMonthKey, account);
+      // Check if previous month has explicitly set final balance (including 0)
+      const hasPrevFinalBalance = prevMonthData.accountFinalBalancesSet && 
+                                  prevMonthData.accountFinalBalancesSet[account] === true;
       
-      if (account === 'Löpande' && monthKey.includes('12')) {
-        console.log(`🚨🚨🚨 DECEMBER LÖPANDE - USING NOVEMBER SLUTSALDO 🚨🚨🚨`);
-        console.log(`📅 December starting balance = November ending balance (Slutsaldo)`);
-        console.log(`📊 November Slutsaldo for ${account}: ${actualEndingBalance}`);
-        console.log(`✅ This should be 1000 (the exact value shown in November's Slutsaldo)`);
-        console.log(`🚨🚨🚨 END DEBUG 🚨🚨🚨`);
+      // Use saved final balance from previous month if it was explicitly set
+      if (hasPrevFinalBalance && prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
+        // CRITICAL DEBUG: Check if this is the wrong value being loaded
+        if (account === 'Löpande' && monthKey.includes('12')) {
+          console.log(`🚨🚨🚨 DECEMBER LÖPANDE - LOADING FROM NOVEMBER DATA 🚨🚨🚨`);
+          console.log(`📅 Loading December estimates from November data`);
+          console.log(`📊 November accountFinalBalances['Löpande']: ${prevMonthData.accountFinalBalances[account]}`);
+          console.log(`💡 This should be 1000, but if it's 2001, then November's saved data is wrong`);
+          console.log(`🚨🚨🚨 END DEBUG 🚨🚨🚨`);
+        }
+        estimatedFinalBalances[account] = prevMonthData.accountFinalBalances[account];
+        console.log(`📊 Estimated final balance for ${account}: ${estimatedFinalBalances[account]} (from prev month final, explicitly set)`);
+      } else if (!hasPrevFinalBalance && prevMonthData.accountFinalBalances && prevMonthData.accountFinalBalances[account] !== undefined) {
+        // If not explicitly set but value exists, still use it (backward compatibility)
+        estimatedFinalBalances[account] = prevMonthData.accountFinalBalances[account];
+        console.log(`📊 Estimated final balance for ${account}: ${estimatedFinalBalances[account]} (from prev month final, legacy)`);
+      } else {
+        // Fallback calculation if previous month doesn't have final balances
+        const originalBalance = prevMonthData.accountBalances?.[account] || 0;
+        const accountSavings = (prevMonthData.savingsGroups || [])
+          .filter((group: any) => group.account === account)
+          .reduce((sum: number, group: any) => sum + group.amount, 0);
+        
+        const accountRecurringCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+          const groupCosts = group.subCategories
+            ?.filter((sub: any) => sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom))
+            .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+          return sum + groupCosts;
+        }, 0);
+        
+        const accountAllCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+          const groupCosts = group.subCategories
+            ?.filter((sub: any) => sub.account === account)
+            .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+          return sum + groupCosts;
+        }, 0);
+        
+        const slutsaldo = originalBalance + accountSavings + accountRecurringCosts - accountAllCosts;
+        estimatedFinalBalances[account] = slutsaldo;
+        console.log(`📊 Estimated final balance for ${account}: ${slutsaldo} (calculated)`);
       }
-      
-      estimatedFinalBalances[account] = actualEndingBalance;
-      console.log(`📊 December starting balance for ${account}: ${actualEndingBalance} (from November Slutsaldo)`);
     });
     
     // Save estimated final balances to the month data
@@ -2386,51 +2386,47 @@ const BudgetCalculator = () => {
     setAccountFinalBalances(currentFinalBalances);
     console.log(`💾 Updated accountFinalBalances to current values:`, currentFinalBalances);
     
-    // CRITICAL FIX: Ensure save completes before switching months
+    // Small delay to ensure state update completes
     setTimeout(() => {
       // Save current data to current month after ensuring all values are current
       console.log(`Saving current month data with updated final balances...`);
       saveToSelectedMonth();
-      
-      // WAIT for save to complete, then proceed with month switch
-      setTimeout(() => {
-        console.log(`Historical data keys AFTER saveToSelectedMonth:`, Object.keys(historicalData));
-        
-        // Calculate and save final balances for the previous month of the target month
-        console.log(`Calculating previous month final balances...`);
-        const freshFinalBalances = calculateAndSavePreviousMonthFinalBalances(monthKey);
-        
-        console.log(`Historical data keys AFTER calculateAndSavePreviousMonthFinalBalances:`, Object.keys(historicalData));
-        console.log(`Historical data after calculating previous month final balances:`, JSON.stringify(historicalData, null, 2));
-        
-        // Store the fresh final balances to use immediately for estimated balances
-        if (freshFinalBalances) {
-          (window as any).__freshFinalBalances = freshFinalBalances;
-          console.log(`Stored fresh final balances for immediate use:`, freshFinalBalances);
-        }
-        
-        // Now switch to the new month after all saves are complete
-        setSelectedBudgetMonth(monthKey);
-        
-        // Check if switching away from current month while on Överföring tab
-        const currentDate = new Date();
-        const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-        const isCurrentMonth = monthKey === currentMonthKey;
-        
-        // If switching to non-current month and currently on Överföring tab, switch to a valid tab
-        if (!isCurrentMonth && activeTab === 'overforing') {
-          setActiveTab('sammanstallning');
-        }
-        
-        // If the month exists in historical data, load it
-        if (historicalData[monthKey]) {
-          loadDataFromSelectedMonth(monthKey);
-        } else {
-          // If it's a new month, add it with data copied from current month
-          addNewBudgetMonth(monthKey, true);
-        }
-      }, 100);
     }, 50);
+    
+    console.log(`Historical data keys AFTER saveToSelectedMonth:`, Object.keys(historicalData));
+    
+    // Calculate and save final balances for the previous month of the target month
+    console.log(`Calculating previous month final balances...`);
+    const freshFinalBalances = calculateAndSavePreviousMonthFinalBalances(monthKey);
+    
+    console.log(`Historical data keys AFTER calculateAndSavePreviousMonthFinalBalances:`, Object.keys(historicalData));
+    console.log(`Historical data after calculating previous month final balances:`, JSON.stringify(historicalData, null, 2));
+    
+    // Store the fresh final balances to use immediately for estimated balances
+    if (freshFinalBalances) {
+      (window as any).__freshFinalBalances = freshFinalBalances;
+      console.log(`Stored fresh final balances for immediate use:`, freshFinalBalances);
+    }
+    
+    setSelectedBudgetMonth(monthKey);
+    
+    // Check if switching away from current month while on Överföring tab
+    const currentDate = new Date();
+    const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    const isCurrentMonth = monthKey === currentMonthKey;
+    
+    // If switching to non-current month and currently on Överföring tab, switch to a valid tab
+    if (!isCurrentMonth && activeTab === 'overforing') {
+      setActiveTab('sammanstallning');
+    }
+    
+    // If the month exists in historical data, load it
+    if (historicalData[monthKey]) {
+      loadDataFromSelectedMonth(monthKey);
+    } else {
+      // If it's a new month, add it with data copied from current month
+      addNewBudgetMonth(monthKey, true);
+    }
   };
 
   // Budget template functions
@@ -3166,24 +3162,12 @@ const BudgetCalculator = () => {
         }
       }
     } else {
-      // Default behavior: show all months from earliest saved to current month (continuous range)
-      if (savedMonthKeys.length > 0) {
-        const earliestMonth = savedMonthKeys[0];
-        const [startYear, startMonth] = earliestMonth.split('-').map(Number);
-        const [currentYear, currentMonth] = currentMonthKey.split('-').map(Number);
-        
-        let iterMonth = new Date(startYear, startMonth - 1, 1);
-        const endDate = new Date(currentYear, currentMonth - 1, 1);
-        
-        while (iterMonth <= endDate) {
-          const monthKey = `${iterMonth.getFullYear()}-${String(iterMonth.getMonth() + 1).padStart(2, '0')}`;
-          extendedMonthKeys.push(monthKey);
-          iterMonth.setMonth(iterMonth.getMonth() + 1);
-        }
-      } else {
-        // No saved data, just show current month
-        extendedMonthKeys = [currentMonthKey];
+      // Default behavior: show saved months plus current month
+      extendedMonthKeys = [...savedMonthKeys];
+      if (!extendedMonthKeys.includes(currentMonthKey)) {
+        extendedMonthKeys.push(currentMonthKey);
       }
+      extendedMonthKeys.sort();
     }
 
     // Initialize selected accounts to show ALL accounts by default
@@ -3295,9 +3279,9 @@ const BudgetCalculator = () => {
       accounts.forEach(account => {
         const { balance, isEstimated } = getCalcKontosaldo(monthKey, account);
         
-        // If showing estimated amounts is disabled and this is estimated data, skip this account
+        // If showing estimated amounts is disabled and this is estimated data, don't include it
         if (!showEstimatedBudgetAmounts && isEstimated) {
-          // Skip this account but continue with other accounts
+          // Don't add this data point
           return;
         }
         
