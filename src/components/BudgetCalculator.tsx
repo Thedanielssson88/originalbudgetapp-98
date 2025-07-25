@@ -7714,20 +7714,15 @@ const BudgetCalculator = () => {
                             // Wait for month switching and all calculations to complete
                             await new Promise(resolve => setTimeout(resolve, 300));
                             
-                            // Force recalculation to ensure all values are current
-                            console.log(`📊 Recalculating budget for ${monthKey}`);
-                            calculateBudget();
-                            await new Promise(resolve => setTimeout(resolve, 100));
+                            // handleBudgetMonthChange already does all necessary calculations including:
+                            // - Final budget calculation 
+                            // - Calculating and saving final balances
+                            // - Saving current month data
+                            // - Setting up estimated start balances for next month
+                            console.log(`✅ Month ${monthKey} processed by handleBudgetMonthChange`);
                             
-                            // Calculate and save estimated final balances for this month  
-                            console.log(`💾 Calculating and saving estimated final balances for ${monthKey}`);
-                            calculateAndSaveEstimatedFinalBalances(monthKey);
-                            await new Promise(resolve => setTimeout(resolve, 100));
-                            
-                            // Save the month's data with all calculations
-                            console.log(`💾 Saving month data for ${monthKey}`);
-                            saveToSelectedMonth();
-                            await new Promise(resolve => setTimeout(resolve, 50));
+                            // Wait for all calculations to complete
+                            await new Promise(resolve => setTimeout(resolve, 200));
                             
                             // Set the monthFinalBalances flag to true for this month
                             console.log(`✅ Setting monthFinalBalances flag to true for ${monthKey}`);
@@ -7766,10 +7761,17 @@ const BudgetCalculator = () => {
                             setIsUpdatingAllMonths(false);
                             setUpdateProgress(0);
                             
-                            // Return to the originally selected month
+                            // Return to the originally selected month and ensure graph is updated
                             const originalMonth = selectedBudgetMonth;
                             if (originalMonth && historicalData[originalMonth]) {
+                              console.log(`🔄 Returning to original month ${originalMonth} and updating graph`);
                               handleBudgetMonthChange(originalMonth);
+                              
+                              // Force a final calculation to ensure graph shows updated values
+                              setTimeout(() => {
+                                console.log(`📊 Final graph update after sequential processing`);
+                                calculateBudget();
+                              }, 300);
                             }
                           }
                         };
