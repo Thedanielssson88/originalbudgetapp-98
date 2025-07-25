@@ -1627,23 +1627,39 @@ const BudgetCalculator = () => {
         console.log(`💰 accountFinalBalances FULL OBJECT:`, prevMonthData.accountFinalBalances);
         console.log(`💰 accountFinalBalances keys:`, prevMonthData.accountFinalBalances ? Object.keys(prevMonthData.accountFinalBalances) : 'undefined');
         
-        // Use accountEstimatedFinalBalances as the single source of truth
-        let openingBalance = prevMonthData.accountEstimatedFinalBalances?.[account];
+        // Try multiple sources for previous month's ending balance
+        let openingBalance;
         
-        console.log(`✅ accountEstimatedFinalBalances lookup for "${account}": ${openingBalance} (type: ${typeof openingBalance})`);
+        // First try accountEstimatedFinalBalances (primary source)
+        openingBalance = prevMonthData.accountEstimatedFinalBalances?.[account];
+        console.log(`🔍 accountEstimatedFinalBalances lookup for "${account}": ${openingBalance}`);
+        
+        // If not found, try accountFinalBalances (fallback)
+        if (openingBalance === undefined || openingBalance === null) {
+          openingBalance = prevMonthData.accountFinalBalances?.[account];
+          console.log(`🔍 accountFinalBalances fallback for "${account}": ${openingBalance}`);
+        }
+        
+        // Final fallback to accountEndingBalances with specific key format
+        if (openingBalance === undefined || openingBalance === null) {
+          const [prevYear, prevMonth] = prevMonthInfo.monthKey.split('-');
+          const endingBalanceKey = `${account}.${prevYear}.${prevMonth}.Endbalance`;
+          openingBalance = prevMonthData.accountEndingBalances?.[endingBalanceKey];
+          console.log(`🔍 accountEndingBalances fallback for "${endingBalanceKey}": ${openingBalance}`);
+        }
+        
         console.log(`🔍 DETAILED DEBUG FOR ${account}:`);
         console.log(`   - prevMonthData.accountEstimatedFinalBalances:`, prevMonthData.accountEstimatedFinalBalances);
-        console.log(`   - Full prevMonthData structure:`, Object.keys(prevMonthData));
+        console.log(`   - prevMonthData.accountFinalBalances:`, prevMonthData.accountFinalBalances);
         console.log(`   - Looking in month: ${prevMonthInfo.monthKey}`);
-        console.log(`   - For account: ${account}`);
+        console.log(`   - Final openingBalance: ${openingBalance}`);
         
-        // If not found, use 0 as default (no fallbacks to old properties)
+        // If still not found, use 0 as default
         if (openingBalance === undefined || openingBalance === null) {
           openingBalance = 0;
-          console.log(`${account}: No estimated final balance found, using 0`);
-          console.log(`❌ MISSING DATA: accountEstimatedFinalBalances for ${account} in ${prevMonthInfo.monthKey}`);
+          console.log(`❌ NO DATA FOUND: Using 0 for ${account} in ${prevMonthInfo.monthKey}`);
         } else {
-          console.log(`✅ FOUND DATA: accountEstimatedFinalBalances for ${account} in ${prevMonthInfo.monthKey}: ${openingBalance}`);
+          console.log(`✅ FOUND DATA: Using ${openingBalance} for ${account} from ${prevMonthInfo.monthKey}`);
         }
         
         // The estimated opening balance is the previous month's ending balance
