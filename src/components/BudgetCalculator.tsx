@@ -1213,30 +1213,43 @@ const BudgetCalculator = () => {
     });
     
     // Update the existing month data with calculated results
-    setHistoricalData(prev => ({
-      ...prev,
-      [monthKey]: {
-        ...prev[monthKey], // Keep existing data
-        // Update with fresh calculated results
-        totalMonthlyExpenses,
-        totalCosts,
-        totalSavings,
-        balanceLeft,
-        susannaShare,
-        andreasShare,
-        susannaPercentage,
-        andreasPercentage,
-        totalDailyBudget: budgetData.totalBudget,
-        remainingDailyBudget: budgetData.remainingBudget,
-        holidayDaysBudget: budgetData.holidayBudget,
-        daysUntil25th: budgetData.daysUntil25th,
-        accountEstimatedFinalBalances: finalBalances, // Save the calculated Slutsaldo to accountEstimatedFinalBalances
-        date: currentDate.toISOString() // Update timestamp
-      }
-    }));
+    setHistoricalData(prev => {
+      const updated = {
+        ...prev,
+        [monthKey]: {
+          ...prev[monthKey], // Keep existing data
+          // Update with fresh calculated results
+          totalMonthlyExpenses,
+          totalCosts,
+          totalSavings,
+          balanceLeft,
+          susannaShare,
+          andreasShare,
+          susannaPercentage,
+          andreasPercentage,
+          totalDailyBudget: budgetData.totalBudget,
+          remainingDailyBudget: budgetData.remainingBudget,
+          holidayDaysBudget: budgetData.holidayBudget,
+          daysUntil25th: budgetData.daysUntil25th,
+          accountEstimatedFinalBalances: finalBalances, // Save the calculated Slutsaldo to accountEstimatedFinalBalances
+          date: currentDate.toISOString() // Update timestamp
+        }
+      };
+      
+      console.log(`💾 AFTER SAVE - historicalData[${monthKey}].accountEstimatedFinalBalances:`, updated[monthKey].accountEstimatedFinalBalances);
+      console.log(`💾 SPECIFICALLY Löpande for ${monthKey}:`, updated[monthKey].accountEstimatedFinalBalances?.['Löpande']);
+      
+      return updated;
+    });
     
     console.log(`🔥 SAVING accountEstimatedFinalBalances for ${monthKey}:`, finalBalances);
     console.log(`Final balances calculated and saved for ${monthKey}:`, finalBalances);
+    console.log(`🔍 SEPTEMBER DEBUG - Key details for September Slutsaldo:`);
+    console.log(`   - Month: ${monthKey}`);
+    console.log(`   - Is this September? ${monthKey.includes('2025-09')}`);
+    console.log(`   - Löpande final balance: ${finalBalances['Löpande']}`);
+    console.log(`   - This should show 5500 for September`);
+    console.log(`   - Will be used as opening balance for October`);
   };
 
 
@@ -1618,11 +1631,19 @@ const BudgetCalculator = () => {
         let openingBalance = prevMonthData.accountEstimatedFinalBalances?.[account];
         
         console.log(`✅ accountEstimatedFinalBalances lookup for "${account}": ${openingBalance} (type: ${typeof openingBalance})`);
+        console.log(`🔍 DETAILED DEBUG FOR ${account}:`);
+        console.log(`   - prevMonthData.accountEstimatedFinalBalances:`, prevMonthData.accountEstimatedFinalBalances);
+        console.log(`   - Full prevMonthData structure:`, Object.keys(prevMonthData));
+        console.log(`   - Looking in month: ${prevMonthInfo.monthKey}`);
+        console.log(`   - For account: ${account}`);
         
         // If not found, use 0 as default (no fallbacks to old properties)
         if (openingBalance === undefined || openingBalance === null) {
           openingBalance = 0;
           console.log(`${account}: No estimated final balance found, using 0`);
+          console.log(`❌ MISSING DATA: accountEstimatedFinalBalances for ${account} in ${prevMonthInfo.monthKey}`);
+        } else {
+          console.log(`✅ FOUND DATA: accountEstimatedFinalBalances for ${account} in ${prevMonthInfo.monthKey}: ${openingBalance}`);
         }
         
         // The estimated opening balance is the previous month's ending balance
@@ -4364,9 +4385,18 @@ const BudgetCalculator = () => {
                              const estimatedResult = getEstimatedAccountBalances(freshBalances);
                              const estimatedBalance = estimatedResult?.[account] || 0;
                              
-                             // Get OPENING balance for "Estimerad ingående balans" display  
-                             const openingBalanceResult = getEstimatedOpeningBalances(freshBalances);
-                             const estimatedOpeningBalance = openingBalanceResult?.[account] || 0;
+                              // Get OPENING balance for "Estimerad ingående balans" display  
+                              const openingBalanceResult = getEstimatedOpeningBalances(freshBalances);
+                              const estimatedOpeningBalance = openingBalanceResult?.[account] || 0;
+                              
+                              // Debug for October Löpande specifically
+                              if (selectedBudgetMonth?.includes('2025-10') && account === 'Löpande') {
+                                console.log(`🔥 OCTOBER LÖPANDE DEBUG:`);
+                                console.log(`   - openingBalanceResult:`, openingBalanceResult);
+                                console.log(`   - estimatedOpeningBalance for Löpande:`, estimatedOpeningBalance);
+                                console.log(`   - This should be 5500, not 0!`);
+                                console.log(`   - selectedBudgetMonth:`, selectedBudgetMonth);
+                              }
                             
                             // CRITICAL DEBUGGING - Check where wrong calculation happens
                             if (currentBalance === 0 && account === 'Löpande') {
