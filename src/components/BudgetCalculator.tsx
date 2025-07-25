@@ -7698,6 +7698,8 @@ const BudgetCalculator = () => {
                         console.log('🔄 Starting update from first month with false flag:', monthsToUpdate);
                         
                         let currentIndex = 0;
+                        let carryForwardBalances: {[key: string]: number} | null = null;
+                        
                         const updateAllMonths = async () => {
                           if (currentIndex < monthsToUpdate.length) {
                             const monthKey = monthsToUpdate[currentIndex];
@@ -7707,46 +7709,80 @@ const BudgetCalculator = () => {
                             const progress = Math.round((currentIndex / monthsToUpdate.length) * 100);
                             setUpdateProgress(progress);
                             
-                            // Properly switch to the month - this loads data and triggers calculations
-                            console.log(`📂 Switching to month: ${monthKey}`);
-                            handleBudgetMonthChange(monthKey);
+                            // For sequential update, we need to manually manage the data flow
+                            console.log(`📂 Loading data for month: ${monthKey}`);
                             
-                            // Wait for month switching and all calculations to complete
-                            await new Promise(resolve => setTimeout(resolve, 300));
+                            // Set the selected month
+                            setSelectedBudgetMonth(monthKey);
                             
-                            // DEBUG: Check what got saved for this month
-                            console.log(`🔍 DEBUG: After processing ${monthKey}:`);
-                            console.log(`  - Historical data keys:`, Object.keys(historicalData));
-                            console.log(`  - Current month estimated final balances:`, accountEstimatedFinalBalances);
+                            // If the month exists in historical data, load it
                             if (historicalData[monthKey]) {
-                              console.log(`  - Saved estimated final balances for ${monthKey}:`, historicalData[monthKey].accountEstimatedFinalBalances);
+                              // Load the month's data into the form
+                              const monthData = historicalData[monthKey];
+                              
+                              // Load all the form data
+                              setAndreasSalary(monthData.andreasSalary || 0);
+                              setAndreasförsäkringskassan(monthData.andreasförsäkringskassan || 0);
+                              setAndreasbarnbidrag(monthData.andreasbarnbidrag || 0);
+                              setSusannaSalary(monthData.susannaSalary || 0);
+                              setSusannaförsäkringskassan(monthData.susannaförsäkringskassan || 0);
+                              setSusannabarnbidrag(monthData.susannabarnbidrag || 0);
+                              setCostGroups(monthData.costGroups || []);
+                              setSavingsGroups(monthData.savingsGroups || []);
+                              setDailyTransfer(monthData.dailyTransfer || 300);
+                              setAccounts(monthData.accounts || ['Löpande', 'Sparkonto', 'Buffert']);
+                              
+                              // Set account balances - use carried forward balances if available
+                              if (carryForwardBalances && currentIndex > 0) {
+                                console.log(`📊 Using carried forward balances for ${monthKey}:`, carryForwardBalances);
+                                setAccountBalances(carryForwardBalances);
+                                
+                                // Mark all balances as set for proper calculation
+                                const balancesSet: {[key: string]: boolean} = {};
+                                Object.keys(carryForwardBalances).forEach(account => {
+                                  balancesSet[account] = true;
+                                });
+                                setAccountBalancesSet(balancesSet);
+                              } else {
+                                // First month or no carry forward - use stored balances
+                                setAccountBalances(monthData.accountBalances || {});
+                                setAccountBalancesSet(monthData.accountBalancesSet || {});
+                              }
+                              
+                              // Wait for state updates
+                              await new Promise(resolve => setTimeout(resolve, 100));
+                              
+                              // Now calculate the budget for this month
+                              console.log(`📊 Calculating budget for ${monthKey}`);
+                              calculateBudget();
+                              
+                              // Wait for calculation to complete
+                              await new Promise(resolve => setTimeout(resolve, 200));
+                              
+                              // Get the calculated final balances to carry forward
+                              carryForwardBalances = { ...accountEstimatedFinalBalances };
+                              console.log(`💾 Final balances calculated for ${monthKey}:`, carryForwardBalances);
+                              
+                              // Save the month data with calculated final balances
+                              const updatedData = {
+                                ...monthData,
+                                accountEstimatedFinalBalances: carryForwardBalances,
+                                monthFinalBalances: true
+                              };
+                              
+                              setHistoricalData(prev => ({
+                                ...prev,
+                                [monthKey]: updatedData
+                              }));
+                              
+                              console.log(`✅ Month ${monthKey} processed and saved`);
                             }
                             
-                            console.log(`✅ Month ${monthKey} processed by handleBudgetMonthChange`);
-                            
-                            // Wait for all calculations to complete
-                            await new Promise(resolve => setTimeout(resolve, 200));
-                            
                             // Set the monthFinalBalances flag to true for this month
-                            console.log(`✅ Setting monthFinalBalances flag to true for ${monthKey}`);
                             setMonthFinalBalances(prev => ({
                               ...prev,
                               [monthKey]: true
                             }));
-                            
-                            // Also update it in historicalData
-                            setHistoricalData(prevHistoricalData => {
-                              const updated = { ...prevHistoricalData };
-                              if (updated[monthKey]) {
-                                updated[monthKey] = {
-                                  ...updated[monthKey],
-                                  monthFinalBalances: true
-                                };
-                              }
-                              return updated;
-                            });
-                            
-                            await new Promise(resolve => setTimeout(resolve, 50));
                             
                             currentIndex++;
                             
@@ -7767,15 +7803,26 @@ const BudgetCalculator = () => {
                             // Return to the originally selected month without triggering full recalculation
                             const originalMonth = selectedBudgetMonth;
                             if (originalMonth && historicalData[originalMonth]) {
-                              console.log(`🔄 Returning to original month ${originalMonth} without recalculation`);
+                              console.log(`🔄 Returning to original month ${originalMonth}`);
                               
-                              // Simply set the month and load its data without triggering handleBudgetMonthChange
-                              // which would recalculate and potentially override the correct sequential calculations
+                              // Simply set the month and load its data
                               setSelectedBudgetMonth(originalMonth);
                               
                               // Load the data for the original month
                               if (historicalData[originalMonth]) {
-                                loadDataFromSelectedMonth(originalMonth);
+                                const monthData = historicalData[originalMonth];
+                                setAndreasSalary(monthData.andreasSalary || 0);
+                                setAndreasförsäkringskassan(monthData.andreasförsäkringskassan || 0);
+                                setAndreasbarnbidrag(monthData.andreasbarnbidrag || 0);
+                                setSusannaSalary(monthData.susannaSalary || 0);
+                                setSusannaförsäkringskassan(monthData.susannaförsäkringskassan || 0);
+                                setSusannabarnbidrag(monthData.susannabarnbidrag || 0);
+                                setCostGroups(monthData.costGroups || []);
+                                setSavingsGroups(monthData.savingsGroups || []);
+                                setDailyTransfer(monthData.dailyTransfer || 300);
+                                setAccounts(monthData.accounts || ['Löpande', 'Sparkonto', 'Buffert']);
+                                setAccountBalances(monthData.accountBalances || {});
+                                setAccountBalancesSet(monthData.accountBalancesSet || {});
                               }
                               
                               // Force a final chart update with the loaded data
