@@ -1767,9 +1767,10 @@ const BudgetCalculator = () => {
   };
 
   // Helper function to check if Calc.Descr for same month is (Est)
+  // Text should be "Ursprungligt saldo" if Faktiskt Saldo is not "Ej ifyllt"
   const isCalcDescrEstimatedSameMonth = (account: string) => {
     const hasActualBalance = accountBalancesSet[account] === true;
-    return !hasActualBalance;
+    return !hasActualBalance; // Returns true if "Ej ifyllt", false if actual balance is set
   };
 
   // Function to update account balance
@@ -1870,7 +1871,7 @@ const BudgetCalculator = () => {
     const monthData = historicalData[monthKey];
     if (!monthData) return;
     
-    console.log(`🔢 Calculating estimated final balances for ${monthKey} (always calculated)`);
+    console.log(`🔢 Calculating estimated start balances for ${monthKey} (always calculated)`);
     
     // Calculate estimated balances based on previous month
     const [year, month] = monthKey.split('-').map(Number);
@@ -1934,18 +1935,18 @@ const BudgetCalculator = () => {
       }
     });
     
-    // Save estimated final balances to the month data
+    // Save estimated start balances to the month data
     setHistoricalData(prev => ({
       ...prev,
       [monthKey]: {
         ...prev[monthKey],
-        accountEstimatedStartBalances: estimatedFinalBalances
+        accountEstimatedStartBalances: estimatedStartBalances
       }
     }));
     
     // Also update current state if this is the selected month
     if (monthKey === selectedBudgetMonth) {
-      setAccountEstimatedStartBalances(estimatedFinalBalances);
+      setAccountEstimatedStartBalances(estimatedStartBalances);
     }
     
     console.log(`💾 Saved estimated final balances for ${monthKey}:`, estimatedFinalBalances);
