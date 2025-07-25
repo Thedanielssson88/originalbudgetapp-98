@@ -1121,63 +1121,49 @@ const BudgetCalculator = () => {
     // Final balance should be 0 when individual shares are included
     const balanceLeft = preliminaryBalance - susannaShare - andreasShare;
     
-    // Calculate final balances (Slutsaldo) for each account FIRST
+    // Calculate final balances (Slutsaldo) for each account using EXACT same logic as UI
     const finalBalances: {[key: string]: number} = {};
     accounts.forEach(account => {
-      // CRITICAL FIX: ALWAYS use Calc.Kontosaldo for ending balance calculation
-      // Calc.Kontosaldo = user input when filled, 0 when "Ej ifyllt"
-      // NEVER use estimated values in ending balance calculations
-      const actualBalance = accountBalances[account] || 0;
-      const originalBalance = actualBalance;
+      // CRITICAL: Use exact same calculation as UI "Slutsaldo" display
       
-      console.log(`=== ENDING BALANCE CALCULATION FOR ${account} ===`);
-      console.log(`💰 Calc.Kontosaldo (used for calculation): ${originalBalance}`);
-      console.log(`📊 accountBalancesSet[${account}]: ${accountBalancesSet[account]}`);
-      console.log(`🚨 ALWAYS using Calc.Kontosaldo, NEVER estimated values`);
+      // Get original balance using Calc.Kontosaldo from same month (same as UI)
+      const originalBalance = getCalcKontosaldoSameMonth(account);
       
-      // CRITICAL DEBUG FOR WHEN FAKTISKT KONTOSALDO IS 0 OR EJ IFYLLT
-      if (originalBalance === 0 && account === 'Löpande') {
-        console.log(`🚨🚨🚨 CALC.KONTOSALDO IS 0 - ENDING BALANCE CALCULATION 🚨🚨🚨`);
-        console.log(`📅 Month: ${selectedBudgetMonth}`);
-        console.log(`🏠 Account: ${account}`);
-        console.log(`💰 Calc.Kontosaldo: ${originalBalance}`);
-        console.log(`✅ Using Calc.Kontosaldo for ending balance calculation (CORRECT)`);
-      }
+      // Calculate total deposits (savings) for this account (same as UI)
+      const savingsAmount = savingsGroups
+        .filter(group => group.account === account)
+        .reduce((sum, group) => sum + group.amount, 0);
+      const totalDeposits = savingsAmount;
       
-      // Calculate total deposits for this account from savings groups
-      const accountSavings = savingsGroups
-        .filter((group: any) => group.account === account)
-        .reduce((sum: number, group: any) => sum + group.amount, 0);
+      // Get all cost subcategories for this account that are "Löpande kostnad" (same as UI)
+      const accountCostItems = costGroups.reduce((items, group) => {
+        const groupCosts = group.subCategories?.filter(sub => 
+          sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom)
+        ) || [];
+        return items.concat(groupCosts);
+      }, []);
       
-      // Calculate only "Enskild kostnad" (one-time costs) that should be subtracted
-      const accountOneTimeCosts = costGroups.reduce((sum: number, group: any) => {
-        const groupOneTimeCosts = group.subCategories
-          ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
-          .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-        return sum + groupOneTimeCosts;
-      }, 0);
+      // Calculate total costs for this account (only Löpande kostnad) (same as UI)
+      const totalCosts = accountCostItems.reduce((sum, item) => sum + item.amount, 0);
       
-      console.log(`=== SLUTSALDO DEBUG FÖR ${account} ===`);
-      console.log(`Ursprungligt saldo: ${originalBalance}`);
-      console.log(`Sparande (savings): ${accountSavings}`);
-      console.log(`Enskilda kostnader (som dras av): ${accountOneTimeCosts}`);
+      // Calculate final balance as sum of ALL entries shown in the table (same as UI):
+      // original balance + savings deposits + cost budget deposits - all costs
+      const allCostItems = costGroups.reduce((items, group) => {
+        const groupCosts = group.subCategories?.filter(sub => sub.account === account) || [];
+        return items.concat(groupCosts);
+      }, []);
+      const totalAllCosts = allCostItems.reduce((sum, item) => sum + item.amount, 0);
       
-      // Final balance (Slutsaldo) = original balance + savings - only one-time costs
-      // Löpande kostnader are covered by the cost budget deposits and should not be subtracted again
-      const calculatedBalance = originalBalance + accountSavings - accountOneTimeCosts;
-      console.log(`Beräkning: ${originalBalance} + ${accountSavings} - ${accountOneTimeCosts} = ${calculatedBalance}`);
+      // EXACT same calculation as UI Slutsaldo
+      const calculatedBalance = originalBalance + totalDeposits + totalCosts - totalAllCosts;
       
-      // CRITICAL DEBUG FOR WHEN FAKTISKT KONTOSALDO IS 0
-      if (originalBalance === 0 && account === 'Löpande') {
-        console.log(`🚨🚨🚨 FINAL CALCULATION WITH FAKTISKT KONTOSALDO = 0 🚨🚨🚨`);
-        console.log(`📅 Month: ${selectedBudgetMonth}`);
-        console.log(`💰 Started with originalBalance: ${originalBalance} (CORRECT)`);
-        console.log(`💰 Adding accountSavings: ${accountSavings}`);
-        console.log(`💰 Subtracting accountOneTimeCosts: ${accountOneTimeCosts}`);
-        console.log(`💰 Final calculation: ${originalBalance} + ${accountSavings} - ${accountOneTimeCosts} = ${calculatedBalance}`);
-        console.log(`💰 This ${calculatedBalance} will be saved as ending balance`);
-        console.log(`✅ This is CORRECT when Faktiskt kontosaldo = 0`);
-      }
+      console.log(`=== SLUTSALDO CALCULATION FOR ${account} (MATCHING UI) ===`);
+      console.log(`Original balance: ${originalBalance}`);
+      console.log(`Total deposits (savings): ${totalDeposits}`);
+      console.log(`Total costs (Löpande kostnad): ${totalCosts}`);
+      console.log(`Total all costs (all types): ${totalAllCosts}`);
+      console.log(`Calculation: ${originalBalance} + ${totalDeposits} + ${totalCosts} - ${totalAllCosts} = ${calculatedBalance}`);
+      console.log(`This MUST match UI Slutsaldo display for ${account}`);
       
       finalBalances[account] = calculatedBalance;
     });
@@ -6298,15 +6284,17 @@ const BudgetCalculator = () => {
                                  }, []);
                                  const totalAllCosts = allCostItems.reduce((sum, item) => sum + item.amount, 0);
                                  
-                                 const finalBalance = originalBalance + totalDeposits + totalCosts - totalAllCosts;
-                               
-                               console.log(`=== KONTOBELOPP EFTER BUDGET DEBUG FOR ${account} ===`);
-                               console.log(`Original balance: ${originalBalance}`);
-                               console.log(`Savings (deposits): ${savingsAmount}`);
-                               console.log(`Costs: ${totalCosts}`);
-                               console.log(`Final balance (Slutsaldo): ${finalBalance}`);
-                               console.log(`Month: ${selectedBudgetMonth}`);
-                               console.log(`=== END DEBUG ===`);
+                                  const finalBalance = originalBalance + totalDeposits + totalCosts - totalAllCosts;
+                                
+                                console.log(`=== UI SLUTSALDO CALCULATION FOR ${account} ===`);
+                                console.log(`Original balance: ${originalBalance}`);
+                                console.log(`Savings (deposits): ${savingsAmount}`);
+                                console.log(`Total costs (Löpande): ${totalCosts}`);
+                                console.log(`Total all costs: ${totalAllCosts}`);
+                                console.log(`UI Calculation: ${originalBalance} + ${totalDeposits} + ${totalCosts} - ${totalAllCosts} = ${finalBalance}`);
+                                console.log(`Month: ${selectedBudgetMonth}`);
+                                console.log(`This should MATCH accountEstimatedFinalBalances[${account}]`);
+                                console.log(`=== END UI SLUTSALDO ===`);
                               
                               const hasDetails = totalDeposits > 0 || accountCostItems.length > 0 || originalBalance !== 0;
                               
