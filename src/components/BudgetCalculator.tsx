@@ -1639,6 +1639,24 @@ const BudgetCalculator = () => {
         if (openingBalance === undefined || openingBalance === null) {
           openingBalance = prevMonthData.accountFinalBalances?.[account];
           console.log(`${account}: Using accountFinalBalances (budget result): ${openingBalance}`);
+          
+          // CRITICAL DEBUG: Check if this is the Löpande September issue
+          if (account === 'Löpande' && endingBalanceKey === 'Löpande.2025.09.Endbalance') {
+            console.log(`🚨 CRITICAL: Löpande September ending balance issue detected`);
+            console.log(`🔍 Expected ending balance: 5500`);
+            console.log(`📊 Actually retrieved: ${openingBalance}`);
+            console.log(`💾 accountEndingBalances missing or undefined: ${!prevMonthData.accountEndingBalances}`);
+            console.log(`💡 This suggests September final balance calculation is wrong or not saved`);
+            
+            // Let's check what September's actual data looks like
+            console.log(`📋 September full data breakdown:`);
+            console.log(`   - accountBalances.Löpande: ${prevMonthData.accountBalances?.Löpande}`);
+            console.log(`   - Savings for Löpande: ${(prevMonthData.savingsGroups || []).filter((g: any) => g.account === 'Löpande').reduce((sum: number, g: any) => sum + g.amount, 0)}`);
+            console.log(`   - One-time costs for Löpande: ${(prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
+              const costs = group.subCategories?.filter((sub: any) => sub.account === 'Löpande' && sub.financedFrom === 'Enskild kostnad').reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+              return sum + costs;
+            }, 0)}`);
+          }
         }
         
         // If still not found, try estimated final balances
