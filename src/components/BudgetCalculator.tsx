@@ -7714,11 +7714,14 @@ const BudgetCalculator = () => {
                             // Wait for month switching and all calculations to complete
                             await new Promise(resolve => setTimeout(resolve, 300));
                             
-                            // handleBudgetMonthChange already does all necessary calculations including:
-                            // - Final budget calculation 
-                            // - Calculating and saving final balances
-                            // - Saving current month data
-                            // - Setting up estimated start balances for next month
+                            // DEBUG: Check what got saved for this month
+                            console.log(`🔍 DEBUG: After processing ${monthKey}:`);
+                            console.log(`  - Historical data keys:`, Object.keys(historicalData));
+                            console.log(`  - Current month estimated final balances:`, accountEstimatedFinalBalances);
+                            if (historicalData[monthKey]) {
+                              console.log(`  - Saved estimated final balances for ${monthKey}:`, historicalData[monthKey].accountEstimatedFinalBalances);
+                            }
+                            
                             console.log(`✅ Month ${monthKey} processed by handleBudgetMonthChange`);
                             
                             // Wait for all calculations to complete
