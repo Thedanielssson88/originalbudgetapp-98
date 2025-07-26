@@ -3793,10 +3793,15 @@ const BudgetCalculator = () => {
 
       return dataPoint;
     }).filter((dataPoint) => {
-      // When estimated budget amounts are disabled, only show months with manually set balances
+      // When estimated budget amounts are disabled, only show months with manually set balances OR actual data
       if (!showEstimatedBudgetAmounts) {
         const monthData = historicalData[dataPoint.month];
         if (!monthData) return false;
+        
+        // Check if any account has accountBalancesSet (actual balance data)
+        const hasActualBalance = accounts.some(account => 
+          monthData.accountBalancesSet && monthData.accountBalancesSet[account]
+        );
         
         // Check if any account has accountStartBalancesSet or accountEndBalancesSet
         const hasManualStartBalance = accounts.some(account => 
@@ -3806,7 +3811,7 @@ const BudgetCalculator = () => {
           monthData.accountEndBalancesSet && monthData.accountEndBalancesSet[account]
         );
         
-        return hasManualStartBalance || hasManualEndBalance;
+        return hasActualBalance || hasManualStartBalance || hasManualEndBalance;
       }
       
       // Default behavior: only include months that have at least one account with data
