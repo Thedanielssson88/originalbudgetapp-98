@@ -747,12 +747,6 @@ const BudgetCalculator = () => {
     setTimeout(() => {
       console.log(`🚀 Setting isInitialLoad to false`);
       setIsInitialLoad(false);
-      
-      // Test: Add some test data to trigger a save
-      setTimeout(() => {
-        console.log(`🧪 TEST: Setting Andreas salary to 45000 to trigger save`);
-        setAndreasSalary(45000);
-      }, 1000);
     }, 100);
 
     // Load backup
@@ -850,7 +844,7 @@ const BudgetCalculator = () => {
     }));
 
     console.log(`✅ Month data loaded and all state variables reset for: ${selectedBudgetMonth}`);
-  }, [selectedBudgetMonth, historicalData, isInitialLoad]);
+  }, [selectedBudgetMonth, isInitialLoad]); // REMOVED historicalData from dependencies!
 
   // Save current data to the selected month in historical data
   const saveToSelectedMonth = () => {
