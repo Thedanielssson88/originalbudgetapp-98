@@ -301,10 +301,23 @@ const BudgetCalculator = () => {
   // Tab navigation helper functions
   const getTabOrder = () => {
     const currentDate = new Date();
-    const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-    const isCurrentMonth = selectedBudgetMonth === currentMonthKey;
+    const currentDay = currentDate.getDate();
     
-    return isCurrentMonth 
+    let targetMonthKey;
+    if (currentDay <= 24) {
+      // Before/on 24th: show for current month
+      targetMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    } else {
+      // After 24th: show for next month
+      const nextMonth = currentDate.getMonth() + 1;
+      const nextYear = nextMonth === 12 ? currentDate.getFullYear() + 1 : currentDate.getFullYear();
+      const adjustedNextMonth = nextMonth === 12 ? 1 : nextMonth + 1;
+      targetMonthKey = `${nextYear}-${String(adjustedNextMonth).padStart(2, '0')}`;
+    }
+    
+    const shouldShowOverforingTab = selectedBudgetMonth === targetMonthKey;
+    
+    return shouldShowOverforingTab 
       ? ["inkomster", "sammanstallning", "overforing", "egen-budget", "historia", "installningar"]
       : ["inkomster", "sammanstallning", "egen-budget", "historia", "installningar"];
   };
@@ -4460,11 +4473,24 @@ const BudgetCalculator = () => {
             <TabsTrigger value="inkomster">Inkomster och Utgifter</TabsTrigger>
             <TabsTrigger value="sammanstallning">Sammanställning</TabsTrigger>
             {(() => {
-              // Only show Överföring tab for current month
+              // Show Överföring tab for current month until 24th, then for next month
               const currentDate = new Date();
-              const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-              const isCurrentMonth = selectedBudgetMonth === currentMonthKey;
-              return isCurrentMonth ? (
+              const currentDay = currentDate.getDate();
+              
+              let targetMonthKey;
+              if (currentDay <= 24) {
+                // Before/on 24th: show for current month
+                targetMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+              } else {
+                // After 24th: show for next month
+                const nextMonth = currentDate.getMonth() + 1;
+                const nextYear = nextMonth === 12 ? currentDate.getFullYear() + 1 : currentDate.getFullYear();
+                const adjustedNextMonth = nextMonth === 12 ? 1 : nextMonth + 1;
+                targetMonthKey = `${nextYear}-${String(adjustedNextMonth).padStart(2, '0')}`;
+              }
+              
+              const shouldShowOverforingTab = selectedBudgetMonth === targetMonthKey;
+              return shouldShowOverforingTab ? (
                 <TabsTrigger value="overforing">Överföring</TabsTrigger>
               ) : null;
             })()}
