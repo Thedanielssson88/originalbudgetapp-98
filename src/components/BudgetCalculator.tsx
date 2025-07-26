@@ -7825,49 +7825,23 @@ const BudgetCalculator = () => {
                             const progress = Math.round((currentIndex / monthsToUpdate.length) * 100);
                             setUpdateProgress(progress);
                             
-                             // Use the same process as manual month browsing
-                             console.log(`📂 Switching to and loading month: ${monthKey}`);
-                             
-                             // Set the selected month
-                             setSelectedBudgetMonth(monthKey);
-                             
-                             // If the month exists in historical data, load it using the same method as manual browsing
-                             if (historicalData[monthKey]) {
-                               console.log(`📖 Loading month data using loadDataFromSelectedMonth for: ${monthKey}`);
-                               
-                               // Use the exact same function that manual month browsing uses
-                               // This includes calculating previous month final balances and estimated balances
-                               loadDataFromSelectedMonth(monthKey);
-                               
-                               // Wait for all loading and calculations to complete
-                               await new Promise(resolve => setTimeout(resolve, 300));
-                               
-                               console.log(`🔢 Performing budget calculation for ${monthKey}`);
-                               
-                               // Perform budget calculation
-                               calculateBudget();
-                               
-                               // Wait for calculation to complete
-                               await new Promise(resolve => setTimeout(resolve, 300));
-                               
-                               console.log(`💾 Saving calculated data for ${monthKey}`);
-                               
-                               // Save the calculated data
-                               saveToSelectedMonth();
-                               
-                               // Wait for save to complete
-                               await new Promise(resolve => setTimeout(resolve, 100));
-                               
-                               console.log(`✅ Month ${monthKey} fully processed with all calculations and savings`);
-                             } else {
-                               console.log(`❌ Month ${monthKey} not found in historical data, skipping`);
-                             }
+                            console.log(`📂 Using handleBudgetMonthChange to process month: ${monthKey}`);
+                            
+                            // Use the exact same function that manual month switching uses
+                            // This ensures identical behavior to manual browsing
+                            handleBudgetMonthChange(monthKey);
+                            
+                            // Wait for the complete month change process to finish
+                            // handleBudgetMonthChange uses multiple setTimeout calls, so we need to wait longer
+                            await new Promise(resolve => setTimeout(resolve, 500));
                             
                             // Set the monthFinalBalances flag to true for this month
                             setMonthFinalBalances(prev => ({
                               ...prev,
                               [monthKey]: true
                             }));
+                            
+                            console.log(`✅ Month ${monthKey} fully processed using handleBudgetMonthChange`);
                             
                             currentIndex++;
                             
@@ -7886,7 +7860,6 @@ const BudgetCalculator = () => {
                             setUpdateProgress(0);
                             
                             // Return to the originally selected month without triggering full recalculation
-                            const originalMonth = selectedBudgetMonth;
                             if (originalMonth && historicalData[originalMonth]) {
                               console.log(`🔄 Returning to original month ${originalMonth}`);
                               
