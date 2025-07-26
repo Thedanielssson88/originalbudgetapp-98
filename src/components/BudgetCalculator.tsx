@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useReducer } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,48 @@ import { useSwipeGestures } from '@/hooks/useSwipeGestures';
 import { AccountDataTable, AccountDataRow } from '@/components/AccountDataTable';
 import CreateMonthDialog from './CreateMonthDialog';
 import { CustomLineChart } from './CustomLineChart';
+import { 
+  initializeApp, 
+  getCurrentState, 
+  subscribeToStateChanges, 
+  unsubscribeFromStateChanges,
+  handleManualValueChange,
+  updateCostGroups,
+  updateSavingsGroups,
+  updateAccountBalance,
+  updateSelectedBudgetMonth,
+  updateHistoricalData,
+  forceRecalculation,
+  setAndreasSalary,
+  setAndreasförsäkringskassan,
+  setAndreasbarnbidrag,
+  setSusannaSalary,
+  setSusannaförsäkringskassan,
+  setSusannabarnbidrag,
+  setCostGroups,
+  setSavingsGroups,
+  setDailyTransfer,
+  setWeekendTransfer,
+  setCustomHolidays,
+  setAndreasPersonalCosts,
+  setAndreasPersonalSavings,
+  setSusannaPersonalCosts,
+  setSusannaPersonalSavings,
+  setAccounts,
+  setHistoricalData,
+  setResults,
+  setSelectedBudgetMonth,
+  setAccountBalances,
+  setAccountBalancesSet,
+  setAccountEstimatedFinalBalances,
+  setAccountEstimatedFinalBalancesSet,
+  setAccountEstimatedStartBalances,
+  setAccountStartBalancesSet,
+  setAccountEndBalancesSet,
+  setMonthFinalBalances,
+  setSelectedHistoricalMonth
+} from '../appOrchestrator';
+import { StorageKey } from '../services/storageService';
 
 interface SubCategory {
   id: string;
@@ -35,47 +77,44 @@ interface BudgetGroup {
 }
 
 const BudgetCalculator = () => {
-  const [andreasSalary, setAndreasSalary] = useState<number>(45000);
-  const [andreasförsäkringskassan, setAndreasförsäkringskassan] = useState<number>(0);
-  const [andreasbarnbidrag, setAndreasbarnbidrag] = useState<number>(0);
-  const [susannaSalary, setSusannaSalary] = useState<number>(40000);
-  const [susannaförsäkringskassan, setSusannaförsäkringskassan] = useState<number>(5000);
-  const [susannabarnbidrag, setSusannabarnbidrag] = useState<number>(0);
-  const [costGroups, setCostGroups] = useState<BudgetGroup[]>([
-    { id: '1', name: 'Hyra', amount: 15000, type: 'cost' },
-    { id: '2', name: 'Mat & Kläder', amount: 8000, type: 'cost' },
-    { id: '3', name: 'Transport', amount: 2000, type: 'cost', subCategories: [] }
-  ]);
-  const [savingsGroups, setSavingsGroups] = useState<BudgetGroup[]>([]);
-  const [dailyTransfer, setDailyTransfer] = useState<number>(300);
-  const [weekendTransfer, setWeekendTransfer] = useState<number>(540);
+  // Tvinga en omrendrering när vårt state uppdateras
+  const [, forceUpdate] = useReducer(x => x + 1, 0);
+
+  useEffect(() => {
+    // Prenumerera på uppdateringar
+    subscribeToStateChanges(forceUpdate);
+    // Avsluta prenumeration när komponenten tas bort
+    return () => unsubscribeFromStateChanges(forceUpdate);
+  }, []);
+
+  // Initiera appen en gång
+  useEffect(() => {
+    initializeApp();
+  }, []);
+
+  // Hämta alltid det senaste statet vid varje rendering
+  const appState = getCurrentState();
+  const { rawData, calculated } = appState;
+  
+  // Data från centrala statet
+  const andreasSalary = rawData.andreasSalary;
+  const andreasförsäkringskassan = rawData.andreasförsäkringskassan;
+  const andreasbarnbidrag = rawData.andreasbarnbidrag;
+  const susannaSalary = rawData.susannaSalary;
+  const susannaförsäkringskassan = rawData.susannaförsäkringskassan;
+  const susannabarnbidrag = rawData.susannabarnbidrag;
+  const costGroups = rawData.costGroups;
+  const savingsGroups = rawData.savingsGroups;
+  const dailyTransfer = rawData.dailyTransfer;
+  const weekendTransfer = rawData.weekendTransfer;
   const [isEditingCategories, setIsEditingCategories] = useState<boolean>(false);
   const [isEditingTransfers, setIsEditingTransfers] = useState<boolean>(false);
   const [isEditingHolidays, setIsEditingHolidays] = useState<boolean>(false);
-  const [customHolidays, setCustomHolidays] = useState<{date: string, name: string}[]>([]);
-  const [results, setResults] = useState<{
-    totalSalary: number;
-    totalDailyBudget: number;
-    remainingDailyBudget: number;
-    holidayDaysBudget: number;
-    balanceLeft: number;
-    susannaShare: number;
-    andreasShare: number;
-    susannaPercentage: number;
-    andreasPercentage: number;
-    daysUntil25th: number;
-    weekdayCount: number;
-    fridayCount: number;
-    totalMonthlyExpenses: number;
-    holidayDays: string[];
-    holidaysUntil25th: string[];
-    nextTenHolidays: string[];
-    remainingWeekdayCount: number;
-    remainingFridayCount: number;
-  } | null>(null);
-  const [historicalData, setHistoricalData] = useState<{[key: string]: any}>({});
-  const [selectedHistoricalMonth, setSelectedHistoricalMonth] = useState<string>('');
-  const [selectedBudgetMonth, setSelectedBudgetMonth] = useState<string>(''); // New state for budget month selector
+  const customHolidays = rawData.customHolidays;
+  const results = calculated.results;
+  const historicalData = rawData.historicalData;
+  const selectedHistoricalMonth = rawData.selectedHistoricalMonth;
+  const selectedBudgetMonth = rawData.selectedBudgetMonth;
   const [newHistoricalMonth, setNewHistoricalMonth] = useState<string>(''); // State for new month input
   const [newMonthFromCopy, setNewMonthFromCopy] = useState<string>(''); // State for new month when copying from historical
   const [selectedSourceMonth, setSelectedSourceMonth] = useState<string>(''); // State for source month to copy from
@@ -124,14 +163,14 @@ const BudgetCalculator = () => {
   
   // Personal budget states
   const [selectedPerson, setSelectedPerson] = useState<'andreas' | 'susanna'>('andreas');
-  const [andreasPersonalCosts, setAndreasPersonalCosts] = useState<BudgetGroup[]>([]);
-  const [andreasPersonalSavings, setAndreasPersonalSavings] = useState<BudgetGroup[]>([]);
-  const [susannaPersonalCosts, setSusannaPersonalCosts] = useState<BudgetGroup[]>([]);
-  const [susannaPersonalSavings, setSusannaPersonalSavings] = useState<BudgetGroup[]>([]);
+  const andreasPersonalCosts = rawData.andreasPersonalCosts;
+  const andreasPersonalSavings = rawData.andreasPersonalSavings;
+  const susannaPersonalCosts = rawData.susannaPersonalCosts;
+  const susannaPersonalSavings = rawData.susannaPersonalSavings;
   const [isEditingPersonalBudget, setIsEditingPersonalBudget] = useState<boolean>(false);
   
   // Account management states
-  const [accounts, setAccounts] = useState<string[]>(['Löpande', 'Sparkonto', 'Buffert']);
+  const accounts = rawData.accounts;
   const [newAccountName, setNewAccountName] = useState<string>('');
   const [isEditingAccounts, setIsEditingAccounts] = useState<boolean>(false);
   const [expandedAccounts, setExpandedAccounts] = useState<{[key: string]: boolean}>({});
