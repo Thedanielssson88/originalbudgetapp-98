@@ -304,6 +304,64 @@ const BudgetCalculator = () => {
     return number.toString();
   };
 
+  // Render historical charts
+  const renderHistoricalCharts = () => {
+    const historicalData = rawData.historicalData;
+    const chartData = Object.keys(historicalData).map(monthKey => {
+      const data = historicalData[monthKey];
+      const monthResults = calculated.monthlyResults[monthKey];
+      
+      // Calculate totals from groups if monthResults is not available
+      const totalCosts = monthResults?.totalMonthlyExpenses || 
+        (data.costGroups?.reduce((sum: number, group: any) => {
+          const subCategoriesTotal = group.subCategories?.reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+          return sum + (group.amount || 0) + subCategoriesTotal;
+        }, 0) || 0);
+      
+      const totalSavings = data.savingsGroups?.reduce((sum: number, group: any) => sum + (group.amount || 0), 0) || 0;
+      
+      const totalIncome = monthResults?.totalSalary || 
+        ((data.andreasSalary || 0) + (data.andreasForsakringskassan || 0) + (data.andreasBarnbidrag || 0) +
+         (data.susannaSalary || 0) + (data.susannaForsakringskassan || 0) + (data.susannaBarnbidrag || 0));
+      
+      const totalDailyBudget = monthResults?.totalDailyBudget || 0;
+      
+      return {
+        month: monthKey,
+        totalIncome,
+        totalCosts,
+        totalSavings,
+        totalDailyBudget
+      };
+    }).sort((a, b) => a.month.localeCompare(b.month));
+
+    if (chartData.length === 0) {
+      return (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground">Ingen historisk data tillgänglig. Budgeten sparas automatiskt varje månad.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="h-96">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="month" />
+            <YAxis />
+            <Tooltip formatter={(value: number) => formatCurrency(value)} />
+            <Legend />
+            <Line type="monotone" dataKey="totalIncome" stroke="#22c55e" name="Totala Intäkter" />
+            <Line type="monotone" dataKey="totalCosts" stroke="#ef4444" name="Totala Kostnader" />
+            <Line type="monotone" dataKey="totalSavings" stroke="#3b82f6" name="Totalt Sparande" />
+            <Line type="monotone" dataKey="totalDailyBudget" stroke="#f59e0b" name="Total Daglig Budget" />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  };
+
   // Add/remove budget group functions
   const addCostGroup = () => {
     const newGroup: BudgetGroup = {
@@ -880,17 +938,57 @@ const BudgetCalculator = () => {
         </TabsContent>
 
         <TabsContent value="historia">
-          <Card>
-            <CardHeader>
-              <CardTitle>Historia och Prognoser</CardTitle>
-              <CardDescription>
-                Historisk data och framtidsprognoser
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p>Historik och prognosdata kommer här...</p>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            {/* Historical Charts Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <History className="h-5 w-5 text-primary" />
+                  Historisk Översikt
+                </CardTitle>
+                <CardDescription>
+                  Visa utvecklingen av intäkter, kostnader och sparande över tid
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {renderHistoricalCharts()}
+              </CardContent>
+            </Card>
+
+            {/* Account Balance History and Forecast */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  Historik och Prognos på konton
+                </CardTitle>
+                <CardDescription>
+                  Visa utvecklingen av kontosaldon med historiska data och prognoser
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <CustomLineChart 
+                  data={calculated.chartData}
+                  accounts={rawData.selectedAccountsForChart.length > 0 ? rawData.selectedAccountsForChart : rawData.accounts}
+                  accountColors={['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899']}
+                  showEstimatedBudgetAmounts={rawData.showEstimatedBudgetAmounts}
+                  width={0}
+                  height={400}
+                  margin={{ top: 20, right: 30, bottom: 60, left: 50 }}
+                  formatCurrency={formatCurrency}
+                  showIndividualCostsOutsideBudget={rawData.showIndividualCostsOutsideBudget}
+                  showSavingsSeparately={rawData.showSavingsSeparately}
+                  balanceType={rawData.balanceType as 'starting' | 'closing'}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Account Data Table */}
+            <AccountDataTable 
+              data={calculated.accountDataRows}
+              className="w-full"
+            />
+          </div>
         </TabsContent>
 
         <TabsContent value="installningar">
