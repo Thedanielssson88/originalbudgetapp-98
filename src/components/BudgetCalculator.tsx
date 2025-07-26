@@ -7813,7 +7813,8 @@ const BudgetCalculator = () => {
                         console.log('🔄 Starting update from first month with false flag:', monthsToUpdate);
                         
                         let currentIndex = 0;
-                        let carryForwardBalances: {[key: string]: number} | null = null;
+                         // Store original month to return to after processing
+                         const originalMonth = selectedBudgetMonth;
                         
                         const updateAllMonths = async () => {
                           if (currentIndex < monthsToUpdate.length) {
@@ -7824,66 +7825,43 @@ const BudgetCalculator = () => {
                             const progress = Math.round((currentIndex / monthsToUpdate.length) * 100);
                             setUpdateProgress(progress);
                             
-                            // For sequential update, we need to manually manage the data flow
-                            console.log(`📂 Loading data for month: ${monthKey}`);
-                            
-                            // Set the selected month
-                            setSelectedBudgetMonth(monthKey);
-                            
-                            // If the month exists in historical data, load it
-                            if (historicalData[monthKey]) {
-                              // Load the month's data into the form
-                              const monthData = historicalData[monthKey];
-                              
-                              // Load all the form data
-                              setAndreasSalary(monthData.andreasSalary || 0);
-                              setAndreasförsäkringskassan(monthData.andreasförsäkringskassan || 0);
-                              setAndreasbarnbidrag(monthData.andreasbarnbidrag || 0);
-                              setSusannaSalary(monthData.susannaSalary || 0);
-                              setSusannaförsäkringskassan(monthData.susannaförsäkringskassan || 0);
-                              setSusannabarnbidrag(monthData.susannabarnbidrag || 0);
-                              setCostGroups(monthData.costGroups || []);
-                              setSavingsGroups(monthData.savingsGroups || []);
-                              setDailyTransfer(monthData.dailyTransfer || 300);
-                              setAccounts(monthData.accounts || ['Löpande', 'Sparkonto', 'Buffert']);
-                              
-                              // Set account balances - NEVER automatically update "Faktiskt kontosaldo"
-                              const storedBalances = monthData.accountBalances || {};
-                              const storedBalancesSet = monthData.accountBalancesSet || {};
-                              
-                              // IMPORTANT: Faktiskt kontosaldo should NEVER be updated automatically
-                              // It should remain "Ej ifyllt" by default and only be changed manually by user
-                              setAccountBalances(storedBalances);
-                              setAccountBalancesSet(storedBalancesSet);
-                              
-                              // Wait for state updates
-                              await new Promise(resolve => setTimeout(resolve, 100));
-                              
-                              // Now calculate the budget for this month
-                              console.log(`📊 Calculating budget for ${monthKey}`);
-                              calculateBudget();
-                              
-                              // Wait for calculation to complete
-                              await new Promise(resolve => setTimeout(resolve, 200));
-                              
-                              // Get the calculated final balances to carry forward
-                              carryForwardBalances = { ...accountEstimatedFinalBalances };
-                              console.log(`💾 Final balances calculated for ${monthKey}:`, carryForwardBalances);
-                              
-                              // Save the month data with calculated final balances
-                              const updatedData = {
-                                ...monthData,
-                                accountEstimatedFinalBalances: carryForwardBalances,
-                                monthFinalBalances: true
-                              };
-                              
-                              setHistoricalData(prev => ({
-                                ...prev,
-                                [monthKey]: updatedData
-                              }));
-                              
-                              console.log(`✅ Month ${monthKey} processed and saved`);
-                            }
+                             // Use the same process as manual month browsing
+                             console.log(`📂 Switching to and loading month: ${monthKey}`);
+                             
+                             // Set the selected month
+                             setSelectedBudgetMonth(monthKey);
+                             
+                             // If the month exists in historical data, load it using the same method as manual browsing
+                             if (historicalData[monthKey]) {
+                               console.log(`📖 Loading month data using loadDataFromSelectedMonth for: ${monthKey}`);
+                               
+                               // Use the exact same function that manual month browsing uses
+                               // This includes calculating previous month final balances and estimated balances
+                               loadDataFromSelectedMonth(monthKey);
+                               
+                               // Wait for all loading and calculations to complete
+                               await new Promise(resolve => setTimeout(resolve, 300));
+                               
+                               console.log(`🔢 Performing budget calculation for ${monthKey}`);
+                               
+                               // Perform budget calculation
+                               calculateBudget();
+                               
+                               // Wait for calculation to complete
+                               await new Promise(resolve => setTimeout(resolve, 300));
+                               
+                               console.log(`💾 Saving calculated data for ${monthKey}`);
+                               
+                               // Save the calculated data
+                               saveToSelectedMonth();
+                               
+                               // Wait for save to complete
+                               await new Promise(resolve => setTimeout(resolve, 100));
+                               
+                               console.log(`✅ Month ${monthKey} fully processed with all calculations and savings`);
+                             } else {
+                               console.log(`❌ Month ${monthKey} not found in historical data, skipping`);
+                             }
                             
                             // Set the monthFinalBalances flag to true for this month
                             setMonthFinalBalances(prev => ({
