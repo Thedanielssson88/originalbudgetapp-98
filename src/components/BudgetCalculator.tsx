@@ -3586,9 +3586,16 @@ const BudgetCalculator = () => {
         // Always add the main account data (this is the final balance for the month)
         dataPoint[account] = balance;
         
-        // The starting balance should be the Calc.Kontosaldo from the same month
-        // According to user: "Ingående saldo ska alltid alltid använda Calc.Kontosaldo från samma månad"
-        dataPoint[`${account}_startingBalance`] = balance;
+        // For starting balance, use accountStartBalancesSet if available when Y-axis shows Ingående Saldo
+        let startingBalance = balance; // Default to Calc.Kontosaldo
+        if (balanceType === 'starting') {
+          const monthData = historicalData[monthKey];
+          if (monthData && monthData.accountStartBalancesSet && monthData.accountStartBalancesSet[account]) {
+            // Use the manually set starting balance
+            startingBalance = monthData.accountBalances?.[account] || 0;
+          }
+        }
+        dataPoint[`${account}_startingBalance`] = startingBalance;
         
         // Mark if this point is estimated for styling purposes
         if (isEstimated) {
@@ -3640,7 +3647,23 @@ const BudgetCalculator = () => {
 
       return dataPoint;
     }).filter((dataPoint) => {
-      // Only include months that have at least one account with data
+      // When estimated budget amounts are disabled, only show months with manually set balances
+      if (!showEstimatedBudgetAmounts) {
+        const monthData = historicalData[dataPoint.month];
+        if (!monthData) return false;
+        
+        // Check if any account has accountStartBalancesSet or accountEndBalancesSet
+        const hasManualStartBalance = accounts.some(account => 
+          monthData.accountStartBalancesSet && monthData.accountStartBalancesSet[account]
+        );
+        const hasManualEndBalance = accounts.some(account => 
+          monthData.accountEndBalancesSet && monthData.accountEndBalancesSet[account]
+        );
+        
+        return hasManualStartBalance || hasManualEndBalance;
+      }
+      
+      // Default behavior: only include months that have at least one account with data
       return accounts.some(account => dataPoint[account] !== 0);
     });
 
