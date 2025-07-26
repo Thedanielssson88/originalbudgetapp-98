@@ -44,6 +44,7 @@ import {
   setSusannaPersonalSavings,
   setAccounts,
   setHistoricalData,
+  updateHistoricalDataSingle,
   setResults,
   setSelectedBudgetMonth,
   setAccountBalances,
@@ -967,32 +968,24 @@ const BudgetCalculator = () => {
     
     console.log(`Saving month data for ${monthKey} with final balances:`, accountEstimatedFinalBalances);
     
-    setHistoricalData(prev => {
-      const updated = {
-        ...prev,
-        [monthKey]: monthSnapshot
+    // CRITICAL FIX: Use updateHistoricalDataSingle to properly merge data
+    updateHistoricalDataSingle(monthKey, monthSnapshot);
+    
+    // Handle next month's estimated start balances separately if needed
+    const [year, month] = monthKey.split('-').map(Number);
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear = month === 12 ? year + 1 : year;
+    const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+    
+    // If next month exists, update its accountEstimatedStartBalances
+    if (historicalData[nextMonthKey]) {
+      console.log(`📊 Updating ${nextMonthKey} accountEstimatedStartBalances from ${monthKey} accountEstimatedFinalBalances`);
+      const nextMonthData = {
+        ...historicalData[nextMonthKey],
+        accountEstimatedStartBalances: JSON.parse(JSON.stringify(accountEstimatedFinalBalances))
       };
-      
-      console.log(`✅ Month ${monthKey} saved to historicalData`);
-      console.log(`📝 Updated historicalData keys AFTER save:`, Object.keys(updated));
-      
-      // Also save accountEstimatedFinalBalances to next month's accountEstimatedStartBalances
-      const [year, month] = monthKey.split('-').map(Number);
-      const nextMonth = month === 12 ? 1 : month + 1;
-      const nextYear = month === 12 ? year + 1 : year;
-      const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
-      
-      // If next month exists, update its accountEstimatedStartBalances
-      if (updated[nextMonthKey]) {
-        console.log(`📊 Updating ${nextMonthKey} accountEstimatedStartBalances from ${monthKey} accountEstimatedFinalBalances`);
-        updated[nextMonthKey] = {
-          ...updated[nextMonthKey],
-          accountEstimatedStartBalances: JSON.parse(JSON.stringify(accountEstimatedFinalBalances))
-        };
-      }
-      
-      return updated;
-    });
+      updateHistoricalDataSingle(nextMonthKey, nextMonthData);
+    }
   };
 
   // Save data to localStorage whenever values change
