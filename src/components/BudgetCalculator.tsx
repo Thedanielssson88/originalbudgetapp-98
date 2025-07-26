@@ -207,6 +207,53 @@ const BudgetCalculator = () => {
   const [isCreateMonthDialogOpen, setIsCreateMonthDialogOpen] = useState<boolean>(false);
   const [createMonthDirection, setCreateMonthDirection] = useState<'previous' | 'next'>('next');
 
+  // Function to save current month as historical
+  const handleSaveCurrentMonthAsHistorical = () => {
+    if (!selectedBudgetMonth) {
+      alert('Ingen månad är vald att spara.');
+      return;
+    }
+
+    // Samla ihop all data från de nuvarande state-variablerna
+    const currentMonthDataToSave = {
+      andreasSalary,
+      andreasförsäkringskassan,
+      andreasbarnbidrag,
+      susannaSalary,
+      susannaförsäkringskassan,
+      susannabarnbidrag,
+      costGroups,
+      savingsGroups,
+      dailyTransfer,
+      weekendTransfer,
+      transferAccount,
+      andreasPersonalCosts,
+      andreasPersonalSavings,
+      susannaPersonalCosts,
+      susannaPersonalSavings,
+      accounts,
+      customHolidays,
+      accountBalances: rawData.accountBalances,
+      accountBalancesSet: rawData.accountBalancesSet,
+      accountEstimatedFinalBalances: rawData.accountEstimatedFinalBalances,
+      accountEstimatedFinalBalancesSet: rawData.accountEstimatedFinalBalancesSet,
+      accountEstimatedStartBalances: rawData.accountEstimatedStartBalances,
+      accountStartBalancesSet: rawData.accountStartBalancesSet,
+      accountEndBalancesSet: rawData.accountEndBalancesSet,
+      userName1: rawData.userName1,
+      userName2: rawData.userName2,
+      transferChecks: rawData.transferChecks,
+      andreasShareChecked: rawData.transferChecks?.andreasShare,
+      susannaShareChecked: rawData.transferChecks?.susannaShare,
+      createdAt: new Date().toISOString()
+    };
+
+    // Använd den befintliga funktionen för att spara datan
+    updateHistoricalData(selectedBudgetMonth, currentMonthDataToSave);
+
+    alert(`Budgeten för ${selectedBudgetMonth} har sparats till historiken!`);
+  };
+
   // Account balances state
   const [accountBalances, setAccountBalances] = useState<{[key: string]: number}>({});
   
@@ -2450,7 +2497,7 @@ const BudgetCalculator = () => {
   };
 
   // Function to handle month creation from dialog
-  const handleCreateMonthFromDialog = (type: 'empty' | 'template' | 'copy', templateName?: string) => {
+  const handleCreateMonthFromDialog = (type: 'empty' | 'template' | 'copy', templateName?: string, sourceMonth?: string) => {
     if (!selectedBudgetMonth) return;
     
     const [year, month] = selectedBudgetMonth.split('-');
@@ -2572,15 +2619,15 @@ const BudgetCalculator = () => {
           accountEstimatedFinalBalances: {},
           createdAt: new Date().toISOString()
       };
-    } else if (type === 'copy') {
-      // Copy current month with all data including income values
-      const currentMonthData = historicalData[selectedBudgetMonth];
-      if (currentMonthData) {
+    } else if (type === 'copy' && sourceMonth) {
+      // Copy from selected source month with all data including income values
+      const sourceMonthData = historicalData[sourceMonth];
+      if (sourceMonthData) {
         newMonthData = {
-          ...currentMonthData,
+          ...sourceMonthData,
           // Keep all income values from the source month
           // Filter out "Enskilda kostnader" from cost groups
-          costGroups: (currentMonthData.costGroups || []).map((group: any) => ({
+          costGroups: (sourceMonthData.costGroups || []).map((group: any) => ({
             ...group,
             subCategories: (group.subCategories || []).filter((sub: any) => 
               sub.financedFrom !== 'Enskild kostnad'
@@ -4427,6 +4474,19 @@ const BudgetCalculator = () => {
                 ) : (
                   <Plus className="h-6 w-6" />
                 )}
+              </Button>
+            </div>
+            
+            {/* Save Current Month Button */}
+            <div className="flex justify-center mt-4">
+              <Button 
+                onClick={handleSaveCurrentMonthAsHistorical} 
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Save className="h-4 w-4" />
+                Spara Denna Månad
               </Button>
             </div>
           </CardContent>
@@ -9082,6 +9142,7 @@ const BudgetCalculator = () => {
         budgetTemplates={budgetTemplates}
         selectedBudgetMonth={selectedBudgetMonth}
         direction={createMonthDirection}
+        historicalData={historicalData}
       />
       {/* Bottom padding for better visual spacing */}
       <div className="h-16"></div>

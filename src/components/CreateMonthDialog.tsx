@@ -10,10 +10,11 @@ import { Calendar, Copy, FileText, X } from 'lucide-react';
 interface CreateMonthDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreateMonth: (type: 'empty' | 'template' | 'copy', templateName?: string) => void;
+  onCreateMonth: (type: 'empty' | 'template' | 'copy', templateName?: string, sourceMonth?: string) => void;
   budgetTemplates: { [key: string]: any };
   selectedBudgetMonth: string;
   direction?: 'previous' | 'next';
+  historicalData?: { [key: string]: any };
 }
 
 const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
@@ -22,10 +23,12 @@ const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
   onCreateMonth,
   budgetTemplates,
   selectedBudgetMonth,
-  direction = 'next'
+  direction = 'next',
+  historicalData = {}
 }) => {
   const [selectedOption, setSelectedOption] = useState<'empty' | 'template' | 'copy'>('empty');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [selectedSourceMonth, setSelectedSourceMonth] = useState<string>('');
 
   // Swedish holiday calculation functions
   const calculateEaster = (year: number) => {
@@ -127,16 +130,22 @@ const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
     if (selectedOption === 'template' && !selectedTemplate) {
       return; // Don't proceed if template is selected but none chosen
     }
-    onCreateMonth(selectedOption, selectedTemplate);
+    if (selectedOption === 'copy' && !selectedSourceMonth) {
+      return; // Don't proceed if copy is selected but no source month chosen
+    }
+    onCreateMonth(selectedOption, selectedTemplate, selectedSourceMonth);
     onClose();
   };
 
   // Determine if create button should be disabled
-  const isCreateButtonDisabled = selectedOption === 'template' && !selectedTemplate;
+  const isCreateButtonDisabled = 
+    (selectedOption === 'template' && !selectedTemplate) ||
+    (selectedOption === 'copy' && !selectedSourceMonth);
 
   const handleCancel = () => {
     setSelectedOption('empty');
     setSelectedTemplate('');
+    setSelectedSourceMonth('');
     onClose();
   };
 
@@ -374,21 +383,43 @@ const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
               </Card>
             )}
 
-            {/* Copy current month option */}
+            {/* Copy from saved month option */}
             <Card className={`cursor-pointer transition-colors ${selectedOption === 'copy' ? 'ring-2 ring-primary' : ''}`}>
               <CardContent className="p-4">
                 <div className="flex items-center space-x-3">
                   <RadioGroupItem value="copy" id="copy" />
                   <div className="flex-1">
                     <Label htmlFor="copy" className="cursor-pointer font-medium">
-                      Kopiera nuvarande månad
+                      Kopiera data från sparad månad
                     </Label>
                     <CardDescription className="mt-1">
-                      Skapa månad med samma kategorier, inkomster och belopp som {formatMonthDisplay(selectedBudgetMonth)}
+                      Skapa månad genom att kopiera från en befintlig sparad månad
                     </CardDescription>
                   </div>
                   <Copy className="h-5 w-5 text-muted-foreground" />
                 </div>
+                
+                {selectedOption === 'copy' && (
+                  <div className="mt-3">
+                    <Select value={selectedSourceMonth} onValueChange={setSelectedSourceMonth}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Kopiera data från..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.keys(historicalData).sort().reverse().map(monthKey => (
+                          <SelectItem key={monthKey} value={monthKey}>
+                            {formatMonthDisplay(monthKey)}
+                          </SelectItem>
+                        ))}
+                        {Object.keys(historicalData).length === 0 && (
+                          <SelectItem value="" disabled>
+                            Inga sparade månader tillgängliga
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </RadioGroup>
