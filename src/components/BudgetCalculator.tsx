@@ -209,7 +209,9 @@ const BudgetCalculator = () => {
 
   // Centralized month list logic for consistent dropdown behavior
   const availableMonths = useMemo(() => {
-    return Object.keys(historicalData).sort((a, b) => a.localeCompare(b));
+    const keys = Object.keys(historicalData).sort((a, b) => a.localeCompare(b));
+    console.log(`🔍 availableMonths recalculated. historicalData keys:`, keys);
+    return keys;
   }, [historicalData]);
 
   // Function to save current month as historical
@@ -846,6 +848,9 @@ const BudgetCalculator = () => {
     const currentDate = new Date();
     const monthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     
+    console.log(`📝 Saving month data to ${monthKey}`);
+    console.log(`📝 Current historicalData keys BEFORE save:`, Object.keys(historicalData));
+    
     // Final balances are now calculated and saved directly in calculateBudget()
     
     // Create accountStartBalancesSet based on which accountBalances have values (not "Ej ifyllt")
@@ -964,6 +969,9 @@ const BudgetCalculator = () => {
         ...prev,
         [monthKey]: monthSnapshot
       };
+      
+      console.log(`✅ Month ${monthKey} saved to historicalData`);
+      console.log(`📝 Updated historicalData keys AFTER save:`, Object.keys(updated));
       
       // Also save accountEstimatedFinalBalances to next month's accountEstimatedStartBalances
       const [year, month] = monthKey.split('-').map(Number);
