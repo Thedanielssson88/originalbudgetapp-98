@@ -458,36 +458,56 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                 const x = xScale(index);
                 const y = yScale(individualValue);
                 
-                // Calculate the balance for main balance y position based on selected balance type
-                const startingBalance = point[`${account}_startingBalance`] || 0;
-                const savings = point[`${account}_savings`] || 0;
-                const runningDeposits = point[`${account}_runningDeposits`] || 500;
-                const runningCosts = point[`${account}_runningCosts`] || 500;
-                const individualCosts = Math.abs(point[`${account}_individual`] || 0);
-                const actualExtraCosts = point[`${account}_actualExtraCosts`] || 0;
-                const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts + actualExtraCosts;
-                const displayBalance = balanceType === 'starting' ? startingBalance : finalBalance;
-                const mainY = yScale(displayBalance);
-
-                // Calculate total withdrawals
-                const totalWithdrawalsValue = actualExtraCosts < 0 ? individualCosts + Math.abs(actualExtraCosts) : individualCosts;
-
-                // Add red triangle below the main balance point pointing down - only if total withdrawals > 0
-                if (totalWithdrawalsValue > 0) {
-                  const triangleHeight = calculateTriangleHeight(totalWithdrawalsValue);
-                  
-                  dots.push(
-                    <polygon
-                      key={`${account}-individual-triangle-${index}`}
-                      points={`${x},${mainY + triangleHeight + 4} ${x - triangleWidth},${mainY + 4} ${x + triangleWidth},${mainY + 4}`}
-                      fill="#ef4444"
-                      stroke="#dc2626"
-                      strokeWidth={1}
-                    />
-                  );
-                }
+                // Individual cost dots (only when showing individual costs)
+                dots.push(
+                  <circle
+                    key={`${account}-individual-${index}`}
+                    cx={x}
+                    cy={y}
+                    r={2}
+                    fill="#ef4444"
+                    stroke="#dc2626"
+                    strokeWidth={1}
+                  />
+                );
               });
             }
+
+            // Generate withdrawal triangles (red arrows) - always show for total withdrawals
+            data.forEach((point, index) => {
+              if (point[account] == null) return;
+
+              const x = xScale(index);
+              
+              // Calculate the balance for main balance y position based on selected balance type
+              const startingBalance = point[`${account}_startingBalance`] || 0;
+              const savings = point[`${account}_savings`] || 0;
+              const runningDeposits = point[`${account}_runningDeposits`] || 500;
+              const runningCosts = point[`${account}_runningCosts`] || 500;
+              const individualCosts = Math.abs(point[`${account}_individual`] || 0);
+              const actualExtraCosts = point[`${account}_actualExtraCosts`] || 0;
+              const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts + actualExtraCosts;
+              const displayBalance = balanceType === 'starting' ? startingBalance : finalBalance;
+              const mainY = yScale(displayBalance);
+
+              // Calculate total withdrawals
+              const totalWithdrawalsValue = actualExtraCosts < 0 ? individualCosts + Math.abs(actualExtraCosts) : individualCosts;
+
+              // Add red triangle below the main balance point pointing down - only if total withdrawals > 0
+              if (totalWithdrawalsValue > 0) {
+                const triangleHeight = calculateTriangleHeight(totalWithdrawalsValue);
+                
+                dots.push(
+                  <polygon
+                    key={`${account}-withdrawal-triangle-${index}`}
+                    points={`${x},${mainY + triangleHeight + 4} ${x - triangleWidth},${mainY + 4} ${x + triangleWidth},${mainY + 4}`}
+                    fill="#ef4444"
+                    stroke="#dc2626"
+                    strokeWidth={1}
+                  />
+                );
+              }
+            });
 
 
 
