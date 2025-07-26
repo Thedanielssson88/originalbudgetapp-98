@@ -2471,7 +2471,7 @@ const BudgetCalculator = () => {
     
     // Don't create if it already exists
     if (historicalData[targetMonthKey]) {
-      handleBudgetMonthChange(targetMonthKey);
+      updateSelectedBudgetMonth(targetMonthKey);
       return;
     }
 
@@ -2525,26 +2525,14 @@ const BudgetCalculator = () => {
               amount: 0
             }))
           })),
-          // Reset transfers
-          dailyTransfer: 0,
-          weekendTransfer: 0,
-          // Reset personal budgets
-          andreasPersonalCosts: (currentMonthData.andreasPersonalCosts || []).map((item: any) => ({
-            ...item,
-            amount: 0
-          })),
-          andreasPersonalSavings: (currentMonthData.andreasPersonalSavings || []).map((item: any) => ({
-            ...item,
-            amount: 0
-          })),
-          susannaPersonalCosts: (currentMonthData.susannaPersonalCosts || []).map((item: any) => ({
-            ...item,
-            amount: 0
-          })),
-          susannaPersonalSavings: (currentMonthData.susannaPersonalSavings || []).map((item: any) => ({
-            ...item,
-            amount: 0
-          })),
+          dailyTransfer: currentMonthData.dailyTransfer || 300,
+          weekendTransfer: currentMonthData.weekendTransfer || 540,
+          customHolidays: JSON.parse(JSON.stringify(currentMonthData.customHolidays || [])),
+          andreasPersonalCosts: JSON.parse(JSON.stringify(currentMonthData.andreasPersonalCosts || [])),
+          andreasPersonalSavings: JSON.parse(JSON.stringify(currentMonthData.andreasPersonalSavings || [])),
+          susannaPersonalCosts: JSON.parse(JSON.stringify(currentMonthData.susannaPersonalCosts || [])),
+          susannaPersonalSavings: JSON.parse(JSON.stringify(currentMonthData.susannaPersonalSavings || [])),
+          accounts: JSON.parse(JSON.stringify(currentMonthData.accounts || ['Löpande', 'Sparkonto', 'Buffert'])),
           // Use empty account balances for new months - user should fill manually 
           accountBalances: {},
           accountBalancesSet: {}, // All balances start as not set, so they show "Ej ifyllt"
@@ -2608,81 +2596,14 @@ const BudgetCalculator = () => {
     }
     
     if (newMonthData) {
-      setHistoricalData(prev => {
-        const updatedData = {
-          ...prev,
-          [targetMonthKey]: newMonthData
-        };
-        
-        // Set the new month as selected
-        setSelectedBudgetMonth(targetMonthKey);
-        
-        // Load the new month data immediately with the updated data
-        setTimeout(() => {
-          const monthData = updatedData[targetMonthKey];
-          if (monthData) {
-            // Load all the form data from the new month
-            setAndreasSalary(monthData.andreasSalary || 0);
-            setAndreasförsäkringskassan(monthData.andreasförsäkringskassan || 0);
-            setAndreasbarnbidrag(monthData.andreasbarnbidrag || 0);
-            setSusannaSalary(monthData.susannaSalary || 0);
-            setSusannaförsäkringskassan(monthData.susannaförsäkringskassan || 0);
-            setSusannabarnbidrag(monthData.susannabarnbidrag || 0);
-            setCostGroups(JSON.parse(JSON.stringify(monthData.costGroups || [])));
-            setSavingsGroups(JSON.parse(JSON.stringify(monthData.savingsGroups || [])));
-            setDailyTransfer(monthData.dailyTransfer || 0);
-            setWeekendTransfer(monthData.weekendTransfer || 0);
-            setCustomHolidays(JSON.parse(JSON.stringify(monthData.customHolidays || [])));
-            setAndreasPersonalCosts(JSON.parse(JSON.stringify(monthData.andreasPersonalCosts || [])));
-            setAndreasPersonalSavings(JSON.parse(JSON.stringify(monthData.andreasPersonalSavings || [])));
-            setSusannaPersonalCosts(JSON.parse(JSON.stringify(monthData.susannaPersonalCosts || [])));
-            setSusannaPersonalSavings(JSON.parse(JSON.stringify(monthData.susannaPersonalSavings || [])));
-            setAccounts(JSON.parse(JSON.stringify(monthData.accounts || ['Löpande', 'Sparkonto', 'Buffert'])));
-            setUserName1(monthData.userName1 || 'Andreas');
-            setUserName2(monthData.userName2 || 'Susanna');
-            setTransferChecks(monthData.transferChecks || {});
-            setAndreasShareChecked(monthData.andreasShareChecked !== undefined ? monthData.andreasShareChecked : true);
-            setSusannaShareChecked(monthData.susannaShareChecked !== undefined ? monthData.susannaShareChecked : true);
-            // Set account balances (should be empty {} for new months)
-            const loadedBalances = monthData.accountBalances || {};
-            setAccountBalances(loadedBalances);
-            setAccountEstimatedFinalBalances(monthData.accountEstimatedFinalBalances || {});
-            
-            // Set accountBalancesSet - for new months this should be empty so all show "Ej ifyllt"
-            const balancesSet: {[key: string]: boolean} = {};
-            if (monthData.accountBalancesSet) {
-              // Use saved accountBalancesSet if it exists
-              Object.assign(balancesSet, monthData.accountBalancesSet);
-            } else {
-              // For new months or months without accountBalancesSet, mark all as not set
-              Object.keys(loadedBalances).forEach(account => {
-                balancesSet[account] = false; // Always show "Ej ifyllt" for new months
-              });
-            }
-            setAccountBalancesSet(balancesSet);
-            
-            // Calculate and save final balances for the previous month before calculating estimated balances
-            // This mirrors the logic in loadDataFromSelectedMonth
-            setTimeout(() => {
-              console.log(`🔧 Calculating previous month final balances before new month estimated balances`);
-              const freshFinalBalances = calculateAndSavePreviousMonthFinalBalances(targetMonthKey);
-              
-              // Store the fresh final balances to use immediately for estimated balances
-              if (freshFinalBalances) {
-                (window as any).__freshFinalBalances = freshFinalBalances;
-                console.log(`✅ Fresh final balances calculated for previous month:`, freshFinalBalances);
-              }
-              
-              // Now calculate estimated final balances using the same method as loadDataFromSelectedMonth
-              setTimeout(() => {
-                calculateAndSaveEstimatedFinalBalances(targetMonthKey);
-              }, 50);
-            }, 50);
-          }
-        }, 0);
-        
-        return updatedData;
-      });
+      // Use central state management to update historical data
+      updateHistoricalData(targetMonthKey, newMonthData);
+      
+      // Set the new month as selected
+      updateSelectedBudgetMonth(targetMonthKey);
+      
+      // Close the dialog
+      setIsCreateMonthDialogOpen(false);
     }
   };
 
