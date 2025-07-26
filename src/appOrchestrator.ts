@@ -114,6 +114,18 @@ export function updateHistoricalData(monthKey: string, data: any) {
   handleManualValueChange(StorageKey.HISTORICAL_DATA, newHistoricalData, 'historicalData');
 }
 
+// Updated function to handle month data updates that can create new entries
+export function handleMonthDataUpdate(monthKey: string, monthData: any) {
+  const updatedHistoricalData = {
+    ...state.rawData.historicalData,
+    [monthKey]: {
+      ...(state.rawData.historicalData[monthKey] || {}), // KORRIGERING: Hanterar fallet där månaden är 'undefined'
+      ...monthData
+    }
+  };
+  handleManualValueChange(StorageKey.HISTORICAL_DATA, updatedHistoricalData, 'historicalData');
+}
+
 // Force a full recalculation
 export function forceRecalculation() {
   runCalculationsAndUpdateState();

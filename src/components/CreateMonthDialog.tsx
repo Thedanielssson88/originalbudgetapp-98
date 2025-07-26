@@ -131,6 +131,9 @@ const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
     onClose();
   };
 
+  // Determine if create button should be disabled
+  const isCreateButtonDisabled = selectedOption === 'template' && !selectedTemplate;
+
   const handleCancel = () => {
     setSelectedOption('empty');
     setSelectedTemplate('');
@@ -398,8 +401,8 @@ const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
           </Button>
           <Button 
             onClick={handleCreate} 
-            className="flex-1"
-            disabled={selectedOption === 'template' && !selectedTemplate}
+            className={`flex-1 ${isCreateButtonDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={isCreateButtonDisabled}
           >
             Skapa månad
           </Button>
