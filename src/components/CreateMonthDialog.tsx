@@ -15,6 +15,7 @@ interface CreateMonthDialogProps {
   selectedBudgetMonth: string;
   direction?: 'previous' | 'next';
   historicalData?: { [key: string]: any };
+  availableMonths?: string[];
 }
 
 const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
@@ -24,7 +25,8 @@ const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
   budgetTemplates,
   selectedBudgetMonth,
   direction = 'next',
-  historicalData = {}
+  historicalData = {},
+  availableMonths = []
 }) => {
   const [selectedOption, setSelectedOption] = useState<'empty' | 'template' | 'copy'>('empty');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
@@ -406,8 +408,8 @@ const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
                         <SelectValue placeholder="Kopiera data från..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {Object.keys(historicalData).length > 0 ? (
-                          Object.keys(historicalData).sort().reverse().map(monthKey => (
+                        {availableMonths.length > 0 ? (
+                          availableMonths.sort().reverse().map(monthKey => (
                             <SelectItem key={monthKey} value={monthKey}>
                               {formatMonthDisplay(monthKey)}
                             </SelectItem>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useReducer } from 'react';
+import React, { useState, useEffect, useReducer, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -206,6 +206,11 @@ const BudgetCalculator = () => {
   // Create month dialog state
   const [isCreateMonthDialogOpen, setIsCreateMonthDialogOpen] = useState<boolean>(false);
   const [createMonthDirection, setCreateMonthDirection] = useState<'previous' | 'next'>('next');
+
+  // Centralized month list logic for consistent dropdown behavior
+  const availableMonths = useMemo(() => {
+    return Object.keys(historicalData).sort((a, b) => a.localeCompare(b));
+  }, [historicalData]);
 
   // Function to save current month as historical
   const handleSaveCurrentMonthAsHistorical = () => {
@@ -4206,7 +4211,7 @@ const BudgetCalculator = () => {
         <div>
           <Label>Hantera sparade månader:</Label>
           <div className="mt-2 space-y-2">
-            {Object.keys(historicalData).sort((a, b) => b.localeCompare(a)).map(month => (
+            {availableMonths.sort((a, b) => b.localeCompare(a)).map(month => (
               <div key={month} className="flex items-center justify-between p-2 bg-background rounded border">
                 <span>{month}</span>
                 <Button
@@ -4439,11 +4444,11 @@ const BudgetCalculator = () => {
                       'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
                     ];
                     
-                    // Generate options for current month and all historical months
+                    // Generate options for current month and all historical months using centralized availableMonths
                     const currentDate = new Date();
                     const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
                     
-                    const allMonths = new Set([currentMonthKey, ...Object.keys(historicalData)]);
+                    const allMonths = new Set([currentMonthKey, ...availableMonths]);
                     
                     return Array.from(allMonths).sort().reverse().map(monthKey => {
                       const [year, month] = monthKey.split('-');
@@ -8172,7 +8177,7 @@ const BudgetCalculator = () => {
                           className="w-full p-2 border rounded-md"
                         >
                           <option value="">Välj källmånad</option>
-                          {Object.keys(historicalData).sort().reverse().map(month => (
+                          {availableMonths.sort().reverse().map(month => (
                             <option key={month} value={month}>{month}</option>
                           ))}
                         </select>
@@ -8227,7 +8232,7 @@ const BudgetCalculator = () => {
                           className="w-full p-2 border rounded-md"
                         >
                           <option value="">Välj en månad</option>
-                          {Object.keys(historicalData).sort().reverse().map(month => (
+                          {availableMonths.sort().reverse().map(month => (
                             <option key={month} value={month}>{month}</option>
                           ))}
                         </select>
@@ -8480,9 +8485,9 @@ const BudgetCalculator = () => {
                            </SelectTrigger>
                            <SelectContent>
                              <SelectItem value="current">Aktuell månad</SelectItem>
-                             {Object.keys(historicalData).sort().reverse().map(month => (
-                               <SelectItem key={month} value={month}>{month}</SelectItem>
-                             ))}
+                              {availableMonths.sort().reverse().map(month => (
+                                <SelectItem key={month} value={month}>{month}</SelectItem>
+                              ))}
                            </SelectContent>
                          </Select>
                        </div>
@@ -9143,6 +9148,7 @@ const BudgetCalculator = () => {
         selectedBudgetMonth={selectedBudgetMonth}
         direction={createMonthDirection}
         historicalData={historicalData}
+        availableMonths={availableMonths}
       />
       {/* Bottom padding for better visual spacing */}
       <div className="h-16"></div>
