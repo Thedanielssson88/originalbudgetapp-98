@@ -768,6 +768,79 @@ const BudgetCalculator = () => {
     }, 100);
   }, []);
 
+  // CRITICAL FIX: Auto-load month data when selectedBudgetMonth changes
+  // This ensures that ALL state variables are properly reset and loaded when switching months
+  useEffect(() => {
+    // Skip on initial load to avoid conflicts with the main initialization useEffect
+    if (isInitialLoad) return;
+    
+    console.log(`🔄 Month selection changed to: ${selectedBudgetMonth}`);
+    
+    // Get data for the selected month, or empty object if it doesn't exist
+    const data = historicalData[selectedBudgetMonth] || {};
+    
+    // Reset ALL budget state variables to prevent state bleeding between months
+    // Use default values if data is missing for any field
+    
+    // Income data
+    setAndreasSalary(data.andreasSalary || 0);
+    setAndreasförsäkringskassan(data.andreasförsäkringskassan || 0);
+    setAndreasbarnbidrag(data.andreasbarnbidrag || 0);
+    setSusannaSalary(data.susannaSalary || 0);
+    setSusannaförsäkringskassan(data.susannaförsäkringskassan || 0);
+    setSusannabarnbidrag(data.susannabarnbidrag || 0);
+
+    // CRITICAL: Reset arrays to empty arrays if they're missing
+    setCostGroups(data.costGroups || []);
+    setSavingsGroups(data.savingsGroups || []);
+
+    // Transfer data
+    setDailyTransfer(data.dailyTransfer || 300);
+    setWeekendTransfer(data.weekendTransfer || 540);
+    setCustomHolidays(data.customHolidays || []);
+
+    // Personal budget data
+    setAndreasPersonalCosts(data.andreasPersonalCosts || []);
+    setAndreasPersonalSavings(data.andreasPersonalSavings || []);
+    setSusannaPersonalCosts(data.susannaPersonalCosts || []);
+    setSusannaPersonalSavings(data.susannaPersonalSavings || []);
+
+    // Account data
+    setAccounts(data.accounts || ['Löpande', 'Sparkonto', 'Buffert']);
+    setAccountBalances(data.accountBalances || {});
+    setAccountBalancesSet(data.accountBalancesSet || {});
+    setAccountEstimatedFinalBalances(data.accountEstimatedFinalBalances || {});
+    setAccountEstimatedFinalBalancesSet(data.accountEstimatedFinalBalancesSet || {});
+    setAccountEstimatedStartBalances(data.accountEstimatedStartBalances || {});
+    setAccountStartBalancesSet(data.accountStartBalancesSet || {});
+    setAccountEndBalancesSet(data.accountEndBalancesSet || {});
+
+    // User names
+    setUserName1(data.userName1 || 'Andreas');
+    setUserName2(data.userName2 || 'Susanna');
+
+    // Transfer completion states
+    setTransferChecks(data.transferChecks || {});
+    setAndreasShareChecked(data.andreasShareChecked || false);
+    setSusannaShareChecked(data.susannaShareChecked || false);
+
+    // Chart settings
+    setSelectedAccountsForChart(data.selectedAccountsForChart || []);
+    setShowIndividualCostsOutsideBudget(data.showIndividualCostsOutsideBudget || false);
+    setShowSavingsSeparately(data.showSavingsSeparately || false);
+    setUseCustomTimeRange(data.useCustomTimeRange || false);
+    setChartStartMonth(data.chartStartMonth || '');
+    setChartEndMonth(data.chartEndMonth || '');
+
+    // Month completion flags
+    setMonthFinalBalances(prev => ({
+      ...prev,
+      [selectedBudgetMonth]: data.monthFinalBalances || false
+    }));
+
+    console.log(`✅ Month data loaded and all state variables reset for: ${selectedBudgetMonth}`);
+  }, [selectedBudgetMonth, historicalData, isInitialLoad]);
+
   // Save current data to the selected month in historical data
   const saveToSelectedMonth = () => {
     const currentDate = new Date();
