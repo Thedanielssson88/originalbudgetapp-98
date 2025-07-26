@@ -7741,6 +7741,16 @@ const BudgetCalculator = () => {
                               setAccountBalances(storedBalances);
                               setAccountBalancesSet(storedBalancesSet);
                               
+                              // Load estimated start balances (these can be updated automatically from previous month)
+                              const storedEstimatedStartBalances = monthData.accountEstimatedStartBalances || {};
+                              setAccountEstimatedStartBalances(storedEstimatedStartBalances);
+                              
+                              // Load estimated final balances (these will be recalculated but could include manual overrides)
+                              const storedEstimatedFinalBalances = monthData.accountEstimatedFinalBalances || {};
+                              const storedEstimatedFinalBalancesSet = monthData.accountEstimatedFinalBalancesSet || {};
+                              setAccountEstimatedFinalBalances(storedEstimatedFinalBalances);
+                              setAccountEstimatedFinalBalancesSet(storedEstimatedFinalBalancesSet);
+                              
                               // Wait for state updates
                               await new Promise(resolve => setTimeout(resolve, 100));
                               
@@ -7751,9 +7761,33 @@ const BudgetCalculator = () => {
                               // Wait for calculation to complete
                               await new Promise(resolve => setTimeout(resolve, 200));
                               
-                              // Get the calculated final balances to carry forward
+                              // Get the final balances to carry forward - prioritize manually set values
                               carryForwardBalances = { ...accountEstimatedFinalBalances };
-                              console.log(`💾 Final balances calculated for ${monthKey}:`, carryForwardBalances);
+                              
+                              // CRITICAL: Check if user has manually set "Faktiskt slutsaldo" and use those values instead
+                              // Check if this month's final balances were manually overridden
+                              if (monthData.accountEstimatedFinalBalances && monthData.accountEstimatedFinalBalancesSet) {
+                                console.log(`📋 Checking for manually set final balances in ${monthKey}`);
+                                console.log(`🔍 Final balances:`, monthData.accountEstimatedFinalBalances);
+                                console.log(`🔍 Final balances set flags:`, monthData.accountEstimatedFinalBalancesSet);
+                                
+                                // Use the stored final balances (which could be manually set or calculated)
+                                Object.keys(monthData.accountEstimatedFinalBalances).forEach(account => {
+                                  const storedValue = monthData.accountEstimatedFinalBalances[account];
+                                  const isManuallySet = monthData.accountEstimatedFinalBalancesSet[account];
+                                  
+                                  if (storedValue !== undefined && storedValue !== null) {
+                                    carryForwardBalances[account] = storedValue;
+                                    if (isManuallySet) {
+                                      console.log(`🔒 Using stored final balance for ${account}: ${storedValue} (manually set or calculated)`);
+                                    } else {
+                                      console.log(`📊 Using stored final balance for ${account}: ${storedValue} (calculated)`);
+                                    }
+                                  }
+                                });
+                              }
+                              
+                              console.log(`💾 Final balances to carry forward from ${monthKey}:`, carryForwardBalances);
                               
                               // Save the month data with calculated final balances
                               const updatedData = {
@@ -7761,6 +7795,24 @@ const BudgetCalculator = () => {
                                 accountEstimatedFinalBalances: carryForwardBalances,
                                 monthFinalBalances: true
                               };
+                              
+                              // CRITICAL: Update estimated start balances for the NEXT month
+                              if (currentIndex < monthsToUpdate.length - 1) {
+                                const nextMonthKey = monthsToUpdate[currentIndex + 1];
+                                console.log(`🔄 Updating estimated start balances for next month ${nextMonthKey} using final balances from ${monthKey}:`, carryForwardBalances);
+                                
+                                // Update the historical data for the next month with these starting balances
+                                setHistoricalData(prev => {
+                                  const nextMonthData = prev[nextMonthKey] || {};
+                                  return {
+                                    ...prev,
+                                    [nextMonthKey]: {
+                                      ...nextMonthData,
+                                      accountEstimatedStartBalances: { ...carryForwardBalances }
+                                    }
+                                  };
+                                });
+                              }
                               
                               setHistoricalData(prev => ({
                                 ...prev,
