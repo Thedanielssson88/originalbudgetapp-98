@@ -1516,34 +1516,31 @@ const BudgetCalculator = () => {
     });
     
     // Update the existing month data with calculated results
-    setHistoricalData(prev => {
-      const updated = {
-        ...prev,
-        [monthKey]: {
-          ...prev[monthKey], // Keep existing data
-          // Update with fresh calculated results
-          totalMonthlyExpenses,
-          totalCosts,
-          totalSavings,
-          balanceLeft,
-          susannaShare,
-          andreasShare,
-          susannaPercentage,
-          andreasPercentage,
-          totalDailyBudget: budgetData.totalBudget,
-          remainingDailyBudget: budgetData.remainingBudget,
-          holidayDaysBudget: budgetData.holidayBudget,
-          daysUntil25th: budgetData.daysUntil25th,
-          accountEstimatedFinalBalances: finalBalances, // Save the calculated Slutsaldo to accountEstimatedFinalBalances
-          date: currentDate.toISOString() // Update timestamp
-        }
+    if (historicalData[monthKey]) {
+      const updatedMonthData = {
+        ...historicalData[monthKey], // Keep existing data
+        // Update with fresh calculated results
+        totalMonthlyExpenses,
+        totalCosts,
+        totalSavings,
+        balanceLeft,
+        susannaShare,
+        andreasShare,
+        susannaPercentage,
+        andreasPercentage,
+        totalDailyBudget: budgetData.totalBudget,
+        remainingDailyBudget: budgetData.remainingBudget,
+        holidayDaysBudget: budgetData.holidayBudget,
+        daysUntil25th: budgetData.daysUntil25th,
+        accountEstimatedFinalBalances: finalBalances, // Save the calculated Slutsaldo to accountEstimatedFinalBalances
+        date: currentDate.toISOString() // Update timestamp
       };
       
-      console.log(`💾 AFTER SAVE - historicalData[${monthKey}].accountEstimatedFinalBalances:`, updated[monthKey].accountEstimatedFinalBalances);
-      console.log(`💾 SPECIFICALLY Löpande for ${monthKey}:`, updated[monthKey].accountEstimatedFinalBalances?.['Löpande']);
+      updateHistoricalDataSingle(monthKey, updatedMonthData);
       
-      return updated;
-    });
+      console.log(`💾 AFTER SAVE - historicalData[${monthKey}].accountEstimatedFinalBalances:`, finalBalances);
+      console.log(`💾 SPECIFICALLY Löpande for ${monthKey}:`, finalBalances?.['Löpande']);
+    }
     
     console.log(`🔥 SAVING accountEstimatedFinalBalances for ${monthKey}:`, finalBalances);
     console.log(`Final balances calculated and saved for ${monthKey}:`, finalBalances);
@@ -1586,41 +1583,36 @@ const BudgetCalculator = () => {
     });
 
     // Also update historicalData to persist the flag changes
-    setHistoricalData(prevHistoricalData => {
-      const updatedHistoricalData = { ...prevHistoricalData };
-      
-      // Update current month's flag in historicalData
-      if (updatedHistoricalData[currentMonthKey]) {
-        updatedHistoricalData[currentMonthKey] = {
-          ...updatedHistoricalData[currentMonthKey],
-          monthFinalBalances: false
-        };
-        console.log(`💾 Set flag to false in historicalData for current month ${currentMonthKey}`);
-      }
-      
-      // Update all future months' flags in historicalData
-      const currentMonthKeys = Object.keys(updatedHistoricalData).sort();
-      const currentIndex = currentMonthKeys.indexOf(currentMonthKey);
-      if (currentIndex !== -1) {
-        for (let i = currentIndex + 1; i < currentMonthKeys.length; i++) {
-          const futureMonthKey = currentMonthKeys[i];
-          if (updatedHistoricalData[futureMonthKey]) {
-            updatedHistoricalData[futureMonthKey] = {
-              ...updatedHistoricalData[futureMonthKey],
-              monthFinalBalances: false
-            };
-            console.log(`💾 Set flag to false in historicalData for future month ${futureMonthKey}`);
-          }
+    // CRITICAL FIX: Use individual updates instead of setHistoricalData with function
+    
+    // Update current month's flag in historicalData
+    if (historicalData[currentMonthKey]) {
+      const updatedCurrentMonthData = {
+        ...historicalData[currentMonthKey],
+        monthFinalBalances: false
+      };
+      updateHistoricalDataSingle(currentMonthKey, updatedCurrentMonthData);
+      console.log(`💾 Set flag to false in historicalData for current month ${currentMonthKey}`);
+    }
+    
+    // Update all future months' flags in historicalData
+    const currentMonthKeys = Object.keys(historicalData).sort();
+    const currentIndex = currentMonthKeys.indexOf(currentMonthKey);
+    if (currentIndex !== -1) {
+      for (let i = currentIndex + 1; i < currentMonthKeys.length; i++) {
+        const futureMonthKey = currentMonthKeys[i];
+        if (historicalData[futureMonthKey]) {
+          const updatedFutureMonthData = {
+            ...historicalData[futureMonthKey],
+            monthFinalBalances: false
+          };
+          updateHistoricalDataSingle(futureMonthKey, updatedFutureMonthData);
+          console.log(`💾 Set flag to false in historicalData for future month ${futureMonthKey}`);
         }
       }
-      
-      console.log(`💾 Updated flags in historicalData for ${currentMonthKey} and future months`);
-      console.log(`💾 Final historicalData flags:`, Object.keys(updatedHistoricalData).reduce((acc, key) => {
-        acc[key] = updatedHistoricalData[key].monthFinalBalances;
-        return acc;
-      }, {} as any));
-      return updatedHistoricalData;
-    });
+    }
+    
+    console.log(`💾 Updated flags in historicalData for ${currentMonthKey} and future months`);
   };
 
   // Function to check if we can set MonthFinalBalances flag to true
