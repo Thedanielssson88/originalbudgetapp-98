@@ -110,13 +110,13 @@ export function updateSelectedBudgetMonth(monthKey: string) {
 }
 
 export function updateHistoricalData(newHistoricalData: any) {
-  handleManualValueChange(StorageKey.HISTORICAL_DATA, newHistoricalData, 'historicalData');
+  handleManualValueChange(StorageKey.BUDGET_CALCULATOR_DATA, newHistoricalData, 'historicalData');
 }
 
 // Legacy function - kept for backward compatibility
 export function updateHistoricalDataSingle(monthKey: string, data: any) {
   const newHistoricalData = { ...state.rawData.historicalData, [monthKey]: data };
-  handleManualValueChange(StorageKey.HISTORICAL_DATA, newHistoricalData, 'historicalData');
+  handleManualValueChange(StorageKey.BUDGET_CALCULATOR_DATA, newHistoricalData, 'historicalData');
 }
 
 // Updated function to handle month data updates that can create new entries
@@ -128,7 +128,7 @@ export function handleMonthDataUpdate(monthKey: string, monthData: any) {
       ...monthData
     }
   };
-  handleManualValueChange(StorageKey.HISTORICAL_DATA, updatedHistoricalData, 'historicalData');
+  handleManualValueChange(StorageKey.BUDGET_CALCULATOR_DATA, updatedHistoricalData, 'historicalData');
 }
 
 // Force a full recalculation
@@ -202,7 +202,7 @@ export function setAccounts(value: string[]) {
 }
 
 export function setHistoricalData(value: any) {
-  handleManualValueChange(StorageKey.HISTORICAL_DATA, value, 'historicalData');
+  handleManualValueChange(StorageKey.BUDGET_CALCULATOR_DATA, value, 'historicalData');
 }
 
 export function setResults(value: any) {
