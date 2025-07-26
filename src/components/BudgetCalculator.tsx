@@ -2600,7 +2600,7 @@ const BudgetCalculator = () => {
       updateHistoricalData(targetMonthKey, newMonthData);
       
       // Set the new month as selected
-      updateSelectedBudgetMonth(targetMonthKey);
+      setSelectedBudgetMonth(targetMonthKey);
       
       // Force a re-render to ensure the UI updates immediately
       forceUpdate();
