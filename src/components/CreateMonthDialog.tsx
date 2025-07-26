@@ -406,13 +406,14 @@ const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
                         <SelectValue placeholder="Kopiera data från..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {Object.keys(historicalData).sort().reverse().map(monthKey => (
-                          <SelectItem key={monthKey} value={monthKey}>
-                            {formatMonthDisplay(monthKey)}
-                          </SelectItem>
-                        ))}
-                        {Object.keys(historicalData).length === 0 && (
-                          <SelectItem value="" disabled>
+                        {Object.keys(historicalData).length > 0 ? (
+                          Object.keys(historicalData).sort().reverse().map(monthKey => (
+                            <SelectItem key={monthKey} value={monthKey}>
+                              {formatMonthDisplay(monthKey)}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="no-data" disabled>
                             Inga sparade månader tillgängliga
                           </SelectItem>
                         )}
