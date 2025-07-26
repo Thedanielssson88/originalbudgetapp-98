@@ -744,7 +744,16 @@ const BudgetCalculator = () => {
     }
     
     // Mark initial load as complete
-    setTimeout(() => setIsInitialLoad(false), 100);
+    setTimeout(() => {
+      console.log(`🚀 Setting isInitialLoad to false`);
+      setIsInitialLoad(false);
+      
+      // Test: Add some test data to trigger a save
+      setTimeout(() => {
+        console.log(`🧪 TEST: Setting Andreas salary to 45000 to trigger save`);
+        setAndreasSalary(45000);
+      }, 1000);
+    }, 100);
 
     // Load backup
     const savedBackup = localStorage.getItem('budgetCalculatorBackup');
@@ -1043,9 +1052,13 @@ const BudgetCalculator = () => {
 
   // Save data whenever key values change - both to localStorage and to selected month
   useEffect(() => {
+    console.log(`💾 Save useEffect triggered. isInitialLoad: ${isInitialLoad}`);
     if (!isInitialLoad) {
+      console.log(`💾 Calling saveToLocalStorage and saveToSelectedMonth`);
       saveToLocalStorage();
       saveToSelectedMonth();
+    } else {
+      console.log(`💾 Skipping save because isInitialLoad is true`);
     }
   }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountBalancesSet, accountEstimatedFinalBalances, accountEstimatedFinalBalancesSet, accountEstimatedStartBalances, accountStartBalancesSet, accountEndBalancesSet, selectedAccountsForChart, showIndividualCostsOutsideBudget, showSavingsSeparately, useCustomTimeRange, chartStartMonth, chartEndMonth, monthFinalBalances, isInitialLoad]);
   // Calculate estimated final balances when budget month changes
