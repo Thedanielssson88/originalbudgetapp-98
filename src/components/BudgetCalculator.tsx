@@ -7825,66 +7825,55 @@ const BudgetCalculator = () => {
                             const progress = Math.round((currentIndex / monthsToUpdate.length) * 100);
                             setUpdateProgress(progress);
                             
-                            console.log(`📂 Processing month using complete synchronous approach: ${monthKey}`);
+                            console.log(`📂 Using exact manual month change process for: ${monthKey}`);
                             
-                            try {
-                              // Step 1: Save current month data before switching
-                              console.log(`💾 Step 1: Saving current month data before switching to ${monthKey}`);
-                              saveToSelectedMonth();
+                            // Create a promise that resolves when the month change is completely done
+                            const processMonth = new Promise<void>((resolve) => {
+                              // Use handleBudgetMonthChange but wait for it to complete properly
+                              console.log(`🔄 Starting handleBudgetMonthChange for ${monthKey}`);
                               
-                              // Wait for save to complete
-                              await new Promise(resolve => setTimeout(resolve, 150));
+                              // Set up a completion detector
+                              let checkCount = 0;
+                              const maxChecks = 50; // Maximum 5 seconds
                               
-                              // Step 2: Calculate and save final balances for the previous month of target month
-                              console.log(`🔢 Step 2: Calculating previous month final balances for ${monthKey}`);
-                              const freshFinalBalances = calculateAndSavePreviousMonthFinalBalances(monthKey);
+                              // Start the month change process
+                              handleBudgetMonthChange(monthKey);
                               
-                              // Store the fresh final balances for immediate use
-                              if (freshFinalBalances) {
-                                (window as any).__freshFinalBalances = freshFinalBalances;
-                                console.log(`✅ Fresh final balances calculated:`, freshFinalBalances);
-                              }
-                              
-                              // Step 3: Set the selected month and load data
-                              console.log(`📂 Step 3: Loading month data for ${monthKey}`);
-                              setSelectedBudgetMonth(monthKey);
-                              
-                              // Wait for month selection to update
-                              await new Promise(resolve => setTimeout(resolve, 100));
-                              
-                              // Step 4: Load the month data using the proper function
-                              if (historicalData[monthKey]) {
-                                loadDataFromSelectedMonth(monthKey);
+                              // Check periodically if the month change is complete
+                              const checkCompletion = () => {
+                                checkCount++;
                                 
-                                // Wait for data loading to complete
-                                await new Promise(resolve => setTimeout(resolve, 200));
-                                
-                                // Step 5: Calculate budget
-                                console.log(`🔢 Step 5: Calculating budget for ${monthKey}`);
-                                calculateBudget();
-                                
-                                // Wait for calculation to complete
-                                await new Promise(resolve => setTimeout(resolve, 200));
-                                
-                                // Step 6: Save the calculated data
-                                console.log(`💾 Step 6: Saving calculated data for ${monthKey}`);
-                                saveToSelectedMonth();
-                                
-                                // Wait for save to complete
-                                await new Promise(resolve => setTimeout(resolve, 150));
-                              }
+                                // Check if the month has been properly set and data loaded
+                                if (selectedBudgetMonth === monthKey && historicalData[monthKey]) {
+                                  console.log(`✅ Month change completed for ${monthKey} after ${checkCount * 100}ms`);
+                                  
+                                  // Set the flag for this month
+                                  setMonthFinalBalances(prev => ({
+                                    ...prev,
+                                    [monthKey]: true
+                                  }));
+                                  
+                                  resolve();
+                                } else if (checkCount >= maxChecks) {
+                                  console.warn(`⚠️ Month change timeout for ${monthKey}, proceeding anyway`);
+                                  resolve();
+                                } else {
+                                  // Continue checking
+                                  setTimeout(checkCompletion, 100);
+                                }
+                              };
                               
-                              console.log(`✅ Month ${monthKey} processed successfully`);
-                              
-                            } catch (error) {
-                              console.error(`❌ Error processing month ${monthKey}:`, error);
-                            }
+                              // Start checking after a brief delay
+                              setTimeout(checkCompletion, 200);
+                            });
                             
-                            // Set the monthFinalBalances flag to true for this month
-                            setMonthFinalBalances(prev => ({
-                              ...prev,
-                              [monthKey]: true
-                            }));
+                            // Wait for the month processing to complete
+                            await processMonth;
+                            
+                            // Wait a bit more to ensure all state updates are settled
+                            await new Promise(resolve => setTimeout(resolve, 200));
+                            
+                            console.log(`✅ Month ${monthKey} fully processed`);
                             
                             currentIndex++;
                             
