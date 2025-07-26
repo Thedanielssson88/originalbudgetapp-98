@@ -2599,6 +2599,14 @@ const BudgetCalculator = () => {
   const handleCreateMonthFromDialog = (type: 'empty' | 'template' | 'copy', templateName?: string, sourceMonth?: string) => {
     if (!selectedBudgetMonth) return;
     
+    console.log(`🏗️ Creating new month. Type: ${type}, Template: ${templateName}, Source: ${sourceMonth}`);
+    console.log(`🏗️ Current selectedBudgetMonth: ${selectedBudgetMonth}`);
+    console.log(`🏗️ historicalData keys BEFORE creation:`, Object.keys(historicalData));
+    
+    // CRITICAL FIX: Save current month data FIRST before creating new month
+    console.log(`💾 Saving current month (${selectedBudgetMonth}) before creating new month...`);
+    saveToSelectedMonth();
+    
     const [year, month] = selectedBudgetMonth.split('-');
     const currentYear = parseInt(year);
     const currentMonth = parseInt(month);
@@ -2614,9 +2622,11 @@ const BudgetCalculator = () => {
     }
     
     const targetMonthKey = `${targetYear}-${String(targetMonth).padStart(2, '0')}`;
+    console.log(`🏗️ Target month: ${targetMonthKey}`);
     
     // Don't create if it already exists
     if (historicalData[targetMonthKey]) {
+      console.log(`⚠️ Target month ${targetMonthKey} already exists, switching to it`);
       updateSelectedBudgetMonth(targetMonthKey);
       return;
     }
@@ -2641,51 +2651,52 @@ const BudgetCalculator = () => {
     
     if (type === 'empty') {
       // Create empty month with same categories but no amounts
-      const currentMonthData = historicalData[selectedBudgetMonth];
-      if (currentMonthData) {
-        newMonthData = {
-          ...currentMonthData,
-          // Reset all income values to 0
-          andreasSalary: 0,
-          andreasförsäkringskassan: 0,
-          andreasbarnbidrag: 0,
-          susannaSalary: 0,
-          susannaförsäkringskassan: 0,
-          susannabarnbidrag: 0,
-          // Reset all category amounts to 0, but exclude "Enskilda kostnader"
-          costGroups: (currentMonthData.costGroups || []).map((group: any) => ({
-            ...group,
-            amount: 0,
-            subCategories: (group.subCategories || []).filter((sub: any) => 
-              sub.financedFrom !== 'Enskild kostnad'
-            ).map((sub: any) => ({
-              ...sub,
-              amount: 0
-            }))
-          })),
-          savingsGroups: (currentMonthData.savingsGroups || []).map((group: any) => ({
-            ...group,
-            amount: 0,
-            subCategories: (group.subCategories || []).map((sub: any) => ({
-              ...sub,
-              amount: 0
-            }))
-          })),
-          dailyTransfer: currentMonthData.dailyTransfer || 300,
-          weekendTransfer: currentMonthData.weekendTransfer || 540,
-          customHolidays: JSON.parse(JSON.stringify(currentMonthData.customHolidays || [])),
-          andreasPersonalCosts: JSON.parse(JSON.stringify(currentMonthData.andreasPersonalCosts || [])),
-          andreasPersonalSavings: JSON.parse(JSON.stringify(currentMonthData.andreasPersonalSavings || [])),
-          susannaPersonalCosts: JSON.parse(JSON.stringify(currentMonthData.susannaPersonalCosts || [])),
-          susannaPersonalSavings: JSON.parse(JSON.stringify(currentMonthData.susannaPersonalSavings || [])),
-          accounts: JSON.parse(JSON.stringify(currentMonthData.accounts || ['Löpande', 'Sparkonto', 'Buffert'])),
-          // Use empty account balances for new months - user should fill manually 
-          accountBalances: {},
-          accountBalancesSet: {}, // All balances start as not set, so they show "Ej ifyllt"
-          accountEstimatedFinalBalances: {},
-          createdAt: new Date().toISOString()
-        };
-      }
+      // Since we just saved current month, we can get it from current state
+      console.log(`📝 Creating empty month from current state`);
+      
+      newMonthData = {
+        month: targetMonthKey,
+        date: new Date().toISOString(),
+        // Reset all income values to 0
+        andreasSalary: 0,
+        andreasförsäkringskassan: 0,
+        andreasbarnbidrag: 0,
+        susannaSalary: 0,
+        susannaförsäkringskassan: 0,
+        susannabarnbidrag: 0,
+        // Reset all category amounts to 0, but exclude "Enskilda kostnader"
+        costGroups: costGroups.map((group: any) => ({
+          ...group,
+          amount: 0,
+          subCategories: (group.subCategories || []).filter((sub: any) => 
+            sub.financedFrom !== 'Enskild kostnad'
+          ).map((sub: any) => ({
+            ...sub,
+            amount: 0
+          }))
+        })),
+        savingsGroups: savingsGroups.map((group: any) => ({
+          ...group,
+          amount: 0,
+          subCategories: (group.subCategories || []).map((sub: any) => ({
+            ...sub,
+            amount: 0
+          }))
+        })),
+        dailyTransfer: dailyTransfer || 300,
+        weekendTransfer: weekendTransfer || 540,
+        customHolidays: JSON.parse(JSON.stringify(customHolidays || [])),
+        andreasPersonalCosts: JSON.parse(JSON.stringify(andreasPersonalCosts || [])),
+        andreasPersonalSavings: JSON.parse(JSON.stringify(andreasPersonalSavings || [])),
+        susannaPersonalCosts: JSON.parse(JSON.stringify(susannaPersonalCosts || [])),
+        susannaPersonalSavings: JSON.parse(JSON.stringify(susannaPersonalSavings || [])),
+        accounts: JSON.parse(JSON.stringify(accounts || ['Löpande', 'Sparkonto', 'Buffert'])),
+        // Use empty account balances for new months - user should fill manually 
+        accountBalances: {},
+        accountBalancesSet: {}, // All balances start as not set, so they show "Ej ifyllt"
+        accountEstimatedFinalBalances: {},
+        createdAt: new Date().toISOString()
+      };
     } else if (type === 'template' && templateName && budgetTemplates[templateName]) {
       // Use template data - copy all data like "Kopiera Budgetmall"
       const template = budgetTemplates[templateName];
@@ -2720,10 +2731,43 @@ const BudgetCalculator = () => {
       };
     } else if (type === 'copy' && sourceMonth) {
       // Copy from selected source month with all data including income values
-      const sourceMonthData = historicalData[sourceMonth];
+      console.log(`📝 Creating month by copying from ${sourceMonth}`);
+      
+      let sourceMonthData;
+      if (sourceMonth === selectedBudgetMonth) {
+        // If copying from current month, use current state instead of historicalData
+        console.log(`📝 Copying from current month - using current state`);
+        sourceMonthData = {
+          month: selectedBudgetMonth,
+          date: new Date().toISOString(),
+          andreasSalary,
+          andreasförsäkringskassan,
+          andreasbarnbidrag,
+          susannaSalary,
+          susannaförsäkringskassan,
+          susannabarnbidrag,
+          costGroups: JSON.parse(JSON.stringify(costGroups)),
+          savingsGroups: JSON.parse(JSON.stringify(savingsGroups)),
+          dailyTransfer,
+          weekendTransfer,
+          customHolidays: JSON.parse(JSON.stringify(customHolidays)),
+          andreasPersonalCosts: JSON.parse(JSON.stringify(andreasPersonalCosts)),
+          andreasPersonalSavings: JSON.parse(JSON.stringify(andreasPersonalSavings)),
+          susannaPersonalCosts: JSON.parse(JSON.stringify(susannaPersonalCosts)),
+          susannaPersonalSavings: JSON.parse(JSON.stringify(susannaPersonalSavings)),
+          accounts: JSON.parse(JSON.stringify(accounts))
+        };
+      } else {
+        // If copying from a different month, use historicalData
+        console.log(`📝 Copying from different month - using historicalData`);
+        sourceMonthData = historicalData[sourceMonth];
+      }
+      
       if (sourceMonthData) {
         newMonthData = {
           ...sourceMonthData,
+          month: targetMonthKey,
+          date: new Date().toISOString(),
           // Keep all income values from the source month
           // Filter out "Enskilda kostnader" from cost groups
           costGroups: (sourceMonthData.costGroups || []).map((group: any) => ({
@@ -2742,11 +2786,15 @@ const BudgetCalculator = () => {
     }
     
     if (newMonthData) {
+      console.log(`🏗️ Creating new month with data:`, newMonthData);
+      
       // Create a NEW object that contains all old data PLUS the new month
       const newHistoricalData = {
         ...historicalData,
         [targetMonthKey]: newMonthData
       };
+      
+      console.log(`🏗️ Updated historicalData keys:`, Object.keys(newHistoricalData));
       
       // Use central state management to update historical data
       updateHistoricalData(newHistoricalData);
@@ -2761,6 +2809,8 @@ const BudgetCalculator = () => {
       setTimeout(() => {
         setIsCreateMonthDialogOpen(false);
       }, 100);
+    } else {
+      console.error(`❌ Failed to create month data`);
     }
   };
 
