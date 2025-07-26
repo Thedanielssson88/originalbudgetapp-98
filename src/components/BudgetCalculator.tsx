@@ -2602,8 +2602,13 @@ const BudgetCalculator = () => {
       // Set the new month as selected
       updateSelectedBudgetMonth(targetMonthKey);
       
-      // Close the dialog
-      setIsCreateMonthDialogOpen(false);
+      // Force a re-render to ensure the UI updates immediately
+      forceUpdate();
+      
+      // Close the dialog after a brief delay to ensure state updates complete
+      setTimeout(() => {
+        setIsCreateMonthDialogOpen(false);
+      }, 100);
     }
   };
 
