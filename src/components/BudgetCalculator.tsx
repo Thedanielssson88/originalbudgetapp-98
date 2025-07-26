@@ -874,54 +874,52 @@ const BudgetCalculator = () => {
     const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
     
     // Update historical data with accountEndBalancesSet logic
-    setHistoricalData(prevHistoricalData => {
-      const updatedHistoricalData = { ...prevHistoricalData };
+    // CRITICAL FIX: Don't use setHistoricalData with functions - handle this logic separately
+    
+    // Update previous month's accountEndBalancesSet based on current month's accountStartBalancesSet
+    if (historicalData[prevMonthKey]) {
+      const prevMonthEndBalancesSet: {[key: string]: boolean} = {};
+      accounts.forEach(account => {
+        // If current month has accountStartBalancesSet value for this account
+        if (startBalancesSet[account] === true) {
+          prevMonthEndBalancesSet[account] = true;
+        }
+      });
       
-      // Update previous month's accountEndBalancesSet based on current month's accountStartBalancesSet
-      if (updatedHistoricalData[prevMonthKey]) {
-        const prevMonthEndBalancesSet: {[key: string]: boolean} = {};
-        accounts.forEach(account => {
-          // If current month has accountStartBalancesSet value for this account
-          if (startBalancesSet[account] === true) {
-            prevMonthEndBalancesSet[account] = true;
-          }
-        });
-        
-        updatedHistoricalData[prevMonthKey] = {
-          ...updatedHistoricalData[prevMonthKey],
-          accountEndBalancesSet: prevMonthEndBalancesSet
-        };
-      }
-      
-      // Set accountEndBalancesSet to false for all months prior to the selected month
-      const allMonthKeys = Object.keys(updatedHistoricalData).sort();
-      const currentIndex = allMonthKeys.indexOf(monthKey);
-      
-      if (currentIndex > 0) {
-        for (let i = 0; i < currentIndex - 1; i++) {
-          const priorMonthKey = allMonthKeys[i];
-          if (updatedHistoricalData[priorMonthKey]) {
-            const priorMonthEndBalancesSet: {[key: string]: boolean} = {};
-            accounts.forEach(account => {
-              priorMonthEndBalancesSet[account] = false;
-            });
-            
-            updatedHistoricalData[priorMonthKey] = {
-              ...updatedHistoricalData[priorMonthKey],
-              accountEndBalancesSet: priorMonthEndBalancesSet
-            };
-            
-            // Use resetMonthFinalBalancesFlag for months with no value on accountEndBalancesSet
-            if (!updatedHistoricalData[priorMonthKey].accountEndBalancesSet || 
-                Object.keys(updatedHistoricalData[priorMonthKey].accountEndBalancesSet).length === 0) {
-              setTimeout(() => resetMonthFinalBalancesFlag(priorMonthKey), 0);
-            }
+      const updatedPrevMonthData = {
+        ...historicalData[prevMonthKey],
+        accountEndBalancesSet: prevMonthEndBalancesSet
+      };
+      updateHistoricalDataSingle(prevMonthKey, updatedPrevMonthData);
+    }
+    
+    // Set accountEndBalancesSet to false for all months prior to the selected month
+    const allMonthKeys = Object.keys(historicalData).sort();
+    const currentIndex = allMonthKeys.indexOf(monthKey);
+    
+    if (currentIndex > 0) {
+      for (let i = 0; i < currentIndex - 1; i++) {
+        const priorMonthKey = allMonthKeys[i];
+        if (historicalData[priorMonthKey]) {
+          const priorMonthEndBalancesSet: {[key: string]: boolean} = {};
+          accounts.forEach(account => {
+            priorMonthEndBalancesSet[account] = false;
+          });
+          
+          const updatedPriorMonthData = {
+            ...historicalData[priorMonthKey],
+            accountEndBalancesSet: priorMonthEndBalancesSet
+          };
+          updateHistoricalDataSingle(priorMonthKey, updatedPriorMonthData);
+          
+          // Use resetMonthFinalBalancesFlag for months with no value on accountEndBalancesSet
+          if (!historicalData[priorMonthKey].accountEndBalancesSet || 
+              Object.keys(historicalData[priorMonthKey].accountEndBalancesSet).length === 0) {
+            setTimeout(() => resetMonthFinalBalancesFlag(priorMonthKey), 0);
           }
         }
       }
-      
-      return updatedHistoricalData;
-    });
+    }
     
     const monthSnapshot = {
       month: monthKey,
