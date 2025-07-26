@@ -1727,17 +1727,15 @@ const BudgetCalculator = () => {
       prevEndingBalanceKeys[endingBalanceKey] = finalBalances[account];
     });
     
-    setHistoricalData(prev => {
-      const updated = {
-        ...prev,
-        [prevMonthKey]: {
-          ...prev[prevMonthKey],
-          accountEstimatedFinalBalances: finalBalances // Save the calculated Slutsaldo to accountEstimatedFinalBalances
-        }
+    // CRITICAL FIX: Use updateHistoricalDataSingle instead of setHistoricalData with function
+    if (historicalData[prevMonthKey]) {
+      const updatedPrevMonthData = {
+        ...historicalData[prevMonthKey],
+        accountEstimatedFinalBalances: finalBalances // Save the calculated Slutsaldo to accountEstimatedFinalBalances
       };
-      console.log(`Updated historical data for ${prevMonthKey}:`, updated[prevMonthKey]);
-      return updated;
-    });
+      updateHistoricalDataSingle(prevMonthKey, updatedPrevMonthData);
+      console.log(`Updated historical data for ${prevMonthKey}:`, updatedPrevMonthData);
+    }
     
     console.log(`Final balances recalculated and saved for ${prevMonthKey}:`, finalBalances);
     console.log(`Ending balance keys saved for ${prevMonthKey}:`, prevEndingBalanceKeys);
@@ -1885,10 +1883,7 @@ const BudgetCalculator = () => {
         daysUntil25th: 0
       };
       
-      setHistoricalData(prev => ({
-        ...prev,
-        [monthKey]: newMonthData
-      }));
+      updateHistoricalDataSingle(monthKey, newMonthData);
       return;
     }
 
@@ -1950,10 +1945,7 @@ const BudgetCalculator = () => {
       console.log(`No historical data found, using current form values for new month: ${monthKey}`);
     }
     
-    setHistoricalData(prev => ({
-      ...prev,
-      [monthKey]: newMonthData
-    }));
+    updateHistoricalDataSingle(monthKey, newMonthData);
   };
 
   // Helper function to get previous month information for account balances
@@ -2346,13 +2338,13 @@ const BudgetCalculator = () => {
     });
     
     // Save estimated start balances to the month data
-    setHistoricalData(prev => ({
-      ...prev,
-      [monthKey]: {
-        ...prev[monthKey],
+    if (historicalData[monthKey]) {
+      const updatedMonthData = {
+        ...historicalData[monthKey],
         accountEstimatedStartBalances: estimatedStartBalances
-      }
-    }));
+      };
+      updateHistoricalDataSingle(monthKey, updatedMonthData);
+    }
     
     // Also update current state if this is the selected month
     if (monthKey === selectedBudgetMonth) {
@@ -2464,10 +2456,7 @@ const BudgetCalculator = () => {
         createdAt: new Date().toISOString()
       };
       
-      setHistoricalData(prev => ({
-        ...prev,
-        [prevMonthKey]: newMonthData
-      }));
+      updateHistoricalDataSingle(prevMonthKey, newMonthData);
       
       // Set the new month as selected
       setSelectedBudgetMonth(prevMonthKey);
@@ -2538,10 +2527,7 @@ const BudgetCalculator = () => {
         createdAt: new Date().toISOString()
       };
       
-      setHistoricalData(prev => ({
-        ...prev,
-        [nextMonthKey]: newMonthData
-      }));
+      updateHistoricalDataSingle(nextMonthKey, newMonthData);
       
       // Set the new month as selected
       setSelectedBudgetMonth(nextMonthKey);
@@ -3111,10 +3097,7 @@ const BudgetCalculator = () => {
     }
     
     // Add the copied data to historical data
-    setHistoricalData(prev => ({
-      ...prev,
-      [month]: templateDataToCopy
-    }));
+    updateHistoricalDataSingle(month, templateDataToCopy);
     
     // Reset form
     setSelectedTemplateToCopy('');
@@ -4303,14 +4286,12 @@ const BudgetCalculator = () => {
                         customHolidays: JSON.parse(JSON.stringify(customHolidays))
                       };
                   
-                  setHistoricalData(prev => ({
-                    ...prev,
-                    [newHistoricalMonth]: {
-                      ...sourceData,
-                      month: newHistoricalMonth,
-                      date: new Date().toISOString()
-                    }
-                  }));
+                  const newMonthData = {
+                    ...sourceData,
+                    month: newHistoricalMonth,
+                    date: new Date().toISOString()
+                  };
+                  updateHistoricalDataSingle(newHistoricalMonth, newMonthData);
                   setNewHistoricalMonth('');
                 }
               }}
@@ -4329,11 +4310,9 @@ const BudgetCalculator = () => {
 
   const renderHistoricalMonthsEditor = () => {
     const deleteMonth = (month: string) => {
-      setHistoricalData(prev => {
-        const newData = { ...prev };
-        delete newData[month];
-        return newData;
-      });
+      const newData = { ...historicalData };
+      delete newData[month];
+      updateHistoricalData(newData);
       if (selectedHistoricalMonth === month) {
         setSelectedHistoricalMonth('');
       }
@@ -8331,14 +8310,12 @@ const BudgetCalculator = () => {
                           onClick={() => {
                             if (selectedSourceMonth && newMonthFromCopy && !historicalData[newMonthFromCopy]) {
                               const sourceData = historicalData[selectedSourceMonth];
-                              setHistoricalData(prev => ({
-                                ...prev,
-                                [newMonthFromCopy]: {
-                                  ...sourceData,
-                                  month: newMonthFromCopy,
-                                  date: new Date().toISOString()
-                                }
-                              }));
+                              const newMonthData = {
+                                ...sourceData,
+                                month: newMonthFromCopy,
+                                date: new Date().toISOString()
+                              };
+                              updateHistoricalDataSingle(newMonthFromCopy, newMonthData);
                               setNewMonthFromCopy('');
                               setSelectedSourceMonth('');
                             }
