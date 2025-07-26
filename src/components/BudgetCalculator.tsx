@@ -253,8 +253,14 @@ const BudgetCalculator = () => {
       createdAt: new Date().toISOString()
     };
 
-    // Använd den befintliga funktionen för att spara datan
-    updateHistoricalData(selectedBudgetMonth, currentMonthDataToSave);
+    // Create a NEW object that contains all old data PLUS the new month
+    const newHistoricalData = {
+      ...historicalData,
+      [selectedBudgetMonth]: currentMonthDataToSave
+    };
+
+    // Use the central state management to update historical data
+    updateHistoricalData(newHistoricalData);
 
     alert(`Budgeten för ${selectedBudgetMonth} har sparats till historiken!`);
   };
@@ -2648,8 +2654,14 @@ const BudgetCalculator = () => {
     }
     
     if (newMonthData) {
+      // Create a NEW object that contains all old data PLUS the new month
+      const newHistoricalData = {
+        ...historicalData,
+        [targetMonthKey]: newMonthData
+      };
+      
       // Use central state management to update historical data
-      updateHistoricalData(targetMonthKey, newMonthData);
+      updateHistoricalData(newHistoricalData);
       
       // Set the new month as selected
       setSelectedBudgetMonth(targetMonthKey);
@@ -4211,7 +4223,7 @@ const BudgetCalculator = () => {
         <div>
           <Label>Hantera sparade månader:</Label>
           <div className="mt-2 space-y-2">
-            {availableMonths.sort((a, b) => b.localeCompare(a)).map(month => (
+            {[...availableMonths].sort((a, b) => b.localeCompare(a)).map(month => (
               <div key={month} className="flex items-center justify-between p-2 bg-background rounded border">
                 <span>{month}</span>
                 <Button
@@ -8177,7 +8189,7 @@ const BudgetCalculator = () => {
                           className="w-full p-2 border rounded-md"
                         >
                           <option value="">Välj källmånad</option>
-                          {availableMonths.sort().reverse().map(month => (
+                          {[...availableMonths].sort().reverse().map(month => (
                             <option key={month} value={month}>{month}</option>
                           ))}
                         </select>
@@ -8232,7 +8244,7 @@ const BudgetCalculator = () => {
                           className="w-full p-2 border rounded-md"
                         >
                           <option value="">Välj en månad</option>
-                          {availableMonths.sort().reverse().map(month => (
+                          {[...availableMonths].sort().reverse().map(month => (
                             <option key={month} value={month}>{month}</option>
                           ))}
                         </select>
@@ -8485,7 +8497,7 @@ const BudgetCalculator = () => {
                            </SelectTrigger>
                            <SelectContent>
                              <SelectItem value="current">Aktuell månad</SelectItem>
-                              {availableMonths.sort().reverse().map(month => (
+                              {[...availableMonths].sort().reverse().map(month => (
                                 <SelectItem key={month} value={month}>{month}</SelectItem>
                               ))}
                            </SelectContent>

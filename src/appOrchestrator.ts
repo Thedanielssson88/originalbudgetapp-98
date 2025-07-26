@@ -109,7 +109,12 @@ export function updateSelectedBudgetMonth(monthKey: string) {
   handleManualValueChange(StorageKey.BUDGET_CALCULATOR_DATA, monthKey, 'selectedBudgetMonth');
 }
 
-export function updateHistoricalData(monthKey: string, data: any) {
+export function updateHistoricalData(newHistoricalData: any) {
+  handleManualValueChange(StorageKey.HISTORICAL_DATA, newHistoricalData, 'historicalData');
+}
+
+// Legacy function - kept for backward compatibility
+export function updateHistoricalDataSingle(monthKey: string, data: any) {
   const newHistoricalData = { ...state.rawData.historicalData, [monthKey]: data };
   handleManualValueChange(StorageKey.HISTORICAL_DATA, newHistoricalData, 'historicalData');
 }

@@ -407,19 +407,19 @@ const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
                       <SelectTrigger>
                         <SelectValue placeholder="Kopiera data från..." />
                       </SelectTrigger>
-                      <SelectContent>
-                        {availableMonths.length > 0 ? (
-                          availableMonths.sort().reverse().map(monthKey => (
-                            <SelectItem key={monthKey} value={monthKey}>
-                              {formatMonthDisplay(monthKey)}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="no-data" disabled>
-                            Inga sparade månader tillgängliga
-                          </SelectItem>
-                        )}
-                      </SelectContent>
+                       <SelectContent>
+                         {availableMonths && availableMonths.length > 0 ? (
+                           [...availableMonths].sort().reverse().map(monthKey => (
+                             <SelectItem key={monthKey} value={monthKey}>
+                               {formatMonthDisplay(monthKey)}
+                             </SelectItem>
+                           ))
+                         ) : (
+                           <SelectItem value="no-data" disabled>
+                             Inga sparade månader tillgängliga
+                           </SelectItem>
+                         )}
+                       </SelectContent>
                     </Select>
                   </div>
                 )}
