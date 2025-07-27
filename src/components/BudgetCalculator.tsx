@@ -4958,6 +4958,7 @@ const BudgetCalculator = () => {
                                                         : (currentBalance === 0 ? "Ej ifyllt" : currentBalance.toString())
                                                       }
                                                        onChange={(e) => {
+                                                         console.log(`🚨 DIRECT INPUT onChange TRIGGERED! Account: ${account}, Value: ${e.target.value}`);
                                                          const value = e.target.value;
                                                          console.log(`🎯 Input onChange fired for ${account} with value: ${value}`);
                                                          if (value === "Ej ifyllt" || value === "") {
