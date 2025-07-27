@@ -43,10 +43,27 @@ export function calculateFullPrognosis(rawData: RawDataState) {
 
       startBalancesForThisMonth[accountName] = startBalance;
 
-      // **RULE 3: Beräkna estimerat slutsaldo**
-      const totalIncome = monthData.totalSalary || 0;
-      const totalExpenses = monthData.totalMonthlyExpenses || 0;
-      const calculatedEndBalance = startBalance + totalIncome - totalExpenses;
+      // **RULE 3: Beräkna estimerat slutsaldo med samma logik som UI**
+      // Calculate total deposits from savings groups for this account
+      const savingsForAccount = monthData.savingsGroups?.filter((group: any) => group.account === accountName) || [];
+      const totalDeposits = savingsForAccount.reduce((sum: number, group: any) => {
+        const subCategoriesSum = group.subCategories?.reduce((subSum: number, sub: any) => subSum + (sub.amount || 0), 0) || 0;
+        return sum + (group.amount || 0) + subCategoriesSum;
+      }, 0);
+      
+      // Calculate costs budget deposits for this account
+      const costsForAccount = monthData.costGroups?.filter((group: any) => group.account === accountName) || [];
+      const totalCostDeposits = costsForAccount.reduce((sum: number, group: any) => sum + (group.amount || 0), 0);
+      
+      // Calculate all actual costs for this account (subCategories)
+      const allCostItems = monthData.costGroups?.reduce((items: any[], group: any) => {
+        const groupCosts = group.subCategories?.filter((sub: any) => sub.account === accountName) || [];
+        return items.concat(groupCosts);
+      }, []) || [];
+      const totalAllCosts = allCostItems.reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
+      
+      // Final balance = start + deposits + cost deposits - actual costs
+      const calculatedEndBalance = startBalance + totalDeposits + totalCostDeposits - totalAllCosts;
       finalBalancesForThisMonth[accountName] = calculatedEndBalance;
 
       // **RULE 4: Förbered för nästa månad i loopen**
