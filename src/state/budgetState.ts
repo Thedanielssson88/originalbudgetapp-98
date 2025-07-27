@@ -173,6 +173,8 @@ export function initializeStateFromStorage(): void {
         
         // New structure - direct load with proper merging
         const loadedBudgetState = savedData.budgetState;
+        addMobileDebugLog(`[INIT] 🔍 loadedBudgetState exists: ${!!loadedBudgetState}`);
+        addMobileDebugLog(`[INIT] 🔍 loadedBudgetState.historicalData exists: ${!!loadedBudgetState?.historicalData}`);
         
         // CRITICAL DEBUG: Check what's in the loaded historical data
         console.log(`[INIT] 🔍 CRITICAL DEBUG - loadedBudgetState.historicalData:`, loadedBudgetState.historicalData);
