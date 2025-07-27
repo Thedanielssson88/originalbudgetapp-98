@@ -4952,21 +4952,24 @@ const BudgetCalculator = () => {
                                                         ? currentBalance.toString() 
                                                         : (currentBalance === 0 ? "Ej ifyllt" : currentBalance.toString())
                                                       }
-                                                      onChange={(e) => {
-                                                        const value = e.target.value;
-                                                        if (value === "Ej ifyllt" || value === "") {
-                                                          handleAccountBalanceUpdate(account, 0);
-                                                          setAccountBalancesSet(prev => ({
-                                                            ...prev,
-                                                            [account]: false
-                                                          }));
-                                                        } else {
-                                                          const numValue = Number(value);
-                                                          if (!isNaN(numValue)) {
-                                                            handleAccountBalanceUpdate(account, numValue);
-                                                          }
-                                                        }
-                                                      }}
+                                                       onChange={(e) => {
+                                                         const value = e.target.value;
+                                                         console.log(`🎯 Input onChange fired for ${account} with value: ${value}`);
+                                                         if (value === "Ej ifyllt" || value === "") {
+                                                           console.log(`📝 Setting ${account} to 0 (Ej ifyllt)`);
+                                                           handleAccountBalanceUpdate(account, 0);
+                                                           setAccountBalancesSet(prev => ({
+                                                             ...prev,
+                                                             [account]: false
+                                                           }));
+                                                         } else {
+                                                           const numValue = Number(value);
+                                                           if (!isNaN(numValue)) {
+                                                             console.log(`💰 Setting ${account} to ${numValue}`);
+                                                             handleAccountBalanceUpdate(account, numValue);
+                                                           }
+                                                         }
+                                                       }}
                                                       onFocus={(e) => {
                                                         if (e.target.value === "Ej ifyllt") {
                                                           // Clear the "Ej ifyllt" text when focusing
