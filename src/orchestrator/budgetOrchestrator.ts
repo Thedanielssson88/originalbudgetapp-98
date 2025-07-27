@@ -4,6 +4,7 @@ import { state, initializeStateFromStorage, saveStateToStorage, getCurrentMonthD
 import { StorageKey } from '../services/storageService';
 import { calculateFullPrognosis, calculateBudgetResults, calculateAccountProgression, calculateMonthlyBreakdowns, calculateProjectedBalances } from '../services/calculationService';
 import { BudgetGroup, MonthData } from '../types/budget';
+import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 
 // Event system for UI updates
 const eventEmitter = new EventTarget();
@@ -264,8 +265,21 @@ export function setResults(value: any): void {
 }
 
 export function updateHistoricalData(value: any): void {
+  addMobileDebugLog('🔥 [ORCHESTRATOR] updateHistoricalData called');
+  addMobileDebugLog(`🔥 [ORCHESTRATOR] Incoming data keys: ${Object.keys(value).join(', ')}`);
+  
+  // Check what's in the data for current month
+  const currentMonth = state.budgetState.selectedMonthKey;
+  if (value[currentMonth]) {
+    addMobileDebugLog(`🔥 [ORCHESTRATOR] Current month data keys: ${Object.keys(value[currentMonth]).join(', ')}`);
+    addMobileDebugLog(`🔥 [ORCHESTRATOR] accountBalances in data: ${JSON.stringify(value[currentMonth].accountBalances)}`);
+    addMobileDebugLog(`🔥 [ORCHESTRATOR] accountBalancesSet in data: ${JSON.stringify(value[currentMonth].accountBalancesSet)}`);
+  }
+  
   state.budgetState.historicalData = value;
+  addMobileDebugLog('🔥 [ORCHESTRATOR] State updated, calling saveStateToStorage');
   saveStateToStorage();
+  addMobileDebugLog('🔥 [ORCHESTRATOR] saveStateToStorage completed');
   triggerUIRefresh();
 }
 
