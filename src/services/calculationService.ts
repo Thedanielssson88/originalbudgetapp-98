@@ -39,10 +39,18 @@ export function calculateFullPrognosis(rawData: RawDataState) {
     const finalBalancesForThisMonth: { [acc: string]: number } = {};
 
     accounts.forEach(accountName => {
-      // Sätt startbalans från löpande balans
-      startBalancesForThisMonth[accountName] = runningBalances[accountName];
+      // KRITISK KONTROLL: Finns manuellt angivet STARTBALANS?
+      if (monthData.accountBalancesSet?.[accountName]) {
+        // Använd det manuella värdet som STARTBALANS
+        startBalancesForThisMonth[accountName] = monthData.accountBalances?.[accountName] || 0;
+        console.log(`[Calculator] ${monthKey} ${accountName}: Använder manuell startbalans ${startBalancesForThisMonth[accountName]} istället för löpande ${runningBalances[accountName]}`);
+      } else {
+        // Sätt startbalans från löpande balans
+        startBalancesForThisMonth[accountName] = runningBalances[accountName];
+        console.log(`[Calculator] ${monthKey} ${accountName}: Använder löpande startbalans ${startBalancesForThisMonth[accountName]}`);
+      }
 
-      // Beräkna teoretiskt slutsaldo baserat på transaktioner
+      // Beräkna slutsaldo baserat på startbalans + transaktioner
       const savingsForAccount = monthData.savingsGroups?.filter((group: any) => group.account === accountName) || [];
       const totalDeposits = savingsForAccount.reduce((sum: number, group: any) => {
         const subCategoriesSum = group.subCategories?.reduce((subSum: number, sub: any) => subSum + (sub.amount || 0), 0) || 0;
@@ -60,17 +68,9 @@ export function calculateFullPrognosis(rawData: RawDataState) {
       }, []) || [];
       const totalAllCosts = allCostItems.reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
       
-      // Beräkna teoretiskt slutsaldo
-      let finalBalanceToShow = runningBalances[accountName] + totalDeposits + totalCostDeposits - totalAllCosts;
-
-      // KRITISK KONTROLL: Finns manuellt angivet saldo?
-      if (monthData.accountBalancesSet?.[accountName]) {
-        // Använd det manuella värdet istället för det beräknade
-        finalBalanceToShow = monthData.accountBalances?.[accountName] || 0;
-        console.log(`[Calculator] ${monthKey} ${accountName}: Använder manuellt saldo ${finalBalanceToShow} istället för beräknat ${runningBalances[accountName] + totalDeposits + totalCostDeposits - totalAllCosts}`);
-      } else {
-        console.log(`[Calculator] ${monthKey} ${accountName}: Använder beräknat saldo ${finalBalanceToShow}`);
-      }
+      // Beräkna slutsaldo från startbalans
+      const finalBalanceToShow = startBalancesForThisMonth[accountName] + totalDeposits + totalCostDeposits - totalAllCosts;
+      console.log(`[Calculator] ${monthKey} ${accountName}: Beräknar slutsaldo ${finalBalanceToShow} (start: ${startBalancesForThisMonth[accountName]} + insättningar: ${totalDeposits + totalCostDeposits} - kostnader: ${totalAllCosts})`);
 
       finalBalancesForThisMonth[accountName] = finalBalanceToShow;
       
