@@ -101,37 +101,64 @@ export function updateSavingsGroups(newSavingsGroups: any[]) {
 }
 
 export function updateAccountBalance(account: string, balance: number) {
+  console.log(`🔄 updateAccountBalance called for ${account} with balance ${balance}`);
   const newBalances = { ...state.rawData.accountBalances, [account]: balance };
   handleManualValueChange(StorageKey.ACCOUNT_BALANCES, newBalances, 'accountBalances');
   
   // Propagate balance changes to future months
+  console.log(`🚀 Calling propagateBalanceChangesToFutureMonths for ${account}`);
   propagateBalanceChangesToFutureMonths(account, balance);
 }
 
 function propagateBalanceChangesToFutureMonths(account: string, newBalance: number) {
+  console.log(`🔄 Starting propagation for ${account} with balance ${newBalance}`);
   const currentMonth = state.rawData.selectedBudgetMonth;
-  if (!currentMonth) return;
+  console.log(`📅 Current month: ${currentMonth}`);
+  
+  if (!currentMonth) {
+    console.log(`❌ No current month selected, skipping propagation`);
+    return;
+  }
 
   const historicalData = state.rawData.historicalData;
   const allMonths = Object.keys(historicalData).sort();
-  const currentMonthIndex = allMonths.indexOf(currentMonth);
+  console.log(`📋 All months: ${allMonths.join(', ')}`);
   
-  if (currentMonthIndex === -1) return;
+  const currentMonthIndex = allMonths.indexOf(currentMonth);
+  console.log(`📍 Current month index: ${currentMonthIndex}`);
+  
+  if (currentMonthIndex === -1) {
+    console.log(`❌ Current month not found in historical data`);
+    return;
+  }
 
   // Get all future months
   const futureMonths = allMonths.slice(currentMonthIndex + 1);
+  console.log(`🔮 Future months: ${futureMonths.join(', ')}`);
   
+  if (futureMonths.length === 0) {
+    console.log(`ℹ️ No future months to propagate to`);
+    return;
+  }
+
   let updatedHistoricalData = { ...historicalData };
   let previousMonthEndBalance = newBalance;
+  let hasChanges = false;
 
   futureMonths.forEach(monthKey => {
+    console.log(`\n🔍 Processing month: ${monthKey}`);
     const monthData = updatedHistoricalData[monthKey];
-    if (!monthData) return;
+    if (!monthData) {
+      console.log(`❌ No data for month ${monthKey}`);
+      return;
+    }
 
     // Only update if the account balance is not explicitly set (showing "Ej ifyllt")
     const isExplicitlySet = monthData.accountBalancesSet?.[account] === true;
+    console.log(`📝 Account ${account} explicitly set in ${monthKey}: ${isExplicitlySet}`);
     
     if (!isExplicitlySet) {
+      console.log(`✅ Updating estimated start balance for ${account} in ${monthKey}: ${previousMonthEndBalance}`);
       // Update the estimated start balance for this month
       updatedHistoricalData[monthKey] = {
         ...monthData,
@@ -140,6 +167,9 @@ function propagateBalanceChangesToFutureMonths(account: string, newBalance: numb
           [account]: previousMonthEndBalance
         }
       };
+      hasChanges = true;
+    } else {
+      console.log(`⏭️ Skipping ${monthKey} - balance explicitly set`);
     }
 
     // Calculate the end balance for this month to use for the next month
@@ -157,17 +187,23 @@ function propagateBalanceChangesToFutureMonths(account: string, newBalance: numb
       return total;
     }, 0) || 0;
 
+    console.log(`💰 Month ${monthKey} - Costs: ${monthCosts}, Savings: ${monthSavings}`);
+
     // Use the actual balance if set, otherwise use the estimated start balance
     const startBalance = isExplicitlySet ? 
       (monthData.accountBalances?.[account] || 0) : 
       previousMonthEndBalance;
 
     previousMonthEndBalance = startBalance - monthCosts + monthSavings;
+    console.log(`🔚 End balance for ${monthKey}: ${previousMonthEndBalance}`);
   });
 
   // Update the historical data if changes were made
-  if (futureMonths.length > 0) {
-    handleManualValueChange(StorageKey.HISTORICAL_DATA, updatedHistoricalData, 'historicalData', true);
+  if (hasChanges) {
+    console.log(`✅ Propagation complete - updating historical data and triggering recalculation`);
+    handleManualValueChange(StorageKey.HISTORICAL_DATA, updatedHistoricalData, 'historicalData', false);
+  } else {
+    console.log(`ℹ️ No changes needed during propagation`);
   }
 }
 
