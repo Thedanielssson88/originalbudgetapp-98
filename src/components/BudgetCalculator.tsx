@@ -189,14 +189,7 @@ const BudgetCalculator = () => {
   const [isCreateMonthDialogOpen, setIsCreateMonthDialogOpen] = useState<boolean>(false);
   const [createMonthDirection, setCreateMonthDirection] = useState<'previous' | 'next'>('next');
   
-  // Account balances state
-  const [accountBalances, setAccountBalances] = useState<{[key: string]: number}>({});
-  const [accountBalancesSet, setAccountBalancesSet] = useState<{[key: string]: boolean}>({});
-  const [accountEstimatedFinalBalances, setAccountEstimatedFinalBalances] = useState<{[key: string]: number}>({});
-  const [accountEstimatedFinalBalancesSet, setAccountEstimatedFinalBalancesSet] = useState<{[key: string]: boolean}>({});
-  const [accountEstimatedStartBalances, setAccountEstimatedStartBalances] = useState<{[key: string]: number}>({});
-  const [accountStartBalancesSet, setAccountStartBalancesSet] = useState<{[key: string]: boolean}>({});
-  const [accountEndBalancesSet, setAccountEndBalancesSet] = useState<{[key: string]: boolean}>({});
+  // Account balances - läs direkt från central state (inga lokala useState längre)
   
   // Chart selection states
   const [selectedAccountsForChart, setSelectedAccountsForChart] = useState<string[]>([]);
@@ -241,6 +234,15 @@ const BudgetCalculator = () => {
   
   // Account management states  
   const accounts = budgetState.accounts.map(acc => acc.name);
+
+  // Account balances - LÄS DIREKT FRÅN CENTRAL STATE (inga lokala useState längre)
+  const accountBalances = (currentMonthData as any).accountBalances || {};
+  const accountBalancesSet = (currentMonthData as any).accountBalancesSet || {};
+  const accountEstimatedFinalBalances = (currentMonthData as any).accountEstimatedFinalBalances || {};
+  const accountEstimatedFinalBalancesSet = (currentMonthData as any).accountEstimatedFinalBalancesSet || {};
+  const accountEstimatedStartBalances = (currentMonthData as any).accountEstimatedStartBalances || {};
+  const accountStartBalancesSet = (currentMonthData as any).accountStartBalancesSet || {};
+  const accountEndBalancesSet = (currentMonthData as any).accountEndBalancesSet || {};
 
 
   // Centralized month list logic for consistent dropdown behavior
@@ -680,28 +682,18 @@ const BudgetCalculator = () => {
         setAndreasShareChecked(parsed.andreasShareChecked || false);
         setSusannaShareChecked(parsed.susannaShareChecked || false);
         
-        // Load account balances
-        const loadedBalances = parsed.accountBalances || {};
-        setAccountBalances(loadedBalances);
-        setAccountBalancesSet(parsed.accountBalancesSet || {});
-        
-        // Load account final balances
-        setAccountEstimatedFinalBalances(parsed.accountEstimatedFinalBalances || {});
-        
-        // Load account final balances set tracking
-        setAccountEstimatedFinalBalancesSet(parsed.accountEstimatedFinalBalancesSet || {});
+        // ARKITEKTONISK FIX: Account balances läses nu från central state, så detta behövs inte längre
+        // const loadedBalances = parsed.accountBalances || {};
+        // setAccountBalances(loadedBalances);
+        // setAccountBalancesSet(parsed.accountBalancesSet || {});
         
         // Load month final balances flags
         setMonthFinalBalances(parsed.monthFinalBalances || {});
         
-        // Load account estimated start balances
-        setAccountEstimatedStartBalances(parsed.accountEstimatedStartBalances || {});
-        
-        // Load account start balances set tracking
-        setAccountStartBalancesSet(parsed.accountStartBalancesSet || {});
-        
-        // Load account end balances set tracking
-        setAccountEndBalancesSet(parsed.accountEndBalancesSet || {});
+        // ARKITEKTONISK FIX: Account balances läses nu från central state
+        // setAccountEstimatedStartBalances(parsed.accountEstimatedStartBalances || {});
+        // setAccountStartBalancesSet(parsed.accountStartBalancesSet || {});
+        // setAccountEndBalancesSet(parsed.accountEndBalancesSet || {});
         
         // Load selected accounts for chart
         setSelectedAccountsForChart(parsed.selectedAccountsForChart || []);
@@ -823,15 +815,15 @@ const BudgetCalculator = () => {
     setSusannaPersonalCosts(data.susannaPersonalCosts || 0);
     setSusannaPersonalSavings(data.susannaPersonalSavings || 0);
 
-    // Account data - now use the central account management
-    setAccounts(budgetState.accounts.map(acc => acc.name));
-    setAccountBalances(data.accountBalances || {});
-    setAccountBalancesSet(data.accountBalancesSet || {});
-    setAccountEstimatedFinalBalances(data.accountEstimatedFinalBalances || {});
-    setAccountEstimatedFinalBalancesSet(data.accountEstimatedFinalBalancesSet || {});
-    setAccountEstimatedStartBalances(data.accountEstimatedStartBalances || {});
-    setAccountStartBalancesSet(data.accountStartBalancesSet || {});
-    setAccountEndBalancesSet(data.accountEndBalancesSet || {});
+    // ARKITEKTONISK FIX: Account data läses nu från central state automatiskt
+    // setAccounts(budgetState.accounts.map(acc => acc.name));
+    // setAccountBalances(data.accountBalances || {});
+    // setAccountBalancesSet(data.accountBalancesSet || {});
+    // setAccountEstimatedFinalBalances(data.accountEstimatedFinalBalances || {});
+    // setAccountEstimatedFinalBalancesSet(data.accountEstimatedFinalBalancesSet || {});
+    // setAccountEstimatedStartBalances(data.accountEstimatedStartBalances || {});
+    // setAccountStartBalancesSet(data.accountStartBalancesSet || {});
+    // setAccountEndBalancesSet(data.accountEndBalancesSet || {});
 
     // User names
     setUserName1(data.userName1 || 'Andreas');
@@ -2135,16 +2127,8 @@ const BudgetCalculator = () => {
   const handleAccountBalanceUpdate = (account: string, balance: number) => {
     addDebugLog(`🎯 handleAccountBalanceUpdate called: ${account} = ${balance}`);
     
-    // Update local state first
-    setAccountBalances(prev => ({
-      ...prev,
-      [account]: balance
-    }));
-    // Mark this account balance as explicitly set
-    setAccountBalancesSet(prev => ({
-      ...prev,
-      [account]: true
-    }));
+    // ARKITEKTONISK FIX: Anropa orchestrator direkt istället för lokalt state
+    updateAccountBalance(account, balance);
     
     addDebugLog(`🚀 About to call updateAccountBalance for ${account}`);
     // Call the orchestrator function to trigger propagation
@@ -2195,29 +2179,19 @@ const BudgetCalculator = () => {
     setSusannaPersonalCosts(monthData.susannaPersonalCosts || 0);
     setSusannaPersonalSavings(monthData.susannaPersonalSavings || 0);
     
-    // Load saved account balances, or start with empty if none exist
-    const loadedBalances = monthData.accountBalances || {};
-    setAccountBalances(loadedBalances);
-    // Note: We use accountEstimatedFinalBalances as single source
-    setAccountEstimatedStartBalances(monthData.accountEstimatedStartBalances || {});
-    
-    // Load account start balances set tracking
-    setAccountStartBalancesSet(monthData.accountStartBalancesSet || {});
+    // ARKITEKTONISK FIX: Account balances läses nu från central state
+    // const loadedBalances = monthData.accountBalances || {};
+    // setAccountBalances(loadedBalances);
+    // setAccountEstimatedStartBalances(monthData.accountEstimatedStartBalances || {});
+    // setAccountStartBalancesSet(monthData.accountStartBalancesSet || {});
     
     // Load account end balances set tracking
     setAccountEndBalancesSet(monthData.accountEndBalancesSet || {});
     
-    // Load saved accountBalancesSet, or calculate it if not available
-    if (monthData.accountBalancesSet) {
-      setAccountBalancesSet(monthData.accountBalancesSet);
-    } else {
-      // Fallback: Set accountBalancesSet based on which accounts have explicit values
-      const balancesSet: {[key: string]: boolean} = {};
-      Object.keys(loadedBalances).forEach(account => {
-        balancesSet[account] = loadedBalances[account] !== undefined && loadedBalances[account] !== null;
-      });
-      setAccountBalancesSet(balancesSet);
-    }
+    // ARKITEKTONISK FIX: AccountBalancesSet läses nu från central state
+    // if (monthData.accountBalancesSet) {
+    //   setAccountBalancesSet(monthData.accountBalancesSet);
+    // }
     
     // Load ALL MonthFinalBalances flags from historicalData to ensure consistency
     console.log(`🔄 Loading month data for ${monthKey}, loading ALL flags from historicalData`);
@@ -2955,9 +2929,9 @@ const BudgetCalculator = () => {
       setAndreasPersonalSavings(JSON.parse(JSON.stringify(template.andreasPersonalSavings || [])));
       setSusannaPersonalCosts(JSON.parse(JSON.stringify(template.susannaPersonalCosts || [])));
       setAccounts(JSON.parse(JSON.stringify(template.accounts || ['Löpande', 'Sparkonto', 'Buffert'])));
-      // Always start with empty account balances - user should fill manually
-      setAccountBalances({});
-      setAccountBalancesSet({}); // All balances start as not set, so they show "Ej ifyllt"
+      // ARKITEKTONISK FIX: Account balances hanteras av central state
+      // setAccountBalances({});
+      // setAccountBalancesSet({}); // All balances start as not set, so they show "Ej ifyllt"
     }
     
     // Add the copied data to historical data
@@ -4865,14 +4839,10 @@ const BudgetCalculator = () => {
                                                           console.log(`🎯 Event target:`, e.target);
                                                           
                                                           const value = e.target.value;
-                                                          if (value === "Ej ifyllt" || value === "") {
-                                                            console.log(`🔄 Setting ${account} to 0 (Ej ifyllt/empty)`);
-                                                            handleAccountBalanceUpdate(account, 0);
-                                                            setAccountBalancesSet(prev => ({
-                                                              ...prev,
-                                                              [account]: false
-                                                            }));
-                                                          } else {
+                                                         if (value === "Ej ifyllt" || value === "") {
+                                                           console.log(`🔄 Setting ${account} to 0 (Ej ifyllt/empty)`);
+                                                           handleAccountBalanceUpdate(account, 0);
+                                                         } else {
                                                             const numValue = Number(value);
                                                             console.log(`🔢 Parsed number value: ${numValue}, isNaN: ${isNaN(numValue)}`);
                                                             if (!isNaN(numValue)) {
@@ -4884,14 +4854,10 @@ const BudgetCalculator = () => {
                                                       onBlur={(e) => {
                                                         console.log(`🔄 onBlur triggered for ${account} with value: ${e.target.value}`);
                                                         const value = e.target.value;
-                                                        if (value === "Ej ifyllt" || value === "") {
-                                                          console.log(`🔄 onBlur: Setting ${account} to 0 (Ej ifyllt/empty)`);
-                                                          handleAccountBalanceUpdate(account, 0);
-                                                          setAccountBalancesSet(prev => ({
-                                                            ...prev,
-                                                            [account]: false
-                                                          }));
-                                                        } else {
+                                                         if (value === "Ej ifyllt" || value === "") {
+                                                           console.log(`🔄 onBlur: Setting ${account} to 0 (Ej ifyllt/empty)`);
+                                                           handleAccountBalanceUpdate(account, 0);
+                                                         } else {
                                                           const numValue = Number(value);
                                                           console.log(`🔄 onBlur: Parsed number value: ${numValue}, isNaN: ${isNaN(numValue)}`);
                                                           if (!isNaN(numValue)) {
@@ -4902,15 +4868,8 @@ const BudgetCalculator = () => {
                                                       }}
                                                        onFocus={(e) => {
                                                          if (e.target.value === "Ej ifyllt") {
-                                                           // Clear the "Ej ifyllt" text when focusing
-                                                           setAccountBalances(prev => ({
-                                                             ...prev,
-                                                             [account]: 0
-                                                           }));
-                                                           setAccountBalancesSet(prev => ({
-                                                             ...prev,
-                                                             [account]: true
-                                                           }));
+                                                           // ARKITEKTONISK FIX: Anropa orchestrator direkt
+                                                           updateAccountBalance(account, 0);
                                                            // Set the input value to empty for easy editing
                                                            setTimeout(() => {
                                                              e.target.value = "";
@@ -7969,9 +7928,10 @@ const BudgetCalculator = () => {
                                 setCostGroups(monthData.costGroups || []);
                                 setSavingsGroups(monthData.savingsGroups || []);
                                 setDailyTransfer(monthData.dailyTransfer || 300);
-                                setAccounts(budgetState.accounts.map(acc => acc.name));
-                                setAccountBalances(monthData.accountBalances || {});
-                                setAccountBalancesSet(monthData.accountBalancesSet || {});
+                                // ARKITEKTONISK FIX: Account data läses från central state
+                                // setAccounts(budgetState.accounts.map(acc => acc.name));
+                                // setAccountBalances(monthData.accountBalances || {});
+                                // setAccountBalancesSet(monthData.accountBalancesSet || {});
                               }
                               
                               // Force a final chart update with the loaded data
