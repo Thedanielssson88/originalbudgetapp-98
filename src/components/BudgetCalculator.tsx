@@ -2190,6 +2190,7 @@ const BudgetCalculator = () => {
   // Function to update account balance
   const handleAccountBalanceUpdate = (account: string, balance: number) => {
     console.log(`🎯 handleAccountBalanceUpdate called for ${account} with balance ${balance}`);
+    console.log(`🎯 Current selectedBudgetMonth: ${selectedBudgetMonth}`);
     
     // Update local state first
     setAccountBalances(prev => ({
@@ -2202,14 +2203,19 @@ const BudgetCalculator = () => {
       [account]: true
     }));
     
-    // Call the orchestrator function to trigger propagation (imported function)
-    console.log(`🚀 Calling orchestrator updateAccountBalance`);
+    // CRITICAL: Call the orchestrator function to trigger propagation IMMEDIATELY
+    console.log(`🚀 About to call orchestrator updateAccountBalance`);
     updateAccountBalance(account, balance);
+    console.log(`✅ Orchestrator updateAccountBalance completed`);
     
     // Reset MonthFinalBalances flag when manual values are changed
     const currentDate = new Date();
     const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     resetMonthFinalBalancesFlag(currentMonthKey);
+    
+    // Force recalculation to ensure all dependent values update
+    console.log(`🔄 Forcing full recalculation after balance change`);
+    forceRecalculation();
   };
 
   // Function to load data from selected month into current form
