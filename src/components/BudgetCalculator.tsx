@@ -167,14 +167,14 @@ const BudgetCalculator = () => {
   
   // Personal budget states
   const [selectedPerson, setSelectedPerson] = useState<'andreas' | 'susanna'>('andreas');
-  const andreasPersonalCosts = rawData.andreasPersonalCosts;
-  const andreasPersonalSavings = rawData.andreasPersonalSavings;
-  const susannaPersonalCosts = rawData.susannaPersonalCosts;
-  const susannaPersonalSavings = rawData.susannaPersonalSavings;
+  const andreasPersonalCosts = (currentMonthData as any).andreasPersonalCosts || 0;
+  const andreasPersonalSavings = (currentMonthData as any).andreasPersonalSavings || 0;
+  const susannaPersonalCosts = (currentMonthData as any).susannaPersonalCosts || 0;
+  const susannaPersonalSavings = (currentMonthData as any).susannaPersonalSavings || 0;
   const [isEditingPersonalBudget, setIsEditingPersonalBudget] = useState<boolean>(false);
   
   // Account management states
-  const accounts = rawData.accounts;
+  const accounts = budgetState.accounts.map(acc => acc.name);
   const [newAccountName, setNewAccountName] = useState<string>('');
   const [isEditingAccounts, setIsEditingAccounts] = useState<boolean>(false);
   const [expandedAccounts, setExpandedAccounts] = useState<{[key: string]: boolean}>({});
@@ -244,18 +244,18 @@ const BudgetCalculator = () => {
       susannaPersonalSavings,
       accounts,
       customHolidays,
-      accountBalances: rawData.accountBalances,
-      accountBalancesSet: rawData.accountBalancesSet,
-      accountEstimatedFinalBalances: rawData.accountEstimatedFinalBalances,
-      accountEstimatedFinalBalancesSet: rawData.accountEstimatedFinalBalancesSet,
-      accountEstimatedStartBalances: rawData.accountEstimatedStartBalances,
-      accountStartBalancesSet: rawData.accountStartBalancesSet,
-      accountEndBalancesSet: rawData.accountEndBalancesSet,
-      userName1: rawData.userName1,
-      userName2: rawData.userName2,
-      transferChecks: rawData.transferChecks,
-      andreasShareChecked: rawData.transferChecks?.andreasShare,
-      susannaShareChecked: rawData.transferChecks?.susannaShare,
+      accountBalances: (currentMonthData as any).accountBalances || {},
+      accountBalancesSet: (currentMonthData as any).accountBalancesSet || {},
+      accountEstimatedFinalBalances: (currentMonthData as any).accountEstimatedFinalBalances || {},
+      accountEstimatedFinalBalancesSet: (currentMonthData as any).accountEstimatedFinalBalancesSet || {},
+      accountEstimatedStartBalances: (currentMonthData as any).accountEstimatedStartBalances || {},
+      accountStartBalancesSet: (currentMonthData as any).accountStartBalancesSet || {},
+      accountEndBalancesSet: (currentMonthData as any).accountEndBalancesSet || {},
+      userName1: (currentMonthData as any).userName1 || 'Andreas',
+      userName2: (currentMonthData as any).userName2 || 'Susanna',
+      transferChecks: (currentMonthData as any).transferChecks || {},
+      andreasShareChecked: (currentMonthData as any).andreasShareChecked || false,
+      susannaShareChecked: (currentMonthData as any).susannaShareChecked || false,
       createdAt: new Date().toISOString()
     };
 
@@ -786,12 +786,12 @@ const BudgetCalculator = () => {
     console.log(`🔄 Month selection changed to: ${selectedBudgetMonth}`);
     
     // Get data for the selected month, or empty object if it doesn't exist
-    const data = historicalData[selectedBudgetMonth] || {};
+    const data = historicalData[selectedBudgetMonth] as any || {};
     
     // Reset ALL budget state variables to prevent state bleeding between months
     // Use default values if data is missing for any field
     
-    // Income data
+    // Income data - these now use the central orchestrator functions
     setAndreasSalary(data.andreasSalary || 0);
     setAndreasförsäkringskassan(data.andreasförsäkringskassan || 0);
     setAndreasbarnbidrag(data.andreasbarnbidrag || 0);
@@ -808,14 +808,14 @@ const BudgetCalculator = () => {
     setWeekendTransfer(data.weekendTransfer || 540);
     setCustomHolidays(data.customHolidays || []);
 
-    // Personal budget data
-    setAndreasPersonalCosts(data.andreasPersonalCosts || []);
-    setAndreasPersonalSavings(data.andreasPersonalSavings || []);
-    setSusannaPersonalCosts(data.susannaPersonalCosts || []);
-    setSusannaPersonalSavings(data.susannaPersonalSavings || []);
+    // Personal budget data - these are now numbers in the new structure
+    setAndreasPersonalCosts(data.andreasPersonalCosts || 0);
+    setAndreasPersonalSavings(data.andreasPersonalSavings || 0);
+    setSusannaPersonalCosts(data.susannaPersonalCosts || 0);
+    setSusannaPersonalSavings(data.susannaPersonalSavings || 0);
 
-    // Account data
-    setAccounts(data.accounts || ['Löpande', 'Sparkonto', 'Buffert']);
+    // Account data - now use the central account management
+    setAccounts(budgetState.accounts.map(acc => acc.name));
     setAccountBalances(data.accountBalances || {});
     setAccountBalancesSet(data.accountBalancesSet || {});
     setAccountEstimatedFinalBalances(data.accountEstimatedFinalBalances || {});
@@ -833,18 +833,18 @@ const BudgetCalculator = () => {
     setAndreasShareChecked(data.andreasShareChecked || false);
     setSusannaShareChecked(data.susannaShareChecked || false);
 
-    // Chart settings
-    setSelectedAccountsForChart(data.selectedAccountsForChart || []);
-    setShowIndividualCostsOutsideBudget(data.showIndividualCostsOutsideBudget || false);
-    setShowSavingsSeparately(data.showSavingsSeparately || false);
-    setUseCustomTimeRange(data.useCustomTimeRange || false);
-    setChartStartMonth(data.chartStartMonth || '');
-    setChartEndMonth(data.chartEndMonth || '');
+    // Chart settings - now read from central state
+    setSelectedAccountsForChart(budgetState.chartSettings.selectedAccountsForChart || []);
+    setShowIndividualCostsOutsideBudget(budgetState.chartSettings.showIndividualCostsOutsideBudget || false);
+    setShowSavingsSeparately(budgetState.chartSettings.showSavingsSeparately || false);
+    setUseCustomTimeRange(budgetState.chartSettings.useCustomTimeRange || false);
+    setChartStartMonth(budgetState.chartSettings.chartStartMonth || '');
+    setChartEndMonth(budgetState.chartSettings.chartEndMonth || '');
 
     // Month completion flags
     setMonthFinalBalances(prev => ({
       ...prev,
-      [selectedBudgetMonth]: data.monthFinalBalances || false
+      [selectedBudgetMonth]: data.monthFinalBalances?.[selectedBudgetMonth] || false
     }));
 
     console.log(`✅ Month data loaded and all state variables reset for: ${selectedBudgetMonth}`);
@@ -1705,7 +1705,7 @@ const BudgetCalculator = () => {
     
     // Always recalculate final balances based on previous month's current data
     const finalBalances: {[key: string]: number} = {};
-    const accountsToProcess = prevMonthData.accounts || ['Löpande', 'Sparkonto', 'Buffert'];
+    const accountsToProcess = budgetState.accounts.map(acc => acc.name);
     
     accountsToProcess.forEach(account => {
       // Use the actual account balance if it exists and is not 0
@@ -2248,11 +2248,11 @@ const BudgetCalculator = () => {
     setDailyTransfer(monthData.dailyTransfer || 300);
     setWeekendTransfer(monthData.weekendTransfer || 540);
     
-    // Load personal budget data
-    setAndreasPersonalCosts(monthData.andreasPersonalCosts || []);
-    setAndreasPersonalSavings(monthData.andreasPersonalSavings || []);
-    setSusannaPersonalCosts(monthData.susannaPersonalCosts || []);
-    setSusannaPersonalSavings(monthData.susannaPersonalSavings || []);
+    // Load personal budget data - now numbers in the new structure
+    setAndreasPersonalCosts(monthData.andreasPersonalCosts || 0);
+    setAndreasPersonalSavings(monthData.andreasPersonalSavings || 0);
+    setSusannaPersonalCosts(monthData.susannaPersonalCosts || 0);
+    setSusannaPersonalSavings(monthData.susannaPersonalSavings || 0);
     
     // Load saved account balances, or start with empty if none exist
     const loadedBalances = monthData.accountBalances || {};
@@ -2283,40 +2283,20 @@ const BudgetCalculator = () => {
     const allFlags: {[key: string]: boolean} = {};
     Object.keys(historicalData).forEach(key => {
       const data = historicalData[key];
-      allFlags[key] = data.monthFinalBalances || false;
+      const flagValue = data.monthFinalBalances?.[key] || false;
+      allFlags[key] = flagValue;
       console.log(`📋 Loaded flag for ${key}: ${allFlags[key]}`);
     });
     
     // Set current month flag specifically
-    allFlags[monthKey] = monthData.monthFinalBalances || false;
+    allFlags[monthKey] = monthData.monthFinalBalances?.[monthKey] || false;
     console.log(`📋 Set current month ${monthKey} flag to: ${allFlags[monthKey]}`);
     
     console.log(`📋 Final flags being set:`, allFlags);
     setMonthFinalBalances(allFlags);
     
-    // Update results if available
-    if (monthData.totalSalary !== undefined) {
-      setResults({
-        totalSalary: monthData.totalSalary,
-        totalDailyBudget: monthData.totalDailyBudget || 0,
-        remainingDailyBudget: monthData.remainingDailyBudget || 0,
-        holidayDaysBudget: monthData.holidayDaysBudget || 0,
-        balanceLeft: monthData.balanceLeft || 0,
-        susannaShare: monthData.susannaShare || 0,
-        andreasShare: monthData.andreasShare || 0,
-        susannaPercentage: monthData.susannaPercentage || 0,
-        andreasPercentage: monthData.andreasPercentage || 0,
-        weekdayCount: 0, // These will be recalculated when needed
-        fridayCount: 0,
-        daysUntil25th: monthData.daysUntil25th || 0,
-        totalMonthlyExpenses: monthData.totalMonthlyExpenses || 0,
-        holidayDays: [],
-        holidaysUntil25th: [],
-        nextTenHolidays: [],
-        remainingWeekdayCount: 0,
-        remainingFridayCount: 0
-      });
-    }
+    // Results are now calculated and managed by the orchestrator
+    // No need to manually set results here - they come from calculated state
     
     // Calculate and save estimated final balances if not already present
     setTimeout(() => {
@@ -2518,12 +2498,12 @@ const BudgetCalculator = () => {
         setDailyTransfer(monthData.dailyTransfer || 0);
         setWeekendTransfer(monthData.weekendTransfer || 0);
         setCustomHolidays(monthData.customHolidays || []);
-        setSelectedPerson(monthData.selectedPerson || 'andreas');
-        setAndreasPersonalCosts(monthData.andreasPersonalCosts || []);
-        setAndreasPersonalSavings(monthData.andreasPersonalSavings || []);
-        setSusannaPersonalCosts(monthData.susannaPersonalCosts || []);
-        setSusannaPersonalSavings(monthData.susannaPersonalSavings || []);
-        setAccounts(monthData.accounts || []);
+        setSelectedPerson((monthData as any).selectedPerson || 'andreas');
+        setAndreasPersonalCosts(monthData.andreasPersonalCosts || 0);
+        setAndreasPersonalSavings(monthData.andreasPersonalSavings || 0);
+        setSusannaPersonalCosts(monthData.susannaPersonalCosts || 0);
+        setSusannaPersonalSavings(monthData.susannaPersonalSavings || 0);
+        setAccounts(budgetState.accounts.map(acc => acc.name));
         setUserName1(monthData.userName1 || 'Andreas');
         setUserName2(monthData.userName2 || 'Susanna');
         setTransferChecks(monthData.transferChecks || {});
@@ -2589,12 +2569,12 @@ const BudgetCalculator = () => {
         setDailyTransfer(monthData.dailyTransfer || 0);
         setWeekendTransfer(monthData.weekendTransfer || 0);
         setCustomHolidays(monthData.customHolidays || []);
-        setSelectedPerson(monthData.selectedPerson || 'andreas');
-        setAndreasPersonalCosts(monthData.andreasPersonalCosts || []);
-        setAndreasPersonalSavings(monthData.andreasPersonalSavings || []);
-        setSusannaPersonalCosts(monthData.susannaPersonalCosts || []);
-        setSusannaPersonalSavings(monthData.susannaPersonalSavings || []);
-        setAccounts(monthData.accounts || []);
+        setSelectedPerson((monthData as any).selectedPerson || 'andreas');
+        setAndreasPersonalCosts(monthData.andreasPersonalCosts || 0);
+        setAndreasPersonalSavings(monthData.andreasPersonalSavings || 0);
+        setSusannaPersonalCosts(monthData.susannaPersonalCosts || 0);
+        setSusannaPersonalSavings(monthData.susannaPersonalSavings || 0);
+        setAccounts(budgetState.accounts.map(acc => acc.name));
         setUserName1(monthData.userName1 || 'Andreas');
         setUserName2(monthData.userName2 || 'Susanna');
         setTransferChecks(monthData.transferChecks || {});
@@ -2911,7 +2891,7 @@ const BudgetCalculator = () => {
       weekendTransfer: sourceData.weekendTransfer || 540,
       customHolidays: JSON.parse(JSON.stringify(sourceData.customHolidays || [])),
       // Include accounts to ensure they are available when loading template
-      accounts: JSON.parse(JSON.stringify(sourceData.accounts || ['Löpande', 'Sparkonto', 'Buffert']))
+      accounts: JSON.parse(JSON.stringify(budgetState.accounts.map(acc => acc.name)))
     };
     
     const updatedTemplates = {
@@ -3555,22 +3535,24 @@ const BudgetCalculator = () => {
     const chartData = Object.keys(historicalData).map(monthKey => {
       const data = historicalData[monthKey];
       
-      // Use saved calculated totals if available, otherwise calculate from groups
-      const totalCosts = data.totalCosts !== undefined ? data.totalCosts : 
-        (data.costGroups?.reduce((sum: number, group: any) => {
-          const subCategoriesTotal = group.subCategories?.reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-          return sum + subCategoriesTotal;
-        }, 0) || 0);
+      // Calculate totals from groups since MonthData doesn't store calculated results
+      const totalCosts = (data.costGroups?.reduce((sum: number, group: any) => {
+        const subCategoriesTotal = group.subCategories?.reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+        return sum + subCategoriesTotal;
+      }, 0) || 0);
       
-      const totalSavings = data.totalSavings !== undefined ? data.totalSavings : 
-        (data.savingsGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0);
+      const totalSavings = (data.savingsGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0);
+      
+      // Calculate total income from salary fields
+      const totalIncome = (data.andreasSalary || 0) + (data.andreasförsäkringskassan || 0) + (data.andreasbarnbidrag || 0) +
+                         (data.susannaSalary || 0) + (data.susannaförsäkringskassan || 0) + (data.susannabarnbidrag || 0);
       
       return {
         month: monthKey,
-        totalIncome: data.totalSalary || 0,
+        totalIncome: totalIncome,
         totalCosts: totalCosts,
         totalSavings: totalSavings,
-        totalDailyBudget: data.totalDailyBudget || 0
+        totalDailyBudget: (data.dailyTransfer || 0) * 30 // Approximate monthly from daily
       };
     }).sort((a, b) => a.month.localeCompare(b.month));
 
@@ -4278,23 +4260,10 @@ const BudgetCalculator = () => {
                         susannaSalary: currentMonthData.susannaSalary || susannaSalary,
                         susannaförsäkringskassan: currentMonthData.susannaförsäkringskassan || susannaförsäkringskassan,
                         susannabarnbidrag: currentMonthData.susannabarnbidrag || susannabarnbidrag,
-                        totalSalary: currentMonthData.totalSalary || 0,
                         costGroups: JSON.parse(JSON.stringify(currentMonthData.costGroups || [])),
                         savingsGroups: JSON.parse(JSON.stringify(currentMonthData.savingsGroups || [])),
-                        totalMonthlyExpenses: currentMonthData.totalMonthlyExpenses || 0,
-                        totalCosts: currentMonthData.totalCosts || 0,
-                        totalSavings: currentMonthData.totalSavings || 0,
                         dailyTransfer: currentMonthData.dailyTransfer || dailyTransfer,
-                        weekendTransfer: currentMonthData.weekendTransfer || weekendTransfer,
-                        balanceLeft: currentMonthData.balanceLeft || 0,
-                        susannaShare: currentMonthData.susannaShare || 0,
-                        andreasShare: currentMonthData.andreasShare || 0,
-                        susannaPercentage: currentMonthData.susannaPercentage || 0,
-                        andreasPercentage: currentMonthData.andreasPercentage || 0,
-                        totalDailyBudget: currentMonthData.totalDailyBudget || 0,
-                        remainingDailyBudget: currentMonthData.remainingDailyBudget || 0,
-                        holidayDaysBudget: currentMonthData.holidayDaysBudget || 0,
-                        daysUntil25th: currentMonthData.daysUntil25th || 0
+                        weekendTransfer: currentMonthData.weekendTransfer || weekendTransfer
                       }
                     : {
                         // Use current form values if current month doesn't exist in historical data
@@ -4321,7 +4290,7 @@ const BudgetCalculator = () => {
                   setNewHistoricalMonth('');
                 }
               }}
-              disabled={!newHistoricalMonth || newHistoricalMonth >= currentMonth || historicalData[newHistoricalMonth]}
+              disabled={!newHistoricalMonth || newHistoricalMonth >= currentMonth || !!historicalData[newHistoricalMonth]}
               size="sm"
             >
               Lägg till
@@ -4377,15 +4346,17 @@ const BudgetCalculator = () => {
 
     const data = historicalData[selectedHistoricalMonth];
     
-    // Use saved calculated totals if available, otherwise calculate from groups
-    const totalCosts = data.totalCosts !== undefined ? data.totalCosts : 
-      (data.costGroups?.reduce((sum: number, group: any) => {
-        const subCategoriesTotal = group.subCategories?.reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-        return sum + subCategoriesTotal;
-      }, 0) || 0);
+    // Calculate totals from groups since MonthData doesn't store calculated results
+    const totalCosts = (data.costGroups?.reduce((sum: number, group: any) => {
+      const subCategoriesTotal = group.subCategories?.reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
+      return sum + subCategoriesTotal;
+    }, 0) || 0);
     
-    const totalSavings = data.totalSavings !== undefined ? data.totalSavings : 
-      (data.savingsGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0);
+    const totalSavings = (data.savingsGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0);
+    
+    // Calculate total income from salary fields  
+    const totalIncome = (data.andreasSalary || 0) + (data.andreasförsäkringskassan || 0) + (data.andreasbarnbidrag || 0) +
+                       (data.susannaSalary || 0) + (data.susannaförsäkringskassan || 0) + (data.susannabarnbidrag || 0);
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -4421,7 +4392,7 @@ const BudgetCalculator = () => {
               </div>
               <div className="flex justify-between pt-2 border-t font-semibold">
                 <span>Total inkomst:</span>
-                <span>{formatCurrency(data.totalSalary || 0)}</span>
+                <span>{formatCurrency(totalIncome)}</span>
               </div>
             </div>
           </CardContent>
@@ -4475,11 +4446,11 @@ const BudgetCalculator = () => {
             <div className="mt-4 pt-4 border-t">
               <div className="flex justify-between">
                 <span>Total daglig budget:</span>
-                <span className="font-medium">{formatCurrency(data.totalDailyBudget || 0)}</span>
+                <span className="font-medium">{formatCurrency((data.dailyTransfer || 0) * 30)}</span>
               </div>
               <div className="flex justify-between pt-2 border-t font-semibold">
                 <span>Kvar efter kostnader, sparande och daglig budget:</span>
-                <span>{formatCurrency((data.totalSalary || 0) - totalCosts - totalSavings - (data.totalDailyBudget || 0))}</span>
+                <span>{formatCurrency(totalIncome - totalCosts - totalSavings - ((data.dailyTransfer || 0) * 30))}</span>
               </div>
             </div>
 
@@ -4487,15 +4458,15 @@ const BudgetCalculator = () => {
               <h4 className="font-medium mb-2">Individuella Andelar:</h4>
               <div className="flex justify-between">
                 <span>Andreas andel:</span>
-                <span className="font-medium">{formatCurrency(data.andreasShare || 0)}</span>
+                <span className="font-medium">{formatCurrency(results?.andreasShare || 0)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Susannas andel:</span>
-                <span className="font-medium">{formatCurrency(data.susannaShare || 0)}</span>
+                <span className="font-medium">{formatCurrency(results?.susannaShare || 0)}</span>
               </div>
               <div className="flex justify-between text-sm text-muted-foreground mt-2">
-                <span>Andreas andel: {(data.andreasPercentage || 0).toFixed(1)}%</span>
-                <span>Susannas andel: {(data.susannaPercentage || 0).toFixed(1)}%</span>
+                <span>Andreas andel: {(results?.andreasPercentage || 0).toFixed(1)}%</span>
+                <span>Susannas andel: {(results?.susannaPercentage || 0).toFixed(1)}%</span>
               </div>
             </div>
             </div>
@@ -8132,7 +8103,7 @@ const BudgetCalculator = () => {
                                 setCostGroups(monthData.costGroups || []);
                                 setSavingsGroups(monthData.savingsGroups || []);
                                 setDailyTransfer(monthData.dailyTransfer || 300);
-                                setAccounts(monthData.accounts || ['Löpande', 'Sparkonto', 'Buffert']);
+                                setAccounts(budgetState.accounts.map(acc => acc.name));
                                 setAccountBalances(monthData.accountBalances || {});
                                 setAccountBalancesSet(monthData.accountBalancesSet || {});
                               }
@@ -8700,7 +8671,7 @@ const BudgetCalculator = () => {
                              andreasPersonalSavings: JSON.parse(JSON.stringify(sourceData.andreasPersonalSavings || [])),
                              susannaPersonalCosts: JSON.parse(JSON.stringify(sourceData.susannaPersonalCosts || [])),
                              susannaPersonalSavings: JSON.parse(JSON.stringify(sourceData.susannaPersonalSavings || [])),
-                             accounts: JSON.parse(JSON.stringify(sourceData.accounts || ['Löpande', 'Sparkonto', 'Buffert'])),
+                             accounts: JSON.parse(JSON.stringify(budgetState.accounts.map(acc => acc.name))),
                              date: new Date().toISOString()
                            };
                            
