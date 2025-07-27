@@ -3442,46 +3442,30 @@ const BudgetCalculator = () => {
     }
   };
 
+  // These functions are no longer needed since personal costs are now numbers, not arrays
+  // Keeping them as no-ops for backward compatibility during transition
   const addPersonalCostGroup = () => {
-    const newGroup: BudgetGroup = {
-      id: Date.now().toString(),
-      name: 'Ny kostnad',
-      amount: 0,
-      type: 'cost',
-      subCategories: []
-    };
-    setCurrentPersonalCosts([...getCurrentPersonalCosts(), newGroup]);
+    console.log('Personal costs are now managed as numbers, not arrays');
   };
 
   const addPersonalSavingsGroup = () => {
-    const newGroup: BudgetGroup = {
-      id: Date.now().toString(),
-      name: 'Nytt sparande',
-      amount: 0,
-      type: 'savings',
-      subCategories: []
-    };
-    setCurrentPersonalSavings([...getCurrentPersonalSavings(), newGroup]);
+    console.log('Personal savings are now managed as numbers, not arrays');
   };
 
   const removePersonalCostGroup = (id: string) => {
-    setCurrentPersonalCosts(getCurrentPersonalCosts().filter(group => group.id !== id));
+    console.log('Personal costs are now managed as numbers, not arrays');
   };
 
   const removePersonalSavingsGroup = (id: string) => {
-    setCurrentPersonalSavings(getCurrentPersonalSavings().filter(group => group.id !== id));
+    console.log('Personal savings are now managed as numbers, not arrays');
   };
 
   const updatePersonalCostGroup = (id: string, field: 'name' | 'amount', value: string | number) => {
-    setCurrentPersonalCosts(getCurrentPersonalCosts().map(group => 
-      group.id === id ? { ...group, [field]: value } : group
-    ));
+    console.log('Personal costs are now managed as numbers, not arrays');
   };
 
   const updatePersonalSavingsGroup = (id: string, field: 'name' | 'amount', value: string | number) => {
-    setCurrentPersonalSavings(getCurrentPersonalSavings().map(group => 
-      group.id === id ? { ...group, [field]: value } : group
-    ));
+    console.log('Personal savings are now managed as numbers, not arrays');
   };
 
   const getCurrentPersonIncome = () => {
@@ -7778,120 +7762,62 @@ const BudgetCalculator = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <h5 className="font-medium">Personliga kostnader</h5>
-                    {isEditingPersonalBudget && (
-                      <Button size="sm" onClick={addPersonalCostGroup}>
-                        <Plus className="w-4 h-4" />
-                      </Button>
-                    )}
                   </div>
                   
-                  {getCurrentPersonalCosts().length > 0 ? (
-                    <div className="space-y-2">
-                      {getCurrentPersonalCosts().map((group) => (
-                        <div key={group.id} className="flex gap-2 items-center">
-                          {isEditingPersonalBudget ? (
-                            <>
-                              <Input
-                                value={group.name}
-                                onChange={(e) => updatePersonalCostGroup(group.id, 'name', e.target.value)}
-                                className="flex-1"
-                              />
-                              <Input
-                                type="number"
-                                value={group.amount === 0 ? '' : group.amount}
-                                onChange={(e) => updatePersonalCostGroup(group.id, 'amount', Number(e.target.value) || 0)}
-                                className="w-32"
-                              />
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => removePersonalCostGroup(group.id)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <span className="flex-1">{group.name}</span>
-                              <span className="w-32 text-right font-medium text-destructive">
-                                {formatCurrency(group.amount)}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>Inga personliga kostnader tillagda</p>
-                      {isEditingPersonalBudget && (
-                        <Button size="sm" onClick={addPersonalCostGroup} className="mt-2">
-                          <Plus className="w-4 h-4 mr-1" />
-                          Lägg till kostnad
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                  <div className="flex gap-2 items-center">
+                    <span className="flex-1">Totala personliga kostnader:</span>
+                    {isEditingPersonalBudget ? (
+                      <Input
+                        type="number"
+                        value={getCurrentPersonalCosts() === 0 ? '' : getCurrentPersonalCosts()}
+                        onChange={(e) => {
+                          const value = Number(e.target.value) || 0;
+                          if (selectedPerson === 'andreas') {
+                            setAndreasPersonalCosts(value);
+                          } else {
+                            setSusannaPersonalCosts(value);
+                          }
+                        }}
+                        className="w-32"
+                        placeholder="0"
+                      />
+                    ) : (
+                      <span className="w-32 text-right font-medium text-destructive">
+                        -{formatCurrency(getCurrentPersonalCosts())}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Personal Savings */}
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <h5 className="font-medium">Personligt sparande</h5>
-                    {isEditingPersonalBudget && (
-                      <Button size="sm" onClick={addPersonalSavingsGroup}>
-                        <Plus className="w-4 h-4" />
-                      </Button>
-                    )}
                   </div>
                   
-                  {getCurrentPersonalSavings().length > 0 ? (
-                    <div className="space-y-2">
-                      {getCurrentPersonalSavings().map((group) => (
-                        <div key={group.id} className="flex gap-2 items-center">
-                          {isEditingPersonalBudget ? (
-                            <>
-                              <Input
-                                value={group.name}
-                                onChange={(e) => updatePersonalSavingsGroup(group.id, 'name', e.target.value)}
-                                className="flex-1"
-                              />
-                              <Input
-                                type="number"
-                                value={group.amount === 0 ? '' : group.amount}
-                                onChange={(e) => updatePersonalSavingsGroup(group.id, 'amount', Number(e.target.value) || 0)}
-                                className="w-32"
-                              />
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => removePersonalSavingsGroup(group.id)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <span className="flex-1">{group.name}</span>
-                              <span className="w-32 text-right font-medium text-green-600">
-                                {formatCurrency(group.amount)}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>Inget personligt sparande tillagt</p>
-                      {isEditingPersonalBudget && (
-                        <Button size="sm" onClick={addPersonalSavingsGroup} className="mt-2">
-                          <Plus className="w-4 h-4 mr-1" />
-                          Lägg till sparande
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                  <div className="flex gap-2 items-center">
+                    <span className="flex-1">Totalt personligt sparande:</span>
+                    {isEditingPersonalBudget ? (
+                      <Input
+                        type="number"
+                        value={getCurrentPersonalSavings() === 0 ? '' : getCurrentPersonalSavings()}
+                        onChange={(e) => {
+                          const value = Number(e.target.value) || 0;
+                          if (selectedPerson === 'andreas') {
+                            setAndreasPersonalSavings(value);
+                          } else {
+                            setSusannaPersonalSavings(value);
+                          }
+                        }}
+                        className="w-32"
+                        placeholder="0"
+                      />
+                    ) : (
+                      <span className="w-32 text-right font-medium text-green-600">
+                        -{formatCurrency(getCurrentPersonalSavings())}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Personal Budget Summary */}
@@ -7907,27 +7833,27 @@ const BudgetCalculator = () => {
                     <div className="flex justify-between text-destructive">
                       <span>Totala kostnader:</span>
                       <span className="font-medium">
-                        -{formatCurrency(getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0))}
+                        -{formatCurrency(getCurrentPersonalCosts())}
                       </span>
                     </div>
                     <div className="flex justify-between text-green-600">
                       <span>Totalt sparande:</span>
                       <span className="font-medium">
-                        -{formatCurrency(getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0))}
+                        -{formatCurrency(getCurrentPersonalSavings())}
                       </span>
                     </div>
                     <div className="flex justify-between pt-2 border-t font-semibold">
                       <span>Kvar att spendera:</span>
                       <span className={`font-semibold ${
                         (getCurrentPersonIncome() - 
-                         getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0) - 
-                         getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)) >= 0 
+                         getCurrentPersonalCosts() - 
+                         getCurrentPersonalSavings()) >= 0
                         ? 'text-green-600' : 'text-destructive'
                       }`}>
                         {results ? formatCurrency(
                           getCurrentPersonIncome() - 
-                          getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0) - 
-                          getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)
+                          getCurrentPersonalCosts() - 
+                          getCurrentPersonalSavings()
                         ) : 'Beräknar...'}
                       </span>
                     </div>
@@ -7938,8 +7864,8 @@ const BudgetCalculator = () => {
                           <span>Kvar per dag till den 25e ({results.daysUntil25th} dagar):</span>
                           <span className="font-medium">
                             {formatCurrency((getCurrentPersonIncome() - 
-                              getCurrentPersonalCosts().reduce((sum, group) => sum + group.amount, 0) - 
-                              getCurrentPersonalSavings().reduce((sum, group) => sum + group.amount, 0)) / results.daysUntil25th)}
+                              getCurrentPersonalCosts() - 
+                              getCurrentPersonalSavings()) / results.daysUntil25th)}
                           </span>
                         </div>
                       </>
