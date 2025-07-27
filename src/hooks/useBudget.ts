@@ -13,15 +13,18 @@ export const useBudget = () => {
 
   useEffect(() => {
     console.log(`🔄 [HOOK] useBudget subscribing to state changes...`);
-    // Subscribe to state updates
-    subscribeToStateChanges(() => {
+    // Create a stable callback reference
+    const updateCallback = () => {
       console.log(`🔄 [HOOK] State change detected - forcing re-render`);
       forceUpdate();
-    });
+    };
+    
+    // Subscribe to state updates
+    subscribeToStateChanges(updateCallback);
     // Unsubscribe when component unmounts
     return () => {
       console.log(`🔄 [HOOK] useBudget unsubscribing from state changes`);
-      unsubscribeFromStateChanges(forceUpdate);
+      unsubscribeFromStateChanges(updateCallback);
     };
   }, []);
 
