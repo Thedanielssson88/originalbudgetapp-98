@@ -3442,18 +3442,20 @@ const BudgetCalculator = () => {
   };
 
   const setCurrentPersonalCosts = (costs: BudgetGroup[]) => {
+    const total = costs.reduce((sum, group) => sum + group.amount, 0);
     if (selectedPerson === 'andreas') {
-      setAndreasPersonalCosts(costs);
+      setAndreasPersonalCosts(total);
     } else {
-      setSusannaPersonalCosts(costs);
+      setSusannaPersonalCosts(total);
     }
   };
 
   const setCurrentPersonalSavings = (savings: BudgetGroup[]) => {
+    const total = savings.reduce((sum, group) => sum + group.amount, 0);
     if (selectedPerson === 'andreas') {
-      setAndreasPersonalSavings(savings);
+      setAndreasPersonalSavings(total);
     } else {
-      setSusannaPersonalSavings(savings);
+      setSusannaPersonalSavings(total);
     }
   };
 
