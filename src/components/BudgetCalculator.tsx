@@ -241,6 +241,11 @@ const BudgetCalculator = () => {
   
   // Account management states  
   const accounts = budgetState.accounts.map(acc => acc.name);
+  
+  // CRITICAL DEBUG: Log the exact data being used
+  console.log(`🚨 [RENDER] budgetState.historicalData:`, budgetState.historicalData);
+  console.log(`🚨 [RENDER] selectedMonthKey:`, selectedMonthKey);
+  console.log(`🚨 [RENDER] currentMonthData:`, currentMonthData);
 
   // Account balances - LÄS DIREKT FRÅN CENTRAL STATE (inga lokala useState längre)
   const accountBalances = (currentMonthData as any).accountBalances || {};
