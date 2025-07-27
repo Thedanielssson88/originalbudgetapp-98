@@ -244,7 +244,8 @@ const BudgetCalculator = () => {
 
   // CRITICAL FIX: Initialize local state from central system when data changes
   useEffect(() => {
-    if (currentMonthData && !isInitialLoad) {
+    // Sync on any change to currentMonthData, regardless of isInitialLoad
+    if (currentMonthData) {
       console.log('[UI SYNC] 🔄 Syncing local state with central system');
       
       if ((currentMonthData as any).accountBalances) {
@@ -257,7 +258,7 @@ const BudgetCalculator = () => {
         setAccountBalancesSet((currentMonthData as any).accountBalancesSet);
       }
     }
-  }, [currentMonthData, isInitialLoad]);
+  }, [currentMonthData]); // Removed isInitialLoad dependency
 
   // Centralized month list logic for consistent dropdown behavior
   const availableMonths = useMemo(() => {
