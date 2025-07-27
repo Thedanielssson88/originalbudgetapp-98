@@ -170,6 +170,14 @@ export function initializeStateFromStorage(): void {
         // New structure - direct load with proper merging
         const loadedBudgetState = savedData.budgetState;
         
+        // CRITICAL DEBUG: Check what's in the loaded historical data
+        console.log(`[INIT] 🔍 CRITICAL DEBUG - loadedBudgetState.historicalData:`, loadedBudgetState.historicalData);
+        const selectedMonth = loadedBudgetState.selectedMonthKey || state.budgetState.selectedMonthKey;
+        if (loadedBudgetState.historicalData && loadedBudgetState.historicalData[selectedMonth]) {
+          console.log(`[INIT] 🔍 CRITICAL DEBUG - month ${selectedMonth} data:`, loadedBudgetState.historicalData[selectedMonth]);
+          console.log(`[INIT] 🔍 CRITICAL DEBUG - accountBalances in loaded data:`, loadedBudgetState.historicalData[selectedMonth].accountBalances);
+        }
+        
         // Merge, but preserve essential properties
         state.budgetState = {
           ...state.budgetState, 
