@@ -1233,11 +1233,6 @@ const BudgetCalculator = () => {
     }
   }, [accounts]);
 
-  // CRITICAL FIX: Don't render until data is loaded and available (AFTER ALL hooks)
-  if (isLoading || !budgetState.historicalData || Object.keys(budgetState.historicalData).length === 0) {
-    return <div className="p-8">Loading budget data...</div>;
-  }
-
   // Function to calculate weekdays and weekend days for a specific month
   const calculateDaysForMonth = (year: number, month: number) => {
     // Calculate from 25th of previous month to 24th of selected month
