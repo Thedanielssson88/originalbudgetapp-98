@@ -301,11 +301,45 @@ export function setSusannabarnbidrag(value: number) {
 }
 
 export function setCostGroups(value: any[]) {
-  handleManualValueChange(StorageKey.COST_GROUPS, value, 'costGroups');
+  // Update the main state
+  handleManualValueChange(StorageKey.COST_GROUPS, value, 'costGroups', true);
+  
+  // Also update the currently selected month's historical data
+  const currentSelectedMonth = state.rawData.selectedBudgetMonth;
+  if (currentSelectedMonth && state.rawData.historicalData[currentSelectedMonth]) {
+    const updatedHistoricalData = {
+      ...state.rawData.historicalData,
+      [currentSelectedMonth]: {
+        ...state.rawData.historicalData[currentSelectedMonth],
+        costGroups: value
+      }
+    };
+    handleManualValueChange(StorageKey.BUDGET_CALCULATOR_DATA, updatedHistoricalData, 'historicalData', false);
+  } else {
+    // If no selected month, just trigger calculation
+    runCalculationsAndUpdateState();
+  }
 }
 
 export function setSavingsGroups(value: any[]) {
-  handleManualValueChange(StorageKey.SAVINGS_GROUPS, value, 'savingsGroups');
+  // Update the main state
+  handleManualValueChange(StorageKey.SAVINGS_GROUPS, value, 'savingsGroups', true);
+  
+  // Also update the currently selected month's historical data
+  const currentSelectedMonth = state.rawData.selectedBudgetMonth;
+  if (currentSelectedMonth && state.rawData.historicalData[currentSelectedMonth]) {
+    const updatedHistoricalData = {
+      ...state.rawData.historicalData,
+      [currentSelectedMonth]: {
+        ...state.rawData.historicalData[currentSelectedMonth],
+        savingsGroups: value
+      }
+    };
+    handleManualValueChange(StorageKey.BUDGET_CALCULATOR_DATA, updatedHistoricalData, 'historicalData', false);
+  } else {
+    // If no selected month, just trigger calculation
+    runCalculationsAndUpdateState();
+  }
 }
 
 export function setDailyTransfer(value: number) {
