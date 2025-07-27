@@ -103,6 +103,72 @@ export function updateSavingsGroups(newSavingsGroups: any[]) {
 export function updateAccountBalance(account: string, balance: number) {
   const newBalances = { ...state.rawData.accountBalances, [account]: balance };
   handleManualValueChange(StorageKey.ACCOUNT_BALANCES, newBalances, 'accountBalances');
+  
+  // Propagate balance changes to future months
+  propagateBalanceChangesToFutureMonths(account, balance);
+}
+
+function propagateBalanceChangesToFutureMonths(account: string, newBalance: number) {
+  const currentMonth = state.rawData.selectedBudgetMonth;
+  if (!currentMonth) return;
+
+  const historicalData = state.rawData.historicalData;
+  const allMonths = Object.keys(historicalData).sort();
+  const currentMonthIndex = allMonths.indexOf(currentMonth);
+  
+  if (currentMonthIndex === -1) return;
+
+  // Get all future months
+  const futureMonths = allMonths.slice(currentMonthIndex + 1);
+  
+  let updatedHistoricalData = { ...historicalData };
+  let previousMonthEndBalance = newBalance;
+
+  futureMonths.forEach(monthKey => {
+    const monthData = updatedHistoricalData[monthKey];
+    if (!monthData) return;
+
+    // Only update if the account balance is not explicitly set (showing "Ej ifyllt")
+    const isExplicitlySet = monthData.accountBalancesSet?.[account] === true;
+    
+    if (!isExplicitlySet) {
+      // Update the estimated start balance for this month
+      updatedHistoricalData[monthKey] = {
+        ...monthData,
+        accountEstimatedStartBalances: {
+          ...monthData.accountEstimatedStartBalances,
+          [account]: previousMonthEndBalance
+        }
+      };
+    }
+
+    // Calculate the end balance for this month to use for the next month
+    const monthCosts = monthData.costGroups?.reduce((total: number, group: any) => {
+      if (group.account === account) {
+        return total + (group.amount || 0);
+      }
+      return total;
+    }, 0) || 0;
+
+    const monthSavings = monthData.savingsGroups?.reduce((total: number, group: any) => {
+      if (group.account === account) {
+        return total + (group.amount || 0);
+      }
+      return total;
+    }, 0) || 0;
+
+    // Use the actual balance if set, otherwise use the estimated start balance
+    const startBalance = isExplicitlySet ? 
+      (monthData.accountBalances?.[account] || 0) : 
+      previousMonthEndBalance;
+
+    previousMonthEndBalance = startBalance - monthCosts + monthSavings;
+  });
+
+  // Update the historical data if changes were made
+  if (futureMonths.length > 0) {
+    handleManualValueChange(StorageKey.HISTORICAL_DATA, updatedHistoricalData, 'historicalData', true);
+  }
 }
 
 export function updateSelectedBudgetMonth(monthKey: string) {
