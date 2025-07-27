@@ -322,7 +322,17 @@ export function setSelectedHistoricalMonth(value: string) {
 }
 
 export function setAccountBalances(value: any) {
+  console.log(`🔄 setAccountBalances called with:`, value);
   handleManualValueChange(StorageKey.ACCOUNT_BALANCES, value, 'accountBalances');
+  
+  // Also trigger propagation for any changed accounts
+  const currentBalances = state.rawData.accountBalances || {};
+  Object.keys(value).forEach(account => {
+    if (value[account] !== currentBalances[account]) {
+      console.log(`🚀 Account ${account} balance changed from ${currentBalances[account]} to ${value[account]}, triggering propagation`);
+      propagateBalanceChangesToFutureMonths(account, value[account]);
+    }
+  });
 }
 
 export function setAccountBalancesSet(value: any) {
