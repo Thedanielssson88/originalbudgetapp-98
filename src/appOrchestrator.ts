@@ -102,7 +102,10 @@ export function updateSavingsGroups(newSavingsGroups: any[]) {
 
 export function updateAccountBalance(account: string, balance: number) {
   console.log(`🔄 updateAccountBalance called for ${account} with balance ${balance}`);
+  console.log(`📊 Before update - current balances:`, state.rawData.accountBalances);
+  
   const newBalances = { ...state.rawData.accountBalances, [account]: balance };
+  console.log(`📊 After update - new balances:`, newBalances);
   
   // Update the balance without triggering calculation yet
   handleManualValueChange(StorageKey.ACCOUNT_BALANCES, newBalances, 'accountBalances', true);
@@ -174,29 +177,36 @@ function propagateBalanceChangesToFutureMonths(account: string, newBalance: numb
       console.log(`⏭️ Skipping ${monthKey} - balance explicitly set`);
     }
 
-    // Calculate the end balance for this month to use for the next month
-    const monthCosts = monthData.costGroups?.reduce((total: number, group: any) => {
-      if (group.account === account) {
-        return total + (group.amount || 0);
-      }
-      return total;
-    }, 0) || 0;
-
-    const monthSavings = monthData.savingsGroups?.reduce((total: number, group: any) => {
-      if (group.account === account) {
-        return total + (group.amount || 0);
-      }
-      return total;
-    }, 0) || 0;
-
-    console.log(`💰 Month ${monthKey} - Costs: ${monthCosts}, Savings: ${monthSavings}`);
-
-    // Use the actual balance if set, otherwise use the estimated start balance
+    // Calculate the end balance for this month using the SAME LOGIC as UI calculation
+    // This ensures consistency between propagation and actual display
+    
+    // Get starting balance (either explicit or estimated)
     const startBalance = isExplicitlySet ? 
       (monthData.accountBalances?.[account] || 0) : 
       previousMonthEndBalance;
-
-    previousMonthEndBalance = startBalance - monthCosts + monthSavings;
+    
+    // Calculate total deposits from savings groups for this account
+    const savingsForAccount = monthData.savingsGroups?.filter((group: any) => group.account === account) || [];
+    const totalDeposits = savingsForAccount.reduce((sum: number, group: any) => {
+      const subCategoriesSum = group.subCategories?.reduce((subSum: number, sub: any) => subSum + (sub.amount || 0), 0) || 0;
+      return sum + (group.amount || 0) + subCategoriesSum;
+    }, 0);
+    
+    // Calculate costs budget deposits for this account
+    const costsForAccount = monthData.costGroups?.filter((group: any) => group.account === account) || [];
+    const totalCostDeposits = costsForAccount.reduce((sum: number, group: any) => sum + (group.amount || 0), 0);
+    
+    // Calculate all actual costs for this account (subCategories)
+    const allCostItems = monthData.costGroups?.reduce((items: any[], group: any) => {
+      const groupCosts = group.subCategories?.filter((sub: any) => sub.account === account) || [];
+      return items.concat(groupCosts);
+    }, []) || [];
+    const totalAllCosts = allCostItems.reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
+    
+    // Final balance = start + deposits + cost deposits - actual costs
+    previousMonthEndBalance = startBalance + totalDeposits + totalCostDeposits - totalAllCosts;
+    
+    console.log(`💰 Month ${monthKey} - Start: ${startBalance}, Deposits: ${totalDeposits}, CostDeposits: ${totalCostDeposits}, AllCosts: ${totalAllCosts}`);
     console.log(`🔚 End balance for ${monthKey}: ${previousMonthEndBalance}`);
   });
 
