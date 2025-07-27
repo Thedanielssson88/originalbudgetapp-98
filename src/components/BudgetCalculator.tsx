@@ -209,6 +209,13 @@ const BudgetCalculator = () => {
   const { historicalData: appHistoricalData, selectedMonthKey } = budgetState;
   const currentMonthData = appHistoricalData[selectedMonthKey] || {};
   
+  // CRITICAL DEBUG: Log what data is actually available
+  console.log(`🔍 [DATA LOADING] selectedMonthKey: ${selectedMonthKey}`);
+  console.log(`🔍 [DATA LOADING] appHistoricalData keys:`, Object.keys(appHistoricalData));
+  console.log(`🔍 [DATA LOADING] currentMonthData:`, currentMonthData);
+  console.log(`🔍 [DATA LOADING] currentMonthData.accountBalances:`, (currentMonthData as any).accountBalances);
+  console.log(`🔍 [DATA LOADING] currentMonthData.accountBalancesSet:`, (currentMonthData as any).accountBalancesSet);
+  
   // Data från den enda källan till sanning
   const andreasSalary = (currentMonthData as any).andreasSalary || 45000;
   const andreasförsäkringskassan = (currentMonthData as any).andreasförsäkringskassan || 0;
@@ -4825,10 +4832,13 @@ const BudgetCalculator = () => {
                                                   <div className="flex items-center gap-2">
                                                      <Input
                                                        type="text"
-                                                       defaultValue={accountBalancesSet[account] 
-                                                         ? currentBalance.toString() 
-                                                         : (currentBalance === 0 ? "Ej ifyllt" : currentBalance.toString())
-                                                       }
+                                                       defaultValue={(() => {
+                                                         const value = accountBalancesSet[account] 
+                                                           ? currentBalance.toString() 
+                                                           : (currentBalance === 0 ? "Ej ifyllt" : currentBalance.toString());
+                                                         console.log(`🔍 [INPUT VALUE] ${account}: currentBalance=${currentBalance}, accountBalancesSet=${accountBalancesSet[account]}, defaultValue="${value}"`);
+                                                         return value;
+                                                       })()}
                                                        key={`${account}-${currentBalance}-${accountBalancesSet[account]}`}
                                                        onBlur={(e) => {
                                                          console.log(`🔄 onBlur triggered for ${account} with value: ${e.target.value}`);
