@@ -90,6 +90,10 @@ const BudgetCalculator = () => {
   const [updateProgress, setUpdateProgress] = useState<number>(0);
   const [isUpdatingAllMonths, setIsUpdatingAllMonths] = useState<boolean>(false);
   
+  // Debug state for mobile
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [showDebugPanel, setShowDebugPanel] = useState<boolean>(false);
+  
   // Tab and expandable sections state
   const [activeTab, setActiveTab] = useState<string>("inkomster");
   const [previousTab, setPreviousTab] = useState<string>("");
@@ -321,10 +325,18 @@ const BudgetCalculator = () => {
     </div>
   ) : null;
 
+  // Helper function to add debug log
+  const addDebugLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const logMessage = `${timestamp}: ${message}`;
+    setDebugLogs(prev => [...prev.slice(-10), logMessage]); // Keep last 11 messages
+    console.log(logMessage);
+  };
+
   // Function to save current month as historical
   const handleSaveCurrentMonthAsHistorical = () => {
-    console.log('🎯 [SAVE BUTTON] Spara denna månad clicked');
-    console.log('🎯 [SAVE BUTTON] selectedBudgetMonth:', selectedBudgetMonth);
+    addDebugLog('🎯 SAVE BUTTON: Spara denna månad clicked');
+    addDebugLog(`🎯 SAVE BUTTON: selectedBudgetMonth: ${selectedBudgetMonth}`);
     
     if (!selectedBudgetMonth) {
       alert('Ingen månad är vald att spara.');
@@ -365,9 +377,10 @@ const BudgetCalculator = () => {
       createdAt: new Date().toISOString()
     };
 
-    console.log('🎯 [SAVE BUTTON] currentMonthDataToSave andreasSalary:', currentMonthDataToSave.andreasSalary);
-    console.log('🎯 [SAVE BUTTON] currentMonthDataToSave susannaSalary:', currentMonthDataToSave.susannaSalary);
-    console.log('🎯 [SAVE BUTTON] currentMonthDataToSave costGroups:', currentMonthDataToSave.costGroups);
+    addDebugLog(`🎯 SAVE BUTTON: andreasSalary: ${currentMonthDataToSave.andreasSalary}`);
+    addDebugLog(`🎯 SAVE BUTTON: susannaSalary: ${currentMonthDataToSave.susannaSalary}`);
+    addDebugLog(`🎯 SAVE BUTTON: accountBalances: ${JSON.stringify(currentMonthDataToSave.accountBalances)}`);
+    addDebugLog(`🎯 SAVE BUTTON: accountBalancesSet: ${JSON.stringify(currentMonthDataToSave.accountBalancesSet)}`);
 
     // Create a NEW object that contains all old data PLUS the new month
     const newHistoricalData = {
@@ -375,13 +388,16 @@ const BudgetCalculator = () => {
       [selectedBudgetMonth]: currentMonthDataToSave
     };
 
-    console.log('🎯 [SAVE BUTTON] Calling updateHistoricalData with keys:', Object.keys(newHistoricalData));
+    addDebugLog(`🎯 SAVE BUTTON: Calling updateHistoricalData with keys: ${Object.keys(newHistoricalData).join(', ')}`);
 
     // Use the central state management to update historical data
     updateHistoricalData(newHistoricalData);
 
-    console.log('🎯 [SAVE BUTTON] updateHistoricalData called successfully');
-    alert(`Budgeten för ${selectedBudgetMonth} har sparats till historiken!`);
+    addDebugLog('🎯 SAVE BUTTON: updateHistoricalData called successfully');
+    addDebugLog(`✅ Budgeten för ${selectedBudgetMonth} har sparats till historiken!`);
+    
+    // Don't show alert, just show in debug panel
+    setShowDebugPanel(true);
   };
   
   // Tab navigation helper functions
@@ -2102,7 +2118,7 @@ const BudgetCalculator = () => {
 
   // Function to update account balance
   const handleAccountBalanceUpdate = (account: string, balance: number) => {
-    console.log(`🎯 handleAccountBalanceUpdate called: ${account} = ${balance}`);
+    addDebugLog(`🎯 handleAccountBalanceUpdate called: ${account} = ${balance}`);
     
     // Update local state first
     setAccountBalances(prev => ({
@@ -2115,17 +2131,17 @@ const BudgetCalculator = () => {
       [account]: true
     }));
     
-    console.log(`🚀 About to call updateAccountBalance for ${account}`);
+    addDebugLog(`🚀 About to call updateAccountBalance for ${account}`);
     // Call the orchestrator function to trigger propagation
     updateAccountBalance(account, balance);
-    console.log(`✅ updateAccountBalance completed for ${account}`);
+    addDebugLog(`✅ updateAccountBalance completed for ${account}`);
     
     // Reset MonthFinalBalances flag when manual values are changed
     const currentDate = new Date();
     const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     resetMonthFinalBalancesFlag(currentMonthKey);
     
-    console.log(`🔄 About to call forceRecalculation`);
+    addDebugLog(`🔄 About to call forceRecalculation`);
     // Force recalculation to ensure all dependent values update
     forceRecalculation();
     console.log(`✅ forceRecalculation completed`);
@@ -4422,6 +4438,42 @@ const BudgetCalculator = () => {
                 Spara Denna Månad
               </Button>
             </div>
+            
+            {/* Debug Toggle Button */}
+            <div className="flex justify-center mt-2">
+              <Button 
+                onClick={() => setShowDebugPanel(!showDebugPanel)} 
+                variant="ghost"
+                size="sm"
+                className="text-xs"
+              >
+                {showDebugPanel ? 'Dölj' : 'Visa'} Debug Loggar
+              </Button>
+            </div>
+            
+            {/* Debug Panel */}
+            {showDebugPanel && (
+              <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                <h4 className="text-sm font-medium mb-2">Debug Loggar:</h4>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {debugLogs.length === 0 ? (
+                    <p className="text-xs text-gray-500">Inga loggar än...</p>
+                  ) : (
+                    debugLogs.map((log, index) => (
+                      <p key={index} className="text-xs font-mono break-all">{log}</p>
+                    ))
+                  )}
+                </div>
+                <Button 
+                  onClick={() => setDebugLogs([])} 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-2 text-xs"
+                >
+                  Rensa Loggar
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
