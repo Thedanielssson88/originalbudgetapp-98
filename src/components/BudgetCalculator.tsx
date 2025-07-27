@@ -994,68 +994,7 @@ const BudgetCalculator = () => {
     }
   };
 
-  // Save data to localStorage whenever values change
-  const saveToLocalStorage = () => {
-    const dataToSave = {
-      andreasSalary,
-      andreasförsäkringskassan,
-      andreasbarnbidrag,
-      susannaSalary,
-      susannaförsäkringskassan,
-      susannabarnbidrag,
-      costGroups,
-      savingsGroups,
-      dailyTransfer,
-      weekendTransfer,
-      customHolidays,
-      results,
-      selectedPerson,
-      andreasPersonalCosts,
-      andreasPersonalSavings,
-      susannaPersonalCosts,
-      susannaPersonalSavings,
-      historicalData,
-      accounts,
-      accountCategories,
-      accountCategoryMapping,
-      budgetTemplates,
-      selectedBudgetMonth, // Save the selected month
-      userName1,
-      userName2,
-      transferChecks,
-      andreasShareChecked,
-      susannaShareChecked,
-      accountBalances,
-      accountBalancesSet,
-      accountEstimatedFinalBalances,
-      accountEstimatedFinalBalancesSet,
-      accountEstimatedStartBalances,
-      accountStartBalancesSet,
-      accountEndBalancesSet,
-      selectedAccountsForChart,
-      showIndividualCostsOutsideBudget,
-      showSavingsSeparately,
-      useCustomTimeRange,
-      chartStartMonth,
-      chartEndMonth,
-      monthFinalBalances
-    };
-    localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
-  };
-
-  // Save data whenever key values change - both to localStorage and to selected month
-  useEffect(() => {
-    console.log(`💾 Save useEffect triggered. isInitialLoad: ${isInitialLoad}`);
-    console.log(`💾 DEBUG: Current andreasSalary in save useEffect:`, andreasSalary);
-    console.log(`💾 DEBUG: Current susannaSalary in save useEffect:`, susannaSalary);
-    if (!isInitialLoad) {
-      console.log(`💾 Calling saveToLocalStorage and saveToSelectedMonth`);
-      saveToLocalStorage();
-      saveToSelectedMonth();
-    } else {
-      console.log(`💾 Skipping save because isInitialLoad is true`);
-    }
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountBalancesSet, accountEstimatedFinalBalances, accountEstimatedFinalBalancesSet, accountEstimatedStartBalances, accountStartBalancesSet, accountEndBalancesSet, selectedAccountsForChart, showIndividualCostsOutsideBudget, showSavingsSeparately, useCustomTimeRange, chartStartMonth, chartEndMonth, monthFinalBalances, isInitialLoad]);
+  // Note: Save functionality now handled by orchestrator - removed duplicate save logic to prevent conflicts
   // Legacy calculation removed - now handled by orchestrator
 
   // Auto-calculate budget whenever any input changes
@@ -2889,10 +2828,7 @@ const BudgetCalculator = () => {
     
     setHistoricalData(updatedHistoricalData);
     
-    // Auto-save to localStorage
-    setTimeout(() => {
-      saveToLocalStorage();
-    }, 0);
+    // Note: Auto-save now handled by orchestrator
   };
 
   const deleteBudgetTemplate = (templateName: string) => {
@@ -2925,10 +2861,7 @@ const BudgetCalculator = () => {
     setEditingTemplate(null);
     setEditingTemplateData(null);
     
-    // Force save to localStorage
-    setTimeout(() => {
-      saveToLocalStorage();
-    }, 100);
+    // Note: Save now handled by orchestrator
   };
 
   const cancelEditingTemplate = () => {
