@@ -4823,40 +4823,37 @@ const BudgetCalculator = () => {
                                                 <div className="flex justify-between items-center">
                                                   <span className="text-sm font-medium text-blue-700">Faktiskt kontosaldo</span>
                                                   <div className="flex items-center gap-2">
-                                                    <Input
-                                                      type="text"
-                                                      value={accountBalancesSet[account] 
-                                                        ? currentBalance.toString() 
-                                                        : (currentBalance === 0 ? "Ej ifyllt" : currentBalance.toString())
-                                                      }
+                                                     <Input
+                                                       type="text"
+                                                       defaultValue={accountBalancesSet[account] 
+                                                         ? currentBalance.toString() 
+                                                         : (currentBalance === 0 ? "Ej ifyllt" : currentBalance.toString())
+                                                       }
+                                                       key={`${account}-${currentBalance}-${accountBalancesSet[account]}`}
                                                        onBlur={(e) => {
-                                                        console.log(`🔄 onBlur triggered for ${account} with value: ${e.target.value}`);
-                                                        const value = e.target.value;
-                                                         if (value === "Ej ifyllt" || value === "") {
-                                                           console.log(`🔄 onBlur: Setting ${account} to 0 (Ej ifyllt/empty)`);
-                                                           handleAccountBalanceUpdate(account, 0);
-                                                         } else {
-                                                          const numValue = Number(value);
-                                                          console.log(`🔄 onBlur: Parsed number value: ${numValue}, isNaN: ${isNaN(numValue)}`);
-                                                          if (!isNaN(numValue)) {
-                                                            console.log(`🔄 onBlur: About to call handleAccountBalanceUpdate(${account}, ${numValue})`);
-                                                            handleAccountBalanceUpdate(account, numValue);
-                                                          }
-                                                        }
-                                                      }}
-                                                       onFocus={(e) => {
-                                                         if (e.target.value === "Ej ifyllt") {
-                                                           // CRITICAL FIX: Use handleAccountBalanceUpdate for consistency
-                                                           handleAccountBalanceUpdate(account, 0);
-                                                           // Set the input value to empty for easy editing
-                                                           setTimeout(() => {
-                                                             e.target.value = "";
-                                                           }, 0);
+                                                         console.log(`🔄 onBlur triggered for ${account} with value: ${e.target.value}`);
+                                                         const value = e.target.value;
+                                                          if (value === "Ej ifyllt" || value === "") {
+                                                            console.log(`🔄 onBlur: Setting ${account} to 0 (Ej ifyllt/empty)`);
+                                                            handleAccountBalanceUpdate(account, 0);
+                                                          } else {
+                                                           const numValue = Number(value);
+                                                           console.log(`🔄 onBlur: Parsed number value: ${numValue}, isNaN: ${isNaN(numValue)}`);
+                                                           if (!isNaN(numValue)) {
+                                                             console.log(`🔄 onBlur: About to call handleAccountBalanceUpdate(${account}, ${numValue})`);
+                                                             handleAccountBalanceUpdate(account, numValue);
+                                                           }
                                                          }
                                                        }}
-                                                       className="w-32 text-right"
-                                                       placeholder="Ej ifyllt"
-                                                    />
+                                                        onFocus={(e) => {
+                                                          if (e.target.value === "Ej ifyllt") {
+                                                            // Clear the field for easy editing
+                                                            e.target.value = "";
+                                                          }
+                                                        }}
+                                                        className="w-32 text-right"
+                                                        placeholder="Ej ifyllt"
+                                                     />
                                                     <span className="text-sm text-blue-700 min-w-8">kr</span>
                                                   </div>
                                                 </div>
