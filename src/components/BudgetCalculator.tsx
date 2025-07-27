@@ -2783,92 +2783,64 @@ const BudgetCalculator = () => {
     }
   };
 
+  // Auto-save current month data whenever state changes
+  const autoSaveCurrentMonth = React.useCallback(() => {
+    if (selectedBudgetMonth) {
+      console.log(`🔄 Auto-saving current month data to ${selectedBudgetMonth}`);
+      saveToSelectedMonth();
+    }
+  }, [selectedBudgetMonth, andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, 
+      susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups,
+      dailyTransfer, weekendTransfer, andreasPersonalCosts, andreasPersonalSavings,
+      susannaPersonalCosts, susannaPersonalSavings, accountBalances, accountBalancesSet,
+      accountStartBalancesSet, accountEndBalancesSet]);
+
+  // Auto-save whenever relevant state changes (but debounced to avoid excessive saves)
+  React.useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      autoSaveCurrentMonth();
+    }, 300); // Debounce saves by 300ms
+    
+    return () => clearTimeout(timeoutId);
+  }, [autoSaveCurrentMonth]);
+
   // Function to handle month selection change
   const handleBudgetMonthChange = (monthKey: string) => {
     console.log(`=== MONTH CHANGE: Switching to ${monthKey} ===`);
-    console.log(`Current historicalData keys BEFORE operations:`, Object.keys(historicalData));
     
-    // CRITICAL: Ensure all calculations are completed and up-to-date before saving
-    console.log(`🔄 Triggering final calculation before saving current month data...`);
-    calculateBudget(); // This will trigger the latest calculation with the fixed logic
+    // IMMEDIATE save of current month data (no delays, data should already be saved by auto-save)
+    console.log(`💾 Final save before month switch...`);
+    saveToSelectedMonth();
     
-    // CRITICAL FIX: Force-update final balances with current displayed values before saving
-    console.log(`🔄 Ensuring accountEstimatedFinalBalances state reflects current calculations...`);
-    const currentFinalBalances: {[key: string]: number} = {};
-    accounts.forEach(account => {
-      // Use the same calculation logic as in calculateBudget to get the ACTUAL current ending balance
-      const originalBalance = accountBalances[account] || 0;
-      
-      // Calculate account savings
-      const accountSavings = savingsGroups
-        .filter(group => group.account === account)
-        .reduce((sum, group) => sum + group.amount, 0);
-      
-      // Calculate account one-time costs (enskild kostnad)
-      const accountOneTimeCosts = costGroups.reduce((sum: number, group: any) => {
-        const groupOneTimeCosts = group.subCategories
-          ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
-          .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-        return sum + groupOneTimeCosts;
-      }, 0);
-      
-      // Calculate the actual ending balance as displayed
-      const calculatedBalance = originalBalance + accountSavings - accountOneTimeCosts;
-      currentFinalBalances[account] = calculatedBalance;
-      
-      console.log(`📊 ${account}: originalBalance(${originalBalance}) + savings(${accountSavings}) - oneTimeCosts(${accountOneTimeCosts}) = ${calculatedBalance}`);
-    });
+    // Calculate and save final balances for the previous month of the target month
+    console.log(`Calculating previous month final balances...`);
+    const freshFinalBalances = calculateAndSavePreviousMonthFinalBalances(monthKey);
     
-    // Update the state to match current calculations
-    setAccountEstimatedFinalBalances(currentFinalBalances);
-    console.log(`💾 Updated accountEstimatedFinalBalances to current values:`, currentFinalBalances);
+    // Store the fresh final balances to use immediately for estimated balances
+    if (freshFinalBalances) {
+      (window as any).__freshFinalBalances = freshFinalBalances;
+      console.log(`Stored fresh final balances for immediate use:`, freshFinalBalances);
+    }
     
-    // CRITICAL: Save current month data with final balances BEFORE switching
-    setTimeout(() => {
-      // Save current data to current month after ensuring all values are current
-      console.log(`Saving current month data with updated final balances...`);
-      saveToSelectedMonth();
-      
-      // Wait for save to complete, then proceed with month switch
-      setTimeout(() => {
-        console.log(`✅ Current month saved, proceeding with month switch...`);
-        
-        console.log(`Historical data keys AFTER saveToSelectedMonth:`, Object.keys(historicalData));
-        
-        // Calculate and save final balances for the previous month of the target month
-        console.log(`Calculating previous month final balances...`);
-        const freshFinalBalances = calculateAndSavePreviousMonthFinalBalances(monthKey);
-        
-        console.log(`Historical data keys AFTER calculateAndSavePreviousMonthFinalBalances:`, Object.keys(historicalData));
-        console.log(`Historical data after calculating previous month final balances:`, JSON.stringify(historicalData, null, 2));
-        
-        // Store the fresh final balances to use immediately for estimated balances
-        if (freshFinalBalances) {
-          (window as any).__freshFinalBalances = freshFinalBalances;
-          console.log(`Stored fresh final balances for immediate use:`, freshFinalBalances);
-        }
-        
-        setSelectedBudgetMonth(monthKey);
-        
-        // Check if switching away from current month while on Överföring tab
-        const currentDate = new Date();
-        const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-        const isCurrentMonth = monthKey === currentMonthKey;
-        
-        // If switching to non-current month and currently on Överföring tab, switch to a valid tab
-        if (!isCurrentMonth && activeTab === 'overforing') {
-          setActiveTab('sammanstallning');
-        }
-        
-        // If the month exists in historical data, load it
-        if (historicalData[monthKey]) {
-          loadDataFromSelectedMonth(monthKey);
-        } else {
-          // If it's a new month, add it with data copied from current month
-          addNewBudgetMonth(monthKey, true);
-        }
-      }, 100); // Wait for saveToSelectedMonth to complete
-    }, 50); // Wait for state update to complete
+    setSelectedBudgetMonth(monthKey);
+    
+    // Check if switching away from current month while on Överföring tab
+    const currentDate = new Date();
+    const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    const isCurrentMonth = monthKey === currentMonthKey;
+    
+    // If switching to non-current month and currently on Överföring tab, switch to a valid tab
+    if (!isCurrentMonth && activeTab === 'overforing') {
+      setActiveTab('sammanstallning');
+    }
+    
+    // If the month exists in historical data, load it
+    if (historicalData[monthKey]) {
+      loadDataFromSelectedMonth(monthKey);
+    } else {
+      // If it's a new month, add it with data copied from current month
+      addNewBudgetMonth(monthKey, true);
+    }
   };
 
   // Budget template functions
