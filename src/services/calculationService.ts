@@ -1,32 +1,37 @@
 // Innehåller all ren beräkningslogik.
 import { RawDataState, CalculatedState, BudgetResults } from '../types/budget';
 
-// Denna funktion är hjärnan. Den tar emot rådata och returnerar en komplett,
-// nyberäknad prognos. Den vet ingenting om UI eller localStorage.
+/**
+ * Beräknar den fullständiga finansiella prognosen över en serie månader.
+ * Denna funktion är ren och muterar inte originaldata.
+ * Respekterar manuellt inmatade saldon i accountBalances.
+ */
 export function calculateFullPrognosis(rawData: RawDataState) {
   console.log('[Calculator] Påbörjar full omberäkning av estimerade saldon...');
   
   const { historicalData, accounts } = rawData;
   const historicalMonths = Object.keys(historicalData).sort((a, b) => a.localeCompare(b));
 
+  if (!historicalMonths.length || !accounts.length) {
+    return { estimatedStartBalancesByMonth: {}, estimatedFinalBalancesByMonth: {} };
+  }
+
   const estimatedStartBalancesByMonth: { [monthKey: string]: { [acc: string]: number } } = {};
   const estimatedFinalBalancesByMonth: { [monthKey: string]: { [acc: string]: number } } = {};
-  let previousMonthFinalBalances: { [acc: string]: number } = {};
+  
+  // Håll koll på löpande balans för varje konto
+  const runningBalances: { [acc: string]: number } = {};
 
-  // Initialize balances from the very first available month's start/actual balance
-  if (historicalMonths.length > 0) {
-    const firstMonthKey = historicalMonths[0];
-    const firstMonthData = historicalData[firstMonthKey];
-    accounts.forEach(accountName => {
-      // If user has set an actual balance for the first month, that's our starting point
-      if (firstMonthData.accountBalancesSet?.[accountName]) {
-        previousMonthFinalBalances[accountName] = firstMonthData.accountBalances?.[accountName] || 0;
-      } else {
-        // Otherwise, we assume it starts at 0 before any transactions
-        previousMonthFinalBalances[accountName] = 0; 
-      }
-    });
-  }
+  // Initiera löpande balans från första månadens data
+  const firstMonthKey = historicalMonths[0];
+  const firstMonthData = historicalData[firstMonthKey];
+  accounts.forEach(accountName => {
+    if (firstMonthData.accountBalancesSet?.[accountName]) {
+      runningBalances[accountName] = firstMonthData.accountBalances?.[accountName] || 0;
+    } else {
+      runningBalances[accountName] = 0;
+    }
+  });
 
   historicalMonths.forEach(monthKey => {
     const monthData = historicalData[monthKey] || {};
@@ -34,28 +39,19 @@ export function calculateFullPrognosis(rawData: RawDataState) {
     const finalBalancesForThisMonth: { [acc: string]: number } = {};
 
     accounts.forEach(accountName => {
-      let startBalance = previousMonthFinalBalances[accountName] || 0;
+      // Sätt startbalans från löpande balans
+      startBalancesForThisMonth[accountName] = runningBalances[accountName];
 
-      // **RULE 1 & 2: Prioritera manuellt "Faktiskt Saldo" som startbalans**
-      if (monthData.accountBalancesSet?.[accountName]) {
-        startBalance = monthData.accountBalances?.[accountName] || 0;
-      }
-
-      startBalancesForThisMonth[accountName] = startBalance;
-
-      // **RULE 3: Beräkna estimerat slutsaldo med samma logik som UI**
-      // Calculate total deposits from savings groups for this account
+      // Beräkna teoretiskt slutsaldo baserat på transaktioner
       const savingsForAccount = monthData.savingsGroups?.filter((group: any) => group.account === accountName) || [];
       const totalDeposits = savingsForAccount.reduce((sum: number, group: any) => {
         const subCategoriesSum = group.subCategories?.reduce((subSum: number, sub: any) => subSum + (sub.amount || 0), 0) || 0;
         return sum + (group.amount || 0) + subCategoriesSum;
       }, 0);
       
-      // Calculate costs budget deposits for this account
       const costsForAccount = monthData.costGroups?.filter((group: any) => group.account === accountName) || [];
       const totalCostDeposits = costsForAccount.reduce((sum: number, group: any) => sum + (group.amount || 0), 0);
       
-      // Calculate all actual costs for this account (subCategories) - ONLY Enskild kostnad
       const allCostItems = monthData.costGroups?.reduce((items: any[], group: any) => {
         const groupCosts = group.subCategories?.filter((sub: any) => 
           sub.account === accountName && sub.financedFrom === 'Enskild kostnad'
@@ -64,19 +60,25 @@ export function calculateFullPrognosis(rawData: RawDataState) {
       }, []) || [];
       const totalAllCosts = allCostItems.reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
       
-      // Final balance = start + deposits + cost deposits - actual costs
-      const calculatedEndBalance = startBalance + totalDeposits + totalCostDeposits - totalAllCosts;
-      finalBalancesForThisMonth[accountName] = calculatedEndBalance;
+      // Beräkna teoretiskt slutsaldo
+      let finalBalanceToShow = runningBalances[accountName] + totalDeposits + totalCostDeposits - totalAllCosts;
 
-      // **RULE 4: Förbered för nästa månad i loopen**
-      previousMonthFinalBalances[accountName] = calculatedEndBalance;
+      // KRITISK KONTROLL: Finns manuellt angivet saldo?
+      if (monthData.accountBalancesSet?.[accountName]) {
+        // Använd det manuella värdet istället för det beräknade
+        finalBalanceToShow = monthData.accountBalances?.[accountName] || 0;
+      }
+
+      finalBalancesForThisMonth[accountName] = finalBalanceToShow;
+      
+      // Uppdatera löpande balans för nästa månad
+      runningBalances[accountName] = finalBalanceToShow;
     });
 
     estimatedStartBalancesByMonth[monthKey] = startBalancesForThisMonth;
     estimatedFinalBalancesByMonth[monthKey] = finalBalancesForThisMonth;
   });
 
-  // Returnera ENDAST den beräknade datan
   return { estimatedStartBalancesByMonth, estimatedFinalBalancesByMonth };
 }
 
