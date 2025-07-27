@@ -77,41 +77,10 @@ const BudgetCalculator = () => {
   // Använd den nya useBudget hooken som hanterar state och subscriptions
   const { isLoading, budgetState, calculated } = useBudget();
   
-  // LOADING STATE - Show loading indicator while app initializes
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Laddar budget...</h1>
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-        </div>
-      </div>
-    );
-  }
-  
-  // SINGLE SOURCE OF TRUTH: Read from historicalData[selectedMonthKey]
-  const { historicalData: appHistoricalData, selectedMonthKey } = budgetState;
-  const currentMonthData = appHistoricalData[selectedMonthKey] || {};
-  
-  // Data från den enda källan till sanning
-  const andreasSalary = (currentMonthData as any).andreasSalary || 45000;
-  const andreasförsäkringskassan = (currentMonthData as any).andreasförsäkringskassan || 0;
-  const andreasbarnbidrag = (currentMonthData as any).andreasbarnbidrag || 0;
-  const susannaSalary = (currentMonthData as any).susannaSalary || 40000;
-  const susannaförsäkringskassan = (currentMonthData as any).susannaförsäkringskassan || 5000;
-  const susannabarnbidrag = (currentMonthData as any).susannabarnbidrag || 0;
-  const costGroups = (currentMonthData as any).costGroups || [];
-  const savingsGroups = (currentMonthData as any).savingsGroups || [];
-  const dailyTransfer = (currentMonthData as any).dailyTransfer || 300;
-  const weekendTransfer = (currentMonthData as any).weekendTransfer || 540;
+  // ALL HOOKS MUST BE DECLARED FIRST - BEFORE ANY CONDITIONAL LOGIC
   const [isEditingCategories, setIsEditingCategories] = useState<boolean>(false);
   const [isEditingTransfers, setIsEditingTransfers] = useState<boolean>(false);
   const [isEditingHolidays, setIsEditingHolidays] = useState<boolean>(false);
-  const customHolidays = (currentMonthData as any).customHolidays || [];
-  const results = calculated.results;
-  const historicalData = appHistoricalData;
-  const selectedHistoricalMonth = budgetState.selectedHistoricalMonth;
-  const selectedBudgetMonth = selectedMonthKey;
   const [newHistoricalMonth, setNewHistoricalMonth] = useState<string>(''); // State for new month input
   const [newMonthFromCopy, setNewMonthFromCopy] = useState<string>(''); // State for new month when copying from historical
   const [selectedSourceMonth, setSelectedSourceMonth] = useState<string>(''); // State for source month to copy from
@@ -160,14 +129,9 @@ const BudgetCalculator = () => {
   
   // Personal budget states
   const [selectedPerson, setSelectedPerson] = useState<'andreas' | 'susanna'>('andreas');
-  const andreasPersonalCosts = (currentMonthData as any).andreasPersonalCosts || 0;
-  const andreasPersonalSavings = (currentMonthData as any).andreasPersonalSavings || 0;
-  const susannaPersonalCosts = (currentMonthData as any).susannaPersonalCosts || 0;
-  const susannaPersonalSavings = (currentMonthData as any).susannaPersonalSavings || 0;
   const [isEditingPersonalBudget, setIsEditingPersonalBudget] = useState<boolean>(false);
   
   // Account management states
-  const accounts = budgetState.accounts.map(acc => acc.name);
   const [newAccountName, setNewAccountName] = useState<string>('');
   const [isEditingAccounts, setIsEditingAccounts] = useState<boolean>(false);
   const [expandedAccounts, setExpandedAccounts] = useState<{[key: string]: boolean}>({});
@@ -203,6 +167,71 @@ const BudgetCalculator = () => {
   // Create month dialog state
   const [isCreateMonthDialogOpen, setIsCreateMonthDialogOpen] = useState<boolean>(false);
   const [createMonthDirection, setCreateMonthDirection] = useState<'previous' | 'next'>('next');
+  
+  // Account balances state
+  const [accountBalances, setAccountBalances] = useState<{[key: string]: number}>({});
+  const [accountBalancesSet, setAccountBalancesSet] = useState<{[key: string]: boolean}>({});
+  const [accountEstimatedFinalBalances, setAccountEstimatedFinalBalances] = useState<{[key: string]: number}>({});
+  const [accountEstimatedFinalBalancesSet, setAccountEstimatedFinalBalancesSet] = useState<{[key: string]: boolean}>({});
+  const [accountEstimatedStartBalances, setAccountEstimatedStartBalances] = useState<{[key: string]: number}>({});
+  const [accountStartBalancesSet, setAccountStartBalancesSet] = useState<{[key: string]: boolean}>({});
+  const [accountEndBalancesSet, setAccountEndBalancesSet] = useState<{[key: string]: boolean}>({});
+  
+  // Chart selection states
+  const [selectedAccountsForChart, setSelectedAccountsForChart] = useState<string[]>([]);
+  const [showIndividualCostsOutsideBudget, setShowIndividualCostsOutsideBudget] = useState<boolean>(false);
+  const [showSavingsSeparately, setShowSavingsSeparately] = useState<boolean>(false);
+  const [showEstimatedBudgetAmounts, setShowEstimatedBudgetAmounts] = useState<boolean>(false);
+  const [balanceType, setBalanceType] = useState<'starting' | 'closing'>('closing');
+  const [monthFinalBalances, setMonthFinalBalances] = useState<{[key: string]: boolean}>({});
+  
+  // Chart legend and time range states
+  const [isChartLegendExpanded, setIsChartLegendExpanded] = useState<boolean>(false);
+  const [useCustomTimeRange, setUseCustomTimeRange] = useState<boolean>(false);
+  const [chartStartMonth, setChartStartMonth] = useState<string>('');
+  const [chartEndMonth, setChartEndMonth] = useState<string>('');
+  
+  // LOADING STATE - Show loading indicator while app initializes
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Laddar budget...</h1>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
+  
+  // SINGLE SOURCE OF TRUTH: Read from historicalData[selectedMonthKey]
+  const { historicalData: appHistoricalData, selectedMonthKey } = budgetState;
+  const currentMonthData = appHistoricalData[selectedMonthKey] || {};
+  
+  // Data från den enda källan till sanning
+  const andreasSalary = (currentMonthData as any).andreasSalary || 45000;
+  const andreasförsäkringskassan = (currentMonthData as any).andreasförsäkringskassan || 0;
+  const andreasbarnbidrag = (currentMonthData as any).andreasbarnbidrag || 0;
+  const susannaSalary = (currentMonthData as any).susannaSalary || 40000;
+  const susannaförsäkringskassan = (currentMonthData as any).susannaförsäkringskassan || 5000;
+  const susannabarnbidrag = (currentMonthData as any).susannabarnbidrag || 0;
+  const costGroups = (currentMonthData as any).costGroups || [];
+  const savingsGroups = (currentMonthData as any).savingsGroups || [];
+  const dailyTransfer = (currentMonthData as any).dailyTransfer || 300;
+  const weekendTransfer = (currentMonthData as any).weekendTransfer || 540;
+  const customHolidays = (currentMonthData as any).customHolidays || [];
+  const results = calculated.results;
+  const historicalData = appHistoricalData;
+  const selectedHistoricalMonth = budgetState.selectedHistoricalMonth;
+  const selectedBudgetMonth = selectedMonthKey;
+  
+  // Personal budget values from current month data
+  const andreasPersonalCosts = (currentMonthData as any).andreasPersonalCosts || 0;
+  const andreasPersonalSavings = (currentMonthData as any).andreasPersonalSavings || 0;
+  const susannaPersonalCosts = (currentMonthData as any).susannaPersonalCosts || 0;
+  const susannaPersonalSavings = (currentMonthData as any).susannaPersonalSavings || 0;
+  
+  // Account management states  
+  const accounts = budgetState.accounts.map(acc => acc.name);
 
   // Centralized month list logic for consistent dropdown behavior
   const availableMonths = useMemo(() => {
@@ -263,45 +292,6 @@ const BudgetCalculator = () => {
 
     alert(`Budgeten för ${selectedBudgetMonth} har sparats till historiken!`);
   };
-
-  // Account balances state
-  const [accountBalances, setAccountBalances] = useState<{[key: string]: number}>({});
-  
-  // Track which account balances have been explicitly set (to distinguish 0 from empty)
-  const [accountBalancesSet, setAccountBalancesSet] = useState<{[key: string]: boolean}>({});
-  
-  // Account final balances (Slutsaldo) state - saved per month
-  const [accountEstimatedFinalBalances, setAccountEstimatedFinalBalances] = useState<{[key: string]: number}>({});
-  
-  // Track which account final balances have been explicitly set (to distinguish 0 from empty)
-  const [accountEstimatedFinalBalancesSet, setAccountEstimatedFinalBalancesSet] = useState<{[key: string]: boolean}>({});
-  
-  // Account estimated start balances state - calculated and saved per month
-  const [accountEstimatedStartBalances, setAccountEstimatedStartBalances] = useState<{[key: string]: number}>({});
-  
-  // Track which account start balances have been explicitly set from actual balances
-  const [accountStartBalancesSet, setAccountStartBalancesSet] = useState<{[key: string]: boolean}>({});
-  
-  // Track which account end balances have been explicitly set
-  const [accountEndBalancesSet, setAccountEndBalancesSet] = useState<{[key: string]: boolean}>({});
-  
-  // Account chart selection state
-  const [selectedAccountsForChart, setSelectedAccountsForChart] = useState<string[]>([]);
-  
-  // Individual costs chart selection state (for "Enskilda kostnader")
-  const [showIndividualCostsOutsideBudget, setShowIndividualCostsOutsideBudget] = useState<boolean>(false);
-  
-  // Savings chart selection state (for "Sparande")
-  const [showSavingsSeparately, setShowSavingsSeparately] = useState<boolean>(false);
-
-  // Estimated budget amounts chart selection state
-  const [showEstimatedBudgetAmounts, setShowEstimatedBudgetAmounts] = useState<boolean>(false);
-
-  // Balance type chart selection state
-  const [balanceType, setBalanceType] = useState<'starting' | 'closing'>('closing');
-
-  // Month final balances completion flags - tracks when calculations are complete
-  const [monthFinalBalances, setMonthFinalBalances] = useState<{[key: string]: boolean}>({});
 
   // Calculate structured account data for table view
   const accountDataRows: AccountDataRow[] = React.useMemo(() => {
@@ -386,14 +376,6 @@ const BudgetCalculator = () => {
     return rows;
   }, [historicalData, accounts]);
   
-  // Chart legend expandable state
-  const [isChartLegendExpanded, setIsChartLegendExpanded] = useState<boolean>(false);
-  
-  // Chart time range selection state
-  const [useCustomTimeRange, setUseCustomTimeRange] = useState<boolean>(false);
-  const [chartStartMonth, setChartStartMonth] = useState<string>('');
-  const [chartEndMonth, setChartEndMonth] = useState<string>('');
-
   // Tab navigation helper functions
   const getTabOrder = () => {
     const currentDate = new Date();
