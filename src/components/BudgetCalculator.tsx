@@ -74,7 +74,7 @@ interface BudgetGroup {
 }
 
 const BudgetCalculator = () => {
-  // Använd den nya useBudget hooken som hanterar state och subscriptions
+  // Use the original useBudget hook - fix hook ordering instead
   const { isLoading, budgetState, calculated } = useBudget();
   
   // ALL HOOKS MUST BE DECLARED FIRST - BEFORE ANY CONDITIONAL LOGIC
@@ -191,18 +191,6 @@ const BudgetCalculator = () => {
   const [chartStartMonth, setChartStartMonth] = useState<string>('');
   const [chartEndMonth, setChartEndMonth] = useState<string>('');
   
-  // LOADING STATE - Show loading indicator while app initializes
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Laddar budget...</h1>
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-        </div>
-      </div>
-    );
-  }
-  
   // SINGLE SOURCE OF TRUTH: Read from historicalData[selectedMonthKey]
   const { historicalData: appHistoricalData, selectedMonthKey } = budgetState;
   const currentMonthData = appHistoricalData[selectedMonthKey] || {};
@@ -239,59 +227,6 @@ const BudgetCalculator = () => {
     console.log(`🔍 availableMonths recalculated. historicalData keys:`, keys);
     return keys;
   }, [historicalData]);
-
-  // Function to save current month as historical
-  const handleSaveCurrentMonthAsHistorical = () => {
-    if (!selectedBudgetMonth) {
-      alert('Ingen månad är vald att spara.');
-      return;
-    }
-
-    // Samla ihop all data från de nuvarande state-variablerna
-    const currentMonthDataToSave = {
-      andreasSalary,
-      andreasförsäkringskassan,
-      andreasbarnbidrag,
-      susannaSalary,
-      susannaförsäkringskassan,
-      susannabarnbidrag,
-      costGroups,
-      savingsGroups,
-      dailyTransfer,
-      weekendTransfer,
-      transferAccount,
-      andreasPersonalCosts,
-      andreasPersonalSavings,
-      susannaPersonalCosts,
-      susannaPersonalSavings,
-      accounts,
-      customHolidays,
-      accountBalances: (currentMonthData as any).accountBalances || {},
-      accountBalancesSet: (currentMonthData as any).accountBalancesSet || {},
-      accountEstimatedFinalBalances: (currentMonthData as any).accountEstimatedFinalBalances || {},
-      accountEstimatedFinalBalancesSet: (currentMonthData as any).accountEstimatedFinalBalancesSet || {},
-      accountEstimatedStartBalances: (currentMonthData as any).accountEstimatedStartBalances || {},
-      accountStartBalancesSet: (currentMonthData as any).accountStartBalancesSet || {},
-      accountEndBalancesSet: (currentMonthData as any).accountEndBalancesSet || {},
-      userName1: (currentMonthData as any).userName1 || 'Andreas',
-      userName2: (currentMonthData as any).userName2 || 'Susanna',
-      transferChecks: (currentMonthData as any).transferChecks || {},
-      andreasShareChecked: (currentMonthData as any).andreasShareChecked || false,
-      susannaShareChecked: (currentMonthData as any).susannaShareChecked || false,
-      createdAt: new Date().toISOString()
-    };
-
-    // Create a NEW object that contains all old data PLUS the new month
-    const newHistoricalData = {
-      ...historicalData,
-      [selectedBudgetMonth]: currentMonthDataToSave
-    };
-
-    // Use the central state management to update historical data
-    updateHistoricalData(newHistoricalData);
-
-    alert(`Budgeten för ${selectedBudgetMonth} har sparats till historiken!`);
-  };
 
   // Calculate structured account data for table view
   const accountDataRows: AccountDataRow[] = React.useMemo(() => {
@@ -375,6 +310,69 @@ const BudgetCalculator = () => {
     
     return rows;
   }, [historicalData, accounts]);
+  
+  // LOADING STATE - Render loading overlay instead of conditional return
+  const loadingOverlay = isLoading ? (
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold mb-4">Laddar budget...</h1>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+      </div>
+    </div>
+  ) : null;
+
+  // Function to save current month as historical
+  const handleSaveCurrentMonthAsHistorical = () => {
+    if (!selectedBudgetMonth) {
+      alert('Ingen månad är vald att spara.');
+      return;
+    }
+
+    // Samla ihop all data från de nuvarande state-variablerna
+    const currentMonthDataToSave = {
+      andreasSalary,
+      andreasförsäkringskassan,
+      andreasbarnbidrag,
+      susannaSalary,
+      susannaförsäkringskassan,
+      susannabarnbidrag,
+      costGroups,
+      savingsGroups,
+      dailyTransfer,
+      weekendTransfer,
+      transferAccount,
+      andreasPersonalCosts,
+      andreasPersonalSavings,
+      susannaPersonalCosts,
+      susannaPersonalSavings,
+      accounts,
+      customHolidays,
+      accountBalances: (currentMonthData as any).accountBalances || {},
+      accountBalancesSet: (currentMonthData as any).accountBalancesSet || {},
+      accountEstimatedFinalBalances: (currentMonthData as any).accountEstimatedFinalBalances || {},
+      accountEstimatedFinalBalancesSet: (currentMonthData as any).accountEstimatedFinalBalancesSet || {},
+      accountEstimatedStartBalances: (currentMonthData as any).accountEstimatedStartBalances || {},
+      accountStartBalancesSet: (currentMonthData as any).accountStartBalancesSet || {},
+      accountEndBalancesSet: (currentMonthData as any).accountEndBalancesSet || {},
+      userName1: (currentMonthData as any).userName1 || 'Andreas',
+      userName2: (currentMonthData as any).userName2 || 'Susanna',
+      transferChecks: (currentMonthData as any).transferChecks || {},
+      andreasShareChecked: (currentMonthData as any).andreasShareChecked || false,
+      susannaShareChecked: (currentMonthData as any).susannaShareChecked || false,
+      createdAt: new Date().toISOString()
+    };
+
+    // Create a NEW object that contains all old data PLUS the new month
+    const newHistoricalData = {
+      ...historicalData,
+      [selectedBudgetMonth]: currentMonthDataToSave
+    };
+
+    // Use the central state management to update historical data
+    updateHistoricalData(newHistoricalData);
+
+    alert(`Budgeten för ${selectedBudgetMonth} har sparats till historiken!`);
+  };
   
   // Tab navigation helper functions
   const getTabOrder = () => {
@@ -4436,6 +4434,7 @@ const BudgetCalculator = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background p-4">
+      {loadingOverlay}
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
