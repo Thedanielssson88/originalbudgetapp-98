@@ -62,15 +62,16 @@ export function initializeStateFromStorage(): void {
     const savedData = get<any>(StorageKey.BUDGET_CALCULATOR_DATA);
     addMobileDebugLog(`[INIT] Raw savedData: ${savedData ? 'DATA FOUND' : 'NO DATA'}`);
     
-    // CRITICAL: Direct localStorage inspection
-    const rawData = localStorage.getItem('budgetCalculatorData');
-    console.log('🔥 RAW LOCALSTORAGE:', rawData?.substring(0, 1000));
+    // CRITICAL: Direct localStorage inspection for debug
+    addMobileDebugLog(`[INIT] 🔥 RAW LOCALSTORAGE LENGTH: ${localStorage.getItem('budgetCalculatorData')?.length || 'null'}`);
     if (savedData?.budgetState?.historicalData) {
-      console.log('🔥 HISTORICAL DATA KEYS:', Object.keys(savedData.budgetState.historicalData));
+      addMobileDebugLog(`[INIT] 🔥 HISTORICAL DATA KEYS: ${Object.keys(savedData.budgetState.historicalData).join(', ')}`);
       const month2025_07 = savedData.budgetState.historicalData['2025-07'];
       if (month2025_07) {
-        console.log('🔥 2025-07 ACCOUNT BALANCES:', month2025_07.accountBalances);
-        console.log('🔥 2025-07 ACCOUNT BALANCES SET:', month2025_07.accountBalancesSet);
+        addMobileDebugLog(`[INIT] 🔥 2025-07 ACCOUNT BALANCES: ${JSON.stringify(month2025_07.accountBalances)}`);
+        addMobileDebugLog(`[INIT] 🔥 2025-07 ACCOUNT BALANCES SET: ${JSON.stringify(month2025_07.accountBalancesSet)}`);
+      } else {
+        addMobileDebugLog(`[INIT] 🔥 NO 2025-07 DATA FOUND!`);
       }
     }
     
