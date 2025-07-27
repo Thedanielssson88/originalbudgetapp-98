@@ -4,6 +4,7 @@ import { get, set, StorageKey } from '../services/storageService';
 import { BudgetState, MonthData, Account } from '../types/budget';
 
 interface AppState {
+  isLoading: boolean;
   budgetState: BudgetState;
   calculated: {
     results: any;
@@ -13,6 +14,7 @@ interface AppState {
 
 // Initialize the new simplified state structure
 export const state: AppState = {
+  isLoading: true, // Start as loading
   budgetState: {
     historicalData: {},
     accounts: [
@@ -150,6 +152,9 @@ export function initializeStateFromStorage(): void {
     // Keep default state on error
   }
 }
+
+// Export function to check if app is loading
+export const isAppLoading = (): boolean => state.isLoading;
 
 export function saveStateToStorage(): void {
   try {

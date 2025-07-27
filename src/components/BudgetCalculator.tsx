@@ -75,7 +75,19 @@ interface BudgetGroup {
 
 const BudgetCalculator = () => {
   // Använd den nya useBudget hooken som hanterar state och subscriptions
-  const { budgetState, calculated } = useBudget();
+  const { isLoading, budgetState, calculated } = useBudget();
+  
+  // LOADING STATE - Show loading indicator while app initializes
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Laddar budget...</h1>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
   
   // SINGLE SOURCE OF TRUTH: Read from historicalData[selectedMonthKey]
   const { historicalData: appHistoricalData, selectedMonthKey } = budgetState;

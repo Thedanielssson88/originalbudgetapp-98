@@ -15,7 +15,14 @@ function triggerUIRefresh() {
 
 // Initialize the application
 export function initializeApp(): void {
+  console.log('[BudgetOrchestrator] Initializing application...');
   initializeStateFromStorage();
+  
+  // Mark loading as complete
+  state.isLoading = false;
+  
+  // Trigger UI refresh to update components
+  triggerUIRefresh();
 }
 
 // Get current state

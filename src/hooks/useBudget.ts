@@ -5,6 +5,7 @@ import {
   unsubscribeFromStateChanges,
   initializeApp
 } from '../orchestrator/budgetOrchestrator';
+import { isAppLoading } from '../state/budgetState';
 
 export const useBudget = () => {
   // Force re-render when state updates
@@ -27,6 +28,7 @@ export const useBudget = () => {
   const { budgetState, calculated } = appState;
   
   return {
+    isLoading: isAppLoading(),
     budgetState,
     calculated
   };
