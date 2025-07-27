@@ -67,12 +67,16 @@ export function calculateFullPrognosis(rawData: RawDataState) {
       if (monthData.accountBalancesSet?.[accountName]) {
         // Använd det manuella värdet istället för det beräknade
         finalBalanceToShow = monthData.accountBalances?.[accountName] || 0;
+        console.log(`[Calculator] ${monthKey} ${accountName}: Använder manuellt saldo ${finalBalanceToShow} istället för beräknat ${runningBalances[accountName] + totalDeposits + totalCostDeposits - totalAllCosts}`);
+      } else {
+        console.log(`[Calculator] ${monthKey} ${accountName}: Använder beräknat saldo ${finalBalanceToShow}`);
       }
 
       finalBalancesForThisMonth[accountName] = finalBalanceToShow;
       
       // Uppdatera löpande balans för nästa månad
       runningBalances[accountName] = finalBalanceToShow;
+      console.log(`[Calculator] ${monthKey} ${accountName}: Uppdaterar runningBalance till ${finalBalanceToShow} för nästa månad`);
     });
 
     estimatedStartBalancesByMonth[monthKey] = startBalancesForThisMonth;
