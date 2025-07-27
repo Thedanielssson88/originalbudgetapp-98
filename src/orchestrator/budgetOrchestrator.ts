@@ -16,7 +16,6 @@ function triggerUIRefresh() {
 // Initialize the application
 export function initializeApp(): void {
   initializeStateFromStorage();
-  runCalculationsAndUpdateState();
 }
 
 // Get current state
