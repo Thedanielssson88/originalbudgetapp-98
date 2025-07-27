@@ -7,7 +7,7 @@ import { RawDataState, CalculatedState, BudgetResults } from '../types/budget';
  * Respekterar manuellt inmatade saldon i accountBalances.
  */
 export function calculateFullPrognosis(rawData: RawDataState) {
-  console.log('[Calculator] Påbörjar full omberäkning med korrigerad logik för manuella saldon...');
+  console.log('[Calculator] Påbörjar full omberäkning av estimerade saldon...');
   
   const { historicalData, accounts } = rawData;
   const historicalMonths = Object.keys(historicalData).sort((a, b) => a.localeCompare(b));
@@ -19,24 +19,30 @@ export function calculateFullPrognosis(rawData: RawDataState) {
   const estimatedStartBalancesByMonth: { [monthKey: string]: { [acc: string]: number } } = {};
   const estimatedFinalBalancesByMonth: { [monthKey: string]: { [acc: string]: number } } = {};
   
-  // Initiera löpande balans för varje konto. Startar på 0.
+  // Håll koll på löpande balans för varje konto
   const runningBalances: { [acc: string]: number } = {};
+
+  // Initiera löpande balans från första månadens data
+  const firstMonthKey = historicalMonths[0];
+  const firstMonthData = historicalData[firstMonthKey];
   accounts.forEach(accountName => {
-    runningBalances[accountName] = 0;
+    if (firstMonthData.accountBalancesSet?.[accountName]) {
+      runningBalances[accountName] = firstMonthData.accountBalances?.[accountName] || 0;
+    } else {
+      runningBalances[accountName] = 0;
+    }
   });
 
-  // *** NY KORRIGERAD LOOP ***
   historicalMonths.forEach(monthKey => {
     const monthData = historicalData[monthKey] || {};
     const startBalancesForThisMonth: { [acc: string]: number } = {};
     const finalBalancesForThisMonth: { [acc: string]: number } = {};
 
     accounts.forEach(accountName => {
-      // 1. SÄTT STARTBALANS: Använd alltid den löpande balansen från föregående månad.
-      const startBalance = runningBalances[accountName];
-      startBalancesForThisMonth[accountName] = startBalance;
+      // Sätt startbalans från löpande balans
+      startBalancesForThisMonth[accountName] = runningBalances[accountName];
 
-      // 2. BERÄKNA TRANSAKTIONER: Summera alla insättningar och "Enskilda kostnader".
+      // Beräkna teoretiskt slutsaldo baserat på transaktioner
       const savingsForAccount = monthData.savingsGroups?.filter((group: any) => group.account === accountName) || [];
       const totalDeposits = savingsForAccount.reduce((sum: number, group: any) => {
         const subCategoriesSum = group.subCategories?.reduce((subSum: number, sub: any) => subSum + (sub.amount || 0), 0) || 0;
@@ -54,18 +60,18 @@ export function calculateFullPrognosis(rawData: RawDataState) {
       }, []) || [];
       const totalAllCosts = allCostItems.reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
       
-      // 3. BERÄKNA TEORETISKT SLUTSALDO: Baserat på startbalans och transaktioner.
-      let finalBalanceToShow = startBalance + totalDeposits + totalCostDeposits - totalAllCosts;
+      // Beräkna teoretiskt slutsaldo
+      let finalBalanceToShow = runningBalances[accountName] + totalDeposits + totalCostDeposits - totalAllCosts;
 
-      // 4. KONTROLLERA FÖR MANUELL OVERRIDE: Gäller detta slutsaldo.
+      // KRITISK KONTROLL: Finns manuellt angivet saldo?
       if (monthData.accountBalancesSet?.[accountName]) {
-        // Om ett manuellt saldo finns, ersätter det vårt beräknade slutsaldo.
+        // Använd det manuella värdet istället för det beräknade
         finalBalanceToShow = monthData.accountBalances?.[accountName] || 0;
       }
 
       finalBalancesForThisMonth[accountName] = finalBalanceToShow;
       
-      // 5. UPPDATERA LÖPANDE BALANS: Förbered för nästa månad med det slutgiltiga värdet.
+      // Uppdatera löpande balans för nästa månad
       runningBalances[accountName] = finalBalanceToShow;
     });
 
