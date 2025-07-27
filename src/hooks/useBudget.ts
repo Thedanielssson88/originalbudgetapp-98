@@ -12,20 +12,30 @@ export const useBudget = () => {
   const [, forceUpdate] = useReducer(x => x + 1, 0);
 
   useEffect(() => {
+    console.log(`🔄 [HOOK] useBudget subscribing to state changes...`);
     // Subscribe to state updates
-    subscribeToStateChanges(forceUpdate);
+    subscribeToStateChanges(() => {
+      console.log(`🔄 [HOOK] State change detected - forcing re-render`);
+      forceUpdate();
+    });
     // Unsubscribe when component unmounts
-    return () => unsubscribeFromStateChanges(forceUpdate);
+    return () => {
+      console.log(`🔄 [HOOK] useBudget unsubscribing from state changes`);
+      unsubscribeFromStateChanges(forceUpdate);
+    };
   }, []);
 
   // Initialize app once
   useEffect(() => {
+    console.log(`🔄 [HOOK] Initializing app...`);
     initializeApp();
   }, []);
 
   // Always get the latest state on each render
   const appState = getCurrentState();
   const { budgetState, calculated } = appState;
+  
+  console.log(`🔄 [HOOK] useBudget render - isLoading: ${isAppLoading()}, selectedMonthKey: ${budgetState.selectedMonthKey}`);
   
   return {
     isLoading: isAppLoading(),
