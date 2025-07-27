@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useReducer, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -16,10 +16,6 @@ import { AccountDataTable, AccountDataRow } from '@/components/AccountDataTable'
 import CreateMonthDialog from './CreateMonthDialog';
 import { CustomLineChart } from './CustomLineChart';
 import { 
-  initializeApp, 
-  getCurrentState, 
-  subscribeToStateChanges, 
-  unsubscribeFromStateChanges,
   updateCostGroups,
   updateSavingsGroups,
   updateAccountBalance,
@@ -57,6 +53,7 @@ import {
   setMonthFinalBalances
 } from '../orchestrator/budgetOrchestrator';
 import { StorageKey } from '../services/storageService';
+import { useBudget } from '../hooks/useBudget';
 
 interface SubCategory {
   id: string;
@@ -77,24 +74,8 @@ interface BudgetGroup {
 }
 
 const BudgetCalculator = () => {
-  // Tvinga en omrendrering när vårt state uppdateras
-  const [, forceUpdate] = useReducer(x => x + 1, 0);
-
-  useEffect(() => {
-    // Prenumerera på uppdateringar
-    subscribeToStateChanges(forceUpdate);
-    // Avsluta prenumeration när komponenten tas bort
-    return () => unsubscribeFromStateChanges(forceUpdate);
-  }, []);
-
-  // Initiera appen en gång
-  useEffect(() => {
-    initializeApp();
-  }, []);
-
-  // Hämta alltid det senaste statet vid varje rendering
-  const appState = getCurrentState();
-  const { budgetState, calculated } = appState;
+  // Använd den nya useBudget hooken som hanterar state och subscriptions
+  const { budgetState, calculated } = useBudget();
   
   // SINGLE SOURCE OF TRUTH: Read from historicalData[selectedMonthKey]
   const { historicalData: appHistoricalData, selectedMonthKey } = budgetState;
@@ -2791,8 +2772,7 @@ const BudgetCalculator = () => {
       // Set the new month as selected
       setSelectedBudgetMonth(targetMonthKey);
       
-      // Force a re-render to ensure the UI updates immediately
-      forceUpdate();
+      // Re-render is automatically handled by useBudget hook
       
       // Close the dialog after a brief delay to ensure state updates complete
       setTimeout(() => {
