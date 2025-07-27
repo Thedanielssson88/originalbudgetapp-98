@@ -66,7 +66,7 @@ export function getCurrentState() {
     transferChecks: currentMonthData.transferChecks,
     
     // From global state
-    accounts: budgetState.accounts,
+    accounts: budgetState.accounts.map(acc => acc.name), // Convert to strings for compatibility
     historicalData: budgetState.historicalData,
     selectedBudgetMonth: budgetState.selectedMonthKey,
     selectedHistoricalMonth: budgetState.selectedHistoricalMonth,
@@ -104,10 +104,10 @@ function createEmptyMonthData(): MonthData {
     dailyTransfer: 0,
     weekendTransfer: 0,
     transferAccount: 0,
-    andreasPersonalCosts: [],
-    andreasPersonalSavings: [],
-    susannaPersonalCosts: [],
-    susannaPersonalSavings: [],
+    andreasPersonalCosts: 0,
+    andreasPersonalSavings: 0,
+    susannaPersonalCosts: 0,
+    susannaPersonalSavings: 0,
     customHolidays: [],
     accountBalances: {},
     accountBalancesSet: {},
@@ -122,6 +122,7 @@ function createEmptyMonthData(): MonthData {
     andreasShareChecked: false,
     susannaShareChecked: false,
     monthFinalBalances: {},
+    accountEndingBalances: {},
     createdAt: new Date().toISOString()
   };
 }
@@ -238,13 +239,7 @@ export function setAndreasPersonalCosts(value: number): void {
   const currentMonth = budgetState.selectedMonthKey;
   
   if (budgetState.historicalData[currentMonth]) {
-    // Convert number to BudgetGroup array for compatibility
-    budgetState.historicalData[currentMonth].andreasPersonalCosts = [{
-      id: 'andreas-personal',
-      name: 'Andreas personliga kostnader',
-      amount: value,
-      type: 'cost'
-    }];
+    budgetState.historicalData[currentMonth].andreasPersonalCosts = value;
   }
 }
 
@@ -253,12 +248,7 @@ export function setAndreasPersonalSavings(value: number): void {
   const currentMonth = budgetState.selectedMonthKey;
   
   if (budgetState.historicalData[currentMonth]) {
-    budgetState.historicalData[currentMonth].andreasPersonalSavings = [{
-      id: 'andreas-savings',
-      name: 'Andreas personligt sparande',
-      amount: value,
-      type: 'savings'
-    }];
+    budgetState.historicalData[currentMonth].andreasPersonalSavings = value;
   }
 }
 
@@ -267,12 +257,7 @@ export function setSusannaPersonalCosts(value: number): void {
   const currentMonth = budgetState.selectedMonthKey;
   
   if (budgetState.historicalData[currentMonth]) {
-    budgetState.historicalData[currentMonth].susannaPersonalCosts = [{
-      id: 'susanna-personal',
-      name: 'Susanna personliga kostnader',
-      amount: value,
-      type: 'cost'
-    }];
+    budgetState.historicalData[currentMonth].susannaPersonalCosts = value;
   }
 }
 
@@ -281,12 +266,7 @@ export function setSusannaPersonalSavings(value: number): void {
   const currentMonth = budgetState.selectedMonthKey;
   
   if (budgetState.historicalData[currentMonth]) {
-    budgetState.historicalData[currentMonth].susannaPersonalSavings = [{
-      id: 'susanna-savings',
-      name: 'Susanna personligt sparande',
-      amount: value,
-      type: 'savings'
-    }];
+    budgetState.historicalData[currentMonth].susannaPersonalSavings = value;
   }
 }
 

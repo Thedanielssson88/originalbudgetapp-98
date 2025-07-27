@@ -64,11 +64,11 @@ export interface MonthData {
   weekendTransfer: number;
   transferAccount?: number;
   
-  // Personal budgets
-  andreasPersonalCosts: BudgetGroup[];
-  andreasPersonalSavings: BudgetGroup[];
-  susannaPersonalCosts: BudgetGroup[];
-  susannaPersonalSavings: BudgetGroup[];
+  // Personal budgets (behåll som number för kompatibilitet)
+  andreasPersonalCosts: number;
+  andreasPersonalSavings: number;
+  susannaPersonalCosts: number;
+  susannaPersonalSavings: number;
   
   // Custom holidays for this month
   customHolidays: {date: string, name: string}[];
@@ -93,6 +93,9 @@ export interface MonthData {
   
   // Month completion flags
   monthFinalBalances: {[key: string]: boolean};
+  
+  // Account ending balances (lägg till saknad property)
+  accountEndingBalances: {[key: string]: number};
   
   // Metadata
   createdAt?: string;
