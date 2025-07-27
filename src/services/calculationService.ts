@@ -55,9 +55,11 @@ export function calculateFullPrognosis(rawData: RawDataState) {
       const costsForAccount = monthData.costGroups?.filter((group: any) => group.account === accountName) || [];
       const totalCostDeposits = costsForAccount.reduce((sum: number, group: any) => sum + (group.amount || 0), 0);
       
-      // Calculate all actual costs for this account (subCategories)
+      // Calculate all actual costs for this account (subCategories) - ONLY Enskild kostnad
       const allCostItems = monthData.costGroups?.reduce((items: any[], group: any) => {
-        const groupCosts = group.subCategories?.filter((sub: any) => sub.account === accountName) || [];
+        const groupCosts = group.subCategories?.filter((sub: any) => 
+          sub.account === accountName && sub.financedFrom === 'Enskild kostnad'
+        ) || [];
         return items.concat(groupCosts);
       }, []) || [];
       const totalAllCosts = allCostItems.reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
