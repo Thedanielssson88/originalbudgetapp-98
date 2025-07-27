@@ -103,9 +103,11 @@ export function updateSavingsGroups(newSavingsGroups: any[]) {
 export function updateAccountBalance(account: string, balance: number) {
   console.log(`🔄 updateAccountBalance called for ${account} with balance ${balance}`);
   const newBalances = { ...state.rawData.accountBalances, [account]: balance };
-  handleManualValueChange(StorageKey.ACCOUNT_BALANCES, newBalances, 'accountBalances');
   
-  // Propagate ONLY estimated start balances to future months (not faktiskt kontosaldo)
+  // Update the balance without triggering calculation yet
+  handleManualValueChange(StorageKey.ACCOUNT_BALANCES, newBalances, 'accountBalances', true);
+  
+  // Propagate estimated start balances to future months AND trigger calculation after
   console.log(`🚀 Calling propagateBalanceChangesToFutureMonths for ${account}`);
   propagateBalanceChangesToFutureMonths(account, balance);
 }
@@ -201,7 +203,7 @@ function propagateBalanceChangesToFutureMonths(account: string, newBalance: numb
   // Update the historical data if changes were made
   if (hasChanges) {
     console.log(`✅ Propagation complete - updating historical data and triggering recalculation`);
-    handleManualValueChange(StorageKey.HISTORICAL_DATA, updatedHistoricalData, 'historicalData', false);
+    handleManualValueChange(StorageKey.BUDGET_CALCULATOR_DATA, updatedHistoricalData, 'historicalData', false);
   } else {
     console.log(`ℹ️ No changes needed during propagation`);
   }
