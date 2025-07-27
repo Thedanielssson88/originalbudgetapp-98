@@ -97,9 +97,17 @@ const BudgetCalculator = () => {
   
   // Subscribe to global debug logger
   useEffect(() => {
+    // Load existing logs immediately when component mounts
+    const existingLogs = mobileDebugLogger.getLogs();
+    setGlobalDebugLogs(existingLogs.map(log => `${log.timestamp}: ${log.message}`));
+    
     const unsubscribe = mobileDebugLogger.subscribe((logs) => {
       setGlobalDebugLogs(logs.map(log => `${log.timestamp}: ${log.message}`));
     });
+    
+    // Add a log to show component mounted
+    addMobileDebugLog('[COMPONENT] BudgetCalculator mounted - checking for existing logs');
+    
     return unsubscribe;
   }, []);
   
@@ -3932,7 +3940,37 @@ const BudgetCalculator = () => {
             <Button variant="ghost" className="w-full justify-between p-3 h-auto">
               <span className="font-medium">Diagramförklaring</span>
               <ChevronDown className={`h-4 w-4 transition-transform ${isChartLegendExpanded ? 'rotate-180' : ''}`} />
-            </Button>
+              </Button>
+              <Button 
+                onClick={() => {
+                  addDebugLog('[STORAGE CHECK] Checking localStorage now...');
+                  const data = localStorage.getItem('budgetCalculatorData');
+                  if (data) {
+                    try {
+                      const parsed = JSON.parse(data);
+                      addDebugLog(`[STORAGE] Data found - structure: ${Object.keys(parsed).join(', ')}`);
+                      if (parsed.budgetState?.historicalData) {
+                        const months = Object.keys(parsed.budgetState.historicalData);
+                        addDebugLog(`[STORAGE] Historical months: ${months.join(', ')}`);
+                        if (parsed.budgetState.historicalData['2025-07']) {
+                          const july = parsed.budgetState.historicalData['2025-07'];
+                          addDebugLog(`[STORAGE] July accountBalances: ${JSON.stringify(july.accountBalances || {})}`);
+                          addDebugLog(`[STORAGE] July accountBalancesSet: ${JSON.stringify(july.accountBalancesSet || {})}`);
+                        }
+                      }
+                    } catch (e) {
+                      addDebugLog(`[STORAGE] Error parsing data: ${e}`);
+                    }
+                  } else {
+                    addDebugLog('[STORAGE] No data found in localStorage');
+                  }
+                }} 
+                variant="ghost"
+                size="sm"
+                className="text-xs"
+              >
+                Kolla Storage
+              </Button>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="bg-muted/30 p-4 rounded-lg text-sm space-y-3">
