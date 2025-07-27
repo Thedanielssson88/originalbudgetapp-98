@@ -3,90 +3,65 @@ import { RawDataState, CalculatedState, BudgetResults } from '../types/budget';
 
 // Denna funktion är hjärnan. Den tar emot rådata och returnerar en komplett,
 // nyberäknad prognos. Den vet ingenting om UI eller localStorage.
-export function calculateFullPrognosis(rawData: RawDataState): CalculatedState {
-  console.log('[Calculator] Påbörjar full omberäkning i minnet...');
+export function calculateFullPrognosis(rawData: RawDataState) {
+  console.log('[Calculator] Påbörjar full omberäkning av estimerade saldon...');
   
-  const results = calculateBudgetResults(rawData);
-  
-  // Core balance propagation logic to ensure manual end balances propagate correctly
-  const historicalMonths = Object.keys(rawData.historicalData).sort();
-  const currentBalances: {[account: string]: number} = {};
-  const finalBalances: {[account: string]: number} = {};
-  
-  // Initialize starting balances for the first month
+  const { historicalData, accounts } = rawData;
+  const historicalMonths = Object.keys(historicalData).sort((a, b) => a.localeCompare(b));
+
+  const estimatedStartBalancesByMonth: { [monthKey: string]: { [acc: string]: number } } = {};
+  const estimatedFinalBalancesByMonth: { [monthKey: string]: { [acc: string]: number } } = {};
+  let previousMonthFinalBalances: { [acc: string]: number } = {};
+
+  // Initialize balances from the very first available month's start/actual balance
   if (historicalMonths.length > 0) {
-    const accounts = rawData.accounts || [];
+    const firstMonthKey = historicalMonths[0];
+    const firstMonthData = historicalData[firstMonthKey];
     accounts.forEach(accountName => {
-      currentBalances[accountName] = rawData.historicalData[historicalMonths[0]]?.accountBalances?.[accountName] || 0;
+      // If user has set an actual balance for the first month, that's our starting point
+      if (firstMonthData.accountBalancesSet?.[accountName]) {
+        previousMonthFinalBalances[accountName] = firstMonthData.accountBalances?.[accountName] || 0;
+      } else {
+        // Otherwise, we assume it starts at 0 before any transactions
+        previousMonthFinalBalances[accountName] = 0; 
+      }
     });
   }
-  
-  // Iterate through each month and propagate balances correctly
-  historicalMonths.forEach((monthKey, index) => {
-    const monthData = rawData.historicalData[monthKey];
-    if (!monthData) return;
-    
-    const accounts = rawData.accounts || [];
+
+  historicalMonths.forEach(monthKey => {
+    const monthData = historicalData[monthKey] || {};
+    const startBalancesForThisMonth: { [acc: string]: number } = {};
+    const finalBalancesForThisMonth: { [acc: string]: number } = {};
+
     accounts.forEach(accountName => {
-      const currentBalance = currentBalances[accountName] || 0;
-      
-      // Calculate basic monthly change (simplified - could be enhanced with actual income/expense logic)
+      let startBalance = previousMonthFinalBalances[accountName] || 0;
+
+      // **RULE 1 & 2: Prioritera manuellt "Faktiskt Saldo" som startbalans**
+      if (monthData.accountBalancesSet?.[accountName]) {
+        startBalance = monthData.accountBalances?.[accountName] || 0;
+      }
+
+      startBalancesForThisMonth[accountName] = startBalance;
+
+      // **RULE 3: Beräkna estimerat slutsaldo**
       const totalIncome = monthData.totalSalary || 0;
       const totalExpenses = monthData.totalMonthlyExpenses || 0;
-      const calculatedEndBalance = currentBalance + totalIncome - totalExpenses;
-      
-      // CORRECTION: Check if a manual balance exists and use it as the definitive end balance
-      let finalEndBalanceForMonth = calculatedEndBalance; // Start with calculated value
-      
-      if (monthData.accountEndBalancesSet && monthData.accountEndBalancesSet[accountName]) {
-        // Use the manually set end balance as the definitive value
-        finalEndBalanceForMonth = monthData.accountEndBalances?.[accountName] || calculatedEndBalance;
-      }
-      
-      finalBalances[accountName] = finalEndBalanceForMonth;
-      
-      // CORRECTION: Use the DEFINITIVE end balance (finalEndBalanceForMonth)
-      // as the starting balance for the NEXT month in the loop
-      currentBalances[accountName] = finalEndBalanceForMonth;
+      const calculatedEndBalance = startBalance + totalIncome - totalExpenses;
+      finalBalancesForThisMonth[accountName] = calculatedEndBalance;
+
+      // **RULE 4: Förbered för nästa månad i loopen**
+      previousMonthFinalBalances[accountName] = calculatedEndBalance;
     });
-    
-    // Update the month's estimated start balances for the next month
-    if (index < historicalMonths.length - 1) {
-      const nextMonthKey = historicalMonths[index + 1];
-      const nextMonthData = rawData.historicalData[nextMonthKey];
-      if (nextMonthData) {
-        // Propagate the definitive end balances as estimated start balances for next month
-        console.log(`🔢 Calculating estimated start balances for ${nextMonthKey} (always calculated)`);
-        const accounts = rawData.accounts || [];
-        accounts.forEach(accountName => {
-          const estimatedStartBalance = finalBalances[accountName] || 0;
-          console.log(`📊 Estimated start balance for ${accountName}: ${estimatedStartBalance} (from prev month estimated final balances)`);
-          
-          // Save the propagated balance to the next month's estimated start balances
-          if (!nextMonthData.accountEstimatedStartBalances) {
-            nextMonthData.accountEstimatedStartBalances = {};
-          }
-          nextMonthData.accountEstimatedStartBalances[accountName] = estimatedStartBalance;
-        });
-        console.log(`💾 Saved estimated start balances for ${nextMonthKey}:`, nextMonthData.accountEstimatedStartBalances);
-      }
-    }
+
+    estimatedStartBalancesByMonth[monthKey] = startBalancesForThisMonth;
+    estimatedFinalBalancesByMonth[monthKey] = finalBalancesForThisMonth;
   });
-  
-  const newPrognosis = {
-    accountProgression: calculateAccountProgression(rawData),
-    monthlyBreakdowns: calculateMonthlyBreakdowns(rawData),
-    projectedBalances: calculateProjectedBalances(rawData)
-  };
-  
-  console.log('[Calculator] Omberäkning klar.');
-  return {
-    results,
-    fullPrognosis: newPrognosis,
-  };
+
+  // Returnera ENDAST den beräknade datan
+  return { estimatedStartBalancesByMonth, estimatedFinalBalancesByMonth };
 }
 
-function calculateBudgetResults(rawData: RawDataState): BudgetResults {
+export function calculateBudgetResults(rawData: RawDataState): BudgetResults {
   const {
     andreasSalary,
     andreasförsäkringskassan,
@@ -186,17 +161,17 @@ function calculateBudgetResults(rawData: RawDataState): BudgetResults {
   };
 }
 
-function calculateAccountProgression(rawData: RawDataState) {
+export function calculateAccountProgression(rawData: RawDataState) {
   // Implement account progression logic
   return {};
 }
 
-function calculateMonthlyBreakdowns(rawData: RawDataState) {
+export function calculateMonthlyBreakdowns(rawData: RawDataState) {
   // Implement monthly breakdown logic
   return {};
 }
 
-function calculateProjectedBalances(rawData: RawDataState) {
+export function calculateProjectedBalances(rawData: RawDataState) {
   // Implement projected balance logic
   return {};
 }

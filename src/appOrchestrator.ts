@@ -2,7 +2,7 @@
 
 import { state, initializeStateFromStorage, saveStateToStorage } from './state/mainState';
 import { StorageKey } from './services/storageService';
-import { calculateFullPrognosis } from './services/calculationService';
+import { calculateFullPrognosis, calculateBudgetResults, calculateAccountProgression, calculateMonthlyBreakdowns, calculateProjectedBalances } from './services/calculationService';
 import { RawDataState } from './types/budget';
 
 // Denna funktion ska anropas av React för att trigga en omrendrering.
@@ -21,8 +21,33 @@ export function initializeApp(): void {
 }
 
 function runCalculationsAndUpdateState(): void {
-  const newCalculatedState = calculateFullPrognosis(state.rawData);
-  state.calculated = newCalculatedState;
+  // 1. Kör den rena beräkningsfunktionen
+  const { estimatedStartBalancesByMonth, estimatedFinalBalancesByMonth } = calculateFullPrognosis(state.rawData);
+  
+  // 2. Beräkna endast budget results separat
+  const results = calculateBudgetResults(state.rawData);
+  
+  // 3. Skapa en djup kopia av nuvarande historik för att säkert kunna modifiera den
+  const newHistoricalData = JSON.parse(JSON.stringify(state.rawData.historicalData));
+
+  // 4. Loopa igenom resultaten och uppdatera ENDAST de estimerade fälten
+  Object.keys(estimatedStartBalancesByMonth).forEach(monthKey => {
+    if (newHistoricalData[monthKey]) {
+      newHistoricalData[monthKey].accountEstimatedStartBalances = estimatedStartBalancesByMonth[monthKey];
+      newHistoricalData[monthKey].accountEstimatedFinalBalances = estimatedFinalBalancesByMonth[monthKey];
+    }
+  });
+
+  // 5. Uppdatera state med den nya historiken och resultaten
+  state.rawData.historicalData = newHistoricalData;
+  state.calculated = {
+    results: results,
+    fullPrognosis: {
+      accountProgression: calculateAccountProgression(state.rawData),
+      monthlyBreakdowns: calculateMonthlyBreakdowns(state.rawData),
+      projectedBalances: calculateProjectedBalances(state.rawData)
+    }
+  };
   
   // Save to localStorage after calculations
   saveStateToStorage();
