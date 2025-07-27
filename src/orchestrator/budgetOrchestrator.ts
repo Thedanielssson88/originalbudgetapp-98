@@ -11,6 +11,8 @@ const eventEmitter = new EventTarget();
 export const APP_STATE_UPDATED = 'appstateupdated';
 
 function triggerUIRefresh() {
+  console.log('🎯 [ORCHESTRATOR] Dispatching APP_STATE_UPDATED event...');
+  addMobileDebugLog('🎯 [ORCHESTRATOR] Dispatching APP_STATE_UPDATED event...');
   eventEmitter.dispatchEvent(new Event(APP_STATE_UPDATED));
 }
 
@@ -43,10 +45,14 @@ export function getCurrentState() {
 
 // Subscribe/unsubscribe to state changes
 export function subscribeToStateChanges(callback: () => void): void {
+  console.log('🎯 [ORCHESTRATOR] Subscribing to state changes...');
+  addMobileDebugLog('🎯 [ORCHESTRATOR] Subscribing to state changes...');
   eventEmitter.addEventListener(APP_STATE_UPDATED, callback);
 }
 
 export function unsubscribeFromStateChanges(callback: () => void): void {
+  console.log('🎯 [ORCHESTRATOR] Unsubscribing from state changes...');
+  addMobileDebugLog('🎯 [ORCHESTRATOR] Unsubscribing from state changes...');
   eventEmitter.removeEventListener(APP_STATE_UPDATED, callback);
 }
 
