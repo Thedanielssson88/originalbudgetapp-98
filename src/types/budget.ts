@@ -45,6 +45,91 @@ export interface BudgetResults {
   remainingFridayCount: number;
 }
 
+// MonthData innehåller all data för en specifik månad
+export interface MonthData {
+  // Salary information
+  andreasSalary: number;
+  andreasförsäkringskassan: number;
+  andreasbarnbidrag: number;
+  susannaSalary: number;
+  susannaförsäkringskassan: number;
+  susannabarnbidrag: number;
+  
+  // Budget groups (tidigare top-level i rawData)
+  costGroups: BudgetGroup[];
+  savingsGroups: BudgetGroup[];
+  
+  // Transfer settings
+  dailyTransfer: number;
+  weekendTransfer: number;
+  transferAccount?: number;
+  
+  // Personal budgets
+  andreasPersonalCosts: BudgetGroup[];
+  andreasPersonalSavings: BudgetGroup[];
+  susannaPersonalCosts: BudgetGroup[];
+  susannaPersonalSavings: BudgetGroup[];
+  
+  // Custom holidays for this month
+  customHolidays: {date: string, name: string}[];
+  
+  // Account balances and related data
+  accountBalances: {[key: string]: number};
+  accountBalancesSet: {[key: string]: boolean};
+  accountEstimatedFinalBalances: {[key: string]: number};
+  accountEstimatedFinalBalancesSet: {[key: string]: boolean};
+  accountEstimatedStartBalances: {[key: string]: number};
+  accountStartBalancesSet: {[key: string]: boolean};
+  accountEndBalancesSet: {[key: string]: boolean};
+  
+  // User names
+  userName1: string;
+  userName2: string;
+  
+  // Transfer completion tracking
+  transferChecks: {[key: string]: boolean};
+  andreasShareChecked: boolean;
+  susannaShareChecked: boolean;
+  
+  // Month completion flags
+  monthFinalBalances: {[key: string]: boolean};
+  
+  // Metadata
+  createdAt?: string;
+}
+
+// Ny, förenklad state-struktur - Single Source of Truth
+export interface BudgetState {
+  historicalData: { [monthKey: string]: MonthData };
+  accounts: Account[];
+  selectedMonthKey: string;
+  selectedHistoricalMonth: string; // För historik-vyn
+  
+  // UI state som inte är månadsspecifik
+  uiState: {
+    expandedSections: { [key: string]: boolean };
+    activeTab: string;
+  };
+  
+  // Globala inställningar
+  accountCategories: string[];
+  accountCategoryMapping: {[accountName: string]: string};
+  budgetTemplates: {[key: string]: any};
+  
+  // Chart settings
+  chartSettings: {
+    selectedAccountsForChart: string[];
+    showIndividualCostsOutsideBudget: boolean;
+    showSavingsSeparately: boolean;
+    useCustomTimeRange: boolean;
+    chartStartMonth: string;
+    chartEndMonth: string;
+    balanceType: 'starting' | 'closing';
+    showEstimatedBudgetAmounts: boolean;
+  };
+}
+
+// Legacy interface för bakåtkompatibilitet under övergången
 export interface RawDataState {
   // Income data
   andreasSalary: number;
