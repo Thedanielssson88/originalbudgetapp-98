@@ -75,6 +75,8 @@ interface BudgetGroup {
 }
 
 const BudgetCalculator = () => {
+  console.log('🔥 [COMPONENT] BudgetCalculator component is starting!');
+  console.log('🔥 [COMPONENT] BudgetCalculator component is starting!'); // Duplicate for visibility
   // Use the original useBudget hook - fix hook ordering instead
   const { isLoading, budgetState, calculated } = useBudget();
   
