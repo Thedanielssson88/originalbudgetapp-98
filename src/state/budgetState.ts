@@ -128,7 +128,23 @@ export function initializeStateFromStorage(): void {
           if (oldRawData.susannaSalary !== undefined) {
             state.budgetState.historicalData[currentMonth].susannaSalary = oldRawData.susannaSalary;
           }
-          // ... migrate other fields as needed
+          
+          // Migrate account balances - CRITICAL FIX!
+          if (oldRawData.accountBalances) {
+            state.budgetState.historicalData[currentMonth].accountBalances = oldRawData.accountBalances;
+          }
+          if (oldRawData.accountBalancesSet) {
+            state.budgetState.historicalData[currentMonth].accountBalancesSet = oldRawData.accountBalancesSet;
+          }
+          if (oldRawData.dailyTransfer !== undefined) {
+            state.budgetState.historicalData[currentMonth].dailyTransfer = oldRawData.dailyTransfer;
+          }
+          if (oldRawData.weekendTransfer !== undefined) {
+            state.budgetState.historicalData[currentMonth].weekendTransfer = oldRawData.weekendTransfer;
+          }
+          if (oldRawData.customHolidays) {
+            state.budgetState.historicalData[currentMonth].customHolidays = oldRawData.customHolidays;
+          }
         }
       } else if (savedData.budgetState) {
         // New structure - direct load
@@ -147,6 +163,14 @@ export function initializeStateFromStorage(): void {
     }
     
     console.log('[BudgetState] State initialized from storage');
+    console.log('[BudgetState] INIT DEBUG - selectedMonthKey:', state.budgetState.selectedMonthKey);
+    console.log('[BudgetState] INIT DEBUG - availableMonths:', Object.keys(state.budgetState.historicalData));
+    const initCurrentMonth = state.budgetState.selectedMonthKey;
+    const initCurrentData = state.budgetState.historicalData[initCurrentMonth];
+    if (initCurrentData) {
+      console.log('[BudgetState] INIT DEBUG - currentMonth accountBalances:', initCurrentData.accountBalances);
+      console.log('[BudgetState] INIT DEBUG - currentMonth accountBalancesSet:', initCurrentData.accountBalancesSet);
+    }
   } catch (error) {
     console.error('[BudgetState] Error loading from storage:', error);
     // Keep default state on error
@@ -164,6 +188,13 @@ export function saveStateToStorage(): void {
     };
     set(StorageKey.BUDGET_CALCULATOR_DATA, dataToSave);
     console.log('[BudgetState] State saved to storage');
+    console.log('[BudgetState] SAVE DEBUG - selectedMonthKey:', state.budgetState.selectedMonthKey);
+    const saveCurrentMonth = state.budgetState.selectedMonthKey;
+    const saveCurrentData = state.budgetState.historicalData[saveCurrentMonth];
+    if (saveCurrentData) {
+      console.log('[BudgetState] SAVE DEBUG - accountBalances being saved:', saveCurrentData.accountBalances);
+      console.log('[BudgetState] SAVE DEBUG - accountBalancesSet being saved:', saveCurrentData.accountBalancesSet);
+    }
   } catch (error) {
     console.error('[BudgetState] Error saving to storage:', error);
   }
