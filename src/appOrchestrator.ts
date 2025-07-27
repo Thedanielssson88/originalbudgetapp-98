@@ -35,11 +35,20 @@ export function unsubscribeFromStateChanges(callback: () => void): void {
 }
 
 export function runCalculationsAndUpdateState(): void {
-  // 1. Kör den rena beräkningsfunktionen
-  const { estimatedStartBalancesByMonth, estimatedFinalBalancesByMonth } = calculateFullPrognosis(state.rawData);
+  // 1. Convert raw data to new format for calculations
+  const accounts = state.rawData.accounts.map((name, index) => ({
+    id: (index + 1).toString(),
+    name: name,
+    startBalance: 0
+  }));
   
-  // 2. Beräkna endast budget results separat
-  const results = calculateBudgetResults(state.rawData);
+  // 2. Kör den rena beräkningsfunktionen
+  const { estimatedStartBalancesByMonth, estimatedFinalBalancesByMonth } = 
+    calculateFullPrognosis(state.rawData.historicalData, accounts);
+  
+  // 3. Get current month data for budget results calculation
+  const currentMonth = state.rawData.historicalData[state.rawData.selectedBudgetMonth] || state.rawData;
+  const results = calculateBudgetResults(currentMonth);
   
   // 3. Skapa en djup kopia av nuvarande historik för att säkert kunna modifiera den
   const newHistoricalData = JSON.parse(JSON.stringify(state.rawData.historicalData));
@@ -57,9 +66,9 @@ export function runCalculationsAndUpdateState(): void {
   state.calculated = {
     results: results,
     fullPrognosis: {
-      accountProgression: calculateAccountProgression(state.rawData),
-      monthlyBreakdowns: calculateMonthlyBreakdowns(state.rawData),
-      projectedBalances: calculateProjectedBalances(state.rawData)
+      accountProgression: calculateAccountProgression(state.rawData.historicalData, accounts),
+      monthlyBreakdowns: calculateMonthlyBreakdowns(state.rawData.historicalData, accounts),
+      projectedBalances: calculateProjectedBalances(state.rawData.historicalData, accounts)
     }
   };
 

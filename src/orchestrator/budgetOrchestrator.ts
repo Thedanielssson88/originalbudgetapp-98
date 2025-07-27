@@ -42,28 +42,13 @@ export function unsubscribeFromStateChanges(callback: () => void): void {
 // Main calculation and state update function
 export function runCalculationsAndUpdateState(): void {
   try {
-    // Create temporary rawData structure for calculations (until we refactor calculation service)
+    const { historicalData, accounts } = state.budgetState;
     const currentMonth = getCurrentMonthData();
-    const tempRawData = {
-      ...currentMonth,
-      accounts: state.budgetState.accounts.map(acc => acc.name),
-      historicalData: state.budgetState.historicalData,
-      selectedBudgetMonth: state.budgetState.selectedMonthKey,
-      selectedHistoricalMonth: state.budgetState.selectedHistoricalMonth,
-      accountCategories: state.budgetState.accountCategories,
-      accountCategoryMapping: state.budgetState.accountCategoryMapping,
-      budgetTemplates: state.budgetState.budgetTemplates,
-      monthlyBudgets: {}, // Required for RawDataState compatibility
-      andreasPersonalCosts: [], // Legacy format compatibility
-      andreasPersonalSavings: [],
-      susannaPersonalCosts: [],
-      susannaPersonalSavings: [],
-      ...state.budgetState.chartSettings
-    };
     
-    // Run calculations
-    const { estimatedStartBalancesByMonth, estimatedFinalBalancesByMonth } = calculateFullPrognosis(tempRawData);
-    const results = calculateBudgetResults(tempRawData);
+    // Run calculations with the new state structure
+    const { estimatedStartBalancesByMonth, estimatedFinalBalancesByMonth } = 
+      calculateFullPrognosis(historicalData, accounts);
+    const results = calculateBudgetResults(currentMonth);
     
     // Update estimated balances in historical data
     Object.keys(estimatedStartBalancesByMonth).forEach(monthKey => {
@@ -77,9 +62,9 @@ export function runCalculationsAndUpdateState(): void {
     state.calculated = {
       results: results,
       fullPrognosis: {
-        accountProgression: calculateAccountProgression(tempRawData),
-        monthlyBreakdowns: calculateMonthlyBreakdowns(tempRawData),
-        projectedBalances: calculateProjectedBalances(tempRawData)
+        accountProgression: calculateAccountProgression(historicalData, accounts),
+        monthlyBreakdowns: calculateMonthlyBreakdowns(historicalData, accounts),
+        projectedBalances: calculateProjectedBalances(historicalData, accounts)
       }
     };
     

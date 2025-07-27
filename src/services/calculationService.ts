@@ -1,18 +1,21 @@
 // Innehåller all ren beräkningslogik.
-import { RawDataState, CalculatedState, BudgetResults } from '../types/budget';
+import { RawDataState, CalculatedState, BudgetResults, MonthData, Account } from '../types/budget';
 
 /**
  * Beräknar den fullständiga finansiella prognosen över en serie månader.
  * Denna funktion är ren och muterar inte originaldata.
  * Respekterar manuellt inmatade saldon i accountBalances.
  */
-export function calculateFullPrognosis(rawData: RawDataState) {
+export function calculateFullPrognosis(
+  historicalData: { [monthKey: string]: MonthData },
+  accounts: Account[]
+) {
   console.log('[Calculator] Påbörjar full omberäkning av estimerade saldon...');
   
-  const { historicalData, accounts } = rawData;
   const historicalMonths = Object.keys(historicalData).sort((a, b) => a.localeCompare(b));
+  const accountNames = accounts.map(acc => acc.name);
 
-  if (!historicalMonths.length || !accounts.length) {
+  if (!historicalMonths.length || !accountNames.length) {
     return { estimatedStartBalancesByMonth: {}, estimatedFinalBalancesByMonth: {} };
   }
 
@@ -25,7 +28,7 @@ export function calculateFullPrognosis(rawData: RawDataState) {
   // Initiera löpande balans från första månadens data
   const firstMonthKey = historicalMonths[0];
   const firstMonthData = historicalData[firstMonthKey];
-  accounts.forEach(accountName => {
+  accountNames.forEach(accountName => {
     if (firstMonthData.accountBalancesSet?.[accountName]) {
       runningBalances[accountName] = firstMonthData.accountBalances?.[accountName] || 0;
     } else {
@@ -34,13 +37,13 @@ export function calculateFullPrognosis(rawData: RawDataState) {
   });
 
   historicalMonths.forEach(monthKey => {
-    const monthData = historicalData[monthKey] || {};
+    const monthData = historicalData[monthKey];
     const startBalancesForThisMonth: { [acc: string]: number } = {};
     const finalBalancesForThisMonth: { [acc: string]: number } = {};
 
-    accounts.forEach(accountName => {
+    accountNames.forEach(accountName => {
       // KRITISK KONTROLL: Finns manuellt angivet STARTBALANS?
-      if (monthData.accountBalancesSet?.[accountName]) {
+      if (monthData?.accountBalancesSet?.[accountName]) {
         // Använd det manuella värdet som STARTBALANS
         startBalancesForThisMonth[accountName] = monthData.accountBalances?.[accountName] || 0;
         console.log(`[Calculator] ${monthKey} ${accountName}: Använder manuell startbalans ${startBalancesForThisMonth[accountName]} istället för löpande ${runningBalances[accountName]}`);
@@ -51,16 +54,16 @@ export function calculateFullPrognosis(rawData: RawDataState) {
       }
 
       // Beräkna slutsaldo baserat på startbalans + transaktioner
-      const savingsForAccount = monthData.savingsGroups?.filter((group: any) => group.account === accountName) || [];
+      const savingsForAccount = monthData?.savingsGroups?.filter((group: any) => group.account === accountName) || [];
       const totalDeposits = savingsForAccount.reduce((sum: number, group: any) => {
         const subCategoriesSum = group.subCategories?.reduce((subSum: number, sub: any) => subSum + (sub.amount || 0), 0) || 0;
         return sum + (group.amount || 0) + subCategoriesSum;
       }, 0);
       
-      const costsForAccount = monthData.costGroups?.filter((group: any) => group.account === accountName) || [];
+      const costsForAccount = monthData?.costGroups?.filter((group: any) => group.account === accountName) || [];
       const totalCostDeposits = costsForAccount.reduce((sum: number, group: any) => sum + (group.amount || 0), 0);
       
-      const allCostItems = monthData.costGroups?.reduce((items: any[], group: any) => {
+      const allCostItems = monthData?.costGroups?.reduce((items: any[], group: any) => {
         const groupCosts = group.subCategories?.filter((sub: any) => 
           sub.account === accountName && sub.financedFrom === 'Enskild kostnad'
         ) || [];
@@ -86,7 +89,7 @@ export function calculateFullPrognosis(rawData: RawDataState) {
   return { estimatedStartBalancesByMonth, estimatedFinalBalancesByMonth };
 }
 
-export function calculateBudgetResults(rawData: RawDataState): BudgetResults {
+export function calculateBudgetResults(monthData: MonthData): BudgetResults {
   const {
     andreasSalary,
     andreasförsäkringskassan,
@@ -99,7 +102,7 @@ export function calculateBudgetResults(rawData: RawDataState): BudgetResults {
     dailyTransfer,
     weekendTransfer,
     customHolidays
-  } = rawData;
+  } = monthData;
 
   // Calculate total salary
   const totalSalary = andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + 
@@ -186,17 +189,26 @@ export function calculateBudgetResults(rawData: RawDataState): BudgetResults {
   };
 }
 
-export function calculateAccountProgression(rawData: RawDataState) {
+export function calculateAccountProgression(
+  historicalData: { [monthKey: string]: MonthData },
+  accounts: Account[]
+) {
   // Implement account progression logic
   return {};
 }
 
-export function calculateMonthlyBreakdowns(rawData: RawDataState) {
+export function calculateMonthlyBreakdowns(
+  historicalData: { [monthKey: string]: MonthData },
+  accounts: Account[]
+) {
   // Implement monthly breakdown logic
   return {};
 }
 
-export function calculateProjectedBalances(rawData: RawDataState) {
+export function calculateProjectedBalances(
+  historicalData: { [monthKey: string]: MonthData },
+  accounts: Account[]
+) {
   // Implement projected balance logic
   return {};
 }
