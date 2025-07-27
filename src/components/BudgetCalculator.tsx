@@ -4446,7 +4446,7 @@ const BudgetCalculator = () => {
             </div>
             
             {/* Debug Toggle Button */}
-            <div className="flex justify-center mt-2">
+            <div className="flex justify-center mt-2 gap-2">
               <Button 
                 onClick={() => setShowDebugPanel(!showDebugPanel)} 
                 variant="ghost"
@@ -4454,6 +4454,14 @@ const BudgetCalculator = () => {
                 className="text-xs"
               >
                 {showDebugPanel ? 'Dölj' : 'Visa'} Debug Loggar
+              </Button>
+              <Button 
+                onClick={() => addDebugLog('[MANUAL] Visa alla tidigare loggar från start')} 
+                variant="ghost"
+                size="sm"
+                className="text-xs"
+              >
+                Uppdatera Loggar
               </Button>
             </div>
             
