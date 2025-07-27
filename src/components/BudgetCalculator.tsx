@@ -2189,7 +2189,7 @@ const BudgetCalculator = () => {
   };
 
   // Function to update account balance
-  const updateAccountBalance = (account: string, balance: number) => {
+  const updateAccountBalanceLocal = (account: string, balance: number) => {
     setAccountBalances(prev => ({
       ...prev,
       [account]: balance
@@ -2200,16 +2200,13 @@ const BudgetCalculator = () => {
       [account]: true
     }));
     
+    // Also call the orchestrator function to trigger propagation
+    updateAccountBalance(account, balance);
+    
     // Reset MonthFinalBalances flag when manual values are changed
     const currentDate = new Date();
     const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     resetMonthFinalBalancesFlag(currentMonthKey);
-    
-    // Trigger recalculation of estimated final balances for the month
-    // This ensures accountEstimatedFinalBalances is updated when Faktiskt kontosaldo changes
-    setTimeout(() => {
-      calculateBudget();
-    }, 0);
   };
 
   // Function to load data from selected month into current form
@@ -4954,7 +4951,7 @@ const BudgetCalculator = () => {
                                                       onChange={(e) => {
                                                         const value = e.target.value;
                                                         if (value === "Ej ifyllt" || value === "") {
-                                                          updateAccountBalance(account, 0);
+                                                          updateAccountBalanceLocal(account, 0);
                                                           setAccountBalancesSet(prev => ({
                                                             ...prev,
                                                             [account]: false
@@ -4962,7 +4959,7 @@ const BudgetCalculator = () => {
                                                         } else {
                                                           const numValue = Number(value);
                                                           if (!isNaN(numValue)) {
-                                                            updateAccountBalance(account, numValue);
+                                                            updateAccountBalanceLocal(account, numValue);
                                                           }
                                                         }
                                                       }}
