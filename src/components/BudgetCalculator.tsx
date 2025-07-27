@@ -205,11 +205,6 @@ const BudgetCalculator = () => {
   const [chartStartMonth, setChartStartMonth] = useState<string>('');
   const [chartEndMonth, setChartEndMonth] = useState<string>('');
   
-  // CRITICAL FIX: Don't render until data is loaded and available (AFTER all hooks)
-  if (isLoading || !budgetState.historicalData || Object.keys(budgetState.historicalData).length === 0) {
-    return <div className="p-8">Loading budget data...</div>;
-  }
-
   // SINGLE SOURCE OF TRUTH: Read from historicalData[selectedMonthKey]
   const { historicalData: appHistoricalData, selectedMonthKey } = budgetState;
   const currentMonthData = appHistoricalData[selectedMonthKey] || {};
@@ -1070,6 +1065,11 @@ const BudgetCalculator = () => {
       }
     }
   }, [accounts]);
+
+  // CRITICAL FIX: Don't render until data is loaded and available (AFTER ALL hooks)
+  if (isLoading || !budgetState.historicalData || Object.keys(budgetState.historicalData).length === 0) {
+    return <div className="p-8">Loading budget data...</div>;
+  }
 
   // Function to calculate weekdays and weekend days for a specific month
   const calculateDaysForMonth = (year: number, month: number) => {
