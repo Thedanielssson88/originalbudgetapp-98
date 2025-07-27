@@ -264,6 +264,173 @@ const BudgetCalculator = () => {
   }, [JSON.stringify(accountBalances), JSON.stringify(accountBalancesSet), JSON.stringify(accounts)]);
 
 
+  // FUNCTION DEFINITIONS (must come before useEffect hooks that call them)
+  const calculateBudget = () => {
+    const andreasTotalIncome = andreasSalary + andreasförsäkringskassan + andreasbarnbidrag;
+    const susannaTotalIncome = susannaSalary + susannaförsäkringskassan + susannabarnbidrag;
+    const totalSalary = andreasTotalIncome + susannaTotalIncome;
+    const budgetData = calculateDailyBudget();
+    
+    // Calculate total costs (only from subcategories, main categories are calculated automatically)
+    const totalCosts = costGroups.reduce((sum, group) => {
+      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+      return sum + subCategoriesTotal;
+    }, 0);
+    
+    // Calculate total savings
+    const totalSavings = savingsGroups.reduce((sum, group) => sum + group.amount, 0);
+    
+    const totalMonthlyExpenses = totalCosts + totalSavings;
+    const preliminaryBalance = totalSalary - budgetData.totalBudget - totalMonthlyExpenses;
+    
+    let susannaShare = 0;
+    let andreasShare = 0;
+    let susannaPercentage = 0;
+    let andreasPercentage = 0;
+    
+    if (totalSalary > 0) {
+      susannaPercentage = (susannaTotalIncome / totalSalary) * 100;
+      andreasPercentage = (andreasTotalIncome / totalSalary) * 100;
+      susannaShare = (susannaTotalIncome / totalSalary) * preliminaryBalance;
+      andreasShare = (andreasTotalIncome / totalSalary) * preliminaryBalance;
+    }
+    
+    // Final balance should be 0 when individual shares are included
+    const balanceLeft = preliminaryBalance - susannaShare - andreasShare;
+    
+    // Calculate final balances (Slutsaldo) for each account using EXACT same logic as UI
+    const finalBalances: {[key: string]: number} = {};
+    accounts.forEach(account => {
+      // CRITICAL: Use exact same calculation as UI "Slutsaldo" display
+      
+      // Get original balance using Calc.Kontosaldo from same month (same as UI)
+      const originalBalance = getCalcKontosaldoSameMonth(account);
+      
+      // Calculate total deposits (savings) for this account (same as UI)
+      const savingsAmount = savingsGroups
+        .filter(group => group.account === account)
+        .reduce((sum, group) => sum + group.amount, 0);
+      const totalDeposits = savingsAmount;
+      
+      // Get all cost subcategories for this account that are "Löpande kostnad" (same as UI)
+      const accountCostItems = costGroups.reduce((items, group) => {
+        const groupCosts = group.subCategories?.filter(sub => 
+          sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom)
+        ) || [];
+        return items.concat(groupCosts);
+      }, []);
+      
+      // Calculate total costs for this account (only Löpande kostnad) (same as UI)
+      const totalCosts = accountCostItems.reduce((sum, item) => sum + item.amount, 0);
+      
+      // Calculate final balance as sum of ALL entries shown in the table (same as UI):
+      // original balance + savings deposits + cost budget deposits - all costs
+      const allCostItems = costGroups.reduce((items, group) => {
+        const groupCosts = group.subCategories?.filter(sub => sub.account === account) || [];
+        return items.concat(groupCosts);
+      }, []);
+      const totalAllCosts = allCostItems.reduce((sum, item) => sum + item.amount, 0);
+      
+      // EXACT same calculation as UI Slutsaldo
+      const calculatedBalance = originalBalance + totalDeposits + totalCosts - totalAllCosts;
+      
+      console.log(`=== SLUTSALDO CALCULATION FOR ${account} (MATCHING UI) ===`);
+      console.log(`Original balance: ${originalBalance}`);
+      console.log(`Total deposits (savings): ${totalDeposits}`);
+      console.log(`Total costs (Löpande kostnad): ${totalCosts}`);
+      console.log(`Total all costs (all types): ${totalAllCosts}`);
+      console.log(`Calculation: ${originalBalance} + ${totalDeposits} + ${totalCosts} - ${totalAllCosts} = ${calculatedBalance}`);
+      console.log(`This MUST match UI Slutsaldo display for ${account}`);
+      
+      finalBalances[account] = calculatedBalance;
+    });
+    
+    // Update state with final balances
+    setAccountEstimatedFinalBalances(finalBalances);
+    
+    // Mark all final balances as calculated (not user-input)
+    const finalBalancesSetState: {[key: string]: boolean} = {};
+    accounts.forEach(account => {
+      finalBalancesSetState[account] = true; // These are calculated, so they're "set"
+    });
+    setAccountEstimatedFinalBalancesSet(finalBalancesSetState);
+    
+    // Check and set MonthFinalBalances flag when final balances are calculated and saved
+    const currentDateForFlag = new Date();
+    const monthKeyForFlag = selectedBudgetMonth || `${currentDateForFlag.getFullYear()}-${String(currentDateForFlag.getMonth() + 1).padStart(2, '0')}`;
+    checkAndSetMonthFinalBalancesFlag(monthKeyForFlag);
+    
+    console.log('Holiday days calculated:', budgetData.holidayDays);
+    setResults({
+      totalSalary,
+      totalDailyBudget: budgetData.totalBudget,
+      remainingDailyBudget: budgetData.remainingBudget,
+      holidayDaysBudget: budgetData.holidayBudget,
+      balanceLeft,
+      susannaShare,
+      andreasShare,
+      susannaPercentage,
+      andreasPercentage,
+      daysUntil25th: budgetData.daysUntil25th,
+      weekdayCount: budgetData.weekdayCount,
+      fridayCount: budgetData.fridayCount,
+      totalMonthlyExpenses,
+      holidayDays: budgetData.holidayDays,
+      holidaysUntil25th: budgetData.holidaysUntil25th,
+      nextTenHolidays: budgetData.nextTenHolidays,
+      remainingWeekdayCount: budgetData.remainingWeekdayCount,
+      remainingFridayCount: budgetData.remainingFridayCount
+    });
+    
+    // Update historical data for selected month with calculated results INCLUDING final balances
+    const currentDate = new Date();
+    const monthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    
+    // Create specifically formatted ending balance keys for each account
+    const [currentYear, currentMonth] = monthKey.split('-');
+    const endingBalanceKeys: {[key: string]: number} = {};
+    accounts.forEach(account => {
+      const endingBalanceKey = `${account}.${currentYear}.${currentMonth}.Endbalance`;
+      endingBalanceKeys[endingBalanceKey] = finalBalances[account];
+    });
+    
+    // Update the existing month data with calculated results
+    if (historicalData[monthKey]) {
+      const updatedMonthData = {
+        ...historicalData[monthKey], // Keep existing data
+        // Update with fresh calculated results
+        totalMonthlyExpenses,
+        totalCosts,
+        totalSavings,
+        balanceLeft,
+        susannaShare,
+        andreasShare,
+        susannaPercentage,
+        andreasPercentage,
+        totalDailyBudget: budgetData.totalBudget,
+        remainingDailyBudget: budgetData.remainingBudget,
+        holidayDaysBudget: budgetData.holidayBudget,
+        daysUntil25th: budgetData.daysUntil25th,
+        accountEstimatedFinalBalances: finalBalances, // Save the calculated Slutsaldo to accountEstimatedFinalBalances
+        date: currentDate.toISOString() // Update timestamp
+      };
+      
+      updateHistoricalDataSingle(monthKey, updatedMonthData);
+      
+      console.log(`💾 AFTER SAVE - historicalData[${monthKey}].accountEstimatedFinalBalances:`, finalBalances);
+      console.log(`💾 SPECIFICALLY Löpande for ${monthKey}:`, finalBalances?.['Löpande']);
+    }
+    
+    console.log(`🔥 SAVING accountEstimatedFinalBalances for ${monthKey}:`, finalBalances);
+    console.log(`Final balances calculated and saved for ${monthKey}:`, finalBalances);
+    console.log(`🔍 SEPTEMBER DEBUG - Key details for September Slutsaldo:`);
+    console.log(`   - Month: ${monthKey}`);
+    console.log(`   - Is this September? ${monthKey.includes('2025-09')}`);
+    console.log(`   - Löpande final balance: ${finalBalances['Löpande']}`);
+    console.log(`   - This should show 5500 for September`);
+    console.log(`   - Will be used as opening balance for October`);
+  };
+
   // Centralized month list logic for consistent dropdown behavior
   const availableMonths = useMemo(() => {
     const keys = Object.keys(historicalData).sort((a, b) => a.localeCompare(b));
@@ -1375,171 +1542,6 @@ const BudgetCalculator = () => {
     return "Helgdag";
   };
 
-  const calculateBudget = () => {
-    const andreasTotalIncome = andreasSalary + andreasförsäkringskassan + andreasbarnbidrag;
-    const susannaTotalIncome = susannaSalary + susannaförsäkringskassan + susannabarnbidrag;
-    const totalSalary = andreasTotalIncome + susannaTotalIncome;
-    const budgetData = calculateDailyBudget();
-    
-    // Calculate total costs (only from subcategories, main categories are calculated automatically)
-    const totalCosts = costGroups.reduce((sum, group) => {
-      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-      return sum + subCategoriesTotal;
-    }, 0);
-    
-    // Calculate total savings
-    const totalSavings = savingsGroups.reduce((sum, group) => sum + group.amount, 0);
-    
-    const totalMonthlyExpenses = totalCosts + totalSavings;
-    const preliminaryBalance = totalSalary - budgetData.totalBudget - totalMonthlyExpenses;
-    
-    let susannaShare = 0;
-    let andreasShare = 0;
-    let susannaPercentage = 0;
-    let andreasPercentage = 0;
-    
-    if (totalSalary > 0) {
-      susannaPercentage = (susannaTotalIncome / totalSalary) * 100;
-      andreasPercentage = (andreasTotalIncome / totalSalary) * 100;
-      susannaShare = (susannaTotalIncome / totalSalary) * preliminaryBalance;
-      andreasShare = (andreasTotalIncome / totalSalary) * preliminaryBalance;
-    }
-    
-    // Final balance should be 0 when individual shares are included
-    const balanceLeft = preliminaryBalance - susannaShare - andreasShare;
-    
-    // Calculate final balances (Slutsaldo) for each account using EXACT same logic as UI
-    const finalBalances: {[key: string]: number} = {};
-    accounts.forEach(account => {
-      // CRITICAL: Use exact same calculation as UI "Slutsaldo" display
-      
-      // Get original balance using Calc.Kontosaldo from same month (same as UI)
-      const originalBalance = getCalcKontosaldoSameMonth(account);
-      
-      // Calculate total deposits (savings) for this account (same as UI)
-      const savingsAmount = savingsGroups
-        .filter(group => group.account === account)
-        .reduce((sum, group) => sum + group.amount, 0);
-      const totalDeposits = savingsAmount;
-      
-      // Get all cost subcategories for this account that are "Löpande kostnad" (same as UI)
-      const accountCostItems = costGroups.reduce((items, group) => {
-        const groupCosts = group.subCategories?.filter(sub => 
-          sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom)
-        ) || [];
-        return items.concat(groupCosts);
-      }, []);
-      
-      // Calculate total costs for this account (only Löpande kostnad) (same as UI)
-      const totalCosts = accountCostItems.reduce((sum, item) => sum + item.amount, 0);
-      
-      // Calculate final balance as sum of ALL entries shown in the table (same as UI):
-      // original balance + savings deposits + cost budget deposits - all costs
-      const allCostItems = costGroups.reduce((items, group) => {
-        const groupCosts = group.subCategories?.filter(sub => sub.account === account) || [];
-        return items.concat(groupCosts);
-      }, []);
-      const totalAllCosts = allCostItems.reduce((sum, item) => sum + item.amount, 0);
-      
-      // EXACT same calculation as UI Slutsaldo
-      const calculatedBalance = originalBalance + totalDeposits + totalCosts - totalAllCosts;
-      
-      console.log(`=== SLUTSALDO CALCULATION FOR ${account} (MATCHING UI) ===`);
-      console.log(`Original balance: ${originalBalance}`);
-      console.log(`Total deposits (savings): ${totalDeposits}`);
-      console.log(`Total costs (Löpande kostnad): ${totalCosts}`);
-      console.log(`Total all costs (all types): ${totalAllCosts}`);
-      console.log(`Calculation: ${originalBalance} + ${totalDeposits} + ${totalCosts} - ${totalAllCosts} = ${calculatedBalance}`);
-      console.log(`This MUST match UI Slutsaldo display for ${account}`);
-      
-      finalBalances[account] = calculatedBalance;
-    });
-    
-    // Update state with final balances
-    setAccountEstimatedFinalBalances(finalBalances);
-    
-    // Mark all final balances as calculated (not user-input)
-    const finalBalancesSetState: {[key: string]: boolean} = {};
-    accounts.forEach(account => {
-      finalBalancesSetState[account] = true; // These are calculated, so they're "set"
-    });
-    setAccountEstimatedFinalBalancesSet(finalBalancesSetState);
-    
-    // Check and set MonthFinalBalances flag when final balances are calculated and saved
-    const currentDateForFlag = new Date();
-    const monthKeyForFlag = selectedBudgetMonth || `${currentDateForFlag.getFullYear()}-${String(currentDateForFlag.getMonth() + 1).padStart(2, '0')}`;
-    checkAndSetMonthFinalBalancesFlag(monthKeyForFlag);
-    
-    console.log('Holiday days calculated:', budgetData.holidayDays);
-    setResults({
-      totalSalary,
-      totalDailyBudget: budgetData.totalBudget,
-      remainingDailyBudget: budgetData.remainingBudget,
-      holidayDaysBudget: budgetData.holidayBudget,
-      balanceLeft,
-      susannaShare,
-      andreasShare,
-      susannaPercentage,
-      andreasPercentage,
-      daysUntil25th: budgetData.daysUntil25th,
-      weekdayCount: budgetData.weekdayCount,
-      fridayCount: budgetData.fridayCount,
-      totalMonthlyExpenses,
-      holidayDays: budgetData.holidayDays,
-      holidaysUntil25th: budgetData.holidaysUntil25th,
-      nextTenHolidays: budgetData.nextTenHolidays,
-      remainingWeekdayCount: budgetData.remainingWeekdayCount,
-      remainingFridayCount: budgetData.remainingFridayCount
-    });
-    
-    // Update historical data for selected month with calculated results INCLUDING final balances
-    const currentDate = new Date();
-    const monthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-    
-    // Create specifically formatted ending balance keys for each account
-    const [currentYear, currentMonth] = monthKey.split('-');
-    const endingBalanceKeys: {[key: string]: number} = {};
-    accounts.forEach(account => {
-      const endingBalanceKey = `${account}.${currentYear}.${currentMonth}.Endbalance`;
-      endingBalanceKeys[endingBalanceKey] = finalBalances[account];
-    });
-    
-    // Update the existing month data with calculated results
-    if (historicalData[monthKey]) {
-      const updatedMonthData = {
-        ...historicalData[monthKey], // Keep existing data
-        // Update with fresh calculated results
-        totalMonthlyExpenses,
-        totalCosts,
-        totalSavings,
-        balanceLeft,
-        susannaShare,
-        andreasShare,
-        susannaPercentage,
-        andreasPercentage,
-        totalDailyBudget: budgetData.totalBudget,
-        remainingDailyBudget: budgetData.remainingBudget,
-        holidayDaysBudget: budgetData.holidayBudget,
-        daysUntil25th: budgetData.daysUntil25th,
-        accountEstimatedFinalBalances: finalBalances, // Save the calculated Slutsaldo to accountEstimatedFinalBalances
-        date: currentDate.toISOString() // Update timestamp
-      };
-      
-      updateHistoricalDataSingle(monthKey, updatedMonthData);
-      
-      console.log(`💾 AFTER SAVE - historicalData[${monthKey}].accountEstimatedFinalBalances:`, finalBalances);
-      console.log(`💾 SPECIFICALLY Löpande for ${monthKey}:`, finalBalances?.['Löpande']);
-    }
-    
-    console.log(`🔥 SAVING accountEstimatedFinalBalances for ${monthKey}:`, finalBalances);
-    console.log(`Final balances calculated and saved for ${monthKey}:`, finalBalances);
-    console.log(`🔍 SEPTEMBER DEBUG - Key details for September Slutsaldo:`);
-    console.log(`   - Month: ${monthKey}`);
-    console.log(`   - Is this September? ${monthKey.includes('2025-09')}`);
-    console.log(`   - Löpande final balance: ${finalBalances['Löpande']}`);
-    console.log(`   - This should show 5500 for September`);
-    console.log(`   - Will be used as opening balance for October`);
-  };
 
 
   // Function to reset MonthFinalBalances flag for current and future months when manual values change
