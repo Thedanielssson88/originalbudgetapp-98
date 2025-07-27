@@ -741,12 +741,7 @@ const BudgetCalculator = () => {
     // Calculate budget on component mount after data is loaded
     setTimeout(() => {
       calculateBudget();
-      // Also calculate estimated final balances for current month if needed
-      const currentDate = new Date();
-      const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-      setTimeout(() => {
-        calculateAndSaveEstimatedFinalBalances(selectedBudgetMonth || currentMonthKey);
-      }, 200);
+      // Calculation now handled by orchestrator - no legacy calls needed
     }, 100);
   }, []);
 
@@ -1051,14 +1046,7 @@ const BudgetCalculator = () => {
       console.log(`💾 Skipping save because isInitialLoad is true`);
     }
   }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedPerson, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts, accountCategories, accountCategoryMapping, budgetTemplates, userName1, userName2, transferChecks, andreasShareChecked, susannaShareChecked, accountBalances, accountBalancesSet, accountEstimatedFinalBalances, accountEstimatedFinalBalancesSet, accountEstimatedStartBalances, accountStartBalancesSet, accountEndBalancesSet, selectedAccountsForChart, showIndividualCostsOutsideBudget, showSavingsSeparately, useCustomTimeRange, chartStartMonth, chartEndMonth, monthFinalBalances, isInitialLoad]);
-  // Calculate estimated final balances when budget month changes
-  useEffect(() => {
-    if (!isInitialLoad && selectedBudgetMonth) {
-      setTimeout(() => {
-        calculateAndSaveEstimatedFinalBalances(selectedBudgetMonth);
-      }, 100);
-    }
-  }, [selectedBudgetMonth, historicalData, accounts, isInitialLoad]);
+  // Legacy calculation removed - now handled by orchestrator
 
   // Auto-calculate budget whenever any input changes
   useEffect(() => {
@@ -2271,81 +2259,12 @@ const BudgetCalculator = () => {
     // Results are now calculated and managed by the orchestrator
     // No need to manually set results here - they come from calculated state
     
-    // Calculate and save estimated final balances if not already present
-    setTimeout(() => {
-      calculateAndSaveEstimatedFinalBalances(monthKey);
-    }, 100);
+    // Legacy calculation removed - now handled by orchestrator
+    // to prevent infinite loops and ensure proper saving
   };
   
-  // Function to calculate and save estimated final balances for a month
-  const calculateAndSaveEstimatedFinalBalances = (monthKey: string) => {
-    const monthData = historicalData[monthKey];
-    if (!monthData) return;
-    
-    console.log(`🔢 Calculating estimated start balances for ${monthKey} (always calculated)`);
-    
-    // Calculate estimated balances based on previous month
-    const [year, month] = monthKey.split('-').map(Number);
-    const prevDate = new Date(year, month - 2, 1);
-    const prevMonthKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-    
-    
-    const prevMonthData = historicalData[prevMonthKey];
-    if (!prevMonthData) {
-      console.log(`❌ No previous month data found for ${prevMonthKey}`);
-      return;
-    }
-    
-    const estimatedStartBalances: {[key: string]: number} = {};
-    
-    accounts.forEach(account => {
-      // Use accountEstimatedFinalBalances as the single source of truth
-      if (prevMonthData.accountEstimatedFinalBalances && prevMonthData.accountEstimatedFinalBalances[account] !== undefined) {
-        estimatedStartBalances[account] = prevMonthData.accountEstimatedFinalBalances[account];
-        console.log(`📊 Estimated start balance for ${account}: ${estimatedStartBalances[account]} (from prev month estimated final balances)`);
-      } else {
-        // Fallback calculation if previous month doesn't have final balances
-        const originalBalance = prevMonthData.accountBalances?.[account] || 0;
-        const accountSavings = (prevMonthData.savingsGroups || [])
-          .filter((group: any) => group.account === account)
-          .reduce((sum: number, group: any) => sum + group.amount, 0);
-        
-        const accountRecurringCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-          const groupCosts = group.subCategories
-            ?.filter((sub: any) => sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom))
-            .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-          return sum + groupCosts;
-        }, 0);
-        
-        const accountAllCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
-          const groupCosts = group.subCategories
-            ?.filter((sub: any) => sub.account === account)
-            .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-          return sum + groupCosts;
-        }, 0);
-        
-        const slutsaldo = originalBalance + accountSavings + accountRecurringCosts - accountAllCosts;
-        estimatedStartBalances[account] = slutsaldo;
-        console.log(`📊 Estimated start balance for ${account}: ${slutsaldo} (calculated)`);
-      }
-    });
-    
-    // Save estimated start balances to the month data
-    if (historicalData[monthKey]) {
-      const updatedMonthData = {
-        ...historicalData[monthKey],
-        accountEstimatedStartBalances: estimatedStartBalances
-      };
-      updateHistoricalDataSingle(monthKey, updatedMonthData);
-    }
-    
-    // Also update current state if this is the selected month
-    if (monthKey === selectedBudgetMonth) {
-      setAccountEstimatedStartBalances(estimatedStartBalances);
-    }
-    
-    console.log(`💾 Saved estimated start balances for ${monthKey}:`, estimatedStartBalances);
-  };
+  // Legacy calculation function removed to prevent infinite loops
+  // All calculations are now handled by the orchestrator system
 
   // Function to get available months with saved data
   const getMonthsWithSavedData = () => {
