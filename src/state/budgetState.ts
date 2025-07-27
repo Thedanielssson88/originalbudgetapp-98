@@ -67,6 +67,10 @@ export function initializeStateFromStorage(): void {
       addMobileDebugLog(`[INIT] savedData keys: ${Object.keys(savedData).join(', ')}`);
       
       // Migration from old structure to new BudgetState
+      addMobileDebugLog(`[INIT] 🧪 Testing conditions...`);
+      addMobileDebugLog(`[INIT] savedData.rawData exists: ${!!savedData.rawData}`);
+      addMobileDebugLog(`[INIT] savedData.budgetState exists: ${!!savedData.budgetState}`);
+      
       if (savedData.rawData) {
         addMobileDebugLog('[INIT] 📦 Found OLD structure (rawData) - migrating...');
         const oldRawData = savedData.rawData;
