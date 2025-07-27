@@ -2127,11 +2127,7 @@ const BudgetCalculator = () => {
   const handleAccountBalanceUpdate = (account: string, balance: number) => {
     addDebugLog(`🎯 handleAccountBalanceUpdate called: ${account} = ${balance}`);
     
-    // ARKITEKTONISK FIX: Anropa orchestrator direkt istället för lokalt state
-    updateAccountBalance(account, balance);
-    
-    addDebugLog(`🚀 About to call updateAccountBalance for ${account}`);
-    // Call the orchestrator function to trigger propagation
+    // CRITICAL FIX: Call orchestrator only once to avoid duplicate updates
     updateAccountBalance(account, balance);
     addDebugLog(`✅ updateAccountBalance completed for ${account}`);
     
@@ -4833,26 +4829,7 @@ const BudgetCalculator = () => {
                                                         ? currentBalance.toString() 
                                                         : (currentBalance === 0 ? "Ej ifyllt" : currentBalance.toString())
                                                       }
-                                                        onChange={(e) => {
-                                                          console.log(`🚨🚨🚨 FAKTISKT KONTOSALDO onChange TRIGGERED! 🚨🚨🚨`);
-                                                          console.log(`📍 Account: ${account}`);
-                                                          console.log(`📝 Input Value: ${e.target.value}`);
-                                                          console.log(`🎯 Event target:`, e.target);
-                                                          
-                                                          const value = e.target.value;
-                                                         if (value === "Ej ifyllt" || value === "") {
-                                                           console.log(`🔄 Setting ${account} to 0 (Ej ifyllt/empty)`);
-                                                           handleAccountBalanceUpdate(account, 0);
-                                                         } else {
-                                                            const numValue = Number(value);
-                                                            console.log(`🔢 Parsed number value: ${numValue}, isNaN: ${isNaN(numValue)}`);
-                                                            if (!isNaN(numValue)) {
-                                                              console.log(`💰 About to call handleAccountBalanceUpdate(${account}, ${numValue})`);
-                                                              handleAccountBalanceUpdate(account, numValue);
-                                                            }
-                                                          }
-                                                         }}
-                                                      onBlur={(e) => {
+                                                       onBlur={(e) => {
                                                         console.log(`🔄 onBlur triggered for ${account} with value: ${e.target.value}`);
                                                         const value = e.target.value;
                                                          if (value === "Ej ifyllt" || value === "") {
@@ -4869,8 +4846,8 @@ const BudgetCalculator = () => {
                                                       }}
                                                        onFocus={(e) => {
                                                          if (e.target.value === "Ej ifyllt") {
-                                                           // ARKITEKTONISK FIX: Anropa orchestrator direkt
-                                                           updateAccountBalance(account, 0);
+                                                           // CRITICAL FIX: Use handleAccountBalanceUpdate for consistency
+                                                           handleAccountBalanceUpdate(account, 0);
                                                            // Set the input value to empty for easy editing
                                                            setTimeout(() => {
                                                              e.target.value = "";
