@@ -848,14 +848,39 @@ const BudgetCalculator = () => {
   }, [selectedBudgetMonth, isInitialLoad]); // REMOVED historicalData from dependencies!
 
   // Save current data to the selected month in historical data
-  const saveToSelectedMonth = () => {
+  const saveToSelectedMonth = (explicitData?: any) => {
     const currentDate = new Date();
     const monthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     
+    // Use explicit data if provided, otherwise use current state
+    const dataToSave = explicitData || {
+      andreasSalary,
+      andreasförsäkringskassan,
+      andreasbarnbidrag,
+      susannaSalary,
+      susannaförsäkringskassan,
+      susannabarnbidrag,
+      costGroups,
+      savingsGroups,
+      dailyTransfer,
+      weekendTransfer,
+      andreasPersonalCosts,
+      andreasPersonalSavings,
+      susannaPersonalCosts,
+      susannaPersonalSavings,
+      accountBalances,
+      accountBalancesSet,
+      accountEstimatedFinalBalances,
+      accountEstimatedFinalBalancesSet,
+      accountEstimatedStartBalances,
+      accountStartBalancesSet,
+      accountEndBalancesSet
+    };
+    
     console.log(`📝 Saving month data to ${monthKey}`);
     console.log(`📝 Current historicalData keys BEFORE save:`, Object.keys(historicalData));
-    console.log(`📝 DEBUG: andreasSalary value being saved:`, andreasSalary);
-    console.log(`📝 DEBUG: susannaSalary value being saved:`, susannaSalary);
+    console.log(`📝 DEBUG: andreasSalary value being saved:`, dataToSave.andreasSalary);
+    console.log(`📝 DEBUG: susannaSalary value being saved:`, dataToSave.susannaSalary);
     
     // Final balances are now calculated and saved directly in calculateBudget()
     
@@ -926,30 +951,30 @@ const BudgetCalculator = () => {
     const monthSnapshot = {
       month: monthKey,
       date: currentDate.toISOString(),
-      andreasSalary,
-      andreasförsäkringskassan,
-      andreasbarnbidrag,
-      susannaSalary,
-      susannaförsäkringskassan,
-      susannabarnbidrag,
-      totalSalary: andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag,
-      costGroups: JSON.parse(JSON.stringify(costGroups)),
-      savingsGroups: JSON.parse(JSON.stringify(savingsGroups)),
-      dailyTransfer,
-      weekendTransfer,
+      andreasSalary: dataToSave.andreasSalary,
+      andreasförsäkringskassan: dataToSave.andreasförsäkringskassan,
+      andreasbarnbidrag: dataToSave.andreasbarnbidrag,
+      susannaSalary: dataToSave.susannaSalary,
+      susannaförsäkringskassan: dataToSave.susannaförsäkringskassan,
+      susannabarnbidrag: dataToSave.susannabarnbidrag,
+      totalSalary: dataToSave.andreasSalary + dataToSave.andreasförsäkringskassan + dataToSave.andreasbarnbidrag + dataToSave.susannaSalary + dataToSave.susannaförsäkringskassan + dataToSave.susannabarnbidrag,
+      costGroups: JSON.parse(JSON.stringify(dataToSave.costGroups)),
+      savingsGroups: JSON.parse(JSON.stringify(dataToSave.savingsGroups)),
+      dailyTransfer: dataToSave.dailyTransfer,
+      weekendTransfer: dataToSave.weekendTransfer,
       customHolidays: JSON.parse(JSON.stringify(customHolidays)),
-      andreasPersonalCosts: JSON.parse(JSON.stringify(andreasPersonalCosts)),
-      andreasPersonalSavings: JSON.parse(JSON.stringify(andreasPersonalSavings)),
-      susannaPersonalCosts: JSON.parse(JSON.stringify(susannaPersonalCosts)),
-      susannaPersonalSavings: JSON.parse(JSON.stringify(susannaPersonalSavings)),
+      andreasPersonalCosts: JSON.parse(JSON.stringify(dataToSave.andreasPersonalCosts)),
+      andreasPersonalSavings: JSON.parse(JSON.stringify(dataToSave.andreasPersonalSavings)),
+      susannaPersonalCosts: JSON.parse(JSON.stringify(dataToSave.susannaPersonalCosts)),
+      susannaPersonalSavings: JSON.parse(JSON.stringify(dataToSave.susannaPersonalSavings)),
       accounts: JSON.parse(JSON.stringify(accounts)),
-      accountBalances: JSON.parse(JSON.stringify(accountBalances)),
-      accountBalancesSet: JSON.parse(JSON.stringify(accountBalancesSet)),
-      accountEstimatedFinalBalances: JSON.parse(JSON.stringify(accountEstimatedFinalBalances)),
-      accountEstimatedFinalBalancesSet: JSON.parse(JSON.stringify(accountEstimatedFinalBalancesSet)),
-      accountEstimatedStartBalances: JSON.parse(JSON.stringify(accountEstimatedStartBalances)),
+      accountBalances: JSON.parse(JSON.stringify(dataToSave.accountBalances)),
+      accountBalancesSet: JSON.parse(JSON.stringify(dataToSave.accountBalancesSet)),
+      accountEstimatedFinalBalances: JSON.parse(JSON.stringify(dataToSave.accountEstimatedFinalBalances)),
+      accountEstimatedFinalBalancesSet: JSON.parse(JSON.stringify(dataToSave.accountEstimatedFinalBalancesSet)),
+      accountEstimatedStartBalances: JSON.parse(JSON.stringify(dataToSave.accountEstimatedStartBalances)),
       accountStartBalancesSet: JSON.parse(JSON.stringify(startBalancesSet)),
-      accountEndBalancesSet: JSON.parse(JSON.stringify(accountEndBalancesSet)),
+      accountEndBalancesSet: JSON.parse(JSON.stringify(dataToSave.accountEndBalancesSet)),
       monthFinalBalances: monthFinalBalances[monthKey] || false,
       // Include any existing calculated results if they exist
       ...(results && {
@@ -2797,7 +2822,33 @@ const BudgetCalculator = () => {
     console.log(`💾 Final save before month switch...`);
     console.log(`💾 DEBUG: Before switch - andreasSalary:`, andreasSalary);
     console.log(`💾 DEBUG: Before switch - susannaSalary:`, susannaSalary);
-    saveToSelectedMonth();
+    
+    // Create explicit data snapshot to ensure we save current state values
+    const currentDataSnapshot = {
+      andreasSalary,
+      andreasförsäkringskassan,
+      andreasbarnbidrag,
+      susannaSalary,
+      susannaförsäkringskassan,
+      susannabarnbidrag,
+      costGroups,
+      savingsGroups,
+      dailyTransfer,
+      weekendTransfer,
+      andreasPersonalCosts,
+      andreasPersonalSavings,
+      susannaPersonalCosts,
+      susannaPersonalSavings,
+      accountBalances,
+      accountBalancesSet,
+      accountEstimatedFinalBalances,
+      accountEstimatedFinalBalancesSet,
+      accountEstimatedStartBalances,
+      accountStartBalancesSet,
+      accountEndBalancesSet
+    };
+    
+    saveToSelectedMonth(currentDataSnapshot);
     
     // Calculate and save final balances for the previous month of the target month
     console.log(`Calculating previous month final balances...`);
