@@ -854,6 +854,8 @@ const BudgetCalculator = () => {
     
     console.log(`📝 Saving month data to ${monthKey}`);
     console.log(`📝 Current historicalData keys BEFORE save:`, Object.keys(historicalData));
+    console.log(`📝 DEBUG: andreasSalary value being saved:`, andreasSalary);
+    console.log(`📝 DEBUG: susannaSalary value being saved:`, susannaSalary);
     
     // Final balances are now calculated and saved directly in calculateBudget()
     
@@ -1038,6 +1040,8 @@ const BudgetCalculator = () => {
   // Save data whenever key values change - both to localStorage and to selected month
   useEffect(() => {
     console.log(`💾 Save useEffect triggered. isInitialLoad: ${isInitialLoad}`);
+    console.log(`💾 DEBUG: Current andreasSalary in save useEffect:`, andreasSalary);
+    console.log(`💾 DEBUG: Current susannaSalary in save useEffect:`, susannaSalary);
     if (!isInitialLoad) {
       console.log(`💾 Calling saveToLocalStorage and saveToSelectedMonth`);
       saveToLocalStorage();
@@ -2197,6 +2201,8 @@ const BudgetCalculator = () => {
     }
     
     // Load all the form data from the selected month
+    console.log(`📥 DEBUG: Loading andreasSalary from monthData:`, monthData.andreasSalary);
+    console.log(`📥 DEBUG: Loading susannaSalary from monthData:`, monthData.susannaSalary);
     setAndreasSalary(monthData.andreasSalary || 0);
     setAndreasförsäkringskassan(monthData.andreasförsäkringskassan || 0);
     setAndreasbarnbidrag(monthData.andreasbarnbidrag || 0);
@@ -2783,33 +2789,14 @@ const BudgetCalculator = () => {
     }
   };
 
-  // Auto-save current month data whenever state changes
-  const autoSaveCurrentMonth = React.useCallback(() => {
-    if (selectedBudgetMonth) {
-      console.log(`🔄 Auto-saving current month data to ${selectedBudgetMonth}`);
-      saveToSelectedMonth();
-    }
-  }, [selectedBudgetMonth, andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, 
-      susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups,
-      dailyTransfer, weekendTransfer, andreasPersonalCosts, andreasPersonalSavings,
-      susannaPersonalCosts, susannaPersonalSavings, accountBalances, accountBalancesSet,
-      accountStartBalancesSet, accountEndBalancesSet]);
-
-  // Auto-save whenever relevant state changes (but debounced to avoid excessive saves)
-  React.useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      autoSaveCurrentMonth();
-    }, 300); // Debounce saves by 300ms
-    
-    return () => clearTimeout(timeoutId);
-  }, [autoSaveCurrentMonth]);
-
   // Function to handle month selection change
   const handleBudgetMonthChange = (monthKey: string) => {
     console.log(`=== MONTH CHANGE: Switching to ${monthKey} ===`);
     
-    // IMMEDIATE save of current month data (no delays, data should already be saved by auto-save)
+    // IMMEDIATE save of current month data before switching
     console.log(`💾 Final save before month switch...`);
+    console.log(`💾 DEBUG: Before switch - andreasSalary:`, andreasSalary);
+    console.log(`💾 DEBUG: Before switch - susannaSalary:`, susannaSalary);
     saveToSelectedMonth();
     
     // Calculate and save final balances for the previous month of the target month
