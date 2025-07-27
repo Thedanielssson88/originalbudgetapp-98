@@ -78,11 +78,6 @@ const BudgetCalculator = () => {
   // Use the original useBudget hook - fix hook ordering instead
   const { isLoading, budgetState, calculated } = useBudget();
   
-  // CRITICAL FIX: Don't render until data is loaded and available
-  if (isLoading || !budgetState.historicalData || Object.keys(budgetState.historicalData).length === 0) {
-    return <div className="p-8">Loading budget data...</div>;
-  }
-  
   // ALL HOOKS MUST BE DECLARED FIRST - BEFORE ANY CONDITIONAL LOGIC
   const [isEditingCategories, setIsEditingCategories] = useState<boolean>(false);
   const [isEditingTransfers, setIsEditingTransfers] = useState<boolean>(false);
@@ -210,6 +205,11 @@ const BudgetCalculator = () => {
   const [chartStartMonth, setChartStartMonth] = useState<string>('');
   const [chartEndMonth, setChartEndMonth] = useState<string>('');
   
+  // CRITICAL FIX: Don't render until data is loaded and available (AFTER all hooks)
+  if (isLoading || !budgetState.historicalData || Object.keys(budgetState.historicalData).length === 0) {
+    return <div className="p-8">Loading budget data...</div>;
+  }
+
   // SINGLE SOURCE OF TRUTH: Read from historicalData[selectedMonthKey]
   const { historicalData: appHistoricalData, selectedMonthKey } = budgetState;
   const currentMonthData = appHistoricalData[selectedMonthKey] || {};
