@@ -167,6 +167,10 @@ export function initializeStateFromStorage(): void {
         addMobileDebugLog('[INIT] 🆕 Found NEW structure (budgetState) - direct load');
         addMobileDebugLog(`[INIT] budgetState keys: ${Object.keys(savedData.budgetState).join(', ')}`);
         
+        // CRITICAL DEBUG - This MUST appear in logs!
+        console.log(`🚨🚨🚨 CRITICAL DEBUG START 🚨🚨🚨`);
+        addMobileDebugLog(`🚨🚨🚨 CRITICAL DEBUG START 🚨🚨🚨`);
+        
         // New structure - direct load with proper merging
         const loadedBudgetState = savedData.budgetState;
         
