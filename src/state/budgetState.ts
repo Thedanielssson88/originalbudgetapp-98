@@ -63,9 +63,12 @@ export function initializeStateFromStorage(): void {
     addMobileDebugLog(`[INIT] Raw savedData: ${savedData ? 'DATA FOUND' : 'NO DATA'}`);
     
     if (savedData) {
+      addMobileDebugLog(`[INIT] 🔍 Analyzing savedData structure...`);
+      addMobileDebugLog(`[INIT] savedData keys: ${Object.keys(savedData).join(', ')}`);
+      
       // Migration from old structure to new BudgetState
       if (savedData.rawData) {
-        // Old structure - migrate to new
+        addMobileDebugLog('[INIT] 📦 Found OLD structure (rawData) - migrating...');
         const oldRawData = savedData.rawData;
         
         // Migrate accounts
@@ -155,8 +158,11 @@ export function initializeStateFromStorage(): void {
       }
       
       if (savedData.calculated) {
+        addMobileDebugLog('[INIT] Loading calculated results...');
         state.calculated = savedData.calculated;
       }
+    } else {
+      addMobileDebugLog('[INIT] ❌ No savedData found - using defaults');
     }
     
     // Ensure current month exists
