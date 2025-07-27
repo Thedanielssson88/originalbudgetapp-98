@@ -17,13 +17,23 @@ function triggerUIRefresh() {
 // Initialize the application
 export function initializeApp(): void {
   console.log('[BudgetOrchestrator] Initializing application...');
+  addMobileDebugLog('[ORCHESTRATOR] 🚀 Starting app initialization...');
+  
   initializeStateFromStorage();
+  
+  addMobileDebugLog(`[ORCHESTRATOR] After storage init - available months: ${Object.keys(state.budgetState.historicalData).join(', ')}`);
+  addMobileDebugLog(`[ORCHESTRATOR] Selected month: ${state.budgetState.selectedMonthKey}`);
+  
+  // Run initial calculations to ensure state is up to date
+  runCalculationsAndUpdateState();
   
   // Mark loading as complete
   state.isLoading = false;
+  addMobileDebugLog('[ORCHESTRATOR] ✅ App initialization complete - loading set to false');
   
   // Trigger UI refresh to update components
   triggerUIRefresh();
+  addMobileDebugLog('[ORCHESTRATOR] 📡 UI refresh triggered');
 }
 
 // Get current state

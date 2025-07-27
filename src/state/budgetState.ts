@@ -75,6 +75,13 @@ export function initializeStateFromStorage(): void {
         addMobileDebugLog('[INIT] 📦 Found OLD structure (rawData) - migrating...');
         const oldRawData = savedData.rawData;
         
+        // CRITICAL FIX: Preserve all existing historical data
+        const existingHistoricalData = get<any>(StorageKey.HISTORICAL_DATA) || {};
+        addMobileDebugLog(`[INIT] 📋 Found existing historical data for months: ${Object.keys(existingHistoricalData).join(', ')}`);
+        
+        // Migrate all historical data to new structure
+        state.budgetState.historicalData = existingHistoricalData;
+        
         // Migrate accounts
         if (oldRawData.accounts && Array.isArray(oldRawData.accounts)) {
           state.budgetState.accounts = oldRawData.accounts.map((accountName: string, index: number) => ({
@@ -160,23 +167,32 @@ export function initializeStateFromStorage(): void {
         addMobileDebugLog('[INIT] 🆕 Found NEW structure (budgetState) - direct load');
         addMobileDebugLog(`[INIT] budgetState keys: ${Object.keys(savedData.budgetState).join(', ')}`);
         
-        // New structure - direct load
-        state.budgetState = { ...state.budgetState, ...savedData.budgetState };
+        // New structure - direct load with proper merging
+        const loadedBudgetState = savedData.budgetState;
         
-        // Debug the loaded data
+        // Merge, but preserve essential properties
+        state.budgetState = {
+          ...state.budgetState, 
+          ...loadedBudgetState,
+          // Ensure historicalData is properly loaded
+          historicalData: loadedBudgetState.historicalData || state.budgetState.historicalData,
+          // If selectedMonthKey exists in loaded data, use it
+          selectedMonthKey: loadedBudgetState.selectedMonthKey || state.budgetState.selectedMonthKey
+        };
+        
+        addMobileDebugLog(`[INIT] ✅ State merged successfully`);
+        addMobileDebugLog(`[INIT] Final selectedMonthKey: ${state.budgetState.selectedMonthKey}`);
+        addMobileDebugLog(`[INIT] Final available months: ${Object.keys(state.budgetState.historicalData).join(', ')}`);
+        
+        // Debug the loaded data for current month
         const currentMonth = state.budgetState.selectedMonthKey;
-        addMobileDebugLog(`[INIT] After load - selectedMonthKey: ${currentMonth}`);
-        
         if (state.budgetState.historicalData && state.budgetState.historicalData[currentMonth]) {
           const monthData = state.budgetState.historicalData[currentMonth];
-          addMobileDebugLog(`[INIT] Loaded monthData keys: ${Object.keys(monthData).join(', ')}`);
-          addMobileDebugLog(`[INIT] Loaded accountBalances: ${JSON.stringify(monthData.accountBalances || 'MISSING')}`);
-          addMobileDebugLog(`[INIT] Loaded accountBalancesSet: ${JSON.stringify(monthData.accountBalancesSet || 'MISSING')}`);
+          addMobileDebugLog(`[INIT] Current month (${currentMonth}) data keys: ${Object.keys(monthData).join(', ')}`);
+          addMobileDebugLog(`[INIT] Loaded accountBalances: ${JSON.stringify(monthData.accountBalances || {})}`);
+          addMobileDebugLog(`[INIT] Loaded accountBalancesSet: ${JSON.stringify(monthData.accountBalancesSet || {})}`);
         } else {
-          addMobileDebugLog(`[INIT] ❌ No monthData found for ${currentMonth}`);
-          if (state.budgetState.historicalData) {
-            addMobileDebugLog(`[INIT] Available months: ${Object.keys(state.budgetState.historicalData).join(', ')}`);
-          }
+          addMobileDebugLog(`[INIT] ❌ No monthData found for current month: ${currentMonth}`);
         }
       } else {
         addMobileDebugLog('[INIT] ❓ Unknown data structure - no rawData or budgetState');
