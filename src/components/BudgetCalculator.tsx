@@ -4785,8 +4785,9 @@ const BudgetCalculator = () => {
                                        </Button>
                                      </CollapsibleTrigger>
                                      <CollapsibleContent className="space-y-3 mt-3">
-                                       {categoryAccounts.map(account => {
-                                           const currentBalance = getAccountBalanceWithFallback(account);
+                                        {categoryAccounts.map(account => {
+                                            // CRITICAL FIX: Read directly from central state, not via helper function
+                                            const currentBalance = accountBalances[account] || 0;
                              const freshBalances = (window as any).__freshFinalBalances;
                              const estimatedResult = getEstimatedAccountBalances(freshBalances);
                              const estimatedBalance = estimatedResult?.[account] || 0;
