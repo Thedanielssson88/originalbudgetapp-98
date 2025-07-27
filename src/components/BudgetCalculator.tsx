@@ -241,19 +241,19 @@ const BudgetCalculator = () => {
   
   // Account management states  
   const accounts = budgetState.accounts.map(acc => acc.name);
-  
+
   // CRITICAL FIX: Initialize local state from central system when data changes
   useEffect(() => {
     if (currentMonthData && !isInitialLoad) {
-      addDebugLog('[UI SYNC] 🔄 Syncing local state with central system');
+      console.log('[UI SYNC] 🔄 Syncing local state with central system');
       
       if ((currentMonthData as any).accountBalances) {
-        addDebugLog(`[UI SYNC] Setting accountBalances: ${JSON.stringify((currentMonthData as any).accountBalances)}`);
+        console.log(`[UI SYNC] Setting accountBalances:`, (currentMonthData as any).accountBalances);
         setAccountBalances((currentMonthData as any).accountBalances);
       }
       
       if ((currentMonthData as any).accountBalancesSet) {
-        addDebugLog(`[UI SYNC] Setting accountBalancesSet: ${JSON.stringify((currentMonthData as any).accountBalancesSet)}`);
+        console.log(`[UI SYNC] Setting accountBalancesSet:`, (currentMonthData as any).accountBalancesSet);
         setAccountBalancesSet((currentMonthData as any).accountBalancesSet);
       }
     }
