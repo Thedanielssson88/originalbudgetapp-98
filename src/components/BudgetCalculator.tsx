@@ -4980,26 +4980,45 @@ const BudgetCalculator = () => {
                                                               handleAccountBalanceUpdate(account, numValue);
                                                             }
                                                           }
-                                                        }}
-                                                      onFocus={(e) => {
-                                                        if (e.target.value === "Ej ifyllt") {
-                                                          // Clear the "Ej ifyllt" text when focusing
-                                                          setAccountBalances(prev => ({
-                                                            ...prev,
-                                                            [account]: 0
-                                                          }));
+                                                         }}
+                                                      onBlur={(e) => {
+                                                        console.log(`🔄 onBlur triggered for ${account} with value: ${e.target.value}`);
+                                                        const value = e.target.value;
+                                                        if (value === "Ej ifyllt" || value === "") {
+                                                          console.log(`🔄 onBlur: Setting ${account} to 0 (Ej ifyllt/empty)`);
+                                                          handleAccountBalanceUpdate(account, 0);
                                                           setAccountBalancesSet(prev => ({
                                                             ...prev,
-                                                            [account]: true
+                                                            [account]: false
                                                           }));
-                                                          // Set the input value to empty for easy editing
-                                                          setTimeout(() => {
-                                                            e.target.value = "";
-                                                          }, 0);
+                                                        } else {
+                                                          const numValue = Number(value);
+                                                          console.log(`🔄 onBlur: Parsed number value: ${numValue}, isNaN: ${isNaN(numValue)}`);
+                                                          if (!isNaN(numValue)) {
+                                                            console.log(`🔄 onBlur: About to call handleAccountBalanceUpdate(${account}, ${numValue})`);
+                                                            handleAccountBalanceUpdate(account, numValue);
+                                                          }
                                                         }
                                                       }}
-                                                      className="w-32 text-right"
-                                                      placeholder="Ej ifyllt"
+                                                       onFocus={(e) => {
+                                                         if (e.target.value === "Ej ifyllt") {
+                                                           // Clear the "Ej ifyllt" text when focusing
+                                                           setAccountBalances(prev => ({
+                                                             ...prev,
+                                                             [account]: 0
+                                                           }));
+                                                           setAccountBalancesSet(prev => ({
+                                                             ...prev,
+                                                             [account]: true
+                                                           }));
+                                                           // Set the input value to empty for easy editing
+                                                           setTimeout(() => {
+                                                             e.target.value = "";
+                                                           }, 0);
+                                                         }
+                                                       }}
+                                                       className="w-32 text-right"
+                                                       placeholder="Ej ifyllt"
                                                     />
                                                     <span className="text-sm text-blue-700 min-w-8">kr</span>
                                                   </div>
