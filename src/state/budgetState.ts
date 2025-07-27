@@ -157,8 +157,29 @@ export function initializeStateFromStorage(): void {
           }
         }
       } else if (savedData.budgetState) {
+        addMobileDebugLog('[INIT] 🆕 Found NEW structure (budgetState) - direct load');
+        addMobileDebugLog(`[INIT] budgetState keys: ${Object.keys(savedData.budgetState).join(', ')}`);
+        
         // New structure - direct load
         state.budgetState = { ...state.budgetState, ...savedData.budgetState };
+        
+        // Debug the loaded data
+        const currentMonth = state.budgetState.selectedMonthKey;
+        addMobileDebugLog(`[INIT] After load - selectedMonthKey: ${currentMonth}`);
+        
+        if (state.budgetState.historicalData && state.budgetState.historicalData[currentMonth]) {
+          const monthData = state.budgetState.historicalData[currentMonth];
+          addMobileDebugLog(`[INIT] Loaded monthData keys: ${Object.keys(monthData).join(', ')}`);
+          addMobileDebugLog(`[INIT] Loaded accountBalances: ${JSON.stringify(monthData.accountBalances || 'MISSING')}`);
+          addMobileDebugLog(`[INIT] Loaded accountBalancesSet: ${JSON.stringify(monthData.accountBalancesSet || 'MISSING')}`);
+        } else {
+          addMobileDebugLog(`[INIT] ❌ No monthData found for ${currentMonth}`);
+          if (state.budgetState.historicalData) {
+            addMobileDebugLog(`[INIT] Available months: ${Object.keys(state.budgetState.historicalData).join(', ')}`);
+          }
+        }
+      } else {
+        addMobileDebugLog('[INIT] ❓ Unknown data structure - no rawData or budgetState');
       }
       
       if (savedData.calculated) {
