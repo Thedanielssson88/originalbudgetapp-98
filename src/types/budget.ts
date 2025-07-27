@@ -94,7 +94,7 @@ export interface MonthData {
   // Month completion flags
   monthFinalBalances: {[key: string]: boolean};
   
-  // Account ending balances (lägg till saknad property)
+  // Account ending balances 
   accountEndingBalances: {[key: string]: number};
   
   // Metadata
