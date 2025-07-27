@@ -2189,7 +2189,10 @@ const BudgetCalculator = () => {
   };
 
   // Function to update account balance
-  const updateAccountBalanceLocal = (account: string, balance: number) => {
+  const handleAccountBalanceUpdate = (account: string, balance: number) => {
+    console.log(`🎯 handleAccountBalanceUpdate called for ${account} with balance ${balance}`);
+    
+    // Update local state first
     setAccountBalances(prev => ({
       ...prev,
       [account]: balance
@@ -2200,7 +2203,8 @@ const BudgetCalculator = () => {
       [account]: true
     }));
     
-    // Also call the orchestrator function to trigger propagation
+    // Call the orchestrator function to trigger propagation (imported function)
+    console.log(`🚀 Calling orchestrator updateAccountBalance`);
     updateAccountBalance(account, balance);
     
     // Reset MonthFinalBalances flag when manual values are changed
@@ -4951,7 +4955,7 @@ const BudgetCalculator = () => {
                                                       onChange={(e) => {
                                                         const value = e.target.value;
                                                         if (value === "Ej ifyllt" || value === "") {
-                                                          updateAccountBalanceLocal(account, 0);
+                                                          handleAccountBalanceUpdate(account, 0);
                                                           setAccountBalancesSet(prev => ({
                                                             ...prev,
                                                             [account]: false
@@ -4959,7 +4963,7 @@ const BudgetCalculator = () => {
                                                         } else {
                                                           const numValue = Number(value);
                                                           if (!isNaN(numValue)) {
-                                                            updateAccountBalanceLocal(account, numValue);
+                                                            handleAccountBalanceUpdate(account, numValue);
                                                           }
                                                         }
                                                       }}
