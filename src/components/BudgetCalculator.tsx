@@ -251,6 +251,13 @@ const BudgetCalculator = () => {
   const accountStartBalancesSet = (currentMonthData as any).accountStartBalancesSet || {};
   const accountEndBalancesSet = (currentMonthData as any).accountEndBalancesSet || {};
 
+  // CRITICAL DEBUG: Force logging of actual values being used in component
+  useEffect(() => {
+    console.log(`🔥 [COMPONENT DATA] accountBalances:`, accountBalances);
+    console.log(`🔥 [COMPONENT DATA] accountBalancesSet:`, accountBalancesSet);
+    console.log(`🔥 [COMPONENT DATA] accounts:`, accounts);
+  }, [JSON.stringify(accountBalances), JSON.stringify(accountBalancesSet), JSON.stringify(accounts)]);
+
 
   // Centralized month list logic for consistent dropdown behavior
   const availableMonths = useMemo(() => {
