@@ -20,12 +20,9 @@ import {
   getCurrentState, 
   subscribeToStateChanges, 
   unsubscribeFromStateChanges,
-  handleManualValueChange,
   updateCostGroups,
   updateSavingsGroups,
   updateAccountBalance,
-  updateSelectedBudgetMonth,
-  updateHistoricalData,
   forceRecalculation,
   setAndreasSalary,
   setAndreasförsäkringskassan,
@@ -43,20 +40,22 @@ import {
   setSusannaPersonalCosts,
   setSusannaPersonalSavings,
   setAccounts,
+  setSelectedBudgetMonth,
+  setSelectedHistoricalMonth,
+  setAccountBalances,
+  setAccountBalancesSet,
+  updateHistoricalData,
   setHistoricalData,
   updateHistoricalDataSingle,
   setResults,
-  setSelectedBudgetMonth,
-  setAccountBalances,
-  setAccountBalancesSet,
+  updateSelectedBudgetMonth,
   setAccountEstimatedFinalBalances,
   setAccountEstimatedFinalBalancesSet,
   setAccountEstimatedStartBalances,
   setAccountStartBalancesSet,
   setAccountEndBalancesSet,
-  setMonthFinalBalances,
-  setSelectedHistoricalMonth
-} from '../appOrchestrator';
+  setMonthFinalBalances
+} from '../orchestrator/budgetOrchestrator';
 import { StorageKey } from '../services/storageService';
 
 interface SubCategory {
@@ -95,27 +94,31 @@ const BudgetCalculator = () => {
 
   // Hämta alltid det senaste statet vid varje rendering
   const appState = getCurrentState();
-  const { rawData, calculated } = appState;
+  const { budgetState, calculated } = appState;
   
-  // Data från centrala statet
-  const andreasSalary = rawData.andreasSalary;
-  const andreasförsäkringskassan = rawData.andreasförsäkringskassan;
-  const andreasbarnbidrag = rawData.andreasbarnbidrag;
-  const susannaSalary = rawData.susannaSalary;
-  const susannaförsäkringskassan = rawData.susannaförsäkringskassan;
-  const susannabarnbidrag = rawData.susannabarnbidrag;
-  const costGroups = rawData.costGroups;
-  const savingsGroups = rawData.savingsGroups;
-  const dailyTransfer = rawData.dailyTransfer;
-  const weekendTransfer = rawData.weekendTransfer;
+  // SINGLE SOURCE OF TRUTH: Read from historicalData[selectedMonthKey]
+  const { historicalData: appHistoricalData, selectedMonthKey } = budgetState;
+  const currentMonthData = appHistoricalData[selectedMonthKey] || {};
+  
+  // Data från den enda källan till sanning
+  const andreasSalary = (currentMonthData as any).andreasSalary || 45000;
+  const andreasförsäkringskassan = (currentMonthData as any).andreasförsäkringskassan || 0;
+  const andreasbarnbidrag = (currentMonthData as any).andreasbarnbidrag || 0;
+  const susannaSalary = (currentMonthData as any).susannaSalary || 40000;
+  const susannaförsäkringskassan = (currentMonthData as any).susannaförsäkringskassan || 5000;
+  const susannabarnbidrag = (currentMonthData as any).susannabarnbidrag || 0;
+  const costGroups = (currentMonthData as any).costGroups || [];
+  const savingsGroups = (currentMonthData as any).savingsGroups || [];
+  const dailyTransfer = (currentMonthData as any).dailyTransfer || 300;
+  const weekendTransfer = (currentMonthData as any).weekendTransfer || 540;
   const [isEditingCategories, setIsEditingCategories] = useState<boolean>(false);
   const [isEditingTransfers, setIsEditingTransfers] = useState<boolean>(false);
   const [isEditingHolidays, setIsEditingHolidays] = useState<boolean>(false);
-  const customHolidays = rawData.customHolidays;
+  const customHolidays = (currentMonthData as any).customHolidays || [];
   const results = calculated.results;
-  const historicalData = rawData.historicalData;
-  const selectedHistoricalMonth = rawData.selectedHistoricalMonth;
-  const selectedBudgetMonth = rawData.selectedBudgetMonth;
+  const historicalData = appHistoricalData;
+  const selectedHistoricalMonth = budgetState.selectedHistoricalMonth;
+  const selectedBudgetMonth = selectedMonthKey;
   const [newHistoricalMonth, setNewHistoricalMonth] = useState<string>(''); // State for new month input
   const [newMonthFromCopy, setNewMonthFromCopy] = useState<string>(''); // State for new month when copying from historical
   const [selectedSourceMonth, setSelectedSourceMonth] = useState<string>(''); // State for source month to copy from
