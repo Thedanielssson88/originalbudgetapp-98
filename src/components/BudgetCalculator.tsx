@@ -54,6 +54,7 @@ import {
 } from '../orchestrator/budgetOrchestrator';
 import { StorageKey } from '../services/storageService';
 import { useBudget } from '../hooks/useBudget';
+import { mobileDebugLogger, addMobileDebugLog } from '../utils/mobileDebugLogger';
 
 interface SubCategory {
   id: string;
@@ -90,9 +91,17 @@ const BudgetCalculator = () => {
   const [updateProgress, setUpdateProgress] = useState<number>(0);
   const [isUpdatingAllMonths, setIsUpdatingAllMonths] = useState<boolean>(false);
   
-  // Debug state for mobile
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  // Debug state for mobile - now using global logger
+  const [globalDebugLogs, setGlobalDebugLogs] = useState<string[]>([]);
   const [showDebugPanel, setShowDebugPanel] = useState<boolean>(false);
+  
+  // Subscribe to global debug logger
+  useEffect(() => {
+    const unsubscribe = mobileDebugLogger.subscribe((logs) => {
+      setGlobalDebugLogs(logs.map(log => `${log.timestamp}: ${log.message}`));
+    });
+    return unsubscribe;
+  }, []);
   
   // Tab and expandable sections state
   const [activeTab, setActiveTab] = useState<string>("inkomster");
@@ -325,12 +334,9 @@ const BudgetCalculator = () => {
     </div>
   ) : null;
 
-  // Helper function to add debug log
+  // Helper function to add debug log - now using global logger
   const addDebugLog = (message: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    const logMessage = `${timestamp}: ${message}`;
-    setDebugLogs(prev => [...prev.slice(-10), logMessage]); // Keep last 11 messages
-    console.log(logMessage);
+    addMobileDebugLog(message);
   };
 
   // Function to save current month as historical
@@ -4455,17 +4461,17 @@ const BudgetCalculator = () => {
             {showDebugPanel && (
               <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
                 <h4 className="text-sm font-medium mb-2">Debug Loggar:</h4>
-                <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {debugLogs.length === 0 ? (
+                <div className="space-y-1 max-h-60 overflow-y-auto">
+                  {globalDebugLogs.length === 0 ? (
                     <p className="text-xs text-gray-500">Inga loggar än...</p>
                   ) : (
-                    debugLogs.map((log, index) => (
+                    globalDebugLogs.map((log, index) => (
                       <p key={index} className="text-xs font-mono break-all">{log}</p>
                     ))
                   )}
                 </div>
                 <Button 
-                  onClick={() => setDebugLogs([])} 
+                  onClick={() => mobileDebugLogger.clearLogs()} 
                   variant="outline" 
                   size="sm" 
                   className="mt-2 text-xs"

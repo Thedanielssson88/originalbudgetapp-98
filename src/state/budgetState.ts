@@ -2,6 +2,7 @@
 
 import { get, set, StorageKey } from '../services/storageService';
 import { BudgetState, MonthData, Account } from '../types/budget';
+import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 
 interface AppState {
   isLoading: boolean;
@@ -56,8 +57,10 @@ export const state: AppState = {
 
 export function initializeStateFromStorage(): void {
   try {
+    addMobileDebugLog('[INIT] 🚀 Starting initialization from storage...');
     // Try to load from storage
     const savedData = get<any>(StorageKey.BUDGET_CALCULATOR_DATA);
+    addMobileDebugLog(`[INIT] Raw savedData: ${savedData ? 'DATA FOUND' : 'NO DATA'}`);
     
     if (savedData) {
       // Migration from old structure to new BudgetState
@@ -162,14 +165,16 @@ export function initializeStateFromStorage(): void {
       state.budgetState.historicalData[currentMonth] = createEmptyMonthData();
     }
     
-    console.log('[BudgetState] State initialized from storage');
-    console.log('[BudgetState] INIT DEBUG - selectedMonthKey:', state.budgetState.selectedMonthKey);
-    console.log('[BudgetState] INIT DEBUG - availableMonths:', Object.keys(state.budgetState.historicalData));
+    addMobileDebugLog('[INIT] ✅ State initialized from storage');
+    addMobileDebugLog(`[INIT] selectedMonthKey: ${state.budgetState.selectedMonthKey}`);
+    addMobileDebugLog(`[INIT] availableMonths: ${Object.keys(state.budgetState.historicalData).join(', ')}`);
     const initCurrentMonth = state.budgetState.selectedMonthKey;
     const initCurrentData = state.budgetState.historicalData[initCurrentMonth];
     if (initCurrentData) {
-      console.log('[BudgetState] INIT DEBUG - currentMonth accountBalances:', initCurrentData.accountBalances);
-      console.log('[BudgetState] INIT DEBUG - currentMonth accountBalancesSet:', initCurrentData.accountBalancesSet);
+      addMobileDebugLog(`[INIT] currentMonth accountBalances: ${JSON.stringify(initCurrentData.accountBalances || {})}`);
+      addMobileDebugLog(`[INIT] currentMonth accountBalancesSet: ${JSON.stringify(initCurrentData.accountBalancesSet || {})}`);
+    } else {
+      addMobileDebugLog(`[INIT] ❌ NO DATA FOUND for current month: ${initCurrentMonth}`);
     }
   } catch (error) {
     console.error('[BudgetState] Error loading from storage:', error);
