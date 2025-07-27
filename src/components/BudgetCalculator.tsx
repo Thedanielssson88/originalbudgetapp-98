@@ -323,6 +323,9 @@ const BudgetCalculator = () => {
 
   // Function to save current month as historical
   const handleSaveCurrentMonthAsHistorical = () => {
+    console.log('🎯 [SAVE BUTTON] Spara denna månad clicked');
+    console.log('🎯 [SAVE BUTTON] selectedBudgetMonth:', selectedBudgetMonth);
+    
     if (!selectedBudgetMonth) {
       alert('Ingen månad är vald att spara.');
       return;
@@ -362,15 +365,22 @@ const BudgetCalculator = () => {
       createdAt: new Date().toISOString()
     };
 
+    console.log('🎯 [SAVE BUTTON] currentMonthDataToSave andreasSalary:', currentMonthDataToSave.andreasSalary);
+    console.log('🎯 [SAVE BUTTON] currentMonthDataToSave susannaSalary:', currentMonthDataToSave.susannaSalary);
+    console.log('🎯 [SAVE BUTTON] currentMonthDataToSave costGroups:', currentMonthDataToSave.costGroups);
+
     // Create a NEW object that contains all old data PLUS the new month
     const newHistoricalData = {
       ...historicalData,
       [selectedBudgetMonth]: currentMonthDataToSave
     };
 
+    console.log('🎯 [SAVE BUTTON] Calling updateHistoricalData with keys:', Object.keys(newHistoricalData));
+
     // Use the central state management to update historical data
     updateHistoricalData(newHistoricalData);
 
+    console.log('🎯 [SAVE BUTTON] updateHistoricalData called successfully');
     alert(`Budgeten för ${selectedBudgetMonth} har sparats till historiken!`);
   };
   
