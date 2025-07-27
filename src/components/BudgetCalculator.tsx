@@ -2189,9 +2189,6 @@ const BudgetCalculator = () => {
 
   // Function to update account balance
   const handleAccountBalanceUpdate = (account: string, balance: number) => {
-    // Show visible debug message
-    alert(`🎯 Uppdaterar ${account} med saldo ${balance}`);
-    
     // Update local state first
     setAccountBalances(prev => ({
       ...prev,
@@ -2203,9 +2200,8 @@ const BudgetCalculator = () => {
       [account]: true
     }));
     
-    // CRITICAL: Call the orchestrator function to trigger propagation IMMEDIATELY
+    // Call the orchestrator function to trigger propagation
     updateAccountBalance(account, balance);
-    alert(`✅ Propagering klar för ${account}`);
     
     // Reset MonthFinalBalances flag when manual values are changed
     const currentDate = new Date();
@@ -4915,18 +4911,19 @@ const BudgetCalculator = () => {
                              const estimatedResult = getEstimatedAccountBalances(freshBalances);
                              const estimatedBalance = estimatedResult?.[account] || 0;
                              
-                              // Get OPENING balance for "Estimerad ingående balans" display  
-                              const openingBalanceResult = getEstimatedOpeningBalances(freshBalances);
-                              const estimatedOpeningBalance = openingBalanceResult?.[account] || 0;
+                               // Get OPENING balance for "Estimerad ingående balans" display  
+                               // Use propagated estimated start balances directly from historical data
+                               const currentMonthData = historicalData[selectedBudgetMonth || ''];
+                               const estimatedOpeningBalance = currentMonthData?.accountEstimatedStartBalances?.[account] || 0;
                               
                               // Debug for October Löpande specifically
-                              if (selectedBudgetMonth?.includes('2025-10') && account === 'Löpande') {
-                                console.log(`🔥 OCTOBER LÖPANDE DEBUG:`);
-                                console.log(`   - openingBalanceResult:`, openingBalanceResult);
-                                console.log(`   - estimatedOpeningBalance for Löpande:`, estimatedOpeningBalance);
-                                console.log(`   - This should be 5500, not 0!`);
-                                console.log(`   - selectedBudgetMonth:`, selectedBudgetMonth);
-                              }
+                               // Debug message with new variable  
+                               if (selectedBudgetMonth?.includes('2025-10') && account === 'Löpande') {
+                                 console.log(`🔥 OCTOBER LÖPANDE DEBUG:`);
+                                 console.log(`   - estimatedOpeningBalance for Löpande:`, estimatedOpeningBalance);
+                                 console.log(`   - This should be 5500, not 0!`);
+                                 console.log(`   - selectedBudgetMonth:`, selectedBudgetMonth);
+                               }
                             
                             // CRITICAL DEBUGGING - Check where wrong calculation happens
                             if (currentBalance === 0 && account === 'Löpande') {
