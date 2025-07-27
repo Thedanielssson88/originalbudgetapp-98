@@ -105,7 +105,7 @@ export function updateAccountBalance(account: string, balance: number) {
   const newBalances = { ...state.rawData.accountBalances, [account]: balance };
   handleManualValueChange(StorageKey.ACCOUNT_BALANCES, newBalances, 'accountBalances');
   
-  // Propagate balance changes to future months
+  // Propagate ONLY estimated start balances to future months (not faktiskt kontosaldo)
   console.log(`🚀 Calling propagateBalanceChangesToFutureMonths for ${account}`);
   propagateBalanceChangesToFutureMonths(account, balance);
 }

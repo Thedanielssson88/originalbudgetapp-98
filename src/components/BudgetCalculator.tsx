@@ -2148,12 +2148,11 @@ const BudgetCalculator = () => {
       return currentBalance;
     }
     
-    // If not explicitly set, use estimated start balance from current month data
-    const currentMonthData = historicalData[selectedBudgetMonth || ''];
-    const estimatedStartBalance = currentMonthData?.accountEstimatedStartBalances?.[account] || 0;
-    console.log(`🔄 Using estimated start balance: ${estimatedStartBalance}`);
+    // If not explicitly set, "Faktiskt kontosaldo" should ALWAYS show 0 or "Ej ifyllt"
+    // NEVER use estimated values for "Faktiskt kontosaldo"
+    console.log(`🚨 CORRECTED: Faktiskt kontosaldo when not set should be 0 (Ej ifyllt)`);
     console.log(`=== END DEBUG getAccountBalanceWithFallback ===`);
-    return estimatedStartBalance;
+    return currentBalance;
   };
 
   // Helper function to get Calc.Kontosaldo for same month (for Ursprungligt saldo)
