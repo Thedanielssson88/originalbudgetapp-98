@@ -265,6 +265,26 @@ const BudgetCalculator = () => {
   );
   const accountEndBalancesSet = {}; // No longer used since it's calculated
 
+  // Helper function to check if next month's balance is set for an account
+  const isNextMonthBalanceSet = (accountName: string): boolean => {
+    const [year, month] = budgetState.selectedMonthKey.split('-').map(Number);
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear = month === 12 ? year + 1 : year;
+    const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+    
+    const nextMonthData = budgetState.historicalData[nextMonthKey];
+    return nextMonthData?.accountBalancesSet?.[accountName] === true;
+  };
+
+  // Helper function to get next month name
+  const getNextMonthName = (): string => {
+    const [year, month] = budgetState.selectedMonthKey.split('-').map(Number);
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const monthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 
+                       'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
+    return monthNames[nextMonth - 1];
+  };
+
   // CRITICAL DEBUG: Force logging of actual values being used in component
   useEffect(() => {
     console.log(`🔥 [COMPONENT DATA] accountBalances:`, accountBalances);
@@ -6648,32 +6668,45 @@ const BudgetCalculator = () => {
 
                                           {/* Line separator */}
                                           <div className="border-t border-gray-200 mt-2 pt-2">
-                                            {/* Faktiska extra kostnader/intäkter */}
-                                            <div className="flex justify-between text-sm font-medium">
-                                              <span className="text-gray-800">Faktiska extra kostnader/intäkter</span>
-                                              <span className={(() => {
-                                                const actualEndBalance = accountEndBalances[account] || 0;
-                                                const difference = actualEndBalance - finalBalance;
-                                                return difference >= 0 ? 'text-green-600' : 'text-red-600';
-                                              })()}>
-                                                {(() => {
-                                                  const actualEndBalance = accountEndBalances[account] || 0;
-                                                  const difference = actualEndBalance - finalBalance;
-                                                  return formatCurrency(difference);
-                                                })()}
-                                              </span>
-                                            </div>
+                                            {isNextMonthBalanceSet(account) ? (
+                                              <>
+                                                {/* Faktiska extra kostnader/intäkter */}
+                                                <div className="flex justify-between text-sm font-medium">
+                                                  <span className="text-gray-800">Faktiska extra kostnader/intäkter</span>
+                                                  <span className={(() => {
+                                                    const actualEndBalance = accountEndBalances[account] || 0;
+                                                    const difference = actualEndBalance - finalBalance;
+                                                    return difference >= 0 ? 'text-green-600' : 'text-red-600';
+                                                  })()}>
+                                                    {(() => {
+                                                      const actualEndBalance = accountEndBalances[account] || 0;
+                                                      const difference = actualEndBalance - finalBalance;
+                                                      return formatCurrency(difference);
+                                                    })()}
+                                                  </span>
+                                                </div>
 
-                                            {/* Faktiskt Slutsaldo */}
-                                            <div className="flex justify-between text-sm font-medium mt-1">
-                                              <span className="text-gray-800">Faktiskt Slutsaldo</span>
-                                              <span className={(() => {
-                                                const actualEndBalance = accountEndBalances[account] || 0;
-                                                return actualEndBalance >= 0 ? 'text-green-600' : 'text-red-600';
-                                              })()}>
-                                                {formatCurrency(accountEndBalances[account] || 0)}
-                                              </span>
-                                            </div>
+                                                {/* Faktiskt Slutsaldo */}
+                                                <div className="flex justify-between text-sm font-medium mt-1">
+                                                  <span className="text-gray-800">Faktiskt Slutsaldo</span>
+                                                  <span className={(() => {
+                                                    const actualEndBalance = accountEndBalances[account] || 0;
+                                                    return actualEndBalance >= 0 ? 'text-green-600' : 'text-red-600';
+                                                  })()}>
+                                                    {formatCurrency(accountEndBalances[account] || 0)}
+                                                  </span>
+                                                </div>
+                                              </>
+                                            ) : (
+                                              <div className="flex flex-col items-center text-center p-4 bg-gray-50 rounded-lg border">
+                                                <div className="text-gray-600 text-sm mb-2">
+                                                  <span className="font-medium">Ingående kontosaldo ej ifyllt för {getNextMonthName()}.</span>
+                                                </div>
+                                                <div className="text-gray-500 text-xs">
+                                                  Fyll i för att se faktiskt slutsaldo.
+                                                </div>
+                                              </div>
+                                            )}
                                           </div>
                                        </div>
                                     </div>
