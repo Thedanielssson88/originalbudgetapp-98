@@ -258,12 +258,12 @@ const BudgetCalculator = () => {
   const accountStartBalancesSet = (currentMonthData as any).accountStartBalancesSet || {};
   const accountEndBalancesSet = (currentMonthData as any).accountEndBalancesSet || {};
 
-  // CRITICAL DEBUG: Force logging of actual values being used in component
-  useEffect(() => {
-    console.log(`🔥 [COMPONENT DATA] accountBalances:`, accountBalances);
-    console.log(`🔥 [COMPONENT DATA] accountBalancesSet:`, accountBalancesSet);
-    console.log(`🔥 [COMPONENT DATA] accounts:`, accounts);
-  }, [JSON.stringify(accountBalances), JSON.stringify(accountBalancesSet), JSON.stringify(accounts)]);
+  // TEMPORARILY DISABLED: CRITICAL DEBUG - could cause infinite loops with JSON.stringify
+  // useEffect(() => {
+  //   console.log(`🔥 [COMPONENT DATA] accountBalances:`, accountBalances);
+  //   console.log(`🔥 [COMPONENT DATA] accountBalancesSet:`, accountBalancesSet);
+  //   console.log(`🔥 [COMPONENT DATA] accounts:`, accounts);
+  // }, [JSON.stringify(accountBalances), JSON.stringify(accountBalancesSet), JSON.stringify(accounts)]);
 
 
   // FUNCTION DEFINITIONS (must come before useEffect hooks that call them)
@@ -1216,27 +1216,27 @@ const BudgetCalculator = () => {
   //   calculateBudget();
   // }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedBudgetMonth, transferAccount, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts]);
 
-  // Safety check to ensure accounts is always an array of strings
-  useEffect(() => {
-    if (accounts.some(account => typeof account !== 'string')) {
-      console.warn('Found non-string accounts, converting to strings:', accounts);
-      const stringAccounts = accounts.map(account => 
-        typeof account === 'string' ? account : (account as any).name || String(account)
-      );
-      setAccounts(stringAccounts);
-      // Clear localStorage to prevent re-loading corrupted data
-      const savedData = localStorage.getItem('budgetCalculatorData');
-      if (savedData) {
-        try {
-          const parsed = JSON.parse(savedData);
-          parsed.accounts = stringAccounts;
-          localStorage.setItem('budgetCalculatorData', JSON.stringify(parsed));
-        } catch (error) {
-          console.error('Error updating localStorage accounts:', error);
-        }
-      }
-    }
-  }, [accounts]);
+  // TEMPORARILY DISABLED: Safety check - could trigger infinite loops by calling setAccounts
+  // useEffect(() => {
+  //   if (accounts.some(account => typeof account !== 'string')) {
+  //     console.warn('Found non-string accounts, converting to strings:', accounts);
+  //     const stringAccounts = accounts.map(account => 
+  //       typeof account === 'string' ? account : (account as any).name || String(account)
+  //     );
+  //     setAccounts(stringAccounts);
+  //     // Clear localStorage to prevent re-loading corrupted data
+  //     const savedData = localStorage.getItem('budgetCalculatorData');
+  //     if (savedData) {
+  //       try {
+  //         const parsed = JSON.parse(savedData);
+  //         parsed.accounts = stringAccounts;
+  //         localStorage.setItem('budgetCalculatorData', JSON.stringify(parsed));
+  //       } catch (error) {
+  //         console.error('Error updating localStorage accounts:', error);
+  //       }
+  //     }
+  //   }
+  // }, [accounts]);
 
   // Function to calculate weekdays and weekend days for a specific month
   const calculateDaysForMonth = (year: number, month: number) => {
