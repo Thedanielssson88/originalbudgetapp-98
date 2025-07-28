@@ -206,15 +206,27 @@ export function setAccountBalancesSet(value: {[key: string]: boolean}): void {
 }
 
 export function updateAccountBalance(accountName: string, balance: number): void {
+  console.log(`🔥 [ORCHESTRATOR] updateAccountBalance called: ${accountName} = ${balance}`);
   const { historicalData, selectedMonthKey } = state.budgetState;
+  console.log(`🔥 [ORCHESTRATOR] selectedMonthKey: ${selectedMonthKey}`);
+  console.log(`🔥 [ORCHESTRATOR] Current accountBalances for ${selectedMonthKey}:`, historicalData[selectedMonthKey]?.accountBalances);
 
   // 1. Uppdatera "Faktiskt Startsaldo" för den VALDA månaden
   const currentMonthData = historicalData[selectedMonthKey] || createEmptyMonthData();
   const newStartBalances = { ...currentMonthData.accountBalances || {}, [accountName]: balance };
   const newStartBalancesSet = { ...currentMonthData.accountBalancesSet || {}, [accountName]: true };
   
+  console.log(`🔥 [ORCHESTRATOR] newStartBalances:`, newStartBalances);
+  console.log(`🔥 [ORCHESTRATOR] newStartBalancesSet:`, newStartBalancesSet);
+  
   // Skapa en kopia av hela historiken för att kunna modifiera den
   const newHistoricalData = JSON.parse(JSON.stringify(historicalData));
+
+  // CRITICAL FIX: Ensure the month exists before trying to spread it
+  if (!newHistoricalData[selectedMonthKey]) {
+    console.log(`🔥 [ORCHESTRATOR] Creating new month data for ${selectedMonthKey}`);
+    newHistoricalData[selectedMonthKey] = createEmptyMonthData();
+  }
 
   // Uppdatera den valda månadens data
   newHistoricalData[selectedMonthKey] = {
@@ -222,6 +234,8 @@ export function updateAccountBalance(accountName: string, balance: number): void
     accountBalances: newStartBalances,
     accountBalancesSet: newStartBalancesSet
   };
+  
+  console.log(`🔥 [ORCHESTRATOR] Updated month data for ${selectedMonthKey}:`, newHistoricalData[selectedMonthKey].accountBalances);
 
   // 2. Hitta och uppdatera "Faktiskt Slutsaldo" för FÖREGÅENDE månad
   const allMonths = Object.keys(historicalData).sort();
@@ -243,7 +257,9 @@ export function updateAccountBalance(accountName: string, balance: number): void
   }
 
   // 3. Uppdatera det globala statet med den nya historiken
+  console.log(`🔥 [ORCHESTRATOR] About to update global state...`);
   state.budgetState.historicalData = newHistoricalData;
+  console.log(`🔥 [ORCHESTRATOR] Global state updated. New accountBalances for ${selectedMonthKey}:`, state.budgetState.historicalData[selectedMonthKey]?.accountBalances);
   
   // 4. CRITICAL: Trigger calculations to update Calc.Kontosaldo and other derived values
   runCalculationsAndUpdateState();
