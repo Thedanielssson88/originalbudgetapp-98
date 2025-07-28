@@ -416,8 +416,8 @@ const BudgetCalculator = () => {
         date: currentDate.toISOString() // Update timestamp
       };
       
-      updateHistoricalDataSingle(monthKey, updatedMonthData);
-      
+      // REMOVED: updateHistoricalDataSingle(monthKey, updatedMonthData);
+      // The orchestrator now handles all data updates automatically
       console.log(`💾 AFTER SAVE - historicalData[${monthKey}].accountEstimatedFinalBalances:`, finalBalances);
       console.log(`💾 SPECIFICALLY Löpande for ${monthKey}:`, finalBalances?.['Löpande']);
     }
@@ -1208,10 +1208,11 @@ const BudgetCalculator = () => {
   // Note: Save functionality now handled by orchestrator - removed duplicate save logic to prevent conflicts
   // Legacy calculation removed - now handled by orchestrator
 
-  // Auto-calculate budget whenever any input changes
-  useEffect(() => {
-    calculateBudget();
-  }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedBudgetMonth, transferAccount, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts]);
+  // DISABLED: Auto-calculate budget whenever any input changes
+  // The orchestrator now handles all calculations automatically when data changes
+  // useEffect(() => {
+  //   calculateBudget();
+  // }, [andreasSalary, andreasförsäkringskassan, andreasbarnbidrag, susannaSalary, susannaförsäkringskassan, susannabarnbidrag, costGroups, savingsGroups, dailyTransfer, weekendTransfer, customHolidays, selectedBudgetMonth, transferAccount, andreasPersonalCosts, andreasPersonalSavings, susannaPersonalCosts, susannaPersonalSavings, accounts]);
 
   // Safety check to ensure accounts is always an array of strings
   useEffect(() => {
