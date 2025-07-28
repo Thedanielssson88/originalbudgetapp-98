@@ -16,10 +16,23 @@ function triggerUIRefresh() {
   eventEmitter.dispatchEvent(new Event(APP_STATE_UPDATED));
 }
 
+// Track initialization to prevent multiple calls
+let isInitialized = false;
+
 // Initialize the application
 export function initializeApp(): void {
-  console.log('[BudgetOrchestrator] Initializing application...');
-  addMobileDebugLog('[ORCHESTRATOR] 🚀 Starting app initialization...');
+  console.log('[BudgetOrchestrator] 🚀 initializeApp() called!');
+  addMobileDebugLog('[ORCHESTRATOR] 🚀 initializeApp() called!');
+  
+  if (isInitialized) {
+    console.log('[BudgetOrchestrator] ⚠️ App already initialized - skipping...');
+    addMobileDebugLog('[ORCHESTRATOR] ⚠️ App already initialized - skipping...');
+    return;
+  }
+  
+  isInitialized = true;
+  console.log('[BudgetOrchestrator] ✅ Setting initialization flag and starting...');
+  addMobileDebugLog('[ORCHESTRATOR] ✅ Setting initialization flag and starting...');
   
   initializeStateFromStorage();
   
@@ -33,9 +46,8 @@ export function initializeApp(): void {
   state.isLoading = false;
   addMobileDebugLog('[ORCHESTRATOR] ✅ App initialization complete - loading set to false');
   
-  // Trigger UI refresh to update components
-  triggerUIRefresh();
-  addMobileDebugLog('[ORCHESTRATOR] 📡 UI refresh triggered');
+  // Don't trigger UI refresh here - runCalculationsAndUpdateState() already does it
+  addMobileDebugLog('[ORCHESTRATOR] 📡 App initialization complete - UI refresh was done by runCalculationsAndUpdateState');
 }
 
 // Get current state
