@@ -378,48 +378,54 @@ const BudgetCalculator = () => {
     return Object.keys(historicalData).sort().reverse();
   }, [historicalData]);
 
-  // Add/Edit Category Functions
-  const addCostCategory = () => {
-    const newCategory: BudgetGroup = {
-      id: Date.now().toString(),
-      name: 'New Category',
-      amount: 0,
-      type: 'cost',
-      subCategories: []
+  // Helper functions for managing Cost Groups - STATELESS VERSION
+  const handleAddCostGroup = () => {
+    const newGroup = { 
+      id: Date.now().toString(), 
+      name: 'Ny kostnad', 
+      amount: 0, 
+      type: 'cost', 
+      subCategories: [] 
     };
-    setCostGroups([...costGroups, newCategory]);
+    const newCostGroups = [...(currentMonthData.costGroups || []), newGroup];
+    updateCostGroups(newCostGroups);
   };
 
-  const addSavingsCategory = () => {
-    const newCategory: BudgetGroup = {
-      id: Date.now().toString(),
-      name: 'New Savings',
-      amount: 0,
-      type: 'savings'
+  const handleUpdateCostGroup = (groupId: string, field: string, value: any) => {
+    const newCostGroups = (currentMonthData.costGroups || []).map(group =>
+      group.id === groupId ? { ...group, [field]: value } : group
+    );
+    updateCostGroups(newCostGroups);
+  };
+
+  const handleRemoveCostGroup = (groupId: string) => {
+    const newCostGroups = (currentMonthData.costGroups || []).filter(group => group.id !== groupId);
+    updateCostGroups(newCostGroups);
+  };
+
+  // Helper functions for managing Savings Groups - STATELESS VERSION
+  const handleAddSavingsGroup = () => {
+    const newGroup = { 
+      id: Date.now().toString(), 
+      name: 'Ny spargrupp', 
+      amount: 0, 
+      type: 'savings', 
+      subCategories: [] 
     };
-    setSavingsGroups([...savingsGroups, newCategory]);
+    const newSavingsGroups = [...(currentMonthData.savingsGroups || []), newGroup];
+    updateSavingsGroups(newSavingsGroups);
   };
 
-  const updateCostCategory = (id: string, field: string, value: any) => {
-    const updatedGroups = costGroups.map(group => 
-      group.id === id ? { ...group, [field]: value } : group
+  const handleUpdateSavingsGroup = (groupId: string, field: string, value: any) => {
+    const newSavingsGroups = (currentMonthData.savingsGroups || []).map(group =>
+      group.id === groupId ? { ...group, [field]: value } : group
     );
-    setCostGroups(updatedGroups);
+    updateSavingsGroups(newSavingsGroups);
   };
 
-  const updateSavingsCategory = (id: string, field: string, value: any) => {
-    const updatedGroups = savingsGroups.map(group => 
-      group.id === id ? { ...group, [field]: value } : group
-    );
-    setSavingsGroups(updatedGroups);
-  };
-
-  const deleteCostCategory = (id: string) => {
-    setCostGroups(costGroups.filter(group => group.id !== id));
-  };
-
-  const deleteSavingsCategory = (id: string) => {
-    setSavingsGroups(savingsGroups.filter(group => group.id !== id));
+  const handleRemoveSavingsGroup = (groupId: string) => {
+    const newSavingsGroups = (currentMonthData.savingsGroups || []).filter(group => group.id !== groupId);
+    updateSavingsGroups(newSavingsGroups);
   };
 
   const addSubCategory = (groupId: string, isSubCategory = false) => {
@@ -664,7 +670,7 @@ const BudgetCalculator = () => {
                     <TrendingUp className="h-5 w-5" />
                     Cost Categories
                   </span>
-                  <Button onClick={addCostCategory} size="sm">
+                  <Button onClick={handleAddCostGroup} size="sm">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Category
                   </Button>
@@ -677,7 +683,7 @@ const BudgetCalculator = () => {
                       <div className="flex-1 mr-4">
                         <Input
                           value={group.name}
-                          onChange={(e) => updateCostCategory(group.id, 'name', e.target.value)}
+                          onChange={(e) => handleUpdateCostGroup(group.id, 'name', e.target.value)}
                           placeholder="Category name"
                         />
                       </div>
@@ -702,7 +708,7 @@ const BudgetCalculator = () => {
                         <Button
                           variant="destructive"
                           size="sm"
-                          onClick={() => deleteCostCategory(group.id)}
+                          onClick={() => handleRemoveCostGroup(group.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -758,7 +764,7 @@ const BudgetCalculator = () => {
                     <TrendingUp className="h-5 w-5" />
                     Savings Categories
                   </span>
-                  <Button onClick={addSavingsCategory} size="sm">
+                  <Button onClick={handleAddSavingsGroup} size="sm">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Savings
                   </Button>
@@ -770,21 +776,21 @@ const BudgetCalculator = () => {
                     <div className="flex items-center gap-4">
                       <Input
                         value={group.name}
-                        onChange={(e) => updateSavingsCategory(group.id, 'name', e.target.value)}
+                        onChange={(e) => handleUpdateSavingsGroup(group.id, 'name', e.target.value)}
                         placeholder="Savings name"
                         className="flex-1"
                       />
                       <Input
                         type="number"
                         value={group.amount}
-                        onChange={(e) => updateSavingsCategory(group.id, 'amount', Number(e.target.value))}
+                        onChange={(e) => handleUpdateSavingsGroup(group.id, 'amount', Number(e.target.value))}
                         placeholder="Amount"
                         className="w-32"
                       />
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={() => deleteSavingsCategory(group.id)}
+                        onClick={() => handleRemoveSavingsGroup(group.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
