@@ -206,75 +206,14 @@ export function setAccountBalancesSet(value: {[key: string]: boolean}): void {
 }
 
 export function updateAccountBalance(accountName: string, balance: number): void {
-  try {
-    console.log(`🔥 START updateAccountBalance: ${accountName} = ${balance}`);
-    
-    const { historicalData, selectedMonthKey } = state.budgetState;
-    console.log(`🔥 selectedMonthKey: ${selectedMonthKey}`);
-    
-    if (!selectedMonthKey) {
-      console.error(`🔥 ERROR: No selectedMonthKey!`);
-      return;
-    }
-    
-    // 1. Get current month data
-    const currentMonthData = historicalData[selectedMonthKey] || createEmptyMonthData();
-    console.log(`🔥 currentMonthData exists: ${!!currentMonthData}`);
-    
-    // 2. Create new balances
-    const newStartBalances = { ...currentMonthData.accountBalances || {}, [accountName]: balance };
-    const newStartBalancesSet = { ...currentMonthData.accountBalancesSet || {}, [accountName]: true };
-    console.log(`🔥 Created new balances: ${JSON.stringify(newStartBalances)}`);
-    
-    // 3. Create copy of historical data
-    const newHistoricalData = JSON.parse(JSON.stringify(historicalData));
-    console.log(`🔥 Created historical data copy`);
-    
-    // 4. Ensure month exists
-    if (!newHistoricalData[selectedMonthKey]) {
-      console.log(`🔥 Creating new month data for ${selectedMonthKey}`);
-      newHistoricalData[selectedMonthKey] = createEmptyMonthData();
-    }
-    
-    // 5. Update the month data
-    newHistoricalData[selectedMonthKey] = {
-      ...newHistoricalData[selectedMonthKey],
-      accountBalances: newStartBalances,
-      accountBalancesSet: newStartBalancesSet
-    };
-    console.log(`🔥 Updated month data`);
-    
-    // 6. Update previous month if needed
-    const allMonths = Object.keys(historicalData).sort();
-    const currentMonthIndex = allMonths.indexOf(selectedMonthKey);
-    
-    if (currentMonthIndex > 0) {
-      const previousMonthKey = allMonths[currentMonthIndex - 1];
-      const previousMonthData = newHistoricalData[previousMonthKey] || createEmptyMonthData();
-      
-      const newActualFinalBalances = { ...previousMonthData.accountActualFinalBalances || {}, [accountName]: balance };
-      
-      newHistoricalData[previousMonthKey] = {
-        ...previousMonthData,
-        accountActualFinalBalances: newActualFinalBalances
-      };
-      console.log(`🔥 Updated previous month ${previousMonthKey}`);
-    }
-    
-    // 7. Update global state
-    console.log(`🔥 About to update global state`);
-    state.budgetState.historicalData = newHistoricalData;
-    console.log(`🔥 Global state updated successfully`);
-    
-    // 8. Trigger recalculation
-    console.log(`🔥 About to trigger recalculation`);
-    runCalculationsAndUpdateState();
-    console.log(`🔥 updateAccountBalance completed successfully`);
-    
-  } catch (error) {
-    console.error(`🔥 ERROR in updateAccountBalance:`, error);
-    console.error(`🔥 ERROR stack:`, error.stack);
-  }
+  const currentMonth = getCurrentMonthData();
+  const newBalances = { ...currentMonth.accountBalances, [accountName]: balance };
+  const newBalancesSet = { ...currentMonth.accountBalancesSet, [accountName]: true };
+  
+  updateAndRecalculate({ 
+    accountBalances: newBalances,
+    accountBalancesSet: newBalancesSet
+  });
 }
 
 // ===== MONTH MANAGEMENT =====
