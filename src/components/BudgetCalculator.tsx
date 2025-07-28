@@ -2056,15 +2056,19 @@ const BudgetCalculator = () => {
 
   // Function to update account balance
   const handleAccountBalanceUpdate = (account: string, balance: number) => {
+    console.log(`🎯 handleAccountBalanceUpdate called: ${account} = ${balance}`);
     addDebugLog(`🎯 handleAccountBalanceUpdate called: ${account} = ${balance}`);
     
     // CRITICAL FIX: Call orchestrator only once to avoid duplicate updates
+    console.log(`🎯 About to call updateAccountBalance orchestrator function...`);
     updateAccountBalance(account, balance);
+    console.log(`✅ updateAccountBalance completed for ${account}`);
     addDebugLog(`✅ updateAccountBalance completed for ${account}`);
     
     // Reset MonthFinalBalances flag when manual values are changed
     const currentDate = new Date();
     const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    console.log(`🎯 About to reset MonthFinalBalances flag for ${currentMonthKey}`);
     resetMonthFinalBalancesFlag(currentMonthKey);
     
     addDebugLog(`🔄 About to call forceRecalculation`);
@@ -4736,6 +4740,7 @@ const BudgetCalculator = () => {
                                                             }}
                                                             onBlur={(e) => {
                                                               console.log(`🔄 onBlur triggered for ${account} with value: ${e.target.value}`);
+                                                              console.log(`🔄 onBlur: Current accountInputValues[${account}] = ${accountInputValues[account]}`);
                                                               const value = e.target.value;
                                                               if (value === "Ej ifyllt" || value === "") {
                                                                 console.log(`🔄 onBlur: Setting ${account} to 0 (Ej ifyllt/empty)`);
@@ -4751,10 +4756,12 @@ const BudgetCalculator = () => {
                                                                   console.log(`🔄 onBlur: About to call handleAccountBalanceUpdate(${account}, ${numValue})`);
                                                                   handleAccountBalanceUpdate(account, numValue);
                                                                 } else {
+                                                                  console.log(`🔄 onBlur: Invalid number, reverting...`);
                                                                   // Invalid number, revert to previous state
                                                                   const revertValue = accountBalancesSet[account] 
                                                                     ? currentBalance.toString() 
                                                                     : "Ej ifyllt";
+                                                                  console.log(`🔄 onBlur: Reverting to: ${revertValue}`);
                                                                   setAccountInputValues(prev => ({
                                                                     ...prev,
                                                                     [account]: revertValue
