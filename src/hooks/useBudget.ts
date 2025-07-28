@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { 
   getCurrentState, 
   subscribeToStateChanges, 
@@ -10,56 +10,45 @@ import { isAppLoading } from '../state/budgetState';
 export const useBudget = () => {
   console.log('🚀 [HOOK] useBudget hook is running!');
   
-  // Force re-render when state updates
-  const [, forceUpdate] = useReducer(x => x + 1, 0);
+  // Use useState to hold the current state
+  const [currentState, setCurrentState] = useState(() => getCurrentState());
+  const isInitializedRef = useRef(false);
+  
+  // Create a stable callback that won't change on every render
+  const updateStateCallback = useCallback(() => {
+    console.log(`🔄 [HOOK] State change detected - updating state`);
+    // Get fresh state and update
+    const newState = getCurrentState();
+    setCurrentState(newState);
+  }, []);
 
   useEffect(() => {
-    console.log(`🔄 [HOOK] useBudget subscribing to state changes...`);
-    
-    // Add a throttle mechanism to prevent infinite re-renders
-    let isUpdating = false;
-    
-    // Create a stable callback reference
-    const updateCallback = () => {
-      if (isUpdating) {
-        console.log(`🔄 [HOOK] Update already in progress - skipping`);
-        return;
-      }
-      
-      isUpdating = true;
-      console.log(`🔄 [HOOK] State change detected - forcing re-render`);
-      
-      // Use setTimeout to break the synchronous update cycle
-      setTimeout(() => {
-        forceUpdate();
-        isUpdating = false;
-      }, 0);
-    };
+    console.log(`🔄 [HOOK] Setting up state subscription...`);
     
     // Subscribe to state updates
-    subscribeToStateChanges(updateCallback);
-    // Unsubscribe when component unmounts
+    subscribeToStateChanges(updateStateCallback);
+    
+    // Cleanup on unmount
     return () => {
-      console.log(`🔄 [HOOK] useBudget unsubscribing from state changes`);
-      unsubscribeFromStateChanges(updateCallback);
+      console.log(`🔄 [HOOK] Cleaning up state subscription`);
+      unsubscribeFromStateChanges(updateStateCallback);
     };
-  }, []);
+  }, [updateStateCallback]);
 
   // Initialize app once
   useEffect(() => {
-    console.log(`🔄 [HOOK] Initializing app...`);
-    initializeApp();
+    if (!isInitializedRef.current) {
+      console.log(`🔄 [HOOK] Initializing app...`);
+      isInitializedRef.current = true;
+      initializeApp();
+    }
   }, []);
-
-  // Always get the latest state on each render
-  const appState = getCurrentState();
-  const { budgetState, calculated } = appState;
   
-  console.log(`🔄 [HOOK] useBudget render - isLoading: ${isAppLoading()}, selectedMonthKey: ${budgetState.selectedMonthKey}`);
+  console.log(`🔄 [HOOK] useBudget render - isLoading: ${isAppLoading()}, selectedMonthKey: ${currentState.budgetState.selectedMonthKey}`);
   
   return {
     isLoading: isAppLoading(),
-    budgetState,
-    calculated
+    budgetState: currentState.budgetState,
+    calculated: currentState.calculated
   };
 };
