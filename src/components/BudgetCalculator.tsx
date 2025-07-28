@@ -4705,14 +4705,17 @@ const BudgetCalculator = () => {
                                                   <div className="flex items-center gap-2">
                                                      <Input
                                                        type="text"
-                                                       defaultValue={(() => {
+                                                       value={(() => {
                                                          const value = accountBalancesSet[account] 
                                                            ? currentBalance.toString() 
                                                            : (currentBalance === 0 ? "Ej ifyllt" : currentBalance.toString());
-                                                         console.log(`🔍 [INPUT VALUE] ${account}: currentBalance=${currentBalance}, accountBalancesSet=${accountBalancesSet[account]}, defaultValue="${value}"`);
+                                                         console.log(`🔍 [INPUT VALUE] ${account}: currentBalance=${currentBalance}, accountBalancesSet=${accountBalancesSet[account]}, value="${value}"`);
                                                          return value;
                                                        })()}
-                                                       key={`${account}-${currentBalance}-${accountBalancesSet[account]}`}
+                                                       onChange={(e) => {
+                                                         // Handle real-time changes if needed
+                                                         console.log(`🔄 onChange triggered for ${account} with value: ${e.target.value}`);
+                                                       }}
                                                        onBlur={(e) => {
                                                          console.log(`🔄 onBlur triggered for ${account} with value: ${e.target.value}`);
                                                          const value = e.target.value;
