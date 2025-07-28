@@ -12,6 +12,7 @@ export const APP_STATE_UPDATED = 'appstateupdated';
 
 function triggerUIRefresh() {
   console.log('🎯 [ORCHESTRATOR] Dispatching APP_STATE_UPDATED event...');
+  console.log('🎯 [ORCHESTRATOR] Call stack:', new Error().stack);
   addMobileDebugLog('🎯 [ORCHESTRATOR] Dispatching APP_STATE_UPDATED event...');
   eventEmitter.dispatchEvent(new Event(APP_STATE_UPDATED));
 }
