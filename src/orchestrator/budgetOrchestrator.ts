@@ -72,7 +72,9 @@ export function unsubscribeFromStateChanges(callback: () => void): void {
 // Main calculation and state update function
 export function runCalculationsAndUpdateState(): void {
   console.log('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() STARTED');
+  console.log('🔥 [ORCHESTRATOR] WHO CALLED ME? Call stack:', new Error().stack);
   addMobileDebugLog('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() STARTED');
+  addMobileDebugLog(`🔥 [ORCHESTRATOR] WHO CALLED ME? Call stack: ${new Error().stack}`);
   
   try {
     const { historicalData, accounts } = state.budgetState;
