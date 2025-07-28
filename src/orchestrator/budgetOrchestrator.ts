@@ -243,7 +243,10 @@ export function updateAccountBalance(accountName: string, balance: number): void
   }
 
   // 3. Uppdatera det globala statet med den nya historiken
-  updateHistoricalData(newHistoricalData);
+  state.budgetState.historicalData = newHistoricalData;
+  
+  // 4. CRITICAL: Trigger calculations to update Calc.Kontosaldo and other derived values
+  runCalculationsAndUpdateState();
 }
 
 // ===== MONTH MANAGEMENT =====
