@@ -8369,49 +8369,51 @@ const BudgetCalculator = () => {
                           {Object.keys(budgetTemplates).sort().map(templateName => (
                             <Collapsible key={templateName} open={expandedTemplates[templateName]}>
                               <div className="border rounded-lg">
-                                <CollapsibleTrigger 
-                                  className="w-full flex items-center justify-between p-3 hover:bg-muted/50"
-                                  onClick={() => setExpandedTemplates(prev => ({
-                                    ...prev,
-                                    [templateName]: !prev[templateName]
-                                  }))}
-                                >
-                                  <div className="flex items-center justify-between w-full">
-                                    <div>
-                                      <span className="font-medium">{templateName}</span>
-                                      <p className="text-sm text-muted-foreground">
-                                        Skapad: {new Date(budgetTemplates[templateName].created).toLocaleDateString('sv-SE')}
-                                      </p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <div className="flex gap-2">
-                                        <Button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            startEditingTemplate(templateName);
-                                          }}
-                                          size="sm"
-                                          variant="outline"
-                                        >
-                                          <Edit className="w-4 h-4 mr-1" />
-                                          Redigera
-                                        </Button>
-                                        <Button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            const updatedTemplates = { ...budgetTemplates };
-                                            delete updatedTemplates[templateName];
-                                            setBudgetTemplates(updatedTemplates);
-                                          }}
-                                          size="sm"
-                                          variant="destructive"
-                                        >
-                                          <Trash2 className="w-4 h-4" />
-                                        </Button>
+                                <CollapsibleTrigger asChild>
+                                  <button 
+                                    className="w-full flex items-center justify-between p-3 hover:bg-muted/50"
+                                    onClick={() => setExpandedTemplates(prev => ({
+                                      ...prev,
+                                      [templateName]: !prev[templateName]
+                                    }))}
+                                  >
+                                    <div className="flex items-center justify-between w-full">
+                                      <div>
+                                        <span className="font-medium">{templateName}</span>
+                                        <p className="text-sm text-muted-foreground">
+                                          Skapad: {new Date(budgetTemplates[templateName].created).toLocaleDateString('sv-SE')}
+                                        </p>
                                       </div>
-                                      <ChevronDown className={`h-4 w-4 transition-transform ${expandedTemplates[templateName] ? 'rotate-180' : ''}`} />
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex gap-2">
+                                          <Button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              startEditingTemplate(templateName);
+                                            }}
+                                            size="sm"
+                                            variant="outline"
+                                          >
+                                            <Edit className="w-4 h-4 mr-1" />
+                                            Redigera
+                                          </Button>
+                                          <Button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              const updatedTemplates = { ...budgetTemplates };
+                                              delete updatedTemplates[templateName];
+                                              setBudgetTemplates(updatedTemplates);
+                                            }}
+                                            size="sm"
+                                            variant="destructive"
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                          </Button>
+                                        </div>
+                                        <ChevronDown className={`h-4 w-4 transition-transform ${expandedTemplates[templateName] ? 'rotate-180' : ''}`} />
+                                      </div>
                                     </div>
-                                  </div>
+                                  </button>
                                 </CollapsibleTrigger>
                                 <CollapsibleContent>
                                   <div className="p-3 pt-0 border-t">
