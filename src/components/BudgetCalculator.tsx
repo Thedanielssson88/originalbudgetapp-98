@@ -348,14 +348,12 @@ const BudgetCalculator = () => {
     });
     
     // Update state with final balances
-    setAccountEstimatedFinalBalances(finalBalances);
+    // REMOVED: setAccountEstimatedFinalBalances(finalBalances);
+    // The orchestrator now handles all balance calculations
     
     // Mark all final balances as calculated (not user-input)
-    const finalBalancesSetState: {[key: string]: boolean} = {};
-    accounts.forEach(account => {
-      finalBalancesSetState[account] = true; // These are calculated, so they're "set"
-    });
-    setAccountEstimatedFinalBalancesSet(finalBalancesSetState);
+    // REMOVED: setAccountEstimatedFinalBalancesSet(finalBalancesSetState);
+    // The orchestrator now handles all balance state management
     
     // Check and set MonthFinalBalances flag when final balances are calculated and saved
     const currentDateForFlag = new Date();
