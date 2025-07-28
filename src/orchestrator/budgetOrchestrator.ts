@@ -206,14 +206,44 @@ export function setAccountBalancesSet(value: {[key: string]: boolean}): void {
 }
 
 export function updateAccountBalance(accountName: string, balance: number): void {
-  const currentMonth = getCurrentMonthData();
-  const newBalances = { ...currentMonth.accountBalances, [accountName]: balance };
-  const newBalancesSet = { ...currentMonth.accountBalancesSet, [accountName]: true };
+  const { historicalData, selectedMonthKey } = state.budgetState;
+
+  // 1. Uppdatera "Faktiskt Startsaldo" för den VALDA månaden
+  const currentMonthData = historicalData[selectedMonthKey] || createEmptyMonthData();
+  const newStartBalances = { ...currentMonthData.accountBalances || {}, [accountName]: balance };
+  const newStartBalancesSet = { ...currentMonthData.accountBalancesSet || {}, [accountName]: true };
   
-  updateAndRecalculate({ 
-    accountBalances: newBalances,
-    accountBalancesSet: newBalancesSet
-  });
+  // Skapa en kopia av hela historiken för att kunna modifiera den
+  const newHistoricalData = JSON.parse(JSON.stringify(historicalData));
+
+  // Uppdatera den valda månadens data
+  newHistoricalData[selectedMonthKey] = {
+    ...newHistoricalData[selectedMonthKey],
+    accountBalances: newStartBalances,
+    accountBalancesSet: newStartBalancesSet
+  };
+
+  // 2. Hitta och uppdatera "Faktiskt Slutsaldo" för FÖREGÅENDE månad
+  const allMonths = Object.keys(historicalData).sort();
+  const currentMonthIndex = allMonths.indexOf(selectedMonthKey);
+  
+  if (currentMonthIndex > 0) {
+    const previousMonthKey = allMonths[currentMonthIndex - 1];
+    const previousMonthData = newHistoricalData[previousMonthKey] || createEmptyMonthData();
+    
+    // Skapa eller uppdatera fältet för faktiska slutsaldon
+    const newActualFinalBalances = { ...previousMonthData.accountActualFinalBalances || {}, [accountName]: balance };
+    
+    newHistoricalData[previousMonthKey] = {
+      ...previousMonthData,
+      accountActualFinalBalances: newActualFinalBalances
+    };
+    
+    console.log(`Updated actual final balance for ${previousMonthKey} -> ${accountName}: ${balance}`);
+  }
+
+  // 3. Uppdatera det globala statet med den nya historiken
+  updateHistoricalData(newHistoricalData);
 }
 
 // ===== MONTH MANAGEMENT =====

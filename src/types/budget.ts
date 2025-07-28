@@ -82,6 +82,9 @@ export interface MonthData {
   accountStartBalancesSet: {[key: string]: boolean};
   accountEndBalancesSet: {[key: string]: boolean};
   
+  // NYTT FÄLT: Faktiska slutsaldon för manuellt satta värden
+  accountActualFinalBalances?: {[key: string]: number};
+  
   // User names
   userName1: string;
   userName2: string;
