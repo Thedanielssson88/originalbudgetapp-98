@@ -4728,6 +4728,12 @@ const BudgetCalculator = () => {
                                                                 [account]: e.target.value
                                                               }));
                                                             }}
+                                                            onKeyDown={(e) => {
+                                                              if (e.key === 'Enter') {
+                                                                console.log(`🔄 onEnter triggered for ${account} with value: ${e.currentTarget.value}`);
+                                                                e.currentTarget.blur(); // This will trigger onBlur
+                                                              }
+                                                            }}
                                                             onBlur={(e) => {
                                                               console.log(`🔄 onBlur triggered for ${account} with value: ${e.target.value}`);
                                                               const value = e.target.value;
