@@ -142,45 +142,18 @@ export const useBudgetCalculator = () => {
         return { balance: 0, isEstimated: true };
       }
       
-      // CRITICAL FIX: Always use the estimated final balance (which is calculated from starting balance + transactions)
-      // rather than just the raw starting balance when manually set
-      const estimatedFinalBalance = monthData.accountEstimatedFinalBalances?.[account];
-      
-      if (estimatedFinalBalance !== undefined && estimatedFinalBalance !== null) {
-        // Use the calculated final balance (starting balance + transactions)
-        const hasActualStartBalance = monthData.accountBalancesSet && 
-                                    monthData.accountBalancesSet[account] === true;
-        const isUsingEstimated = !hasActualStartBalance;
-        return { balance: estimatedFinalBalance, isEstimated: isUsingEstimated };
-      }
-      
-      // Fallback: if no estimated final balance available, use previous logic
       const hasActualBalance = monthData.accountBalancesSet && 
                               monthData.accountBalancesSet[account] === true;
       const currentBalance = monthData.accountBalances?.[account] || 0;
       
-      // If Faktiskt kontosaldo is "Ej ifyllt" (not filled), use estimated opening balance
-      let estimatedOpeningBalance = 0;
-      if (!hasActualBalance) {
-        // Get estimated opening balance for this month by looking at previous month's ending balance
-        const [currentYear, currentMonth] = monthKey.split('-').map(Number);
-        const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
-        const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
-        const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
-        const prevMonthData = appHistoricalData[prevMonthKey];
-        
-        if (prevMonthData) {
-          const endingBalanceKey = `${account}.${prevYear}.${String(prevMonth).padStart(2, '0')}.Endbalance`;
-          estimatedOpeningBalance = prevMonthData.accountEndingBalances?.[endingBalanceKey] || 
-                                   prevMonthData.accountEstimatedFinalBalances?.[account] || 
-                                   prevMonthData.accountBalances?.[account] || 0;
-        }
+      // If Faktiskt kontosaldo is set, use it directly for Calc.Kontosaldo
+      if (hasActualBalance) {
+        return { balance: currentBalance, isEstimated: false };
       }
       
-      const calcBalance = hasActualBalance ? currentBalance : estimatedOpeningBalance;
-      const isUsingEstimated = !hasActualBalance;
-      
-      return { balance: calcBalance, isEstimated: isUsingEstimated };
+      // Otherwise, use "Estimerad ingående balans"
+      const estimatedStartBalance = monthData.accountEstimatedStartBalances?.[account] || 0;
+      return { balance: estimatedStartBalance, isEstimated: true };
     };
 
     const rows: AccountDataRow[] = [];
