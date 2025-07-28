@@ -16,6 +16,7 @@ import { useSwipeGestures } from '@/hooks/useSwipeGestures';
 import { AccountDataTable, AccountDataRow } from '@/components/AccountDataTable';
 import CreateMonthDialog from './CreateMonthDialog';
 import { CustomLineChart } from './CustomLineChart';
+import { AccountSelector } from '@/components/AccountSelector';
 import { calculateAccountEndBalances } from '../services/calculationService';
 import { 
   updateCostGroups,
@@ -3611,33 +3612,14 @@ const BudgetCalculator = () => {
         {monthSelectorUI}
 
         {/* Account Selection */}
-        <div className="bg-muted/50 p-4 rounded-lg">
-          <h4 className="font-medium mb-3">Välj konton att visa:</h4>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {accounts.map((accountName, index) => {
-              const color = accountColors[index % accountColors.length];
-              return (
-                <div key={accountName} className="flex items-center space-x-2">
-                  <Checkbox
-                    checked={selectedAccountsForChart.includes(accountName)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedAccountsForChart(prev => [...prev, accountName]);
-                      } else {
-                        setSelectedAccountsForChart(prev => prev.filter(a => a !== accountName));
-                      }
-                    }}
-                  />
-                  <div 
-                    className="w-3 h-3 rounded-full border border-gray-300" 
-                    style={{ backgroundColor: color }}
-                  />
-                  <Label className="text-sm">{accountName}</Label>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <AccountSelector
+          accounts={accounts}
+          selectedAccounts={selectedAccountsForChart}
+          onSelectionChange={setSelectedAccountsForChart}
+          accountCategories={accountCategories}
+          accountCategoryMapping={accountCategoryMapping}
+          accountColors={accountColors}
+        />
 
         {/* Balance Type Option */}
         <div className="bg-muted/50 p-4 rounded-lg">
