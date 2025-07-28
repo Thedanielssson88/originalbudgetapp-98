@@ -39,15 +39,17 @@ export function initializeApp(): void {
   addMobileDebugLog(`[ORCHESTRATOR] After storage init - available months: ${Object.keys(state.budgetState.historicalData).join(', ')}`);
   addMobileDebugLog(`[ORCHESTRATOR] Selected month: ${state.budgetState.selectedMonthKey}`);
   
-  // Run initial calculations to ensure state is up to date
-  runCalculationsAndUpdateState();
+  // TEMPORARILY DISABLE: Run initial calculations to ensure state is up to date
+  // runCalculationsAndUpdateState();
+  console.log('[ORCHESTRATOR] 🚨 CALCULATIONS DISABLED FOR DEBUGGING');
   
   // Mark loading as complete
   state.isLoading = false;
   addMobileDebugLog('[ORCHESTRATOR] ✅ App initialization complete - loading set to false');
   
-  // Don't trigger UI refresh here - runCalculationsAndUpdateState() already does it
-  addMobileDebugLog('[ORCHESTRATOR] 📡 App initialization complete - UI refresh was done by runCalculationsAndUpdateState');
+  // TEMPORARILY DISABLE: Don't trigger UI refresh here - runCalculationsAndUpdateState() already does it
+  // addMobileDebugLog('[ORCHESTRATOR] 📡 App initialization complete - UI refresh was done by runCalculationsAndUpdateState');
+  console.log('[ORCHESTRATOR] ✅ Initialization complete - NO CALCULATIONS RUN');
 }
 
 // Get current state

@@ -1,50 +1,33 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { 
   getCurrentState, 
-  subscribeToStateChanges, 
-  unsubscribeFromStateChanges,
   initializeApp
 } from '../orchestrator/budgetOrchestrator';
 import { isAppLoading } from '../state/budgetState';
 
 export const useBudget = () => {
-  console.log('🚀 [HOOK] useBudget hook is running!');
+  console.log('🚀 [HOOK] useBudget hook is running - MINIMAL VERSION!');
   
-  // Use useState to hold the current state
-  const [currentState, setCurrentState] = useState(() => getCurrentState());
-  const isInitializedRef = useRef(false);
+  // Use a simple state approach without any subscriptions for now
+  const [initialized, setInitialized] = useState(false);
   
-  // Create a stable callback that won't change on every render
-  const updateStateCallback = useCallback(() => {
-    console.log(`🔄 [HOOK] State change detected - updating state`);
-    // Get fresh state and update
-    const newState = getCurrentState();
-    setCurrentState(newState);
-  }, []);
-
+  // Initialize app once only
   useEffect(() => {
-    console.log(`🔄 [HOOK] Setting up state subscription...`);
-    
-    // Subscribe to state updates
-    subscribeToStateChanges(updateStateCallback);
-    
-    // Cleanup on unmount
-    return () => {
-      console.log(`🔄 [HOOK] Cleaning up state subscription`);
-      unsubscribeFromStateChanges(updateStateCallback);
-    };
-  }, [updateStateCallback]);
-
-  // Initialize app once
-  useEffect(() => {
-    if (!isInitializedRef.current) {
-      console.log(`🔄 [HOOK] Initializing app...`);
-      isInitializedRef.current = true;
-      initializeApp();
+    if (!initialized) {
+      console.log(`🔄 [HOOK] Initializing app ONCE...`);
+      try {
+        initializeApp();
+        setInitialized(true);
+      } catch (error) {
+        console.error('Error initializing app:', error);
+      }
     }
-  }, []);
+  }, [initialized]);
+
+  // Get current state (this might be the issue, but let's test)
+  const currentState = getCurrentState();
   
-  console.log(`🔄 [HOOK] useBudget render - isLoading: ${isAppLoading()}, selectedMonthKey: ${currentState.budgetState.selectedMonthKey}`);
+  console.log(`🔄 [HOOK] useBudget minimal render - isLoading: ${isAppLoading()}`);
   
   return {
     isLoading: isAppLoading(),
