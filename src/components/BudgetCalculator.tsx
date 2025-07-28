@@ -3640,7 +3640,7 @@ const BudgetCalculator = () => {
 
         {/* Individual Costs Option */}
         <div className="bg-muted/50 p-4 rounded-lg">
-          <h4 className="font-medium mb-3">Visa enskilda kostnader utanför budget?</h4>
+          <h4 className="font-medium mb-3">Visa utgifter som händelser grafen</h4>
           <div className="flex gap-4">
             <div className="flex items-center space-x-2">
               <input
@@ -3672,7 +3672,7 @@ const BudgetCalculator = () => {
 
         {/* Savings Option */}
         <div className="bg-muted/50 p-4 rounded-lg">
-          <h4 className="font-medium mb-3">Visa sparande separat?</h4>
+          <h4 className="font-medium mb-3">Visa sparande som händelser i grafen</h4>
           <div className="flex gap-4">
             <div className="flex items-center space-x-2">
               <input
