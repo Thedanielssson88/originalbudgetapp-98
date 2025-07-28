@@ -49,6 +49,7 @@ import {
   setAccountEstimatedFinalBalancesSet,
   setAccountEstimatedStartBalances,
   setAccountStartBalancesSet,
+  setAccountEndBalances,
   setAccountEndBalancesSet,
   setMonthFinalBalances
 } from '../orchestrator/budgetOrchestrator';
@@ -256,6 +257,7 @@ const BudgetCalculator = () => {
   const accountEstimatedFinalBalancesSet = (currentMonthData as any).accountEstimatedFinalBalancesSet || {};
   const accountEstimatedStartBalances = (currentMonthData as any).accountEstimatedStartBalances || {};
   const accountStartBalancesSet = (currentMonthData as any).accountStartBalancesSet || {};
+  const accountEndBalances = (currentMonthData as any).accountEndBalances || {};
   const accountEndBalancesSet = (currentMonthData as any).accountEndBalancesSet || {};
 
   // CRITICAL DEBUG: Force logging of actual values being used in component
@@ -6687,18 +6689,48 @@ const BudgetCalculator = () => {
                                            </span>
                                          </div>
                                          
-                                         {/* Account.År.Månad.Endbalance row */}
-                                         <div className="flex justify-between text-sm font-medium mt-1">
-                                           <span className="text-gray-800">
-                                             {(() => {
-                                               const [year, month] = (selectedBudgetMonth || '').split('-');
-                                               return `${account}.${year}.${month}.Endbalance`;
-                                             })()}
-                                           </span>
-                                           <span className={finalBalance >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                             {formatCurrency(finalBalance)}
-                                           </span>
-                                         </div>
+                                          {/* Account.År.Månad.Endbalance row */}
+                                          <div className="flex justify-between text-sm font-medium mt-1">
+                                            <span className="text-gray-800">
+                                              {(() => {
+                                                const [year, month] = (selectedBudgetMonth || '').split('-');
+                                                return `${account}.${year}.${month}.Endbalance`;
+                                              })()}
+                                            </span>
+                                            <span className={finalBalance >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                              {formatCurrency(finalBalance)}
+                                            </span>
+                                          </div>
+
+                                          {/* Line separator */}
+                                          <div className="border-t border-gray-200 mt-2 pt-2">
+                                            {/* Faktiska extra kostnader/intäkter */}
+                                            <div className="flex justify-between text-sm font-medium">
+                                              <span className="text-gray-800">Faktiska extra kostnader/intäkter</span>
+                                              <span className={(() => {
+                                                const actualEndBalance = accountEndBalances[account] || 0;
+                                                const difference = actualEndBalance - finalBalance;
+                                                return difference >= 0 ? 'text-green-600' : 'text-red-600';
+                                              })()}>
+                                                {(() => {
+                                                  const actualEndBalance = accountEndBalances[account] || 0;
+                                                  const difference = actualEndBalance - finalBalance;
+                                                  return formatCurrency(difference);
+                                                })()}
+                                              </span>
+                                            </div>
+
+                                            {/* Faktiskt Slutsaldo */}
+                                            <div className="flex justify-between text-sm font-medium mt-1">
+                                              <span className="text-gray-800">Faktiskt Slutsaldo</span>
+                                              <span className={(() => {
+                                                const actualEndBalance = accountEndBalances[account] || 0;
+                                                return actualEndBalance >= 0 ? 'text-green-600' : 'text-red-600';
+                                              })()}>
+                                                {formatCurrency(accountEndBalances[account] || 0)}
+                                              </span>
+                                            </div>
+                                          </div>
                                        </div>
                                     </div>
                                   )}

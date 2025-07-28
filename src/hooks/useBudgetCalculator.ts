@@ -104,6 +104,7 @@ export const useBudgetCalculator = () => {
   const [accountEstimatedFinalBalancesSet, setAccountEstimatedFinalBalancesSet] = useState<{[key: string]: boolean}>({});
   const [accountEstimatedStartBalances, setAccountEstimatedStartBalances] = useState<{[key: string]: number}>({});
   const [accountStartBalancesSet, setAccountStartBalancesSet] = useState<{[key: string]: boolean}>({});
+  const [accountEndBalances, setAccountEndBalances] = useState<{[key: string]: number}>({});
   const [accountEndBalancesSet, setAccountEndBalancesSet] = useState<{[key: string]: boolean}>({});
   
   // Chart selection states
@@ -324,6 +325,8 @@ export const useBudgetCalculator = () => {
     setAccountEstimatedStartBalances,
     accountStartBalancesSet,
     setAccountStartBalancesSet,
+    accountEndBalances,
+    setAccountEndBalances,
     accountEndBalancesSet,
     setAccountEndBalancesSet,
     selectedAccountsForChart,

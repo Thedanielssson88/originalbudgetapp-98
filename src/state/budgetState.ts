@@ -306,6 +306,7 @@ function createEmptyMonthData(): MonthData {
     accountEstimatedFinalBalancesSet: {},
     accountEstimatedStartBalances: {},
     accountStartBalancesSet: {},
+    accountEndBalances: {},
     accountEndBalancesSet: {},
     userName1: 'Andreas',
     userName2: 'Susanna',
