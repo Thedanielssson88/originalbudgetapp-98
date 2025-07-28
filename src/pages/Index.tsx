@@ -1,8 +1,9 @@
 import React from 'react';
-import BudgetCalculator from '@/components/BudgetCalculator';
+import BudgetCalculatorMinimal from '@/components/BudgetCalculator.minimal';
 
 const Index = () => {
-  return <BudgetCalculator />;
+  console.log('🔥 [INDEX] Index component rendering with minimal calculator');
+  return <BudgetCalculatorMinimal />;
 };
 
 export default Index;
