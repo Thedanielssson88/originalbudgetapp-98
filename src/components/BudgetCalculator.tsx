@@ -361,26 +361,27 @@ const BudgetCalculator = () => {
     checkAndSetMonthFinalBalancesFlag(monthKeyForFlag);
     
     console.log('Holiday days calculated:', budgetData.holidayDays);
-    setResults({
-      totalSalary,
-      totalDailyBudget: budgetData.totalBudget,
-      remainingDailyBudget: budgetData.remainingBudget,
-      holidayDaysBudget: budgetData.holidayBudget,
-      balanceLeft,
-      susannaShare,
-      andreasShare,
-      susannaPercentage,
-      andreasPercentage,
-      daysUntil25th: budgetData.daysUntil25th,
-      weekdayCount: budgetData.weekdayCount,
-      fridayCount: budgetData.fridayCount,
-      totalMonthlyExpenses,
-      holidayDays: budgetData.holidayDays,
-      holidaysUntil25th: budgetData.holidaysUntil25th,
-      nextTenHolidays: budgetData.nextTenHolidays,
-      remainingWeekdayCount: budgetData.remainingWeekdayCount,
-      remainingFridayCount: budgetData.remainingFridayCount
-    });
+    // REMOVED: setResults() call - orchestrator now handles all calculations automatically
+    // setResults({
+    //   totalSalary,
+    //   totalDailyBudget: budgetData.totalBudget,
+    //   remainingDailyBudget: budgetData.remainingBudget,
+    //   holidayDaysBudget: budgetData.holidayBudget,
+    //   balanceLeft,
+    //   susannaShare,
+    //   andreasShare,
+    //   susannaPercentage,
+    //   andreasPercentage,
+    //   daysUntil25th: budgetData.daysUntil25th,
+    //   weekdayCount: budgetData.weekdayCount,
+    //   fridayCount: budgetData.fridayCount,
+    //   totalMonthlyExpenses,
+    //   holidayDays: budgetData.holidayDays,
+    //   holidaysUntil25th: budgetData.holidaysUntil25th,
+    //   nextTenHolidays: budgetData.nextTenHolidays,
+    //   remainingWeekdayCount: budgetData.remainingWeekdayCount,
+    //   remainingFridayCount: budgetData.remainingFridayCount
+    // });
     
     // Update historical data for selected month with calculated results INCLUDING final balances
     const currentDate = new Date();
@@ -895,9 +896,10 @@ const BudgetCalculator = () => {
         setChartStartMonth(parsed.chartStartMonth || '');
         setChartEndMonth(parsed.chartEndMonth || '');
         
-        if (parsed.results) {
-          setResults(parsed.results);
-        }
+        // REMOVED: setResults() call - orchestrator now handles all calculations automatically
+        // if (parsed.results) {
+        //   setResults(parsed.results);
+        // }
         
         console.log('Successfully loaded saved budget data');
         
