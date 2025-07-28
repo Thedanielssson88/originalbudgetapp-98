@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -3701,31 +3702,26 @@ const BudgetCalculator = () => {
 
         {/* Balance Type Option */}
         <div className="bg-muted/50 p-4 rounded-lg">
-          <h4 className="font-medium mb-3">Y-axel visar:</h4>
-          <div className="flex gap-4">
-            <div className="flex items-center space-x-2">
-              <input
-                type="radio"
-                id="balance-type-starting"
-                name="balance-type"
-                checked={balanceType === 'starting'}
-                onChange={() => setBalanceType('starting')}
-                className="w-4 h-4"
-              />
-              <Label htmlFor="balance-type-starting" className="text-sm">Ingående Saldo</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="radio"
-                id="balance-type-closing"
-                name="balance-type"
-                checked={balanceType === 'closing'}
-                onChange={() => setBalanceType('closing')}
-                className="w-4 h-4"
-              />
-              <Label htmlFor="balance-type-closing" className="text-sm">Slutsaldo inför nästa månad</Label>
-            </div>
-          </div>
+          <h4 className="font-medium mb-3">Visa saldo som:</h4>
+          <ToggleGroup 
+            type="single" 
+            value={balanceType} 
+            onValueChange={(value) => value && setBalanceType(value as 'starting' | 'closing')}
+            className="grid grid-cols-2 w-full max-w-md"
+          >
+            <ToggleGroupItem 
+              value="starting" 
+              className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+            >
+              Ingående
+            </ToggleGroupItem>
+            <ToggleGroupItem 
+              value="closing" 
+              className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+            >
+              Slutsaldo
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
 
         {/* Estimated Budget Amounts Option */}
