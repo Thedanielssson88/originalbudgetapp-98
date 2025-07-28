@@ -800,50 +800,11 @@ const BudgetCalculator = () => {
       try {
         const parsed = JSON.parse(savedData);
         
-        // Handle migration from old data format
-        if (parsed.budgetGroups && !parsed.costGroups) {
-          console.log('Migrating old budget data format to new format');
-          // Migrate old budgetGroups to new costGroups format
-          const migratedCostGroups = parsed.budgetGroups.map((group: any) => ({
-            ...group,
-            type: 'cost'
-          }));
-          setCostGroups(migratedCostGroups);
-        } else {
-          // Use new format costGroups
-          setCostGroups(parsed.costGroups || [
-            { id: '1', name: 'Hyra', amount: 15000, type: 'cost' },
-            { id: '2', name: 'Mat & Kläder', amount: 8000, type: 'cost' },
-            { id: '3', name: 'Transport', amount: 2000, type: 'cost', subCategories: [] }
-          ]);
-        }
+        // ARKITEKTONISK FIX: All budgetdata läses nu från central state automatiskt
+        // Ingen lokal initiering från localStorage behövs längre för budget-specifika värden
         
-        // Load all saved values with backward compatibility
-        setAndreasSalary(parsed.andreasSalary || 45000);
-        setAndreasförsäkringskassan(parsed.andreasförsäkringskassan || 0);
-        setAndreasbarnbidrag(parsed.andreasbarnbidrag || 0);
-        setSusannaSalary(parsed.susannaSalary || 40000);
-        // Migrate old försäkringskassan to susannaförsäkringskassan if needed
-        setSusannaförsäkringskassan(parsed.susannaförsäkringskassan || parsed.försäkringskassan || 5000);
-        setSusannabarnbidrag(parsed.susannabarnbidrag || 0);
-        
-        setSavingsGroups(parsed.savingsGroups || []);
-        setDailyTransfer(parsed.dailyTransfer || 300);
-        setWeekendTransfer(parsed.weekendTransfer || 540);
-        setCustomHolidays(parsed.customHolidays || []);
-        
-        // Load personal budget data
+        // Load UI-specific data (non-budget data)
         setSelectedPerson(parsed.selectedPerson || 'andreas');
-        setAndreasPersonalCosts(parsed.andreasPersonalCosts || []);
-        setAndreasPersonalSavings(parsed.andreasPersonalSavings || []);
-        setSusannaPersonalCosts(parsed.susannaPersonalCosts || []);
-        setSusannaPersonalSavings(parsed.susannaPersonalSavings || []);
-        
-        // Load historical data
-        setHistoricalData(parsed.historicalData || {});
-        
-        // Load accounts data
-        setAccounts(parsed.accounts || ['Löpande', 'Sparkonto', 'Buffert']);
         
         // Load account categories data
         const loadedCategories = parsed.accountCategories || ['Privat', 'Gemensam', 'Sparande', 'Hushåll'];
@@ -966,78 +927,8 @@ const BudgetCalculator = () => {
     }, 100);
   }, []);
 
-  // CRITICAL FIX: Auto-load month data when selectedBudgetMonth changes
-  // This ensures that ALL state variables are properly reset and loaded when switching months
-  useEffect(() => {
-    // Skip on initial load to avoid conflicts with the main initialization useEffect
-    if (isInitialLoad) return;
-    
-    console.log(`🔄 Month selection changed to: ${selectedBudgetMonth}`);
-    
-    // Get data for the selected month, or empty object if it doesn't exist
-    const data = historicalData[selectedBudgetMonth] as any || {};
-    
-    // Reset ALL budget state variables to prevent state bleeding between months
-    // Use default values if data is missing for any field
-    
-    // Income data - these now use the central orchestrator functions
-    setAndreasSalary(data.andreasSalary || 0);
-    setAndreasförsäkringskassan(data.andreasförsäkringskassan || 0);
-    setAndreasbarnbidrag(data.andreasbarnbidrag || 0);
-    setSusannaSalary(data.susannaSalary || 0);
-    setSusannaförsäkringskassan(data.susannaförsäkringskassan || 0);
-    setSusannabarnbidrag(data.susannabarnbidrag || 0);
-
-    // CRITICAL: Reset arrays to empty arrays if they're missing
-    setCostGroups(data.costGroups || []);
-    setSavingsGroups(data.savingsGroups || []);
-
-    // Transfer data
-    setDailyTransfer(data.dailyTransfer || 300);
-    setWeekendTransfer(data.weekendTransfer || 540);
-    setCustomHolidays(data.customHolidays || []);
-
-    // Personal budget data - these are now numbers in the new structure
-    setAndreasPersonalCosts(data.andreasPersonalCosts || 0);
-    setAndreasPersonalSavings(data.andreasPersonalSavings || 0);
-    setSusannaPersonalCosts(data.susannaPersonalCosts || 0);
-    setSusannaPersonalSavings(data.susannaPersonalSavings || 0);
-
-    // ARKITEKTONISK FIX: Account data läses nu från central state automatiskt
-    // setAccounts(budgetState.accounts.map(acc => acc.name));
-    // setAccountBalances(data.accountBalances || {});
-    // setAccountBalancesSet(data.accountBalancesSet || {});
-    // setAccountEstimatedFinalBalances(data.accountEstimatedFinalBalances || {});
-    // setAccountEstimatedFinalBalancesSet(data.accountEstimatedFinalBalancesSet || {});
-    // setAccountEstimatedStartBalances(data.accountEstimatedStartBalances || {});
-    // setAccountStartBalancesSet(data.accountStartBalancesSet || {});
-    // setAccountEndBalancesSet(data.accountEndBalancesSet || {});
-
-    // User names
-    setUserName1(data.userName1 || 'Andreas');
-    setUserName2(data.userName2 || 'Susanna');
-
-    // Transfer completion states
-    setTransferChecks(data.transferChecks || {});
-    setAndreasShareChecked(data.andreasShareChecked || false);
-    setSusannaShareChecked(data.susannaShareChecked || false);
-
-    // Chart settings - now read from central state
-    setSelectedAccountsForChart(budgetState.chartSettings.selectedAccountsForChart || []);
-    setShowIndividualCostsOutsideBudget(budgetState.chartSettings.showIndividualCostsOutsideBudget || false);
-    setShowSavingsSeparately(budgetState.chartSettings.showSavingsSeparately || false);
-    setUseCustomTimeRange(budgetState.chartSettings.useCustomTimeRange || false);
-    setChartStartMonth(budgetState.chartSettings.chartStartMonth || '');
-    setChartEndMonth(budgetState.chartSettings.chartEndMonth || '');
-
-    // Month completion flags
-    setMonthFinalBalances(prev => ({
-      ...prev,
-      [selectedBudgetMonth]: data.monthFinalBalances?.[selectedBudgetMonth] || false
-    }));
-
-    console.log(`✅ Month data loaded and all state variables reset for: ${selectedBudgetMonth}`);
-  }, [selectedBudgetMonth, isInitialLoad]); // REMOVED historicalData from dependencies!
+  // REMOVED: Den problematiska useEffect som skapade oändlig loop är nu borttagen
+  // Data läses nu direkt från central state istället för att dupliceras i lokala variabler
 
   // Save current data to the selected month in historical data
   const saveToSelectedMonth = (explicitData?: any) => {
@@ -2179,25 +2070,8 @@ const BudgetCalculator = () => {
       (window as any).__freshFinalBalances = freshFinalBalances;
     }
     
-    // Load all the form data from the selected month
-    console.log(`📥 DEBUG: Loading andreasSalary from monthData:`, monthData.andreasSalary);
-    console.log(`📥 DEBUG: Loading susannaSalary from monthData:`, monthData.susannaSalary);
-    setAndreasSalary(monthData.andreasSalary || 0);
-    setAndreasförsäkringskassan(monthData.andreasförsäkringskassan || 0);
-    setAndreasbarnbidrag(monthData.andreasbarnbidrag || 0);
-    setSusannaSalary(monthData.susannaSalary || 0);
-    setSusannaförsäkringskassan(monthData.susannaförsäkringskassan || 0);
-    setSusannabarnbidrag(monthData.susannabarnbidrag || 0);
-    setCostGroups(monthData.costGroups || []);
-    setSavingsGroups(monthData.savingsGroups || []);
-    setDailyTransfer(monthData.dailyTransfer || 300);
-    setWeekendTransfer(monthData.weekendTransfer || 540);
-    
-    // Load personal budget data - now numbers in the new structure
-    setAndreasPersonalCosts(monthData.andreasPersonalCosts || 0);
-    setAndreasPersonalSavings(monthData.andreasPersonalSavings || 0);
-    setSusannaPersonalCosts(monthData.susannaPersonalCosts || 0);
-    setSusannaPersonalSavings(monthData.susannaPersonalSavings || 0);
+    // Data läses nu automatiskt från central state - ingen lokal initiering behövs
+    console.log(`📥 DEBUG: Month data loaded automatically from central state for: ${monthKey}`);
     
     // ARKITEKTONISK FIX: Account balances läses nu från central state
     // const loadedBalances = monthData.accountBalances || {};
@@ -2358,18 +2232,8 @@ const BudgetCalculator = () => {
       // Also load other data from the new month
       setTimeout(() => {
         const monthData = newMonthData;
-        // Load non-income data
-        setCostGroups(monthData.costGroups || []);
-        setSavingsGroups(monthData.savingsGroups || []);
-        setDailyTransfer(monthData.dailyTransfer || 0);
-        setWeekendTransfer(monthData.weekendTransfer || 0);
-        setCustomHolidays(monthData.customHolidays || []);
+        // UI data läses nu automatiskt från central state
         setSelectedPerson((monthData as any).selectedPerson || 'andreas');
-        setAndreasPersonalCosts(monthData.andreasPersonalCosts || 0);
-        setAndreasPersonalSavings(monthData.andreasPersonalSavings || 0);
-        setSusannaPersonalCosts(monthData.susannaPersonalCosts || 0);
-        setSusannaPersonalSavings(monthData.susannaPersonalSavings || 0);
-        setAccounts(budgetState.accounts.map(acc => acc.name));
         setUserName1(monthData.userName1 || 'Andreas');
         setUserName2(monthData.userName2 || 'Susanna');
         setTransferChecks(monthData.transferChecks || {});
@@ -2429,18 +2293,8 @@ const BudgetCalculator = () => {
       // Also load other data from the new month
       setTimeout(() => {
         const monthData = newMonthData;
-        // Load non-income data
-        setCostGroups(monthData.costGroups || []);
-        setSavingsGroups(monthData.savingsGroups || []);
-        setDailyTransfer(monthData.dailyTransfer || 0);
-        setWeekendTransfer(monthData.weekendTransfer || 0);
-        setCustomHolidays(monthData.customHolidays || []);
+        // UI data läses nu automatiskt från central state  
         setSelectedPerson((monthData as any).selectedPerson || 'andreas');
-        setAndreasPersonalCosts(monthData.andreasPersonalCosts || 0);
-        setAndreasPersonalSavings(monthData.andreasPersonalSavings || 0);
-        setSusannaPersonalCosts(monthData.susannaPersonalCosts || 0);
-        setSusannaPersonalSavings(monthData.susannaPersonalSavings || 0);
-        setAccounts(budgetState.accounts.map(acc => acc.name));
         setUserName1(monthData.userName1 || 'Andreas');
         setUserName2(monthData.userName2 || 'Susanna');
         setTransferChecks(monthData.transferChecks || {});
@@ -7918,23 +7772,7 @@ const BudgetCalculator = () => {
                               // Simply set the month and load its data
                               setSelectedBudgetMonth(originalMonth);
                               
-                              // Load the data for the original month
-                              if (historicalData[originalMonth]) {
-                                const monthData = historicalData[originalMonth];
-                                setAndreasSalary(monthData.andreasSalary || 0);
-                                setAndreasförsäkringskassan(monthData.andreasförsäkringskassan || 0);
-                                setAndreasbarnbidrag(monthData.andreasbarnbidrag || 0);
-                                setSusannaSalary(monthData.susannaSalary || 0);
-                                setSusannaförsäkringskassan(monthData.susannaförsäkringskassan || 0);
-                                setSusannabarnbidrag(monthData.susannabarnbidrag || 0);
-                                setCostGroups(monthData.costGroups || []);
-                                setSavingsGroups(monthData.savingsGroups || []);
-                                setDailyTransfer(monthData.dailyTransfer || 300);
-                                // ARKITEKTONISK FIX: Account data läses från central state
-                                // setAccounts(budgetState.accounts.map(acc => acc.name));
-                                // setAccountBalances(monthData.accountBalances || {});
-                                // setAccountBalancesSet(monthData.accountBalancesSet || {});
-                              }
+                // Data läses nu automatiskt från central state när selectedBudgetMonth ändras
                               
                               // Force a final chart update with the loaded data
                               setTimeout(() => {
