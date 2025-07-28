@@ -968,9 +968,11 @@ const BudgetCalculator = () => {
 
   // CRITICAL FIX: Auto-load month data when selectedBudgetMonth changes
   // This ensures that ALL state variables are properly reset and loaded when switching months
-  useEffect(() => {
-    // Skip on initial load to avoid conflicts with the main initialization useEffect
-    if (isInitialLoad) return;
+  // DISABLED: This useEffect was causing infinite loops by calling orchestrator functions
+  // The orchestrator now handles all data loading and state management automatically
+  // useEffect(() => {
+  //   // Skip on initial load to avoid conflicts with the main initialization useEffect
+  //   if (isInitialLoad) return;
     
     console.log(`🔄 Month selection changed to: ${selectedBudgetMonth}`);
     
@@ -1037,7 +1039,7 @@ const BudgetCalculator = () => {
     }));
 
     console.log(`✅ Month data loaded and all state variables reset for: ${selectedBudgetMonth}`);
-  }, [selectedBudgetMonth, isInitialLoad]); // REMOVED historicalData from dependencies!
+  // }, [selectedBudgetMonth, isInitialLoad]); // DISABLED - was causing infinite loops
 
   // Save current data to the selected month in historical data
   const saveToSelectedMonth = (explicitData?: any) => {

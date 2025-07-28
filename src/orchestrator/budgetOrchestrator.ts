@@ -71,11 +71,7 @@ export function unsubscribeFromStateChanges(callback: () => void): void {
 // Main calculation and state update function
 export function runCalculationsAndUpdateState(): void {
   console.log('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() STARTED');
-  const stack = new Error().stack;
-  const callerLine = stack?.split('\n')[2] || 'unknown';
-  console.log('🔥 [ORCHESTRATOR] WHO IS CALLING ME?:', callerLine);
   addMobileDebugLog('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() STARTED');
-  addMobileDebugLog(`🔥 [ORCHESTRATOR] WHO IS CALLING ME?: ${callerLine}`);
   
   try {
     const { historicalData, accounts } = state.budgetState;
@@ -118,10 +114,6 @@ export function runCalculationsAndUpdateState(): void {
 
 // Helper function for updating data
 function updateAndRecalculate(updates: Partial<MonthData>): void {
-  const stack = new Error().stack;
-  const callerLine = stack?.split('\n')[2] || 'unknown';
-  console.log('🔥 [ORCHESTRATOR] updateAndRecalculate() called from:', callerLine);
-  addMobileDebugLog(`🔥 [ORCHESTRATOR] updateAndRecalculate() called from: ${callerLine}`);
   updateCurrentMonthData(updates);
   runCalculationsAndUpdateState();
 }
