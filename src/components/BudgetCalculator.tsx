@@ -20,6 +20,7 @@ import {
   updateCostGroups,
   updateSavingsGroups,
   updateAccountBalance,
+  unsetAccountBalance,
   forceRecalculation,
   setAndreasSalary,
   setAndreasförsäkringskassan,
@@ -2015,6 +2016,19 @@ const BudgetCalculator = () => {
     // CRITICAL FIX: Call orchestrator only once to avoid duplicate updates
     updateAccountBalance(account, balance);
     addDebugLog(`✅ updateAccountBalance completed for ${account}`);
+    
+    // Reset MonthFinalBalances flag when manual values are changed
+    const currentDate = new Date();
+    const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    resetMonthFinalBalancesFlag(currentMonthKey);
+  };
+  
+  // Function to unset account balance (revert to "Ej ifyllt")
+  const handleAccountBalanceUnset = (account: string) => {
+    addDebugLog(`🎯 handleAccountBalanceUnset called: ${account}`);
+    
+    unsetAccountBalance(account);
+    addDebugLog(`✅ unsetAccountBalance completed for ${account}`);
     
     // Reset MonthFinalBalances flag when manual values are changed
     const currentDate = new Date();
@@ -4699,21 +4713,21 @@ const BudgetCalculator = () => {
                                                          return value;
                                                        })()}
                                                        key={`${account}-${currentBalance}-${accountBalancesSet[account]}`}
-                                                       onBlur={(e) => {
-                                                         console.log(`🔄 onBlur triggered for ${account} with value: ${e.target.value}`);
-                                                         const value = e.target.value;
-                                                          if (value === "Ej ifyllt" || value === "") {
-                                                            console.log(`🔄 onBlur: Setting ${account} to 0 (Ej ifyllt/empty)`);
-                                                            handleAccountBalanceUpdate(account, 0);
-                                                          } else {
-                                                           const numValue = Number(value);
-                                                           console.log(`🔄 onBlur: Parsed number value: ${numValue}, isNaN: ${isNaN(numValue)}`);
-                                                           if (!isNaN(numValue)) {
-                                                             console.log(`🔄 onBlur: About to call handleAccountBalanceUpdate(${account}, ${numValue})`);
-                                                             handleAccountBalanceUpdate(account, numValue);
-                                                           }
-                                                         }
-                                                       }}
+                                                        onBlur={(e) => {
+                                                          console.log(`🔄 onBlur triggered for ${account} with value: ${e.target.value}`);
+                                                          const value = e.target.value;
+                                                           if (value === "Ej ifyllt" || value === "") {
+                                                             console.log(`🔄 onBlur: Unsetting ${account} balance (Ej ifyllt/empty)`);
+                                                             handleAccountBalanceUnset(account);
+                                                           } else {
+                                                            const numValue = Number(value);
+                                                            console.log(`🔄 onBlur: Parsed number value: ${numValue}, isNaN: ${isNaN(numValue)}`);
+                                                            if (!isNaN(numValue)) {
+                                                              console.log(`🔄 onBlur: About to call handleAccountBalanceUpdate(${account}, ${numValue})`);
+                                                              handleAccountBalanceUpdate(account, numValue);
+                                                            }
+                                                          }
+                                                        }}
                                                         onFocus={(e) => {
                                                           if (e.target.value === "Ej ifyllt") {
                                                             // Clear the field for easy editing

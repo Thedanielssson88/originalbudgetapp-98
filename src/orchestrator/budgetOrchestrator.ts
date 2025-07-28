@@ -221,6 +221,24 @@ export function updateAccountBalance(accountName: string, balance: number): void
   console.log(`✅ Updated account balance for ${accountName}: ${balance} (accountEndBalances now calculated dynamically)`);
 }
 
+export function unsetAccountBalance(accountName: string): void {
+  const currentMonthData = getCurrentMonthData();
+  const newBalances = { ...currentMonthData.accountBalances };
+  const newBalancesSet = { ...currentMonthData.accountBalancesSet };
+  
+  // Set balance to 0 and mark as not set by user
+  newBalances[accountName] = 0;
+  newBalancesSet[accountName] = false;
+  
+  // Update current month accountBalances and accountBalancesSet
+  updateAndRecalculate({ 
+    accountBalances: newBalances,
+    accountBalancesSet: newBalancesSet
+  });
+  
+  console.log(`✅ Unset account balance for ${accountName} (marked as not set by user)`);
+}
+
 // ===== MONTH MANAGEMENT =====
 
 export function setSelectedBudgetMonth(monthKey: string): void {
