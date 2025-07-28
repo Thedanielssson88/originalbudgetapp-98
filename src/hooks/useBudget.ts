@@ -9,16 +9,31 @@ import { isAppLoading } from '../state/budgetState';
 
 export const useBudget = () => {
   console.log('🚀 [HOOK] useBudget hook is running!');
-  console.log('🚀 [HOOK] useBudget hook is running!'); // Duplicate to ensure visibility
+  
   // Force re-render when state updates
   const [, forceUpdate] = useReducer(x => x + 1, 0);
 
   useEffect(() => {
     console.log(`🔄 [HOOK] useBudget subscribing to state changes...`);
+    
+    // Add a throttle mechanism to prevent infinite re-renders
+    let isUpdating = false;
+    
     // Create a stable callback reference
     const updateCallback = () => {
+      if (isUpdating) {
+        console.log(`🔄 [HOOK] Update already in progress - skipping`);
+        return;
+      }
+      
+      isUpdating = true;
       console.log(`🔄 [HOOK] State change detected - forcing re-render`);
-      forceUpdate();
+      
+      // Use setTimeout to break the synchronous update cycle
+      setTimeout(() => {
+        forceUpdate();
+        isUpdating = false;
+      }, 0);
     };
     
     // Subscribe to state updates
