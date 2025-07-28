@@ -71,15 +71,22 @@ export function unsubscribeFromStateChanges(callback: () => void): void {
 
 // Main calculation and state update function
 export function runCalculationsAndUpdateState(): void {
+  console.log('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() STARTED');
+  addMobileDebugLog('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() STARTED');
+  
   try {
     const { historicalData, accounts } = state.budgetState;
     const currentMonth = getCurrentMonthData();
     
+    console.log('🔥 [ORCHESTRATOR] About to call calculateFullPrognosis...');
     // Run calculations with the new state structure
     const { estimatedStartBalancesByMonth, estimatedFinalBalancesByMonth } = 
       calculateFullPrognosis(historicalData, accounts);
+    
+    console.log('🔥 [ORCHESTRATOR] About to call calculateBudgetResults...');
     const results = calculateBudgetResults(currentMonth);
     
+    console.log('🔥 [ORCHESTRATOR] About to update estimated balances...');
     // Update estimated balances in historical data
     Object.keys(estimatedStartBalancesByMonth).forEach(monthKey => {
       if (state.budgetState.historicalData[monthKey]) {
@@ -88,6 +95,7 @@ export function runCalculationsAndUpdateState(): void {
       }
     });
     
+    console.log('🔥 [ORCHESTRATOR] About to update calculated state...');
     // Update calculated state
     state.calculated = {
       results: results,
@@ -98,9 +106,15 @@ export function runCalculationsAndUpdateState(): void {
       }
     };
     
+    console.log('🔥 [ORCHESTRATOR] About to call saveStateToStorage...');
     // Save and trigger UI update
     saveStateToStorage();
+    
+    console.log('🔥 [ORCHESTRATOR] About to call triggerUIRefresh...');
     triggerUIRefresh();
+    
+    console.log('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() COMPLETED');
+    addMobileDebugLog('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() COMPLETED');
   } catch (error) {
     console.error('[BudgetOrchestrator] Error in calculations:', error);
   }
