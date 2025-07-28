@@ -3639,67 +3639,6 @@ const BudgetCalculator = () => {
           </div>
         </div>
 
-        {/* Individual Costs Option */}
-        <div className="bg-muted/50 p-4 rounded-lg">
-          <h4 className="font-medium mb-3">Visa utgifter som händelser grafen</h4>
-          <div className="flex gap-4">
-            <div className="flex items-center space-x-2">
-              <input
-                type="radio"
-                id="individual-costs-yes"
-                name="individual-costs"
-                checked={showIndividualCostsOutsideBudget === true}
-                onChange={() => {
-                  console.log('🔧 Setting showIndividualCostsOutsideBudget to true');
-                  setShowIndividualCostsOutsideBudget(true);
-                }}
-                className="w-4 h-4"
-              />
-              <Label htmlFor="individual-costs-yes" className="text-sm">Ja</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="radio"
-                id="individual-costs-no"
-                name="individual-costs"
-                checked={showIndividualCostsOutsideBudget === false}
-                onChange={() => setShowIndividualCostsOutsideBudget(false)}
-                className="w-4 h-4"
-              />
-              <Label htmlFor="individual-costs-no" className="text-sm">Nej</Label>
-            </div>
-          </div>
-        </div>
-
-        {/* Savings Option */}
-        <div className="bg-muted/50 p-4 rounded-lg">
-          <h4 className="font-medium mb-3">Visa sparande som händelser i grafen</h4>
-          <div className="flex gap-4">
-            <div className="flex items-center space-x-2">
-              <input
-                type="radio"
-                id="savings-yes"
-                name="savings"
-                checked={showSavingsSeparately === true}
-                onChange={() => setShowSavingsSeparately(true)}
-                className="w-4 h-4"
-              />
-              <Label htmlFor="savings-yes" className="text-sm">Ja</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="radio"
-                id="savings-no"
-                name="savings"
-                checked={showSavingsSeparately === false}
-                onChange={() => setShowSavingsSeparately(false)}
-                className="w-4 h-4"
-              />
-              <Label htmlFor="savings-no" className="text-sm">Nej</Label>
-            </div>
-          </div>
-        </div>
-
         {/* Balance Type Option */}
         <div className="bg-muted/50 p-4 rounded-lg">
           <h4 className="font-medium mb-3">Visa saldo som:</h4>
@@ -3724,33 +3663,42 @@ const BudgetCalculator = () => {
           </ToggleGroup>
         </div>
 
-        {/* Estimated Budget Amounts Option */}
+        {/* Chart Display Options */}
         <div className="bg-muted/50 p-4 rounded-lg">
-          <h4 className="font-medium mb-3">Visa estimerade budgetbelopp?</h4>
-          <div className="flex gap-4">
-            <div className="flex items-center space-x-2">
-              <input
-                type="radio"
-                id="estimated-amounts-yes"
-                name="estimated-amounts"
-                checked={showEstimatedBudgetAmounts === true}
-                onChange={() => setShowEstimatedBudgetAmounts(true)}
-                className="w-4 h-4"
-              />
-              <Label htmlFor="estimated-amounts-yes" className="text-sm">Ja</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="radio"
-                id="estimated-amounts-no"
-                name="estimated-amounts"
-                checked={showEstimatedBudgetAmounts === false}
-                onChange={() => setShowEstimatedBudgetAmounts(false)}
-                className="w-4 h-4"
-              />
-              <Label htmlFor="estimated-amounts-no" className="text-sm">Nej</Label>
-            </div>
-          </div>
+          <h4 className="font-medium mb-3">Visa även i grafen:</h4>
+          <ToggleGroup 
+            type="multiple" 
+            value={[
+              ...(showIndividualCostsOutsideBudget ? ['utgifter'] : []),
+              ...(showSavingsSeparately ? ['sparande'] : []),
+              ...(showEstimatedBudgetAmounts ? ['estimat'] : [])
+            ]}
+            onValueChange={(values) => {
+              setShowIndividualCostsOutsideBudget(values.includes('utgifter'));
+              setShowSavingsSeparately(values.includes('sparande'));
+              setShowEstimatedBudgetAmounts(values.includes('estimat'));
+            }}
+            className="grid grid-cols-3 w-full max-w-lg"
+          >
+            <ToggleGroupItem 
+              value="utgifter" 
+              className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+            >
+              Utgifter
+            </ToggleGroupItem>
+            <ToggleGroupItem 
+              value="sparande" 
+              className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+            >
+              Sparande
+            </ToggleGroupItem>
+            <ToggleGroupItem 
+              value="estimat" 
+              className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+            >
+              Estimat
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
 
         {/* Chart */}
