@@ -229,14 +229,21 @@ export function updateAccountBalance(accountName: string, balance: number): void
     const updatedEndBalances = { ...prevMonthData.accountEndBalances, [accountName]: balance };
     const updatedEndBalancesSet = { ...prevMonthData.accountEndBalancesSet, [accountName]: true };
     
+    // Update the state with proper state management
     state.budgetState.historicalData[prevMonthKey] = {
       ...prevMonthData,
       accountEndBalances: updatedEndBalances,
       accountEndBalancesSet: updatedEndBalancesSet
     };
     
+    // Force save and refresh to ensure the UI updates
     saveStateToStorage();
     triggerUIRefresh();
+    
+    // Log the update for debugging
+    console.log(`🔗 Updated previous month (${prevMonthKey}) accountEndBalances for ${accountName}: ${balance}`);
+  } else {
+    console.log(`⚠️ Previous month (${prevMonthKey}) does not exist, cannot link accountEndBalances`);
   }
 }
 
