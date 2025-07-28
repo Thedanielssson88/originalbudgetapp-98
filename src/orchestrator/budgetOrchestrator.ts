@@ -74,15 +74,42 @@ export function runCalculationsAndUpdateState(): void {
   console.log('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() STARTED');
   addMobileDebugLog('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() STARTED');
   
-  // TEMPORARILY DISABLE CALCULATIONS TO ISOLATE INFINITE LOOP
-  console.log('🚨 [ORCHESTRATOR] CALCULATIONS TEMPORARILY DISABLED FOR DEBUGGING');
-  addMobileDebugLog('🚨 [ORCHESTRATOR] CALCULATIONS TEMPORARILY DISABLED FOR DEBUGGING');
-  
-  console.log('🔥 [ORCHESTRATOR] About to call triggerUIRefresh...');
-  triggerUIRefresh();
-  
-  console.log('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() COMPLETED');
-  addMobileDebugLog('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() COMPLETED');
+  try {
+    const { historicalData, accounts } = state.budgetState;
+    const currentMonth = getCurrentMonthData();
+    
+    // Run calculations with the new state structure
+    const { estimatedStartBalancesByMonth, estimatedFinalBalancesByMonth } = 
+      calculateFullPrognosis(historicalData, accounts);
+    const results = calculateBudgetResults(currentMonth);
+    
+    // Update estimated balances in historical data
+    Object.keys(estimatedStartBalancesByMonth).forEach(monthKey => {
+      if (state.budgetState.historicalData[monthKey]) {
+        state.budgetState.historicalData[monthKey].accountEstimatedStartBalances = estimatedStartBalancesByMonth[monthKey];
+        state.budgetState.historicalData[monthKey].accountEstimatedFinalBalances = estimatedFinalBalancesByMonth[monthKey];
+      }
+    });
+    
+    // Update calculated state
+    state.calculated = {
+      results: results,
+      fullPrognosis: {
+        accountProgression: calculateAccountProgression(historicalData, accounts),
+        monthlyBreakdowns: calculateMonthlyBreakdowns(historicalData, accounts),
+        projectedBalances: calculateProjectedBalances(historicalData, accounts)
+      }
+    };
+    
+    // Save and trigger UI update
+    saveStateToStorage();
+    triggerUIRefresh();
+    
+    console.log('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() COMPLETED');
+    addMobileDebugLog('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() COMPLETED');
+  } catch (error) {
+    console.error('[BudgetOrchestrator] Error in calculations:', error);
+  }
 }
 
 // Helper function for updating data
