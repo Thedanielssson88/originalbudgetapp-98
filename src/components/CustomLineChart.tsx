@@ -80,10 +80,22 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
         const runningCosts = point[`${account}_runningCosts`] || 500;
         const individualCosts = Math.abs(point[`${account}_individual`] || 0);
         const actualExtraCosts = point[`${account}_actualExtraCosts`] || 0;
-        const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts + actualExtraCosts;
+        const estimatedFinalBalance = point[`${account}_estimatedFinalBalance`] || 0;
+        const nextMonthStartingBalance = point[`${account}_nextMonthStartingBalance`] || null;
         
-        // Use either starting balance or closing balance based on selection
-        const valueToUse = balanceType === 'starting' ? startingBalance : finalBalance;
+        let valueToUse;
+        if (balanceType === 'starting') {
+          // When Y-axis shows "Ingående Saldo", use accountBalances
+          valueToUse = startingBalance;
+        } else {
+          // When Y-axis shows "Slutsaldo inför nästa månad", use same as "Faktiskt Slutsaldo"
+          // This is accountBalances from next month if available, otherwise accountEstimatedFinalBalances
+          if (nextMonthStartingBalance !== null) {
+            valueToUse = nextMonthStartingBalance;
+          } else {
+            valueToUse = estimatedFinalBalance;
+          }
+        }
         values.push(valueToUse);
       }
     });
@@ -266,41 +278,63 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
   const calculateAccountDetails = (account: any, closestIndex: number) => {
     const currentPoint = data[closestIndex];
     
-    console.log(`=== TOOLTIP DEBUG for ${account.name} ===`);
-    console.log(`Month: ${currentPoint.displayMonth || currentPoint.month}`);
-    console.log(`closestIndex: ${closestIndex}`);
-    console.log(`currentPoint:`, currentPoint);
+    // Ingående Saldo: Should be based on accountBalances. If not available, use accountEstimatedStartBalances
+    const accountBalances = currentPoint[`${account.name}_startingBalance`] || 0;
+    const accountEstimatedStartBalances = currentPoint[`${account.name}_estimatedStartBalance`] || 0;
+    const startingBalance = accountBalances !== 0 ? accountBalances : accountEstimatedStartBalances;
+    const isStartingBalanceEstimated = accountBalances === 0;
     
-    // For the starting balance, use the current month's starting value or previous month's closing balance
-    // Based on your data, this should be the Calc.Kontosaldo value (1000 kr for July)
-    const startingBalance = currentPoint[`${account.name}_startingBalance`] || 0;
+    // Löpande insättningar: Same as current
+    const runningDeposits = currentPoint[`${account.name}_runningDeposits`] || 0;
     
-    console.log(`startingBalance from data: ${startingBalance}`);
-    console.log(`Key used: ${account.name}_startingBalance`);
+    // Löpande kostnader: Same as current  
+    const runningCosts = currentPoint[`${account.name}_runningCosts`] || 0;
     
-    // Get values directly from the data structure
-    const savings = account.savings || 0;
-    const individualCosts = Math.abs(account.individual || 0);
-    const closingBalance = account.value;
+    // Enskilda kostnader: All costs that are individual costs for that month (not running costs)
+    const individualCosts = Math.abs(currentPoint[`${account.name}_individual`] || 0);
     
-    // Running costs and deposits are based on budget categories
-    // From your data: running costs = 500 kr, running deposits = 500 kr
-    const runningCosts = currentPoint[`${account.name}_runningCosts`] || 500;
-    const runningDeposits = currentPoint[`${account.name}_runningDeposits`] || 500;
+    // Get savings for this month
+    const savings = currentPoint[`${account.name}_savings`] || 0;
     
-    // Get "Faktiska extra kostnader/intäkter" from next month's Calc.diff
+    // Faktiska extra kostnader/intäkter
     const actualExtraCosts = currentPoint[`${account.name}_actualExtraCosts`] || 0;
     
-    console.log(`=== END TOOLTIP DEBUG ===`);
+    // Totala insättningar: All savings + "Faktiska extra kostnader/intäkter" if positive
+    const totalDeposits = actualExtraCosts >= 0 ? savings + actualExtraCosts : savings;
+    
+    // Totala uttag: Total individual costs + "Faktiska extra kostnader/intäkter" if negative
+    const totalWithdrawals = actualExtraCosts < 0 ? individualCosts + Math.abs(actualExtraCosts) : individualCosts;
+    
+    // Estimerat Slutsaldo: accountEstimatedFinalBalances (same as "Slutsaldo" in "Kontobelopp efter budget")
+    const estimatedFinalBalance = currentPoint[`${account.name}_estimatedFinalBalance`] || 0;
+    
+    // Check if next month has accountBalances filled
+    const nextMonthStartingBalance = currentPoint[`${account.name}_nextMonthStartingBalance`];
+    const hasNextMonthBalance = nextMonthStartingBalance !== null && nextMonthStartingBalance !== undefined;
+    
+    // Slutsaldo inför nästa månad: Same as "Faktiskt Slutsaldo" in "Kontobelopp efter budget"
+    // This means accountBalances from next month if available, or accountEstimatedFinalBalances from current month
+    const closingBalanceForNextMonth = hasNextMonthBalance ? nextMonthStartingBalance : estimatedFinalBalance;
+    const isClosingBalanceEstimated = !hasNextMonthBalance;
+    
+    // Faktiska extra kostnader/intäkter (actual): Calculated as "Faktiskt Slutsaldo" - "Estimerat Slutsaldo"
+    const actualExtraForDisplay = hasNextMonthBalance ? (nextMonthStartingBalance - estimatedFinalBalance) : 0;
     
     return {
       startingBalance,
-      savings,
+      isStartingBalanceEstimated,
       runningDeposits,
       runningCosts,
       individualCosts,
+      savings,
       actualExtraCosts,
-      closingBalance
+      totalDeposits,
+      totalWithdrawals,
+      estimatedFinalBalance,
+      hasNextMonthBalance,
+      closingBalanceForNextMonth,
+      isClosingBalanceEstimated,
+      actualExtraForDisplay
     };
   };
 
@@ -342,26 +376,27 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
               // Skip if either point doesn't have data for this account
               if (currentPoint[account] == null || nextPoint[account] == null) continue;
 
-              // Calculate balances for line positioning based on balance type
+              // Calculate display values based on balance type
               const currentStartingBalance = currentPoint[`${account}_startingBalance`] || 0;
-              const currentSavings = currentPoint[`${account}_savings`] || 0;
-              const currentRunningDeposits = currentPoint[`${account}_runningDeposits`] || 500;
-              const currentRunningCosts = currentPoint[`${account}_runningCosts`] || 500;
-              const currentIndividualCosts = Math.abs(currentPoint[`${account}_individual`] || 0);
-              const currentActualExtraCosts = currentPoint[`${account}_actualExtraCosts`] || 0;
-              const currentFinalBalance = currentStartingBalance + currentSavings + currentRunningDeposits - currentRunningCosts - currentIndividualCosts + currentActualExtraCosts;
+              const currentEstimatedFinalBalance = currentPoint[`${account}_estimatedFinalBalance`] || 0;
+              const currentNextMonthStartingBalance = currentPoint[`${account}_nextMonthStartingBalance`];
 
               const nextStartingBalance = nextPoint[`${account}_startingBalance`] || 0;
-              const nextSavings = nextPoint[`${account}_savings`] || 0;
-              const nextRunningDeposits = nextPoint[`${account}_runningDeposits`] || 500;
-              const nextRunningCosts = nextPoint[`${account}_runningCosts`] || 500;
-              const nextIndividualCosts = Math.abs(nextPoint[`${account}_individual`] || 0);
-              const nextActualExtraCosts = nextPoint[`${account}_actualExtraCosts`] || 0;
-              const nextFinalBalance = nextStartingBalance + nextSavings + nextRunningDeposits - nextRunningCosts - nextIndividualCosts + nextActualExtraCosts;
+              const nextEstimatedFinalBalance = nextPoint[`${account}_estimatedFinalBalance`] || 0;
+              const nextNextMonthStartingBalance = nextPoint[`${account}_nextMonthStartingBalance`];
 
-              // Use either starting balance or final balance based on selection
-              const currentDisplayValue = balanceType === 'starting' ? currentStartingBalance : currentFinalBalance;
-              const nextDisplayValue = balanceType === 'starting' ? nextStartingBalance : nextFinalBalance;
+              let currentDisplayValue, nextDisplayValue;
+              
+              if (balanceType === 'starting') {
+                // When Y-axis shows "Ingående Saldo", use accountBalances
+                currentDisplayValue = currentStartingBalance;
+                nextDisplayValue = nextStartingBalance;
+              } else {
+                // When Y-axis shows "Slutsaldo inför nästa månad", use same as "Faktiskt Slutsaldo"
+                // This is accountBalances from next month if available, otherwise accountEstimatedFinalBalances
+                currentDisplayValue = currentNextMonthStartingBalance !== null ? currentNextMonthStartingBalance : currentEstimatedFinalBalance;
+                nextDisplayValue = nextNextMonthStartingBalance !== null ? nextNextMonthStartingBalance : nextEstimatedFinalBalance;
+              }
 
               const x1 = xScale(i);
               const y1 = yScale(currentDisplayValue);
@@ -407,17 +442,20 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
 
               const x = xScale(index);
               
-              // Calculate balances for dot positioning
+              // Calculate display value for dot positioning based on balance type
               const startingBalance = point[`${account}_startingBalance`] || 0;
-              const savings = point[`${account}_savings`] || 0;
-              const runningDeposits = point[`${account}_runningDeposits`] || 500;
-              const runningCosts = point[`${account}_runningCosts`] || 500;
-              const individualCosts = Math.abs(point[`${account}_individual`] || 0);
-              const actualExtraCosts = point[`${account}_actualExtraCosts`] || 0;
-              const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts + actualExtraCosts;
+              const estimatedFinalBalance = point[`${account}_estimatedFinalBalance`] || 0;
+              const nextMonthStartingBalance = point[`${account}_nextMonthStartingBalance`];
               
-              // Use either starting balance or final balance for dot positioning
-              const displayValue = balanceType === 'starting' ? startingBalance : finalBalance;
+              let displayValue;
+              if (balanceType === 'starting') {
+                // When Y-axis shows "Ingående Saldo", use accountBalances
+                displayValue = startingBalance;
+              } else {
+                // When Y-axis shows "Slutsaldo inför nästa månad", use same as "Faktiskt Slutsaldo"
+                // This is accountBalances from next month if available, otherwise accountEstimatedFinalBalances
+                displayValue = nextMonthStartingBalance !== null ? nextMonthStartingBalance : estimatedFinalBalance;
+              }
               const y = yScale(displayValue);
               const isEstimated = point[`${account}_isEstimated`];
 
@@ -479,18 +517,25 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
 
               const x = xScale(index);
               
-              // Calculate the balance for main balance y position based on selected balance type
+              // Calculate display value for triangle positioning based on balance type
               const startingBalance = point[`${account}_startingBalance`] || 0;
-              const savings = point[`${account}_savings`] || 0;
-              const runningDeposits = point[`${account}_runningDeposits`] || 500;
-              const runningCosts = point[`${account}_runningCosts`] || 500;
-              const individualCosts = Math.abs(point[`${account}_individual`] || 0);
-              const actualExtraCosts = point[`${account}_actualExtraCosts`] || 0;
-              const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts + actualExtraCosts;
-              const displayBalance = balanceType === 'starting' ? startingBalance : finalBalance;
+              const estimatedFinalBalance = point[`${account}_estimatedFinalBalance`] || 0;
+              const nextMonthStartingBalance = point[`${account}_nextMonthStartingBalance`];
+              
+              let displayBalance;
+              if (balanceType === 'starting') {
+                // When Y-axis shows "Ingående Saldo", use accountBalances
+                displayBalance = startingBalance;
+              } else {
+                // When Y-axis shows "Slutsaldo inför nästa månad", use same as "Faktiskt Slutsaldo"
+                // This is accountBalances from next month if available, otherwise accountEstimatedFinalBalances
+                displayBalance = nextMonthStartingBalance !== null ? nextMonthStartingBalance : estimatedFinalBalance;
+              }
               const mainY = yScale(displayBalance);
 
               // Calculate total withdrawals
+              const individualCosts = Math.abs(point[`${account}_individual`] || 0);
+              const actualExtraCosts = point[`${account}_actualExtraCosts`] || 0;
               const totalWithdrawalsValue = actualExtraCosts < 0 ? individualCosts + Math.abs(actualExtraCosts) : individualCosts;
 
               // Add red triangle below the main balance point pointing down - only if total withdrawals > 0
@@ -518,18 +563,25 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
 
                 const x = xScale(index);
                 
-                // Calculate the balance for main balance y position based on selected balance type
+                // Calculate display value for triangle positioning based on balance type
                 const startingBalance = point[`${account}_startingBalance`] || 0;
-                const savings = point[`${account}_savings`] || 0;
-                const runningDeposits = point[`${account}_runningDeposits`] || 500;
-                const runningCosts = point[`${account}_runningCosts`] || 500;
-                const individualCosts = Math.abs(point[`${account}_individual`] || 0);
-                const actualExtraCosts = point[`${account}_actualExtraCosts`] || 0;
-                const finalBalance = startingBalance + savings + runningDeposits - runningCosts - individualCosts + actualExtraCosts;
-                const displayBalance = balanceType === 'starting' ? startingBalance : finalBalance;
+                const estimatedFinalBalance = point[`${account}_estimatedFinalBalance`] || 0;
+                const nextMonthStartingBalance = point[`${account}_nextMonthStartingBalance`];
+                
+                let displayBalance;
+                if (balanceType === 'starting') {
+                  // When Y-axis shows "Ingående Saldo", use accountBalances
+                  displayBalance = startingBalance;
+                } else {
+                  // When Y-axis shows "Slutsaldo inför nästa månad", use same as "Faktiskt Slutsaldo"
+                  // This is accountBalances from next month if available, otherwise accountEstimatedFinalBalances
+                  displayBalance = nextMonthStartingBalance !== null ? nextMonthStartingBalance : estimatedFinalBalance;
+                }
                 const mainY = yScale(displayBalance);
 
                 // Calculate total deposits
+                const savings = point[`${account}_savings`] || 0;
+                const actualExtraCosts = point[`${account}_actualExtraCosts`] || 0;
                 const totalDeposits = actualExtraCosts >= 0 ? savings + actualExtraCosts : savings;
 
                 // Add green triangle above the main balance point pointing up - only if total deposits > 0
@@ -617,9 +669,9 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-sm">{account.name}</span>
                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-800">
-                          {balanceType === 'starting' ? 'Ingående' : 'Slutsaldo'}: {formatCurrency(balanceType === 'starting' ? details.startingBalance : (details.startingBalance + details.savings + details.runningDeposits - details.runningCosts - details.individualCosts + details.actualExtraCosts))} kr
-                        </span>
+                     <span className="text-sm text-gray-800">
+                           {balanceType === 'starting' ? 'Ingående' : 'Slutsaldo'}: {formatCurrency(balanceType === 'starting' ? details.startingBalance : details.closingBalanceForNextMonth)} kr
+                         </span>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -632,35 +684,28 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                     </div>
                   </div>
                   
-                  {/* Expanded Details */}
-                  {isExpanded && (
-                    <div className="mt-2 ml-2 space-y-1 text-xs border-l-2 border-gray-200 pl-3">
-                      <div className="flex justify-between">
-                        <span>Ingående saldo:</span>
-                        <span className="text-gray-800 font-medium">{formatCurrency(details.startingBalance)} kr</span>
-                      </div>
-                      
-                      {details.savings > 0 && (
-                        <div className="flex justify-between">
-                          <span>Sparande:</span>
-                          <span className="text-green-600 font-medium">+{formatCurrency(details.savings)} kr</span>
-                        </div>
-                      )}
-                      
-                      {details.runningDeposits > 0 && (
-                        <div className="flex justify-between">
-                          <span>Löpande insättningar:</span>
-                          <span className="text-green-600 font-medium">+{formatCurrency(details.runningDeposits)} kr</span>
-                        </div>
-                      )}
-                      
-                      {details.runningCosts > 0 && (
-                        <div className="flex justify-between">
-                          <span>Löpande Kostnader:</span>
-                          <span className="text-red-600 font-medium">-{formatCurrency(details.runningCosts)} kr</span>
-                        </div>
-                      )}
-                      
+                   {/* Expanded Details */}
+                   {isExpanded && (
+                     <div className="mt-2 ml-2 space-y-1 text-xs border-l-2 border-gray-200 pl-3">
+                       <div className="flex justify-between">
+                         <span>{details.isStartingBalanceEstimated ? "Ingående saldo (Est):" : "Ingående saldo:"}</span>
+                         <span className="text-gray-800 font-medium">{formatCurrency(details.startingBalance)} kr</span>
+                       </div>
+                       
+                       {details.runningDeposits > 0 && (
+                         <div className="flex justify-between">
+                           <span>Löpande insättningar:</span>
+                           <span className="text-green-600 font-medium">+{formatCurrency(details.runningDeposits)} kr</span>
+                         </div>
+                       )}
+                       
+                       {details.runningCosts > 0 && (
+                         <div className="flex justify-between">
+                           <span>Löpande kostnader:</span>
+                           <span className="text-red-600 font-medium">-{formatCurrency(details.runningCosts)} kr</span>
+                         </div>
+                       )}
+                       
                        {details.individualCosts > 0 && (
                          <div className="flex justify-between">
                            <span>Enskilda kostnader:</span>
@@ -668,33 +713,52 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                          </div>
                        )}
                        
-                        <div className="flex justify-between">
-                          <span>Faktiska extra kostnader/intäkter:</span>
-                          <span className={`font-medium ${details.actualExtraCosts >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {details.actualExtraCosts >= 0 ? '+' : ''}{formatCurrency(details.actualExtraCosts)} kr
-                          </span>
-                        </div>
-                        
-                        <div className="flex justify-between pt-1 border-t border-gray-200 mt-2">
-                          <span className="font-medium text-black">Totala insättningar:</span>
-                          <span className="text-black font-medium">
-                            +{formatCurrency(details.actualExtraCosts >= 0 ? details.savings + details.actualExtraCosts : details.savings)} kr
-                          </span>
-                        </div>
-                        
-                        <div className="flex justify-between">
-                          <span className="font-medium text-black">Totala uttag:</span>
-                          <span className="text-black font-medium">
-                            -{formatCurrency(details.actualExtraCosts < 0 ? details.individualCosts + Math.abs(details.actualExtraCosts) : details.individualCosts)} kr
-                          </span>
-                        </div>
-                        
-                        <div className="flex justify-between pt-1 border-t border-gray-200 mt-2">
-                          <span className="font-medium">Slutsaldo inför nästa månad:</span>
-                          <span className="text-gray-800 font-medium">{formatCurrency(details.startingBalance + details.savings + details.runningDeposits - details.runningCosts - details.individualCosts + details.actualExtraCosts)} kr</span>
-                        </div>
-                    </div>
-                  )}
+                       {/* Line separator */}
+                       <div className="border-t border-gray-200 my-2"></div>
+                       
+                       <div className="flex justify-between">
+                         <span className="font-medium text-black">Totala insättningar:</span>
+                         <span className="text-black font-medium">
+                           +{formatCurrency(details.totalDeposits)} kr
+                         </span>
+                       </div>
+                       
+                       <div className="flex justify-between">
+                         <span className="font-medium text-black">Totala uttag:</span>
+                         <span className="text-black font-medium">
+                           -{formatCurrency(details.totalWithdrawals)} kr
+                         </span>
+                       </div>
+                       
+                       <div className="flex justify-between">
+                         <span className="font-medium">Estimerat Slutsaldo:</span>
+                         <span className="text-gray-800 font-medium">{formatCurrency(details.estimatedFinalBalance)} kr</span>
+                       </div>
+                       
+                       {/* Conditional display: Only show if next month has accountBalances filled */}
+                       {details.hasNextMonthBalance && (
+                         <>
+                           {/* Line separator */}
+                           <div className="border-t border-gray-200 my-2"></div>
+                           
+                           <div className="flex justify-between">
+                             <span>Faktiska extra kostnader/intäkter:</span>
+                             <span className={`font-medium ${details.actualExtraForDisplay >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                               {details.actualExtraForDisplay >= 0 ? '+' : ''}{formatCurrency(details.actualExtraForDisplay)} kr
+                             </span>
+                           </div>
+                           
+                           {/* Line separator */}
+                           <div className="border-t border-gray-200 my-2"></div>
+                           
+                           <div className="flex justify-between">
+                             <span className="font-medium">{details.isClosingBalanceEstimated ? "Slutsaldo inför nästa månad (Est):" : "Slutsaldo inför nästa månad:"}</span>
+                             <span className="text-gray-800 font-medium">{formatCurrency(details.closingBalanceForNextMonth)} kr</span>
+                           </div>
+                         </>
+                       )}
+                     </div>
+                   )}
                 </div>
               );
             })}

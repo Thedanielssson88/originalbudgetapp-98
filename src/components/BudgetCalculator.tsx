@@ -3400,16 +3400,36 @@ const BudgetCalculator = () => {
         // Always add the main account data (this is the final balance for the month)
         dataPoint[account] = balance;
         
-        // For starting balance, use accountStartBalancesSet if available when Y-axis shows Ingående Saldo
-        let startingBalance = balance; // Default to Calc.Kontosaldo
-        if (balanceType === 'starting') {
-          const monthData = historicalData[monthKey];
-          if (monthData && monthData.accountStartBalancesSet && monthData.accountStartBalancesSet[account]) {
-            // Use the manually set starting balance
-            startingBalance = monthData.accountBalances?.[account] || 0;
-          }
+        // Get current month data for additional fields
+        const monthData = historicalData[monthKey];
+        
+        // Starting balance logic
+        let startingBalance = monthData?.accountBalances?.[account] || 0;
+        if (startingBalance === 0) {
+          startingBalance = monthData?.accountEstimatedStartBalances?.[account] || 0;
         }
         dataPoint[`${account}_startingBalance`] = startingBalance;
+        
+        // Add estimated start balance for tooltip
+        dataPoint[`${account}_estimatedStartBalance`] = monthData?.accountEstimatedStartBalances?.[account] || 0;
+        
+        // Add estimated final balance for tooltip
+        dataPoint[`${account}_estimatedFinalBalance`] = monthData?.accountEstimatedFinalBalances?.[account] || 0;
+        
+        // Add next month starting balance for closing balance calculation
+        const nextMonthIndex = index + 1;
+        if (nextMonthIndex < extendedMonthKeys.length) {
+          const nextMonthKey = extendedMonthKeys[nextMonthIndex];
+          const nextMonthData = historicalData[nextMonthKey];
+          
+          if (nextMonthData && nextMonthData.accountBalancesSet && nextMonthData.accountBalancesSet[account]) {
+            dataPoint[`${account}_nextMonthStartingBalance`] = nextMonthData.accountBalances?.[account] || 0;
+          } else {
+            dataPoint[`${account}_nextMonthStartingBalance`] = null;
+          }
+        } else {
+          dataPoint[`${account}_nextMonthStartingBalance`] = null;
+        }
         
         // Mark if this point is estimated for styling purposes
         if (isEstimated) {
@@ -3417,7 +3437,7 @@ const BudgetCalculator = () => {
         }
         
         // Calculate "Faktiska extra kostnader/intäkter" from next month's Calc.diff
-        const nextMonthIndex = index + 1;
+        // nextMonthIndex already defined above
         if (nextMonthIndex < extendedMonthKeys.length) {
           const nextMonthKey = extendedMonthKeys[nextMonthIndex];
           const nextMonthData = historicalData[nextMonthKey];
