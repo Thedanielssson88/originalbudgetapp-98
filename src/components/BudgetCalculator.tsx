@@ -97,21 +97,21 @@ const BudgetCalculator = () => {
   const [globalDebugLogs, setGlobalDebugLogs] = useState<string[]>([]);
   const [showDebugPanel, setShowDebugPanel] = useState<boolean>(false);
   
-  // Subscribe to global debug logger
-  useEffect(() => {
-    // Load existing logs immediately when component mounts
-    const existingLogs = mobileDebugLogger.getLogs();
-    setGlobalDebugLogs(existingLogs.map(log => `${log.timestamp}: ${log.message}`));
-    
-    const unsubscribe = mobileDebugLogger.subscribe((logs) => {
-      setGlobalDebugLogs(logs.map(log => `${log.timestamp}: ${log.message}`));
-    });
-    
-    // Add a log to show component mounted
-    addMobileDebugLog('[COMPONENT] BudgetCalculator mounted - checking for existing logs');
-    
-    return unsubscribe;
-  }, []);
+  // TEMPORARILY DISABLED: Subscribe to global debug logger
+  // useEffect(() => {
+  //   // Load existing logs immediately when component mounts
+  //   const existingLogs = mobileDebugLogger.getLogs();
+  //   setGlobalDebugLogs(existingLogs.map(log => `${log.timestamp}: ${log.message}`));
+  //   
+  //   const unsubscribe = mobileDebugLogger.subscribe((logs) => {
+  //     setGlobalDebugLogs(logs.map(log => `${log.timestamp}: ${log.message}`));
+  //   });
+  //   
+  //   // Add a log to show component mounted
+  //   addMobileDebugLog('[COMPONENT] BudgetCalculator mounted - checking for existing logs');
+  //   
+  //   return unsubscribe;
+  // }, []);
   
   // Tab and expandable sections state
   const [activeTab, setActiveTab] = useState<string>("inkomster");
@@ -959,11 +959,11 @@ const BudgetCalculator = () => {
       }
     }
     
-    // Calculate budget on component mount after data is loaded
-    setTimeout(() => {
-      calculateBudget();
-      // Calculation now handled by orchestrator - no legacy calls needed
-    }, 100);
+    // TEMPORARILY DISABLED: Calculate budget on component mount after data is loaded
+    // setTimeout(() => {
+    //   calculateBudget();
+    //   // Calculation now handled by orchestrator - no legacy calls needed
+    // }, 100);
   }, []);
 
   // CRITICAL FIX: Auto-load month data when selectedBudgetMonth changes
@@ -7938,11 +7938,11 @@ const BudgetCalculator = () => {
                                 // setAccountBalancesSet(monthData.accountBalancesSet || {});
                               }
                               
-                              // Force a final chart update with the loaded data
-                              setTimeout(() => {
-                                console.log(`📊 Final chart update for original month ${originalMonth}`);
-                                calculateBudget();
-                              }, 300);
+                              // TEMPORARILY DISABLED: Force a final chart update with the loaded data
+                              // setTimeout(() => {
+                              //   console.log(`📊 Final chart update for original month ${originalMonth}`);
+                              //   calculateBudget();
+                              // }, 300);
                             }
                           }
                         };
