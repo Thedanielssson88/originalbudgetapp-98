@@ -3424,6 +3424,9 @@ const BudgetCalculator = () => {
         }
         dataPoint[`${account}_startingBalance`] = startingBalance;
         
+        // Add information about whether accountBalances is set for this month
+        dataPoint[`${account}_accountBalancesSet`] = monthData?.accountBalancesSet?.[account] === true;
+        
         // Add estimated start balance for tooltip
         dataPoint[`${account}_estimatedStartBalance`] = monthData?.accountEstimatedStartBalances?.[account] || 0;
         

@@ -282,7 +282,8 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
     const accountBalances = currentPoint[`${account.name}_startingBalance`] || 0;
     const accountEstimatedStartBalances = currentPoint[`${account.name}_estimatedStartBalance`] || 0;
     const startingBalance = accountBalances !== 0 ? accountBalances : accountEstimatedStartBalances;
-    const isStartingBalanceEstimated = accountBalances === 0;
+    // Check if accountBalances is actually set for this month (not estimated from previous month)
+    const isStartingBalanceEstimated = currentPoint[`${account.name}_accountBalancesSet`] !== true;
     
     // Löpande insättningar: Same as current
     const runningDeposits = currentPoint[`${account.name}_runningDeposits`] || 0;
