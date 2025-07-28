@@ -687,10 +687,10 @@ export const CustomLineChart: React.FC<CustomLineChartProps> = ({
                    {/* Expanded Details */}
                    {isExpanded && (
                      <div className="mt-2 ml-2 space-y-1 text-xs border-l-2 border-gray-200 pl-3">
-                       <div className="flex justify-between">
-                         <span>{details.isStartingBalanceEstimated ? "Ingående saldo (Est):" : "Ingående saldo:"}</span>
-                         <span className="text-gray-800 font-medium">{formatCurrency(details.startingBalance)} kr</span>
-                       </div>
+                        <div className="flex justify-between">
+                          <span>{details.isStartingBalanceEstimated ? "Estimerat ingående saldo:" : "Ingående saldo:"}</span>
+                          <span className="text-gray-800 font-medium">{formatCurrency(details.startingBalance)} kr</span>
+                        </div>
                        
                        {details.runningDeposits > 0 && (
                          <div className="flex justify-between">
