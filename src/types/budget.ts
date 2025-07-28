@@ -80,8 +80,7 @@ export interface MonthData {
   accountEstimatedFinalBalancesSet: {[key: string]: boolean};
   accountEstimatedStartBalances: {[key: string]: number};
   accountStartBalancesSet: {[key: string]: boolean};
-  accountEndBalances: {[key: string]: number};
-  accountEndBalancesSet: {[key: string]: boolean};
+  // accountEndBalances and accountEndBalancesSet removed - now calculated dynamically
   
   // User names
   userName1: string;

@@ -2,6 +2,40 @@
 import { RawDataState, CalculatedState, BudgetResults, MonthData, Account } from '../types/budget';
 
 /**
+ * Calculate account end balances from the next month's account balances
+ * This replaces the stored accountEndBalances with a calculated value
+ */
+export function calculateAccountEndBalances(
+  historicalData: { [monthKey: string]: MonthData },
+  currentMonthKey: string,
+  accounts: Account[]
+): { [accountName: string]: number } {
+  const accountNames = accounts.map(acc => acc.name);
+  const endBalances: { [accountName: string]: number } = {};
+  
+  // Get next month key
+  const [year, month] = currentMonthKey.split('-').map(Number);
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+  
+  // Get next month's data
+  const nextMonthData = historicalData[nextMonthKey];
+  
+  accountNames.forEach(accountName => {
+    if (nextMonthData?.accountBalances?.[accountName] !== undefined) {
+      // Use next month's account balance as this month's end balance
+      endBalances[accountName] = nextMonthData.accountBalances[accountName];
+    } else {
+      // No next month data available, use 0 as default
+      endBalances[accountName] = 0;
+    }
+  });
+  
+  return endBalances;
+}
+
+/**
  * Beräknar den fullständiga finansiella prognosen över en serie månader.
  * Denna funktion är ren och muterar inte originaldata.
  * Respekterar manuellt inmatade saldon i accountBalances.

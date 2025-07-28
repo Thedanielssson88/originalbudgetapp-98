@@ -216,35 +216,9 @@ export function updateAccountBalance(accountName: string, balance: number): void
     accountBalancesSet: newBalancesSet
   });
 
-  // Also update previous month's accountEndBalances
-  const selectedMonthKey = state.budgetState.selectedMonthKey;
-  const [currentYear, currentMonthNum] = selectedMonthKey.split('-').map(Number);
-  const prevMonth = currentMonthNum === 1 ? 12 : currentMonthNum - 1;
-  const prevYear = currentMonthNum === 1 ? currentYear - 1 : currentYear;
-  const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
-  
-  // Update previous month's accountEndBalances with the same value
-  if (state.budgetState.historicalData[prevMonthKey]) {
-    const prevMonthData = state.budgetState.historicalData[prevMonthKey];
-    const updatedEndBalances = { ...prevMonthData.accountEndBalances, [accountName]: balance };
-    const updatedEndBalancesSet = { ...prevMonthData.accountEndBalancesSet, [accountName]: true };
-    
-    // Update the state with proper state management
-    state.budgetState.historicalData[prevMonthKey] = {
-      ...prevMonthData,
-      accountEndBalances: updatedEndBalances,
-      accountEndBalancesSet: updatedEndBalancesSet
-    };
-    
-    // Force save and refresh to ensure the UI updates
-    saveStateToStorage();
-    triggerUIRefresh();
-    
-    // Log the update for debugging
-    console.log(`🔗 Updated previous month (${prevMonthKey}) accountEndBalances for ${accountName}: ${balance}`);
-  } else {
-    console.log(`⚠️ Previous month (${prevMonthKey}) does not exist, cannot link accountEndBalances`);
-  }
+  // No need to update previous month's accountEndBalances anymore
+  // as they are now calculated from next month's accountBalances
+  console.log(`✅ Updated account balance for ${accountName}: ${balance} (accountEndBalances now calculated dynamically)`);
 }
 
 // ===== MONTH MANAGEMENT =====
@@ -316,8 +290,6 @@ function createEmptyMonthData(): MonthData {
     accountEstimatedFinalBalancesSet: {},
     accountEstimatedStartBalances: {},
     accountStartBalancesSet: {},
-    accountEndBalances: {},
-    accountEndBalancesSet: {},
     userName1: 'Andreas',
     userName2: 'Susanna',
     transferChecks: {},
@@ -390,13 +362,7 @@ export function setAccountStartBalancesSet(value: {[key: string]: boolean}): voi
   updateAndRecalculate({ accountStartBalancesSet: value });
 }
 
-export function setAccountEndBalances(value: {[key: string]: number}): void {
-  updateAndRecalculate({ accountEndBalances: value });
-}
-
-export function setAccountEndBalancesSet(value: {[key: string]: boolean}): void {
-  updateAndRecalculate({ accountEndBalancesSet: value });
-}
+// setAccountEndBalances and setAccountEndBalancesSet removed - now calculated dynamically
 
 export function setMonthFinalBalances(value: {[key: string]: boolean}): void {
   updateAndRecalculate({ monthFinalBalances: value });
