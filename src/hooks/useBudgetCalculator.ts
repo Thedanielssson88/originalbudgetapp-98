@@ -142,6 +142,19 @@ export const useBudgetCalculator = () => {
         return { balance: 0, isEstimated: true };
       }
       
+      // CRITICAL FIX: Always use the estimated final balance (which is calculated from starting balance + transactions)
+      // rather than just the raw starting balance when manually set
+      const estimatedFinalBalance = monthData.accountEstimatedFinalBalances?.[account];
+      
+      if (estimatedFinalBalance !== undefined && estimatedFinalBalance !== null) {
+        // Use the calculated final balance (starting balance + transactions)
+        const hasActualStartBalance = monthData.accountBalancesSet && 
+                                    monthData.accountBalancesSet[account] === true;
+        const isUsingEstimated = !hasActualStartBalance;
+        return { balance: estimatedFinalBalance, isEstimated: isUsingEstimated };
+      }
+      
+      // Fallback: if no estimated final balance available, use previous logic
       const hasActualBalance = monthData.accountBalancesSet && 
                               monthData.accountBalancesSet[account] === true;
       const currentBalance = monthData.accountBalances?.[account] || 0;
