@@ -71,11 +71,7 @@ export function unsubscribeFromStateChanges(callback: () => void): void {
 // Main calculation and state update function
 export function runCalculationsAndUpdateState(): void {
   console.log('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() STARTED');
-  const stack = new Error().stack;
-  const callerLine = stack?.split('\n')[2] || 'unknown';
-  console.log('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() called from:', callerLine);
   addMobileDebugLog('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() STARTED');
-  addMobileDebugLog(`🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() called from: ${callerLine}`);
   
   try {
     const { historicalData, accounts } = state.budgetState;
@@ -86,9 +82,10 @@ export function runCalculationsAndUpdateState(): void {
       calculateFullPrognosis(historicalData, accounts);
     const results = calculateBudgetResults(currentMonth);
     
-    // Update estimated balances in historical data
+    // Update estimated balances in historical data (direct state modification to avoid loops)
     Object.keys(estimatedStartBalancesByMonth).forEach(monthKey => {
       if (state.budgetState.historicalData[monthKey]) {
+        // Direct state modification - no function calls to avoid infinite loops
         state.budgetState.historicalData[monthKey].accountEstimatedStartBalances = estimatedStartBalancesByMonth[monthKey];
         state.budgetState.historicalData[monthKey].accountEstimatedFinalBalances = estimatedFinalBalancesByMonth[monthKey];
       }
