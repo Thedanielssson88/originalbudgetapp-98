@@ -206,63 +206,75 @@ export function setAccountBalancesSet(value: {[key: string]: boolean}): void {
 }
 
 export function updateAccountBalance(accountName: string, balance: number): void {
-  console.log(`🔥 [ORCHESTRATOR] updateAccountBalance called: ${accountName} = ${balance}`);
-  const { historicalData, selectedMonthKey } = state.budgetState;
-  console.log(`🔥 [ORCHESTRATOR] selectedMonthKey: ${selectedMonthKey}`);
-  console.log(`🔥 [ORCHESTRATOR] Current accountBalances for ${selectedMonthKey}:`, historicalData[selectedMonthKey]?.accountBalances);
-
-  // 1. Uppdatera "Faktiskt Startsaldo" för den VALDA månaden
-  const currentMonthData = historicalData[selectedMonthKey] || createEmptyMonthData();
-  const newStartBalances = { ...currentMonthData.accountBalances || {}, [accountName]: balance };
-  const newStartBalancesSet = { ...currentMonthData.accountBalancesSet || {}, [accountName]: true };
-  
-  console.log(`🔥 [ORCHESTRATOR] newStartBalances:`, newStartBalances);
-  console.log(`🔥 [ORCHESTRATOR] newStartBalancesSet:`, newStartBalancesSet);
-  
-  // Skapa en kopia av hela historiken för att kunna modifiera den
-  const newHistoricalData = JSON.parse(JSON.stringify(historicalData));
-
-  // CRITICAL FIX: Ensure the month exists before trying to spread it
-  if (!newHistoricalData[selectedMonthKey]) {
-    console.log(`🔥 [ORCHESTRATOR] Creating new month data for ${selectedMonthKey}`);
-    newHistoricalData[selectedMonthKey] = createEmptyMonthData();
-  }
-
-  // Uppdatera den valda månadens data
-  newHistoricalData[selectedMonthKey] = {
-    ...newHistoricalData[selectedMonthKey],
-    accountBalances: newStartBalances,
-    accountBalancesSet: newStartBalancesSet
-  };
-  
-  console.log(`🔥 [ORCHESTRATOR] Updated month data for ${selectedMonthKey}:`, newHistoricalData[selectedMonthKey].accountBalances);
-
-  // 2. Hitta och uppdatera "Faktiskt Slutsaldo" för FÖREGÅENDE månad
-  const allMonths = Object.keys(historicalData).sort();
-  const currentMonthIndex = allMonths.indexOf(selectedMonthKey);
-  
-  if (currentMonthIndex > 0) {
-    const previousMonthKey = allMonths[currentMonthIndex - 1];
-    const previousMonthData = newHistoricalData[previousMonthKey] || createEmptyMonthData();
+  try {
+    console.log(`🔥 START updateAccountBalance: ${accountName} = ${balance}`);
     
-    // Skapa eller uppdatera fältet för faktiska slutsaldon
-    const newActualFinalBalances = { ...previousMonthData.accountActualFinalBalances || {}, [accountName]: balance };
+    const { historicalData, selectedMonthKey } = state.budgetState;
+    console.log(`🔥 selectedMonthKey: ${selectedMonthKey}`);
     
-    newHistoricalData[previousMonthKey] = {
-      ...previousMonthData,
-      accountActualFinalBalances: newActualFinalBalances
+    if (!selectedMonthKey) {
+      console.error(`🔥 ERROR: No selectedMonthKey!`);
+      return;
+    }
+    
+    // 1. Get current month data
+    const currentMonthData = historicalData[selectedMonthKey] || createEmptyMonthData();
+    console.log(`🔥 currentMonthData exists: ${!!currentMonthData}`);
+    
+    // 2. Create new balances
+    const newStartBalances = { ...currentMonthData.accountBalances || {}, [accountName]: balance };
+    const newStartBalancesSet = { ...currentMonthData.accountBalancesSet || {}, [accountName]: true };
+    console.log(`🔥 Created new balances: ${JSON.stringify(newStartBalances)}`);
+    
+    // 3. Create copy of historical data
+    const newHistoricalData = JSON.parse(JSON.stringify(historicalData));
+    console.log(`🔥 Created historical data copy`);
+    
+    // 4. Ensure month exists
+    if (!newHistoricalData[selectedMonthKey]) {
+      console.log(`🔥 Creating new month data for ${selectedMonthKey}`);
+      newHistoricalData[selectedMonthKey] = createEmptyMonthData();
+    }
+    
+    // 5. Update the month data
+    newHistoricalData[selectedMonthKey] = {
+      ...newHistoricalData[selectedMonthKey],
+      accountBalances: newStartBalances,
+      accountBalancesSet: newStartBalancesSet
     };
+    console.log(`🔥 Updated month data`);
     
-    console.log(`Updated actual final balance for ${previousMonthKey} -> ${accountName}: ${balance}`);
+    // 6. Update previous month if needed
+    const allMonths = Object.keys(historicalData).sort();
+    const currentMonthIndex = allMonths.indexOf(selectedMonthKey);
+    
+    if (currentMonthIndex > 0) {
+      const previousMonthKey = allMonths[currentMonthIndex - 1];
+      const previousMonthData = newHistoricalData[previousMonthKey] || createEmptyMonthData();
+      
+      const newActualFinalBalances = { ...previousMonthData.accountActualFinalBalances || {}, [accountName]: balance };
+      
+      newHistoricalData[previousMonthKey] = {
+        ...previousMonthData,
+        accountActualFinalBalances: newActualFinalBalances
+      };
+      console.log(`🔥 Updated previous month ${previousMonthKey}`);
+    }
+    
+    // 7. Update global state
+    console.log(`🔥 About to update global state`);
+    state.budgetState.historicalData = newHistoricalData;
+    console.log(`🔥 Global state updated successfully`);
+    
+    // 8. Trigger recalculation
+    console.log(`🔥 About to trigger recalculation`);
+    runCalculationsAndUpdateState();
+    console.log(`🔥 updateAccountBalance completed successfully`);
+    
+  } catch (error) {
+    console.error(`🔥 ERROR in updateAccountBalance:`, error);
+    console.error(`🔥 ERROR stack:`, error.stack);
   }
-
-  // 3. Uppdatera det globala statet med den nya historiken
-  console.log(`🔥 [ORCHESTRATOR] About to update global state...`);
-  state.budgetState.historicalData = newHistoricalData;
-  console.log(`🔥 [ORCHESTRATOR] Global state updated. New accountBalances for ${selectedMonthKey}:`, state.budgetState.historicalData[selectedMonthKey]?.accountBalances);
-  
-  // 4. CRITICAL: Trigger calculations to update Calc.Kontosaldo and other derived values
-  runCalculationsAndUpdateState();
 }
 
 // ===== MONTH MANAGEMENT =====
