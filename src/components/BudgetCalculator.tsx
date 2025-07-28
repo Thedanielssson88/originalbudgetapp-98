@@ -207,6 +207,9 @@ const BudgetCalculator = () => {
   const [chartStartMonth, setChartStartMonth] = useState<string>('');
   const [chartEndMonth, setChartEndMonth] = useState<string>('');
   
+  // Account input values for controlled inputs
+  const [accountInputValues, setAccountInputValues] = useState<{[key: string]: string}>({});
+  
   // SINGLE SOURCE OF TRUTH: Read from historicalData[selectedMonthKey]
   const { historicalData: appHistoricalData, selectedMonthKey } = budgetState;
   const currentMonthData = appHistoricalData[selectedMonthKey] || {};
@@ -263,6 +266,19 @@ const BudgetCalculator = () => {
     console.log(`🔥 [COMPONENT DATA] accountBalances:`, accountBalances);
     console.log(`🔥 [COMPONENT DATA] accountBalancesSet:`, accountBalancesSet);
     console.log(`🔥 [COMPONENT DATA] accounts:`, accounts);
+  }, [JSON.stringify(accountBalances), JSON.stringify(accountBalancesSet), JSON.stringify(accounts)]);
+
+  // Initialize and sync account input values
+  useEffect(() => {
+    const newInputValues: {[key: string]: string} = {};
+    accounts.forEach(account => {
+      const currentBalance = accountBalances[account] || 0;
+      const hasActualBalance = accountBalancesSet[account] === true;
+      newInputValues[account] = hasActualBalance 
+        ? currentBalance.toString() 
+        : (currentBalance === 0 ? "Ej ifyllt" : currentBalance.toString());
+    });
+    setAccountInputValues(newInputValues);
   }, [JSON.stringify(accountBalances), JSON.stringify(accountBalancesSet), JSON.stringify(accounts)]);
 
 
@@ -4702,62 +4718,56 @@ const BudgetCalculator = () => {
                                                 {/* Faktiskt kontosaldo */}
                                                 <div className="flex justify-between items-center">
                                                   <span className="text-sm font-medium text-blue-700">Faktiskt kontosaldo</span>
-                                                  <div className="flex items-center gap-2">
-                                                     {(() => {
-                                                       const [inputValue, setInputValue] = useState(() => {
-                                                         return accountBalancesSet[account] 
-                                                           ? currentBalance.toString() 
-                                                           : (currentBalance === 0 ? "Ej ifyllt" : currentBalance.toString());
-                                                       });
-
-                                                       // Update input value when currentBalance or accountBalancesSet changes
-                                                       useEffect(() => {
-                                                         const newValue = accountBalancesSet[account] 
-                                                           ? currentBalance.toString() 
-                                                           : (currentBalance === 0 ? "Ej ifyllt" : currentBalance.toString());
-                                                         setInputValue(newValue);
-                                                       }, [currentBalance, accountBalancesSet[account]]);
-
-                                                       return (
-                                                         <Input
-                                                           type="text"
-                                                           value={inputValue}
-                                                           onChange={(e) => {
-                                                             setInputValue(e.target.value);
-                                                           }}
-                                                           onBlur={(e) => {
-                                                             console.log(`🔄 onBlur triggered for ${account} with value: ${e.target.value}`);
-                                                             const value = e.target.value;
-                                                             if (value === "Ej ifyllt" || value === "") {
-                                                               console.log(`🔄 onBlur: Setting ${account} to 0 (Ej ifyllt/empty)`);
-                                                               handleAccountBalanceUpdate(account, 0);
-                                                               setInputValue("Ej ifyllt");
-                                                             } else {
-                                                               const numValue = Number(value);
-                                                               console.log(`🔄 onBlur: Parsed number value: ${numValue}, isNaN: ${isNaN(numValue)}`);
-                                                               if (!isNaN(numValue)) {
-                                                                 console.log(`🔄 onBlur: About to call handleAccountBalanceUpdate(${account}, ${numValue})`);
-                                                                 handleAccountBalanceUpdate(account, numValue);
-                                                               } else {
-                                                                 // Invalid number, revert to previous state
-                                                                 const revertValue = accountBalancesSet[account] 
-                                                                   ? currentBalance.toString() 
-                                                                   : "Ej ifyllt";
-                                                                 setInputValue(revertValue);
-                                                               }
-                                                             }
-                                                           }}
-                                                           onFocus={(e) => {
-                                                             if (e.target.value === "Ej ifyllt") {
-                                                               setInputValue("");
-                                                             }
-                                                           }}
+                                                   <div className="flex items-center gap-2">
+                                                          <Input
+                                                            type="text"
+                                                            value={accountInputValues[account] || "Ej ifyllt"}
+                                                            onChange={(e) => {
+                                                              setAccountInputValues(prev => ({
+                                                                ...prev,
+                                                                [account]: e.target.value
+                                                              }));
+                                                            }}
+                                                            onBlur={(e) => {
+                                                              console.log(`🔄 onBlur triggered for ${account} with value: ${e.target.value}`);
+                                                              const value = e.target.value;
+                                                              if (value === "Ej ifyllt" || value === "") {
+                                                                console.log(`🔄 onBlur: Setting ${account} to 0 (Ej ifyllt/empty)`);
+                                                                handleAccountBalanceUpdate(account, 0);
+                                                                setAccountInputValues(prev => ({
+                                                                  ...prev,
+                                                                  [account]: "Ej ifyllt"
+                                                                }));
+                                                              } else {
+                                                                const numValue = Number(value);
+                                                                console.log(`🔄 onBlur: Parsed number value: ${numValue}, isNaN: ${isNaN(numValue)}`);
+                                                                if (!isNaN(numValue)) {
+                                                                  console.log(`🔄 onBlur: About to call handleAccountBalanceUpdate(${account}, ${numValue})`);
+                                                                  handleAccountBalanceUpdate(account, numValue);
+                                                                } else {
+                                                                  // Invalid number, revert to previous state
+                                                                  const revertValue = accountBalancesSet[account] 
+                                                                    ? currentBalance.toString() 
+                                                                    : "Ej ifyllt";
+                                                                  setAccountInputValues(prev => ({
+                                                                    ...prev,
+                                                                    [account]: revertValue
+                                                                  }));
+                                                                }
+                                                              }
+                                                            }}
+                                                            onFocus={(e) => {
+                                                              if (e.target.value === "Ej ifyllt") {
+                                                                setAccountInputValues(prev => ({
+                                                                  ...prev,
+                                                                  [account]: ""
+                                                                }));
+                                                              }
+                                                            }}
                                                            className="w-32 text-right"
-                                                           placeholder="Ej ifyllt"
-                                                         />
-                                                       );
-                                                     })()}
-                                                    <span className="text-sm text-blue-700 min-w-8">kr</span>
+                                                            placeholder="Ej ifyllt"
+                                                          />
+                                                     <span className="text-sm text-blue-700 min-w-8">kr</span>
                                                   </div>
                                                 </div>
                                                
