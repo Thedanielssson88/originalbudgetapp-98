@@ -39,17 +39,15 @@ export function initializeApp(): void {
   addMobileDebugLog(`[ORCHESTRATOR] After storage init - available months: ${Object.keys(state.budgetState.historicalData).join(', ')}`);
   addMobileDebugLog(`[ORCHESTRATOR] Selected month: ${state.budgetState.selectedMonthKey}`);
   
-  // TEMPORARILY DISABLE: Run initial calculations to ensure state is up to date
-  // runCalculationsAndUpdateState();
-  console.log('[ORCHESTRATOR] 🚨 CALCULATIONS DISABLED FOR DEBUGGING');
+  // Run initial calculations to ensure state is up to date
+  runCalculationsAndUpdateState();
   
   // Mark loading as complete
   state.isLoading = false;
   addMobileDebugLog('[ORCHESTRATOR] ✅ App initialization complete - loading set to false');
   
-  // TEMPORARILY DISABLE: Don't trigger UI refresh here - runCalculationsAndUpdateState() already does it
-  // addMobileDebugLog('[ORCHESTRATOR] 📡 App initialization complete - UI refresh was done by runCalculationsAndUpdateState');
-  console.log('[ORCHESTRATOR] ✅ Initialization complete - NO CALCULATIONS RUN');
+  // Don't trigger UI refresh here - runCalculationsAndUpdateState() already does it
+  addMobileDebugLog('[ORCHESTRATOR] 📡 App initialization complete - UI refresh was done by runCalculationsAndUpdateState');
 }
 
 // Get current state
@@ -73,7 +71,11 @@ export function unsubscribeFromStateChanges(callback: () => void): void {
 // Main calculation and state update function
 export function runCalculationsAndUpdateState(): void {
   console.log('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() STARTED');
+  const stack = new Error().stack;
+  const callerLine = stack?.split('\n')[2] || 'unknown';
+  console.log('🔥 [ORCHESTRATOR] WHO IS CALLING ME?:', callerLine);
   addMobileDebugLog('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() STARTED');
+  addMobileDebugLog(`🔥 [ORCHESTRATOR] WHO IS CALLING ME?: ${callerLine}`);
   
   try {
     const { historicalData, accounts } = state.budgetState;
@@ -116,6 +118,10 @@ export function runCalculationsAndUpdateState(): void {
 
 // Helper function for updating data
 function updateAndRecalculate(updates: Partial<MonthData>): void {
+  const stack = new Error().stack;
+  const callerLine = stack?.split('\n')[2] || 'unknown';
+  console.log('🔥 [ORCHESTRATOR] updateAndRecalculate() called from:', callerLine);
+  addMobileDebugLog(`🔥 [ORCHESTRATOR] updateAndRecalculate() called from: ${callerLine}`);
   updateCurrentMonthData(updates);
   runCalculationsAndUpdateState();
 }
