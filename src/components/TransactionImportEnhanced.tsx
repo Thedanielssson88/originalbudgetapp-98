@@ -139,7 +139,9 @@ export const TransactionImportEnhanced: React.FC = () => {
           accountId,
           date: dateColumnIndex >= 0 ? fields[dateColumnIndex] : fields[0],
           amount: amountColumnIndex >= 0 ? parseFloat(fields[amountColumnIndex].replace(',', '.')) : 0,
-          balanceAfter: balanceColumnIndex >= 0 ? parseFloat(fields[balanceColumnIndex].replace(',', '.')) : undefined,
+          balanceAfter: balanceColumnIndex >= 0 ? 
+            (fields[balanceColumnIndex] && fields[balanceColumnIndex].trim() !== '' ? 
+              parseFloat(fields[balanceColumnIndex].replace(',', '.')) : undefined) : undefined,
           description: descriptionColumnIndex >= 0 ? fields[descriptionColumnIndex] : fields[1] || '',
           bankCategory: categoryColumnIndex >= 0 ? fields[categoryColumnIndex] : undefined,
           bankSubCategory: subCategoryColumnIndex >= 0 ? fields[subCategoryColumnIndex] : undefined,

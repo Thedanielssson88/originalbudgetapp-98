@@ -95,7 +95,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">Belopp</p>
                     <p className={`font-semibold text-sm ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {Math.abs(transaction.amount).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
+                      {transaction.amount >= 0 ? '+' : ''}{Math.abs(transaction.amount).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
                     </p>
                   </div>
                 </div>
