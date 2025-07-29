@@ -3,7 +3,7 @@
 import { state, initializeStateFromStorage, saveStateToStorage, getCurrentMonthData, updateCurrentMonthData } from '../state/budgetState';
 import { StorageKey, set } from '../services/storageService';
 import { calculateFullPrognosis, calculateBudgetResults, calculateAccountProgression, calculateMonthlyBreakdowns, calculateProjectedBalances } from '../services/calculationService';
-import { BudgetGroup, MonthData } from '../types/budget';
+import { BudgetGroup, MonthData, SavingsGoal } from '../types/budget';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 
 // Event system for UI updates
@@ -395,3 +395,47 @@ export function setMainCategories(value: string[]): void {
   saveStateToStorage();
   triggerUIRefresh();
 }
+
+// ===== SAVINGS GOALS MANAGEMENT =====
+
+export const createSavingsGoal = (goalData: Omit<SavingsGoal, 'id'>) => {
+  console.log(`🎯 [ORCHESTRATOR] Creating new savings goal: ${goalData.name}`);
+  
+  const newGoal: SavingsGoal = {
+    ...goalData,
+    id: Date.now().toString() // Simple ID generation
+  };
+  
+  state.budgetState.savingsGoals.push(newGoal);
+  saveStateToStorage();
+  triggerUIRefresh();
+  
+  console.log(`✅ [ORCHESTRATOR] Savings goal created successfully`);
+};
+
+export const updateSavingsGoal = (goalId: string, updates: Partial<SavingsGoal>) => {
+  console.log(`🎯 [ORCHESTRATOR] Updating savings goal: ${goalId}`);
+  
+  const goalIndex = state.budgetState.savingsGoals.findIndex(goal => goal.id === goalId);
+  if (goalIndex !== -1) {
+    state.budgetState.savingsGoals[goalIndex] = {
+      ...state.budgetState.savingsGoals[goalIndex],
+      ...updates
+    };
+    saveStateToStorage();
+    triggerUIRefresh();
+    console.log(`✅ [ORCHESTRATOR] Savings goal updated successfully`);
+  } else {
+    console.error(`❌ [ORCHESTRATOR] Savings goal not found: ${goalId}`);
+  }
+};
+
+export const deleteSavingsGoal = (goalId: string) => {
+  console.log(`🎯 [ORCHESTRATOR] Deleting savings goal: ${goalId}`);
+  
+  state.budgetState.savingsGoals = state.budgetState.savingsGoals.filter(goal => goal.id !== goalId);
+  saveStateToStorage();
+  triggerUIRefresh();
+  
+  console.log(`✅ [ORCHESTRATOR] Savings goal deleted successfully`);
+};
