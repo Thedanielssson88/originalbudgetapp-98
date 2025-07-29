@@ -8443,14 +8443,14 @@ const BudgetCalculator = () => {
             <div className="container mx-auto p-6">
               <div className="text-center py-12">
                 <h2 className="text-2xl font-bold mb-4">Läs in transaktioner</h2>
-                <p className="text-muted-foreground mb-4">
+                <p className="text-muted-foreground mb-6">
                   Transaktionsimport-funktionaliteten kommer snart!
                 </p>
-                <div className="space-y-4">
+                <div className="space-y-4 max-w-md mx-auto">
                   <div className="text-sm text-muted-foreground">
                     Här kommer du kunna:
                   </div>
-                  <ul className="text-sm text-muted-foreground space-y-1">
+                  <ul className="text-sm text-muted-foreground space-y-2 text-left">
                     <li>• Ladda upp CSV-filer från din bank</li>
                     <li>• Mappa kolumner automatiskt</li>
                     <li>• Kategorisera transaktioner</li>
