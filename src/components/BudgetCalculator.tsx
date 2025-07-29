@@ -4405,11 +4405,11 @@ const BudgetCalculator = () => {
                       <div className="space-y-3">
                         <div className="space-y-2">
                           <Label htmlFor="andreas" className="text-green-700">Lön</Label>
-                          <Input
+                           <Input
                             id="andreas"
                             type="number"
                             placeholder="Ange månadslön"
-                            value={andreasSalary || ''}
+                            value={andreasSalary === 0 ? '0' : (andreasSalary || '')}
                             onChange={(e) => {
                               setAndreasSalary(Number(e.target.value));
                               const currentDate = new Date();
@@ -4422,11 +4422,11 @@ const BudgetCalculator = () => {
                         
                         <div className="space-y-2">
                           <Label htmlFor="andreas-forsakringskassan" className="text-green-700">Försäkringskassan</Label>
-                          <Input
+                           <Input
                             id="andreas-forsakringskassan"
                             type="number"
                             placeholder="Ange försäkringskassan"
-                            value={andreasförsäkringskassan || ''}
+                            value={andreasförsäkringskassan === 0 ? '0' : (andreasförsäkringskassan || '')}
                             onChange={(e) => setAndreasförsäkringskassan(Number(e.target.value))}
                             className="text-lg bg-white/70"
                           />
@@ -4434,11 +4434,11 @@ const BudgetCalculator = () => {
                         
                         <div className="space-y-2">
                           <Label htmlFor="andreas-barnbidrag" className="text-green-700">Barnbidrag</Label>
-                          <Input
+                           <Input
                             id="andreas-barnbidrag"
                             type="number"
                             placeholder="Ange barnbidrag"
-                            value={andreasbarnbidrag || ''}
+                            value={andreasbarnbidrag === 0 ? '0' : (andreasbarnbidrag || '')}
                             onChange={(e) => setAndreasbarnbidrag(Number(e.target.value))}
                             className="text-lg bg-white/70"
                           />
@@ -4452,11 +4452,11 @@ const BudgetCalculator = () => {
                       <div className="space-y-3">
                         <div className="space-y-2">
                           <Label htmlFor="susanna" className="text-green-700">Lön</Label>
-                          <Input
+                           <Input
                             id="susanna"
                             type="number"
                             placeholder="Ange månadslön"
-                            value={susannaSalary || ''}
+                            value={susannaSalary === 0 ? '0' : (susannaSalary || '')}
                             onChange={(e) => {
                               setSusannaSalary(Number(e.target.value));
                               const currentDate = new Date();
@@ -4469,11 +4469,11 @@ const BudgetCalculator = () => {
                         
                         <div className="space-y-2">
                           <Label htmlFor="susanna-forsakringskassan" className="text-green-700">Försäkringskassan</Label>
-                          <Input
+                           <Input
                             id="susanna-forsakringskassan"
                             type="number"
                             placeholder="Ange försäkringskassan"
-                            value={susannaförsäkringskassan || ''}
+                            value={susannaförsäkringskassan === 0 ? '0' : (susannaförsäkringskassan || '')}
                             onChange={(e) => setSusannaförsäkringskassan(Number(e.target.value))}
                             className="text-lg bg-white/70"
                           />
@@ -4481,11 +4481,11 @@ const BudgetCalculator = () => {
                         
                         <div className="space-y-2">
                           <Label htmlFor="susanna-barnbidrag" className="text-green-700">Barnbidrag</Label>
-                          <Input
+                           <Input
                             id="susanna-barnbidrag"
                             type="number"
                             placeholder="Ange barnbidrag"
-                            value={susannabarnbidrag || ''}
+                            value={susannabarnbidrag === 0 ? '0' : (susannabarnbidrag || '')}
                             onChange={(e) => setSusannabarnbidrag(Number(e.target.value))}
                             className="text-lg bg-white/70"
                           />
