@@ -681,7 +681,7 @@ export const TransactionImportEnhanced: React.FC = () => {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <Table>
+                  <Table className="text-xs">
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-8">
@@ -696,14 +696,13 @@ export const TransactionImportEnhanced: React.FC = () => {
                             }}
                           />
                         </TableHead>
-                        <TableHead className="w-12">Status</TableHead>
-                        <TableHead className="min-w-16">Konto</TableHead>
-                        <TableHead className="min-w-20">Datum</TableHead>
-                        <TableHead className="min-w-24 max-w-32">Beskrivning</TableHead>
-                        <TableHead className="min-w-20 max-w-24">Egen text</TableHead>
-                        <TableHead className="min-w-16">Belopp</TableHead>
-                        <TableHead className="min-w-20">Kategori</TableHead>
-                        <TableHead className="min-w-16">Typ</TableHead>
+                        <TableHead className="w-8 text-xs">Status</TableHead>
+                        <TableHead className="w-20 text-xs">Konto</TableHead>
+                        <TableHead className="w-16 text-xs">Datum</TableHead>
+                        <TableHead className="w-32 text-xs">Beskrivning</TableHead>
+                        <TableHead className="w-16 text-xs">Belopp</TableHead>
+                        <TableHead className="w-20 text-xs">Kategori</TableHead>
+                        <TableHead className="w-16 text-xs">Typ</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -723,42 +722,34 @@ export const TransactionImportEnhanced: React.FC = () => {
                             <TableCell>
                               <StatusIcon className={`w-3 h-3 ${statusInfo.color}`} />
                             </TableCell>
-                            <TableCell className="text-xs font-medium">{account?.name}</TableCell>
-                            <TableCell className="text-xs">{transaction.date}</TableCell>
-                            <TableCell className="text-xs truncate max-w-32" title={transaction.description}>
-                              {transaction.description}
+                            <TableCell className="text-xs p-1 font-medium">{account?.name.substring(0, 8) || transaction.accountId.substring(0, 8)}</TableCell>
+                            <TableCell className="text-xs p-1">{transaction.date.substring(5)}</TableCell>
+                            <TableCell className="text-xs p-1 max-w-32 truncate" title={transaction.description}>
+                              {transaction.description.substring(0, 15)}...
                             </TableCell>
-                            <TableCell>
-                              <Input
-                                value={transaction.userDescription || ''}
-                                onChange={(e) => updateTransactionNote(transaction.id, e.target.value)}
-                                placeholder="Egen notering..."
-                                className="w-20 text-xs h-8"
-                              />
+                            <TableCell className={`text-xs p-1 font-medium ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {Math.abs(transaction.amount).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
                             </TableCell>
-                            <TableCell className={`text-xs font-medium ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {transaction.amount.toLocaleString('sv-SE')} kr
-                            </TableCell>
-                            <TableCell>
+                            <TableCell className="text-xs p-1">
                               <Select
                                 value={transaction.appCategoryId || ''}
                                 onValueChange={(value) => updateTransactionCategory(transaction.id, value)}
                               >
-                                <SelectTrigger className="w-24 text-xs">
-                                  <SelectValue placeholder="Välj kategori" />
+                                <SelectTrigger className="w-20 h-6 text-xs">
+                                  <SelectValue placeholder="Kat" />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="bg-background border border-border shadow-lg z-50">
                                   {mainCategories.map(category => (
-                                    <SelectItem key={category} value={category}>
-                                      {category}
+                                    <SelectItem key={category} value={category} className="text-xs">
+                                      {category.substring(0, 10)}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
                             </TableCell>
-                            <TableCell>
-                              <Badge variant={transaction.type === 'InternalTransfer' ? 'secondary' : 'outline'} className="text-xs">
-                                {transaction.type === 'InternalTransfer' ? 'Överföring' : 'Transaktion'}
+                            <TableCell className="text-xs p-1">
+                              <Badge variant={transaction.type === 'InternalTransfer' ? 'secondary' : 'outline'} className="text-xs px-1 py-0">
+                                {transaction.type === 'InternalTransfer' ? 'Överf' : 'Trans'}
                               </Badge>
                             </TableCell>
                           </TableRow>
