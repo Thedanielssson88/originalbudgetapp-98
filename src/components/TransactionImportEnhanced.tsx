@@ -329,15 +329,16 @@ export const TransactionImportEnhanced: React.FC = () => {
                 <div>
                   <h4 className="text-sm font-medium mb-3">Exempeldata från {accounts.find(acc => acc.id === uploadedFile.accountId)?.name}</h4>
                   <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="min-w-24">CSV Kolumn</TableHead>
-                          <TableHead className="min-w-32 max-w-40">Exempeldata</TableHead>
-                          <TableHead className="min-w-32">Mappa till</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
+                    <div className="min-w-full">
+                      <Table className="text-xs">
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-20 text-xs">Kolumn</TableHead>
+                            <TableHead className="w-24 text-xs">Data</TableHead>
+                            <TableHead className="w-28 text-xs">Mappa</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
                         {/* Parse CSV headers for this specific file */}
                         {(() => {
                           const reader = new FileReader();
@@ -373,12 +374,11 @@ export const TransactionImportEnhanced: React.FC = () => {
                             
                             return (
                               <TableRow key={colIndex}>
-                                <TableCell className="font-medium text-sm">{header}</TableCell>
-                                <TableCell className="text-xs text-muted-foreground max-w-40 truncate">
-                                  {exampleData.slice(0, 1).join(', ')}
-                                  {exampleData.length > 1 && '...'}
+                                <TableCell className="font-medium text-xs p-2">{header.length > 8 ? header.substring(0, 8) + '...' : header}</TableCell>
+                                <TableCell className="text-xs p-2 max-w-24 truncate" title={exampleData[0]}>
+                                  {exampleData[0]?.length > 10 ? exampleData[0].substring(0, 10) + '...' : exampleData[0] || '...'}
                                 </TableCell>
-                                <TableCell>
+                                <TableCell className="p-2">
                                   <Select 
                                     value={columnMappings[fileKey]?.[header] || autoMapping}
                                     onValueChange={(value) => {
@@ -391,12 +391,12 @@ export const TransactionImportEnhanced: React.FC = () => {
                                       }));
                                     }}
                                   >
-                                    <SelectTrigger className="w-28 sm:w-40 text-xs">
-                                      <SelectValue placeholder="Välj fält" />
+                                    <SelectTrigger className="w-24 h-8 text-xs">
+                                      <SelectValue placeholder="Välj" />
                                     </SelectTrigger>
                                     <SelectContent className="bg-background border border-border shadow-lg z-50">
                                       {systemFields.map(field => (
-                                        <SelectItem key={field.value} value={field.value}>
+                                        <SelectItem key={field.value} value={field.value} className="text-xs">
                                           {field.label}
                                         </SelectItem>
                                       ))}
@@ -407,8 +407,9 @@ export const TransactionImportEnhanced: React.FC = () => {
                             );
                           });
                         })()}
-                      </TableBody>
-                    </Table>
+                        </TableBody>
+                      </Table>
+                    </div>
                   </div>
                 </div>
               </div>
