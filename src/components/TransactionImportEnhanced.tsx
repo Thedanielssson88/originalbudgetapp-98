@@ -626,7 +626,7 @@ export const TransactionImportEnhanced: React.FC = () => {
           variant="outline"
           onClick={() => setCurrentStep('categorization')}
           disabled={transactions.length === 0}
-          className="w-full sm:min-w-48"
+          className="w-full sm:min-w-48 hover:bg-primary hover:text-primary-foreground transition-colors"
         >
           Kategorisering & Regler
         </Button>
