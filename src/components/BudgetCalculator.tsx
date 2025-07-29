@@ -698,8 +698,8 @@ const BudgetCalculator = () => {
     const shouldShowOverforingTab = selectedBudgetMonth === targetMonthKey;
     
     return shouldShowOverforingTab 
-      ? ["inkomster", "sammanstallning", "overforing", "egen-budget", "historia", "installningar"]
-      : ["inkomster", "sammanstallning", "egen-budget", "historia", "installningar"];
+      ? ["inkomster", "sammanstallning", "overforing", "egen-budget", "historia", "sparmal", "installningar"]
+      : ["inkomster", "sammanstallning", "egen-budget", "historia", "sparmal", "installningar"];
   };
 
   const navigateToNextTab = () => {
