@@ -34,6 +34,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Upload, CheckCircle, FileText, Settings, AlertCircle, Circle, CheckSquare, AlertTriangle } from 'lucide-react';
 import { ImportedTransaction, CategoryRule, FileStructure, ColumnMapping } from '@/types/transaction';
 import { TransactionExpandableCard } from './TransactionExpandableCard';
+import { TransactionGroupByDate } from './TransactionGroupByDate';
 
 interface Account {
   id: string;
@@ -61,6 +62,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [transactions, setTransactions] = useState<ImportedTransaction[]>([]);
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
   const [activeTransactionTab, setActiveTransactionTab] = useState<'all' | 'account'>('all');
+  const [hideGreenTransactions, setHideGreenTransactions] = useState<boolean>(false);
   const [selectedAccountForView, setSelectedAccountForView] = useState<string>('');
   const [transferMatchDialog, setTransferMatchDialog] = useState<{
     isOpen: boolean;
@@ -679,41 +681,61 @@ export const TransactionImportEnhanced: React.FC = () => {
           )}
 
           {activeTransactionTab === 'all' ? (
-            <div className="space-y-3">
-              {/* Select all header */}
-              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    checked={selectedTransactions.length === transactions.length}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedTransactions(transactions.map(t => t.id));
-                      } else {
-                        setSelectedTransactions([]);
-                      }
-                    }}
-                  />
-                  <span className="text-sm font-medium">Markera alla transaktioner</span>
-                </div>
-                <span className="text-sm text-muted-foreground">
-                  {selectedTransactions.length} av {transactions.length} valda
-                </span>
-              </div>
+            (() => {
+              // Filter transactions based on hide green setting
+              const filteredTransactions = hideGreenTransactions 
+                ? transactions.filter(t => t.status !== 'green')
+                : transactions;
 
-              {/* Transaction cards */}
-              {transactions.map(transaction => (
-                <TransactionExpandableCard
-                  key={transaction.id}
-                  transaction={transaction}
-                  account={accounts.find(a => a.id === transaction.accountId)}
-                  isSelected={selectedTransactions.includes(transaction.id)}
-                  mainCategories={mainCategories}
-                  onToggleSelection={toggleTransactionSelection}
-                  onUpdateCategory={updateTransactionCategory}
-                  onUpdateNote={updateTransactionNote}
-                />
-              ))}
-            </div>
+              return (
+                <div className="space-y-3">
+                  {/* Select all header */}
+                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        checked={selectedTransactions.length === filteredTransactions.length && filteredTransactions.length > 0}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedTransactions(filteredTransactions.map(t => t.id));
+                          } else {
+                            setSelectedTransactions([]);
+                          }
+                        }}
+                      />
+                      <span className="text-sm font-medium">Markera alla transaktioner</span>
+                    </div>
+                    <span className="text-sm text-muted-foreground">
+                      {selectedTransactions.filter(id => filteredTransactions.some(t => t.id === id)).length} av {filteredTransactions.length} valda
+                    </span>
+                  </div>
+
+                  {/* Hide green transactions toggle */}
+                  <div className="flex items-center space-x-2 p-3 bg-muted/30 rounded-lg">
+                     <Checkbox
+                       checked={hideGreenTransactions}
+                       onCheckedChange={(checked) => setHideGreenTransactions(checked === true)}
+                     />
+                    <span className="text-sm">Dölj godkända transaktioner</span>
+                    {hideGreenTransactions && (
+                      <span className="text-xs text-muted-foreground">
+                        ({transactions.filter(t => t.status === 'green').length} dolda)
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Grouped transaction cards */}
+                  <TransactionGroupByDate
+                    transactions={filteredTransactions}
+                    selectedTransactions={selectedTransactions}
+                    mainCategories={mainCategories}
+                    accounts={accounts}
+                    onToggleSelection={toggleTransactionSelection}
+                    onUpdateCategory={updateTransactionCategory}
+                    onUpdateNote={updateTransactionNote}
+                  />
+                </div>
+              );
+            })()
           ) : (
             <Tabs value={selectedAccountForView} onValueChange={setSelectedAccountForView}>
               <TabsList className="w-full">
