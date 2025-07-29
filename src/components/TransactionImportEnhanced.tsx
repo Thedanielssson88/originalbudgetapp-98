@@ -332,9 +332,9 @@ export const TransactionImportEnhanced: React.FC = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>CSV Kolumn</TableHead>
-                          <TableHead>Exempeldata</TableHead>
-                          <TableHead>Mappa till</TableHead>
+                          <TableHead className="min-w-24">CSV Kolumn</TableHead>
+                          <TableHead className="min-w-32 max-w-40">Exempeldata</TableHead>
+                          <TableHead className="min-w-32">Mappa till</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -373,10 +373,10 @@ export const TransactionImportEnhanced: React.FC = () => {
                             
                             return (
                               <TableRow key={colIndex}>
-                                <TableCell className="font-medium">{header}</TableCell>
-                                <TableCell className="text-sm text-muted-foreground">
-                                  {exampleData.slice(0, 2).join(', ')}
-                                  {exampleData.length > 2 && '...'}
+                                <TableCell className="font-medium text-sm">{header}</TableCell>
+                                <TableCell className="text-xs text-muted-foreground max-w-40 truncate">
+                                  {exampleData.slice(0, 1).join(', ')}
+                                  {exampleData.length > 1 && '...'}
                                 </TableCell>
                                 <TableCell>
                                   <Select 
@@ -391,7 +391,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                                       }));
                                     }}
                                   >
-                                    <SelectTrigger className="w-32 sm:w-48">
+                                    <SelectTrigger className="w-28 sm:w-40 text-xs">
                                       <SelectValue placeholder="Välj fält" />
                                     </SelectTrigger>
                                     <SelectContent className="bg-background border border-border shadow-lg z-50">
@@ -683,7 +683,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-12">
+                        <TableHead className="w-8">
                           <Checkbox
                             checked={selectedTransactions.length === transactions.length}
                             onCheckedChange={(checked) => {
@@ -695,14 +695,14 @@ export const TransactionImportEnhanced: React.FC = () => {
                             }}
                           />
                         </TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Konto</TableHead>
-                        <TableHead>Datum</TableHead>
-                        <TableHead>Beskrivning</TableHead>
-                        <TableHead>Egen text</TableHead>
-                        <TableHead>Belopp</TableHead>
-                        <TableHead>Kategori</TableHead>
-                        <TableHead>Typ</TableHead>
+                        <TableHead className="w-12">Status</TableHead>
+                        <TableHead className="min-w-16">Konto</TableHead>
+                        <TableHead className="min-w-20">Datum</TableHead>
+                        <TableHead className="min-w-24 max-w-32">Beskrivning</TableHead>
+                        <TableHead className="min-w-20 max-w-24">Egen text</TableHead>
+                        <TableHead className="min-w-16">Belopp</TableHead>
+                        <TableHead className="min-w-20">Kategori</TableHead>
+                        <TableHead className="min-w-16">Typ</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -720,20 +720,22 @@ export const TransactionImportEnhanced: React.FC = () => {
                               />
                             </TableCell>
                             <TableCell>
-                              <StatusIcon className={`w-4 h-4 ${statusInfo.color}`} />
+                              <StatusIcon className={`w-3 h-3 ${statusInfo.color}`} />
                             </TableCell>
-                            <TableCell>{account?.name}</TableCell>
-                            <TableCell>{transaction.date}</TableCell>
-                            <TableCell className="max-w-48 truncate">{transaction.description}</TableCell>
+                            <TableCell className="text-xs font-medium">{account?.name}</TableCell>
+                            <TableCell className="text-xs">{transaction.date}</TableCell>
+                            <TableCell className="text-xs truncate max-w-32" title={transaction.description}>
+                              {transaction.description}
+                            </TableCell>
                             <TableCell>
                               <Input
                                 value={transaction.userDescription || ''}
                                 onChange={(e) => updateTransactionNote(transaction.id, e.target.value)}
                                 placeholder="Egen notering..."
-                                className="w-32"
+                                className="w-20 text-xs h-8"
                               />
                             </TableCell>
-                            <TableCell className={transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}>
+                            <TableCell className={`text-xs font-medium ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                               {transaction.amount.toLocaleString('sv-SE')} kr
                             </TableCell>
                             <TableCell>
@@ -741,7 +743,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                                 value={transaction.appCategoryId || ''}
                                 onValueChange={(value) => updateTransactionCategory(transaction.id, value)}
                               >
-                                <SelectTrigger className="w-32">
+                                <SelectTrigger className="w-24 text-xs">
                                   <SelectValue placeholder="Välj kategori" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -754,7 +756,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                               </Select>
                             </TableCell>
                             <TableCell>
-                              <Badge variant={transaction.type === 'InternalTransfer' ? 'secondary' : 'outline'}>
+                              <Badge variant={transaction.type === 'InternalTransfer' ? 'secondary' : 'outline'} className="text-xs">
                                 {transaction.type === 'InternalTransfer' ? 'Överföring' : 'Transaktion'}
                               </Badge>
                             </TableCell>
