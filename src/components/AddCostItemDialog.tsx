@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { StorageKey, get } from '../services/storageService';
 
 interface AddCostItemDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (item: {
     mainCategory: string;
+    subcategory: string;
     name: string;
     amount: number;
     account: string;
@@ -28,14 +30,32 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
 }) => {
   const [formData, setFormData] = useState({
     mainCategory: '',
+    subcategory: '',
     name: '',
     amount: 0,
     account: 'none',
     financedFrom: 'Löpande kostnad'
   });
+  
+  const [subcategories, setSubcategories] = useState<Record<string, string[]>>({});
+  const [availableSubcategories, setAvailableSubcategories] = useState<string[]>([]);
+
+  useEffect(() => {
+    const loadedSubcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
+    setSubcategories(loadedSubcategories);
+  }, []);
+
+  useEffect(() => {
+    if (formData.mainCategory) {
+      setAvailableSubcategories(subcategories[formData.mainCategory] || []);
+      setFormData(prev => ({ ...prev, subcategory: '' }));
+    } else {
+      setAvailableSubcategories([]);
+    }
+  }, [formData.mainCategory, subcategories]);
 
   const handleSave = () => {
-    if (formData.mainCategory && formData.name && formData.amount > 0) {
+    if (formData.mainCategory && formData.subcategory && formData.name && formData.amount > 0) {
       const itemToSave = {
         ...formData,
         account: formData.account === 'none' ? '' : formData.account
@@ -43,6 +63,7 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
       onSave(itemToSave);
       setFormData({
         mainCategory: '',
+        subcategory: '',
         name: '',
         amount: 0,
         account: 'none',
@@ -55,6 +76,7 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
   const handleCancel = () => {
     setFormData({
       mainCategory: '',
+      subcategory: '',
       name: '',
       amount: 0,
       account: 'none',
@@ -84,6 +106,26 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
                 {mainCategories.map((category) => (
                   <SelectItem key={category} value={category}>
                     {category}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="subcategory">Underkategori</Label>
+            <Select 
+              value={formData.subcategory} 
+              onValueChange={(value) => setFormData({ ...formData, subcategory: value })}
+              disabled={!formData.mainCategory}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={formData.mainCategory ? "Välj underkategori" : "Välj först huvudkategori"} />
+              </SelectTrigger>
+              <SelectContent className="bg-popover border border-border shadow-lg z-50">
+                {availableSubcategories.map((subcategory) => (
+                  <SelectItem key={subcategory} value={subcategory}>
+                    {subcategory}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -154,7 +196,7 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
           </Button>
           <Button 
             onClick={handleSave}
-            disabled={!formData.mainCategory || !formData.name || formData.amount <= 0}
+            disabled={!formData.mainCategory || !formData.subcategory || !formData.name || formData.amount <= 0}
           >
             Spara
           </Button>
