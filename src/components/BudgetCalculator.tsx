@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import Papa from 'papaparse';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -12,7 +13,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight, Target } from 'lucide-react';
+import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight, Target, Upload } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useSwipeGestures } from '@/hooks/useSwipeGestures';
 import { AccountDataTable, AccountDataRow } from '@/components/AccountDataTable';
@@ -211,6 +212,17 @@ const BudgetCalculator = () => {
   const [newSavingsGoalTarget, setNewSavingsGoalTarget] = useState<string>('');
   const [newSavingsGoalStartDate, setNewSavingsGoalStartDate] = useState<string>('');
   const [newSavingsGoalEndDate, setNewSavingsGoalEndDate] = useState<string>('');
+
+  // Transaktionsimport state
+  const [transactionImportStep, setTransactionImportStep] = useState<1 | 2 | 3>(1);
+  const [uploadedFiles, setUploadedFiles] = useState<{[accountId: string]: File}>({});
+  const [fileBalances, setFileBalances] = useState<{[accountId: string]: number}>({});
+  const [parsedData, setParsedData] = useState<{[accountId: string]: any[]}>({});
+  const [columnMappings, setColumnMappings] = useState<{[fileSignature: string]: any}>({});
+  const [selectedFileForMapping, setSelectedFileForMapping] = useState<string>('');
+  const [transactionCategories, setTransactionCategories] = useState<{[key: string]: string}>({});
+  const [showAllTransactions, setShowAllTransactions] = useState<boolean>(true);
+  const [selectedTransactionAccount, setSelectedTransactionAccount] = useState<string>('');
   
   // Account balances - läs direkt från central state (inga lokala useState längre)
   
@@ -678,6 +690,54 @@ const BudgetCalculator = () => {
     setNewSavingsGoalEndDate('');
   };
   
+  // Transaction import helper functions
+  const handleFileUpload = (accountId: string, file: File) => {
+    console.log('🔍 [DEBUG] File uploaded for account:', accountId, file.name);
+    setUploadedFiles(prev => ({ ...prev, [accountId]: file }));
+    
+    // Parse CSV file
+    Papa.parse(file, {
+      header: true,
+      complete: (result) => {
+        console.log('🔍 [DEBUG] Parsed data:', result.data);
+        setParsedData(prev => ({ ...prev, [accountId]: result.data }));
+        
+        // Try to find balance from last row if 'Saldo' column exists
+        const lastRow = result.data[result.data.length - 1] as any;
+        if (lastRow && lastRow.Saldo) {
+          const balance = parseFloat(lastRow.Saldo.replace(/[^\d.-]/g, ''));
+          if (!isNaN(balance)) {
+            setFileBalances(prev => ({ ...prev, [accountId]: balance }));
+          }
+        }
+      },
+      error: (error) => {
+        console.error('Error parsing CSV:', error);
+      }
+    });
+  };
+
+  const getFileSignature = (data: any[]) => {
+    if (!data || data.length === 0) return '';
+    const firstRow = data[0];
+    return Object.keys(firstRow).join(',');
+  };
+
+  const getTransactionStatus = (transaction: any): 'red' | 'yellow' | 'green' => {
+    if (transaction.status === 'green') return 'green';
+    if (!transaction.appCategoryId) return 'red';
+    return 'yellow';
+  };
+
+    createSavingsGoal(newGoal);
+    setIsCreateSavingsGoalDialogOpen(false);
+    setNewSavingsGoalName('');
+    setNewSavingsGoalAccount('');
+    setNewSavingsGoalTarget('');
+    setNewSavingsGoalStartDate('');
+    setNewSavingsGoalEndDate('');
+  };
+  
   // Tab navigation helper functions
   const getTabOrder = () => {
     const currentDate = new Date();
@@ -698,8 +758,8 @@ const BudgetCalculator = () => {
     const shouldShowOverforingTab = selectedBudgetMonth === targetMonthKey;
     
     return shouldShowOverforingTab 
-      ? ["inkomster", "sammanstallning", "overforing", "egen-budget", "historia", "sparmal", "installningar"]
-      : ["inkomster", "sammanstallning", "egen-budget", "historia", "sparmal", "installningar"];
+      ? ["inkomster", "sammanstallning", "overforing", "egen-budget", "historia", "sparmal", "transaktioner", "installningar"]
+      : ["inkomster", "sammanstallning", "egen-budget", "historia", "sparmal", "transaktioner", "installningar"];
   };
 
   const navigateToNextTab = () => {
@@ -4436,6 +4496,7 @@ const BudgetCalculator = () => {
             <TabsTrigger value="egen-budget">Egen Budget</TabsTrigger>
             <TabsTrigger value="historia">Historia</TabsTrigger>
             <TabsTrigger value="sparmal">Sparmål</TabsTrigger>
+            <TabsTrigger value="transaktioner">Läs in transaktioner</TabsTrigger>
             <TabsTrigger value="installningar">Inställningar</TabsTrigger>
           </TabsList>
 
@@ -4462,6 +4523,7 @@ const BudgetCalculator = () => {
               {activeTab === 'egen-budget' && 'Egen Budget'}
               {activeTab === 'historia' && 'Historia'}
               {activeTab === 'sparmal' && 'Sparmål'}
+              {activeTab === 'transaktioner' && 'Läs in transaktioner'}
               {activeTab === 'installningar' && 'Inställningar'}
             </h1>
           </div>
@@ -8372,6 +8434,29 @@ const BudgetCalculator = () => {
                     })}
                   </div>
                 )}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Läs in transaktioner Tab */}
+          <TabsContent value="transaktioner" className="mt-0">
+            <div className="container mx-auto p-6">
+              <div className="text-center py-12">
+                <h2 className="text-2xl font-bold mb-4">Läs in transaktioner</h2>
+                <p className="text-muted-foreground mb-4">
+                  Transaktionsimport-funktionaliteten kommer snart!
+                </p>
+                <div className="space-y-4">
+                  <div className="text-sm text-muted-foreground">
+                    Här kommer du kunna:
+                  </div>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• Ladda upp CSV-filer från din bank</li>
+                    <li>• Mappa kolumner automatiskt</li>
+                    <li>• Kategorisera transaktioner</li>
+                    <li>• Sätta upp automatiska regler</li>
+                  </ul>
+                </div>
               </div>
             </div>
           </TabsContent>
