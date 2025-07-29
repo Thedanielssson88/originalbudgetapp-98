@@ -591,6 +591,30 @@ export const TransactionImportEnhanced: React.FC = () => {
       </div>
 
       <div className="flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-4 pt-4 sm:pt-6">
+        {/* Navigation buttons */}
+        <div className="border-t border-border pt-6">
+          {/* Prominent button for continuing with existing files */}
+          {transactions.length > 0 && (
+            <div className="mb-4 p-4 bg-primary/5 border border-primary/20 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium text-sm">Fortsätt med tidigare filer</h4>
+                  <p className="text-xs text-muted-foreground">
+                    Du har {transactions.length} transaktioner redo för kategorisering
+                  </p>
+                </div>
+                <Button 
+                  onClick={() => setCurrentStep('categorization')}
+                  variant="default"
+                  className="shrink-0"
+                >
+                  Kategorisering & Mappning
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+        
         <Button 
           onClick={() => setCurrentStep('mapping')}
           disabled={uploadedFiles.length === 0}
