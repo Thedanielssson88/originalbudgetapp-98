@@ -22,6 +22,7 @@ import { AccountSelector } from '@/components/AccountSelector';
 import { MainCategoriesSettings } from '@/components/MainCategoriesSettings';
 import { AddCostItemDialog } from '@/components/AddCostItemDialog';
 import { TransactionImportEnhanced } from '@/components/TransactionImportEnhanced';
+import { TransactionDrillDownDialog } from '@/components/TransactionDrillDownDialog';
 import { calculateAccountEndBalances } from '../services/calculationService';
 import { 
   createSavingsGoal,
@@ -64,6 +65,7 @@ import {
 import { StorageKey } from '../services/storageService';
 import { useBudget } from '../hooks/useBudget';
 import { mobileDebugLogger, addMobileDebugLog } from '../utils/mobileDebugLogger';
+import { Transaction } from '../types/budget';
 
 interface SubCategory {
   id: string;
@@ -213,6 +215,21 @@ const BudgetCalculator = () => {
   const [newSavingsGoalStartDate, setNewSavingsGoalStartDate] = useState<string>('');
   const [newSavingsGoalEndDate, setNewSavingsGoalEndDate] = useState<string>('');
   
+  // Transaction drill down dialog state
+  const [drillDownDialog, setDrillDownDialog] = useState<{
+    isOpen: boolean;
+    transactions: Transaction[];
+    categoryName: string;
+    budgetAmount: number;
+    actualAmount: number;
+  }>({
+    isOpen: false,
+    transactions: [],
+    categoryName: '',
+    budgetAmount: 0,
+    actualAmount: 0
+  });
+  
   // Account balances - läs direkt från central state (inga lokala useState längre)
   
   // Chart selection states
@@ -315,6 +332,32 @@ const BudgetCalculator = () => {
     console.log(`🔥 [COMPONENT DATA] accountBalancesSet:`, accountBalancesSet);
     console.log(`🔥 [COMPONENT DATA] accounts:`, accounts);
   }, [JSON.stringify(accountBalances), JSON.stringify(accountBalancesSet), JSON.stringify(accounts)]);
+
+  // Helper functions for calculating actual amounts from transactions
+  const calculateActualAmountForCategory = (categoryId: string): number => {
+    const monthTransactions = (currentMonthData as any).transactions || [];
+    return monthTransactions
+      .filter((t: Transaction) => t.appCategoryId === categoryId)
+      .reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
+  };
+
+  const getTransactionsForCategory = (categoryId: string): Transaction[] => {
+    const monthTransactions = (currentMonthData as any).transactions || [];
+    return monthTransactions.filter((t: Transaction) => t.appCategoryId === categoryId);
+  };
+
+  const openDrillDownDialog = (categoryName: string, categoryId: string, budgetAmount: number) => {
+    const transactions = getTransactionsForCategory(categoryId);
+    const actualAmount = calculateActualAmountForCategory(categoryId);
+    
+    setDrillDownDialog({
+      isOpen: true,
+      transactions,
+      categoryName,
+      budgetAmount,
+      actualAmount
+    });
+  };
 
 
   // FUNCTION DEFINITIONS (must come before useEffect hooks that call them)
@@ -5293,7 +5336,13 @@ const BudgetCalculator = () => {
                                 });
                               });
                               
-                              return Object.entries(categoryGroups).map(([categoryName, data]) => (
+                              return Object.entries(categoryGroups).map(([categoryName, data]) => {
+                                // Calculate actual amount for this category
+                                const actualAmount = calculateActualAmountForCategory(categoryName);
+                                const difference = data.total - actualAmount;
+                                const progress = data.total > 0 ? (actualAmount / data.total) * 100 : 0;
+                                
+                                return (
                                 <div key={categoryName} className="border rounded-lg p-3 space-y-2">
                                   <div className="flex items-center gap-2">
                                     <Button
@@ -5311,13 +5360,33 @@ const BudgetCalculator = () => {
                                         <ChevronDown className="h-4 w-4" />
                                       )}
                                     </Button>
-                                    <div className="flex-1 font-medium">{categoryName}</div>
-                                    <div className="text-sm text-muted-foreground">
-                                      {data.subcategories.length} {data.subcategories.length === 1 ? 'post' : 'poster'}
+                                    <div className="flex-1">
+                                      <div className="font-medium">{categoryName}</div>
+                                      <div className="text-xs text-muted-foreground">
+                                        {data.subcategories.length} {data.subcategories.length === 1 ? 'post' : 'poster'}
+                                      </div>
                                     </div>
-                                    <div className="font-bold text-destructive">
-                                      {formatCurrency(data.total)}
+                                    
+                                    {/* Budget vs Actual */}
+                                    <div className="space-y-1 text-right min-w-32">
+                                      <div className="text-sm">
+                                        <span className="text-muted-foreground">Budget: </span>
+                                        <span className="font-medium">{formatCurrency(data.total)}</span>
+                                      </div>
+                                      <div className="text-sm">
+                                        <span className="text-muted-foreground">Faktiskt: </span>
+                                        <button
+                                          className="font-bold text-blue-600 hover:text-blue-800 underline"
+                                          onClick={() => openDrillDownDialog(categoryName, categoryName, data.total)}
+                                        >
+                                          {formatCurrency(actualAmount)}
+                                        </button>
+                                      </div>
+                                      <div className={`text-sm font-medium ${difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        Diff: {difference >= 0 ? '+' : ''}{formatCurrency(Math.abs(difference))}
+                                      </div>
                                     </div>
+                                    
                                     {isEditingCategories && (
                                       <Button
                                         size="sm"
@@ -5331,6 +5400,17 @@ const BudgetCalculator = () => {
                                         <Trash2 className="w-4 h-4" />
                                       </Button>
                                     )}
+                                  </div>
+                                  
+                                  {/* Progress Bar */}
+                                  <div className="space-y-1">
+                                    <Progress 
+                                      value={Math.min(progress, 100)} 
+                                      className="h-2"
+                                    />
+                                    <div className="text-xs text-muted-foreground text-right">
+                                      {progress.toFixed(1)}% av budget använd
+                                    </div>
                                   </div>
 
                                   {expandedCostGroups[categoryName] && (
@@ -5429,11 +5509,11 @@ const BudgetCalculator = () => {
                                     </div>
                                   )}
                                 </div>
-                              ));
-                            })()
-                          ) : (
-                            // Account view - group by account
-                            (() => {
+                                });
+                              })()
+                           ) : (
+                             // Account view - group by account
+                             (() => {
                               const accountGroups: { [key: string]: { name: string; amount: number; category: string }[] } = {};
                               
                               // Group all subcategories by account
@@ -6021,9 +6101,52 @@ const BudgetCalculator = () => {
                         <Bar dataKey="savings" stackId="transfer" fill="hsl(142, 71%, 45%)" name="Sparande" />
                       </BarChart>
                     </ResponsiveContainer>
-                  </div>
+                   </div>
+                   
+                   {/* Budget vs Reality Summary */}
+                   <Card className="bg-blue-50 border-blue-200">
+                     <CardHeader>
+                       <CardTitle className="text-blue-800">Budget vs Verklighet</CardTitle>
+                       <CardDescription>Jämförelse mellan budgeterade och faktiska belopp</CardDescription>
+                     </CardHeader>
+                     <CardContent>
+                       {(() => {
+                         const monthTransactions = (currentMonthData as any).transactions || [];
+                         const totalBudgetCosts = costGroups.reduce((sum, group) => {
+                           const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                           return sum + subCategoriesTotal;
+                         }, 0);
+                         const totalActualCosts = monthTransactions
+                           .filter((t: Transaction) => t.type === 'Transaction' && t.amount < 0)
+                           .reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
+                         const costDifference = totalBudgetCosts - totalActualCosts;
+                         
+                         return (
+                           <div className="grid grid-cols-2 gap-4">
+                             <div className="space-y-2">
+                               <div className="text-sm text-muted-foreground">Totala kostnader</div>
+                               <div>Budget: {formatCurrency(totalBudgetCosts)}</div>
+                               <div>Faktiskt: {formatCurrency(totalActualCosts)}</div>
+                               <div className={`font-bold ${costDifference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                 Differens: {costDifference >= 0 ? '+' : ''}{formatCurrency(Math.abs(costDifference))}
+                               </div>
+                             </div>
+                             <div className="space-y-2">
+                               <div className="text-sm text-muted-foreground">Status</div>
+                               <div className="text-xs">
+                                 {monthTransactions.length} importerade transaktioner
+                               </div>
+                               <div className="text-xs text-blue-600">
+                                 Klicka på "Läs in transaktioner" för att importera
+                               </div>
+                             </div>
+                           </div>
+                         );
+                       })()}
+                     </CardContent>
+                   </Card>
 
-                   {/* Expandable Budget Sections */}
+                    {/* Expandable Budget Sections */}
                    <div className="space-y-4">
                      {/* Intäkter Section */}
                      <div className="p-4 bg-primary/10 rounded-lg">
@@ -9548,6 +9671,16 @@ const BudgetCalculator = () => {
         onSave={handleAddCostItem}
         mainCategories={budgetState.mainCategories || []}
         accounts={accounts}
+      />
+      
+      {/* Transaction Drill Down Dialog */}
+      <TransactionDrillDownDialog
+        isOpen={drillDownDialog.isOpen}
+        onClose={() => setDrillDownDialog(prev => ({ ...prev, isOpen: false }))}
+        transactions={drillDownDialog.transactions}
+        categoryName={drillDownDialog.categoryName}
+        budgetAmount={drillDownDialog.budgetAmount}
+        actualAmount={drillDownDialog.actualAmount}
       />
       
       {/* Bottom padding for better visual spacing */}
