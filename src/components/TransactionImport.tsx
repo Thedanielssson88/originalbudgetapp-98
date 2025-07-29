@@ -1,0 +1,414 @@
+import React, { useState, useRef } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from '@/components/ui/table';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
+import { Upload, CheckCircle, FileText, Settings, AlertCircle } from 'lucide-react';
+
+interface UploadedFile {
+  file: File;
+  accountId: string;
+  balance?: number;
+  status: 'uploaded' | 'mapped' | 'processed';
+}
+
+interface CSVColumn {
+  name: string;
+  mappedTo?: string;
+  sampleData: string[];
+}
+
+interface FileMapping {
+  fileId: string;
+  columns: CSVColumn[];
+  structure: string; // unique identifier for this file structure
+}
+
+export const TransactionImport: React.FC = () => {
+  const [currentStep, setCurrentStep] = useState<'upload' | 'mapping' | 'categorization'>('upload');
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [fileMappings, setFileMappings] = useState<FileMapping[]>([]);
+  const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
+
+  // Mock accounts - this should come from props or context
+  const accounts = [
+    { id: 'hushalskonto', name: 'Hushållskonto', balance: 0 },
+    { id: 'sparkonto', name: 'Sparkonto', balance: 0 },
+    { id: 'barnkonto', name: 'Barnkonto', balance: 0 }
+  ];
+
+  const handleFileUpload = (accountId: string, file: File) => {
+    // Parse CSV and extract sample data
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const csvContent = e.target?.result as string;
+      const lines = csvContent.split('\n').slice(0, 6); // Get first 6 lines
+      const headers = lines[0]?.split(';') || [];
+      
+      // Extract balance from last transaction if possible
+      let extractedBalance: number | undefined;
+      if (lines.length > 1) {
+        const lastLine = lines[lines.length - 1];
+        const fields = lastLine.split(';');
+        // Try to find balance in common positions (usually last or second to last column)
+        const balanceField = fields[fields.length - 1] || fields[fields.length - 2];
+        const balanceMatch = balanceField?.match(/-?\d+[,.]?\d*/);
+        if (balanceMatch) {
+          extractedBalance = parseFloat(balanceMatch[0].replace(',', '.'));
+        }
+      }
+
+      const uploadedFile: UploadedFile = {
+        file,
+        accountId,
+        balance: extractedBalance,
+        status: 'uploaded'
+      };
+
+      setUploadedFiles(prev => {
+        const filtered = prev.filter(f => f.accountId !== accountId);
+        return [...filtered, uploadedFile];
+      });
+
+      // Create file mapping for column mapping step
+      const columns: CSVColumn[] = headers.map(header => ({
+        name: header.trim(),
+        sampleData: lines.slice(1).map(line => {
+          const fields = line.split(';');
+          const index = headers.indexOf(header);
+          return fields[index] || '';
+        }).filter(Boolean)
+      }));
+
+      const fileMapping: FileMapping = {
+        fileId: `${accountId}-${Date.now()}`,
+        columns,
+        structure: headers.join('|') // Simple structure identifier
+      };
+
+      setFileMappings(prev => {
+        const filtered = prev.filter(f => !f.fileId.startsWith(accountId));
+        return [...filtered, fileMapping];
+      });
+    };
+    reader.readAsText(file);
+  };
+
+  const triggerFileUpload = (accountId: string) => {
+    fileInputRefs.current[accountId]?.click();
+  };
+
+  const getAccountUploadStatus = (accountId: string) => {
+    const uploadedFile = uploadedFiles.find(f => f.accountId === accountId);
+    return uploadedFile ? 'uploaded' : 'pending';
+  };
+
+  const getAccountBalance = (accountId: string) => {
+    const uploadedFile = uploadedFiles.find(f => f.accountId === accountId);
+    return uploadedFile?.balance;
+  };
+
+  const canProceedToMapping = () => {
+    return uploadedFiles.length > 0;
+  };
+
+  const renderUploadStep = () => (
+    <div className="space-y-6">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold mb-2">Ladda upp CSV-filer</h2>
+        <p className="text-muted-foreground">
+          Välj och ladda upp CSV-filer för de konton du vill importera transaktioner från
+        </p>
+      </div>
+
+      <div className="grid gap-4">
+        {accounts.map(account => {
+          const uploadStatus = getAccountUploadStatus(account.id);
+          const extractedBalance = getAccountBalance(account.id);
+          
+          return (
+            <Card key={account.id} className="relative">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">{account.name}</CardTitle>
+                  <Badge 
+                    variant={uploadStatus === 'uploaded' ? 'default' : 'outline'}
+                    className={uploadStatus === 'uploaded' ? 'bg-green-500' : ''}
+                  >
+                    {uploadStatus === 'uploaded' ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        Inläst
+                      </>
+                    ) : (
+                      'Väntar'
+                    )}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {uploadStatus === 'pending' ? (
+                    <Button 
+                      onClick={() => triggerFileUpload(account.id)}
+                      className="w-full"
+                      variant="outline"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Läs In
+                    </Button>
+                  ) : (
+                    <Button 
+                      onClick={() => triggerFileUpload(account.id)}
+                      className="w-full"
+                      variant="outline"
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      Byt fil
+                    </Button>
+                  )}
+                  
+                  {extractedBalance !== undefined && (
+                    <div className="text-sm text-muted-foreground">
+                      <span className="font-medium">Saldo enligt filen:</span> {extractedBalance.toLocaleString('sv-SE')} kr
+                    </div>
+                  )}
+                  
+                  <input
+                    ref={el => fileInputRefs.current[account.id] = el}
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleFileUpload(account.id, file);
+                      }
+                    }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      <div className="flex justify-center space-x-4 pt-6">
+        <Button 
+          onClick={() => setCurrentStep('mapping')}
+          disabled={!canProceedToMapping()}
+          className="min-w-48"
+        >
+          Fortsätt till mappning
+        </Button>
+        <Button 
+          variant="outline"
+          onClick={() => setCurrentStep('categorization')}
+          disabled={fileMappings.length === 0}
+          className="min-w-48"
+        >
+          Kategorisering & Regler
+        </Button>
+      </div>
+    </div>
+  );
+
+  const renderMappingStep = () => (
+    <div className="space-y-6">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold mb-2">Kolumnmappning</h2>
+        <p className="text-muted-foreground">
+          Mappa CSV-kolumner till appens fält. Detta sparas för framtida imports.
+        </p>
+      </div>
+
+      {fileMappings.map((mapping, index) => (
+        <Card key={mapping.fileId}>
+          <CardHeader>
+            <CardTitle className="text-lg">
+              Fil {index + 1} - {mapping.columns.length} kolumner
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>CSV Kolumn</TableHead>
+                  <TableHead>Exempeldata</TableHead>
+                  <TableHead>Mappa till</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {mapping.columns.map((column, colIndex) => (
+                  <TableRow key={colIndex}>
+                    <TableCell className="font-medium">{column.name}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {column.sampleData.slice(0, 2).join(', ')}
+                      {column.sampleData.length > 2 && '...'}
+                    </TableCell>
+                    <TableCell>
+                      <Select>
+                        <SelectTrigger className="w-48">
+                          <SelectValue placeholder="Välj fält" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="datum">Datum</SelectItem>
+                          <SelectItem value="kategori">Kategori</SelectItem>
+                          <SelectItem value="underkategori">Underkategori</SelectItem>
+                          <SelectItem value="text">Text</SelectItem>
+                          <SelectItem value="belopp">Belopp</SelectItem>
+                          <SelectItem value="saldo">Saldo</SelectItem>
+                          <SelectItem value="status">Status</SelectItem>
+                          <SelectItem value="avstamt">Avstämt</SelectItem>
+                          <SelectItem value="ignore">Ignorera</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ))}
+
+      <div className="flex justify-center space-x-4 pt-6">
+        <Button 
+          variant="outline"
+          onClick={() => setCurrentStep('upload')}
+        >
+          Tillbaka
+        </Button>
+        <Button 
+          onClick={() => setCurrentStep('categorization')}
+          className="min-w-48"
+        >
+          Fortsätt till kategorisering
+        </Button>
+      </div>
+    </div>
+  );
+
+  const renderCategorizationStep = () => (
+    <div className="space-y-6">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold mb-2">Kategorisering & Regler</h2>
+        <p className="text-muted-foreground">
+          Kategorisera transaktioner och hantera regler för automatisk kategorisering
+        </p>
+      </div>
+
+      <Tabs defaultValue="regler" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="regler">Regler</TabsTrigger>
+          <TabsTrigger value="transaktioner">Transaktioner</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="regler" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Okategoriserade</CardTitle>
+              <CardDescription>
+                Kategorier från bankfiler som behöver mappas till appens kategorier
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm text-muted-foreground">
+                Inga okategoriserade transaktioner ännu. Ladda upp filer för att se kategorier som behöver mappning.
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="transaktioner" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Importerade transaktioner</h3>
+            <div className="flex space-x-2">
+              <Button variant="outline" size="sm">
+                Alla Transaktioner
+              </Button>
+              <Button variant="outline" size="sm">
+                Per konto
+              </Button>
+            </div>
+          </div>
+          
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center text-muted-foreground">
+                Inga transaktioner ännu. Slutför mappningssteget för att se transaktioner här.
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      <div className="flex justify-center space-x-4 pt-6">
+        <Button 
+          variant="outline"
+          onClick={() => setCurrentStep('mapping')}
+        >
+          Tillbaka till mappning
+        </Button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="max-w-6xl mx-auto p-6">
+      {/* Progress indicator */}
+      <div className="mb-8">
+        <div className="flex items-center justify-center space-x-4">
+          <div className={`flex items-center space-x-2 ${currentStep === 'upload' ? 'text-primary' : 'text-muted-foreground'}`}>
+            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${
+              currentStep === 'upload' ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground'
+            }`}>
+              1
+            </div>
+            <span>Ladda upp</span>
+          </div>
+          <div className="w-8 h-px bg-muted-foreground" />
+          <div className={`flex items-center space-x-2 ${currentStep === 'mapping' ? 'text-primary' : 'text-muted-foreground'}`}>
+            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${
+              currentStep === 'mapping' ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground'
+            }`}>
+              2
+            </div>
+            <span>Mappning</span>
+          </div>
+          <div className="w-8 h-px bg-muted-foreground" />
+          <div className={`flex items-center space-x-2 ${currentStep === 'categorization' ? 'text-primary' : 'text-muted-foreground'}`}>
+            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${
+              currentStep === 'categorization' ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground'
+            }`}>
+              3
+            </div>
+            <span>Kategorisering</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Step content */}
+      {currentStep === 'upload' && renderUploadStep()}
+      {currentStep === 'mapping' && renderMappingStep()}
+      {currentStep === 'categorization' && renderCategorizationStep()}
+    </div>
+  );
+};

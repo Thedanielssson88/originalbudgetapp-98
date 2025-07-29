@@ -21,6 +21,7 @@ import { CustomLineChart } from './CustomLineChart';
 import { AccountSelector } from '@/components/AccountSelector';
 import { MainCategoriesSettings } from '@/components/MainCategoriesSettings';
 import { AddCostItemDialog } from '@/components/AddCostItemDialog';
+import { TransactionImport } from '@/components/TransactionImport';
 import { calculateAccountEndBalances } from '../services/calculationService';
 import { 
   createSavingsGoal,
@@ -698,8 +699,8 @@ const BudgetCalculator = () => {
     const shouldShowOverforingTab = selectedBudgetMonth === targetMonthKey;
     
     return shouldShowOverforingTab 
-      ? ["inkomster", "sammanstallning", "overforing", "egen-budget", "historia", "sparmal", "installningar"]
-      : ["inkomster", "sammanstallning", "egen-budget", "historia", "sparmal", "installningar"];
+      ? ["inkomster", "sammanstallning", "overforing", "egen-budget", "historia", "sparmal", "transaktioner", "installningar"]
+      : ["inkomster", "sammanstallning", "egen-budget", "historia", "sparmal", "transaktioner", "installningar"];
   };
 
   const navigateToNextTab = () => {
@@ -4436,6 +4437,7 @@ const BudgetCalculator = () => {
             <TabsTrigger value="egen-budget">Egen Budget</TabsTrigger>
             <TabsTrigger value="historia">Historia</TabsTrigger>
             <TabsTrigger value="sparmal">Sparmål</TabsTrigger>
+            <TabsTrigger value="transaktioner">Läs in transaktioner</TabsTrigger>
             <TabsTrigger value="installningar">Inställningar</TabsTrigger>
           </TabsList>
 
@@ -4462,6 +4464,7 @@ const BudgetCalculator = () => {
               {activeTab === 'egen-budget' && 'Egen Budget'}
               {activeTab === 'historia' && 'Historia'}
               {activeTab === 'sparmal' && 'Sparmål'}
+              {activeTab === 'transaktioner' && 'Läs in transaktioner'}
               {activeTab === 'installningar' && 'Inställningar'}
             </h1>
           </div>
@@ -8373,6 +8376,23 @@ const BudgetCalculator = () => {
                   </div>
                 )}
               </div>
+            </div>
+          </TabsContent>
+
+          {/* Transaction Import Tab */}
+          <TabsContent value="transaktioner" className="mt-0">
+            <div className={`relative overflow-hidden ${
+              isAnimating && previousTab === "transaktioner" 
+                ? swipeDirection === "left" 
+                  ? "animate-slide-out-left" 
+                  : "animate-slide-out-right"
+                : isAnimating && activeTab === "transaktioner"
+                  ? swipeDirection === "left"
+                    ? "animate-slide-in-right"
+                    : "animate-slide-in-left"
+                  : ""
+            }`}>
+              <TransactionImport />
             </div>
           </TabsContent>
 
