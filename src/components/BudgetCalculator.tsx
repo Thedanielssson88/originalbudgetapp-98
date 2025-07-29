@@ -3605,24 +3605,6 @@ const BudgetCalculator = () => {
             </div>
           </div>
         )}
-
-        {/* Admin Mode Toggle */}
-        <div className="bg-muted/50 p-4 rounded-lg">
-          <h4 className="font-medium mb-3">Admin läge:</h4>
-          <ToggleGroup 
-            type="single" 
-            value={isAdminMode ? 'admin' : ''}
-            onValueChange={(value) => setIsAdminMode(value === 'admin')}
-            className="grid grid-cols-1 gap-2"
-          >
-            <ToggleGroupItem 
-              value="admin" 
-              className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-            >
-              Admin
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
       </div>
     );
 
@@ -3702,6 +3684,23 @@ const BudgetCalculator = () => {
           </ToggleGroup>
         </div>
 
+        {/* Admin Mode Toggle */}
+        <div className="bg-muted/50 p-4 rounded-lg">
+          <h4 className="font-medium mb-3">Admin läge:</h4>
+          <ToggleGroup 
+            type="single" 
+            value={isAdminMode ? 'admin' : ''}
+            onValueChange={(value) => setIsAdminMode(value === 'admin')}
+            className="grid grid-cols-1 gap-2"
+          >
+            <ToggleGroupItem 
+              value="admin" 
+              className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+            >
+              Admin
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
 
         {/* Chart */}
         <div className="h-96 relative">
