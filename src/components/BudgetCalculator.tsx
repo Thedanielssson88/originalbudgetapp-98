@@ -1662,6 +1662,11 @@ const BudgetCalculator = () => {
       : [...costGroups, updatedGroup];
 
     setCostGroups(updatedGroups);
+    
+    // Reset MonthFinalBalances flag when manual values are changed
+    const currentDate = new Date();
+    const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    resetMonthFinalBalancesFlag(currentMonthKey);
   };
 
   const addSavingsGroup = () => {
