@@ -376,7 +376,7 @@ export const TransactionImport: React.FC = () => {
   );
 
   return (
-    <div className="w-full px-2 sm:px-4 lg:px-6 py-4 sm:py-6">
+    <div className="max-w-4xl mx-auto px-4 py-6">
       {/* Progress indicator */}
       <div className="mb-6 sm:mb-8">
         <div className="flex items-center justify-center space-x-2 sm:space-x-4 overflow-x-auto">
