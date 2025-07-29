@@ -3684,23 +3684,6 @@ const BudgetCalculator = () => {
           </ToggleGroup>
         </div>
 
-        {/* Admin Mode Toggle */}
-        <div className="bg-muted/50 p-4 rounded-lg">
-          <h4 className="font-medium mb-3">Admin läge:</h4>
-          <ToggleGroup 
-            type="single" 
-            value={isAdminMode ? 'admin' : ''}
-            onValueChange={(value) => setIsAdminMode(value === 'admin')}
-            className="grid grid-cols-1 gap-2"
-          >
-            <ToggleGroupItem 
-              value="admin" 
-              className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-            >
-              Admin
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
 
         {/* Chart */}
         <div className="h-96 relative">
@@ -7869,6 +7852,34 @@ const BudgetCalculator = () => {
                   : ""
             }`}>
               <div className="space-y-6">
+              {/* Admin Mode Toggle */}
+              <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5 text-primary" />
+                    Admin läge
+                  </CardTitle>
+                  <CardDescription>
+                    Aktivera administratörsfunktioner
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ToggleGroup 
+                    type="single" 
+                    value={isAdminMode ? 'admin' : ''}
+                    onValueChange={(value) => setIsAdminMode(value === 'admin')}
+                    className="grid grid-cols-1 gap-2"
+                  >
+                    <ToggleGroupItem 
+                      value="admin" 
+                      className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                    >
+                      Admin
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                </CardContent>
+              </Card>
+
               {/* User Names Settings */}
               <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
                 <CardHeader>
