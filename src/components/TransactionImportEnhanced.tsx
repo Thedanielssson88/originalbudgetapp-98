@@ -167,6 +167,16 @@ export const TransactionImportEnhanced: React.FC = () => {
       }
     }
 
+    // Calculate missing balances based on previous transactions
+    for (let i = 0; i < transactions.length; i++) {
+      if (isNaN(transactions[i].balanceAfter!) || transactions[i].balanceAfter === undefined) {
+        if (i > 0 && !isNaN(transactions[i - 1].balanceAfter!)) {
+          // Calculate balance based on previous transaction's balance + current amount
+          transactions[i].balanceAfter = transactions[i - 1].balanceAfter! + transactions[i].amount;
+        }
+      }
+    }
+
     return transactions;
   }, [accounts]);
 
