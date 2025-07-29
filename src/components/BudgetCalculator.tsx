@@ -205,6 +205,7 @@ const BudgetCalculator = () => {
 
   // Sparmål state
   const [isCreateSavingsGoalDialogOpen, setIsCreateSavingsGoalDialogOpen] = useState<boolean>(false);
+  console.log('🔍 [DEBUG] isCreateSavingsGoalDialogOpen state initialized:', isCreateSavingsGoalDialogOpen);
   const [newSavingsGoalName, setNewSavingsGoalName] = useState<string>('');
   const [newSavingsGoalAccount, setNewSavingsGoalAccount] = useState<string>('');
   const [newSavingsGoalTarget, setNewSavingsGoalTarget] = useState<string>('');
@@ -654,6 +655,7 @@ const BudgetCalculator = () => {
 
   // Function to handle creating a new savings goal
   const handleCreateSavingsGoal = () => {
+    console.log('🔍 [DEBUG] handleCreateSavingsGoal function called');
     if (!newSavingsGoalName || !newSavingsGoalAccount || !newSavingsGoalTarget || 
         !newSavingsGoalStartDate || !newSavingsGoalEndDate) {
       return;
@@ -8030,194 +8032,12 @@ const BudgetCalculator = () => {
 
           {/* Sparmål Tab */}
           <TabsContent value="sparmal" className="mt-0">
-            <div className={`relative overflow-hidden ${
-              isAnimating && previousTab === "sparmal" 
-                ? swipeDirection === "left" 
-                  ? "animate-slide-out-left" 
-                  : "animate-slide-out-right"
-                : isAnimating && activeTab === "sparmal"
-                  ? swipeDirection === "left"
-                    ? "animate-slide-in-right"
-                    : "animate-slide-in-left"
-                  : ""
-            } `}>
-              <div className="container mx-auto p-6 space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-muted-foreground">
-                      Skapa och följ upp dina långsiktiga sparmål
-                    </p>
-                  </div>
-                  
-                  <Dialog open={isCreateSavingsGoalDialogOpen} onOpenChange={setIsCreateSavingsGoalDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Skapa sparmål
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
-                      <DialogHeader>
-                        <DialogTitle>Skapa nytt sparmål</DialogTitle>
-                        <DialogDescription>
-                          Ange information för ditt nya sparmål
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                          <Label htmlFor="savings-name">Namn</Label>
-                          <Input
-                            id="savings-name"
-                            placeholder="t.ex. Thailandresa"
-                            value={newSavingsGoalName}
-                            onChange={(e) => setNewSavingsGoalName(e.target.value)}
-                          />
-                        </div>
-                        
-                        <div className="grid gap-2">
-                          <Label htmlFor="savings-account">Konto</Label>
-                          <Select value={newSavingsGoalAccount} onValueChange={setNewSavingsGoalAccount}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Välj konto" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {budgetState.accounts.map(account => (
-                                <SelectItem key={account.id} value={account.id}>
-                                  {account.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        <div className="grid gap-2">
-                          <Label htmlFor="savings-target">Målbelopp (kr)</Label>
-                          <Input
-                            id="savings-target"
-                            type="number"
-                            placeholder="50000"
-                            value={newSavingsGoalTarget}
-                            onChange={(e) => setNewSavingsGoalTarget(e.target.value)}
-                          />
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="grid gap-2">
-                            <Label htmlFor="savings-start">Startdatum</Label>
-                            <Input
-                              id="savings-start"
-                              type="month"
-                              value={newSavingsGoalStartDate}
-                              onChange={(e) => setNewSavingsGoalStartDate(e.target.value)}
-                            />
-                          </div>
-                          
-                          <div className="grid gap-2">
-                            <Label htmlFor="savings-end">Måldatum</Label>
-                            <Input
-                              id="savings-end"
-                              type="month"
-                              value={newSavingsGoalEndDate}
-                              onChange={(e) => setNewSavingsGoalEndDate(e.target.value)}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button onClick={handleCreateSavingsGoal}>Skapa sparmål</Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-
-                {budgetState.savingsGoals.length === 0 ? (
-                  <Card className="text-center py-12">
-                    <CardContent>
-                      <Target className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-                      <CardTitle className="mb-2">Inga sparmål ännu</CardTitle>
-                      <CardDescription className="mb-6">
-                        Skapa ditt första sparmål för att börja spåra dina framsteg
-                      </CardDescription>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {budgetState.savingsGoals.map(goal => {
-                      // Beräkna faktiskt sparat för detta sparmål
-                      let actualSaved = 0;
-                      Object.values(budgetState.historicalData).forEach(monthData => {
-                        monthData.transactions.forEach(transaction => {
-                          if (transaction.type === 'Savings' && 
-                              transaction.accountId === goal.accountId &&
-                              transaction.appCategoryId === goal.id) {
-                            actualSaved += Math.abs(transaction.amount);
-                          }
-                        });
-                      });
-                      
-                      const progress = Math.min((actualSaved / goal.targetAmount) * 100, 100);
-                      const start = new Date(goal.startDate + '-01');
-                      const end = new Date(goal.endDate + '-01');
-                      const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
-                                         (end.getMonth() - start.getMonth()) + 1;
-                      const monthlyAmount = goal.targetAmount / monthsDiff;
-                      const accountName = budgetState.accounts.find(acc => acc.id === goal.accountId)?.name || 'Okänt konto';
-                      
-                      return (
-                        <Card key={goal.id} className="hover:shadow-lg transition-shadow">
-                          <CardHeader>
-                            <div className="flex items-center justify-between">
-                              <CardTitle className="text-xl">{goal.name}</CardTitle>
-                              <Badge variant="outline">
-                                {accountName}
-                              </Badge>
-                            </div>
-                            <CardDescription>
-                              {goal.startDate} till {goal.endDate}
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                              <div className="flex justify-between text-sm">
-                                <span>Framsteg</span>
-                                <span>{progress.toFixed(1)}%</span>
-                              </div>
-                              <Progress value={progress} className="h-2" />
-                              <div className="flex justify-between text-sm text-muted-foreground">
-                                <span>{actualSaved.toLocaleString()} kr</span>
-                                <span>{goal.targetAmount.toLocaleString()} kr</span>
-                              </div>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                              <div className="text-center">
-                                <div className="text-2xl font-bold text-primary">
-                                  {(goal.targetAmount - actualSaved).toLocaleString()}
-                                </div>
-                                <div className="text-xs text-muted-foreground">kr kvar</div>
-                              </div>
-                              <div className="text-center">
-                                <div className="text-2xl font-bold flex items-center justify-center">
-                                  <TrendingUp className="h-4 w-4 mr-1" />
-                                  {monthlyAmount.toLocaleString()}
-                                </div>
-                                <div className="text-xs text-muted-foreground">kr/månad</div>
-                              </div>
-                            </div>
-                            
-                            {progress >= 100 && (
-                              <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg text-center">
-                                <div className="text-green-700 dark:text-green-300 font-medium">
-                                  🎉 Sparmål uppnått!
-                                </div>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                )}
+            <div className="container mx-auto p-6">
+              <div className="text-center py-12">
+                <h2 className="text-2xl font-bold mb-4">Sparmål</h2>
+                <p className="text-muted-foreground">
+                  Sparmål-funktionaliteten kommer snart!
+                </p>
               </div>
             </div>
           </TabsContent>
