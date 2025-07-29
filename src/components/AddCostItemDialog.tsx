@@ -30,18 +30,22 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
     mainCategory: '',
     name: '',
     amount: 0,
-    account: '',
+    account: 'none',
     financedFrom: 'Löpande kostnad'
   });
 
   const handleSave = () => {
     if (formData.mainCategory && formData.name && formData.amount > 0) {
-      onSave(formData);
+      const itemToSave = {
+        ...formData,
+        account: formData.account === 'none' ? '' : formData.account
+      };
+      onSave(itemToSave);
       setFormData({
         mainCategory: '',
         name: '',
         amount: 0,
-        account: '',
+        account: 'none',
         financedFrom: 'Löpande kostnad'
       });
       onClose();
@@ -53,7 +57,7 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
       mainCategory: '',
       name: '',
       amount: 0,
-      account: '',
+      account: 'none',
       financedFrom: 'Löpande kostnad'
     });
     onClose();
@@ -117,7 +121,7 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
                 <SelectValue placeholder="Välj konto" />
               </SelectTrigger>
               <SelectContent className="bg-popover border border-border shadow-lg z-50">
-                <SelectItem value="">Inget konto</SelectItem>
+                <SelectItem value="none">Inget konto</SelectItem>
                 {accounts.map((account) => (
                   <SelectItem key={account} value={account}>
                     {account}
