@@ -15,8 +15,6 @@ import {
 const items = [
   { title: "Budget", url: "/", icon: Calculator },
   { title: "Sparmål", url: "/sparmal", icon: Target },
-  { title: "Läs in transaktioner", url: "/transaktioner", icon: Upload },
-  { title: "Rapporter", url: "/rapporter", icon: BarChart3 },
 ];
 
 export function AppSidebar() {
