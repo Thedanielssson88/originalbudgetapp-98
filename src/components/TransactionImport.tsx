@@ -143,14 +143,16 @@ const TransactionImport: React.FC<TransactionImportProps> = ({
 
         return {
           id: `import_${Date.now()}_${index}`,
-          account: account || selectedAccount,
+          accountId: account || selectedAccount,
           date: date.toISOString().split('T')[0],
+          bankCategory: '',
+          bankSubCategory: '',
           description,
-          category: '',
-          subcategory: '',
+          userDescription: '',
           amount,
-          balance: 0, // Will be calculated later
-          status: 'pending' as const
+          balanceAfter: 0, // Will be calculated later
+          status: 'yellow' as const,
+          type: 'Transaction' as const
         };
       });
 
