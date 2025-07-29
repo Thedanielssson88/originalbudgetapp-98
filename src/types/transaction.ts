@@ -1,0 +1,90 @@
+// Extended transaction types for the import system
+
+export interface ImportedTransaction {
+  id: string;
+  accountId: string;
+  date: string;
+  amount: number;
+  balanceAfter?: number;
+  description: string;
+  userDescription?: string; // User's own notes
+  bankCategory?: string;
+  bankSubCategory?: string;
+  
+  // App categorization
+  appCategoryId?: string;
+  appSubCategoryId?: string;
+  
+  // Transaction type and status
+  type: 'Transaction' | 'InternalTransfer' | 'Savings' | 'CostCoverage';
+  status: 'red' | 'yellow' | 'green'; // Red=needs action, Yellow=auto, Green=approved
+  
+  // Transfer specific fields
+  linkedTransactionId?: string;
+  transferToAccount?: string;
+  transferFromAccount?: string;
+  transferType?: 'intern' | 'sparande' | 'täck_kostnad';
+  coveredCostId?: string; // If this transfer covers a specific cost
+  
+  // Metadata
+  isManuallyChanged?: boolean; // If user manually changed category, don't override on re-import
+  importedAt: string;
+  fileSource: string; // Which CSV file this came from
+}
+
+export interface CategoryRule {
+  id: string;
+  bankCategory: string;
+  bankSubCategory?: string;
+  appCategoryId: string;
+  appSubCategoryId?: string;
+  transactionType: 'Transaction' | 'InternalTransfer';
+  description?: string; // Optional description pattern matching
+  priority: number; // Higher number = higher priority
+  isActive: boolean;
+}
+
+export interface FileStructure {
+  id: string;
+  name: string; // User-friendly name like "Swedbank Format"
+  columns: ColumnMapping[];
+  fingerprint: string; // Unique identifier based on column names
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface ColumnMapping {
+  csvColumn: string;
+  appField: 'datum' | 'kategori' | 'underkategori' | 'text' | 'belopp' | 'saldo' | 'status' | 'avstamt' | 'ignore';
+}
+
+export interface ImportSession {
+  id: string;
+  startedAt: string;
+  files: ImportedFile[];
+  status: 'uploading' | 'mapping' | 'categorizing' | 'completed';
+  transactions: ImportedTransaction[];
+}
+
+export interface ImportedFile {
+  id: string;
+  accountId: string;
+  fileName: string;
+  fileSize: number;
+  rowCount: number;
+  balance?: number;
+  dateRange: {
+    from: string;
+    to: string;
+  };
+  structure: FileStructure;
+  uploadedAt: string;
+}
+
+// State for the transaction import system
+export interface TransactionImportState {
+  currentSession?: ImportSession;
+  categoryRules: CategoryRule[];
+  fileStructures: FileStructure[];
+  importHistory: ImportSession[];
+}

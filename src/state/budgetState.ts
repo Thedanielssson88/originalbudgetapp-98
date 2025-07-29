@@ -51,7 +51,15 @@ export const state: AppState = {
     },
     
     // Main categories for cost groups
-    mainCategories: ['Hushåll', 'Mat & Kläder', 'Transport']
+    mainCategories: ['Hushåll', 'Mat & Kläder', 'Transport'],
+    
+    // Transaction import state
+    transactionImport: {
+      categoryRules: [],
+      fileStructures: [],
+      importHistory: [],
+      transactions: [],
+    },
   },
   calculated: {
     results: null,

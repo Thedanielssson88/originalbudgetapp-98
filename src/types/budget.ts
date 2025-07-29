@@ -164,6 +164,14 @@ export interface BudgetState {
   
   // Main categories for cost groups
   mainCategories: string[];
+  
+  // Transaction import state
+  transactionImport: {
+    categoryRules: any[];
+    fileStructures: any[];
+    importHistory: any[];
+    transactions: any[];
+  };
 }
 
 // Legacy interface för bakåtkompatibilitet under övergången

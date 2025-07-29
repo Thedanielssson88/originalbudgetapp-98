@@ -21,7 +21,7 @@ import { CustomLineChart } from './CustomLineChart';
 import { AccountSelector } from '@/components/AccountSelector';
 import { MainCategoriesSettings } from '@/components/MainCategoriesSettings';
 import { AddCostItemDialog } from '@/components/AddCostItemDialog';
-import { TransactionImport } from '@/components/TransactionImport';
+import { TransactionImportEnhanced } from '@/components/TransactionImportEnhanced';
 import { calculateAccountEndBalances } from '../services/calculationService';
 import { 
   createSavingsGoal,
@@ -8394,7 +8394,7 @@ const BudgetCalculator = () => {
                     : "animate-slide-in-left"
                   : ""
             }`}>
-              <TransactionImport />
+              <TransactionImportEnhanced />
             </div>
           </TabsContent>
 
