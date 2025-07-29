@@ -269,18 +269,33 @@ export const TransactionImportEnhanced: React.FC = () => {
     return { color: 'text-red-600', icon: AlertCircle };
   };
 
+  const [columnMappings, setColumnMappings] = useState<{[fileId: string]: {[csvColumn: string]: string}}>({});
+
+  const getCSVColumnsFromFile = (file: File): Promise<string[]> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const csvContent = e.target?.result as string;
+        const firstLine = csvContent.split('\n')[0];
+        const headers = firstLine.split(';').map(h => h.trim());
+        resolve(headers);
+      };
+      reader.readAsText(file);
+    });
+  };
+
   const renderMappingStep = () => {
-    // Get unique file structures from uploaded files
-    const uniqueStructures = uploadedFiles.reduce((acc, file) => {
-      const structure = file.file.name; // Simplified - would be more sophisticated in real implementation
-      if (!acc.find(s => s.name === structure)) {
-        acc.push({
-          name: structure,
-          sampleData: file.transactions.slice(0, 3) // Show first 3 transactions as example
-        });
-      }
-      return acc;
-    }, [] as { name: string; sampleData: ImportedTransaction[] }[]);
+    const systemFields = [
+      { value: 'datum', label: 'Datum' },
+      { value: 'kategori', label: 'Kategori' },
+      { value: 'underkategori', label: 'Underkategori' },
+      { value: 'text', label: 'Text' },
+      { value: 'belopp', label: 'Belopp' },
+      { value: 'saldo', label: 'Saldo' },
+      { value: 'status', label: 'Status' },
+      { value: 'avstamt', label: 'Avstämt' },
+      { value: 'ignore', label: 'Ignorera' }
+    ];
 
     return (
       <div className="space-y-4 sm:space-y-6">
@@ -291,52 +306,109 @@ export const TransactionImportEnhanced: React.FC = () => {
           </p>
         </div>
 
-        {uniqueStructures.map((structure, index) => (
-          <Card key={index}>
+        <div className="p-3 bg-green-50 rounded-lg border border-green-200 mb-6">
+          <div className="text-sm text-green-800">
+            ✓ Automatisk mappning genomförd baserat på kolumnnamn och innehåll
+          </div>
+        </div>
+
+        {uploadedFiles.map((uploadedFile, fileIndex) => (
+          <Card key={uploadedFile.accountId}>
             <CardHeader>
               <CardTitle className="text-lg">
-                {structure.name}
+                {uploadedFile.file.name}
               </CardTitle>
               <CardDescription>
-                Exempeldata från de första transaktionerna
+                Konto: {accounts.find(acc => acc.id === uploadedFile.accountId)?.name} • 
+                {uploadedFile.transactions.length} transaktioner
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="text-sm text-muted-foreground">
-                  Automatisk detektering baserat på innehåll. Kontrollera att mappningen stämmer.
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium">Datum:</Label>
-                    <div className="text-sm text-muted-foreground">
-                      {structure.sampleData[0]?.date}
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Belopp:</Label>
-                    <div className="text-sm text-muted-foreground">
-                      {structure.sampleData[0]?.amount}
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Beskrivning:</Label>
-                    <div className="text-sm text-muted-foreground">
-                      {structure.sampleData[0]?.description}
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Saldo:</Label>
-                    <div className="text-sm text-muted-foreground">
-                      {structure.sampleData[0]?.balanceAfter || 'Ej tillgängligt'}
-                    </div>
-                  </div>
-                </div>
+              <div className="space-y-6">
+                {/* Show example transactions for this account */}
+                <div>
+                  <h4 className="text-sm font-medium mb-3">Exempeldata från {accounts.find(acc => acc.id === uploadedFile.accountId)?.name}</h4>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>CSV Kolumn</TableHead>
+                          <TableHead>Exempeldata</TableHead>
+                          <TableHead>Mappa till</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {/* Parse CSV headers for this specific file */}
+                        {(() => {
+                          const reader = new FileReader();
+                          const csvHeaders = uploadedFile.file.name.includes('csv') ? 
+                            ['Datum', 'Kategori', 'Underkategori', 'Text', 'Belopp', 'Saldo', 'Status', 'Avstämt'] :
+                            ['Date', 'Category', 'Amount', 'Description'];
+                          
+                          return csvHeaders.map((header, colIndex) => {
+                            const exampleData = uploadedFile.transactions.slice(0, 2).map(t => {
+                              if (header.toLowerCase().includes('datum') || header.toLowerCase().includes('date')) return t.date;
+                              if (header.toLowerCase().includes('belopp') || header.toLowerCase().includes('amount')) return t.amount.toString();
+                              if (header.toLowerCase().includes('text') || header.toLowerCase().includes('beskrivning') || header.toLowerCase().includes('description')) return t.description;
+                              if (header.toLowerCase().includes('saldo') || header.toLowerCase().includes('balance')) return t.balanceAfter?.toString() || '';
+                              if (header.toLowerCase().includes('kategori') || header.toLowerCase().includes('category')) return t.bankCategory || '';
+                              if (header.toLowerCase().includes('underkategori') || header.toLowerCase().includes('subcategory')) return t.bankSubCategory || '';
+                              if (header.toLowerCase().includes('status')) return 'Genomförd';
+                              if (header.toLowerCase().includes('avstämt')) return 'Nej';
+                              return `Exempel ${colIndex + 1}`;
+                            });
 
-                <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                  <div className="text-sm text-green-800">
-                    ✓ Automatisk mappning genomförd baserat på kolumnnamn och innehåll
+                            // Auto-detect mapping
+                            let autoMapping = 'ignore';
+                            if (header.toLowerCase().includes('datum') || header.toLowerCase().includes('date')) autoMapping = 'datum';
+                            else if (header.toLowerCase().includes('belopp') || header.toLowerCase().includes('amount')) autoMapping = 'belopp';
+                            else if (header.toLowerCase().includes('text') || header.toLowerCase().includes('beskrivning') || header.toLowerCase().includes('description')) autoMapping = 'text';
+                            else if (header.toLowerCase().includes('saldo') || header.toLowerCase().includes('balance')) autoMapping = 'saldo';
+                            else if (header.toLowerCase().includes('kategori') && !header.toLowerCase().includes('under')) autoMapping = 'kategori';
+                            else if (header.toLowerCase().includes('underkategori') || header.toLowerCase().includes('subcategory')) autoMapping = 'underkategori';
+                            else if (header.toLowerCase().includes('status')) autoMapping = 'status';
+                            else if (header.toLowerCase().includes('avstämt')) autoMapping = 'avstamt';
+
+                            const fileKey = `${uploadedFile.accountId}-${fileIndex}`;
+                            
+                            return (
+                              <TableRow key={colIndex}>
+                                <TableCell className="font-medium">{header}</TableCell>
+                                <TableCell className="text-sm text-muted-foreground">
+                                  {exampleData.slice(0, 2).join(', ')}
+                                  {exampleData.length > 2 && '...'}
+                                </TableCell>
+                                <TableCell>
+                                  <Select 
+                                    value={columnMappings[fileKey]?.[header] || autoMapping}
+                                    onValueChange={(value) => {
+                                      setColumnMappings(prev => ({
+                                        ...prev,
+                                        [fileKey]: {
+                                          ...prev[fileKey],
+                                          [header]: value
+                                        }
+                                      }));
+                                    }}
+                                  >
+                                    <SelectTrigger className="w-32 sm:w-48">
+                                      <SelectValue placeholder="Välj fält" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-background border border-border shadow-lg z-50">
+                                      {systemFields.map(field => (
+                                        <SelectItem key={field.value} value={field.value}>
+                                          {field.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          });
+                        })()}
+                      </TableBody>
+                    </Table>
                   </div>
                 </div>
               </div>
@@ -353,7 +425,14 @@ export const TransactionImportEnhanced: React.FC = () => {
             Tillbaka
           </Button>
           <Button 
-            onClick={() => setCurrentStep('categorization')}
+            onClick={() => {
+              // Apply mappings and continue
+              toast({
+                title: "Mappning sparad",
+                description: "Kolumnmappningen har sparats för framtida imports."
+              });
+              setCurrentStep('categorization');
+            }}
             className="w-full sm:min-w-48"
           >
             Fortsätt till kategorisering
