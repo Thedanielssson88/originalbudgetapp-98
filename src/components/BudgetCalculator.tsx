@@ -5540,14 +5540,32 @@ const BudgetCalculator = () => {
                      </div>
 
                      {/* Total Savings with Dropdown */}
-                    <div className="p-4 bg-green-50 rounded-lg">
-                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('savingsCategories')}>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Totalt sparande</div>
-                          <div className="text-2xl font-bold text-green-600">
-                            {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
-                          </div>
-                        </div>
+                     <div className="p-4 bg-green-50 rounded-lg">
+                       <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('savingsCategories')}>
+                         <div>
+                           <div className="text-sm text-muted-foreground">Totalt sparande</div>
+                           <div className="text-2xl font-bold text-green-600">
+                             {formatCurrency((() => {
+                               const savingsCategoriesTotal = savingsGroups.reduce((sum, group) => sum + group.amount, 0);
+                               const savingsGoalsMonthlyTotal = budgetState.savingsGoals.reduce((sum, goal) => {
+                                 // Beräkna månadsbelopp för detta sparmål
+                                 const start = new Date(goal.startDate + '-01');
+                                 const end = new Date(goal.endDate + '-01');
+                                 const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
+                                                    (end.getMonth() - start.getMonth()) + 1;
+                                 const monthlyAmount = goal.targetAmount / monthsDiff;
+                                 
+                                 // Kontrollera om detta sparmål är aktivt denna månad
+                                 const currentMonthDate = new Date(selectedBudgetMonth + '-01');
+                                 if (currentMonthDate >= start && currentMonthDate <= end) {
+                                   return sum + monthlyAmount;
+                                 }
+                                 return sum;
+                               }, 0);
+                               return savingsCategoriesTotal + savingsGoalsMonthlyTotal;
+                             })())}
+                           </div>
+                         </div>
                         {expandedSections.savingsCategories ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                       </div>
                       
@@ -5670,8 +5688,114 @@ const BudgetCalculator = () => {
                                      </>
                                    );
                                  })()}
-                               </div>
+                              </div>
+                           
+                           {/* Sparmål sektion */}
+                           <div className="mt-6 pt-4 border-t border-green-200">
+                             <div className="flex justify-between items-center mb-4">
+                               <h4 className="font-semibold">Sparmål</h4>
+                               <Button 
+                                 size="sm" 
+                                 onClick={() => setIsCreateSavingsGoalDialogOpen(true)}
+                                 variant="outline"
+                               >
+                                 <Plus className="w-4 h-4 mr-1" />
+                                 Nytt mål
+                               </Button>
                              </div>
+                             
+                             {budgetState.savingsGoals.length === 0 ? (
+                               <div className="text-center py-4 text-muted-foreground">
+                                 <Target className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                 <p className="text-sm">Inga sparmål skapade ännu</p>
+                               </div>
+                             ) : (
+                               <div className="space-y-3">
+                                 {budgetState.savingsGoals.map(goal => {
+                                   // Beräkna om detta sparmål är aktivt denna månad
+                                   const start = new Date(goal.startDate + '-01');
+                                   const end = new Date(goal.endDate + '-01');
+                                   const currentMonthDate = new Date(selectedBudgetMonth + '-01');
+                                   const isActiveThisMonth = currentMonthDate >= start && currentMonthDate <= end;
+                                   
+                                   if (!isActiveThisMonth) return null;
+                                   
+                                   // Beräkna månadsbelopp
+                                   const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
+                                                      (end.getMonth() - start.getMonth()) + 1;
+                                   const monthlyAmount = goal.targetAmount / monthsDiff;
+                                   
+                                   // Beräkna faktiskt sparat totalt
+                                   let actualSavedTotal = 0;
+                                   Object.values(budgetState.historicalData).forEach(monthData => {
+                                     if (monthData.transactions) {
+                                       monthData.transactions.forEach(transaction => {
+                                         if (transaction.type === 'Savings' && 
+                                             transaction.accountId === goal.accountId &&
+                                             transaction.appCategoryId === goal.id) {
+                                           actualSavedTotal += Math.abs(transaction.amount);
+                                         }
+                                       });
+                                     }
+                                   });
+                                   
+                                   // Beräkna faktiskt sparat denna månad
+                                   let actualSavedThisMonth = 0;
+                                   const currentMonthData = budgetState.historicalData[selectedBudgetMonth];
+                                   if (currentMonthData && currentMonthData.transactions) {
+                                     currentMonthData.transactions.forEach(transaction => {
+                                       if (transaction.type === 'Savings' && 
+                                           transaction.accountId === goal.accountId &&
+                                           transaction.appCategoryId === goal.id) {
+                                         actualSavedThisMonth += Math.abs(transaction.amount);
+                                       }
+                                     });
+                                   }
+                                   
+                                   const totalProgress = Math.min((actualSavedTotal / goal.targetAmount) * 100, 100);
+                                   const accountName = budgetState.accounts.find(acc => acc.id === goal.accountId)?.name || 'Okänt konto';
+                                   
+                                   return (
+                                     <div key={goal.id} className="p-3 bg-white border border-green-200 rounded-lg">
+                                       <div className="flex justify-between items-start mb-2">
+                                         <div className="flex-1">
+                                           <div className="font-medium text-sm">{goal.name}</div>
+                                           <div className="text-xs text-muted-foreground">
+                                             {accountName} • {goal.startDate} till {goal.endDate}
+                                           </div>
+                                         </div>
+                                         <div className="text-right">
+                                           <div className="text-sm font-medium text-green-600">
+                                             {formatCurrency(monthlyAmount)}/mån
+                                           </div>
+                                           <div className="text-xs text-muted-foreground">
+                                             {formatCurrency(actualSavedThisMonth)} sparat
+                                           </div>
+                                         </div>
+                                       </div>
+                                       
+                                       <div className="space-y-1">
+                                         <div className="flex justify-between text-xs">
+                                           <span>Total framsteg</span>
+                                           <span 
+                                             className="cursor-pointer hover:underline"
+                                             onClick={() => {
+                                               alert(`${goal.name}\n\nSparat: ${formatCurrency(actualSavedTotal)}\nMål: ${formatCurrency(goal.targetAmount)}\nKvar: ${formatCurrency(goal.targetAmount - actualSavedTotal)}`);
+                                             }}
+                                           >
+                                             {totalProgress.toFixed(1)}% 
+                                             ({formatCurrency(actualSavedTotal)} / {formatCurrency(goal.targetAmount)})
+                                           </span>
+                                         </div>
+                                         <Progress value={totalProgress} className="h-2" />
+                                       </div>
+                                     </div>
+                                   );
+                                 }).filter(Boolean)}
+                               </div>
+                             )}
+                           </div>
+                           </div>
                           </div>
                         )}
                        </div>
@@ -5827,10 +5951,28 @@ const BudgetCalculator = () => {
                              name: 'Överföring',
                              andreasShare: results?.andreasShare || 0,
                              susannaShare: results?.susannaShare || 0,
-                             savings: savingsGroups.reduce((sum, group) => {
-                               const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                               return sum + group.amount + subCategoriesTotal;
-                             }, 0),
+                              savings: (() => {
+                                const savingsCategoriesTotal = savingsGroups.reduce((sum, group) => {
+                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                  return sum + group.amount + subCategoriesTotal;
+                                }, 0);
+                                
+                                const savingsGoalsMonthlyTotal = budgetState.savingsGoals.reduce((sum, goal) => {
+                                  const start = new Date(goal.startDate + '-01');
+                                  const end = new Date(goal.endDate + '-01');
+                                  const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
+                                                     (end.getMonth() - start.getMonth()) + 1;
+                                  const monthlyAmount = goal.targetAmount / monthsDiff;
+                                  
+                                  const currentMonthDate = new Date(selectedBudgetMonth + '-01');
+                                  if (currentMonthDate >= start && currentMonthDate <= end) {
+                                    return sum + monthlyAmount;
+                                  }
+                                  return sum;
+                                }, 0);
+                                
+                                return savingsCategoriesTotal + savingsGoalsMonthlyTotal;
+                              })(),
                            }
                         ]}
                         margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
