@@ -23,6 +23,7 @@ export const state: AppState = {
       { id: '2', name: 'Sparkonto', startBalance: 0 },
       { id: '3', name: 'Buffert', startBalance: 0 }
     ],
+    savingsGoals: [], // NYTT FÄLT
     selectedMonthKey: '2025-07', // Use current month as default
     selectedHistoricalMonth: '2025-07',
     
@@ -330,6 +331,7 @@ function createEmptyMonthData(): MonthData {
     susannaShareChecked: false,
     monthFinalBalances: {},
     accountEndingBalances: {},
+    transactions: [], // NYTT FÄLT
     createdAt: new Date().toISOString()
   };
 }

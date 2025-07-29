@@ -1,5 +1,22 @@
 // Definierar alla typer som används i appen.
 
+export interface Transaction {
+  id: string; // Ett unikt ID, t.ex. från bankens referens + datum
+  accountId: string; // Vilket av våra konton den tillhör
+  date: string;
+  bankCategory: string; // Bankens ursprungliga kategori
+  bankSubCategory: string;
+  description: string; // Bankens text
+  userDescription: string; // Användarens egna text/notering
+  amount: number;
+  balanceAfter: number; // Saldo efter transaktion
+  status: 'red' | 'yellow' | 'green'; // Röd=kräver åtgärd, Gul=automatisk, Grön=godkänd
+  type: 'Transaction' | 'InternalTransfer' | 'Savings' | 'CostCoverage';
+  appCategoryId?: string; // Koppling till vår egen kategori
+  appSubCategoryId?: string;
+  linkedTransactionId?: string; // För att para ihop överföringar
+}
+
 export interface SubCategory {
   id: string;
   name: string;
@@ -12,6 +29,7 @@ export interface BudgetGroup {
   id: string;
   name: string;
   amount: number;
+  actualAmount?: number; // NYTT FÄLT för faktiska transaktioner
   type: 'cost' | 'savings';
   subCategories?: SubCategory[];
   account?: string;
@@ -22,6 +40,15 @@ export interface Account {
   id: string;
   name: string;
   startBalance: number;
+}
+
+export interface SavingsGoal {
+  id: string;
+  name: string;
+  accountId: string; // Vilket konto sparandet sker på
+  targetAmount: number;
+  startDate: string; // YYYY-MM
+  endDate: string; // YYYY-MM
 }
 
 export interface BudgetResults {
@@ -97,6 +124,9 @@ export interface MonthData {
   // Account ending balances 
   accountEndingBalances: {[key: string]: number};
   
+  // Transactions for this month
+  transactions: Transaction[];
+  
   // Metadata
   createdAt?: string;
 }
@@ -105,6 +135,7 @@ export interface MonthData {
 export interface BudgetState {
   historicalData: { [monthKey: string]: MonthData };
   accounts: Account[];
+  savingsGoals: SavingsGoal[]; // NYTT FÄLT
   selectedMonthKey: string;
   selectedHistoricalMonth: string; // För historik-vyn
   

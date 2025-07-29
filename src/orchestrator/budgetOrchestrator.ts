@@ -315,6 +315,7 @@ function createEmptyMonthData(): MonthData {
     susannaShareChecked: false,
     monthFinalBalances: {},
     accountEndingBalances: {},
+    transactions: [], // NYTT FÄLT
     createdAt: new Date().toISOString()
   };
 }
