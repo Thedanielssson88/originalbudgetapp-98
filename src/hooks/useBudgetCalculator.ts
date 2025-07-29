@@ -117,6 +117,7 @@ export const useBudgetCalculator = () => {
   const [showEstimatedBudgetAmounts, setShowEstimatedBudgetAmounts] = useState<boolean>(false);
   const [balanceType, setBalanceType] = useState<'starting' | 'closing'>('closing');
   const [monthFinalBalances, setMonthFinalBalances] = useState<{[key: string]: boolean}>({});
+  const [costViewType, setCostViewType] = useState<'category' | 'account'>('category');
   
   // Chart legend and time range states
   const [isChartLegendExpanded, setIsChartLegendExpanded] = useState<boolean>(false);
@@ -346,6 +347,8 @@ export const useBudgetCalculator = () => {
     setBalanceType,
     monthFinalBalances,
     setMonthFinalBalances,
+    costViewType,
+    setCostViewType,
     isChartLegendExpanded,
     setIsChartLegendExpanded,
     useCustomTimeRange,

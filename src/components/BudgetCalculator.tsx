@@ -210,6 +210,7 @@ const BudgetCalculator = () => {
   const [isAdminMode, setIsAdminMode] = useState<boolean>(true);
   const [balanceType, setBalanceType] = useState<'starting' | 'closing'>('closing');
   const [monthFinalBalances, setMonthFinalBalances] = useState<{[key: string]: boolean}>({});
+  const [costViewType, setCostViewType] = useState<'category' | 'account'>('category');
   
   // Chart legend and time range states
   const [isChartLegendExpanded, setIsChartLegendExpanded] = useState<boolean>(false);
@@ -5188,6 +5189,30 @@ const BudgetCalculator = () => {
                       
                       {expandedSections.costCategories && (
                         <div className="mt-4 space-y-4">
+                          {/* Cost View Type Option */}
+                          <div className="bg-muted/50 p-4 rounded-lg">
+                            <h4 className="font-medium mb-3">Visa kostnadsbelopp för:</h4>
+                            <ToggleGroup 
+                              type="single" 
+                              value={costViewType} 
+                              onValueChange={(value) => value && setCostViewType(value as 'category' | 'account')}
+                              className="grid grid-cols-2 w-full max-w-md"
+                            >
+                              <ToggleGroupItem 
+                                value="category" 
+                                className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                              >
+                                Kategori (Huvudkategori)
+                              </ToggleGroupItem>
+                              <ToggleGroupItem 
+                                value="account" 
+                                className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                              >
+                                Konto (Per account)
+                              </ToggleGroupItem>
+                            </ToggleGroup>
+                          </div>
+                          
                           <div className="flex justify-between items-center">
                             <h4 className="font-semibold">Kostnadskategorier</h4>
                             <div className="space-x-2">
@@ -5205,130 +5230,173 @@ const BudgetCalculator = () => {
                             </div>
                           </div>
                           
-                          {costGroups.map((group) => (
-                            <div key={group.id} className="space-y-2">
-                              <div className="flex gap-2 items-center">
-                                {isEditingCategories ? (
-                                  <>
-                                    <Select 
-                                      value={group.name} 
-                                      onValueChange={(value) => updateCostGroup(group.id, 'name', value)}
-                                    >
-                                      <SelectTrigger className="flex-1">
-                                        <SelectValue placeholder="Välj huvudkategori" />
-                                      </SelectTrigger>
-                                      <SelectContent className="bg-popover border border-border shadow-lg z-50">
-                                        {(budgetState.mainCategories || []).map((category) => (
-                                          <SelectItem key={category} value={category}>
-                                            {category}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                    <Button
-                                      size="sm"
-                                      variant="destructive"
-                                      onClick={() => removeCostGroup(group.id)}
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  </>
-                                ) : (
-                                  <div className="flex-1 font-medium">{group.name}</div>
+                          {costViewType === 'category' ? (
+                            // Original category view
+                            costGroups.map((group) => (
+                              <div key={group.id} className="space-y-2">
+                                <div className="flex gap-2 items-center">
+                                  {isEditingCategories ? (
+                                    <>
+                                      <Select 
+                                        value={group.name} 
+                                        onValueChange={(value) => updateCostGroup(group.id, 'name', value)}
+                                      >
+                                        <SelectTrigger className="flex-1">
+                                          <SelectValue placeholder="Välj huvudkategori" />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-popover border border-border shadow-lg z-50">
+                                          {(budgetState.mainCategories || []).map((category) => (
+                                            <SelectItem key={category} value={category}>
+                                              {category}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                      <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        onClick={() => removeCostGroup(group.id)}
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <div className="flex-1 font-medium">{group.name}</div>
+                                  )}
+                                </div>
+                                
+                                {group.subCategories && group.subCategories.length > 0 && (
+                                  <div className="pl-4 space-y-1">
+                                     {group.subCategories.map((sub) => (
+                                       <div key={sub.id} className="text-sm space-y-2">
+                                         {isEditingCategories ? (
+                                           <div className="space-y-2">
+                                             <div className="flex gap-2 items-center">
+                                                <Input
+                                                  value={sub.name}
+                                                  onChange={(e) => updateSubCategory(group.id, sub.id, 'name', e.target.value)}
+                                                  className="w-32 text-base"
+                                                  placeholder="Kostnadspost namn"
+                                                />
+                                               <Input
+                                                 type="number"
+                                                 value={sub.amount === 0 ? '' : sub.amount}
+                                                 onChange={(e) => updateSubCategory(group.id, sub.id, 'amount', Number(e.target.value) || 0)}
+                                                 className="flex-1"
+                                                 placeholder="Belopp"
+                                               />
+                                               <Button
+                                                 size="sm"
+                                                 variant="destructive"
+                                                 onClick={() => removeSubCategory(group.id, sub.id)}
+                                               >
+                                                 <Trash2 className="w-4 h-4" />
+                                               </Button>
+                                             </div>
+                                              <div className="flex gap-2 items-center pl-2">
+                                                <span className="text-sm text-muted-foreground min-w-16">Konto:</span>
+                                                <Select
+                                                  value={sub.account || 'none'}
+                                                  onValueChange={(value) => updateSubCategory(group.id, sub.id, 'account', value === 'none' ? undefined : value)}
+                                                >
+                                                  <SelectTrigger className="w-36">
+                                                    <SelectValue placeholder="Välj konto" />
+                                                  </SelectTrigger>
+                                                  <SelectContent>
+                                                    <SelectItem value="none">Inget konto</SelectItem>
+                                                    {accounts.map((account) => (
+                                                      <SelectItem key={account} value={account}>
+                                                        {account}
+                                                      </SelectItem>
+                                                    ))}
+                                                  </SelectContent>
+                                                </Select>
+                                              </div>
+                                              <div className="flex gap-2 items-center pl-2">
+                                                <span className="text-sm text-muted-foreground min-w-16">Finansieras ifrån:</span>
+                                                <Select
+                                                  value={sub.financedFrom || 'Löpande kostnad'}
+                                                  onValueChange={(value) => updateSubCategory(group.id, sub.id, 'financedFrom', value as 'Löpande kostnad' | 'Enskild kostnad')}
+                                                >
+                                                  <SelectTrigger className="w-36">
+                                                    <SelectValue />
+                                                  </SelectTrigger>
+                                                  <SelectContent>
+                                                    <SelectItem value="Löpande kostnad">Löpande kostnad</SelectItem>
+                                                    <SelectItem value="Enskild kostnad">Enskild kostnad</SelectItem>
+                                                  </SelectContent>
+                                                </Select>
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            <div className="flex justify-between items-center">
+                                              <span className="flex-1">
+                                                {sub.name}{sub.account ? ` (${sub.account})` : ''}
+                                              </span>
+                                              <span className="w-32 text-right font-medium text-destructive">
+                                                {formatCurrency(sub.amount)}
+                                              </span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      ))}
+                                  </div>
+                                )}
+                                
+                                {isEditingCategories && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="ml-4"
+                                    onClick={() => addSubCategory(group.id)}
+                                  >
+                                    <Plus className="w-4 h-4 mr-1" />
+                                    Lägg till kostnadspost
+                                  </Button>
                                 )}
                               </div>
+                            ))
+                          ) : (
+                            // Account view - group by account
+                            (() => {
+                              const accountGroups: { [key: string]: { name: string; amount: number; category: string }[] } = {};
                               
-                              {group.subCategories && group.subCategories.length > 0 && (
-                                <div className="pl-4 space-y-1">
-                                   {group.subCategories.map((sub) => (
-                                     <div key={sub.id} className="text-sm space-y-2">
-                                       {isEditingCategories ? (
-                                         <div className="space-y-2">
-                                           <div className="flex gap-2 items-center">
-                                              <Input
-                                                value={sub.name}
-                                                onChange={(e) => updateSubCategory(group.id, sub.id, 'name', e.target.value)}
-                                                className="w-32 text-base"
-                                                placeholder="Kostnadspost namn"
-                                              />
-                                             <Input
-                                               type="number"
-                                               value={sub.amount === 0 ? '' : sub.amount}
-                                               onChange={(e) => updateSubCategory(group.id, sub.id, 'amount', Number(e.target.value) || 0)}
-                                               className="flex-1"
-                                               placeholder="Belopp"
-                                             />
-                                             <Button
-                                               size="sm"
-                                               variant="destructive"
-                                               onClick={() => removeSubCategory(group.id, sub.id)}
-                                             >
-                                               <Trash2 className="w-4 h-4" />
-                                             </Button>
-                                           </div>
-                                            <div className="flex gap-2 items-center pl-2">
-                                              <span className="text-sm text-muted-foreground min-w-16">Konto:</span>
-                                              <Select
-                                                value={sub.account || 'none'}
-                                                onValueChange={(value) => updateSubCategory(group.id, sub.id, 'account', value === 'none' ? undefined : value)}
-                                              >
-                                                <SelectTrigger className="w-36">
-                                                  <SelectValue placeholder="Välj konto" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                  <SelectItem value="none">Inget konto</SelectItem>
-                                                  {accounts.map((account) => (
-                                                    <SelectItem key={account} value={account}>
-                                                      {account}
-                                                    </SelectItem>
-                                                  ))}
-                                                </SelectContent>
-                                              </Select>
-                                            </div>
-                                            <div className="flex gap-2 items-center pl-2">
-                                              <span className="text-sm text-muted-foreground min-w-16">Finansieras ifrån:</span>
-                                              <Select
-                                                value={sub.financedFrom || 'Löpande kostnad'}
-                                                onValueChange={(value) => updateSubCategory(group.id, sub.id, 'financedFrom', value as 'Löpande kostnad' | 'Enskild kostnad')}
-                                              >
-                                                <SelectTrigger className="w-36">
-                                                  <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                  <SelectItem value="Löpande kostnad">Löpande kostnad</SelectItem>
-                                                  <SelectItem value="Enskild kostnad">Enskild kostnad</SelectItem>
-                                                </SelectContent>
-                                              </Select>
-                                            </div>
-                                         </div>
-                                       ) : (
-                                         <div className="flex justify-between items-center">
-                                           <span className="flex-1">
-                                             {sub.name}{sub.account ? ` (${sub.account})` : ''}
-                                           </span>
-                                           <span className="w-32 text-right font-medium text-destructive">
-                                             {formatCurrency(sub.amount)}
-                                           </span>
-                                         </div>
-                                       )}
-                                     </div>
-                                   ))}
+                              // Group all subcategories by account
+                              costGroups.forEach((group) => {
+                                group.subCategories?.forEach((sub) => {
+                                  const account = sub.account || 'Inget konto';
+                                  if (!accountGroups[account]) {
+                                    accountGroups[account] = [];
+                                  }
+                                  accountGroups[account].push({
+                                    name: sub.name,
+                                    amount: sub.amount,
+                                    category: group.name
+                                  });
+                                });
+                              });
+                              
+                              return Object.entries(accountGroups).map(([account, items]) => (
+                                <div key={account} className="space-y-2">
+                                  <div className="font-medium">{account}</div>
+                                  <div className="pl-4 space-y-1">
+                                    {items.map((item, index) => (
+                                      <div key={index} className="text-sm">
+                                        <div className="flex justify-between items-center">
+                                          <span className="flex-1">
+                                            {item.name} ({item.category})
+                                          </span>
+                                          <span className="w-32 text-right font-medium text-destructive">
+                                            {formatCurrency(item.amount)}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
-                              )}
-                              
-                              {isEditingCategories && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="ml-4"
-                                  onClick={() => addSubCategory(group.id)}
-                                >
-                                  <Plus className="w-4 h-4 mr-1" />
-                                  Lägg till kostnadspost
-                                </Button>
-                              )}
-                            </div>
-                          ))}
+                              ));
+                            })()
+                          )}
                         </div>
                        )}
                      </div>
