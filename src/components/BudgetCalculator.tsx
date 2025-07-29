@@ -22,6 +22,7 @@ import { CustomLineChart } from './CustomLineChart';
 import { AccountSelector } from '@/components/AccountSelector';
 import { MainCategoriesSettings } from '@/components/MainCategoriesSettings';
 import { AddCostItemDialog } from '@/components/AddCostItemDialog';
+import TransactionImport from '@/components/TransactionImport';
 import { calculateAccountEndBalances } from '../services/calculationService';
 import { 
   createSavingsGoal,
@@ -1719,6 +1720,13 @@ const BudgetCalculator = () => {
     const currentDate = new Date();
     const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     resetMonthFinalBalancesFlag(currentMonthKey);
+  };
+
+  const handleTransactionsImported = (transactions: Transaction[]) => {
+    console.log('Importing transactions:', transactions);
+    // Here you would typically integrate with your transaction storage system
+    // For now, we'll just log the transactions
+    // TODO: Implement actual transaction storage/processing
   };
 
   const handleAddCostItem = (item: {
@@ -8441,23 +8449,10 @@ const BudgetCalculator = () => {
           {/* Läs in transaktioner Tab */}
           <TabsContent value="transaktioner" className="mt-0">
             <div className="container mx-auto p-6">
-              <div className="text-center py-12">
-                <h2 className="text-2xl font-bold mb-4">Läs in transaktioner</h2>
-                <p className="text-muted-foreground mb-6">
-                  Transaktionsimport-funktionaliteten kommer snart!
-                </p>
-                <div className="space-y-4 max-w-md mx-auto">
-                  <div className="text-sm text-muted-foreground">
-                    Här kommer du kunna:
-                  </div>
-                  <ul className="text-sm text-muted-foreground space-y-2 text-left">
-                    <li>• Ladda upp CSV-filer från din bank</li>
-                    <li>• Mappa kolumner automatiskt</li>
-                    <li>• Kategorisera transaktioner</li>
-                    <li>• Sätta upp automatiska regler</li>
-                  </ul>
-                </div>
-              </div>
+              <TransactionImport
+                accounts={accounts}
+                onTransactionsImported={handleTransactionsImported}
+              />
             </div>
           </TabsContent>
 
@@ -9613,10 +9608,21 @@ const BudgetCalculator = () => {
         accounts={accounts}
       />
       
+      {/* Add Cost Item Dialog */}
+      <AddCostItemDialog
+        isOpen={showAddCostDialog}
+        onClose={() => setShowAddCostDialog(false)}
+        onSave={handleAddCostItem}
+        mainCategories={budgetState.mainCategories || []}
+        accounts={accounts}
+      />
+      
       {/* Bottom padding for better visual spacing */}
       <div className="h-16"></div>
     </div>
   );
 };
+
+export default BudgetCalculator;
 
 export default BudgetCalculator;
