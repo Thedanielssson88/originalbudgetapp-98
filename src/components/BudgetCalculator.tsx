@@ -3339,7 +3339,7 @@ const BudgetCalculator = () => {
     }
 
     return (
-      <div className="h-96">
+      <div className="h-64 sm:h-80 lg:h-96">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -3778,7 +3778,7 @@ const BudgetCalculator = () => {
 
 
         {/* Chart */}
-        <div className="h-96 relative">
+        <div className="h-64 sm:h-80 lg:h-96 relative">
           {hasInvalidRange ? (
             <div className="flex items-center justify-center h-full text-red-500">
               <p>Felaktigt datumintervall: Slutmånad måste vara efter startmånad</p>
@@ -3788,7 +3788,7 @@ const BudgetCalculator = () => {
               <p>Ingen data att visa för det valda intervallet</p>
             </div>
           ) : (
-            <div className="w-full h-96">
+            <div className="w-full h-64 sm:h-80 lg:h-96">
               <CustomLineChart
                 data={chartData}
                 accounts={selectedAccountsForChart}
@@ -3798,8 +3798,8 @@ const BudgetCalculator = () => {
                 showSavingsSeparately={showSavingsSeparately}
                 balanceType={balanceType}
                 width={0} // Will be set dynamically
-                height={384}
-                margin={{ top: 20, right: 30, bottom: 80, left: 80 }}
+                height={window.innerWidth < 640 ? 256 : window.innerWidth < 1024 ? 320 : 384}
+                margin={{ top: 20, right: window.innerWidth < 640 ? 15 : 30, bottom: 80, left: window.innerWidth < 640 ? 40 : 80 }}
                 formatCurrency={formatCurrency}
               />
             </div>
@@ -7968,7 +7968,7 @@ const BudgetCalculator = () => {
                     : "animate-slide-in-left"
                   : ""
             }`}>
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6 px-2 sm:px-4">
               {/* Charts Section */}
               <Card>
                 <CardHeader>
@@ -8153,10 +8153,12 @@ const BudgetCalculator = () => {
               </Card>
 
               {/* Account Data Table */}
-              <AccountDataTable 
-                data={accountDataRows}
-                className="w-full"
-              />
+              <div className="overflow-x-auto">
+                <AccountDataTable 
+                  data={accountDataRows}
+                  className="w-full min-w-[640px]"
+                />
+              </div>
 
               {/* Month Selector and Data Display */}
               <Card>

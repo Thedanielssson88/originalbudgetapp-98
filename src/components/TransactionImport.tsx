@@ -130,15 +130,15 @@ export const TransactionImport: React.FC = () => {
   };
 
   const renderUploadStep = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold mb-2">Ladda upp CSV-filer</h2>
-        <p className="text-muted-foreground">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="text-center mb-6 sm:mb-8">
+        <h2 className="text-xl sm:text-2xl font-bold mb-2">Ladda upp CSV-filer</h2>
+        <p className="text-sm sm:text-base text-muted-foreground px-2">
           Välj och ladda upp CSV-filer för de konton du vill importera transaktioner från
         </p>
       </div>
 
-      <div className="grid gap-4">
+      <div className="grid gap-3 sm:gap-4">
         {accounts.map(account => {
           const uploadStatus = getAccountUploadStatus(account.id);
           const extractedBalance = getAccountBalance(account.id);
@@ -210,11 +210,11 @@ export const TransactionImport: React.FC = () => {
         })}
       </div>
 
-      <div className="flex justify-center space-x-4 pt-6">
+      <div className="flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-4 pt-4 sm:pt-6">
         <Button 
           onClick={() => setCurrentStep('mapping')}
           disabled={!canProceedToMapping()}
-          className="min-w-48"
+          className="w-full sm:min-w-48"
         >
           Fortsätt till mappning
         </Button>
@@ -222,7 +222,7 @@ export const TransactionImport: React.FC = () => {
           variant="outline"
           onClick={() => setCurrentStep('categorization')}
           disabled={fileMappings.length === 0}
-          className="min-w-48"
+          className="w-full sm:min-w-48"
         >
           Kategorisering & Regler
         </Button>
@@ -231,10 +231,10 @@ export const TransactionImport: React.FC = () => {
   );
 
   const renderMappingStep = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold mb-2">Kolumnmappning</h2>
-        <p className="text-muted-foreground">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="text-center mb-6 sm:mb-8">
+        <h2 className="text-xl sm:text-2xl font-bold mb-2">Kolumnmappning</h2>
+        <p className="text-sm sm:text-base text-muted-foreground px-2">
           Mappa CSV-kolumner till appens fält. Detta sparas för framtida imports.
         </p>
       </div>
@@ -247,8 +247,9 @@ export const TransactionImport: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                 <TableRow>
                   <TableHead>CSV Kolumn</TableHead>
                   <TableHead>Exempeldata</TableHead>
@@ -265,7 +266,7 @@ export const TransactionImport: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <Select>
-                        <SelectTrigger className="w-48">
+                        <SelectTrigger className="w-32 sm:w-48">
                           <SelectValue placeholder="Välj fält" />
                         </SelectTrigger>
                         <SelectContent>
@@ -283,22 +284,24 @@ export const TransactionImport: React.FC = () => {
                     </TableCell>
                   </TableRow>
                 ))}
-              </TableBody>
-            </Table>
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       ))}
 
-      <div className="flex justify-center space-x-4 pt-6">
+      <div className="flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-4 pt-4 sm:pt-6">
         <Button 
           variant="outline"
           onClick={() => setCurrentStep('upload')}
+          className="w-full sm:w-auto"
         >
           Tillbaka
         </Button>
         <Button 
           onClick={() => setCurrentStep('categorization')}
-          className="min-w-48"
+          className="w-full sm:min-w-48"
         >
           Fortsätt till kategorisering
         </Button>
@@ -307,10 +310,10 @@ export const TransactionImport: React.FC = () => {
   );
 
   const renderCategorizationStep = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold mb-2">Kategorisering & Regler</h2>
-        <p className="text-muted-foreground">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="text-center mb-6 sm:mb-8">
+        <h2 className="text-xl sm:text-2xl font-bold mb-2">Kategorisering & Regler</h2>
+        <p className="text-sm sm:text-base text-muted-foreground px-2">
           Kategorisera transaktioner och hantera regler för automatisk kategorisering
         </p>
       </div>
@@ -338,13 +341,13 @@ export const TransactionImport: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="transaktioner" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Importerade transaktioner</h3>
-            <div className="flex space-x-2">
-              <Button variant="outline" size="sm">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <h3 className="text-base sm:text-lg font-semibold">Importerade transaktioner</h3>
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+              <Button variant="outline" size="sm" className="text-xs sm:text-sm">
                 Alla Transaktioner
               </Button>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="text-xs sm:text-sm">
                 Per konto
               </Button>
             </div>
@@ -360,10 +363,11 @@ export const TransactionImport: React.FC = () => {
         </TabsContent>
       </Tabs>
 
-      <div className="flex justify-center space-x-4 pt-6">
+      <div className="flex justify-center pt-4 sm:pt-6">
         <Button 
           variant="outline"
           onClick={() => setCurrentStep('mapping')}
+          className="w-full sm:w-auto"
         >
           Tillbaka till mappning
         </Button>
@@ -372,35 +376,35 @@ export const TransactionImport: React.FC = () => {
   );
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className="w-full px-2 sm:px-4 lg:px-6 py-4 sm:py-6">
       {/* Progress indicator */}
-      <div className="mb-8">
-        <div className="flex items-center justify-center space-x-4">
-          <div className={`flex items-center space-x-2 ${currentStep === 'upload' ? 'text-primary' : 'text-muted-foreground'}`}>
-            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${
+      <div className="mb-6 sm:mb-8">
+        <div className="flex items-center justify-center space-x-2 sm:space-x-4 overflow-x-auto">
+          <div className={`flex items-center space-x-1 sm:space-x-2 whitespace-nowrap ${currentStep === 'upload' ? 'text-primary' : 'text-muted-foreground'}`}>
+            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center text-xs sm:text-sm ${
               currentStep === 'upload' ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground'
             }`}>
               1
             </div>
-            <span>Ladda upp</span>
+            <span className="text-xs sm:text-sm">Ladda upp</span>
           </div>
-          <div className="w-8 h-px bg-muted-foreground" />
-          <div className={`flex items-center space-x-2 ${currentStep === 'mapping' ? 'text-primary' : 'text-muted-foreground'}`}>
-            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${
+          <div className="w-4 sm:w-8 h-px bg-muted-foreground flex-shrink-0" />
+          <div className={`flex items-center space-x-1 sm:space-x-2 whitespace-nowrap ${currentStep === 'mapping' ? 'text-primary' : 'text-muted-foreground'}`}>
+            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center text-xs sm:text-sm ${
               currentStep === 'mapping' ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground'
             }`}>
               2
             </div>
-            <span>Mappning</span>
+            <span className="text-xs sm:text-sm">Mappning</span>
           </div>
-          <div className="w-8 h-px bg-muted-foreground" />
-          <div className={`flex items-center space-x-2 ${currentStep === 'categorization' ? 'text-primary' : 'text-muted-foreground'}`}>
-            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${
+          <div className="w-4 sm:w-8 h-px bg-muted-foreground flex-shrink-0" />
+          <div className={`flex items-center space-x-1 sm:space-x-2 whitespace-nowrap ${currentStep === 'categorization' ? 'text-primary' : 'text-muted-foreground'}`}>
+            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center text-xs sm:text-sm ${
               currentStep === 'categorization' ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground'
             }`}>
               3
             </div>
-            <span>Kategorisering</span>
+            <span className="text-xs sm:text-sm">Kategorisering</span>
           </div>
         </div>
       </div>
