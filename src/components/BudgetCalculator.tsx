@@ -5202,13 +5202,13 @@ const BudgetCalculator = () => {
                                 value="category" 
                                 className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
                               >
-                                Kategori (Huvudkategori)
+                                Kategori
                               </ToggleGroupItem>
                               <ToggleGroupItem 
                                 value="account" 
                                 className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
                               >
-                                Konto (Per account)
+                                Konto
                               </ToggleGroupItem>
                             </ToggleGroup>
                           </div>
