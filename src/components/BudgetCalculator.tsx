@@ -17,6 +17,7 @@ import { AccountDataTable, AccountDataRow } from '@/components/AccountDataTable'
 import CreateMonthDialog from './CreateMonthDialog';
 import { CustomLineChart } from './CustomLineChart';
 import { AccountSelector } from '@/components/AccountSelector';
+import { MainCategoriesSettings } from '@/components/MainCategoriesSettings';
 import { calculateAccountEndBalances } from '../services/calculationService';
 import { 
   updateCostGroups,
@@ -5155,11 +5156,21 @@ const BudgetCalculator = () => {
                               <div className="flex gap-2 items-center">
                                 {isEditingCategories ? (
                                   <>
-                                    <Input
-                                      value={group.name}
-                                      onChange={(e) => updateCostGroup(group.id, 'name', e.target.value)}
-                                      className="flex-1"
-                                    />
+                                    <Select 
+                                      value={group.name} 
+                                      onValueChange={(value) => updateCostGroup(group.id, 'name', value)}
+                                    >
+                                      <SelectTrigger className="flex-1">
+                                        <SelectValue placeholder="Välj huvudkategori" />
+                                      </SelectTrigger>
+                                      <SelectContent className="bg-popover border border-border shadow-lg z-50">
+                                        {(budgetState.mainCategories || []).map((category) => (
+                                          <SelectItem key={category} value={category}>
+                                            {category}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
                                     <Button
                                       size="sm"
                                       variant="destructive"
@@ -5180,12 +5191,12 @@ const BudgetCalculator = () => {
                                        {isEditingCategories ? (
                                          <div className="space-y-2">
                                            <div className="flex gap-2 items-center">
-                                             <Input
-                                               value={sub.name}
-                                               onChange={(e) => updateSubCategory(group.id, sub.id, 'name', e.target.value)}
-                                               className="w-32 text-base"
-                                               placeholder="Underkategori namn"
-                                             />
+                                              <Input
+                                                value={sub.name}
+                                                onChange={(e) => updateSubCategory(group.id, sub.id, 'name', e.target.value)}
+                                                className="w-32 text-base"
+                                                placeholder="Kostnadspost namn"
+                                              />
                                              <Input
                                                type="number"
                                                value={sub.amount === 0 ? '' : sub.amount}
@@ -5259,7 +5270,7 @@ const BudgetCalculator = () => {
                                   onClick={() => addSubCategory(group.id)}
                                 >
                                   <Plus className="w-4 h-4 mr-1" />
-                                  Lägg till underkategori
+                                  Lägg till kostnadspost
                                 </Button>
                               )}
                             </div>
@@ -5930,7 +5941,7 @@ const BudgetCalculator = () => {
                                                   </>
                                                 ) : (
                                                   <div className="flex justify-between">
-                                                    <span>Inga underkategorier</span>
+                                                    <span>Inga kostnadsposter</span>
                                                     <span className="font-medium">{formatCurrency(0)}</span>
                                                   </div>
                                                 )}
@@ -7867,6 +7878,9 @@ const BudgetCalculator = () => {
                 </CardContent>
               </Card>
 
+              {/* Main Categories Settings */}
+              <MainCategoriesSettings mainCategories={budgetState.mainCategories || []} />
+
               {/* User Names Settings */}
               <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
                 <CardHeader>
@@ -8506,14 +8520,24 @@ const BudgetCalculator = () => {
                                               {editingTemplateData.costGroups?.map((group: any) => (
                                                 <div key={group.id} className="mb-4 p-3 border rounded-md">
                                                   <div className="grid grid-cols-3 gap-2 mb-2">
-                                                    <div>
-                                                      <Label className="text-xs">Huvudkategori</Label>
-                                                      <Input
-                                                        value={group.name}
-                                                        onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value)}
-                                                        className="h-8"
-                                                      />
-                                                     </div>
+                                                     <div>
+                                                       <Label className="text-xs">Huvudkategori</Label>
+                                                       <Select 
+                                                         value={group.name} 
+                                                         onValueChange={(value) => updateEditingTemplateGroup(group.id, 'name', value)}
+                                                       >
+                                                         <SelectTrigger className="h-8">
+                                                           <SelectValue placeholder="Välj huvudkategori" />
+                                                         </SelectTrigger>
+                                                         <SelectContent className="bg-popover border border-border shadow-lg z-50">
+                                                           {(budgetState.mainCategories || []).map((category) => (
+                                                             <SelectItem key={category} value={category}>
+                                                               {category}
+                                                             </SelectItem>
+                                                           ))}
+                                                         </SelectContent>
+                                                       </Select>
+                                                      </div>
                                                      <div>
                                                        <Label className="text-xs">Konto</Label>
                                                        <Select 
@@ -8561,14 +8585,14 @@ const BudgetCalculator = () => {
                                                   {/* Subcategories */}
                                                   {group.subCategories && group.subCategories.length > 0 && (
                                                     <div className="ml-4 space-y-2">
-                                                      <Label className="text-xs text-muted-foreground">Underkategorier:</Label>
+                                                      <Label className="text-xs text-muted-foreground">Kostnadsposter:</Label>
                                                        {group.subCategories.map((sub: any) => (
                                                          <div key={sub.id} className="grid grid-cols-4 gap-2">
                                                            <Input
                                                              value={sub.name}
                                                              onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value, true, sub.id)}
                                                              className="h-7 text-xs"
-                                                             placeholder="Underkategori"
+                                                             placeholder="Kostnadspost"
                                                            />
                                                            <Select 
                                                              value={sub.account || ''} 

@@ -47,7 +47,10 @@ export const state: AppState = {
       chartEndMonth: '',
       balanceType: 'starting',
       showEstimatedBudgetAmounts: false
-    }
+    },
+    
+    // Main categories for cost groups
+    mainCategories: ['Hushåll', 'Mat & Kläder', 'Transport']
   },
   calculated: {
     results: null,
@@ -140,6 +143,12 @@ export function initializeStateFromStorage(): void {
           state.budgetState.chartSettings.showEstimatedBudgetAmounts = oldRawData.showEstimatedBudgetAmounts || false;
         }
         
+        // Load main categories from storage or use defaults
+        const savedMainCategories = get<string[]>(StorageKey.MAIN_CATEGORIES);
+        if (savedMainCategories) {
+          state.budgetState.mainCategories = savedMainCategories;
+        }
+        
         // If there's live data but no corresponding historical data, create a month entry
         const currentMonth = state.budgetState.selectedMonthKey;
         if (!state.budgetState.historicalData[currentMonth]) {
@@ -206,6 +215,14 @@ export function initializeStateFromStorage(): void {
           // If selectedMonthKey exists in loaded data, use it
           selectedMonthKey: loadedBudgetState.selectedMonthKey || state.budgetState.selectedMonthKey
         };
+        
+        // Load main categories from storage or use defaults if not present in budgetState
+        if (!state.budgetState.mainCategories) {
+          const savedMainCategories = get<string[]>(StorageKey.MAIN_CATEGORIES);
+          if (savedMainCategories) {
+            state.budgetState.mainCategories = savedMainCategories;
+          }
+        }
         
         addMobileDebugLog(`[INIT] ✅ State merged successfully`);
         addMobileDebugLog(`[INIT] Final selectedMonthKey: ${state.budgetState.selectedMonthKey}`);

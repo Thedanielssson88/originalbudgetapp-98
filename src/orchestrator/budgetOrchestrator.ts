@@ -1,7 +1,7 @@
 // Single Source of Truth Orchestrator - Simplified architecture
 
 import { state, initializeStateFromStorage, saveStateToStorage, getCurrentMonthData, updateCurrentMonthData } from '../state/budgetState';
-import { StorageKey } from '../services/storageService';
+import { StorageKey, set } from '../services/storageService';
 import { calculateFullPrognosis, calculateBudgetResults, calculateAccountProgression, calculateMonthlyBreakdowns, calculateProjectedBalances } from '../services/calculationService';
 import { BudgetGroup, MonthData } from '../types/budget';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
@@ -384,4 +384,13 @@ export function setAccountStartBalancesSet(value: {[key: string]: boolean}): voi
 
 export function setMonthFinalBalances(value: {[key: string]: boolean}): void {
   updateAndRecalculate({ monthFinalBalances: value });
+}
+
+// Main categories management
+export function setMainCategories(value: string[]): void {
+  state.budgetState.mainCategories = value;
+  // Also save to separate storage for migration compatibility
+  set(StorageKey.MAIN_CATEGORIES, value);
+  saveStateToStorage();
+  triggerUIRefresh();
 }

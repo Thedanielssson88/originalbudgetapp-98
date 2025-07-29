@@ -130,6 +130,9 @@ export interface BudgetState {
     balanceType: 'starting' | 'closing';
     showEstimatedBudgetAmounts: boolean;
   };
+  
+  // Main categories for cost groups
+  mainCategories: string[];
 }
 
 // Legacy interface för bakåtkompatibilitet under övergången

@@ -15,7 +15,8 @@ export enum StorageKey {
   USER_NAMES = 'user_names',
   TRANSFER_CHECKS = 'transfer_checks',
   CUSTOM_HOLIDAYS = 'custom_holidays',
-  CHART_SETTINGS = 'chart_settings'
+  CHART_SETTINGS = 'chart_settings',
+  MAIN_CATEGORIES = 'main_categories'
 }
 
 export function get<T>(key: StorageKey): T | null {
