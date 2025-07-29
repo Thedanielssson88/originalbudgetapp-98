@@ -1,4 +1,4 @@
-import { Calculator, Target, Upload, BarChart3 } from "lucide-react";
+import { Calculator } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
 import {
@@ -14,7 +14,6 @@ import {
 
 const items = [
   { title: "Budget", url: "/", icon: Calculator },
-  { title: "Sparmål", url: "/sparmal", icon: Target },
 ];
 
 export function AppSidebar() {
