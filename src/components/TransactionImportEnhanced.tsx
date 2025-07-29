@@ -33,6 +33,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Upload, CheckCircle, FileText, Settings, AlertCircle, Circle, CheckSquare, AlertTriangle } from 'lucide-react';
 import { ImportedTransaction, CategoryRule, FileStructure, ColumnMapping } from '@/types/transaction';
+import { TransactionExpandableCard } from './TransactionExpandableCard';
 
 interface Account {
   id: string;
@@ -678,88 +679,41 @@ export const TransactionImportEnhanced: React.FC = () => {
           )}
 
           {activeTransactionTab === 'all' ? (
-            <Card>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <Table className="text-xs">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-8">
-                          <Checkbox
-                            checked={selectedTransactions.length === transactions.length}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSelectedTransactions(transactions.map(t => t.id));
-                              } else {
-                                setSelectedTransactions([]);
-                              }
-                            }}
-                          />
-                        </TableHead>
-                        <TableHead className="w-8 text-xs">Status</TableHead>
-                        <TableHead className="w-20 text-xs">Konto</TableHead>
-                        <TableHead className="w-16 text-xs">Datum</TableHead>
-                        <TableHead className="w-32 text-xs">Beskrivning</TableHead>
-                        <TableHead className="w-16 text-xs">Belopp</TableHead>
-                        <TableHead className="w-20 text-xs">Kategori</TableHead>
-                        <TableHead className="w-16 text-xs">Typ</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {transactions.map(transaction => {
-                        const statusInfo = getTransactionStatus(transaction);
-                        const StatusIcon = statusInfo.icon;
-                        const account = accounts.find(a => a.id === transaction.accountId);
-                        
-                        return (
-                          <TableRow key={transaction.id}>
-                            <TableCell>
-                              <Checkbox
-                                checked={selectedTransactions.includes(transaction.id)}
-                                onCheckedChange={() => toggleTransactionSelection(transaction.id)}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <StatusIcon className={`w-3 h-3 ${statusInfo.color}`} />
-                            </TableCell>
-                            <TableCell className="text-xs p-1 font-medium">{account?.name.substring(0, 8) || transaction.accountId.substring(0, 8)}</TableCell>
-                            <TableCell className="text-xs p-1">{transaction.date.substring(5)}</TableCell>
-                            <TableCell className="text-xs p-1 max-w-32 truncate" title={transaction.description}>
-                              {transaction.description.substring(0, 15)}...
-                            </TableCell>
-                            <TableCell className={`text-xs p-1 font-medium ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {Math.abs(transaction.amount).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
-                            </TableCell>
-                            <TableCell className="text-xs p-1">
-                              <Select
-                                value={transaction.appCategoryId || ''}
-                                onValueChange={(value) => updateTransactionCategory(transaction.id, value)}
-                              >
-                                <SelectTrigger className="w-20 h-6 text-xs">
-                                  <SelectValue placeholder="Kat" />
-                                </SelectTrigger>
-                                <SelectContent className="bg-background border border-border shadow-lg z-50">
-                                  {mainCategories.map(category => (
-                                    <SelectItem key={category} value={category} className="text-xs">
-                                      {category.substring(0, 10)}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                            <TableCell className="text-xs p-1">
-                              <Badge variant={transaction.type === 'InternalTransfer' ? 'secondary' : 'outline'} className="text-xs px-1 py-0">
-                                {transaction.type === 'InternalTransfer' ? 'Överf' : 'Trans'}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+            <div className="space-y-3">
+              {/* Select all header */}
+              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    checked={selectedTransactions.length === transactions.length}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedTransactions(transactions.map(t => t.id));
+                      } else {
+                        setSelectedTransactions([]);
+                      }
+                    }}
+                  />
+                  <span className="text-sm font-medium">Markera alla transaktioner</span>
                 </div>
-              </CardContent>
-            </Card>
+                <span className="text-sm text-muted-foreground">
+                  {selectedTransactions.length} av {transactions.length} valda
+                </span>
+              </div>
+
+              {/* Transaction cards */}
+              {transactions.map(transaction => (
+                <TransactionExpandableCard
+                  key={transaction.id}
+                  transaction={transaction}
+                  account={accounts.find(a => a.id === transaction.accountId)}
+                  isSelected={selectedTransactions.includes(transaction.id)}
+                  mainCategories={mainCategories}
+                  onToggleSelection={toggleTransactionSelection}
+                  onUpdateCategory={updateTransactionCategory}
+                  onUpdateNote={updateTransactionNote}
+                />
+              ))}
+            </div>
           ) : (
             <Tabs value={selectedAccountForView} onValueChange={setSelectedAccountForView}>
               <TabsList className="w-full">
