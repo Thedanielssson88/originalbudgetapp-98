@@ -201,6 +201,7 @@ const BudgetCalculator = () => {
   const [showIndividualCostsOutsideBudget, setShowIndividualCostsOutsideBudget] = useState<boolean>(false);
   const [showSavingsSeparately, setShowSavingsSeparately] = useState<boolean>(false);
   const [showEstimatedBudgetAmounts, setShowEstimatedBudgetAmounts] = useState<boolean>(false);
+  const [isAdminMode, setIsAdminMode] = useState<boolean>(true);
   const [balanceType, setBalanceType] = useState<'starting' | 'closing'>('closing');
   const [monthFinalBalances, setMonthFinalBalances] = useState<{[key: string]: boolean}>({});
   
@@ -3683,6 +3684,24 @@ const BudgetCalculator = () => {
           </ToggleGroup>
         </div>
 
+        {/* Admin Mode Toggle */}
+        <div className="bg-muted/50 p-4 rounded-lg">
+          <h4 className="font-medium mb-3">Admin läge:</h4>
+          <ToggleGroup 
+            type="single" 
+            value={isAdminMode ? 'admin' : ''}
+            onValueChange={(value) => setIsAdminMode(value === 'admin')}
+            className="grid grid-cols-1 gap-2"
+          >
+            <ToggleGroupItem 
+              value="admin" 
+              className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+            >
+              Admin
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+
         {/* Chart */}
         <div className="h-96 relative">
           {hasInvalidRange ? (
@@ -4251,40 +4270,44 @@ const BudgetCalculator = () => {
             </div>
             
             {/* Save Current Month Button */}
-            <div className="flex justify-center mt-4">
-              <Button 
-                onClick={handleSaveCurrentMonthAsHistorical} 
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-2"
-              >
-                <Save className="h-4 w-4" />
-                Spara Denna Månad
-              </Button>
-            </div>
+            {isAdminMode && (
+              <div className="flex justify-center mt-4">
+                <Button 
+                  onClick={handleSaveCurrentMonthAsHistorical} 
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  <Save className="h-4 w-4" />
+                  Spara Denna Månad
+                </Button>
+              </div>
+            )}
             
             {/* Debug Toggle Button */}
-            <div className="flex justify-center mt-2 gap-2">
-              <Button 
-                onClick={() => setShowDebugPanel(!showDebugPanel)} 
-                variant="ghost"
-                size="sm"
-                className="text-xs"
-              >
-                {showDebugPanel ? 'Dölj' : 'Visa'} Debug Loggar
-              </Button>
-              <Button 
-                onClick={() => addDebugLog('[MANUAL] Visa alla tidigare loggar från start')} 
-                variant="ghost"
-                size="sm"
-                className="text-xs"
-              >
-                Uppdatera Loggar
-              </Button>
-            </div>
+            {isAdminMode && (
+              <div className="flex justify-center mt-2 gap-2">
+                <Button 
+                  onClick={() => setShowDebugPanel(!showDebugPanel)} 
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs"
+                >
+                  {showDebugPanel ? 'Dölj' : 'Visa'} Debug Loggar
+                </Button>
+                <Button 
+                  onClick={() => addDebugLog('[MANUAL] Visa alla tidigare loggar från start')} 
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs"
+                >
+                  Uppdatera Loggar
+                </Button>
+              </div>
+            )}
             
             {/* Debug Panel */}
-            {showDebugPanel && (
+            {isAdminMode && showDebugPanel && (
               <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
                 <h4 className="text-sm font-medium mb-2">Debug Loggar:</h4>
                 <div className="space-y-1 max-h-60 overflow-y-auto">
@@ -4708,81 +4731,83 @@ const BudgetCalculator = () => {
                                                       }
                                                     }
                                                    
-                                                   return (
-                                                     <div className="space-y-2 pt-2 border-t border-gray-200">
-                                                       <div className="flex justify-between items-center">
-                                                         <span className="text-sm font-medium text-green-700">Calc.Kontosaldo</span>
-                                                         <div className="flex items-center gap-2">
-                                                           <span className="w-32 text-right text-sm text-green-600">{formatCurrency(calcBalance || 0)}</span>
-                                                           <span className="text-sm text-green-600 min-w-8">kr</span>
-                                                         </div>
-                                                       </div>
-                                                       
-                                                        {/* Calc.Descr */}
-                                                        <div className="flex justify-between items-center">
-                                                          <span className="text-sm font-medium text-green-700">Calc.Descr</span>
-                                                          <div className="flex items-center gap-2">
-                                                            <span className="w-32 text-right text-sm text-green-600">
-                                                              {isUsingEstimated ? "(Est)" : ""}
-                                                            </span>
-                                                            <span className="text-sm text-green-600 min-w-8"></span>
+                                                    return (
+                                                      isAdminMode && (
+                                                        <div className="space-y-2 pt-2 border-t border-gray-200">
+                                                          <div className="flex justify-between items-center">
+                                                            <span className="text-sm font-medium text-green-700">Calc.Kontosaldo</span>
+                                                            <div className="flex items-center gap-2">
+                                                              <span className="w-32 text-right text-sm text-green-600">{formatCurrency(calcBalance || 0)}</span>
+                                                              <span className="text-sm text-green-600 min-w-8">kr</span>
+                                                            </div>
                                                           </div>
-                                                        </div>
-                                                        
-                                                        {/* Calc.diff */}
-                                                        <div className="flex justify-between items-center">
-                                                          <span className="text-sm font-medium text-green-700">Calc.diff</span>
-                                                          <div className="flex items-center gap-2">
-                                                            <span className="w-32 text-right text-sm text-green-600">
-                                                              {(() => {
-                                                                // If "Faktiskt kontosaldo" has a value (not "Ej ifyllt"):
-                                                                // Calc.diff = Faktiskt kontosaldo - Estimerat Slutsaldo
-                                                                // If "Faktiskt kontosaldo" is "Ej ifyllt": Calc.diff = 0
-                                                                if (hasActualBalance) {
-                                                                  const diff = currentBalance - estimatedBalance;
-                                                                  return formatCurrency(diff);
-                                                                } else {
-                                                                  return formatCurrency(0);
-                                                                }
-                                                              })()}
-                                                            </span>
-                                                            <span className="text-sm text-green-600 min-w-8">kr</span>
-                                                          </div>
-                                                         </div>
-                                                         
-                                                         {/* Calc.Est */}
-                                                         <div className="flex justify-between items-center">
-                                                           <span className="text-sm font-medium text-green-700">Calc.Est</span>
-                                                           <div className="flex items-center gap-2">
-                                                             <span className="w-32 text-right text-sm text-green-600">
-                                                               {(() => {
-                                                                 // Get previous month's ending balance for this account
-                                                                 const prevMonthInfo = getPreviousMonthInfo();
-                                                                 const prevMonthData = historicalData[prevMonthInfo.monthKey];
-                                                                 
-                                                                  if (prevMonthData && prevMonthData.accountEstimatedFinalBalances && prevMonthData.accountEstimatedFinalBalances[account] !== undefined) {
-                                                                    const prevEndingBalance = prevMonthData.accountEstimatedFinalBalances[account];
-                                                                   return formatCurrency(prevEndingBalance);
-                                                                 }
-                                                                 
-                                                                 // Fallback to formatted ending balance key if available
-                                                                 if (prevMonthData && prevMonthData.accountEndingBalances) {
-                                                                   const [prevYear, prevMonth] = prevMonthInfo.monthKey.split('-');
-                                                                   const endingBalanceKey = `${account}.${prevYear}.${prevMonth}.Endbalance`;
-                                                                   const prevEndingBalance = prevMonthData.accountEndingBalances[endingBalanceKey];
-                                                                   if (prevEndingBalance !== undefined) {
-                                                                     return formatCurrency(prevEndingBalance);
-                                                                   }
-                                                                 }
-                                                                 
-                                                                 return formatCurrency(0);
-                                                               })()}
-                                                             </span>
-                                                             <span className="text-sm text-green-600 min-w-8">kr</span>
+                                                          
+                                                           {/* Calc.Descr */}
+                                                           <div className="flex justify-between items-center">
+                                                             <span className="text-sm font-medium text-green-700">Calc.Descr</span>
+                                                             <div className="flex items-center gap-2">
+                                                               <span className="w-32 text-right text-sm text-green-600">
+                                                                 {isUsingEstimated ? "(Est)" : ""}
+                                                               </span>
+                                                               <span className="text-sm text-green-600 min-w-8"></span>
+                                                             </div>
                                                            </div>
-                                                         </div>
-                                                       </div>
-                                                    );
+                                                           
+                                                           {/* Calc.diff */}
+                                                           <div className="flex justify-between items-center">
+                                                             <span className="text-sm font-medium text-green-700">Calc.diff</span>
+                                                             <div className="flex items-center gap-2">
+                                                               <span className="w-32 text-right text-sm text-green-600">
+                                                                 {(() => {
+                                                                   // If "Faktiskt kontosaldo" has a value (not "Ej ifyllt"):
+                                                                   // Calc.diff = Faktiskt kontosaldo - Estimerat Slutsaldo
+                                                                   // If "Faktiskt kontosaldo" is "Ej ifyllt": Calc.diff = 0
+                                                                   if (hasActualBalance) {
+                                                                     const diff = currentBalance - estimatedBalance;
+                                                                     return formatCurrency(diff);
+                                                                   } else {
+                                                                     return formatCurrency(0);
+                                                                   }
+                                                                 })()}
+                                                               </span>
+                                                               <span className="text-sm text-green-600 min-w-8">kr</span>
+                                                             </div>
+                                                            </div>
+                                                            
+                                                            {/* Calc.Est */}
+                                                            <div className="flex justify-between items-center">
+                                                              <span className="text-sm font-medium text-green-700">Calc.Est</span>
+                                                              <div className="flex items-center gap-2">
+                                                                <span className="w-32 text-right text-sm text-green-600">
+                                                                  {(() => {
+                                                                    // Get previous month's ending balance for this account
+                                                                    const prevMonthInfo = getPreviousMonthInfo();
+                                                                    const prevMonthData = historicalData[prevMonthInfo.monthKey];
+                                                                    
+                                                                     if (prevMonthData && prevMonthData.accountEstimatedFinalBalances && prevMonthData.accountEstimatedFinalBalances[account] !== undefined) {
+                                                                       const prevEndingBalance = prevMonthData.accountEstimatedFinalBalances[account];
+                                                                      return formatCurrency(prevEndingBalance);
+                                                                    }
+                                                                    
+                                                                    // Fallback to formatted ending balance key if available
+                                                                    if (prevMonthData && prevMonthData.accountEndingBalances) {
+                                                                      const [prevYear, prevMonth] = prevMonthInfo.monthKey.split('-');
+                                                                      const endingBalanceKey = `${account}.${prevYear}.${prevMonth}.Endbalance`;
+                                                                      const prevEndingBalance = prevMonthData.accountEndingBalances[endingBalanceKey];
+                                                                      if (prevEndingBalance !== undefined) {
+                                                                        return formatCurrency(prevEndingBalance);
+                                                                      }
+                                                                    }
+                                                                    
+                                                                    return formatCurrency(0);
+                                                                  })()}
+                                                                </span>
+                                                                <span className="text-sm text-green-600 min-w-8">kr</span>
+                                                              </div>
+                                                            </div>
+                                                          </div>
+                                                      )
+                                                     );
                                                  })()}
                                              </div>
                                            </div>
@@ -6194,16 +6219,17 @@ const BudgetCalculator = () => {
 
 
                     {/* Account Summary with Dropdown */}
-                   <div className="p-4 bg-indigo-50 rounded-lg">
-                     <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('accountSummary')}>
-                       <div>
-                          <div className="text-sm text-muted-foreground">Överföring till konton</div>
-                          <div className="text-lg font-bold text-indigo-600">
-                            {accounts.length + 2} konton
-                          </div>
+                   {isAdminMode && (
+                     <div className="p-4 bg-indigo-50 rounded-lg">
+                       <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('accountSummary')}>
+                         <div>
+                            <div className="text-sm text-muted-foreground">Överföring till konton</div>
+                            <div className="text-lg font-bold text-indigo-600">
+                              {accounts.length + 2} konton
+                            </div>
+                         </div>
+                         {expandedSections.accountSummary ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                        </div>
-                       {expandedSections.accountSummary ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                     </div>
                      
                      {expandedSections.accountSummary && (
                        <div className="mt-4 space-y-4">
@@ -6342,20 +6368,22 @@ const BudgetCalculator = () => {
                            )}
                          </div>
                        </div>
-                     )}
-                    </div>
+                      )}
+                     </div>
+                   )}
 
-                    {/* Account Summary after transfers */}
-                    <div className="p-4 bg-indigo-50 rounded-lg">
-                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('finalAccountSummary')}>
-                        <div>
-                           <div className="text-sm text-muted-foreground">Kontosammanställning</div>
-                           <div className="text-lg font-bold text-indigo-600">
-                             {accounts.length + 2} konton efter överföring
+                     {/* Account Summary after transfers */}
+                     {isAdminMode && (
+                       <div className="p-4 bg-indigo-50 rounded-lg">
+                         <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('finalAccountSummary')}>
+                           <div>
+                              <div className="text-sm text-muted-foreground">Kontosammanställning</div>
+                              <div className="text-lg font-bold text-indigo-600">
+                                {accounts.length + 2} konton efter överföring
+                              </div>
                            </div>
-                        </div>
-                        {expandedSections.finalAccountSummary ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                      </div>
+                           {expandedSections.finalAccountSummary ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                         </div>
                       
                       {expandedSections.finalAccountSummary && (
                         <div className="mt-4 space-y-4">
@@ -6473,10 +6501,11 @@ const BudgetCalculator = () => {
                              </div>
                            </div>
                         </div>
-                      )}
-                    </div>
+                       )}
+                     </div>
+                     )}
 
-                    {/* Account Summary after cost budget */}
+                     {/* Account Summary after cost budget */}
                     <div className="p-4 bg-green-50 rounded-lg">
                       <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('accountSummaryCostBudget')}>
                         <div>
