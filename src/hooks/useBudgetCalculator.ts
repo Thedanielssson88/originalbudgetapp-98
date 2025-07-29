@@ -97,6 +97,9 @@ export const useBudgetCalculator = () => {
   const [isCreateMonthDialogOpen, setIsCreateMonthDialogOpen] = useState<boolean>(false);
   const [createMonthDirection, setCreateMonthDirection] = useState<'previous' | 'next'>('next');
   
+  // Add cost item dialog state
+  const [showAddCostDialog, setShowAddCostDialog] = useState<boolean>(false);
+  
   // Account balances state
   const [accountBalances, setAccountBalances] = useState<{[key: string]: number}>({});
   const [accountBalancesSet, setAccountBalancesSet] = useState<{[key: string]: boolean}>({});
@@ -313,6 +316,8 @@ export const useBudgetCalculator = () => {
     setIsCreateMonthDialogOpen,
     createMonthDirection,
     setCreateMonthDirection,
+    showAddCostDialog,
+    setShowAddCostDialog,
     accountBalances,
     setAccountBalances,
     accountBalancesSet,

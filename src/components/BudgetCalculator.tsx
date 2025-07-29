@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,6 +19,7 @@ import CreateMonthDialog from './CreateMonthDialog';
 import { CustomLineChart } from './CustomLineChart';
 import { AccountSelector } from '@/components/AccountSelector';
 import { MainCategoriesSettings } from '@/components/MainCategoriesSettings';
+import { AddCostItemDialog } from '@/components/AddCostItemDialog';
 import { calculateAccountEndBalances } from '../services/calculationService';
 import { 
   updateCostGroups,
@@ -194,6 +196,9 @@ const BudgetCalculator = () => {
   // Create month dialog state
   const [isCreateMonthDialogOpen, setIsCreateMonthDialogOpen] = useState<boolean>(false);
   const [createMonthDirection, setCreateMonthDirection] = useState<'previous' | 'next'>('next');
+  
+  // Add cost item dialog state
+  const [showAddCostDialog, setShowAddCostDialog] = useState<boolean>(false);
   
   // Account balances - läs direkt från central state (inga lokala useState längre)
   
@@ -1616,6 +1621,47 @@ const BudgetCalculator = () => {
     const currentDate = new Date();
     const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     resetMonthFinalBalancesFlag(currentMonthKey);
+  };
+
+  const handleAddCostItem = (item: {
+    mainCategory: string;
+    name: string;
+    amount: number;
+    account: string;
+    financedFrom: string;
+  }) => {
+    // Find existing group or create new one
+    let targetGroup = costGroups.find(group => group.name === item.mainCategory);
+    
+    if (!targetGroup) {
+      // Create new group
+      targetGroup = {
+        id: Date.now().toString(),
+        name: item.mainCategory,
+        amount: 0,
+        type: 'cost',
+        subCategories: []
+      };
+    }
+
+    // Add new subcategory
+    const newSubCategory = {
+      id: Date.now().toString() + '_sub',
+      name: item.name,
+      amount: item.amount,
+      account: item.account,
+      financedFrom: item.financedFrom
+    };
+
+    const updatedSubCategories = [...(targetGroup.subCategories || []), newSubCategory];
+    const updatedGroup = { ...targetGroup, subCategories: updatedSubCategories };
+
+    // Update cost groups
+    const updatedGroups = targetGroup.id 
+      ? costGroups.map(group => group.id === targetGroup!.id ? updatedGroup : group)
+      : [...costGroups, updatedGroup];
+
+    setCostGroups(updatedGroups);
   };
 
   const addSavingsGroup = () => {
@@ -5140,6 +5186,9 @@ const BudgetCalculator = () => {
                           <div className="flex justify-between items-center">
                             <h4 className="font-semibold">Kostnadskategorier</h4>
                             <div className="space-x-2">
+                              <Button size="sm" onClick={() => setShowAddCostDialog(true)}>
+                                <Plus className="w-4 h-4" />
+                              </Button>
                               <Button size="sm" onClick={() => setIsEditingCategories(!isEditingCategories)}>
                                 {isEditingCategories ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
                               </Button>
@@ -8978,6 +9027,16 @@ const BudgetCalculator = () => {
         historicalData={historicalData}
         availableMonths={availableMonths}
       />
+
+      {/* Add Cost Item Dialog */}
+      <AddCostItemDialog
+        isOpen={showAddCostDialog}
+        onClose={() => setShowAddCostDialog(false)}
+        onSave={handleAddCostItem}
+        mainCategories={budgetState.mainCategories || []}
+        accounts={accounts}
+      />
+      
       {/* Bottom padding for better visual spacing */}
       <div className="h-16"></div>
     </div>
