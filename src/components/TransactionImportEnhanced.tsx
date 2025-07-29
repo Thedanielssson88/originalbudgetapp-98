@@ -95,7 +95,9 @@ export const TransactionImportEnhanced: React.FC = () => {
 
   // CSV Parsing with enhanced logic
   const parseCSV = useCallback((csvContent: string, accountId: string, fileName: string): ImportedTransaction[] => {
-    const lines = csvContent.split('\n').filter(line => line.trim());
+    // Clean the CSV content by removing � characters
+    const cleanedContent = csvContent.replace(/�/g, '');
+    const lines = cleanedContent.split('\n').filter(line => line.trim());
     if (lines.length < 2) return [];
 
     const headers = lines[0].split(';').map(h => h.trim());
@@ -114,6 +116,18 @@ export const TransactionImportEnhanced: React.FC = () => {
     const balanceColumnIndex = headers.findIndex(h => 
       h.toLowerCase().includes('saldo') || h.toLowerCase().includes('balance')
     );
+    const categoryColumnIndex = headers.findIndex(h => 
+      h.toLowerCase().includes('kategori') && !h.toLowerCase().includes('under')
+    );
+    const subCategoryColumnIndex = headers.findIndex(h => 
+      h.toLowerCase().includes('underkategori') || h.toLowerCase().includes('subcategory')
+    );
+    const statusColumnIndex = headers.findIndex(h => 
+      h.toLowerCase().includes('status') || h.toLowerCase().includes('utförd') || h.toLowerCase().includes('utf')
+    );
+    const avstamtColumnIndex = headers.findIndex(h => 
+      h.toLowerCase().includes('avstämt') || h.toLowerCase().includes('avstämd') || h.toLowerCase().includes('av')
+    );
 
     for (let i = 1; i < lines.length; i++) {
       const fields = lines[i].split(';');
@@ -127,6 +141,8 @@ export const TransactionImportEnhanced: React.FC = () => {
           amount: amountColumnIndex >= 0 ? parseFloat(fields[amountColumnIndex].replace(',', '.')) : 0,
           balanceAfter: balanceColumnIndex >= 0 ? parseFloat(fields[balanceColumnIndex].replace(',', '.')) : undefined,
           description: descriptionColumnIndex >= 0 ? fields[descriptionColumnIndex] : fields[1] || '',
+          bankCategory: categoryColumnIndex >= 0 ? fields[categoryColumnIndex] : undefined,
+          bankSubCategory: subCategoryColumnIndex >= 0 ? fields[subCategoryColumnIndex] : undefined,
           type: 'Transaction',
           status: 'yellow', // Default status
           importedAt: new Date().toISOString(),

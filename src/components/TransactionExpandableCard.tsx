@@ -165,6 +165,21 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
 
                 {/* Right column */}
                 <div className="space-y-3">
+                  {/* Bank Category and Subcategory */}
+                  {(transaction.bankCategory || transaction.bankSubCategory) && (
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Bankkategori</label>
+                      <div className="space-y-1">
+                        {transaction.bankCategory && (
+                          <p className="text-sm">{transaction.bankCategory}</p>
+                        )}
+                        {transaction.bankSubCategory && (
+                          <p className="text-sm text-muted-foreground">{transaction.bankSubCategory}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <label className="text-xs font-medium text-muted-foreground">Typ</label>
                     <div>
