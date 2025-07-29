@@ -142,9 +142,7 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
               </SelectTrigger>
               <SelectContent className="bg-popover border border-border shadow-lg z-50">
                 <SelectItem value="Löpande kostnad">Löpande kostnad</SelectItem>
-                <SelectItem value="Gemensam kostnad">Gemensam kostnad</SelectItem>
-                <SelectItem value="Andreas personlig kostnad">Andreas personlig kostnad</SelectItem>
-                <SelectItem value="Susanna personlig kostnad">Susanna personlig kostnad</SelectItem>
+                <SelectItem value="Enskild kostnad">Enskild kostnad</SelectItem>
               </SelectContent>
             </Select>
           </div>
