@@ -222,7 +222,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                 </div>
               </div>
 
-              {transaction.balanceAfter !== undefined && (
+              {transaction.balanceAfter !== undefined && !isNaN(transaction.balanceAfter) && (
                 <div className="pt-2 border-t">
                   <label className="text-xs font-medium text-muted-foreground">Saldo efter transaktion</label>
                   <p className="text-sm font-medium">
