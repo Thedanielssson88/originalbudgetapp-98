@@ -12,7 +12,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight, Target } from 'lucide-react';
+import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight, Target, Receipt } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useSwipeGestures } from '@/hooks/useSwipeGestures';
 import { AccountDataTable, AccountDataRow } from '@/components/AccountDataTable';
@@ -5420,15 +5420,18 @@ const BudgetCalculator = () => {
                     {/* Total Costs with Dropdown */}
                     <div className="p-4 bg-destructive/10 rounded-lg">
                       <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('costCategories')}>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Totala kostnader</div>
-                          <div className="text-2xl font-bold text-destructive">
-                            {formatCurrency(costGroups.reduce((sum, group) => {
-                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                              return sum + subCategoriesTotal;
-                            }, 0))}
-                          </div>
-                        </div>
+                        <div className="flex items-center gap-2">
+                          <Receipt className="h-5 w-5 text-destructive" />
+                          <div>
+                            <div className="text-sm text-muted-foreground">Totala kostnader</div>
+                             <div className="text-2xl font-bold text-destructive">
+                               {formatCurrency(costGroups.reduce((sum, group) => {
+                                 const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                 return sum + subCategoriesTotal;
+                               }, 0))}
+                             </div>
+                           </div>
+                         </div>
                         {expandedSections.costCategories ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                       </div>
                       
