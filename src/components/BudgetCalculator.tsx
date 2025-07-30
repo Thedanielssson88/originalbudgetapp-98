@@ -361,9 +361,9 @@ const BudgetCalculator = () => {
   
   // Dynamisk filtrering av kategorier och konton baserat på aktiv användning
   const activeContent = useMemo(() => {
-    console.log('🔥🔥🔥 ACTIVEONTENT CALCULATION RUNNING 🔥🔥🔥');
-    console.log('🔥 Selected month key:', selectedMonthKey);
-    console.log('🔥 Available historical data months:', Object.keys(appHistoricalData));
+    console.log('🚨🚨🚨 ACTIVEONTENT CALCULATION RUNNING 🚨🚨🚨');
+    console.log('🚨 FORCED DEBUG - Selected month key:', selectedMonthKey);
+    console.log('🚨 FORCED DEBUG - Available historical data months:', Object.keys(appHistoricalData));
     
     // 1. Hämta alla budgetposter för den relevanta perioden
     const costItems = (currentMonthData as any).costItems || [];
@@ -371,9 +371,10 @@ const BudgetCalculator = () => {
     const budgetItems = [...costItems, ...savingsItems];
     
     // 2. Hämta transaktioner för perioden (25:e föregående månad till 24:e aktuell månad)
-    console.log('🔥 Calling getTransactionsForPeriod...');
+    console.log('🚨 FORCED DEBUG - Calling getTransactionsForPeriod...');
     const transactionsForPeriod = getTransactionsForPeriod(appHistoricalData, selectedMonthKey);
-    console.log('🔥 getTransactionsForPeriod returned:', transactionsForPeriod.length, 'transactions');
+    console.log('🚨 FORCED DEBUG - getTransactionsForPeriod returned:', transactionsForPeriod.length, 'transactions');
+    console.log('🚨 FORCED DEBUG - Sample transactions:', transactionsForPeriod.slice(0, 3).map(t => ({ id: t.id, accountId: t.accountId, amount: t.amount })));
     
     // 3. Samla alla unika ID:n för kategorier som används
     const activeMainCategoryIds = new Set<string>();
@@ -410,9 +411,12 @@ const BudgetCalculator = () => {
     });
     
     // Lägg till kontonamn från transaktioner
+    console.log('🚨 CRITICAL - Processing transactions for account names...');
     transactionsForPeriod.forEach(transaction => {
+      console.log('🚨 CRITICAL - Transaction found:', { accountId: transaction.accountId, amount: transaction.amount, date: transaction.date });
       if (transaction.accountId) { // Notera att fältet heter 'accountId' i Transactions
         activeAccountNames.add(transaction.accountId);
+        console.log('🚨 CRITICAL - Added account name:', transaction.accountId, 'to activeAccountNames');
       }
     });
     
@@ -433,10 +437,11 @@ const BudgetCalculator = () => {
       activeAccountNames.has(account.name)
     );
     
-    console.log('🔍 [FILTER DEBUG] Active main category IDs:', Array.from(activeMainCategoryIds));
-    console.log('🔍 [FILTER DEBUG] Active account names:', Array.from(activeAccountNames));
-    console.log('🔍 [FILTER DEBUG] Filtered active categories:', activeCategories);
-    console.log('🔍 [FILTER DEBUG] Filtered active accounts:', activeAccounts.map(a => a.name));
+    console.log('🚨🚨🚨 FINAL RESULTS 🚨🚨🚨');
+    console.log('🚨 Active account names found:', Array.from(activeAccountNames));
+    console.log('🚨 All available accounts in budgetState:', budgetState.accounts.map(a => ({ id: a.id, name: a.name })));
+    console.log('🚨 Final filtered active accounts:', activeAccounts.map(a => ({ id: a.id, name: a.name })));
+    console.log('🚨 Does Hushållskonto exist in budget state?', budgetState.accounts.find(a => a.name === 'Hushållskonto'));
     
     return { 
       activeCategories, 
