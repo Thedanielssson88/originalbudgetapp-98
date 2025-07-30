@@ -227,42 +227,68 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
         })}
 
         {/* Savings Goals at bottom for category view */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="text-lg">Sparmål</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {savingsGoals.length === 0 ? (
-              <div className="text-center text-muted-foreground py-8">
-                <div className="text-4xl mb-2">🎯</div>
-                <p>Inga sparmål skapade ännu</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {savingsGoals.map((goal) => (
-                  <div key={goal.id} className="border rounded-lg p-3 bg-green-50">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-medium">{goal.name}</h4>
-                        <p className="text-sm text-muted-foreground">
+        <div className="mt-6 pt-4 border-t border-green-200">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="font-semibold">Sparmål</h4>
+            <Button size="sm" variant="outline">
+              <Plus className="w-4 h-4 mr-1" />
+              Nytt mål
+            </Button>
+          </div>
+          
+          {savingsGoals.length === 0 ? (
+            <div className="text-center text-muted-foreground py-8">
+              <div className="text-4xl mb-2">🎯</div>
+              <p>Inga sparmål skapade ännu</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {savingsGoals.map((goal) => {
+                // Calculate monthly amount
+                const start = new Date(goal.startDate + '-01');
+                const end = new Date(goal.endDate + '-01');
+                const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
+                                   (end.getMonth() - start.getMonth()) + 1;
+                const monthlyAmount = goal.targetAmount / monthsDiff;
+                
+                // Calculate actual saved (placeholder for now)
+                const actualSaved = 0;
+                const totalProgress = Math.min((actualSaved / goal.targetAmount) * 100, 100);
+                
+                return (
+                  <div key={goal.id} className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-sm">{goal.name}</h4>
+                        <p className="text-xs text-muted-foreground">
                           {goal.accountId} • {goal.startDate} till {goal.endDate}
                         </p>
-                        <p className="text-sm">
-                          {(goal.targetAmount / 12).toLocaleString()} kr/mån
-                        </p>
-                        <p className="text-sm text-muted-foreground">0 kr sparat</p>
                       </div>
-                      <div className="text-right text-sm">
-                        <div>Total framsteg</div>
-                        <div>0.0% (0 kr / {goal.targetAmount.toLocaleString()} kr)</div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium text-green-600">
+                          {formatCurrency(monthlyAmount)}/mån
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatCurrency(actualSaved)} sparat
+                        </div>
                       </div>
                     </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs">
+                        <span>Total framsteg</span>
+                        <span>
+                          {totalProgress.toFixed(1)}% ({formatCurrency(actualSaved)} / {formatCurrency(goal.targetAmount)})
+                        </span>
+                      </div>
+                      <Progress value={totalProgress} className="h-2" />
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -364,24 +390,49 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
                     <div className="border-t pt-3">
                       <h5 className="font-medium text-sm mb-2">Sparmål</h5>
                       <div className="space-y-2">
-                        {accountGoals.map((goal) => (
-                          <div key={goal.id} className="p-2 bg-green-50 rounded text-sm">
-                            <div className="flex justify-between">
-                              <div>
-                                <div className="font-medium">{goal.name}</div>
-                                <div className="text-muted-foreground">
-                                  {goal.startDate} - {goal.endDate}
+                        {accountGoals.map((goal) => {
+                          // Calculate monthly amount
+                          const start = new Date(goal.startDate + '-01');
+                          const end = new Date(goal.endDate + '-01');
+                          const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
+                                             (end.getMonth() - start.getMonth()) + 1;
+                          const monthlyAmount = goal.targetAmount / monthsDiff;
+                          
+                          // Calculate actual saved (placeholder for now)
+                          const actualSaved = 0;
+                          const totalProgress = Math.min((actualSaved / goal.targetAmount) * 100, 100);
+                          
+                          return (
+                            <div key={goal.id} className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex-1">
+                                  <div className="font-medium text-sm">{goal.name}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {goal.startDate} - {goal.endDate}
+                                  </div>
                                 </div>
-                                <div>{(goal.targetAmount / 12).toLocaleString()} kr/mån</div>
-                                <div className="text-muted-foreground">0 kr sparat</div>
+                                <div className="text-right">
+                                  <div className="text-sm font-medium text-green-600">
+                                    {formatCurrency(monthlyAmount)}/mån
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {formatCurrency(actualSaved)} sparat
+                                  </div>
+                                </div>
                               </div>
-                              <div className="text-right">
-                                <div>Total framsteg</div>
-                                <div>0.0% (0 kr / {goal.targetAmount.toLocaleString()} kr)</div>
+                              
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-xs">
+                                  <span>Total framsteg</span>
+                                  <span>
+                                    {totalProgress.toFixed(1)}% ({formatCurrency(actualSaved)} / {formatCurrency(goal.targetAmount)})
+                                  </span>
+                                </div>
+                                <Progress value={totalProgress} className="h-2" />
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
