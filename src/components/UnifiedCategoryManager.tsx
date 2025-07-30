@@ -7,11 +7,11 @@ import { Trash2, Plus, Edit, Save, X, ChevronDown, ChevronUp } from 'lucide-reac
 import { setMainCategories } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
 
-interface MainCategoriesSettingsProps {
+interface UnifiedCategoryManagerProps {
   mainCategories: string[];
 }
 
-export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ mainCategories }) => {
+export const UnifiedCategoryManager: React.FC<UnifiedCategoryManagerProps> = ({ mainCategories }) => {
   const [categories, setCategories] = useState<string[]>(mainCategories);
   const [newCategory, setNewCategory] = useState('');
   const [editingIndex, setEditingIndex] = useState<number | null>(null);

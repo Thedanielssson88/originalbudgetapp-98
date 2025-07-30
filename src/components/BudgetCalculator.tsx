@@ -8741,7 +8741,6 @@ const BudgetCalculator = () => {
               {/* Main Categories Settings */}
               <MainCategoriesSettings 
                 mainCategories={budgetState.mainCategories || []} 
-                costGroups={(currentMonthData as any)?.costGroups || []}
               />
 
               {/* User Names Settings */}

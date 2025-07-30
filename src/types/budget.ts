@@ -51,11 +51,7 @@ export interface SavingsGoal {
   endDate: string; // YYYY-MM
 }
 
-export interface CategoryLink {
-  mainCategory: string;
-  subcategory?: string; // If not specified, applies to all subcategories in the main category
-  budgetCategoryId: string; // ID of the BudgetGroup (cost category)
-}
+// CategoryLink interface removed - using unified category system
 
 export interface BudgetResults {
   totalSalary: number;
@@ -168,9 +164,8 @@ export interface BudgetState {
     showEstimatedBudgetAmounts: boolean;
   };
   
-  // Main categories for cost groups
+  // Main categories for all groups (costs, savings, transactions)
   mainCategories: string[];
-  categoryLinks: CategoryLink[]; // Links between main categories/subcategories and budget categories
   
   // Transaction import state
   transactionImport: {

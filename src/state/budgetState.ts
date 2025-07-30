@@ -50,9 +50,8 @@ export const state: AppState = {
       showEstimatedBudgetAmounts: false
     },
     
-    // Main categories for cost groups
+    // Main categories for all groups (costs, savings, transactions)
     mainCategories: ['Hushåll', 'Mat & Kläder', 'Transport'],
-    categoryLinks: [], // Links between main categories/subcategories and budget categories
     
     // Transaction import state
     transactionImport: {
