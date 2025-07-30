@@ -4,7 +4,7 @@ import { SubCategory, Transaction } from '../types/budget';
  * Räknar antalet överföringsdagar för en given månad baserat på valda veckodagar
  * Använder datumperiod från 25:e föregående månad till 24:e aktuell månad
  */
-export const getNumberOfTransferDaysInMonth = (monthKey: string, transferDays: number[]): number => {
+export const getNumberOfTransferDaysInMonth = (monthKey: string, transferDays: (number | string)[]): number => {
   const [year, month] = monthKey.split('-').map(Number);
   
   // Beräkna startdatum (25:e föregående månad)
@@ -19,13 +19,16 @@ export const getNumberOfTransferDaysInMonth = (monthKey: string, transferDays: n
   // Beräkna slutdatum (24:e aktuell månad)
   const endDate = new Date(year, month - 1, 24); // 24:e aktuell månad
   
+  // Säkerhetsåtgärd: Konvertera alla element till tal för säker jämförelse
+  const numericTransferDays = transferDays.map(Number);
+  
   let count = 0;
   const currentDate = new Date(startDate);
   
   while (currentDate <= endDate) {
     const dayOfWeek = currentDate.getDay(); // 0 = Söndag, 1 = Måndag, etc.
     
-    if (transferDays.includes(dayOfWeek)) {
+    if (numericTransferDays.includes(dayOfWeek)) {
       count++;
     }
     
@@ -88,13 +91,16 @@ export const calculateEstimatedToDate = (
     return calculateMonthlyAmountForDailyTransfer(subcategory, monthKey);
   }
   
+  // Säkerhetsåtgärd: Konvertera alla element till tal för säker jämförelse
+  const numericTransferDays = subcategory.transferDays.map(Number);
+  
   let count = 0;
   const currentDate = new Date(startDate);
   
   while (currentDate <= endDate) {
     const dayOfWeek = currentDate.getDay();
     
-    if (subcategory.transferDays.includes(dayOfWeek)) {
+    if (numericTransferDays.includes(dayOfWeek)) {
       count++;
     }
     
