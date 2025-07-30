@@ -105,6 +105,7 @@ interface BudgetGroup {
 const BudgetCalculator = () => {
   console.log('🔥 [COMPONENT] BudgetCalculator component is starting!');
   console.log('🔥 [COMPONENT] BudgetCalculator component is starting!'); // Duplicate for visibility
+  console.log('🔥🔥🔥 FORCING BUDGET CALCULATOR TO LOG 🔥🔥🔥');
   // Use the original useBudget hook - fix hook ordering instead
   const { isLoading, budgetState, calculated } = useBudget();
   
@@ -360,13 +361,19 @@ const BudgetCalculator = () => {
   
   // Dynamisk filtrering av kategorier och konton baserat på aktiv användning
   const activeContent = useMemo(() => {
+    console.log('🔥🔥🔥 ACTIVEONTENT CALCULATION RUNNING 🔥🔥🔥');
+    console.log('🔥 Selected month key:', selectedMonthKey);
+    console.log('🔥 Available historical data months:', Object.keys(appHistoricalData));
+    
     // 1. Hämta alla budgetposter för den relevanta perioden
     const costItems = (currentMonthData as any).costItems || [];
     const savingsItems = (currentMonthData as any).savingsItems || [];
     const budgetItems = [...costItems, ...savingsItems];
     
     // 2. Hämta transaktioner för perioden (25:e föregående månad till 24:e aktuell månad)
+    console.log('🔥 Calling getTransactionsForPeriod...');
     const transactionsForPeriod = getTransactionsForPeriod(appHistoricalData, selectedMonthKey);
+    console.log('🔥 getTransactionsForPeriod returned:', transactionsForPeriod.length, 'transactions');
     
     // 3. Samla alla unika ID:n för kategorier som används
     const activeMainCategoryIds = new Set<string>();

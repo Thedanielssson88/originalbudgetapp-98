@@ -441,6 +441,7 @@ export function getTransactionsForPeriod(
   selectedMonthKey: string
 ): any[] {
   console.log(`[getTransactionsForPeriod] Looking for transactions in period for month: ${selectedMonthKey}`);
+  console.log(`[getTransactionsForPeriod] FORCED DEBUG - Starting transaction search...`);
   const allTransactions: any[] = [];
   
   // Parse the selected month
