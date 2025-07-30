@@ -50,12 +50,24 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
 
   useEffect(() => {
     const loadedSubcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
+    console.log('AddCostItemDialog: Loading subcategories:', loadedSubcategories);
     setSubcategories(loadedSubcategories);
   }, []);
 
+  // Reload subcategories when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      const loadedSubcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
+      console.log('AddCostItemDialog: Reloading subcategories on dialog open:', loadedSubcategories);
+      setSubcategories(loadedSubcategories);
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (formData.mainCategory) {
-      setAvailableSubcategories(subcategories[formData.mainCategory] || []);
+      const available = subcategories[formData.mainCategory] || [];
+      console.log(`AddCostItemDialog: Setting subcategories for ${formData.mainCategory}:`, available);
+      setAvailableSubcategories(available);
       setFormData(prev => ({ ...prev, subcategory: '' }));
     } else {
       setAvailableSubcategories([]);
