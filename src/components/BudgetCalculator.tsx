@@ -5420,19 +5420,21 @@ const BudgetCalculator = () => {
                     {/* Total Costs with Dropdown */}
                     <div className="p-4 bg-destructive/10 rounded-lg">
                       <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('costCategories')}>
+                        <div>
+                          <div className="text-sm text-muted-foreground">Totala kostnader</div>
+                          <div className="text-2xl font-bold text-destructive">
+                            {formatCurrency(costGroups.reduce((sum, group) => {
+                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                              return sum + subCategoriesTotal;
+                            }, 0))}
+                          </div>
+                        </div>
                         <div className="flex items-center gap-2">
-                          <DollarSign className="h-5 w-5 text-destructive" />
-                          <div>
-                            <div className="text-sm text-muted-foreground">Totala kostnader</div>
-                             <div className="text-2xl font-bold text-destructive">
-                               {formatCurrency(costGroups.reduce((sum, group) => {
-                                 const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                 return sum + subCategoriesTotal;
-                               }, 0))}
-                             </div>
-                           </div>
-                         </div>
-                        {expandedSections.costCategories ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                          <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                            <DollarSign className="h-5 w-5 text-red-600" />
+                          </div>
+                          {expandedSections.costCategories ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                        </div>
                       </div>
                       
                       {expandedSections.costCategories && (
