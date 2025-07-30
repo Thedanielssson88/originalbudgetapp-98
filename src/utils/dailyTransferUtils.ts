@@ -49,12 +49,17 @@ export const calculateMonthlyAmountForDailyTransfer = (
   subcategory: SubCategory, 
   monthKey: string
 ): number => {
+  console.log(`🔍 [DEBUG] calculateMonthlyAmountForDailyTransfer called for subcategory:`, subcategory.name, `transferType:`, subcategory.transferType, `dailyAmount:`, subcategory.dailyAmount, `transferDays:`, subcategory.transferDays);
+  
   if (subcategory.transferType !== 'daily' || !subcategory.dailyAmount || !subcategory.transferDays) {
+    console.log(`🔍 [DEBUG] Not a daily transfer, returning regular amount:`, subcategory.amount);
     return subcategory.amount;
   }
   
   const transferDaysCount = getNumberOfTransferDaysInMonth(monthKey, subcategory.transferDays);
-  return subcategory.dailyAmount * transferDaysCount;
+  const result = subcategory.dailyAmount * transferDaysCount;
+  console.log(`🔍 [DEBUG] Daily transfer calculation: ${subcategory.dailyAmount} × ${transferDaysCount} = ${result}`);
+  return result;
 };
 
 /**
