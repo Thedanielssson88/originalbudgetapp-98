@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -359,12 +359,14 @@ export const TransactionImportEnhanced: React.FC = () => {
 
   // Get main categories from actual budget data - use the same as MainCategoriesSettings
   const mainCategories = budgetState?.mainCategories || [];
-  const subCategories = {
-    'Hushåll': ['Hyra', 'El', 'Internet', 'Försäkringar'],
-    'Mat & Kläder': ['Dagligvaror', 'Restaurang', 'Kläder'],
-    'Transport': ['Bensin', 'Kollektivtrafik', 'Bilservice'],
-    'Sparande': ['Långsiktigt', 'Buffert', 'Semester']
-  };
+  
+  // Get subcategories from storage - same as UnifiedCategoryManager
+  const [subcategoriesFromStorage, setSubcategoriesFromStorage] = useState<Record<string, string[]>>({});
+  
+  useEffect(() => {
+    const loadedSubcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
+    setSubcategoriesFromStorage(loadedSubcategories);
+  }, []);
 
   // CSV Parsing with enhanced logic
   const parseCSV = useCallback((csvContent: string, accountId: string, fileName: string): ImportedTransaction[] => {
@@ -1208,10 +1210,9 @@ export const TransactionImportEnhanced: React.FC = () => {
     });
   };
 
-  // Get subcategories for selected main category
-  const getSubCategoriesForMainCategory = (mainCategoryId: string) => {
-    const mainCategory = costGroups.find(g => g.id === mainCategoryId);
-    return mainCategory?.subCategories || [];
+  // Get subcategories for selected main category from storage
+  const getSubCategoriesForMainCategory = (mainCategoryName: string) => {
+    return subcategoriesFromStorage[mainCategoryName] || [];
   };
 
   const renderRulesContent = () => (
@@ -1336,9 +1337,9 @@ export const TransactionImportEnhanced: React.FC = () => {
                   <SelectValue placeholder="Välj kategori" />
                 </SelectTrigger>
                 <SelectContent>
-                  {costGroups.map(group => (
-                    <SelectItem key={group.id} value={group.id}>
-                      {group.name}
+                  {mainCategories.map(category => (
+                    <SelectItem key={category} value={category}>
+                      {category}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1357,8 +1358,8 @@ export const TransactionImportEnhanced: React.FC = () => {
                   <SelectContent>
                     <SelectItem value="none">Ingen underkategori</SelectItem>
                     {getSubCategoriesForMainCategory(newRule.appCategoryId).map(subCat => (
-                      <SelectItem key={subCat.id} value={subCat.id}>
-                        {subCat.name}
+                      <SelectItem key={subCat} value={subCat}>
+                        {subCat}
                       </SelectItem>
                     ))}
                   </SelectContent>
