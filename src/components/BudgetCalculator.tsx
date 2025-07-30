@@ -7006,9 +7006,14 @@ const BudgetCalculator = () => {
                               
                               // Add savings goals monthly amount for this account
                               const savingsGoalsMonthlyAmount = budgetState.savingsGoals.reduce((sum, goal) => {
-                                // More flexible account matching - try both ID and name
-                                const accountObj = budgetState.accounts.find(acc => acc.name === account);
-                                const accountMatches = accountObj && (goal.accountId === accountObj.id || goal.accountId === account);
+                                // Try direct account name matching first (in case accountId was set to account name)
+                                let accountMatches = goal.accountId === account;
+                                
+                                // Then try ID matching
+                                if (!accountMatches) {
+                                  const accountObj = budgetState.accounts.find(acc => acc.name === account);
+                                  accountMatches = accountObj && goal.accountId === accountObj.id;
+                                }
                                 
                                 if (accountMatches) {
                                   const start = new Date(goal.startDate + '-01');
@@ -7127,11 +7132,16 @@ const BudgetCalculator = () => {
                                       {/* Individual savings goals for this account */}
                                       {budgetState.savingsGoals
                                         .filter(goal => {
-                                          // More flexible account matching - try both ID and name
-                                          const accountObj = budgetState.accounts.find(acc => acc.name === account);
-                                          const accountMatches = accountObj && (goal.accountId === accountObj.id || goal.accountId === account);
-                                          if (!accountMatches) return false;
+                                          // Try direct account name matching first (in case accountId was set to account name)
+                                          if (goal.accountId === account) return true;
                                           
+                                          // Then try ID matching
+                                          const accountObj = budgetState.accounts.find(acc => acc.name === account);
+                                          if (accountObj && goal.accountId === accountObj.id) return true;
+                                          
+                                          return false;
+                                        })
+                                        .filter(goal => {
                                           const start = new Date(goal.startDate + '-01');
                                           const end = new Date(goal.endDate + '-01');
                                           const currentMonthDate = new Date(selectedBudgetMonth + '-01');
