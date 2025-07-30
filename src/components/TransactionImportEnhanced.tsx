@@ -824,6 +824,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                     selectedTransactions={selectedTransactions}
                     mainCategories={mainCategories}
                     accounts={accounts}
+                    costGroups={costGroups}
                     onToggleSelection={toggleTransactionSelection}
                     onUpdateCategory={updateTransactionCategory}
                     onUpdateNote={updateTransactionNote}

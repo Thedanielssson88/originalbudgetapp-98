@@ -14,6 +14,7 @@ interface TransactionExpandableCardProps {
   account: { id: string; name: string; startBalance: number } | undefined;
   isSelected: boolean;
   mainCategories: string[];
+  costGroups?: { id: string; name: string }[];
   onToggleSelection: (id: string) => void;
   onUpdateCategory: (id: string, category: string) => void;
   onUpdateNote: (id: string, note: string) => void;
@@ -24,6 +25,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   account,
   isSelected,
   mainCategories,
+  costGroups = [],
   onToggleSelection,
   onUpdateCategory,
   onUpdateNote
@@ -194,8 +196,16 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                      <Select
                        value={(() => {
                          // Convert stored ID back to category name for display
-                         // For now, just use the stored value since we need to update the parent component's logic
-                         return transaction.appCategoryId || '';
+                         if (transaction.appCategoryId) {
+                           // Check if the stored value is already a name (for backwards compatibility)
+                           if (mainCategories.includes(transaction.appCategoryId)) {
+                             return transaction.appCategoryId;
+                           }
+                           // Convert ID to name using cost groups
+                           const costGroup = costGroups.find(group => group.id === transaction.appCategoryId);
+                           return costGroup ? costGroup.name : '';
+                         }
+                         return '';
                        })()}
                        onValueChange={(value) => onUpdateCategory(transaction.id, value)}
                      >
