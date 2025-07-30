@@ -1827,12 +1827,18 @@ const BudgetCalculator = () => {
     console.log('🔍 [DEBUG] handleAddCostItem called with:', item);
     console.log('🔍 [DEBUG] Current costGroups before addition:', costGroups);
     
+    // Create a working copy of costGroups that we can modify
+    const currentCostGroups = [...costGroups];
+    
     // Find existing group or create new one
-    let targetGroup = costGroups.find(group => group.name === item.mainCategory);
+    let targetGroup = currentCostGroups.find(group => group.name === item.mainCategory);
     console.log('🔍 [DEBUG] Found target group:', targetGroup);
     
+    // --- NEW ROBUST LOGIC STARTS HERE ---
+    
+    // 1. Create main category if it doesn't exist
     if (!targetGroup) {
-      // Create new group
+      console.log(`Huvudkategori '${item.mainCategory}' hittades inte, skapar en ny.`);
       targetGroup = {
         id: Date.now().toString(),
         name: item.mainCategory,
@@ -1840,7 +1846,10 @@ const BudgetCalculator = () => {
         type: 'cost',
         subCategories: []
       };
+      currentCostGroups.push(targetGroup); // Add the new group to the list
     }
+    
+    // --- END OF NEW LOGIC ---
 
     // Calculate the correct amount based on transfer type
     let calculatedAmount = item.amount;
@@ -1859,7 +1868,7 @@ const BudgetCalculator = () => {
       console.log(`🔍 [DEBUG] Calculated amount for daily transfer: ${calculatedAmount} (dailyAmount: ${item.dailyAmount}, transferDays: ${item.transferDays})`);
     }
 
-    // Add new subcategory
+    // Create the new subcategory (cost item)
     const newSubCategory = {
       id: Date.now().toString() + '_sub',
       name: `${item.subcategory}: ${item.name}`,
@@ -1871,17 +1880,18 @@ const BudgetCalculator = () => {
       transferDays: item.transferDays
     };
 
+    // Update subcategories for the target group
     const updatedSubCategories = [...(targetGroup.subCategories || []), newSubCategory];
     const updatedGroup = { ...targetGroup, subCategories: updatedSubCategories };
 
-    // Update cost groups
-    const updatedGroups = targetGroup.id 
-      ? costGroups.map(group => group.id === targetGroup!.id ? updatedGroup : group)
-      : [...costGroups, updatedGroup];
+    // Create the final updated list with all cost groups
+    const finalGroups = currentCostGroups.map(group => 
+      group.id === targetGroup!.id ? updatedGroup : group
+    );
 
-    console.log('🔍 [DEBUG] Updated groups after addition:', updatedGroups);
-    console.log('🔍 [DEBUG] About to call updateCostGroups with:', updatedGroups);
-    updateCostGroups(updatedGroups);
+    console.log('🔍 [DEBUG] Final groups after addition:', finalGroups);
+    console.log('🔍 [DEBUG] About to call updateCostGroups with:', finalGroups);
+    updateCostGroups(finalGroups);
     console.log('🔍 [DEBUG] updateCostGroups called successfully');
     
     // Reset MonthFinalBalances flag when manual values are changed

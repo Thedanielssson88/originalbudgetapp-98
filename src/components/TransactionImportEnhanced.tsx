@@ -44,7 +44,7 @@ import { ImportedTransaction, CategoryRule, FileStructure, ColumnMapping } from 
 import { TransactionExpandableCard } from './TransactionExpandableCard';
 import { TransactionGroupByDate } from './TransactionGroupByDate';
 import { useBudget } from '@/hooks/useBudget';
-import { setTransactionsForCurrentMonth, addCategoryRule, updateCategoryRule, deleteCategoryRule } from '../orchestrator/budgetOrchestrator';
+import { setTransactionsForCurrentMonth, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState, setMainCategories } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
 
@@ -943,13 +943,39 @@ export const TransactionImportEnhanced: React.FC = () => {
   };
 
   const updateTransactionCategory = (transactionId: string, categoryName: string, subCategoryId?: string) => {
-    // 🔥 CRITICAL FIX: Convert category name to category ID
-    const category = costGroups.find(group => group.name === categoryName);
-    const categoryId = category ? category.id : categoryName; // Fallback to name if not found
+    // Get the current list of cost groups from the budget state
+    const currentCostGroups = [...costGroups];
+    
+    // Find the selected main category
+    let targetGroup = currentCostGroups.find(group => group.name === categoryName);
+
+    // --- NEW ROBUST LOGIC STARTS HERE ---
+
+    // 1. Create main category if it doesn't exist
+    if (!targetGroup) {
+      console.log(`Huvudkategori '${categoryName}' hittades inte för denna månad, skapar den.`);
+      targetGroup = {
+        id: Date.now().toString(),
+        name: categoryName,
+        amount: 0,
+        type: 'cost',
+        subCategories: []
+      };
+      currentCostGroups.push(targetGroup);
+      
+      // Save the updated list with the new main category
+      updateCostGroups(currentCostGroups); 
+    }
+
+    // --- END OF NEW LOGIC ---
+
+    // Find ID for the now guaranteed existing category
+    const categoryId = targetGroup.id;
     
     console.log(`🔥 [CATEGORY FIX] Converting category name "${categoryName}" to ID "${categoryId}"`);
-    console.log(`🔥 [CATEGORY FIX] Available cost groups:`, costGroups.map(g => ({id: g.id, name: g.name})));
+    console.log(`🔥 [CATEGORY FIX] Available cost groups:`, currentCostGroups.map(g => ({id: g.id, name: g.name})));
     
+    // Update transaction with correct category ID
     setTransactions(prev => {
       const updatedTransactions = prev.map(t => 
         t.id === transactionId 
