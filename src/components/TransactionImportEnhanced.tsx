@@ -30,13 +30,20 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, CheckCircle, FileText, Settings, AlertCircle, Circle, CheckSquare, AlertTriangle } from 'lucide-react';
 import { ImportedTransaction, CategoryRule, FileStructure, ColumnMapping } from '@/types/transaction';
 import { TransactionExpandableCard } from './TransactionExpandableCard';
 import { TransactionGroupByDate } from './TransactionGroupByDate';
 import { useBudget } from '@/hooks/useBudget';
-import { setTransactionsForCurrentMonth } from '../orchestrator/budgetOrchestrator';
+import { setTransactionsForCurrentMonth, addCategoryRule, updateCategoryRule, deleteCategoryRule } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState } from '../orchestrator/budgetOrchestrator';
 
 interface Account {
@@ -61,7 +68,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<'upload' | 'mapping' | 'categorization'>('upload');
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [fileStructures, setFileStructures] = useState<FileStructure[]>([]);
-  const [categoryRules, setCategoryRules] = useState<CategoryRule[]>([]);
+  // Remove local categoryRules state - now using budgetState
   const [transactions, setTransactions] = useState<ImportedTransaction[]>([]);
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
   const [activeTransactionTab, setActiveTransactionTab] = useState<'all' | 'account'>('all');
@@ -84,6 +91,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   // Get budget data to access cost groups and their IDs
   const { budgetState } = useBudget();
   const costGroups = budgetState?.historicalData?.[budgetState.selectedMonthKey]?.costGroups || [];
+  const categoryRulesFromState = budgetState?.transactionImport?.categoryRules || [];
 
   // Mock data - should come from context/props
   const accounts: Account[] = [
@@ -391,7 +399,7 @@ export const TransactionImportEnhanced: React.FC = () => {
         if (transaction.isManuallyChanged) return transaction; // Don't override manual changes
 
         // Find matching rule
-        const matchingRule = categoryRules
+        const matchingRule = categoryRulesFromState
           .filter(rule => rule.isActive)
           .sort((a, b) => b.priority - a.priority) // Higher priority first
           .find(rule => {
@@ -421,7 +429,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     
     return updatedTransactions;
   });
-  }, [categoryRules]);
+  }, [categoryRulesFromState]);
 
   const autoMatchTransfers = useCallback(() => {
     const transfers = transactions.filter(t => t.type === 'InternalTransfer' && !t.linkedTransactionId);
@@ -853,6 +861,286 @@ export const TransactionImportEnhanced: React.FC = () => {
     </div>
   );
 
+  // Rules management logic
+  const [isAddingRule, setIsAddingRule] = useState(false);
+  const [newRule, setNewRule] = useState<{
+    bankCategory: string;
+    bankSubCategory: string;
+    appCategoryId: string;
+    appSubCategoryId?: string;
+    transactionType: 'Transaction' | 'InternalTransfer';
+  }>({
+    bankCategory: '',
+    bankSubCategory: '',
+    appCategoryId: '',
+    transactionType: 'Transaction'
+  });
+
+  // Get unique bank categories from transactions
+  const getUniqueBankCategories = () => {
+    const uniqueCategories = new Map<string, { main: string; sub: string; count: number }>();
+    
+    transactions.forEach(transaction => {
+      if (transaction.bankCategory) {
+        const key = `${transaction.bankCategory}|${transaction.bankSubCategory || ''}`;
+        const existing = uniqueCategories.get(key);
+        if (existing) {
+          existing.count++;
+        } else {
+          uniqueCategories.set(key, {
+            main: transaction.bankCategory,
+            sub: transaction.bankSubCategory || '',
+            count: 1
+          });
+        }
+      }
+    });
+    
+    return Array.from(uniqueCategories.values());
+  };
+
+  // Separate uncategorized from existing rules
+  const allBankCategories = getUniqueBankCategories();
+  const uncategorized = allBankCategories.filter(bankCat => 
+    !categoryRulesFromState.some(rule => 
+      rule.bankCategory === bankCat.main && 
+      (rule.bankSubCategory || '') === bankCat.sub
+    )
+  );
+
+  const handleAddRule = () => {
+    if (!newRule.bankCategory || !newRule.appCategoryId) {
+      toast({
+        title: "Fel",
+        description: "Bankkategori och appkategori måste väljas",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    addCategoryRule({
+      bankCategory: newRule.bankCategory,
+      bankSubCategory: newRule.bankSubCategory,
+      appCategoryId: newRule.appCategoryId,
+      appSubCategoryId: newRule.appSubCategoryId,
+      transactionType: newRule.transactionType,
+      priority: 1,
+      isActive: true
+    });
+
+    // Reset form
+    setNewRule({
+      bankCategory: '',
+      bankSubCategory: '',
+      appCategoryId: '',
+      transactionType: 'Transaction'
+    });
+    setIsAddingRule(false);
+
+    toast({
+      title: "Regel skapad",
+      description: "Den nya kategoriseringsregeln har sparats"
+    });
+  };
+
+  const handleDeleteRule = (ruleId: string) => {
+    deleteCategoryRule(ruleId);
+    toast({
+      title: "Regel borttagen",
+      description: "Kategoriseringsregeln har tagits bort"
+    });
+  };
+
+  // Get subcategories for selected main category
+  const getSubCategoriesForMainCategory = (mainCategoryId: string) => {
+    const mainCategory = costGroups.find(g => g.id === mainCategoryId);
+    return mainCategory?.subCategories || [];
+  };
+
+  const renderRulesContent = () => (
+    <div className="space-y-4">
+      <Accordion type="single" collapsible defaultValue="item-1">
+        <AccordionItem value="item-1">
+          <AccordionTrigger>
+            Okategoriserade ({uncategorized.length})
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-4">
+              {uncategorized.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Alla bankkategorier har redan regler konfigurerade.
+                </p>
+              ) : (
+                <>
+                  {uncategorized.map((bankCat, index) => (
+                    <div key={`${bankCat.main}-${bankCat.sub}-${index}`} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <div className="font-medium">{bankCat.main}</div>
+                        {bankCat.sub && (
+                          <div className="text-sm text-muted-foreground">{bankCat.sub}</div>
+                        )}
+                        <div className="text-xs text-muted-foreground">{bankCat.count} transaktioner</div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setNewRule({
+                            bankCategory: bankCat.main,
+                            bankSubCategory: bankCat.sub,
+                            appCategoryId: '',
+                            transactionType: 'Transaction'
+                          });
+                          setIsAddingRule(true);
+                        }}
+                      >
+                        Skapa regel
+                      </Button>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem value="item-2">
+          <AccordionTrigger>
+            Befintliga regler ({categoryRulesFromState.length})
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-4">
+              {categoryRulesFromState.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Inga regler har skapats ännu.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {categoryRulesFromState.map((rule) => {
+                    const appCategory = costGroups.find(g => g.id === rule.appCategoryId);
+                    const appSubCategory = appCategory?.subCategories?.find(s => s.id === rule.appSubCategoryId);
+                    
+                    return (
+                      <div key={rule.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="outline">{rule.bankCategory}</Badge>
+                            {rule.bankSubCategory && (
+                              <Badge variant="secondary">{rule.bankSubCategory}</Badge>
+                            )}
+                            <span className="text-sm text-muted-foreground">→</span>
+                            <Badge>{appCategory?.name || rule.appCategoryId}</Badge>
+                            {appSubCategory && (
+                              <Badge variant="secondary">{appSubCategory.name}</Badge>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Typ: {rule.transactionType === 'Transaction' ? 'Transaktion' : 'Överföring'}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteRule(rule.id)}
+                        >
+                          Ta bort
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+
+      <div className="flex justify-center pt-4">
+        <Button onClick={applyCategorizationRules} variant="outline">
+          Tillämpa alla regler
+        </Button>
+      </div>
+
+      {/* Add Rule Dialog */}
+      <Dialog open={isAddingRule} onOpenChange={setIsAddingRule}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Skapa ny kategoriseringsregel</DialogTitle>
+            <DialogDescription>
+              Mappa bankkategori "{newRule.bankCategory}" {newRule.bankSubCategory && `"${newRule.bankSubCategory}"`} till appkategori
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="appCategory">Appkategori</Label>
+              <Select value={newRule.appCategoryId} onValueChange={(value) => {
+                setNewRule(prev => ({ ...prev, appCategoryId: value, appSubCategoryId: undefined }));
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Välj kategori" />
+                </SelectTrigger>
+                <SelectContent>
+                  {costGroups.map(group => (
+                    <SelectItem key={group.id} value={group.id}>
+                      {group.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {newRule.appCategoryId && getSubCategoriesForMainCategory(newRule.appCategoryId).length > 0 && (
+              <div>
+                <Label htmlFor="appSubCategory">Underkategori (valfritt)</Label>
+                <Select value={newRule.appSubCategoryId || ''} onValueChange={(value) => {
+                  setNewRule(prev => ({ ...prev, appSubCategoryId: value || undefined }));
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Välj underkategori" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Ingen underkategori</SelectItem>
+                    {getSubCategoriesForMainCategory(newRule.appCategoryId).map(subCat => (
+                      <SelectItem key={subCat.id} value={subCat.id}>
+                        {subCat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div>
+              <Label>Transaktionstyp</Label>
+              <RadioGroup 
+                value={newRule.transactionType} 
+                onValueChange={(value) => setNewRule(prev => ({ ...prev, transactionType: value as 'Transaction' | 'InternalTransfer' }))}
+                className="flex gap-4 mt-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="Transaction" id="transaction" />
+                  <Label htmlFor="transaction">Transaktion</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="InternalTransfer" id="transfer" />
+                  <Label htmlFor="transfer">Överföring</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsAddingRule(false)}>
+                Avbryt
+              </Button>
+              <Button onClick={handleAddRule}>
+                Spara regel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+
   const renderCategorizationStep = () => (
     <div className="space-y-4 sm:space-y-6">
       <div className="text-center mb-6 sm:mb-8">
@@ -877,14 +1165,7 @@ export const TransactionImportEnhanced: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <Button onClick={applyCategorizationRules} className="w-full">
-                  Tillämpa befintliga regler
-                </Button>
-                <div className="text-sm text-muted-foreground">
-                  {categoryRules.length} regler konfigurerade
-                </div>
-              </div>
+              {renderRulesContent()}
             </CardContent>
           </Card>
         </TabsContent>

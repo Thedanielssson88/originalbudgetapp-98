@@ -5,7 +5,7 @@ import { StorageKey, set } from '../services/storageService';
 import { calculateFullPrognosis, calculateBudgetResults, calculateAccountProgression, calculateMonthlyBreakdowns, calculateProjectedBalances } from '../services/calculationService';
 import { BudgetGroup, MonthData, SavingsGoal } from '../types/budget';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
-import { ImportedTransaction } from '../types/transaction';
+import { ImportedTransaction, CategoryRule } from '../types/transaction';
 
 // Event system for UI updates
 const eventEmitter = new EventTarget();
@@ -467,4 +467,28 @@ export function setTransactionsForCurrentMonth(transactions: ImportedTransaction
   
   // Run calculations so the budget view updates immediately
   runCalculationsAndUpdateState();
+}
+
+// ===== CATEGORY RULES MANAGEMENT =====
+
+export function addCategoryRule(newRule: Omit<CategoryRule, 'id'>): void {
+  const ruleWithId = { ...newRule, id: Date.now().toString() };
+  state.budgetState.transactionImport.categoryRules.push(ruleWithId);
+  saveStateToStorage();
+  triggerUIRefresh();
+}
+
+export function updateCategoryRule(updatedRule: CategoryRule): void {
+  const ruleIndex = state.budgetState.transactionImport.categoryRules.findIndex(r => r.id === updatedRule.id);
+  if (ruleIndex !== -1) {
+    state.budgetState.transactionImport.categoryRules[ruleIndex] = updatedRule;
+    saveStateToStorage();
+    triggerUIRefresh();
+  }
+}
+
+export function deleteCategoryRule(ruleId: string): void {
+  state.budgetState.transactionImport.categoryRules = state.budgetState.transactionImport.categoryRules.filter(r => r.id !== ruleId);
+  saveStateToStorage();
+  triggerUIRefresh();
 }
