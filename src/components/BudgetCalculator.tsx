@@ -445,14 +445,32 @@ const BudgetCalculator = () => {
       activeAccountIds.has(account.id)
     );
     
+    // CRITICAL FIX: Force include accounts that have transactions even if not in activeAccountIds
+    console.log('🔥 FORCE DEBUG - transactionsForPeriod:', transactionsForPeriod.length);
+    const accountsWithTransactions = new Set<string>();
+    transactionsForPeriod.forEach(transaction => {
+      if (transaction.accountId) {
+        accountsWithTransactions.add(transaction.accountId);
+        console.log('🔥 FORCE DEBUG - Found transaction for account:', transaction.accountId);
+      }
+    });
+    
+    // Add any accounts that have transactions but aren't in activeAccounts
+    const additionalAccounts = budgetState.accounts.filter(account => 
+      accountsWithTransactions.has(account.name) && !activeAccounts.some(active => active.id === account.id)
+    );
+    
+    console.log('🔥 FORCE DEBUG - Additional accounts to include:', additionalAccounts.map(a => a.name));
+    const finalActiveAccounts = [...activeAccounts, ...additionalAccounts];
+    
     console.log('🔍 [FILTER DEBUG] Active main category IDs:', Array.from(activeMainCategoryIds));
     console.log('🔍 [FILTER DEBUG] Active account IDs:', Array.from(activeAccountIds));
     console.log('🔍 [FILTER DEBUG] Filtered active categories:', activeCategories);
-    console.log('🔍 [FILTER DEBUG] Filtered active accounts:', activeAccounts);
+    console.log('🔍 [FILTER DEBUG] Final active accounts:', finalActiveAccounts.map(a => a.name));
     
     return { 
       activeCategories, 
-      activeAccounts, 
+      activeAccounts: finalActiveAccounts, // Use the enhanced account list
       budgetItems: { costItems, savingsItems },
       transactionsForPeriod
     };
