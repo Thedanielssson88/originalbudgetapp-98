@@ -5792,26 +5792,41 @@ const BudgetCalculator = () => {
                                           Lägg till kostnadspost
                                         </Button>
                                       )}
-                                         </div>
-                                       )}
-                                     </div>
-                                   );
-                                 });
-                               })()
-                             )}
-                             
-                             {isEditingCategories && (
-                               <div className="mt-4 text-center">
-                                 <span className="text-sm text-muted-foreground">
-                                   Lägg till nya poster via "+" knappen ovan
-                                 </span>
-                               </div>
-                             )}
-                           </div>
-                         </div>
-                       </CardContent>
-                     </Card>
-                   )}
+                                    </div>
+                                  )}
+                                </div>
+                                );
+                              });
+                            })()
+                               ) : (
+                                 // Enhanced account view - same as category view but grouped by account
+                              (() => {
+                                // Group subcategories by account
+                                const accountGroups: { [key: string]: { total: number; subcategories: { id: string; name: string; amount: number; category: string; financedFrom?: string; groupId: string }[] } } = {};
+                                
+                                costGroups.forEach((group) => {
+                                  group.subCategories?.forEach((sub) => {
+                                    const account = sub.account || 'Inget konto';
+                                    if (!accountGroups[account]) {
+                                      accountGroups[account] = { total: 0, subcategories: [] };
+                                    }
+                                    
+                                    accountGroups[account].subcategories.push({
+                                      ...sub,
+                                      category: group.name,
+                                      groupId: group.id
+                                    });
+                                    accountGroups[account].total += sub.amount;
+                                  });
+                                });
+
+                                return Object.entries(accountGroups).map(([accountName, data]) => {
+                                  // Calculate actual amount for this account across all categories
+                                  const actualAmount = data.subcategories.reduce((sum, sub) => {
+                                    const categoryGroup = costGroups.find(g => g.id === sub.groupId);
+                                    return sum + (categoryGroup ? calculateActualAmountForCategory(categoryGroup.id) : 0);
+                                  }, 0);
+                                  const difference = data.total - actualAmount;
                                   
                                   return (
                                      <div key={accountName} className="border rounded-xl p-4 space-y-3 bg-card shadow-sm">
@@ -5838,6 +5853,7 @@ const BudgetCalculator = () => {
                                            </div>
                                          </div>
                                          
+                                         {/* Budget vs Actual - Enhanced Design */}
                                          <div className="space-y-1 text-right min-w-36">
                                            <div className="text-sm">
                                              <span className="text-muted-foreground">Budget: </span>
@@ -5855,6 +5871,7 @@ const BudgetCalculator = () => {
                                          </div>
                                        </div>
                                        
+                                       {/* Enhanced Progress Bar */}
                                        <div className="space-y-2">
                                          <Progress 
                                            value={Math.min((actualAmount / data.total) * 100, 100)} 
@@ -5868,23 +5885,159 @@ const BudgetCalculator = () => {
                                          </div>
                                        </div>
                                        
+                                       {/* Expandable subcategories details */}
                                        {expandedCostGroups[`account_${accountName}`] && (
                                          <div className="space-y-3 pt-2 border-t border-muted/50">
                                            {data.subcategories.map((sub) => (
-                                             <div key={sub.id} className="p-3 bg-muted/10 rounded-xl border border-muted/30">
-                                               <div className="flex justify-between items-center">
-                                                 <span className="font-medium">
-                                                   {sub.name} <span className="text-muted-foreground">({sub.category})</span>
-                                                 </span>
-                                                 <span className="font-semibold text-destructive">
-                                                   {formatCurrency(sub.amount)}
-                                                 </span>
-                                               </div>
+                                             <div key={sub.id} className="space-y-3">
+                                               {isEditingCategories ? (
+                                                 <div className="space-y-3 p-4 bg-muted/30 rounded-xl border border-muted">
+                                                   <div className="flex gap-3 items-center">
+                                                     <Input
+                                                       value={sub.name}
+                                                       onChange={(e) => updateSubCategory(sub.groupId, sub.id, 'name', e.target.value)}
+                                                       placeholder="Kostnadsnamn"
+                                                       className="flex-1"
+                                                     />
+                                                     <Input
+                                                       type="number"
+                                                       value={sub.amount}
+                                                       onChange={(e) => updateSubCategory(sub.groupId, sub.id, 'amount', Number(e.target.value))}
+                                                       placeholder="Belopp"
+                                                       className="w-28"
+                                                     />
+                                                     <Button
+                                                       size="sm"
+                                                       variant="destructive"
+                                                       onClick={() => removeSubCategory(sub.groupId, sub.id)}
+                                                       className="h-8 w-8 p-0"
+                                                     >
+                                                       <Trash2 className="w-3 h-3" />
+                                                     </Button>
+                                                   </div>
+                                                 </div>
+                                               ) : (
+                                                 <div className="space-y-3">
+                                                   <div className="flex justify-between items-center p-3 bg-muted/10 rounded-xl border border-muted/30">
+                                                     <div className="flex items-center gap-3 flex-1">
+                                                       <span className="font-medium">
+                                                         {sub.name} <span className="text-muted-foreground">({sub.category})</span>
+                                                       </span>
+                                                       {/* All subcategories are now expandable */}
+                                                       <Button
+                                                         variant="ghost"
+                                                         size="sm"
+                                                         onClick={() => setExpandedCostGroups(prev => ({
+                                                           ...prev,
+                                                           [`account_${accountName}-${sub.id}`]: !prev[`account_${accountName}-${sub.id}`]
+                                                         }))}
+                                                         className="p-1 h-6 w-6 rounded-full hover:bg-muted"
+                                                       >
+                                                         {expandedCostGroups[`account_${accountName}-${sub.id}`] ? (
+                                                           <ChevronUp className="h-3 w-3" />
+                                                         ) : (
+                                                           <ChevronDown className="h-3 w-3" />
+                                                         )}
+                                                       </Button>
+                                                     </div>
+                                                     <span className="font-semibold text-destructive">
+                                                       {sub.transferType === 'daily' 
+                                                         ? formatCurrency(calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth))
+                                                         : formatCurrency(sub.amount)
+                                                       }
+                                                     </span>
+                                                   </div>
+                                                   
+                                                   {/* Expandable Details for ALL subcategories in account view */}
+                                                   {expandedCostGroups[`account_${accountName}-${sub.id}`] && (
+                                                     <div className="ml-4 p-4 bg-muted/5 rounded-xl border border-muted/30 space-y-4">
+                                                       {/* Common information for all transfer types */}
+                                                       <div className="grid grid-cols-2 gap-4 text-sm">
+                                                         <div>
+                                                           <span className="text-muted-foreground font-medium">Huvudkategori:</span>
+                                                           <div className="font-semibold text-foreground">{sub.category}</div>
+                                                         </div>
+                                                         <div>
+                                                           <span className="text-muted-foreground font-medium">Underkategori:</span>
+                                                           <div className="font-semibold text-foreground">{sub.name}</div>
+                                                         </div>
+                                                       </div>
+                                                       
+                                                       <div className="grid grid-cols-2 gap-4 text-sm">
+                                                         <div>
+                                                           <span className="text-muted-foreground font-medium">Överföringstyp:</span>
+                                                           <div className="font-semibold text-blue-600">
+                                                             {sub.transferType === 'daily' ? 'Daglig överföring' : 'Fast månadsföring'}
+                                                           </div>
+                                                         </div>
+                                                         <div>
+                                                           <span className="text-muted-foreground font-medium">Konto:</span>
+                                                           <div className="font-semibold text-foreground">{accountName}</div>
+                                                         </div>
+                                                       </div>
+                                                       
+                                                       <div className="grid grid-cols-2 gap-4 text-sm">
+                                                         <div>
+                                                           <span className="text-muted-foreground font-medium">
+                                                             {sub.transferType === 'daily' ? 'Månadsbelopp:' : 'Belopp:'}
+                                                           </span>
+                                                           <div className="font-semibold text-green-600">
+                                                             {sub.transferType === 'daily' 
+                                                               ? formatCurrency(calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth))
+                                                               : formatCurrency(sub.amount)
+                                                             }
+                                                           </div>
+                                                         </div>
+                                                         <div>
+                                                           <span className="text-muted-foreground font-medium">Finansieras ifrån:</span>
+                                                           <div className="font-semibold text-foreground">{sub.financedFrom || 'Löpande kostnad'}</div>
+                                                         </div>
+                                                       </div>
+                                                       
+                                                       {/* Additional information for daily transfers */}
+                                                       {sub.transferType === 'daily' && (
+                                                         <div className="border-t pt-4 space-y-4">
+                                                           <div className="grid grid-cols-2 gap-4 text-sm">
+                                                             <div>
+                                                               <span className="text-muted-foreground font-medium">Dagar det överförs:</span>
+                                                               <div className="font-semibold text-purple-600">{formatTransferDays(sub.transferDays || [])}</div>
+                                                             </div>
+                                                             <div>
+                                                               <span className="text-muted-foreground font-medium">Summa per dag:</span>
+                                                               <div className="font-semibold text-orange-600">{formatCurrency(sub.dailyAmount || 0)}</div>
+                                                             </div>
+                                                           </div>
+                                                           
+                                                           <div className="space-y-3">
+                                                             <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                                                               <span className="text-green-700 font-medium">Estimerat överfört:</span>
+                                                               <div className="font-bold text-green-800">
+                                                                 Dagar: {(() => {
+                                                                   const estimatedAmount = calculateEstimatedToDate(sub, selectedBudgetMonth);
+                                                                   const daysToDate = Math.floor(estimatedAmount / (sub.dailyAmount || 1));
+                                                                   return `${daysToDate} × ${formatCurrency(sub.dailyAmount || 0)} = ${formatCurrency(estimatedAmount)}`;
+                                                                 })()}
+                                                               </div>
+                                                             </div>
+                                                             
+                                                             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                                               <span className="text-blue-700 font-medium">Kvar att överföra:</span>
+                                                               <div className="font-bold text-blue-800">
+                                                                 Dagar: {(() => {
+                                                                   const remainingAmount = calculateRemaining(sub, selectedBudgetMonth);
+                                                                   const remainingDays = Math.floor(remainingAmount / (sub.dailyAmount || 1));
+                                                                   return `${remainingDays} × ${formatCurrency(sub.dailyAmount || 0)} = ${formatCurrency(remainingAmount)}`;
+                                                                 })()}
+                                                               </div>
+                                                             </div>
+                                                           </div>
+                                                         </div>
+                                                       )}
+                                                     </div>
+                                                   )}
+                                                 </div>
+                                               )}
                                              </div>
-                                           ))}
-                                         </div>
-                                       )}
-                                     </div>
                                                     </Button>
                                                   </div>
                                                   <div className="flex gap-2 items-center text-sm">
