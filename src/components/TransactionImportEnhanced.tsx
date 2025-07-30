@@ -354,12 +354,8 @@ export const TransactionImportEnhanced: React.FC = () => {
   const costGroups = budgetState?.historicalData?.[budgetState.selectedMonthKey]?.costGroups || [];
   const categoryRulesFromState = budgetState?.transactionImport?.categoryRules || [];
 
-  // Mock data - should come from context/props
-  const accounts: Account[] = [
-    { id: 'hushalskonto', name: 'Hushållskonto', startBalance: 0 },
-    { id: 'sparkonto', name: 'Sparkonto', startBalance: 0 },
-    { id: 'barnkonto', name: 'Barnkonto', startBalance: 0 }
-  ];
+  // Use actual accounts from budget state
+  const accounts: Account[] = budgetState?.accounts || [];
 
   // Get main categories from actual budget data - use the same as MainCategoriesSettings
   const mainCategories = budgetState?.mainCategories || [];
