@@ -68,11 +68,31 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
     const grouped: Record<string, BudgetGroup[]> = {};
     
     savingsGroups.forEach(group => {
-      const accountName = group.account || 'Inget konto';
-      if (!grouped[accountName]) {
-        grouped[accountName] = [];
+      // For savings groups, check subcategories for account information
+      if (group.subCategories && group.subCategories.length > 0) {
+        group.subCategories.forEach(sub => {
+          const accountName = sub.account || 'Inget konto';
+          
+          // Create a virtual group for each subcategory with account info
+          const virtualGroup = {
+            ...group,
+            amount: sub.amount,
+            subCategories: [sub]
+          };
+          
+          if (!grouped[accountName]) {
+            grouped[accountName] = [];
+          }
+          grouped[accountName].push(virtualGroup);
+        });
+      } else {
+        // Fallback for groups without subcategories
+        const accountName = group.account || 'Inget konto';
+        if (!grouped[accountName]) {
+          grouped[accountName] = [];
+        }
+        grouped[accountName].push(group);
       }
-      grouped[accountName].push(group);
     });
     
     return grouped;
