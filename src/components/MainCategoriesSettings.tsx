@@ -3,15 +3,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Trash2, Plus, Edit, Save, X, ChevronDown, ChevronUp } from 'lucide-react';
-import { setMainCategories } from '../orchestrator/budgetOrchestrator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Trash2, Plus, Edit, Save, X, ChevronDown, ChevronUp, Link, Link2Off } from 'lucide-react';
+import { setMainCategories, updateCategoryLink, deleteCategoryLink, getCategoryLink } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
+import { BudgetGroup } from '../types/budget';
 
 interface MainCategoriesSettingsProps {
   mainCategories: string[];
+  costGroups: BudgetGroup[]; // Available budget cost categories
 }
 
-export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ mainCategories }) => {
+export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ mainCategories, costGroups }) => {
   const [categories, setCategories] = useState<string[]>(mainCategories);
   const [newCategory, setNewCategory] = useState('');
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -124,6 +127,30 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
     setEditingSubcategoryValue('');
   };
 
+  const handleCategoryLinkChange = (category: string, budgetCategoryId: string) => {
+    if (budgetCategoryId) {
+      updateCategoryLink(category, undefined, budgetCategoryId);
+    } else {
+      deleteCategoryLink(category);
+    }
+  };
+
+  const handleSubcategoryLinkChange = (category: string, subcategory: string, budgetCategoryId: string) => {
+    if (budgetCategoryId) {
+      updateCategoryLink(category, subcategory, budgetCategoryId);
+    } else {
+      deleteCategoryLink(category, subcategory);
+    }
+  };
+
+  const getCurrentCategoryLink = (category: string) => {
+    return getCategoryLink(category) || '';
+  };
+
+  const getCurrentSubcategoryLink = (category: string, subcategory: string) => {
+    return getCategoryLink(category, subcategory) || '';
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -182,6 +209,30 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
 
               {expandedCategories.has(category) && (
                 <div className="pl-6 space-y-3 border-l-2 border-muted">
+                  {/* Budget Category Linking for Main Category */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <Link className="h-4 w-4" />
+                      Länka till budgetkategori (default för alla underkategorier)
+                    </Label>
+                    <Select
+                      value={getCurrentCategoryLink(category)}
+                      onValueChange={(value) => handleCategoryLinkChange(category, value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Välj budgetkategori eller lämna tom" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Ingen länkning</SelectItem>
+                        {costGroups.map(group => (
+                          <SelectItem key={group.id} value={group.id}>
+                            {group.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Underkategorier</Label>
                     {subcategories[category]?.map((subcategory, subIndex) => (
@@ -203,7 +254,25 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
                           </>
                         ) : (
                           <>
-                            <span className="flex-1">{subcategory}</span>
+                            <div className="flex-1 space-y-2">
+                              <span className="font-medium">{subcategory}</span>
+                              <Select
+                                value={getCurrentSubcategoryLink(category, subcategory)}
+                                onValueChange={(value) => handleSubcategoryLinkChange(category, subcategory, value)}
+                              >
+                                <SelectTrigger className="h-8">
+                                  <SelectValue placeholder="Länka till budgetkategori" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="">Använd huvudkategoriens länkning</SelectItem>
+                                  {costGroups.map(group => (
+                                    <SelectItem key={group.id} value={group.id}>
+                                      {group.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
                             <Button 
                               size="sm" 
                               onClick={() => startSubcategoryEdit(category, subIndex)} 

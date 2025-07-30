@@ -3,7 +3,7 @@
 import { state, initializeStateFromStorage, saveStateToStorage, getCurrentMonthData, updateCurrentMonthData } from '../state/budgetState';
 import { StorageKey, set } from '../services/storageService';
 import { calculateFullPrognosis, calculateBudgetResults, calculateAccountProgression, calculateMonthlyBreakdowns, calculateProjectedBalances } from '../services/calculationService';
-import { BudgetGroup, MonthData, SavingsGoal } from '../types/budget';
+import { BudgetGroup, MonthData, SavingsGoal, CategoryLink } from '../types/budget';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 import { ImportedTransaction, CategoryRule } from '../types/transaction';
 
@@ -491,4 +491,50 @@ export function deleteCategoryRule(ruleId: string): void {
   state.budgetState.transactionImport.categoryRules = state.budgetState.transactionImport.categoryRules.filter(r => r.id !== ruleId);
   saveStateToStorage();
   triggerUIRefresh();
+}
+
+// ===== CATEGORY LINKS MANAGEMENT =====
+
+export function updateCategoryLink(mainCategory: string, subcategory: string | undefined, budgetCategoryId: string): void {
+  const currentLinks = state.budgetState.categoryLinks || [];
+  
+  // Remove existing link for this combination
+  const filteredLinks = currentLinks.filter(link => 
+    !(link.mainCategory === mainCategory && link.subcategory === subcategory)
+  );
+  
+  // Add new link
+  const newLink: CategoryLink = { mainCategory, subcategory, budgetCategoryId };
+  state.budgetState.categoryLinks = [...filteredLinks, newLink];
+  
+  saveStateToStorage();
+  triggerUIRefresh();
+}
+
+export function deleteCategoryLink(mainCategory: string, subcategory?: string): void {
+  const currentLinks = state.budgetState.categoryLinks || [];
+  state.budgetState.categoryLinks = currentLinks.filter(link => 
+    !(link.mainCategory === mainCategory && link.subcategory === subcategory)
+  );
+  
+  saveStateToStorage();
+  triggerUIRefresh();
+}
+
+export function getCategoryLink(mainCategory: string, subcategory?: string): string | undefined {
+  const currentLinks = state.budgetState.categoryLinks || [];
+  
+  // First check for specific subcategory link
+  if (subcategory) {
+    const specificLink = currentLinks.find(link => 
+      link.mainCategory === mainCategory && link.subcategory === subcategory
+    );
+    if (specificLink) return specificLink.budgetCategoryId;
+  }
+  
+  // Then check for main category default link
+  const mainCategoryLink = currentLinks.find(link => 
+    link.mainCategory === mainCategory && !link.subcategory
+  );
+  return mainCategoryLink?.budgetCategoryId;
 }

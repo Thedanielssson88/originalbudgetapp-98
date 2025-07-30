@@ -8739,7 +8739,10 @@ const BudgetCalculator = () => {
               </Card>
 
               {/* Main Categories Settings */}
-              <MainCategoriesSettings mainCategories={budgetState.mainCategories || []} />
+              <MainCategoriesSettings 
+                mainCategories={budgetState.mainCategories || []} 
+                costGroups={(currentMonthData as any)?.costGroups || []}
+              />
 
               {/* User Names Settings */}
               <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
