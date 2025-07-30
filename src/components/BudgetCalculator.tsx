@@ -5470,7 +5470,15 @@ const BudgetCalculator = () => {
                                     ...sub,
                                     groupId: group.id
                                   });
-                                  categoryGroups[group.name].total += sub.amount;
+                                  
+                                  // ANVÄND DEN NYA BERÄKNINGSLOGIKEN HÄR
+                                  if (sub.transferType === 'daily') {
+                                    // Om det är en daglig överföring, anropa den nya funktionen
+                                    categoryGroups[group.name].total += calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth);
+                                  } else {
+                                    // Annars, använd det vanliga fasta beloppet
+                                    categoryGroups[group.name].total += sub.amount;
+                                  }
                                 });
                               });
                               
