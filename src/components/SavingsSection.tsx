@@ -109,8 +109,9 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
     
     return (
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <span className="text-sm font-medium">Visa sparandebelopp för:</span>
+        {/* Cost View Type Option */}
+        <div className="bg-muted/50 p-4 rounded-lg">
+          <h4 className="font-medium mb-3">Visa sparandebelopp för:</h4>
           <ToggleGroup
             type="single"
             value={viewMode}
@@ -298,8 +299,9 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
     
     return (
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <span className="text-sm font-medium">Visa sparandebelopp för:</span>
+        {/* Cost View Type Option */}
+        <div className="bg-muted/50 p-4 rounded-lg">
+          <h4 className="font-medium mb-3">Visa sparandebelopp för:</h4>
           <ToggleGroup
             type="single"
             value={viewMode}
