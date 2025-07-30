@@ -5509,8 +5509,9 @@ const BudgetCalculator = () => {
                                     </div>
                                   )}
                                 </div>
-                                });
-                              })()
+                                );
+                              });
+                            })()
                            ) : (
                              // Account view - group by account
                              (() => {
