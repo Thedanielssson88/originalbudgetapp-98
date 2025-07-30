@@ -11,6 +11,8 @@ export interface ImportedTransaction {
   userDescription?: string; // User's own notes
   bankCategory?: string;
   bankSubCategory?: string;
+  bankStatus?: string; // Bank's status from CSV
+  reconciled?: string; // Reconciled status from CSV
   
   // App categorization
   appCategoryId?: string;

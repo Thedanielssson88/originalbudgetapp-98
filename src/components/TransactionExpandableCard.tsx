@@ -299,17 +299,33 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                      return null;
                    })()}
 
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground">Status</label>
-                    <div className="flex items-center space-x-2">
-                      <div className={`w-2 h-2 rounded-full ${getStatusColor(transaction.status)}`} />
-                      <span className="text-sm">
-                        {transaction.status === 'green' && 'Godkänd'}
-                        {transaction.status === 'yellow' && 'Automatisk kategorisering'}
-                        {transaction.status === 'red' && 'Behöver granskning'}
-                      </span>
-                    </div>
-                  </div>
+                   <div>
+                     <label className="text-xs font-medium text-muted-foreground">Status</label>
+                     <div className="flex items-center space-x-2">
+                       <div className={`w-2 h-2 rounded-full ${getStatusColor(transaction.status)}`} />
+                       <span className="text-sm">
+                         {transaction.status === 'green' && 'Godkänd'}
+                         {transaction.status === 'yellow' && 'Automatisk kategorisering'}
+                         {transaction.status === 'red' && 'Behöver granskning'}
+                       </span>
+                     </div>
+                   </div>
+
+                   {/* Bank Status */}
+                   {transaction.bankStatus && (
+                     <div>
+                       <label className="text-xs font-medium text-muted-foreground">Bankens status</label>
+                       <p className="text-sm">{transaction.bankStatus}</p>
+                     </div>
+                   )}
+
+                   {/* Reconciled */}
+                   {transaction.reconciled && (
+                     <div>
+                       <label className="text-xs font-medium text-muted-foreground">Avstämt</label>
+                       <p className="text-sm">{transaction.reconciled}</p>
+                     </div>
+                   )}
                 </div>
               </div>
 
