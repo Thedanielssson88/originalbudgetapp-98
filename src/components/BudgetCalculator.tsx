@@ -5336,11 +5336,12 @@ const BudgetCalculator = () => {
                                 });
                               });
                               
-                              return Object.entries(categoryGroups).map(([categoryName, data]) => {
-                                // Calculate actual amount for this category
-                                const actualAmount = calculateActualAmountForCategory(categoryName);
-                                const difference = data.total - actualAmount;
-                                const progress = data.total > 0 ? (actualAmount / data.total) * 100 : 0;
+                               return Object.entries(categoryGroups).map(([categoryName, data]) => {
+                                 // Calculate actual amount for this category - use category ID, not name
+                                 const categoryGroup = costGroups.find(g => g.name === categoryName);
+                                 const actualAmount = categoryGroup ? calculateActualAmountForCategory(categoryGroup.id) : 0;
+                                 const difference = data.total - actualAmount;
+                                 const progress = data.total > 0 ? (actualAmount / data.total) * 100 : 0;
                                 
                                 return (
                                 <div key={categoryName} className="border rounded-lg p-3 space-y-2">
@@ -5375,12 +5376,12 @@ const BudgetCalculator = () => {
                                       </div>
                                       <div className="text-sm">
                                         <span className="text-muted-foreground">Faktiskt: </span>
-                                        <button
-                                          className="font-bold text-blue-600 hover:text-blue-800 underline"
-                                          onClick={() => openDrillDownDialog(categoryName, categoryName, data.total)}
-                                        >
-                                          {formatCurrency(actualAmount)}
-                                        </button>
+                                         <button
+                                           className="font-bold text-blue-600 hover:text-blue-800 underline"
+                                           onClick={() => openDrillDownDialog(categoryName, categoryGroup?.id || categoryName, data.total)}
+                                         >
+                                           {formatCurrency(actualAmount)}
+                                         </button>
                                       </div>
                                       <div className={`text-sm font-medium ${difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                         Diff: {difference >= 0 ? '+' : ''}{formatCurrency(Math.abs(difference))}
