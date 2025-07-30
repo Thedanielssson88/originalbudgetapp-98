@@ -14,9 +14,9 @@ interface TransactionExpandableCardProps {
   account: { id: string; name: string; startBalance: number } | undefined;
   isSelected: boolean;
   mainCategories: string[];
-  costGroups?: { id: string; name: string }[];
+  costGroups?: { id: string; name: string; subCategories?: { id: string; name: string }[] }[];
   onToggleSelection: (id: string) => void;
-  onUpdateCategory: (id: string, category: string) => void;
+  onUpdateCategory: (id: string, category: string, subCategoryId?: string) => void;
   onUpdateNote: (id: string, note: string) => void;
 }
 
@@ -221,6 +221,60 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                        </SelectContent>
                      </Select>
                    </div>
+
+                   {/* Subcategory selector - only show for Transport */}
+                   {(() => {
+                     const selectedCategoryName = (() => {
+                       if (transaction.appCategoryId) {
+                         if (mainCategories.includes(transaction.appCategoryId)) {
+                           return transaction.appCategoryId;
+                         }
+                         const costGroup = costGroups.find(group => group.id === transaction.appCategoryId);
+                         return costGroup ? costGroup.name : '';
+                       }
+                       return '';
+                     })();
+
+                     if (selectedCategoryName === 'Transport') {
+                       const transportGroup = costGroups.find(group => group.name === 'Transport');
+                       const subcategories = transportGroup?.subCategories || [];
+
+                       return (
+                         <div>
+                           <label className="text-xs font-medium text-muted-foreground">Underkategori</label>
+                           <Select
+                             value={(() => {
+                               // Convert stored subcategory ID back to name for display
+                               if (transaction.appSubCategoryId) {
+                                 const subcategory = subcategories.find(sub => sub.id === transaction.appSubCategoryId);
+                                 return subcategory ? subcategory.name : '';
+                               }
+                               return '';
+                             })()}
+                             onValueChange={(subCategoryName) => {
+                               // Find the subcategory ID from the name
+                               const subcategory = subcategories.find(sub => sub.name === subCategoryName);
+                               if (subcategory) {
+                                 onUpdateCategory(transaction.id, selectedCategoryName, subcategory.id);
+                               }
+                             }}
+                           >
+                             <SelectTrigger className="w-full">
+                               <SelectValue placeholder="Välj underkategori" />
+                             </SelectTrigger>
+                             <SelectContent className="bg-background border border-border shadow-lg z-50">
+                               {subcategories.map(subcategory => (
+                                 <SelectItem key={subcategory.id} value={subcategory.name}>
+                                   {subcategory.name}
+                                 </SelectItem>
+                               ))}
+                             </SelectContent>
+                           </Select>
+                         </div>
+                       );
+                     }
+                     return null;
+                   })()}
 
                   <div>
                     <label className="text-xs font-medium text-muted-foreground">Status</label>

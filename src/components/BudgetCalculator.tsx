@@ -62,7 +62,7 @@ import {
   setAccountStartBalancesSet,
   setMonthFinalBalances
 } from '../orchestrator/budgetOrchestrator';
-import { StorageKey } from '../services/storageService';
+import { StorageKey, get, set } from '../services/storageService';
 import { useBudget } from '../hooks/useBudget';
 import { mobileDebugLogger, addMobileDebugLog } from '../utils/mobileDebugLogger';
 import { Transaction } from '../types/budget';
@@ -1865,11 +1865,18 @@ const BudgetCalculator = () => {
         }
       ];
       
-      setCostGroups(costGroups.map(group => 
+      // Update cost groups with subcategories
+      const updatedCostGroups = costGroups.map(group => 
         group.id === transportGroup.id 
           ? { ...group, subCategories: defaultTransportSubcategories } 
           : group
-      ));
+      );
+      setCostGroups(updatedCostGroups);
+      
+      // Also save the subcategories mapping to storage for future reference
+      const subcategoriesMapping = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
+      subcategoriesMapping['Transport'] = defaultTransportSubcategories.map(sub => sub.name);
+      set(StorageKey.SUBCATEGORIES, subcategoriesMapping);
     }
   }, [costGroups]);
 

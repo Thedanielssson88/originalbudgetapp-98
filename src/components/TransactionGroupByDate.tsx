@@ -11,9 +11,9 @@ interface TransactionGroupByDateProps {
   selectedTransactions: string[];
   mainCategories: string[];
   accounts: { id: string; name: string; startBalance: number }[];
-  costGroups?: { id: string; name: string }[];
+  costGroups?: { id: string; name: string; subCategories?: { id: string; name: string }[] }[];
   onToggleSelection: (id: string) => void;
-  onUpdateCategory: (id: string, category: string) => void;
+  onUpdateCategory: (id: string, category: string, subCategoryId?: string) => void;
   onUpdateNote: (id: string, note: string) => void;
 }
 
