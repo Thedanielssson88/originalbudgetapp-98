@@ -265,16 +265,35 @@ export const TransactionImportEnhanced: React.FC = () => {
       const existingTransaction = savedTransactionsMap.get(fingerprint);
       
       if (existingTransaction) {
-        // Use saved transaction (preserves user changes like appCategoryId, status, egenText)
-        console.log(`[Reconciliation] ✅ Match found for: ${fingerprint}. Using saved data with preserved changes.`);
-        return {
-          ...existingTransaction,
-          // Optionally update some fields from the file (like bank status if it changed)
-          bankCategory: fileTransaction.bankCategory,
-          bankSubCategory: fileTransaction.bankSubCategory,
-          fileSource: fileTransaction.fileSource,
-          importedAt: fileTransaction.importedAt
-        };
+        // SMART MERGE: Start with saved transaction (preserves user changes) 
+        // but update bank-controlled fields with latest data from file
+        console.log(`[Reconciliation] ✅ Match found for: ${fingerprint}. Performing smart merge.`);
+        
+        const mergedTransaction = { ...existingTransaction };
+        
+        // Update bank-controlled fields with latest data from file
+        mergedTransaction.bankCategory = fileTransaction.bankCategory;
+        mergedTransaction.bankSubCategory = fileTransaction.bankSubCategory;
+        mergedTransaction.balanceAfter = fileTransaction.balanceAfter;
+        mergedTransaction.fileSource = fileTransaction.fileSource;
+        mergedTransaction.importedAt = fileTransaction.importedAt;
+        
+        // Update date and description in case bank has corrected them
+        mergedTransaction.date = fileTransaction.date;
+        mergedTransaction.description = fileTransaction.description;
+        
+        // Amount should generally stay the same, but update in case of corrections
+        mergedTransaction.amount = fileTransaction.amount;
+        
+        // Preserve user-controlled fields (these are NOT overwritten):
+        // - appCategoryId (user's category choice)
+        // - appSubCategoryId (user's subcategory choice) 
+        // - status (user's approval status: red/yellow/green)
+        // - egenText (user's custom notes)
+        // - isManuallyChanged (user modification flag)
+        // - linkedTransactionId (user's transfer matching)
+        
+        return mergedTransaction;
       } else {
         // New transaction - use data from file
         console.log(`[Reconciliation] ⚠️ No match for: ${fingerprint}. Creating new transaction.`);
