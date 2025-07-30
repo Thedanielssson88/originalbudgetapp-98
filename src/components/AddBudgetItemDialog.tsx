@@ -31,7 +31,7 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
     subCategoryId: '',
     description: '',
     amount: 0,
-    accountId: '',
+    accountId: 'none',
     financedFrom: 'Löpande kostnad' as 'Löpande kostnad' | 'Enskild kostnad',
     transferType: 'monthly' as 'monthly' | 'daily',
     dailyAmount: 0,
@@ -60,7 +60,7 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
         subCategoryId: '',
         description: '',
         amount: 0,
-        accountId: '',
+        accountId: 'none',
         financedFrom: 'Löpande kostnad',
         transferType: 'monthly',
         dailyAmount: 0,
@@ -107,7 +107,7 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
         subCategoryId: formData.subCategoryId,
         description: formData.description,
         amount: formData.transferType === 'daily' ? 0 : formData.amount,
-        accountId: formData.accountId || undefined,
+        accountId: formData.accountId && formData.accountId !== 'none' ? formData.accountId : undefined,
         financedFrom: formData.financedFrom,
         transferType: formData.transferType,
         dailyAmount: formData.transferType === 'daily' ? formData.dailyAmount : undefined,
@@ -127,7 +127,7 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
       subCategoryId: '',
       description: '',
       amount: 0,
-      accountId: '',
+      accountId: 'none',
       financedFrom: 'Löpande kostnad',
       transferType: 'monthly',
       dailyAmount: 0,
@@ -304,7 +304,7 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
                 <SelectValue placeholder="Välj konto (valfritt)" />
               </SelectTrigger>
               <SelectContent className="bg-popover border border-border shadow-lg z-50">
-                <SelectItem value="">Inget konto</SelectItem>
+                <SelectItem value="none">Inget konto</SelectItem>
                 {accounts.map((account) => (
                   <SelectItem key={account.id} value={account.id}>
                     {account.name}
