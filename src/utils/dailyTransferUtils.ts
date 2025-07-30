@@ -5,6 +5,8 @@ import { SubCategory, Transaction } from '../types/budget';
  * Använder datumperiod från 25:e föregående månad till 24:e aktuell månad
  */
 export const getNumberOfTransferDaysInMonth = (monthKey: string, transferDays: (number | string)[]): number => {
+  console.log(`🔍 [DEBUG] getNumberOfTransferDaysInMonth called with monthKey: ${monthKey}, transferDays:`, transferDays, `(type: ${typeof transferDays[0]})`);
+  
   const [year, month] = monthKey.split('-').map(Number);
   
   // Beräkna startdatum (25:e föregående månad)
@@ -29,12 +31,14 @@ export const getNumberOfTransferDaysInMonth = (monthKey: string, transferDays: (
     const dayOfWeek = currentDate.getDay(); // 0 = Söndag, 1 = Måndag, etc.
     
     if (numericTransferDays.includes(dayOfWeek)) {
+      console.log(`🔍 [DEBUG] Match found! Day ${currentDate.toDateString()} (dayOfWeek: ${dayOfWeek}) matches transferDays`);
       count++;
     }
     
     currentDate.setDate(currentDate.getDate() + 1);
   }
   
+  console.log(`🔍 [DEBUG] Final count for ${monthKey}: ${count} transfer days`);
   return count;
 };
 
