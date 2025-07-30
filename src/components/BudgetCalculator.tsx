@@ -5899,9 +5899,14 @@ const BudgetCalculator = () => {
                                         </div>
                                       </div>
                                       
-                                      {/* Expandable subcategories details */}
-                                      {expandedCostGroups[`account_${accountName}`] && (
-                                        <div className="space-y-2 pt-2 border-t">
+                                       {/* Expandable subcategories details */}
+                                       {(() => {
+                                         const isExpanded = expandedCostGroups[`account_${accountName}`];
+                                         console.log(`🔍 Account expansion check: ${accountName}, key: account_${accountName}, isExpanded: ${isExpanded}`, { expandedCostGroups, subcategoriesCount: data.subcategories.length });
+                                         return isExpanded;
+                                       })() && (
+                                         <div className="space-y-2 pt-2 border-t bg-yellow-100 p-2">
+                                           <div className="text-xs text-red-600 font-bold">EXPANDERAT INNEHÅLL FÖR {accountName.toUpperCase()}</div>
                                           {data.subcategories.map((sub) => (
                                             <div key={sub.id}>
                                               {isEditingCategories ? (
