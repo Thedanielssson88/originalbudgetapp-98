@@ -21,11 +21,11 @@ import CreateMonthDialog from './CreateMonthDialog';
 import { CustomLineChart } from './CustomLineChart';
 import { AccountSelector } from '@/components/AccountSelector';
 import { MainCategoriesSettings } from '@/components/MainCategoriesSettings';
-import { AddCostItemDialog } from '@/components/AddCostItemDialog';
+import { AddBudgetItemDialog } from '@/components/AddBudgetItemDialog';
 import { TransactionImportEnhanced } from '@/components/TransactionImportEnhanced';
 import { TransactionDrillDownDialog } from '@/components/TransactionDrillDownDialog';
 import { SavingsSection } from '@/components/SavingsSection';
-import { calculateAccountEndBalances } from '../services/calculationService';
+import { calculateAccountEndBalances, getTransactionsForPeriod } from '../services/calculationService';
 import { 
   createSavingsGoal,
   updateCostGroups,
@@ -224,8 +224,11 @@ const BudgetCalculator = () => {
   const [editingItem, setEditingItem] = useState<(SubCategory & { groupId: string; categoryName: string }) | null>(null);
   const [createMonthDirection, setCreateMonthDirection] = useState<'previous' | 'next'>('next');
   
-  // Add cost item dialog state
-  const [showAddCostDialog, setShowAddCostDialog] = useState<boolean>(false);
+  // Add budget item dialog state
+  const [showAddBudgetDialog, setShowAddBudgetDialog] = useState<{
+    isOpen: boolean;
+    type: 'cost' | 'savings';
+  }>({ isOpen: false, type: 'cost' });
 
   // Sparmål state
   const [isCreateSavingsGoalDialogOpen, setIsCreateSavingsGoalDialogOpen] = useState<boolean>(false);
@@ -352,6 +355,95 @@ const BudgetCalculator = () => {
     return [...generalSavings, ...activeGoalsAsSavingsItems];
 
   }, [savingsGroups, budgetState.savingsGoals, selectedBudgetMonth, budgetState.accounts]);
+
+  // --- NY, FILTRERAD LOGIK STARTAR HÄR ---
+  
+  // Dynamisk filtrering av kategorier och konton baserat på aktiv användning
+  const activeContent = useMemo(() => {
+    // 1. Hämta alla budgetposter för den relevanta perioden
+    const costItems = (currentMonthData as any).costItems || [];
+    const savingsItems = (currentMonthData as any).savingsItems || [];
+    const budgetItems = [...costItems, ...savingsItems];
+    
+    // 2. Hämta transaktioner för perioden (25:e föregående månad till 24:e aktuell månad)
+    const transactionsForPeriod = getTransactionsForPeriod(appHistoricalData, selectedMonthKey);
+    
+    // 3. Samla alla unika ID:n för kategorier som används
+    const activeMainCategoryIds = new Set<string>();
+    
+    // Från budgetposter
+    budgetItems.forEach(item => {
+      if (item.mainCategoryId) {
+        activeMainCategoryIds.add(item.mainCategoryId);
+      }
+    });
+    
+    // Från transaktioner
+    transactionsForPeriod.forEach(transaction => {
+      if (transaction.appCategoryId) {
+        activeMainCategoryIds.add(transaction.appCategoryId);
+      }
+    });
+    
+    // Från legacy costGroups och savingsGroups (för bakåtkompatibilitet)
+    [...costGroups, ...savingsGroups].forEach(group => {
+      if (group.name) {
+        activeMainCategoryIds.add(group.name);
+      }
+    });
+    
+    // 4. Samla alla unika ID:n för konton som används
+    const activeAccountIds = new Set<string>();
+    
+    // Från budgetposter
+    budgetItems.forEach(item => {
+      if (item.accountId) {
+        activeAccountIds.add(item.accountId);
+      }
+    });
+    
+    // Från transaktioner
+    transactionsForPeriod.forEach(transaction => {
+      if (transaction.accountId) {
+        activeAccountIds.add(transaction.accountId);
+      }
+    });
+    
+    // Från legacy groups (för bakåtkompatibilitet)
+    [...costGroups, ...savingsGroups].forEach(group => {
+      if (group.account) {
+        // Hitta account ID från namnet för legacy kompatibilitet
+        const account = budgetState.accounts.find(acc => acc.name === group.account);
+        if (account) {
+          activeAccountIds.add(account.id);
+        }
+      }
+    });
+    
+    // 5. Filtrera master-listorna baserat på de aktiva ID:na
+    const activeCategories = budgetState.mainCategories.filter(category => 
+      activeMainCategoryIds.has(category)
+    );
+    
+    const activeAccounts = budgetState.accounts.filter(account => 
+      activeAccountIds.has(account.id)
+    );
+    
+    console.log('🔍 [FILTER DEBUG] Active main category IDs:', Array.from(activeMainCategoryIds));
+    console.log('🔍 [FILTER DEBUG] Active account IDs:', Array.from(activeAccountIds));
+    console.log('🔍 [FILTER DEBUG] Filtered active categories:', activeCategories);
+    console.log('🔍 [FILTER DEBUG] Filtered active accounts:', activeAccounts);
+    
+    return { 
+      activeCategories, 
+      activeAccounts, 
+      budgetItems: { costItems, savingsItems },
+      transactionsForPeriod
+    };
+
+  }, [currentMonthData, appHistoricalData, selectedMonthKey, budgetState.accounts, budgetState.mainCategories, costGroups, savingsGroups]);
+
+  // --- SLUT PÅ NY LOGIK ---
   
   // CRITICAL DEBUG: Log the exact data being used
   console.log(`🚨 [RENDER] budgetState.historicalData:`, budgetState.historicalData);
@@ -1811,6 +1903,30 @@ const BudgetCalculator = () => {
     const currentDate = new Date();
     const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     resetMonthFinalBalancesFlag(currentMonthKey);
+  };
+
+  // Ny handler för BudgetItem struktur
+  const handleAddBudgetItem = (budgetItem: any) => {
+    console.log('🔍 [DEBUG] handleAddBudgetItem called with:', budgetItem);
+    
+    if (budgetItem.type === 'cost' || showAddBudgetDialog.type === 'cost') {
+      // För nu, konvertera tillbaka till legacy format för att inte bryta befintlig logik
+      const legacyItem = {
+        mainCategory: budgetItem.mainCategoryId,
+        subcategory: budgetItem.subCategoryId,
+        name: budgetItem.description,
+        amount: budgetItem.amount,
+        account: budgetState.accounts.find(acc => acc.id === budgetItem.accountId)?.name || '',
+        financedFrom: budgetItem.financedFrom || 'Löpande kostnad',
+        transferType: budgetItem.transferType,
+        dailyAmount: budgetItem.dailyAmount,
+        transferDays: budgetItem.transferDays
+      };
+      handleAddCostItem(legacyItem);
+    } else {
+      // Hantera sparande här när det behövs
+      console.log('Savings item handling not yet implemented');
+    }
   };
 
   const handleAddCostItem = (item: {
@@ -5575,7 +5691,7 @@ const BudgetCalculator = () => {
                           <div className="flex justify-between items-center">
                             <h4 className="font-semibold">Kostnadskategorier</h4>
                             <div className="space-x-2">
-                              <Button size="sm" onClick={() => setShowAddCostDialog(true)}>
+                              <Button size="sm" onClick={() => setShowAddBudgetDialog({ isOpen: true, type: 'cost' })}>
                                 <Plus className="w-4 h-4" />
                               </Button>
                               <Button size="sm" onClick={() => setIsEditingCategories(!isEditingCategories)}>
@@ -10269,13 +10385,14 @@ const BudgetCalculator = () => {
         />
       )}
 
-      {/* Add Cost Item Dialog */}
-      <AddCostItemDialog
-        isOpen={showAddCostDialog}
-        onClose={() => setShowAddCostDialog(false)}
-        onSave={handleAddCostItem}
-        mainCategories={budgetState.mainCategories || []}
-        accounts={accounts}
+      {/* Add Budget Item Dialog */}
+      <AddBudgetItemDialog
+        isOpen={showAddBudgetDialog.isOpen}
+        onClose={() => setShowAddBudgetDialog({ isOpen: false, type: 'cost' })}
+        onSave={handleAddBudgetItem}
+        mainCategories={activeContent.activeCategories}
+        accounts={budgetState.accounts}
+        type={showAddBudgetDialog.type}
       />
       
       {/* Transaction Drill Down Dialog */}
