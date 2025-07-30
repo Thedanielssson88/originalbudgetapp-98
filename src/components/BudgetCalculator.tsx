@@ -1815,6 +1815,49 @@ const BudgetCalculator = () => {
     ));
   };
 
+  // Initialize Transport subcategories if empty
+  React.useEffect(() => {
+    const transportGroup = costGroups.find(group => group.name === 'Transport');
+    if (transportGroup && (!transportGroup.subCategories || transportGroup.subCategories.length === 0)) {
+      const defaultTransportSubcategories: SubCategory[] = [
+        {
+          id: 'transport_fuel_sub',
+          name: 'Bränsle',
+          amount: 800,
+          account: 'Löpande',
+          financedFrom: 'Löpande kostnad'
+        },
+        {
+          id: 'transport_maintenance_sub', 
+          name: 'Underhåll fordon',
+          amount: 600,
+          account: 'Löpande',
+          financedFrom: 'Löpande kostnad'
+        },
+        {
+          id: 'transport_parking_sub',
+          name: 'Parkering',
+          amount: 300,
+          account: 'Löpande', 
+          financedFrom: 'Löpande kostnad'
+        },
+        {
+          id: 'transport_public_sub',
+          name: 'Kollektivtrafik',
+          amount: 300,
+          account: 'Löpande',
+          financedFrom: 'Löpande kostnad'
+        }
+      ];
+      
+      setCostGroups(costGroups.map(group => 
+        group.id === transportGroup.id 
+          ? { ...group, subCategories: defaultTransportSubcategories } 
+          : group
+      ));
+    }
+  }, [costGroups]);
+
   const addCustomHoliday = () => {
     const newHoliday = {
       date: '',
@@ -5513,46 +5556,154 @@ const BudgetCalculator = () => {
                                 );
                               });
                             })()
-                           ) : (
-                             // Account view - group by account
-                             (() => {
-                              const accountGroups: { [key: string]: { name: string; amount: number; category: string }[] } = {};
-                              
-                              // Group all subcategories by account
-                              costGroups.forEach((group) => {
-                                group.subCategories?.forEach((sub) => {
-                                  const account = sub.account || 'Inget konto';
-                                  if (!accountGroups[account]) {
-                                    accountGroups[account] = [];
-                                  }
-                                  accountGroups[account].push({
-                                    name: sub.name,
-                                    amount: sub.amount,
-                                    category: group.name
+                             ) : (
+                              // Enhanced account view - same as category view but grouped by account
+                              (() => {
+                                // Group subcategories by account
+                                const accountGroups: { [key: string]: { total: number; subcategories: { id: string; name: string; amount: number; category: string; financedFrom?: string; groupId: string }[] } } = {};
+                                
+                                costGroups.forEach((group) => {
+                                  group.subCategories?.forEach((sub) => {
+                                    const account = sub.account || 'Inget konto';
+                                    if (!accountGroups[account]) {
+                                      accountGroups[account] = { total: 0, subcategories: [] };
+                                    }
+                                    
+                                    accountGroups[account].subcategories.push({
+                                      ...sub,
+                                      category: group.name,
+                                      groupId: group.id
+                                    });
+                                    accountGroups[account].total += sub.amount;
                                   });
                                 });
-                              });
-                              
-                              return Object.entries(accountGroups).map(([account, items]) => (
-                                <div key={account} className="space-y-2">
-                                  <div className="font-medium">{account}</div>
-                                  <div className="pl-4 space-y-1">
-                                    {items.map((item, index) => (
-                                      <div key={index} className="text-sm">
-                                        <div className="flex justify-between items-center">
-                                          <span className="flex-1">
-                                            {item.name} ({item.category})
-                                          </span>
-                                          <span className="w-32 text-right font-medium text-destructive">
-                                            {formatCurrency(item.amount)}
-                                          </span>
+
+                                return Object.entries(accountGroups).map(([accountName, data]) => {
+                                  // Calculate actual amount for this account across all categories
+                                  const actualAmount = data.subcategories.reduce((sum, sub) => {
+                                    const categoryGroup = costGroups.find(g => g.id === sub.groupId);
+                                    return sum + (categoryGroup ? calculateActualAmountForCategory(categoryGroup.id) : 0);
+                                  }, 0);
+                                  const difference = data.total - actualAmount;
+                                  
+                                  return (
+                                    <div key={accountName} className="border rounded-lg p-3 space-y-2">
+                                      <div className="flex items-center gap-2">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => setExpandedCostGroups(prev => ({
+                                            ...prev,
+                                            [`account_${accountName}`]: !prev[`account_${accountName}`]
+                                          }))}
+                                          className="p-1"
+                                        >
+                                          {expandedCostGroups[`account_${accountName}`] ? (
+                                            <ChevronUp className="h-4 w-4" />
+                                          ) : (
+                                            <ChevronDown className="h-4 w-4" />
+                                          )}
+                                        </Button>
+                                        <div className="flex-1">
+                                          <div className="font-medium">{accountName}</div>
+                                          <div className="text-xs text-muted-foreground">
+                                            {data.subcategories.length} {data.subcategories.length === 1 ? 'post' : 'poster'}
+                                          </div>
+                                        </div>
+                                        
+                                        {/* Budget vs Actual */}
+                                        <div className="space-y-1 text-right min-w-32">
+                                          <div className="text-sm">
+                                            <span className="text-muted-foreground">Budget: </span>
+                                            <span className="font-medium">{formatCurrency(data.total)}</span>
+                                          </div>
+                                          <div className="text-sm">
+                                            <span className="text-muted-foreground">Faktiskt: </span>
+                                            <span className="font-bold text-blue-600">
+                                              {formatCurrency(actualAmount)}
+                                            </span>
+                                          </div>
+                                          <div className={`text-sm font-medium ${difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                            Diff: {difference >= 0 ? '+' : ''}{formatCurrency(Math.abs(difference))}
+                                          </div>
                                         </div>
                                       </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              ));
-                            })()
+                                      
+                                      {/* Expandable subcategories details */}
+                                      {expandedCostGroups[`account_${accountName}`] && (
+                                        <div className="space-y-2 pt-2 border-t">
+                                          {data.subcategories.map((sub) => (
+                                            <div key={sub.id}>
+                                              {isEditingCategories ? (
+                                                <div className="p-2 border rounded space-y-2">
+                                                  <div className="flex gap-2 items-center">
+                                                    <Input
+                                                      value={sub.name}
+                                                      onChange={(e) => updateSubCategory(sub.groupId, sub.id, 'name', e.target.value)}
+                                                      placeholder="Kostnadsnamn"
+                                                      className="flex-1"
+                                                    />
+                                                    <Input
+                                                      type="number"
+                                                      value={sub.amount}
+                                                      onChange={(e) => updateSubCategory(sub.groupId, sub.id, 'amount', Number(e.target.value))}
+                                                      placeholder="Belopp"
+                                                      className="w-24"
+                                                    />
+                                                    <Button
+                                                      size="sm"
+                                                      variant="destructive"
+                                                      onClick={() => removeSubCategory(sub.groupId, sub.id)}
+                                                    >
+                                                      <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                  </div>
+                                                  <div className="flex gap-2 items-center text-sm">
+                                                    <span className="text-muted-foreground min-w-16">Kategori:</span>
+                                                    <span className="text-sm font-medium">{sub.category}</span>
+                                                  </div>
+                                                  <div className="flex gap-2 items-center">
+                                                    <span className="text-sm text-muted-foreground min-w-16">Finansieras från:</span>
+                                                    <Select
+                                                      value={sub.financedFrom || 'Löpande kostnad'}
+                                                      onValueChange={(value) => updateSubCategory(sub.groupId, sub.id, 'financedFrom', value as 'Löpande kostnad' | 'Enskild kostnad')}
+                                                    >
+                                                      <SelectTrigger className="w-40">
+                                                        <SelectValue />
+                                                      </SelectTrigger>
+                                                      <SelectContent className="bg-popover border border-border shadow-lg z-50">
+                                                        <SelectItem value="Löpande kostnad">Löpande kostnad</SelectItem>
+                                                        <SelectItem value="Enskild kostnad">Enskild kostnad</SelectItem>
+                                                      </SelectContent>
+                                                    </Select>
+                                                  </div>
+                                                </div>
+                                              ) : (
+                                                <div className="flex justify-between items-center p-2 bg-muted/20 rounded">
+                                                  <span className="flex-1">
+                                                    {sub.name} ({sub.category})
+                                                  </span>
+                                                  <span className="font-medium text-destructive">
+                                                    {formatCurrency(sub.amount)}
+                                                  </span>
+                                                </div>
+                                              )}
+                                            </div>
+                                          ))}
+                                          
+                                          {isEditingCategories && (
+                                            <div className="text-center pt-2">
+                                              <span className="text-sm text-muted-foreground">
+                                                Lägg till nya poster via kategorier ovan
+                                              </span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                });
+                              })()
                           )}
                         </div>
                        )}
