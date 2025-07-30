@@ -352,6 +352,7 @@ const BudgetCalculator = () => {
   console.log(`🚨 [RENDER] budgetState.historicalData:`, budgetState.historicalData);
   console.log(`🚨 [RENDER] selectedMonthKey:`, selectedMonthKey);
   console.log(`🚨 [RENDER] currentMonthData:`, currentMonthData);
+  console.log(`🚨 [RENDER] costGroups:`, costGroups);
 
   // Account balances - LÄS DIREKT FRÅN CENTRAL STATE (inga lokala useState längre)
   const accountBalances = (currentMonthData as any).accountBalances || {};
@@ -5650,6 +5651,10 @@ const BudgetCalculator = () => {
                                                  <div className="flex items-center gap-2 flex-1">
                                                    <span>
                                                      {sub.name}{sub.account ? ` (${sub.account})` : ''}
+                                                     {/* Debug info */}
+                                                     <span className="text-xs text-red-500 ml-2">
+                                                       {sub.transferType ? `[${sub.transferType}]` : '[no-type]'}
+                                                     </span>
                                                    </span>
                                                    {sub.transferType === 'daily' && (
                                                      <Button
