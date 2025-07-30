@@ -352,7 +352,6 @@ const BudgetCalculator = () => {
   console.log(`🚨 [RENDER] budgetState.historicalData:`, budgetState.historicalData);
   console.log(`🚨 [RENDER] selectedMonthKey:`, selectedMonthKey);
   console.log(`🚨 [RENDER] currentMonthData:`, currentMonthData);
-  console.log(`🚨 [RENDER] costGroups:`, costGroups);
 
   // Account balances - LÄS DIREKT FRÅN CENTRAL STATE (inga lokala useState längre)
   const accountBalances = (currentMonthData as any).accountBalances || {};
@@ -5651,28 +5650,23 @@ const BudgetCalculator = () => {
                                                  <div className="flex items-center gap-2 flex-1">
                                                    <span>
                                                      {sub.name}{sub.account ? ` (${sub.account})` : ''}
-                                                     {/* Debug info */}
-                                                     <span className="text-xs text-red-500 ml-2">
-                                                       {sub.transferType ? `[${sub.transferType}]` : '[no-type]'}
-                                                     </span>
                                                    </span>
-                                                   {sub.transferType === 'daily' && (
-                                                     <Button
-                                                       variant="ghost"
-                                                       size="sm"
-                                                       onClick={() => setExpandedCostGroups(prev => ({
-                                                         ...prev,
-                                                         [`${categoryName}-${sub.id}`]: !prev[`${categoryName}-${sub.id}`]
-                                                       }))}
-                                                       className="p-1 h-6 w-6"
-                                                     >
-                                                       {expandedCostGroups[`${categoryName}-${sub.id}`] ? (
-                                                         <ChevronUp className="h-3 w-3" />
-                                                       ) : (
-                                                         <ChevronDown className="h-3 w-3" />
-                                                       )}
-                                                     </Button>
-                                                   )}
+                                                   {/* All categories are now expandable */}
+                                                   <Button
+                                                     variant="ghost"
+                                                     size="sm"
+                                                     onClick={() => setExpandedCostGroups(prev => ({
+                                                       ...prev,
+                                                       [`${categoryName}-${sub.id}`]: !prev[`${categoryName}-${sub.id}`]
+                                                     }))}
+                                                     className="p-1 h-6 w-6"
+                                                   >
+                                                     {expandedCostGroups[`${categoryName}-${sub.id}`] ? (
+                                                       <ChevronUp className="h-3 w-3" />
+                                                     ) : (
+                                                       <ChevronDown className="h-3 w-3" />
+                                                     )}
+                                                   </Button>
                                                  </div>
                                                  <span className="font-medium text-destructive">
                                                    {sub.transferType === 'daily' 
@@ -5682,43 +5676,91 @@ const BudgetCalculator = () => {
                                                  </span>
                                                </div>
                                                
-                                               {/* Daily Transfer Details */}
-                                               {sub.transferType === 'daily' && expandedCostGroups[`${categoryName}-${sub.id}`] && (
-                                                 <div className="ml-4 p-3 bg-muted/10 rounded-lg border-l-2 border-primary/20 space-y-2">
+                                               {/* Expandable Details for ALL categories */}
+                                               {expandedCostGroups[`${categoryName}-${sub.id}`] && (
+                                                 <div className="ml-4 p-3 bg-muted/10 rounded-lg border-l-2 border-primary/20 space-y-3">
+                                                   {/* Common information for all transfer types */}
                                                    <div className="grid grid-cols-2 gap-4 text-sm">
                                                      <div>
-                                                       <span className="text-muted-foreground">Dagar det överförs:</span>
-                                                       <div className="font-medium">{formatTransferDays(sub.transferDays || [])}</div>
+                                                       <span className="text-muted-foreground">Huvudkategori:</span>
+                                                       <div className="font-medium">{categoryName}</div>
                                                      </div>
                                                      <div>
-                                                       <span className="text-muted-foreground">Summa per dag:</span>
-                                                       <div className="font-medium">{formatCurrency(sub.dailyAmount || 0)}</div>
+                                                       <span className="text-muted-foreground">Underkategori:</span>
+                                                       <div className="font-medium">{sub.name}</div>
                                                      </div>
                                                    </div>
                                                    
-                                                   <div className="space-y-2">
+                                                   <div className="grid grid-cols-2 gap-4 text-sm">
                                                      <div>
-                                                       <span className="text-muted-foreground">Estimerat överfört:</span>
-                                                       <div className="font-medium text-green-600">
-                                                         Dagar: {(() => {
-                                                           const estimatedAmount = calculateEstimatedToDate(sub, selectedBudgetMonth);
-                                                           const daysToDate = Math.floor(estimatedAmount / (sub.dailyAmount || 1));
-                                                           return `${daysToDate} × ${formatCurrency(sub.dailyAmount || 0)} = ${formatCurrency(estimatedAmount)}`;
-                                                         })()}
+                                                       <span className="text-muted-foreground">Överföringstyp:</span>
+                                                       <div className="font-medium">
+                                                         {sub.transferType === 'daily' ? 'Daglig överföring' : 'Fast månadsföring'}
                                                        </div>
                                                      </div>
-                                                     
                                                      <div>
-                                                       <span className="text-muted-foreground">Kvar att överföra:</span>
-                                                       <div className="font-medium text-blue-600">
-                                                         Dagar: {(() => {
-                                                           const remainingAmount = calculateRemaining(sub, selectedBudgetMonth);
-                                                           const remainingDays = Math.floor(remainingAmount / (sub.dailyAmount || 1));
-                                                           return `${remainingDays} × ${formatCurrency(sub.dailyAmount || 0)} = ${formatCurrency(remainingAmount)}`;
-                                                         })()}
-                                                       </div>
+                                                       <span className="text-muted-foreground">Konto:</span>
+                                                       <div className="font-medium">{sub.account || 'Inget konto'}</div>
                                                      </div>
                                                    </div>
+                                                   
+                                                   <div className="grid grid-cols-2 gap-4 text-sm">
+                                                     <div>
+                                                       <span className="text-muted-foreground">
+                                                         {sub.transferType === 'daily' ? 'Månadsbelopp:' : 'Belopp:'}
+                                                       </span>
+                                                       <div className="font-medium">
+                                                         {sub.transferType === 'daily' 
+                                                           ? formatCurrency(calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth))
+                                                           : formatCurrency(sub.amount)
+                                                         }
+                                                       </div>
+                                                     </div>
+                                                     <div>
+                                                       <span className="text-muted-foreground">Finansieras ifrån:</span>
+                                                       <div className="font-medium">{sub.financedFrom || 'Löpande kostnad'}</div>
+                                                     </div>
+                                                   </div>
+                                                   
+                                                   {/* Additional information for daily transfers */}
+                                                   {sub.transferType === 'daily' && (
+                                                     <div className="border-t pt-3 space-y-3">
+                                                       <div className="grid grid-cols-2 gap-4 text-sm">
+                                                         <div>
+                                                           <span className="text-muted-foreground">Dagar det överförs:</span>
+                                                           <div className="font-medium">{formatTransferDays(sub.transferDays || [])}</div>
+                                                         </div>
+                                                         <div>
+                                                           <span className="text-muted-foreground">Summa per dag:</span>
+                                                           <div className="font-medium">{formatCurrency(sub.dailyAmount || 0)}</div>
+                                                         </div>
+                                                       </div>
+                                                       
+                                                       <div className="space-y-2">
+                                                         <div>
+                                                           <span className="text-muted-foreground">Estimerat överfört:</span>
+                                                           <div className="font-medium text-green-600">
+                                                             Dagar: {(() => {
+                                                               const estimatedAmount = calculateEstimatedToDate(sub, selectedBudgetMonth);
+                                                               const daysToDate = Math.floor(estimatedAmount / (sub.dailyAmount || 1));
+                                                               return `${daysToDate} × ${formatCurrency(sub.dailyAmount || 0)} = ${formatCurrency(estimatedAmount)}`;
+                                                             })()}
+                                                           </div>
+                                                         </div>
+                                                         
+                                                         <div>
+                                                           <span className="text-muted-foreground">Kvar att överföra:</span>
+                                                           <div className="font-medium text-blue-600">
+                                                             Dagar: {(() => {
+                                                               const remainingAmount = calculateRemaining(sub, selectedBudgetMonth);
+                                                               const remainingDays = Math.floor(remainingAmount / (sub.dailyAmount || 1));
+                                                               return `${remainingDays} × ${formatCurrency(sub.dailyAmount || 0)} = ${formatCurrency(remainingAmount)}`;
+                                                             })()}
+                                                           </div>
+                                                         </div>
+                                                       </div>
+                                                     </div>
+                                                   )}
                                                  </div>
                                                )}
                                              </div>
