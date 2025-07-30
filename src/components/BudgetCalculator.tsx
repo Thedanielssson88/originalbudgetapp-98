@@ -1812,11 +1812,28 @@ const BudgetCalculator = () => {
       };
     }
 
+    // Calculate the correct amount based on transfer type
+    let calculatedAmount = item.amount;
+    if (item.transferType === 'daily' && item.dailyAmount && item.transferDays) {
+      // For daily transfers, calculate the monthly amount
+      const currentMonthKey = selectedBudgetMonth || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      const tempSubCategory = {
+        id: 'temp',
+        name: 'temp',
+        amount: 0,
+        transferType: item.transferType,
+        dailyAmount: item.dailyAmount,
+        transferDays: item.transferDays
+      };
+      calculatedAmount = calculateMonthlyAmountForDailyTransfer(tempSubCategory, currentMonthKey);
+      console.log(`🔍 [DEBUG] Calculated amount for daily transfer: ${calculatedAmount} (dailyAmount: ${item.dailyAmount}, transferDays: ${item.transferDays})`);
+    }
+
     // Add new subcategory
     const newSubCategory = {
       id: Date.now().toString() + '_sub',
       name: `${item.subcategory}: ${item.name}`,
-      amount: item.amount,
+      amount: calculatedAmount,
       account: item.account,
       financedFrom: item.financedFrom,
       transferType: item.transferType || 'monthly',
