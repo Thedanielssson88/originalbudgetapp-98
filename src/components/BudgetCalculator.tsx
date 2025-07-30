@@ -5804,7 +5804,28 @@ const BudgetCalculator = () => {
                           <div>
                             <div className="text-sm text-muted-foreground text-green-800">Totalt sparande</div>
                             <div className="text-3xl font-bold text-green-600">
-                              {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
+                              {formatCurrency((() => {
+                                const savingsCategoriesTotal = savingsGroups.reduce((sum, group) => {
+                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                  return sum + group.amount + subCategoriesTotal;
+                                }, 0);
+                                
+                                const savingsGoalsMonthlyTotal = budgetState.savingsGoals.reduce((sum, goal) => {
+                                  const start = new Date(goal.startDate + '-01');
+                                  const end = new Date(goal.endDate + '-01');
+                                  const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
+                                                     (end.getMonth() - start.getMonth()) + 1;
+                                  const monthlyAmount = goal.targetAmount / monthsDiff;
+                                  
+                                  const currentMonthDate = new Date(selectedBudgetMonth + '-01');
+                                  if (currentMonthDate >= start && currentMonthDate <= end) {
+                                    return sum + monthlyAmount;
+                                  }
+                                  return sum;
+                                }, 0);
+                                
+                                return savingsCategoriesTotal + savingsGoalsMonthlyTotal;
+                              })())}
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -5884,7 +5905,28 @@ const BudgetCalculator = () => {
                       <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                         <div className="text-sm text-green-700 font-medium">Totalt sparande</div>
                         <div className="text-xl font-bold text-green-800">
-                          {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
+                          {formatCurrency((() => {
+                            const savingsCategoriesTotal = savingsGroups.reduce((sum, group) => {
+                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                              return sum + group.amount + subCategoriesTotal;
+                            }, 0);
+                            
+                            const savingsGoalsMonthlyTotal = budgetState.savingsGoals.reduce((sum, goal) => {
+                              const start = new Date(goal.startDate + '-01');
+                              const end = new Date(goal.endDate + '-01');
+                              const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
+                                                 (end.getMonth() - start.getMonth()) + 1;
+                              const monthlyAmount = goal.targetAmount / monthsDiff;
+                              
+                              const currentMonthDate = new Date(selectedBudgetMonth + '-01');
+                              if (currentMonthDate >= start && currentMonthDate <= end) {
+                                return sum + monthlyAmount;
+                              }
+                              return sum;
+                            }, 0);
+                            
+                            return savingsCategoriesTotal + savingsGoalsMonthlyTotal;
+                          })())}
                         </div>
                       </div>
                     </div>
