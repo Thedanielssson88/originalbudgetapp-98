@@ -37,6 +37,7 @@ import { TransactionExpandableCard } from './TransactionExpandableCard';
 import { TransactionGroupByDate } from './TransactionGroupByDate';
 import { useBudget } from '@/hooks/useBudget';
 import { setTransactionsForCurrentMonth } from '../orchestrator/budgetOrchestrator';
+import { getCurrentState } from '../orchestrator/budgetOrchestrator';
 
 interface Account {
   id: string;
@@ -219,6 +220,72 @@ export const TransactionImportEnhanced: React.FC = () => {
     return transactions;
   }, [accounts]);
 
+  // Create unique fingerprint for transaction matching
+  const createTransactionFingerprint = useCallback((transaction: { date: string; description: string; amount: number }): string => {
+    return `${transaction.date.trim()}_${transaction.description.trim().toLowerCase()}_${transaction.amount}`;
+  }, []);
+
+  // Reconcile transactions from file with already saved transactions
+  const reconcileTransactions = useCallback((transactionsFromFile: ImportedTransaction[], accountId: string): ImportedTransaction[] => {
+    console.log(`[Reconciliation] Starting reconciliation for account ${accountId} with ${transactionsFromFile.length} transactions from file`);
+    
+    // Get currently saved transactions for this month and account
+    const currentState = getCurrentState();
+    const currentMonthKey = currentState.budgetState.selectedMonthKey;
+    const currentMonthData = currentState.budgetState.historicalData[currentMonthKey];
+    const savedTransactions: ImportedTransaction[] = (currentMonthData as any)?.transactions || [];
+    
+    console.log(`[Reconciliation] Found ${savedTransactions.length} already saved transactions for month ${currentMonthKey}`);
+    
+    // Filter saved transactions for this account only
+    const savedTransactionsForAccount = savedTransactions.filter(t => t.accountId === accountId);
+    console.log(`[Reconciliation] Found ${savedTransactionsForAccount.length} saved transactions for account ${accountId}`);
+    
+    // Create a map of saved transactions for quick lookup
+    const savedTransactionsMap = new Map<string, ImportedTransaction>();
+    savedTransactionsForAccount.forEach(transaction => {
+      const fingerprint = createTransactionFingerprint({
+        date: transaction.date,
+        description: transaction.description,
+        amount: transaction.amount
+      });
+      savedTransactionsMap.set(fingerprint, transaction);
+    });
+    
+    console.log(`[Reconciliation] Created fingerprint map with ${savedTransactionsMap.size} entries`);
+    
+    // Reconcile: match file transactions with saved transactions
+    const reconciledTransactions = transactionsFromFile.map(fileTransaction => {
+      const fingerprint = createTransactionFingerprint({
+        date: fileTransaction.date,
+        description: fileTransaction.description,
+        amount: fileTransaction.amount
+      });
+      
+      const existingTransaction = savedTransactionsMap.get(fingerprint);
+      
+      if (existingTransaction) {
+        // Use saved transaction (preserves user changes like appCategoryId, status, egenText)
+        console.log(`[Reconciliation] ✅ Match found for: ${fingerprint}. Using saved data with preserved changes.`);
+        return {
+          ...existingTransaction,
+          // Optionally update some fields from the file (like bank status if it changed)
+          bankCategory: fileTransaction.bankCategory,
+          bankSubCategory: fileTransaction.bankSubCategory,
+          fileSource: fileTransaction.fileSource,
+          importedAt: fileTransaction.importedAt
+        };
+      } else {
+        // New transaction - use data from file
+        console.log(`[Reconciliation] ⚠️ No match for: ${fingerprint}. Creating new transaction.`);
+        return fileTransaction;
+      }
+    });
+    
+    console.log(`[Reconciliation] Reconciliation complete. ${reconciledTransactions.length} transactions reconciled.`);
+    return reconciledTransactions;
+  }, [createTransactionFingerprint]);
+
   const handleFileUpload = useCallback((accountId: string, file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -259,10 +326,15 @@ export const TransactionImportEnhanced: React.FC = () => {
         return [...filtered, uploadedFile];
       });
 
-      // Add transactions to global list
+      // Reconcile transactions with already saved data before adding to global list
+      const reconciledTransactions = reconcileTransactions(parsedTransactions, accountId);
+      
+      console.log(`[FileUpload] Reconciliation complete. Original: ${parsedTransactions.length}, Reconciled: ${reconciledTransactions.length}`);
+
+      // Add reconciled transactions to global list
       setTransactions(prev => {
         const filtered = prev.filter(t => t.accountId !== accountId);
-        const updatedTransactions = [...filtered, ...parsedTransactions];
+        const updatedTransactions = [...filtered, ...reconciledTransactions];
         
         // Save to persistent storage
         setTransactionsForCurrentMonth(updatedTransactions);
@@ -272,11 +344,11 @@ export const TransactionImportEnhanced: React.FC = () => {
 
       toast({
         title: "Fil uppladdad",
-        description: `${parsedTransactions.length} transaktioner lästa från ${file.name}`,
+        description: `${reconciledTransactions.length} transaktioner bearbetade från ${file.name}. Tidigare kategoriseringar och ändringar bevarade.`,
       });
     };
     reader.readAsText(file);
-  }, [parseCSV, toast]);
+  }, [parseCSV, toast, reconcileTransactions]);
 
   const applyCategorizationRules = useCallback(() => {
     setTransactions(prev => {
