@@ -187,14 +187,13 @@ export const CostItemEditDialog: React.FC<CostItemEditDialogProps> = ({
           <div className="space-y-2">
             <Label>Konto</Label>
             <Select 
-              value={editedItem.account || 'none'} 
-              onValueChange={(value) => updateField('account', value === 'none' ? '' : value)}
+              value={editedItem.account || (accounts.length > 0 ? accounts[0] : '')} 
+              onValueChange={(value) => updateField('account', value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Välj konto" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Inget konto</SelectItem>
                 {accounts.filter(account => account && account.trim() !== '').map((account) => (
                   <SelectItem key={account} value={account}>
                     {account}
