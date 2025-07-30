@@ -75,11 +75,25 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
   }, [formData.mainCategory, subcategories]);
 
   const handleSave = () => {
+    console.log('🔍 [DEBUG] AddCostItemDialog handleSave called with formData:', formData);
+    
     const isValidAmount = formData.transferType === 'daily' ? 
       formData.dailyAmount > 0 && formData.transferDays.length > 0 : 
       formData.amount > 0;
       
+    console.log('🔍 [DEBUG] Validation check:', {
+      mainCategory: !!formData.mainCategory,
+      subcategory: !!formData.subcategory,
+      name: !!formData.name,
+      isValidAmount,
+      transferType: formData.transferType,
+      amount: formData.amount,
+      dailyAmount: formData.dailyAmount,
+      transferDays: formData.transferDays
+    });
+      
     if (formData.mainCategory && formData.subcategory && formData.name && isValidAmount) {
+      console.log('🔍 [DEBUG] Validation passed, calling onSave...');
       const itemToSave = {
         ...formData,
         account: formData.account === 'none' ? '' : formData.account
@@ -97,6 +111,8 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
         transferDays: [] as number[]
       });
       onClose();
+    } else {
+      console.log('🔍 [DEBUG] Validation failed, save not executed');
     }
   };
 
