@@ -132,12 +132,12 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>Lägg till kostnadspost</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4">
+        <div className="space-y-4 pb-4">
           <div className="space-y-2">
             <Label htmlFor="mainCategory">Huvudkategori</Label>
             <Select 
