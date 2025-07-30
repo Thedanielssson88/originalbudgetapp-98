@@ -1337,7 +1337,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                   <SelectValue placeholder="Välj kategori" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mainCategories.map(category => (
+                  {mainCategories.filter(category => category && category.trim() !== '').map(category => (
                     <SelectItem key={category} value={category}>
                       {category}
                     </SelectItem>
@@ -1357,7 +1357,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Ingen underkategori</SelectItem>
-                    {getSubCategoriesForMainCategory(newRule.appCategoryId).map(subCat => (
+                    {getSubCategoriesForMainCategory(newRule.appCategoryId).filter(subCat => subCat && subCat.trim() !== '').map(subCat => (
                       <SelectItem key={subCat} value={subCat}>
                         {subCat}
                       </SelectItem>
