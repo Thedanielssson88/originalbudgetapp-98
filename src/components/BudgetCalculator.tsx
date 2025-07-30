@@ -5798,37 +5798,58 @@ const BudgetCalculator = () => {
                        )}
                      </div>
 
-                     {/* Savings Section */}
-                     <SavingsSection
-                       savingsGroups={savingsGroups}
-                       savingsGoals={budgetState.savingsGoals}
-                       accounts={accounts}
-                       mainCategories={budgetState.mainCategories || []}
-                       onAddSavingsItem={(item) => {
-                         // Handle adding savings item
-                         const newGroup = {
-                           id: Date.now().toString(),
-                           name: item.mainCategory,
-                           amount: 0,
-                           type: 'savings' as const,
-                           subCategories: [{
-                             id: (Date.now() + 1).toString(),
-                             name: item.name,
-                             amount: item.amount,
-                             account: item.account
-                           }]
-                         };
-                         setSavingsGroups([...savingsGroups, newGroup]);
-                       }}
-                       onEditSavingsGroup={(group) => {
-                         // Handle editing savings group
-                         console.log('Edit savings group:', group);
-                       }}
-                       onDeleteSavingsGroup={(id) => {
-                         // Handle deleting savings group
-                         setSavingsGroups(savingsGroups.filter(g => g.id !== id));
-                       }}
-                     />
+                      {/* Total Savings with Dropdown */}
+                      <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('savingsCategories')}>
+                          <div>
+                            <div className="text-sm text-muted-foreground text-green-800">Totalt sparande</div>
+                            <div className="text-3xl font-bold text-green-600">
+                              {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                              <span className="text-2xl">💰</span>
+                            </div>
+                            {expandedSections.savingsCategories ? <ChevronUp className="h-5 w-5 text-green-600" /> : <ChevronDown className="h-5 w-5 text-green-600" />}
+                          </div>
+                        </div>
+                        
+                        {expandedSections.savingsCategories && (
+                          <div className="mt-4">
+                            <SavingsSection
+                              savingsGroups={savingsGroups}
+                              savingsGoals={budgetState.savingsGoals}
+                              accounts={accounts}
+                              mainCategories={budgetState.mainCategories || []}
+                              onAddSavingsItem={(item) => {
+                                // Handle adding savings item
+                                const newGroup = {
+                                  id: Date.now().toString(),
+                                  name: item.mainCategory,
+                                  amount: 0,
+                                  type: 'savings' as const,
+                                  subCategories: [{
+                                    id: (Date.now() + 1).toString(),
+                                    name: item.name,
+                                    amount: item.amount,
+                                    account: item.account
+                                  }]
+                                };
+                                setSavingsGroups([...savingsGroups, newGroup]);
+                              }}
+                              onEditSavingsGroup={(group) => {
+                                // Handle editing savings group
+                                console.log('Edit savings group:', group);
+                              }}
+                              onDeleteSavingsGroup={(id) => {
+                                // Handle deleting savings group
+                                setSavingsGroups(savingsGroups.filter(g => g.id !== id));
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
                   </CardContent>
                 )}
               </Card>

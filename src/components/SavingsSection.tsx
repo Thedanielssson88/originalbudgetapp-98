@@ -448,36 +448,21 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
   };
 
   return (
-    <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
-      <CardHeader className="pb-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <CardTitle className="text-lg text-green-800">Totalt sparande</CardTitle>
-            <div className="text-3xl font-bold text-green-600">
-              {totalSavings.toLocaleString()} kr
-            </div>
-          </div>
-          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-            <span className="text-2xl">💰</span>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {viewMode === 'category' ? renderCategoryView() : renderAccountView()}
+    <div className="space-y-4">
+      {viewMode === 'category' ? renderCategoryView() : renderAccountView()}
 
-        {/* Daily transfer information at bottom */}
-        <Card className="mt-6 bg-muted/20">
-          <CardContent className="pt-4">
-            <h4 className="font-medium mb-2">Total daglig budget: 8 760 kr</h4>
-            <div className="text-sm text-muted-foreground space-y-1">
-              <div>Daglig överföring (måndag-torsdag): 300</div>
-              <div>Helgöverföring (fredag-söndag): 540</div>
-              <div>• Vardagar: 22 × 300 kr = 6 600 kr</div>
-              <div>• Helgdagar: 4 × 540 kr = 2 160 kr</div>
-            </div>
-          </CardContent>
-        </Card>
-      </CardContent>
+      {/* Daily transfer information at bottom */}
+      <Card className="bg-muted/20">
+        <CardContent className="pt-4">
+          <h4 className="font-medium mb-2">Total daglig budget: 8 760 kr</h4>
+          <div className="text-sm text-muted-foreground space-y-1">
+            <div>Daglig överföring (måndag-torsdag): 300</div>
+            <div>Helgöverföring (fredag-söndag): 540</div>
+            <div>• Vardagar: 22 × 300 kr = 6 600 kr</div>
+            <div>• Helgdagar: 4 × 540 kr = 2 160 kr</div>
+          </div>
+        </CardContent>
+      </Card>
 
       <AddSavingsItemDialog
         isOpen={isAddDialogOpen}
@@ -486,6 +471,6 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
         mainCategories={mainCategories}
         accounts={accounts.map(acc => typeof acc === 'string' ? acc : (acc as any).name || (acc as any).id)}
       />
-    </Card>
+    </div>
   );
 };
