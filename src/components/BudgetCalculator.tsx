@@ -87,6 +87,10 @@ interface SubCategory {
   transferDays?: number[];
 }
 
+interface ExtendedSubCategory extends SubCategory {
+  groupId: string;
+}
+
 interface BudgetGroup {
   id: string;
   name: string;
@@ -5473,20 +5477,20 @@ const BudgetCalculator = () => {
                           
                           {costViewType === 'category' ? (
                             // Enhanced expandable category view
-                            (() => {
-                              // Group subcategories by main category
-                              const categoryGroups: { [key: string]: { total: number; subcategories: { id: string; name: string; amount: number; account?: string; financedFrom?: string; groupId: string }[] } } = {};
-                              
-                              costGroups.forEach((group) => {
-                                if (!categoryGroups[group.name]) {
-                                  categoryGroups[group.name] = { total: 0, subcategories: [] };
-                                }
-                                
-                                group.subCategories?.forEach((sub) => {
-                                  categoryGroups[group.name].subcategories.push({
-                                    ...sub,
-                                    groupId: group.id
-                                  });
+                             (() => {
+                               // Group subcategories by main category
+                               const categoryGroups: { [key: string]: { total: number; subcategories: ExtendedSubCategory[] } } = {};
+                               
+                               costGroups.forEach((group) => {
+                                 if (!categoryGroups[group.name]) {
+                                   categoryGroups[group.name] = { total: 0, subcategories: [] };
+                                 }
+                                 
+                                 group.subCategories?.forEach((sub) => {
+                                   categoryGroups[group.name].subcategories.push({
+                                     ...sub,
+                                     groupId: group.id
+                                   } as SubCategory & { groupId: string });
                                   
                                   // ANVÄND DEN NYA BERÄKNINGSLOGIKEN HÄR
                                   if (sub.transferType === 'daily') {
@@ -5640,16 +5644,80 @@ const BudgetCalculator = () => {
                                                 </Select>
                                               </div>
                                             </div>
-                                          ) : (
-                                            <div className="flex justify-between items-center p-2 bg-muted/20 rounded">
-                                              <span className="flex-1">
-                                                {sub.name}{sub.account ? ` (${sub.account})` : ''}
-                                              </span>
-                                              <span className="font-medium text-destructive">
-                                                {formatCurrency(sub.amount)}
-                                              </span>
-                                            </div>
-                                          )}
+                                           ) : (
+                                             <div className="space-y-2">
+                                               <div className="flex justify-between items-center p-2 bg-muted/20 rounded">
+                                                 <div className="flex items-center gap-2 flex-1">
+                                                   <span>
+                                                     {sub.name}{sub.account ? ` (${sub.account})` : ''}
+                                                   </span>
+                                                   {sub.transferType === 'daily' && (
+                                                     <Button
+                                                       variant="ghost"
+                                                       size="sm"
+                                                       onClick={() => setExpandedCostGroups(prev => ({
+                                                         ...prev,
+                                                         [`${categoryName}-${sub.id}`]: !prev[`${categoryName}-${sub.id}`]
+                                                       }))}
+                                                       className="p-1 h-6 w-6"
+                                                     >
+                                                       {expandedCostGroups[`${categoryName}-${sub.id}`] ? (
+                                                         <ChevronUp className="h-3 w-3" />
+                                                       ) : (
+                                                         <ChevronDown className="h-3 w-3" />
+                                                       )}
+                                                     </Button>
+                                                   )}
+                                                 </div>
+                                                 <span className="font-medium text-destructive">
+                                                   {sub.transferType === 'daily' 
+                                                     ? formatCurrency(calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth))
+                                                     : formatCurrency(sub.amount)
+                                                   }
+                                                 </span>
+                                               </div>
+                                               
+                                               {/* Daily Transfer Details */}
+                                               {sub.transferType === 'daily' && expandedCostGroups[`${categoryName}-${sub.id}`] && (
+                                                 <div className="ml-4 p-3 bg-muted/10 rounded-lg border-l-2 border-primary/20 space-y-2">
+                                                   <div className="grid grid-cols-2 gap-4 text-sm">
+                                                     <div>
+                                                       <span className="text-muted-foreground">Dagar det överförs:</span>
+                                                       <div className="font-medium">{formatTransferDays(sub.transferDays || [])}</div>
+                                                     </div>
+                                                     <div>
+                                                       <span className="text-muted-foreground">Summa per dag:</span>
+                                                       <div className="font-medium">{formatCurrency(sub.dailyAmount || 0)}</div>
+                                                     </div>
+                                                   </div>
+                                                   
+                                                   <div className="space-y-2">
+                                                     <div>
+                                                       <span className="text-muted-foreground">Estimerat överfört:</span>
+                                                       <div className="font-medium text-green-600">
+                                                         Dagar: {(() => {
+                                                           const estimatedAmount = calculateEstimatedToDate(sub, selectedBudgetMonth);
+                                                           const daysToDate = Math.floor(estimatedAmount / (sub.dailyAmount || 1));
+                                                           return `${daysToDate} × ${formatCurrency(sub.dailyAmount || 0)} = ${formatCurrency(estimatedAmount)}`;
+                                                         })()}
+                                                       </div>
+                                                     </div>
+                                                     
+                                                     <div>
+                                                       <span className="text-muted-foreground">Kvar att överföra:</span>
+                                                       <div className="font-medium text-blue-600">
+                                                         Dagar: {(() => {
+                                                           const remainingAmount = calculateRemaining(sub, selectedBudgetMonth);
+                                                           const remainingDays = Math.floor(remainingAmount / (sub.dailyAmount || 1));
+                                                           return `${remainingDays} × ${formatCurrency(sub.dailyAmount || 0)} = ${formatCurrency(remainingAmount)}`;
+                                                         })()}
+                                                       </div>
+                                                     </div>
+                                                   </div>
+                                                 </div>
+                                               )}
+                                             </div>
+                                           )}
                                         </div>
                                       ))}
                                       
