@@ -60,7 +60,7 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
     setExpandedAccounts(newExpanded);
   };
 
-  const totalSavings = savingsGroups.reduce((sum, group) => sum + group.amount, 0);
+  const totalSavings = savingsGroups.reduce((sum, group) => sum + (group.amount || 0), 0);
 
   const formatCurrency = (amount: number) => `${amount.toLocaleString()} kr`;
 

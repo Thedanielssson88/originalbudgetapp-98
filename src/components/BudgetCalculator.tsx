@@ -286,6 +286,53 @@ const BudgetCalculator = () => {
   // Account management states  
   const accounts = budgetState.accounts.map(acc => acc.name);
   
+  // Create unified savings items list that combines savingsGroups with active savings goals
+  const allSavingsItems = useMemo(() => {
+    // 1. Start with regular, general savings
+    const generalSavings = savingsGroups || [];
+
+    // 2. Get all savings goals from global state
+    const savingsGoals = budgetState.savingsGoals || [];
+
+    // 3. Filter and transform savings goals that are active this month
+    const activeGoalsAsSavingsItems = savingsGoals
+      .map(goal => {
+        // Calculate monthly savings amount for the goal
+        const start = new Date(goal.startDate + '-01');
+        const end = new Date(goal.endDate + '-01');
+        const currentMonthDate = new Date(selectedBudgetMonth + '-01');
+
+        // Check if goal is active
+        if (currentMonthDate >= start && currentMonthDate <= end) {
+          const monthsDiff = Math.max(1, (end.getFullYear() - start.getFullYear()) * 12 + 
+                             (end.getMonth() - start.getMonth()) + 1);
+          
+          if (monthsDiff > 0) {
+            const monthlyAmount = goal.targetAmount / monthsDiff;
+
+            // Transform savings goal into an object that looks like regular savings
+            return {
+              id: goal.id,
+              name: `${goal.name} (Sparmål)`, // Clarify that it's a savings goal
+              amount: monthlyAmount,
+              type: 'savings' as const,
+              mainCategoryId: goal.mainCategoryId,
+              subCategoryId: goal.subCategoryId,
+              account: goal.accountId ? budgetState.accounts.find(a => a.id === goal.accountId)?.name : undefined,
+              // Keep original savings goal properties for compatibility
+              _originalGoal: goal
+            };
+          }
+        }
+        return null;
+      })
+      .filter(Boolean); // Filter out null values (inactive goals)
+
+    // 4. Combine the two lists into one
+    return [...generalSavings, ...activeGoalsAsSavingsItems];
+
+  }, [savingsGroups, budgetState.savingsGoals, selectedBudgetMonth, budgetState.accounts]);
+  
   // CRITICAL DEBUG: Log the exact data being used
   console.log(`🚨 [RENDER] budgetState.historicalData:`, budgetState.historicalData);
   console.log(`🚨 [RENDER] selectedMonthKey:`, selectedMonthKey);
@@ -390,7 +437,7 @@ const BudgetCalculator = () => {
     }, 0);
     
     // Calculate total savings
-    const totalSavings = savingsGroups.reduce((sum, group) => sum + group.amount, 0);
+    const totalSavings = allSavingsItems.reduce((sum, group) => sum + group.amount, 0);
     
     const totalMonthlyExpenses = totalCosts + totalSavings;
     const preliminaryBalance = totalSalary - budgetData.totalBudget - totalMonthlyExpenses;
@@ -5805,7 +5852,7 @@ const BudgetCalculator = () => {
                             <div className="text-sm text-muted-foreground text-green-800">Totalt sparande</div>
                             <div className="text-3xl font-bold text-green-600">
                               {formatCurrency((() => {
-                                const savingsCategoriesTotal = savingsGroups.reduce((sum, group) => {
+                                const savingsCategoriesTotal = allSavingsItems.reduce((sum, group) => {
                                   const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
                                   return sum + group.amount + subCategoriesTotal;
                                 }, 0);
@@ -5839,7 +5886,7 @@ const BudgetCalculator = () => {
                         {expandedSections.savingsCategories && (
                           <div className="mt-4">
                             <SavingsSection
-                              savingsGroups={savingsGroups}
+                              savingsGroups={allSavingsItems}
                               savingsGoals={budgetState.savingsGoals}
                               accounts={accounts}
                               mainCategories={budgetState.mainCategories || []}
@@ -5906,7 +5953,7 @@ const BudgetCalculator = () => {
                         <div className="text-sm text-green-700 font-medium">Totalt sparande</div>
                         <div className="text-xl font-bold text-green-800">
                           {formatCurrency((() => {
-                            const savingsCategoriesTotal = savingsGroups.reduce((sum, group) => {
+                            const savingsCategoriesTotal = allSavingsItems.reduce((sum, group) => {
                               const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
                               return sum + group.amount + subCategoriesTotal;
                             }, 0);
@@ -6045,7 +6092,7 @@ const BudgetCalculator = () => {
                              andreasShare: results?.andreasShare || 0,
                              susannaShare: results?.susannaShare || 0,
                               savings: (() => {
-                                const savingsCategoriesTotal = savingsGroups.reduce((sum, group) => {
+                                const savingsCategoriesTotal = allSavingsItems.reduce((sum, group) => {
                                   const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
                                   return sum + group.amount + subCategoriesTotal;
                                 }, 0);
@@ -6702,10 +6749,10 @@ const BudgetCalculator = () => {
                          {/* Account Summary List */}
                          <div className="space-y-3">
                            {accounts.map(account => {
-                             // Calculate savings for this account
-                             const accountSavings = savingsGroups
-                               .filter(group => group.account === account)
-                               .reduce((sum, group) => sum + group.amount, 0);
+                              // Calculate savings for this account
+                              const accountSavings = allSavingsItems
+                                .filter(group => group.account === account)
+                                .reduce((sum, group) => sum + group.amount, 0);
                              
                              // Calculate costs for this account
                              const accountCosts = costGroups.reduce((sum, group) => {
@@ -6858,11 +6905,11 @@ const BudgetCalculator = () => {
                             {accounts.map(account => {
                               // Get original balance using Calc.Kontosaldo from same month
                               const originalBalance = getCalcKontosaldoSameMonth(account);
-                              
-                              // Calculate savings for this account
-                              const accountSavings = savingsGroups
-                                .filter(group => group.account === account)
-                                .reduce((sum, group) => sum + group.amount, 0);
+                               
+                               // Calculate savings for this account
+                               const accountSavings = allSavingsItems
+                                 .filter(group => group.account === account)
+                                 .reduce((sum, group) => sum + group.amount, 0);
                               
                               // Calculate costs for this account
                               const accountCosts = costGroups.reduce((sum, group) => {
@@ -6992,7 +7039,7 @@ const BudgetCalculator = () => {
                               const originalBalance = getCalcKontosaldoSameMonth(account);
                               
                               // Calculate total deposits (savings + costs as positive) for this account
-                              const savingsAmount = savingsGroups.reduce((sum, group) => {
+                              const savingsAmount = allSavingsItems.reduce((sum, group) => {
                                 // Check if the group itself is assigned to this account
                                 if (group.account === account) {
                                   return sum + group.amount;
@@ -7106,7 +7153,7 @@ const BudgetCalculator = () => {
                                       </div>
                                       
                                       {/* Individual savings groups assigned to this account */}
-                                      {savingsGroups
+                                      {allSavingsItems
                                         .filter(group => group.account === account)
                                         .map(savingsGroup => (
                                           <div key={`costbudget-savings-${savingsGroup.id}`} className="flex justify-between text-sm">
@@ -7116,7 +7163,7 @@ const BudgetCalculator = () => {
                                         ))}
                                       
                                       {/* Individual savings subcategories assigned to this account */}
-                                      {savingsGroups
+                                      {allSavingsItems
                                         .filter(group => group.subCategories && group.subCategories.some(sub => sub.account === account))
                                         .map(group => 
                                           group.subCategories
@@ -7128,39 +7175,6 @@ const BudgetCalculator = () => {
                                               </div>
                                             ))
                                         )}
-                                      
-                                      {/* Individual savings goals for this account */}
-                                      {budgetState.savingsGoals
-                                        .filter(goal => {
-                                          // Try direct account name matching first (in case accountId was set to account name)
-                                          if (goal.accountId === account) return true;
-                                          
-                                          // Then try ID matching
-                                          const accountObj = budgetState.accounts.find(acc => acc.name === account);
-                                          if (accountObj && goal.accountId === accountObj.id) return true;
-                                          
-                                          return false;
-                                        })
-                                        .filter(goal => {
-                                          const start = new Date(goal.startDate + '-01');
-                                          const end = new Date(goal.endDate + '-01');
-                                          const currentMonthDate = new Date(selectedBudgetMonth + '-01');
-                                          return currentMonthDate >= start && currentMonthDate <= end;
-                                        })
-                                        .map(goal => {
-                                          const start = new Date(goal.startDate + '-01');
-                                          const end = new Date(goal.endDate + '-01');
-                                          const monthsDiff = Math.max(1, (end.getFullYear() - start.getFullYear()) * 12 + 
-                                                             (end.getMonth() - start.getMonth()) + 1);
-                                          const monthlyAmount = goal.targetAmount / monthsDiff;
-                                          
-                                          return (
-                                            <div key={`costbudget-goal-${goal.id}`} className="flex justify-between text-sm">
-                                              <span className="text-gray-600">{goal.name} (Sparmål)</span>
-                                              <span className="text-green-600">+{formatCurrency(monthlyAmount)}</span>
-                                            </div>
-                                          );
-                                        })}
                                       
                                        {/* Cost budget deposits - only Löpande kostnad costs as positive deposits */}
                                        {totalCosts > 0 && (
@@ -7681,11 +7695,11 @@ const BudgetCalculator = () => {
                      <div className="mt-4 space-y-4">
                         {/* Account Summary List */}
                         <div className="space-y-3">
-                         {accounts.map(account => {
-                             // Calculate savings for this account
-                             const accountSavings = savingsGroups
-                               .filter(group => group.account === account)
-                               .reduce((sum, group) => sum + group.amount, 0);
+                          {accounts.map(account => {
+                              // Calculate savings for this account
+                              const accountSavings = allSavingsItems
+                                .filter(group => group.account === account)
+                                .reduce((sum, group) => sum + group.amount, 0);
                              
                              // Calculate costs for this account
                              const accountCosts = costGroups.reduce((sum, group) => {
@@ -7915,11 +7929,11 @@ const BudgetCalculator = () => {
                            <span>Differens:</span>
                            <span className={`font-semibold ${(() => {
                              // Calculate unchecked accounts total
-                             const uncheckedAccountsTotal = accounts.reduce((sum, account) => {
-                               if (transferChecks[account]) return sum; // Skip checked accounts
-                               const accountSavings = savingsGroups
-                                 .filter(group => group.account === account)
-                                 .reduce((sum, group) => sum + group.amount, 0);
+                              const uncheckedAccountsTotal = accounts.reduce((sum, account) => {
+                                if (transferChecks[account]) return sum; // Skip checked accounts
+                                const accountSavings = allSavingsItems
+                                  .filter(group => group.account === account)
+                                  .reduce((sum, group) => sum + group.amount, 0);
                                const accountCosts = costGroups.reduce((sum, group) => {
                                  const groupCosts = group.subCategories
                                    ?.filter(sub => sub.account === account)
@@ -7940,11 +7954,11 @@ const BudgetCalculator = () => {
                            })()}`}>
                              {(() => {
                                // Calculate unchecked accounts total
-                               const uncheckedAccountsTotal = accounts.reduce((sum, account) => {
-                                 if (transferChecks[account]) return sum; // Skip checked accounts
-                                 const accountSavings = savingsGroups
-                                   .filter(group => group.account === account)
-                                   .reduce((sum, group) => sum + group.amount, 0);
+                                const uncheckedAccountsTotal = accounts.reduce((sum, account) => {
+                                  if (transferChecks[account]) return sum; // Skip checked accounts
+                                  const accountSavings = allSavingsItems
+                                    .filter(group => group.account === account)
+                                    .reduce((sum, group) => sum + group.amount, 0);
                                  const accountCosts = costGroups.reduce((sum, group) => {
                                    const groupCosts = group.subCategories
                                      ?.filter(sub => sub.account === account)
@@ -7968,11 +7982,11 @@ const BudgetCalculator = () => {
                            <span>Kvar på överföringskonto:</span>
                            <span className="font-medium">{(() => {
                              // Calculate unchecked accounts total
-                             const uncheckedAccountsTotal = accounts.reduce((sum, account) => {
-                               if (transferChecks[account]) return sum; // Skip checked accounts
-                               const accountSavings = savingsGroups
-                                 .filter(group => group.account === account)
-                                 .reduce((sum, group) => sum + group.amount, 0);
+                                const uncheckedAccountsTotal = accounts.reduce((sum, account) => {
+                                  if (transferChecks[account]) return sum; // Skip checked accounts
+                                  const accountSavings = allSavingsItems
+                                    .filter(group => group.account === account)
+                                    .reduce((sum, group) => sum + group.amount, 0);
                                const accountCosts = costGroups.reduce((sum, group) => {
                                  const groupCosts = group.subCategories
                                    ?.filter(sub => sub.account === account)

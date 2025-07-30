@@ -49,6 +49,8 @@ export interface SavingsGoal {
   targetAmount: number;
   startDate: string; // YYYY-MM
   endDate: string; // YYYY-MM
+  mainCategoryId?: string; // Ny: Huvudkategori för integration med sparandesystem
+  subCategoryId?: string; // Ny: Underkategori för integration med sparandesystem
 }
 
 // CategoryLink interface removed - using unified category system
