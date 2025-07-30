@@ -77,16 +77,50 @@ export const TransactionGroupByDate: React.FC<TransactionGroupByDateProps> = ({
     }
   };
 
+  const getDateGroupStatus = (transactions: ImportedTransaction[]): 'red' | 'yellow' | 'green' => {
+    const statuses = transactions.map(t => t.status);
+    
+    // If any transaction is red, the whole group is red
+    if (statuses.includes('red')) {
+      return 'red';
+    }
+    
+    // If all transactions are green, the group is green
+    if (statuses.every(status => status === 'green')) {
+      return 'green';
+    }
+    
+    // Otherwise, it's yellow
+    return 'yellow';
+  };
+
+  const getStatusBackgroundClass = (status: 'red' | 'yellow' | 'green') => {
+    switch (status) {
+      case 'green':
+        return 'bg-green-50 hover:bg-green-100 border-green-200';
+      case 'red':
+        return 'bg-red-50 hover:bg-red-100 border-red-200';
+      case 'yellow':
+        return 'bg-yellow-50 hover:bg-yellow-100 border-yellow-200';
+      default:
+        return 'hover:bg-muted/50';
+    }
+  };
+
   return (
     <div className="space-y-2">
-      {groupedTransactions.map(([date, dateTransactions]) => (
-        <Card key={date} className="border border-border">
-          <Collapsible 
-            open={expandedDates.has(date)} 
-            onOpenChange={() => toggleDateExpansion(date)}
-          >
-            <CollapsibleTrigger asChild>
-              <CardContent className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+      {groupedTransactions.map(([date, dateTransactions]) => {
+        const groupStatus = getDateGroupStatus(dateTransactions);
+        const statusClass = getStatusBackgroundClass(groupStatus);
+        
+        return (
+          <Card key={date} className="border border-border">
+            <Collapsible 
+              open={expandedDates.has(date)} 
+              onOpenChange={() => toggleDateExpansion(date)}
+            >
+              <CollapsibleTrigger asChild>
+                <CardContent className={`p-4 cursor-pointer transition-colors ${statusClass}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <div className="text-sm font-medium">
@@ -127,7 +161,8 @@ export const TransactionGroupByDate: React.FC<TransactionGroupByDateProps> = ({
             </CollapsibleContent>
           </Collapsible>
         </Card>
-      ))}
+        );
+      })}
     </div>
   );
 };
