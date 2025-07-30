@@ -1071,7 +1071,7 @@ export const TransactionImportEnhanced: React.FC = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="appCategory">Appkategori</Label>
+              <Label htmlFor="appCategory">Huvudkategori</Label>
               <Select value={newRule.appCategoryId} onValueChange={(value) => {
                 setNewRule(prev => ({ ...prev, appCategoryId: value, appSubCategoryId: undefined }));
               }}>
