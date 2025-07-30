@@ -411,7 +411,7 @@ export const TransactionImportEnhanced: React.FC = () => {
       try {
         const transaction: ImportedTransaction = {
           id: `${accountId}-${Date.now()}-${i}`,
-          accountId,
+          accountId, // Explicitly set the account ID from file upload
           date: dateColumnIndex >= 0 ? fields[dateColumnIndex] : fields[0],
           amount: amountColumnIndex >= 0 ? parseFloat(fields[amountColumnIndex].replace(',', '.')) : 0,
           balanceAfter: balanceColumnIndex >= 0 ? 
@@ -594,6 +594,9 @@ export const TransactionImportEnhanced: React.FC = () => {
       const csvContent = e.target?.result as string;
       const parsedTransactions = parseCSV(csvContent, accountId, file.name);
       
+      console.log(`[FileUpload] Parsed ${parsedTransactions.length} transactions for account ${accountId}`);
+      console.log(`[FileUpload] Sample transaction accountId:`, parsedTransactions[0]?.accountId);
+      
       if (parsedTransactions.length === 0) {
         toast({
           title: "Fel vid filläsning",
@@ -638,7 +641,9 @@ export const TransactionImportEnhanced: React.FC = () => {
         const filtered = prev.filter(t => t.accountId !== accountId);
         const updatedTransactions = [...filtered, ...reconciledTransactions];
         
-        // Save to persistent storage
+        // Save to persistent storage - verify accountId is preserved
+        console.log(`[FileUpload] Saving ${updatedTransactions.length} transactions. Sample accountIds:`, 
+          updatedTransactions.slice(0, 3).map(t => ({ id: t.id, accountId: t.accountId })));
         setTransactionsForCurrentMonth(updatedTransactions);
         
         return updatedTransactions;
