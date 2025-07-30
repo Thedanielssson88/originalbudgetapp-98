@@ -91,8 +91,8 @@ export const TransactionImportEnhanced: React.FC = () => {
     { id: 'barnkonto', name: 'Barnkonto', startBalance: 0 }
   ];
 
-  // Get main categories from actual budget data
-  const mainCategories = costGroups.map(group => group.name).filter(name => name.trim() !== '');
+  // Get main categories from actual budget data - use the same as MainCategoriesSettings
+  const mainCategories = budgetState?.mainCategories || [];
   const subCategories = {
     'Hushåll': ['Hyra', 'El', 'Internet', 'Försäkringar'],
     'Mat & Kläder': ['Dagligvaror', 'Restaurang', 'Kläder'],
