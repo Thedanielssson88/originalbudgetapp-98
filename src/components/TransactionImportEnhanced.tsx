@@ -153,6 +153,8 @@ export const TransactionImportEnhanced: React.FC = () => {
           description: descriptionColumnIndex >= 0 ? fields[descriptionColumnIndex] : fields[1] || '',
           bankCategory: categoryColumnIndex >= 0 ? fields[categoryColumnIndex] : undefined,
           bankSubCategory: subCategoryColumnIndex >= 0 ? fields[subCategoryColumnIndex] : undefined,
+          bankStatus: statusColumnIndex >= 0 ? fields[statusColumnIndex] : undefined,
+          reconciled: avstamtColumnIndex >= 0 ? fields[avstamtColumnIndex] : undefined,
           type: 'Transaction',
           status: 'yellow', // Default status
           importedAt: new Date().toISOString(),
@@ -286,6 +288,8 @@ export const TransactionImportEnhanced: React.FC = () => {
         // Update bank-controlled fields with latest data from file
         mergedTransaction.bankCategory = fileTransaction.bankCategory;
         mergedTransaction.bankSubCategory = fileTransaction.bankSubCategory;
+        mergedTransaction.bankStatus = fileTransaction.bankStatus;
+        mergedTransaction.reconciled = fileTransaction.reconciled;
         mergedTransaction.balanceAfter = fileTransaction.balanceAfter;
         mergedTransaction.fileSource = fileTransaction.fileSource;
         mergedTransaction.importedAt = fileTransaction.importedAt;
