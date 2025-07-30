@@ -189,24 +189,28 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground">Kategori</label>
-                    <Select
-                      value={transaction.appCategoryId || ''}
-                      onValueChange={(value) => onUpdateCategory(transaction.id, value)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Välj kategori" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-background border border-border shadow-lg z-50">
-                        {mainCategories.map(category => (
-                          <SelectItem key={category} value={category}>
-                            {category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                   <div>
+                     <label className="text-xs font-medium text-muted-foreground">Kategori</label>
+                     <Select
+                       value={(() => {
+                         // Convert stored ID back to category name for display
+                         // For now, just use the stored value since we need to update the parent component's logic
+                         return transaction.appCategoryId || '';
+                       })()}
+                       onValueChange={(value) => onUpdateCategory(transaction.id, value)}
+                     >
+                       <SelectTrigger className="w-full">
+                         <SelectValue placeholder="Välj kategori" />
+                       </SelectTrigger>
+                       <SelectContent className="bg-background border border-border shadow-lg z-50">
+                         {mainCategories.map(category => (
+                           <SelectItem key={category} value={category}>
+                             {category}
+                           </SelectItem>
+                         ))}
+                       </SelectContent>
+                     </Select>
+                   </div>
 
                   <div>
                     <label className="text-xs font-medium text-muted-foreground">Status</label>

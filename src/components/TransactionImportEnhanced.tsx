@@ -35,6 +35,7 @@ import { Upload, CheckCircle, FileText, Settings, AlertCircle, Circle, CheckSqua
 import { ImportedTransaction, CategoryRule, FileStructure, ColumnMapping } from '@/types/transaction';
 import { TransactionExpandableCard } from './TransactionExpandableCard';
 import { TransactionGroupByDate } from './TransactionGroupByDate';
+import { useBudget } from '@/hooks/useBudget';
 
 interface Account {
   id: string;
@@ -77,6 +78,10 @@ export const TransactionImportEnhanced: React.FC = () => {
   
   const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
   const { toast } = useToast();
+  
+  // Get budget data to access cost groups and their IDs
+  const { budgetState } = useBudget();
+  const costGroups = budgetState?.historicalData?.[budgetState.selectedMonthKey]?.costGroups || [];
 
   // Mock data - should come from context/props
   const accounts: Account[] = [
@@ -85,7 +90,8 @@ export const TransactionImportEnhanced: React.FC = () => {
     { id: 'barnkonto', name: 'Barnkonto', startBalance: 0 }
   ];
 
-  const mainCategories = ['Hushåll', 'Mat & Kläder', 'Transport', 'Sparande'];
+  // Get main categories from actual budget data
+  const mainCategories = costGroups.map(group => group.name).filter(name => name.trim() !== '');
   const subCategories = {
     'Hushåll': ['Hyra', 'El', 'Internet', 'Försäkringar'],
     'Mat & Kläder': ['Dagligvaror', 'Restaurang', 'Kläder'],
@@ -535,12 +541,19 @@ export const TransactionImportEnhanced: React.FC = () => {
     });
   };
 
-  const updateTransactionCategory = (transactionId: string, categoryId: string, subCategoryId?: string) => {
+  const updateTransactionCategory = (transactionId: string, categoryName: string, subCategoryId?: string) => {
+    // 🔥 CRITICAL FIX: Convert category name to category ID
+    const category = costGroups.find(group => group.name === categoryName);
+    const categoryId = category ? category.id : categoryName; // Fallback to name if not found
+    
+    console.log(`🔥 [CATEGORY FIX] Converting category name "${categoryName}" to ID "${categoryId}"`);
+    console.log(`🔥 [CATEGORY FIX] Available cost groups:`, costGroups.map(g => ({id: g.id, name: g.name})));
+    
     setTransactions(prev => prev.map(t => 
       t.id === transactionId 
         ? { 
             ...t, 
-            appCategoryId: categoryId,
+            appCategoryId: categoryId, // Store the ID, not the name!
             appSubCategoryId: subCategoryId,
             isManuallyChanged: true,
             status: 'yellow'
@@ -889,23 +902,27 @@ export const TransactionImportEnhanced: React.FC = () => {
                                     <TableCell className={transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}>
                                       {transaction.amount.toLocaleString('sv-SE')} kr
                                     </TableCell>
-                                    <TableCell>
-                                      <Select
-                                        value={transaction.appCategoryId || ''}
-                                        onValueChange={(value) => updateTransactionCategory(transaction.id, value)}
-                                      >
-                                        <SelectTrigger className="w-32">
-                                          <SelectValue placeholder="Välj kategori" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {mainCategories.map(category => (
-                                            <SelectItem key={category} value={category}>
-                                              {category}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </TableCell>
+                                     <TableCell>
+                                       <Select
+                                         value={(() => {
+                                           // Convert stored ID back to category name for display
+                                           const category = costGroups.find(g => g.id === transaction.appCategoryId);
+                                           return category ? category.name : transaction.appCategoryId || '';
+                                         })()}
+                                         onValueChange={(value) => updateTransactionCategory(transaction.id, value)}
+                                       >
+                                         <SelectTrigger className="w-32">
+                                           <SelectValue placeholder="Välj kategori" />
+                                         </SelectTrigger>
+                                         <SelectContent>
+                                           {mainCategories.map(category => (
+                                             <SelectItem key={category} value={category}>
+                                               {category}
+                                             </SelectItem>
+                                           ))}
+                                         </SelectContent>
+                                       </Select>
+                                     </TableCell>
                                   </TableRow>
                                 );
                               })}
