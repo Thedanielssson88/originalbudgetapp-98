@@ -336,9 +336,24 @@ const BudgetCalculator = () => {
   // Helper functions for calculating actual amounts from transactions
   const calculateActualAmountForCategory = (categoryId: string): number => {
     const monthTransactions = (currentMonthData as any).transactions || [];
-    return monthTransactions
-      .filter((t: Transaction) => t.appCategoryId === categoryId)
-      .reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
+    
+    // DEBUG: Log all transaction data to understand the structure
+    console.log(`🔍 [DEBUG] calculateActualAmountForCategory for categoryId: ${categoryId}`);
+    console.log(`🔍 [DEBUG] Total transactions in month:`, monthTransactions.length);
+    console.log(`🔍 [DEBUG] All transactions:`, monthTransactions);
+    
+    const matchingTransactions = monthTransactions.filter((t: Transaction) => {
+      const matches = t.appCategoryId === categoryId;
+      console.log(`🔍 [DEBUG] Transaction ${t.id}: appCategoryId=${t.appCategoryId}, categoryId=${categoryId}, matches=${matches}`);
+      return matches;
+    });
+    
+    console.log(`🔍 [DEBUG] Matching transactions for category ${categoryId}:`, matchingTransactions);
+    
+    const total = matchingTransactions.reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
+    console.log(`🔍 [DEBUG] Total amount for category ${categoryId}: ${total}`);
+    
+    return total;
   };
 
   const getTransactionsForCategory = (categoryId: string): Transaction[] => {
