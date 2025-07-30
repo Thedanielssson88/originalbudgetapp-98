@@ -5421,7 +5421,7 @@ const BudgetCalculator = () => {
                     <div className="p-4 bg-destructive/10 rounded-lg">
                       <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('costCategories')}>
                         <div className="flex items-center gap-2">
-                          <Receipt className="h-5 w-5 text-destructive" />
+                          <DollarSign className="h-5 w-5 text-destructive" />
                           <div>
                             <div className="text-sm text-muted-foreground">Totala kostnader</div>
                              <div className="text-2xl font-bold text-destructive">
