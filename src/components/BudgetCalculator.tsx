@@ -38,7 +38,7 @@ import {
   setSusannaSalary,
   setSusannaförsäkringskassan,
   setSusannabarnbidrag,
-  setCostGroups,
+  
   setSavingsGroups,
   setDailyTransfer,
   setWeekendTransfer,
@@ -1779,7 +1779,7 @@ const BudgetCalculator = () => {
       type: 'cost',
       subCategories: []
     };
-    setCostGroups([...costGroups, newGroup]);
+    updateCostGroups([...costGroups, newGroup]);
     
     // Reset MonthFinalBalances flag when manual values are changed
     const currentDate = new Date();
@@ -1832,7 +1832,7 @@ const BudgetCalculator = () => {
       ? costGroups.map(group => group.id === targetGroup!.id ? updatedGroup : group)
       : [...costGroups, updatedGroup];
 
-    setCostGroups(updatedGroups);
+    updateCostGroups(updatedGroups);
     
     // Reset MonthFinalBalances flag when manual values are changed
     const currentDate = new Date();
@@ -1851,7 +1851,7 @@ const BudgetCalculator = () => {
   };
 
   const removeCostGroup = (id: string) => {
-    setCostGroups(costGroups.filter(group => group.id !== id));
+    updateCostGroups(costGroups.filter(group => group.id !== id));
   };
 
   const removeSavingsGroup = (id: string) => {
@@ -1859,7 +1859,7 @@ const BudgetCalculator = () => {
   };
 
   const updateCostGroup = (id: string, field: 'name' | 'amount', value: string | number) => {
-    setCostGroups(costGroups.map(group => 
+    updateCostGroups(costGroups.map(group => 
       group.id === id ? { ...group, [field]: value } : group
     ));
     
@@ -1886,7 +1886,7 @@ const BudgetCalculator = () => {
       name: '',
       amount: 0
     };
-    setCostGroups(costGroups.map(group => 
+    updateCostGroups(costGroups.map(group => 
       group.id === groupId ? { 
         ...group, 
         subCategories: [...(group.subCategories || []), newSubCategory] 
@@ -1895,7 +1895,7 @@ const BudgetCalculator = () => {
   };
 
   const removeSubCategory = (groupId: string, subId: string) => {
-    setCostGroups(costGroups.map(group => 
+    updateCostGroups(costGroups.map(group => 
       group.id === groupId ? {
         ...group,
         subCategories: group.subCategories?.filter(sub => sub.id !== subId) || []
@@ -1944,7 +1944,7 @@ const BudgetCalculator = () => {
           ? { ...group, subCategories: defaultTransportSubcategories } 
           : group
       );
-      setCostGroups(updatedCostGroups);
+      updateCostGroups(updatedCostGroups);
       
       // Also save the subcategories mapping to storage for future reference
       const subcategoriesMapping = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
@@ -2910,7 +2910,7 @@ const BudgetCalculator = () => {
     if (!template) return;
     
     // Load template data into current form with complete data
-    setCostGroups(JSON.parse(JSON.stringify(template.costGroups || [])));
+    updateCostGroups(JSON.parse(JSON.stringify(template.costGroups || [])));
     setSavingsGroups(JSON.parse(JSON.stringify(template.savingsGroups || [])));
     setDailyTransfer(template.dailyTransfer || 300);
     setWeekendTransfer(template.weekendTransfer || 540);
@@ -3052,7 +3052,7 @@ const BudgetCalculator = () => {
       setSusannaSalary(template.susannaSalary || 0);
       setSusannaförsäkringskassan(template.susannaförsäkringskassan || 0);
       setSusannabarnbidrag(template.susannabarnbidrag || 0);
-      setCostGroups(JSON.parse(JSON.stringify(template.costGroups || [])));
+      updateCostGroups(JSON.parse(JSON.stringify(template.costGroups || [])));
       setSavingsGroups(JSON.parse(JSON.stringify(template.savingsGroups || [])));
       setDailyTransfer(template.dailyTransfer || 300);
       setWeekendTransfer(template.weekendTransfer || 540);
@@ -3250,7 +3250,7 @@ const BudgetCalculator = () => {
       setSusannaSalary(standardValues.susannaSalary || 40000);
       setSusannaförsäkringskassan(standardValues.susannaförsäkringskassan || 5000);
       setSusannabarnbidrag(standardValues.susannabarnbidrag || 0);
-      setCostGroups(standardValues.costGroups || []);
+      updateCostGroups(standardValues.costGroups || []);
       setSavingsGroups(standardValues.savingsGroups || []);
       setDailyTransfer(standardValues.dailyTransfer || 300);
       setWeekendTransfer(standardValues.weekendTransfer || 540);
@@ -3268,7 +3268,7 @@ const BudgetCalculator = () => {
   };
 
   const updateSubCategory = (groupId: string, subId: string, field: 'name' | 'amount' | 'account' | 'financedFrom', value: string | number) => {
-    setCostGroups(costGroups.map(group => 
+    updateCostGroups(costGroups.map(group => 
       group.id === groupId ? {
         ...group,
         subCategories: group.subCategories?.map(sub => 
@@ -3294,7 +3294,7 @@ const BudgetCalculator = () => {
   const removeAccount = (accountName: string) => {
     setAccounts(accounts.filter(account => account !== accountName));
     // Remove the account from all subcategories and savings groups
-    setCostGroups(costGroups.map(group => ({
+    updateCostGroups(costGroups.map(group => ({
       ...group,
       account: group.account === accountName ? undefined : group.account,
       subCategories: group.subCategories?.map(sub => ({
