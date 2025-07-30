@@ -589,10 +589,14 @@ export const TransactionImportEnhanced: React.FC = () => {
   }, [createTransactionFingerprint]);
 
   const handleFileUpload = useCallback((accountId: string, file: File) => {
+    // Find the account name from the ID for backward compatibility
+    const account = accounts.find(acc => acc.id === accountId);
+    const accountName = account ? account.name : accountId;
+    
     const reader = new FileReader();
     reader.onload = (e) => {
       const csvContent = e.target?.result as string;
-      const parsedTransactions = parseCSV(csvContent, accountId, file.name);
+      const parsedTransactions = parseCSV(csvContent, accountName, file.name);
       
       console.log(`[FileUpload] Parsed ${parsedTransactions.length} transactions for account ${accountId}`);
       console.log(`[FileUpload] Sample transaction accountId:`, parsedTransactions[0]?.accountId);
@@ -619,7 +623,7 @@ export const TransactionImportEnhanced: React.FC = () => {
 
       const uploadedFile: UploadedFile = {
         file,
-        accountId,
+        accountId: accountName, // Use account name for consistency
         balance: extractedBalance,
         status: 'uploaded',
         dateRange,
@@ -627,18 +631,18 @@ export const TransactionImportEnhanced: React.FC = () => {
       };
 
       setUploadedFiles(prev => {
-        const filtered = prev.filter(f => f.accountId !== accountId);
+        const filtered = prev.filter(f => f.accountId !== accountName);
         return [...filtered, uploadedFile];
       });
 
       // Reconcile transactions with already saved data before adding to global list
-      const reconciledTransactions = reconcileTransactions(parsedTransactions, accountId);
+      const reconciledTransactions = reconcileTransactions(parsedTransactions, accountName);
       
       console.log(`[FileUpload] Reconciliation complete. Original: ${parsedTransactions.length}, Reconciled: ${reconciledTransactions.length}`);
 
       // Add reconciled transactions to global list
       setTransactions(prev => {
-        const filtered = prev.filter(t => t.accountId !== accountId);
+        const filtered = prev.filter(t => t.accountId !== accountName);
         const updatedTransactions = [...filtered, ...reconciledTransactions];
         
         // Save to persistent storage - verify accountId is preserved
