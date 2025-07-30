@@ -1091,14 +1091,14 @@ export const TransactionImportEnhanced: React.FC = () => {
             {newRule.appCategoryId && getSubCategoriesForMainCategory(newRule.appCategoryId).length > 0 && (
               <div>
                 <Label htmlFor="appSubCategory">Underkategori (valfritt)</Label>
-                <Select value={newRule.appSubCategoryId || ''} onValueChange={(value) => {
-                  setNewRule(prev => ({ ...prev, appSubCategoryId: value || undefined }));
+                <Select value={newRule.appSubCategoryId || 'none'} onValueChange={(value) => {
+                  setNewRule(prev => ({ ...prev, appSubCategoryId: value === 'none' ? undefined : value }));
                 }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Välj underkategori" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Ingen underkategori</SelectItem>
+                    <SelectItem value="none">Ingen underkategori</SelectItem>
                     {getSubCategoriesForMainCategory(newRule.appCategoryId).map(subCat => (
                       <SelectItem key={subCat.id} value={subCat.id}>
                         {subCat.name}
