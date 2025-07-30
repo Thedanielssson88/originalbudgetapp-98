@@ -187,30 +187,42 @@ export const TransactionImportEnhanced: React.FC = () => {
       
       if (isNaN(currentTransaction.balanceAfter!) || currentTransaction.balanceAfter === undefined) {
         console.log(`Transaction ${i} has no balance, looking for previous transaction`);
-        if (i > 0 && transactions[i - 1].balanceAfter !== undefined && !isNaN(transactions[i - 1].balanceAfter!)) {
-          // Calculate balance based on previous transaction's balance + current amount
-          const newBalance = transactions[i - 1].balanceAfter! + currentTransaction.amount;
-          transactions[i].balanceAfter = newBalance;
-          console.log(`Calculated balance for transaction ${i}: ${transactions[i - 1].balanceAfter} + ${currentTransaction.amount} = ${newBalance}`);
-        } else {
-          console.log(`Cannot calculate balance for transaction ${i} - no valid previous balance`);
+        if (i > 0) {
+          // Use balanceAfter from previous transaction, or estimatedBalanceAfter if balanceAfter is not available
+          const prevBalance = transactions[i - 1].balanceAfter !== undefined && !isNaN(transactions[i - 1].balanceAfter!) 
+            ? transactions[i - 1].balanceAfter! 
+            : transactions[i - 1].estimatedBalanceAfter;
+          
+          if (prevBalance !== undefined && !isNaN(prevBalance)) {
+            // Calculate estimated balance based on previous balance + current amount
+            const newBalance = prevBalance + currentTransaction.amount;
+            transactions[i].estimatedBalanceAfter = newBalance;
+            console.log(`Calculated estimated balance for transaction ${i}: ${prevBalance} + ${currentTransaction.amount} = ${newBalance}`);
+          } else {
+            console.log(`Cannot calculate balance for transaction ${i} - no valid previous balance`);
+          }
         }
       }
     }
     
     // Second pass: work backwards from the last valid balance to fill any remaining gaps
     for (let i = transactions.length - 1; i >= 0; i--) {
-      if (isNaN(transactions[i].balanceAfter!) || transactions[i].balanceAfter === undefined) {
+      if ((isNaN(transactions[i].balanceAfter!) || transactions[i].balanceAfter === undefined) && 
+          (isNaN(transactions[i].estimatedBalanceAfter!) || transactions[i].estimatedBalanceAfter === undefined)) {
         // Look for the next transaction with a valid balance
         for (let j = i + 1; j < transactions.length; j++) {
-          if (transactions[j].balanceAfter !== undefined && !isNaN(transactions[j].balanceAfter!)) {
+          const nextBalance = transactions[j].balanceAfter !== undefined && !isNaN(transactions[j].balanceAfter!) 
+            ? transactions[j].balanceAfter! 
+            : transactions[j].estimatedBalanceAfter;
+            
+          if (nextBalance !== undefined && !isNaN(nextBalance)) {
             // Calculate balance by working backwards: next_balance - sum_of_amounts_between
             let sumOfAmounts = 0;
             for (let k = i; k < j; k++) {
               sumOfAmounts += transactions[k].amount;
             }
-            transactions[i].balanceAfter = transactions[j].balanceAfter! - sumOfAmounts;
-            console.log(`Calculated balance backwards for transaction ${i}: ${transactions[j].balanceAfter} - ${sumOfAmounts} = ${transactions[i].balanceAfter}`);
+            transactions[i].estimatedBalanceAfter = nextBalance - sumOfAmounts;
+            console.log(`Calculated estimated balance backwards for transaction ${i}: ${nextBalance} - ${sumOfAmounts} = ${transactions[i].estimatedBalanceAfter}`);
             break;
           }
         }

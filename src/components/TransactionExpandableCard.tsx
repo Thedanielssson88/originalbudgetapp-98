@@ -313,14 +313,32 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                 </div>
               </div>
 
-              {transaction.balanceAfter !== undefined && !isNaN(transaction.balanceAfter) && (
-                <div className="pt-2 border-t">
-                  <label className="text-xs font-medium text-muted-foreground">Saldo efter transaktion</label>
-                  <p className="text-sm font-medium">
-                    {transaction.balanceAfter.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
-                  </p>
+              {/* Show balance information */}
+              {(transaction.balanceAfter !== undefined && !isNaN(transaction.balanceAfter)) || 
+               (transaction.estimatedBalanceAfter !== undefined && !isNaN(transaction.estimatedBalanceAfter)) ? (
+                <div className="pt-2 border-t space-y-2">
+                  {/* CSV Balance - prioritized */}
+                  {transaction.balanceAfter !== undefined && !isNaN(transaction.balanceAfter) && (
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Saldo efter transaktion</label>
+                      <p className="text-sm font-medium">
+                        {transaction.balanceAfter.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Estimated Balance - only shown when CSV balance is missing */}
+                  {(transaction.balanceAfter === undefined || isNaN(transaction.balanceAfter)) && 
+                   transaction.estimatedBalanceAfter !== undefined && !isNaN(transaction.estimatedBalanceAfter) && (
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Estimerat saldo efter transaktion</label>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {transaction.estimatedBalanceAfter.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
+                      </p>
+                    </div>
+                  )}
                 </div>
-              )}
+              ) : null}
             </div>
           </CardContent>
         </CollapsibleContent>

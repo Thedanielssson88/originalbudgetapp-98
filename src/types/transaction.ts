@@ -5,7 +5,8 @@ export interface ImportedTransaction {
   accountId: string;
   date: string;
   amount: number;
-  balanceAfter?: number;
+  balanceAfter?: number; // Original balance from CSV
+  estimatedBalanceAfter?: number; // Calculated balance when CSV is missing
   description: string;
   userDescription?: string; // User's own notes
   bankCategory?: string;
