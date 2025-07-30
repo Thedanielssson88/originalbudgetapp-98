@@ -921,6 +921,25 @@ const BudgetCalculator = () => {
     setNewSavingsGoalStartDate('');
     setNewSavingsGoalEndDate('');
   };
+
+  // Handler för BudgetItem struktur
+  const handleAddBudgetItem = (budgetItem: any) => {
+    console.log('🔍 [DEBUG] handleAddBudgetItem called with:', budgetItem);
+    
+    // För nu, konvertera tillbaka till legacy format för att inte bryta befintlig logik
+    const legacyItem = {
+      mainCategory: budgetItem.mainCategoryId,
+      subcategory: budgetItem.subCategoryId,
+      name: budgetItem.description,
+      amount: budgetItem.amount,
+      account: budgetState.accounts.find(acc => acc.id === budgetItem.accountId)?.name || '',
+      financedFrom: budgetItem.financedFrom || 'Löpande kostnad',
+      transferType: budgetItem.transferType,
+      dailyAmount: budgetItem.dailyAmount,
+      transferDays: budgetItem.transferDays
+    };
+    handleAddCostItem(legacyItem);
+  };
   
   // Tab navigation helper functions
   const getTabOrder = () => {
@@ -1905,29 +1924,6 @@ const BudgetCalculator = () => {
     resetMonthFinalBalancesFlag(currentMonthKey);
   };
 
-  // Ny handler för BudgetItem struktur
-  const handleAddBudgetItem = (budgetItem: any) => {
-    console.log('🔍 [DEBUG] handleAddBudgetItem called with:', budgetItem);
-    
-    if (budgetItem.type === 'cost' || showAddBudgetDialog.type === 'cost') {
-      // För nu, konvertera tillbaka till legacy format för att inte bryta befintlig logik
-      const legacyItem = {
-        mainCategory: budgetItem.mainCategoryId,
-        subcategory: budgetItem.subCategoryId,
-        name: budgetItem.description,
-        amount: budgetItem.amount,
-        account: budgetState.accounts.find(acc => acc.id === budgetItem.accountId)?.name || '',
-        financedFrom: budgetItem.financedFrom || 'Löpande kostnad',
-        transferType: budgetItem.transferType,
-        dailyAmount: budgetItem.dailyAmount,
-        transferDays: budgetItem.transferDays
-      };
-      handleAddCostItem(legacyItem);
-    } else {
-      // Hantera sparande här när det behövs
-      console.log('Savings item handling not yet implemented');
-    }
-  };
 
   const handleAddCostItem = (item: {
     mainCategory: string;
