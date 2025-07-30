@@ -128,7 +128,7 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
   };
 
   const handleCategoryLinkChange = (category: string, budgetCategoryId: string) => {
-    if (budgetCategoryId) {
+    if (budgetCategoryId && budgetCategoryId !== "none") {
       updateCategoryLink(category, undefined, budgetCategoryId);
     } else {
       deleteCategoryLink(category);
@@ -136,7 +136,7 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
   };
 
   const handleSubcategoryLinkChange = (category: string, subcategory: string, budgetCategoryId: string) => {
-    if (budgetCategoryId) {
+    if (budgetCategoryId && budgetCategoryId !== "none") {
       updateCategoryLink(category, subcategory, budgetCategoryId);
     } else {
       deleteCategoryLink(category, subcategory);
@@ -144,11 +144,11 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
   };
 
   const getCurrentCategoryLink = (category: string) => {
-    return getCategoryLink(category) || '';
+    return getCategoryLink(category) || 'none';
   };
 
   const getCurrentSubcategoryLink = (category: string, subcategory: string) => {
-    return getCategoryLink(category, subcategory) || '';
+    return getCategoryLink(category, subcategory) || 'none';
   };
 
   return (
@@ -222,8 +222,8 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
                       <SelectTrigger>
                         <SelectValue placeholder="Välj budgetkategori eller lämna tom" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">Ingen länkning</SelectItem>
+                       <SelectContent>
+                         <SelectItem value="none">Ingen länkning</SelectItem>
                         {costGroups.map(group => (
                           <SelectItem key={group.id} value={group.id}>
                             {group.name}
@@ -263,8 +263,8 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
                                 <SelectTrigger className="h-8">
                                   <SelectValue placeholder="Länka till budgetkategori" />
                                 </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="">Använd huvudkategoriens länkning</SelectItem>
+                                 <SelectContent>
+                                   <SelectItem value="none">Använd huvudkategoriens länkning</SelectItem>
                                   {costGroups.map(group => (
                                     <SelectItem key={group.id} value={group.id}>
                                       {group.name}
