@@ -5,6 +5,7 @@ import { StorageKey, set } from '../services/storageService';
 import { calculateFullPrognosis, calculateBudgetResults, calculateAccountProgression, calculateMonthlyBreakdowns, calculateProjectedBalances } from '../services/calculationService';
 import { BudgetGroup, MonthData, SavingsGoal } from '../types/budget';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
+import { ImportedTransaction } from '../types/transaction';
 
 // Event system for UI updates
 const eventEmitter = new EventTarget();
@@ -439,3 +440,31 @@ export const deleteSavingsGoal = (goalId: string) => {
   
   console.log(`✅ [ORCHESTRATOR] Savings goal deleted successfully`);
 };
+
+// ===== TRANSACTION MANAGEMENT =====
+
+export function setTransactionsForCurrentMonth(transactions: ImportedTransaction[]): void {
+  const currentMonthKey = state.budgetState.selectedMonthKey;
+
+  // Check that a month is selected
+  if (!currentMonthKey) {
+    console.error('[Orchestrator] Ingen månad vald, kan inte spara transaktioner.');
+    return;
+  }
+
+  // Ensure the month data exists
+  if (!state.budgetState.historicalData[currentMonthKey]) {
+    state.budgetState.historicalData[currentMonthKey] = createEmptyMonthData();
+  }
+
+  // Update the transaction list for the selected month (store as any for now due to type differences)
+  (state.budgetState.historicalData[currentMonthKey] as any).transactions = transactions;
+
+  console.log(`[Orchestrator] Sparade ${transactions.length} transaktioner till månad ${currentMonthKey}.`);
+
+  // Save the updated state permanently
+  saveStateToStorage();
+  
+  // Run calculations so the budget view updates immediately
+  runCalculationsAndUpdateState();
+}

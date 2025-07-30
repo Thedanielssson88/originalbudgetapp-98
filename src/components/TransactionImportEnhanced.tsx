@@ -36,6 +36,7 @@ import { ImportedTransaction, CategoryRule, FileStructure, ColumnMapping } from 
 import { TransactionExpandableCard } from './TransactionExpandableCard';
 import { TransactionGroupByDate } from './TransactionGroupByDate';
 import { useBudget } from '@/hooks/useBudget';
+import { setTransactionsForCurrentMonth } from '../orchestrator/budgetOrchestrator';
 
 interface Account {
   id: string;
@@ -261,7 +262,12 @@ export const TransactionImportEnhanced: React.FC = () => {
       // Add transactions to global list
       setTransactions(prev => {
         const filtered = prev.filter(t => t.accountId !== accountId);
-        return [...filtered, ...parsedTransactions];
+        const updatedTransactions = [...filtered, ...parsedTransactions];
+        
+        // Save to persistent storage
+        setTransactionsForCurrentMonth(updatedTransactions);
+        
+        return updatedTransactions;
       });
 
       toast({
@@ -273,34 +279,41 @@ export const TransactionImportEnhanced: React.FC = () => {
   }, [parseCSV, toast]);
 
   const applyCategorizationRules = useCallback(() => {
-    setTransactions(prev => prev.map(transaction => {
-      if (transaction.isManuallyChanged) return transaction; // Don't override manual changes
+    setTransactions(prev => {
+      const updatedTransactions = prev.map(transaction => {
+        if (transaction.isManuallyChanged) return transaction; // Don't override manual changes
 
-      // Find matching rule
-      const matchingRule = categoryRules
-        .filter(rule => rule.isActive)
-        .sort((a, b) => b.priority - a.priority) // Higher priority first
-        .find(rule => {
-          const bankCategoryMatch = transaction.bankCategory === rule.bankCategory;
-          const subCategoryMatch = !rule.bankSubCategory || transaction.bankSubCategory === rule.bankSubCategory;
+        // Find matching rule
+        const matchingRule = categoryRules
+          .filter(rule => rule.isActive)
+          .sort((a, b) => b.priority - a.priority) // Higher priority first
+          .find(rule => {
+            const bankCategoryMatch = transaction.bankCategory === rule.bankCategory;
+            const subCategoryMatch = !rule.bankSubCategory || transaction.bankSubCategory === rule.bankSubCategory;
           return bankCategoryMatch && subCategoryMatch;
         });
 
       if (matchingRule) {
-        return {
-          ...transaction,
-          appCategoryId: matchingRule.appCategoryId,
-          appSubCategoryId: matchingRule.appSubCategoryId,
-          type: matchingRule.transactionType,
-          status: 'yellow' // Auto-categorized
-        };
+      return {
+        ...transaction,
+        appCategoryId: matchingRule.appCategoryId,
+        appSubCategoryId: matchingRule.appSubCategoryId,
+        type: matchingRule.transactionType,
+        status: 'yellow' as const // Auto-categorized
+      };
       }
 
       return {
         ...transaction,
-        status: 'red' // Needs manual categorization
+        status: 'red' as const // Needs manual categorization
       };
-    }));
+    });
+    
+    // Save to persistent storage
+    setTransactionsForCurrentMonth(updatedTransactions);
+    
+    return updatedTransactions;
+  });
   }, [categoryRules]);
 
   const autoMatchTransfers = useCallback(() => {
@@ -317,15 +330,22 @@ export const TransactionImportEnhanced: React.FC = () => {
       if (potentialMatches.length === 1) {
         const match = potentialMatches[0];
         // Auto-link them
-        setTransactions(prev => prev.map(t => {
-          if (t.id === transfer.id) {
-            return { ...t, linkedTransactionId: match.id, status: 'yellow' };
-          }
-          if (t.id === match.id) {
-            return { ...t, linkedTransactionId: transfer.id, status: 'yellow' };
-          }
-          return t;
-        }));
+        setTransactions(prev => {
+          const updatedTransactions = prev.map(t => {
+            if (t.id === transfer.id) {
+              return { ...t, linkedTransactionId: match.id, status: 'yellow' as const };
+            }
+            if (t.id === match.id) {
+              return { ...t, linkedTransactionId: transfer.id, status: 'yellow' as const };
+            }
+            return t;
+          });
+          
+          // Save to persistent storage
+          setTransactionsForCurrentMonth(updatedTransactions);
+          
+          return updatedTransactions;
+        });
       }
     });
   }, [transactions]);
@@ -529,11 +549,18 @@ export const TransactionImportEnhanced: React.FC = () => {
   };
 
   const approveSelectedTransactions = () => {
-    setTransactions(prev => prev.map(t => 
-      selectedTransactions.includes(t.id) 
-        ? { ...t, status: 'green' }
-        : t
-    ));
+    setTransactions(prev => {
+      const updatedTransactions = prev.map(t => 
+        selectedTransactions.includes(t.id) 
+          ? { ...t, status: 'green' as const }
+          : t
+      );
+      
+      // Save to persistent storage
+      setTransactionsForCurrentMonth(updatedTransactions);
+      
+      return updatedTransactions;
+    });
     setSelectedTransactions([]);
     toast({
       title: "Transaktioner godkända",
@@ -549,25 +576,39 @@ export const TransactionImportEnhanced: React.FC = () => {
     console.log(`🔥 [CATEGORY FIX] Converting category name "${categoryName}" to ID "${categoryId}"`);
     console.log(`🔥 [CATEGORY FIX] Available cost groups:`, costGroups.map(g => ({id: g.id, name: g.name})));
     
-    setTransactions(prev => prev.map(t => 
-      t.id === transactionId 
-        ? { 
-            ...t, 
+    setTransactions(prev => {
+      const updatedTransactions = prev.map(t => 
+        t.id === transactionId 
+          ? { 
+              ...t, 
             appCategoryId: categoryId, // Store the ID, not the name!
             appSubCategoryId: subCategoryId,
             isManuallyChanged: true,
-            status: 'yellow'
-          }
-        : t
-    ));
+            status: 'yellow' as const
+            }
+          : t
+      );
+      
+      // Save to persistent storage
+      setTransactionsForCurrentMonth(updatedTransactions);
+      
+      return updatedTransactions;
+    });
   };
 
   const updateTransactionNote = (transactionId: string, note: string) => {
-    setTransactions(prev => prev.map(t => 
-      t.id === transactionId 
-        ? { ...t, userDescription: note }
-        : t
-    ));
+    setTransactions(prev => {
+      const updatedTransactions = prev.map(t => 
+        t.id === transactionId 
+          ? { ...t, userDescription: note }
+          : t
+      );
+      
+      // Save to persistent storage
+      setTransactionsForCurrentMonth(updatedTransactions);
+      
+      return updatedTransactions;
+    });
   };
 
   const renderUploadStep = () => (
