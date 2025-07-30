@@ -18,13 +18,7 @@ export const state: AppState = {
   isLoading: true, // Start as loading
   budgetState: {
     historicalData: {},
-    accounts: [
-      { id: '1', name: 'Löpande', startBalance: 0 },
-      { id: '2', name: 'Sparkonto', startBalance: 0 },
-      { id: '3', name: 'Buffert', startBalance: 0 },
-      { id: '4', name: 'Nöje', startBalance: 0 },
-      { id: '5', name: 'Hushållskonto', startBalance: 0 }
-    ],
+    accounts: [], // Will be loaded from saved data or set dynamically
     savingsGoals: [], // NYTT FÄLT
     selectedMonthKey: '2025-07', // Use current month as default
     selectedHistoricalMonth: '2025-07',
@@ -259,6 +253,29 @@ export function initializeStateFromStorage(): void {
       }
     } else {
       addMobileDebugLog('[INIT] ❌ No savedData found - using defaults');
+    }
+    
+    // Ensure accounts exist - derive from account category mapping or use standard defaults
+    if (!state.budgetState.accounts || state.budgetState.accounts.length === 0) {
+      // Check if there's an account category mapping that defines accounts
+      const accountNames = Object.keys(state.budgetState.accountCategoryMapping);
+      if (accountNames.length > 0) {
+        addMobileDebugLog(`[INIT] 📂 Creating accounts from category mapping: ${accountNames.join(', ')}`);
+        state.budgetState.accounts = accountNames.map((name, index) => ({
+          id: (index + 1).toString(),
+          name: name,
+          startBalance: 0
+        }));
+      } else {
+        // Use standard accounts that match the interface shown
+        const standardAccounts = ['Löpande', 'Sparkonto', 'Buffert', 'Nöje', 'Hushållskonto'];
+        addMobileDebugLog(`[INIT] 📂 Using standard accounts: ${standardAccounts.join(', ')}`);
+        state.budgetState.accounts = standardAccounts.map((name, index) => ({
+          id: (index + 1).toString(),
+          name: name,
+          startBalance: 0
+        }));
+      }
     }
     
     // Ensure current month exists
