@@ -407,7 +407,14 @@ const BudgetCalculator = () => {
     transactionsForPeriod.forEach(transaction => {
       console.log('🔍 [ACCOUNT FILTER DEBUG] Transaction accountId:', transaction.accountId, 'Account exists in budgetState.accounts:', budgetState.accounts.find(a => a.id === transaction.accountId || a.name === transaction.accountId));
       if (transaction.accountId) {
-        activeAccountIds.add(transaction.accountId);
+        // Find the account by either ID or name and add the actual account ID
+        const account = budgetState.accounts.find(a => a.id === transaction.accountId || a.name === transaction.accountId);
+        if (account) {
+          activeAccountIds.add(account.id);
+          console.log('🔍 [ACCOUNT FILTER DEBUG] Added account ID:', account.id, 'for transaction accountId:', transaction.accountId);
+        } else {
+          console.log('🔍 [ACCOUNT FILTER DEBUG] No matching account found for transaction accountId:', transaction.accountId);
+        }
       }
     });
     

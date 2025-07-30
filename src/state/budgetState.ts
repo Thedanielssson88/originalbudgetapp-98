@@ -21,7 +21,9 @@ export const state: AppState = {
     accounts: [
       { id: '1', name: 'Löpande', startBalance: 0 },
       { id: '2', name: 'Sparkonto', startBalance: 0 },
-      { id: '3', name: 'Buffert', startBalance: 0 }
+      { id: '3', name: 'Buffert', startBalance: 0 },
+      { id: '4', name: 'Nöje', startBalance: 0 },
+      { id: '5', name: 'Hushållskonto', startBalance: 0 }
     ],
     savingsGoals: [], // NYTT FÄLT
     selectedMonthKey: '2025-07', // Use current month as default
