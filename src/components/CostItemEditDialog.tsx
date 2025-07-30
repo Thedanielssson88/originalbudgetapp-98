@@ -101,7 +101,7 @@ export const CostItemEditDialog: React.FC<CostItemEditDialogProps> = ({
                 <SelectValue placeholder="Välj huvudkategori" />
               </SelectTrigger>
               <SelectContent>
-                {categories.map((category) => (
+                {categories.filter(category => category && category.trim() !== '').map((category) => (
                   <SelectItem key={category} value={category}>
                     {category}
                   </SelectItem>
@@ -195,7 +195,7 @@ export const CostItemEditDialog: React.FC<CostItemEditDialogProps> = ({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Inget konto</SelectItem>
-                {accounts.map((account) => (
+                {accounts.filter(account => account && account.trim() !== '').map((account) => (
                   <SelectItem key={account} value={account}>
                     {account}
                   </SelectItem>
