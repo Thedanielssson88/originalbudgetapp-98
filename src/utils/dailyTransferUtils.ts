@@ -2,20 +2,34 @@ import { SubCategory, Transaction } from '../types/budget';
 
 /**
  * Räknar antalet överföringsdagar för en given månad baserat på valda veckodagar
+ * Använder datumperiod från 25:e föregående månad till 24:e aktuell månad
  */
 export const getNumberOfTransferDaysInMonth = (monthKey: string, transferDays: number[]): number => {
   const [year, month] = monthKey.split('-').map(Number);
-  const date = new Date(year, month - 1, 1); // month - 1 eftersom Date använder 0-indexerade månader
-  const daysInMonth = new Date(year, month, 0).getDate();
+  
+  // Beräkna startdatum (25:e föregående månad)
+  let startYear = year;
+  let startMonth = month - 1;
+  if (startMonth < 1) {
+    startMonth = 12;
+    startYear = year - 1;
+  }
+  const startDate = new Date(startYear, startMonth - 1, 25); // 25:e föregående månad
+  
+  // Beräkna slutdatum (24:e aktuell månad)
+  const endDate = new Date(year, month - 1, 24); // 24:e aktuell månad
   
   let count = 0;
-  for (let day = 1; day <= daysInMonth; day++) {
-    const currentDate = new Date(year, month - 1, day);
+  const currentDate = new Date(startDate);
+  
+  while (currentDate <= endDate) {
     const dayOfWeek = currentDate.getDay(); // 0 = Söndag, 1 = Måndag, etc.
     
     if (transferDays.includes(dayOfWeek)) {
       count++;
     }
+    
+    currentDate.setDate(currentDate.getDate() + 1);
   }
   
   return count;
@@ -38,6 +52,7 @@ export const calculateMonthlyAmountForDailyTransfer = (
 
 /**
  * Beräknar estimerat belopp fram till idag för en daglig överföring
+ * Använder datumperiod från 25:e föregående månad till dagens datum
  */
 export const calculateEstimatedToDate = (
   subcategory: SubCategory, 
@@ -49,23 +64,41 @@ export const calculateEstimatedToDate = (
   
   const [year, month] = monthKey.split('-').map(Number);
   const today = new Date();
-  const currentMonth = today.getFullYear() === year && (today.getMonth() + 1) === month;
   
-  if (!currentMonth) {
-    // Om det inte är aktuell månad, returnera hela månadsbeloppet
+  // Beräkna startdatum (25:e föregående månad)
+  let startYear = year;
+  let startMonth = month - 1;
+  if (startMonth < 1) {
+    startMonth = 12;
+    startYear = year - 1;
+  }
+  const startDate = new Date(startYear, startMonth - 1, 25);
+  
+  // Beräkna slutdatum (antingen idag eller 24:e aktuell månad, vad som är tidigare)
+  const endOfPeriod = new Date(year, month - 1, 24);
+  const endDate = today < endOfPeriod ? today : endOfPeriod;
+  
+  // Om dagens datum är före periodens början, returnera 0
+  if (today < startDate) {
+    return 0;
+  }
+  
+  // Om dagens datum är efter periodens slut, returnera hela månadsbeloppet
+  if (today > endOfPeriod) {
     return calculateMonthlyAmountForDailyTransfer(subcategory, monthKey);
   }
   
-  const todayDate = today.getDate();
   let count = 0;
+  const currentDate = new Date(startDate);
   
-  for (let day = 1; day <= todayDate; day++) {
-    const currentDate = new Date(year, month - 1, day);
+  while (currentDate <= endDate) {
     const dayOfWeek = currentDate.getDay();
     
     if (subcategory.transferDays.includes(dayOfWeek)) {
       count++;
     }
+    
+    currentDate.setDate(currentDate.getDate() + 1);
   }
   
   return subcategory.dailyAmount * count;
@@ -73,17 +106,34 @@ export const calculateEstimatedToDate = (
 
 /**
  * Beräknar faktiskt överfört belopp baserat på transaktioner
+ * Använder datumperiod från 25:e föregående månad till 24:e aktuell månad
  */
 export const calculateActualTransferred = (
   subcategory: SubCategory,
   transactions: Transaction[],
   monthKey: string
 ): number => {
-  // Filtrera transaktioner som matchar denna subcategory
-  const relevantTransactions = transactions.filter(t => 
-    t.appSubCategoryId === subcategory.id && 
-    t.date.startsWith(monthKey)
-  );
+  const [year, month] = monthKey.split('-').map(Number);
+  
+  // Beräkna startdatum (25:e föregående månad)
+  let startYear = year;
+  let startMonth = month - 1;
+  if (startMonth < 1) {
+    startMonth = 12;
+    startYear = year - 1;
+  }
+  const startDate = new Date(startYear, startMonth - 1, 25);
+  
+  // Beräkna slutdatum (24:e aktuell månad)
+  const endDate = new Date(year, month - 1, 24);
+  
+  // Filtrera transaktioner som matchar denna subcategory och är inom datumperioden
+  const relevantTransactions = transactions.filter(t => {
+    if (t.appSubCategoryId !== subcategory.id) return false;
+    
+    const transactionDate = new Date(t.date);
+    return transactionDate >= startDate && transactionDate <= endDate;
+  });
   
   return relevantTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
 };

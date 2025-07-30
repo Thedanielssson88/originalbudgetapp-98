@@ -6478,36 +6478,37 @@ const BudgetCalculator = () => {
                                                            <span>• {sub.name}:</span>
                                                            <span className="font-medium">{formatCurrency(getSubcategoryDisplayAmount(sub))}</span>
                                                          </div>
-                                                         {sub.transferType === 'daily' && sub.dailyAmount && sub.transferDays && (
-                                                           <div className="ml-4 p-2 bg-muted/50 rounded border-l-2 border-primary/20">
-                                                             <div className="text-xs space-y-1">
-                                                               <div className="flex justify-between">
-                                                                 <span>Överföring:</span>
-                                                                 <span>{formatCurrency(sub.dailyAmount)} ({formatTransferDays(sub.transferDays)})</span>
-                                                               </div>
-                                                               <div className="border-t pt-1 space-y-1">
-                                                                 <div className="flex justify-between">
-                                                                   <span>Estimerat t.o.m. idag:</span>
-                                                                   <span>{formatCurrency(calculateEstimatedToDate(sub, selectedBudgetMonth))}</span>
-                                                                 </div>
-                                                                 <div className="flex justify-between">
-                                                                   <span>Faktiskt överfört (CSV):</span>
-                                                                   <span>{formatCurrency(calculateActualTransferred(sub, (currentMonthData as any).transactions || [], selectedBudgetMonth))}</span>
-                                                                 </div>
-                                                                 <div className="flex justify-between">
-                                                                   <span>Differens:</span>
-                                                                    <span className={calculateDifference(sub, (currentMonthData as any).transactions || [], selectedBudgetMonth) >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                                                      {formatCurrency(calculateDifference(sub, (currentMonthData as any).transactions || [], selectedBudgetMonth))}
-                                                                   </span>
-                                                                 </div>
-                                                                 <div className="flex justify-between">
-                                                                   <span>Estimerat kvar att överföra:</span>
-                                                                   <span>{formatCurrency(calculateRemaining(sub, selectedBudgetMonth))}</span>
-                                                                 </div>
-                                                               </div>
-                                                             </div>
-                                                           </div>
-                                                         )}
+                                                          {sub.transferType === 'daily' && sub.dailyAmount && sub.transferDays && (
+                                                            <div className="ml-4 p-3 bg-muted/50 rounded border-l-2 border-primary/20">
+                                                              <div className="text-xs space-y-2">
+                                                                <div className="flex justify-between items-center">
+                                                                  <span className="font-medium">Överföring:</span>
+                                                                  <span className="font-semibold">{formatCurrency(sub.dailyAmount)} ({formatTransferDays(sub.transferDays)})</span>
+                                                                </div>
+                                                                
+                                                                <div className="flex items-center my-2">
+                                                                  <div className="flex-1 border-t border-border"></div>
+                                                                </div>
+                                                                
+                                                                <div className="space-y-1">
+                                                                  <div className="flex justify-between">
+                                                                    <span>Estimerat t.o.m. idag:</span>
+                                                                    <span className="font-medium">{formatCurrency(calculateEstimatedToDate(sub, selectedBudgetMonth))}</span>
+                                                                  </div>
+                                                                  <div className="flex justify-between">
+                                                                    <span>Faktiskt överfört (CSV):</span>
+                                                                    <span className="font-medium">{formatCurrency(calculateActualTransferred(sub, (currentMonthData as any).transactions || [], selectedBudgetMonth))}</span>
+                                                                  </div>
+                                                                  <div className="flex justify-between">
+                                                                    <span>Differens:</span>
+                                                                     <span className={`font-medium ${calculateDifference(sub, (currentMonthData as any).transactions || [], selectedBudgetMonth) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                                       {calculateDifference(sub, (currentMonthData as any).transactions || [], selectedBudgetMonth) >= 0 ? '+' : ''}{formatCurrency(calculateDifference(sub, (currentMonthData as any).transactions || [], selectedBudgetMonth))}
+                                                                    </span>
+                                                                  </div>
+                                                                </div>
+                                                              </div>
+                                                            </div>
+                                                          )}
                                                        </div>
                                                      ))}
                                                      <div className="flex justify-between pt-1 border-t">
