@@ -6992,9 +6992,34 @@ const BudgetCalculator = () => {
                               const originalBalance = getCalcKontosaldoSameMonth(account);
                               
                               // Calculate total deposits (savings + costs as positive) for this account
-                              const savingsAmount = savingsGroups
-                                .filter(group => group.account === account)
-                                .reduce((sum, group) => sum + group.amount, 0);
+                              const savingsAmount = savingsGroups.reduce((sum, group) => {
+                                // Check if the group itself is assigned to this account
+                                if (group.account === account) {
+                                  return sum + group.amount;
+                                }
+                                // Check subcategories for this account
+                                const subCategoriesAmount = group.subCategories
+                                  ?.filter(sub => sub.account === account)
+                                  .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                return sum + subCategoriesAmount;
+                              }, 0);
+                              
+                              // Add savings goals monthly amount for this account
+                              const savingsGoalsMonthlyAmount = budgetState.savingsGoals.reduce((sum, goal) => {
+                                if (goal.accountId === account) {
+                                  const start = new Date(goal.startDate + '-01');
+                                  const end = new Date(goal.endDate + '-01');
+                                  const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
+                                                     (end.getMonth() - start.getMonth()) + 1;
+                                  const monthlyAmount = goal.targetAmount / monthsDiff;
+                                  
+                                  const currentMonthDate = new Date(selectedBudgetMonth + '-01');
+                                  if (currentMonthDate >= start && currentMonthDate <= end) {
+                                    return sum + monthlyAmount;
+                                  }
+                                }
+                                return sum;
+                              }, 0);
                               
                               const costsAmount = costGroups.reduce((sum, group) => {
                                 const groupCosts = group.subCategories
@@ -7004,7 +7029,7 @@ const BudgetCalculator = () => {
                               }, 0);
                               
                                // Only count savings as deposits, not costs
-                               const totalDeposits = savingsAmount;
+                               const totalDeposits = savingsAmount + savingsGoalsMonthlyAmount;
                                
                                 // Get all cost subcategories for this account that are "Löpande kostnad"
                                 const accountCostItems = costGroups.reduce((items, group) => {
@@ -7071,15 +7096,54 @@ const BudgetCalculator = () => {
                                         </span>
                                       </div>
                                       
-                                      {/* Individual savings items (deposits) */}
+                                      {/* Individual savings groups assigned to this account */}
                                       {savingsGroups
                                         .filter(group => group.account === account)
                                         .map(savingsGroup => (
                                           <div key={`costbudget-savings-${savingsGroup.id}`} className="flex justify-between text-sm">
-                                            <span className="text-gray-600">{savingsGroup.name} (Insättning)</span>
+                                            <span className="text-gray-600">{savingsGroup.name}</span>
                                             <span className="text-green-600">+{formatCurrency(savingsGroup.amount)}</span>
                                           </div>
                                         ))}
+                                      
+                                      {/* Individual savings subcategories assigned to this account */}
+                                      {savingsGroups
+                                        .filter(group => group.subCategories && group.subCategories.some(sub => sub.account === account))
+                                        .map(group => 
+                                          group.subCategories
+                                            ?.filter(sub => sub.account === account)
+                                            .map(sub => (
+                                              <div key={`costbudget-savings-sub-${sub.id}`} className="flex justify-between text-sm">
+                                                <span className="text-gray-600">{sub.name}</span>
+                                                <span className="text-green-600">+{formatCurrency(sub.amount)}</span>
+                                              </div>
+                                            ))
+                                        )}
+                                      
+                                      {/* Individual savings goals for this account */}
+                                      {budgetState.savingsGoals
+                                        .filter(goal => {
+                                          if (goal.accountId !== account) return false;
+                                          
+                                          const start = new Date(goal.startDate + '-01');
+                                          const end = new Date(goal.endDate + '-01');
+                                          const currentMonthDate = new Date(selectedBudgetMonth + '-01');
+                                          return currentMonthDate >= start && currentMonthDate <= end;
+                                        })
+                                        .map(goal => {
+                                          const start = new Date(goal.startDate + '-01');
+                                          const end = new Date(goal.endDate + '-01');
+                                          const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
+                                                             (end.getMonth() - start.getMonth()) + 1;
+                                          const monthlyAmount = goal.targetAmount / monthsDiff;
+                                          
+                                          return (
+                                            <div key={`costbudget-goal-${goal.id}`} className="flex justify-between text-sm">
+                                              <span className="text-gray-600">{goal.name} (Sparmål)</span>
+                                              <span className="text-green-600">+{formatCurrency(monthlyAmount)}</span>
+                                            </div>
+                                          );
+                                        })}
                                       
                                        {/* Cost budget deposits - only Löpande kostnad costs as positive deposits */}
                                        {totalCosts > 0 && (
