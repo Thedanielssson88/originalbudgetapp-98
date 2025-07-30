@@ -15,7 +15,6 @@ interface AddSavingsItemDialogProps {
     name: string;
     amount: number;
     account: string;
-    financedFrom?: string;
   }) => void;
   mainCategories: string[];
   accounts: string[];
@@ -32,9 +31,8 @@ export const AddSavingsItemDialog: React.FC<AddSavingsItemDialogProps> = ({
     mainCategory: '',
     subcategory: '',
     name: '',
-    amount: '',
-    account: '',
-    financedFrom: 'Löpande kostnad'
+    amount: 0,
+    account: 'none'
   });
   
   const [subcategories, setSubcategories] = useState<Record<string, string[]>>({});
@@ -55,22 +53,18 @@ export const AddSavingsItemDialog: React.FC<AddSavingsItemDialogProps> = ({
   }, [formData.mainCategory, subcategories]);
 
   const handleSave = () => {
-    if (formData.mainCategory && formData.subcategory && formData.name && parseFloat(formData.amount) > 0) {
-      onSave({
-        mainCategory: formData.mainCategory,
-        subcategory: formData.subcategory,
-        name: formData.name,
-        amount: parseFloat(formData.amount),
-        account: formData.account,
-        financedFrom: formData.financedFrom
-      });
+    if (formData.mainCategory && formData.subcategory && formData.name && formData.amount > 0) {
+      const itemToSave = {
+        ...formData,
+        account: formData.account === 'none' ? '' : formData.account
+      };
+      onSave(itemToSave);
       setFormData({
         mainCategory: '',
         subcategory: '',
         name: '',
-        amount: '',
-        account: '',
-        financedFrom: 'Löpande kostnad'
+        amount: 0,
+        account: 'none'
       });
       onClose();
     }
@@ -81,9 +75,8 @@ export const AddSavingsItemDialog: React.FC<AddSavingsItemDialogProps> = ({
       mainCategory: '',
       subcategory: '',
       name: '',
-      amount: '',
-      account: '',
-      financedFrom: 'Löpande kostnad'
+      amount: 0,
+      account: 'none'
     });
     onClose();
   };
@@ -150,37 +143,28 @@ export const AddSavingsItemDialog: React.FC<AddSavingsItemDialogProps> = ({
             <Input
               id="amount"
               type="number"
+              value={formData.amount || ''}
+              onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) || 0 })}
               placeholder="0"
-              value={formData.amount}
-              onChange={(e) => setFormData(prev => ({...prev, amount: e.target.value}))}
             />
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="account">Konto</Label>
-            <Select value={formData.account} onValueChange={(value) => setFormData(prev => ({...prev, account: value}))}>
+            <Select 
+              value={formData.account} 
+              onValueChange={(value) => setFormData({ ...formData, account: value })}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Välj konto" />
               </SelectTrigger>
               <SelectContent className="bg-popover border border-border shadow-lg z-50">
+                <SelectItem value="none">Inget konto</SelectItem>
                 {accounts.map((account) => (
                   <SelectItem key={account} value={account}>
                     {account}
                   </SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="financedFrom">Finansiering</Label>
-            <Select value={formData.financedFrom} onValueChange={(value) => setFormData(prev => ({...prev, financedFrom: value}))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Välj finansiering" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover border border-border shadow-lg z-50">
-                <SelectItem value="Löpande kostnad">Löpande kostnad</SelectItem>
-                <SelectItem value="Enskild kostnad">Enskild kostnad</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -192,7 +176,7 @@ export const AddSavingsItemDialog: React.FC<AddSavingsItemDialogProps> = ({
           </Button>
           <Button 
             onClick={handleSave}
-            disabled={!formData.mainCategory || !formData.subcategory || !formData.name || !formData.amount || parseFloat(formData.amount) <= 0}
+            disabled={!formData.mainCategory || !formData.subcategory || !formData.name || formData.amount <= 0}
           >
             Spara
           </Button>

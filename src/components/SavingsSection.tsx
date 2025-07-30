@@ -2,32 +2,24 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, ChevronUp, Plus, Edit, Settings, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, Edit, Trash2 } from 'lucide-react';
 import { BudgetGroup, SavingsGoal } from '../types/budget';
 import { AddSavingsItemDialog } from './AddSavingsItemDialog';
-import { SavingsItemCard } from './SavingsItemCard';
-import { SavingsGoalCard } from './SavingsGoalCard';
 
 interface SavingsSectionProps {
   savingsGroups: BudgetGroup[];
   savingsGoals: SavingsGoal[];
   accounts: string[];
   mainCategories: string[];
-  dailyTransfer: number;
-  weekendTransfer: number;
-  daysInMonth: number;
-  fridayCount: number;
   onAddSavingsItem: (item: {
     mainCategory: string;
     subcategory: string;
     name: string;
     amount: number;
     account: string;
-    financedFrom?: string;
   }) => void;
   onEditSavingsGroup: (group: BudgetGroup) => void;
   onDeleteSavingsGroup: (id: string) => void;
-  calculateActualAmountForCategory: (categoryId: string) => number;
 }
 
 type ViewMode = 'category' | 'account';
@@ -37,14 +29,9 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
   savingsGoals,
   accounts,
   mainCategories,
-  dailyTransfer,
-  weekendTransfer,
-  daysInMonth,
-  fridayCount,
   onAddSavingsItem,
   onEditSavingsGroup,
-  onDeleteSavingsGroup,
-  calculateActualAmountForCategory
+  onDeleteSavingsGroup
 }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('category');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
@@ -73,20 +60,6 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
 
   const totalSavings = savingsGroups.reduce((sum, group) => sum + group.amount, 0);
 
-  const groupSavingsByMainCategory = () => {
-    const grouped: Record<string, BudgetGroup[]> = {};
-    
-    savingsGroups.forEach(group => {
-      const categoryName = group.mainCategoryId || group.name; // Fallback for legacy data
-      if (!grouped[categoryName]) {
-        grouped[categoryName] = [];
-      }
-      grouped[categoryName].push(group);
-    });
-    
-    return grouped;
-  };
-
   const groupSavingsByAccount = () => {
     const grouped: Record<string, BudgetGroup[]> = {};
     
@@ -107,124 +80,141 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
     );
   };
 
-  const renderCategoryView = () => {
-    const groupedSavings = groupSavingsByMainCategory();
-    
-    return (
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <span className="text-sm font-medium">Visa sparande per:</span>
-          <div className="flex gap-1">
-            <Button
-              size="sm"
-              variant={viewMode === 'category' ? 'default' : 'outline'}
-              onClick={() => setViewMode('category')}
-            >
-              Kategori
-            </Button>
-            <Button
-              size="sm"
-              variant={viewMode === 'account' ? 'default' : 'outline'}
-              onClick={() => setViewMode('account')}
-            >
-              Konto
-            </Button>
-          </div>
+  const renderCategoryView = () => (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <span className="text-sm font-medium">Visa sparande per:</span>
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant={viewMode === 'category' ? 'default' : 'outline'}
+            onClick={() => setViewMode('category')}
+          >
+            Kategori
+          </Button>
+          <Button
+            size="sm"
+            variant={viewMode === 'account' ? 'default' : 'outline'}
+            onClick={() => setViewMode('account')}
+          >
+            Konto
+          </Button>
         </div>
+      </div>
 
-        <div className="flex justify-between items-center">
-          <h3 className="text-lg font-medium">Sparandekategorier</h3>
-          <div className="flex gap-2">
-            <Button size="sm" onClick={() => setIsAddDialogOpen(true)}>
-              <Plus className="h-4 w-4" />
-            </Button>
-            <Button size="sm" variant="outline">
-              <Settings className="h-4 w-4" />
-            </Button>
-          </div>
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-medium">Sparandekategorier</h3>
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="h-4 w-4" />
+          </Button>
+          <Button size="sm" variant="outline">
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button size="sm" variant="outline">
+            <Plus className="h-4 w-4" />
+          </Button>
         </div>
+      </div>
 
-        {Object.entries(groupedSavings).map(([categoryName, categoryGroups]) => {
-          const categoryTotal = categoryGroups.reduce((sum, group) => sum + group.amount, 0);
-          const categoryActual = categoryGroups.reduce((sum, group) => sum + calculateActualAmountForCategory(group.id), 0);
-          
-          return (
-            <div key={categoryName} className="border rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleCategoryExpansion(categoryName)}
-                    className="p-1"
-                  >
-                    {expandedCategories.has(categoryName) ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </Button>
+      {savingsGroups.map((group) => (
+        <div key={group.id} className="border rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => toggleCategoryExpansion(group.id)}
+                className="p-1"
+              >
+                {expandedCategories.has(group.id) ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+              <div>
+                <span className="font-medium">{group.name}</span>
+                <div className="text-sm text-muted-foreground">
+                  {group.subCategories?.length || 0} poster
+                </div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-muted-foreground">Budget: {group.amount.toLocaleString()} kr</div>
+              <div className="text-sm text-muted-foreground">Faktiskt: <span className="text-green-600 underline">0 kr</span></div>
+              <div className="text-sm text-green-600 font-medium">Diff: +{group.amount.toLocaleString()} kr</div>
+              <Button size="sm" variant="destructive" className="mt-1">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-2 text-xs text-muted-foreground text-center">
+            0.0% av budget använd
+          </div>
+
+          {expandedCategories.has(group.id) && group.subCategories && (
+            <div className="mt-3 pl-6 space-y-2 border-l-2 border-muted">
+              {group.subCategories.map((subCategory, index) => (
+                <div key={index} className="flex justify-between items-center p-2 bg-muted/30 rounded">
                   <div>
-                    <span className="font-medium">{categoryName}</span>
-                    <div className="text-sm text-muted-foreground">
-                      {categoryGroups.length} poster
+                    <span className="font-medium">{subCategory.name}</span>
+                    {subCategory.account && (
+                      <span className="text-sm text-muted-foreground ml-2">
+                        ({subCategory.account})
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-sm font-semibold text-green-600">
+                    {subCategory.amount.toLocaleString()} kr
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+
+      {/* Savings Goals at bottom for category view */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="text-lg">Sparmål</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {savingsGoals.length === 0 ? (
+            <div className="text-center text-muted-foreground py-8">
+              <div className="text-4xl mb-2">🎯</div>
+              <p>Inga sparmål skapade ännu</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {savingsGoals.map((goal) => (
+                <div key={goal.id} className="border rounded-lg p-3 bg-green-50">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-medium">{goal.name}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {goal.accountId} • {goal.startDate} till {goal.endDate}
+                      </p>
+                      <p className="text-sm">
+                        {(goal.targetAmount / 12).toLocaleString()} kr/mån
+                      </p>
+                      <p className="text-sm text-muted-foreground">0 kr sparat</p>
+                    </div>
+                    <div className="text-right text-sm">
+                      <div>Total framsteg</div>
+                      <div>0.0% (0 kr / {goal.targetAmount.toLocaleString()} kr)</div>
                     </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-sm text-muted-foreground">Budget: {categoryTotal.toLocaleString()} kr</div>
-                  <div className="text-sm text-muted-foreground">
-                    Faktiskt: <span className="text-green-600 underline">{categoryActual.toLocaleString()} kr</span>
-                  </div>
-                  <div className={`text-sm font-medium ${categoryTotal - categoryActual >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    Diff: {categoryTotal - categoryActual >= 0 ? '+' : ''}{(categoryTotal - categoryActual).toLocaleString()} kr
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-2 text-xs text-muted-foreground text-center">
-                {categoryTotal > 0 ? ((categoryActual / categoryTotal) * 100).toFixed(1) : 0}% av budget använd
-              </div>
-
-              {expandedCategories.has(categoryName) && (
-                <div className="mt-3 space-y-2">
-                  {categoryGroups.map((group) => (
-                    <SavingsItemCard
-                      key={group.id}
-                      group={group}
-                      actualAmount={calculateActualAmountForCategory(group.id)}
-                      onEdit={onEditSavingsGroup}
-                      onDelete={onDeleteSavingsGroup}
-                    />
-                  ))}
-                </div>
-              )}
+              ))}
             </div>
-          );
-        })}
-
-        {/* Savings Goals */}
-        {savingsGoals.length > 0 && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="text-lg">Sparmål</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {savingsGoals.map((goal) => (
-                  <SavingsGoalCard
-                    key={goal.id}
-                    goal={goal}
-                    currentAmount={0} // TODO: Calculate based on actual savings progress
-                  />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    );
-  };
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
 
   const renderAccountView = () => {
     const groupedSavings = groupSavingsByAccount();
@@ -368,14 +358,12 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
         {/* Daily transfer information at bottom */}
         <Card className="mt-6 bg-muted/20">
           <CardContent className="pt-4">
-            <h4 className="font-medium mb-2">
-              Total daglig budget: {((daysInMonth - fridayCount) * dailyTransfer + fridayCount * weekendTransfer).toLocaleString()} kr
-            </h4>
+            <h4 className="font-medium mb-2">Total daglig budget: 8 760 kr</h4>
             <div className="text-sm text-muted-foreground space-y-1">
-              <div>Daglig överföring (måndag-torsdag): {dailyTransfer}</div>
-              <div>Helgöverföring (fredag-söndag): {weekendTransfer}</div>
-              <div>• Vardagar: {daysInMonth - fridayCount} × {dailyTransfer} kr = {((daysInMonth - fridayCount) * dailyTransfer).toLocaleString()} kr</div>
-              <div>• Helgdagar: {fridayCount} × {weekendTransfer} kr = {(fridayCount * weekendTransfer).toLocaleString()} kr</div>
+              <div>Daglig överföring (måndag-torsdag): 300</div>
+              <div>Helgöverföring (fredag-söndag): 540</div>
+              <div>• Vardagar: 22 × 300 kr = 6 600 kr</div>
+              <div>• Helgdagar: 4 × 540 kr = 2 160 kr</div>
             </div>
           </CardContent>
         </Card>

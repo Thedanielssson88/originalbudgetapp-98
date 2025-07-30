@@ -34,8 +34,6 @@ export interface BudgetGroup {
   subCategories?: SubCategory[];
   account?: string;
   financedFrom?: 'Löpande kostnad' | 'Enskild kostnad';
-  mainCategoryId?: string; // NYTT FÄLT för enhetlig kategorihantering
-  subCategoryId?: string; // NYTT FÄLT för enhetlig kategorihantering
 }
 
 export interface Account {
@@ -51,8 +49,6 @@ export interface SavingsGoal {
   targetAmount: number;
   startDate: string; // YYYY-MM
   endDate: string; // YYYY-MM
-  mainCategoryId?: string; // NYTT FÄLT för integration med kategorisystem
-  subCategoryId?: string; // NYTT FÄLT för integration med kategorisystem
 }
 
 // CategoryLink interface removed - using unified category system

@@ -23,7 +23,6 @@ import { MainCategoriesSettings } from '@/components/MainCategoriesSettings';
 import { AddCostItemDialog } from '@/components/AddCostItemDialog';
 import { TransactionImportEnhanced } from '@/components/TransactionImportEnhanced';
 import { TransactionDrillDownDialog } from '@/components/TransactionDrillDownDialog';
-import { SavingsSection } from '@/components/SavingsSection';
 import { calculateAccountEndBalances } from '../services/calculationService';
 import { 
   createSavingsGoal,
@@ -1790,58 +1789,6 @@ const BudgetCalculator = () => {
     setCostGroups(costGroups.map(group => 
       group.id === id ? { ...group, [field]: value } : group
     ));
-    
-    // Reset MonthFinalBalances flag when manual values are changed
-    const currentDate = new Date();
-    const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-    resetMonthFinalBalancesFlag(currentMonthKey);
-  };
-
-  const handleAddSavingsItem = (item: {
-    mainCategory: string;
-    subcategory: string;
-    name: string;
-    amount: number;
-    account: string;
-    financedFrom?: string;
-  }) => {
-    // Find existing group or create new one
-    let targetGroup = savingsGroups.find(group => group.name === item.mainCategory);
-    
-    if (!targetGroup) {
-      // Create new group
-      targetGroup = {
-        id: Date.now().toString(),
-        name: item.mainCategory,
-        amount: 0,
-        type: 'savings',
-        subCategories: [],
-        mainCategoryId: item.mainCategory
-      };
-      setSavingsGroups([...savingsGroups, targetGroup]);
-    }
-    
-    // Add subcategory to the group
-    const newSubCategory = {
-      id: (Date.now() + Math.random()).toString(),
-      name: item.name,
-      amount: item.amount,
-      account: item.account,
-      financedFrom: item.financedFrom as 'Löpande kostnad' | 'Enskild kostnad'
-    };
-    
-    const updatedGroups = savingsGroups.map(group => {
-      if (group.id === targetGroup!.id) {
-        return {
-          ...group,
-          subCategories: [...(group.subCategories || []), newSubCategory],
-          amount: group.amount + item.amount
-        };
-      }
-      return group;
-    });
-    
-    setSavingsGroups(updatedGroups);
     
     // Reset MonthFinalBalances flag when manual values are changed
     const currentDate = new Date();
@@ -5850,35 +5797,262 @@ const BudgetCalculator = () => {
                        )}
                      </div>
 
-                      {/* Total Savings with Dropdown */}
-                      <div className="p-4 bg-green-50 rounded-lg">
-                        <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('savingsCategories')}>
-                          <div>
-                            <div className="text-sm text-muted-foreground">Totalt sparande</div>
-                            <div className="text-2xl font-bold text-green-600">
-                              {formatCurrency(savingsGroups.reduce((sum, group) => sum + group.amount, 0))}
+                     {/* Total Savings with Dropdown */}
+                     <div className="p-4 bg-green-50 rounded-lg">
+                       <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('savingsCategories')}>
+                         <div>
+                           <div className="text-sm text-muted-foreground">Totalt sparande</div>
+                           <div className="text-2xl font-bold text-green-600">
+                             {formatCurrency((() => {
+                               const savingsCategoriesTotal = savingsGroups.reduce((sum, group) => sum + group.amount, 0);
+                               const savingsGoalsMonthlyTotal = budgetState.savingsGoals.reduce((sum, goal) => {
+                                 // Beräkna månadsbelopp för detta sparmål
+                                 const start = new Date(goal.startDate + '-01');
+                                 const end = new Date(goal.endDate + '-01');
+                                 const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
+                                                    (end.getMonth() - start.getMonth()) + 1;
+                                 const monthlyAmount = goal.targetAmount / monthsDiff;
+                                 
+                                 // Kontrollera om detta sparmål är aktivt denna månad
+                                 const currentMonthDate = new Date(selectedBudgetMonth + '-01');
+                                 if (currentMonthDate >= start && currentMonthDate <= end) {
+                                   return sum + monthlyAmount;
+                                 }
+                                 return sum;
+                               }, 0);
+                               return savingsCategoriesTotal + savingsGoalsMonthlyTotal;
+                             })())}
+                           </div>
+                         </div>
+                        {expandedSections.savingsCategories ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                      </div>
+                      
+                      {expandedSections.savingsCategories && (
+                        <div className="mt-4 space-y-4">
+                          <div className="flex justify-between items-center">
+                            <h4 className="font-semibold">Sparandekategorier</h4>
+                            <div className="space-x-2">
+                              <Button size="sm" onClick={() => setIsEditingCategories(!isEditingCategories)}>
+                                {isEditingCategories ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
+                              </Button>
+                              {isEditingCategories && (
+                                <Button size="sm" onClick={addSavingsGroup}>
+                                  <Plus className="w-4 h-4" />
+                                </Button>
+                              )}
                             </div>
                           </div>
-                         {expandedSections.savingsCategories ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                       </div>
-                       
-                       {expandedSections.savingsCategories && (
-                         <SavingsSection
-                           savingsGroups={savingsGroups}
-                           savingsGoals={budgetState.savingsGoals}
-                           accounts={accounts}
-                           mainCategories={budgetState.mainCategories || []}
-                           dailyTransfer={dailyTransfer}
-                           weekendTransfer={weekendTransfer}
-                           daysInMonth={results?.daysUntil25th || 30}
-                           fridayCount={results?.fridayCount || 4}
-                           onAddSavingsItem={handleAddSavingsItem}
-                           onEditSavingsGroup={(group) => {/* TODO: Implement edit */}}
-                           onDeleteSavingsGroup={(id) => removeSavingsGroup(id)}
-                           calculateActualAmountForCategory={calculateActualAmountForCategory}
-                         />
-                       )}
-                      </div>
+                          
+                           {savingsGroups.map((group) => (
+                             <div key={group.id} className="space-y-2">
+                               {isEditingCategories ? (
+                                 <div className="space-y-2">
+                                   <div className="flex gap-2 items-center">
+                                     <Input
+                                       value={group.name}
+                                       onChange={(e) => updateSavingsGroup(group.id, 'name', e.target.value)}
+                                       className="flex-1 text-base"
+                                       placeholder="Kategori namn"
+                                     />
+                                     <Input
+                                       type="number"
+                                       value={group.amount === 0 ? '' : group.amount}
+                                       onChange={(e) => updateSavingsGroup(group.id, 'amount', Number(e.target.value) || 0)}
+                                       className="w-32"
+                                       placeholder="Belopp"
+                                     />
+                                     <Button
+                                       size="sm"
+                                       variant="destructive"
+                                       onClick={() => removeSavingsGroup(group.id)}
+                                     >
+                                       <Trash2 className="w-4 h-4" />
+                                     </Button>
+                                   </div>
+                                    <div className="flex gap-2 items-center pl-2">
+                                      <span className="text-sm text-muted-foreground min-w-16">Konto:</span>
+                                      <Select
+                                        value={group.account || 'none'}
+                                        onValueChange={(value) => updateSavingsGroup(group.id, 'account', value === 'none' ? undefined : value)}
+                                      >
+                                        <SelectTrigger className="w-36">
+                                          <SelectValue placeholder="Välj konto" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="none">Inget konto</SelectItem>
+                                          {accounts.map((account) => (
+                                            <SelectItem key={account} value={account}>
+                                              {account}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                 </div>
+                               ) : (
+                                 <div className="flex justify-between items-center">
+                                   <span className="flex-1">
+                                     {group.name}{group.account ? ` (${group.account})` : ''}
+                                   </span>
+                                   <span className="w-32 text-right font-medium text-green-600">
+                                     {formatCurrency(group.amount)}
+                                   </span>
+                                 </div>
+                               )}
+                             </div>
+                            ))}
+                            
+                             {/* Total Daily Budget with breakdown under Savings Categories */}
+                             <div className="mt-4 pt-4 border-t border-gray-200">
+                               <div className="font-medium text-base mb-2">
+                                 Total daglig budget: {formatCurrency((() => {
+                                   if (!results) return 0;
+                                   const currentDate = new Date();
+                                   let selectedYear = currentDate.getFullYear();
+                                   let selectedMonth = currentDate.getMonth();
+                                   
+                                   if (selectedBudgetMonth) {
+                                     const [yearStr, monthStr] = selectedBudgetMonth.split('-');
+                                     selectedYear = parseInt(yearStr);
+                                     selectedMonth = parseInt(monthStr) - 1;
+                                   }
+                                   
+                                   const { weekdayCount, fridayCount } = calculateDaysForMonth(selectedYear, selectedMonth);
+                                   return dailyTransfer * weekdayCount + weekendTransfer * fridayCount;
+                                 })())}
+                               </div>
+                               <div className="ml-4 space-y-1 text-xs text-muted-foreground">
+                                 <div>Daglig överföring (måndag-torsdag): {dailyTransfer}</div>
+                                 <div>Helgöverföring (fredag-söndag): {weekendTransfer}</div>
+                                 {(() => {
+                                   if (!results) return null;
+                                   const currentDate = new Date();
+                                   let selectedYear = currentDate.getFullYear();
+                                   let selectedMonth = currentDate.getMonth();
+                                   
+                                   if (selectedBudgetMonth) {
+                                     const [yearStr, monthStr] = selectedBudgetMonth.split('-');
+                                     selectedYear = parseInt(yearStr);
+                                     selectedMonth = parseInt(monthStr) - 1;
+                                   }
+                                   
+                                   const { weekdayCount, fridayCount } = calculateDaysForMonth(selectedYear, selectedMonth);
+                                   const weekdaysExcludingFridays = weekdayCount - fridayCount;
+                                   
+                                   return (
+                                     <>
+                                       <div>• Vardagar: {weekdayCount} × {dailyTransfer} kr = {formatCurrency(weekdayCount * dailyTransfer)}</div>
+                                       <div>• Helgdagar: {fridayCount} × {weekendTransfer} kr = {formatCurrency(fridayCount * weekendTransfer)}</div>
+                                     </>
+                                   );
+                                 })()}
+                              </div>
+                           
+                           {/* Sparmål sektion */}
+                           <div className="mt-6 pt-4 border-t border-green-200">
+                             <div className="flex justify-between items-center mb-4">
+                               <h4 className="font-semibold">Sparmål</h4>
+                               <Button 
+                                 size="sm" 
+                                 onClick={() => setIsCreateSavingsGoalDialogOpen(true)}
+                                 variant="outline"
+                               >
+                                 <Plus className="w-4 h-4 mr-1" />
+                                 Nytt mål
+                               </Button>
+                             </div>
+                             
+                             {budgetState.savingsGoals.length === 0 ? (
+                               <div className="text-center py-4 text-muted-foreground">
+                                 <Target className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                 <p className="text-sm">Inga sparmål skapade ännu</p>
+                               </div>
+                             ) : (
+                               <div className="space-y-3">
+                                 {budgetState.savingsGoals.map(goal => {
+                                   // Beräkna om detta sparmål är aktivt denna månad
+                                   const start = new Date(goal.startDate + '-01');
+                                   const end = new Date(goal.endDate + '-01');
+                                   const currentMonthDate = new Date(selectedBudgetMonth + '-01');
+                                   const isActiveThisMonth = currentMonthDate >= start && currentMonthDate <= end;
+                                   
+                                   if (!isActiveThisMonth) return null;
+                                   
+                                   // Beräkna månadsbelopp
+                                   const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
+                                                      (end.getMonth() - start.getMonth()) + 1;
+                                   const monthlyAmount = goal.targetAmount / monthsDiff;
+                                   
+                                   // Beräkna faktiskt sparat totalt
+                                   let actualSavedTotal = 0;
+                                   Object.values(budgetState.historicalData).forEach(monthData => {
+                                     if (monthData.transactions) {
+                                       monthData.transactions.forEach(transaction => {
+                                         if (transaction.type === 'Savings' && 
+                                             transaction.accountId === goal.accountId &&
+                                             transaction.appCategoryId === goal.id) {
+                                           actualSavedTotal += Math.abs(transaction.amount);
+                                         }
+                                       });
+                                     }
+                                   });
+                                   
+                                   // Beräkna faktiskt sparat denna månad
+                                   let actualSavedThisMonth = 0;
+                                   const currentMonthData = budgetState.historicalData[selectedBudgetMonth];
+                                   if (currentMonthData && currentMonthData.transactions) {
+                                     currentMonthData.transactions.forEach(transaction => {
+                                       if (transaction.type === 'Savings' && 
+                                           transaction.accountId === goal.accountId &&
+                                           transaction.appCategoryId === goal.id) {
+                                         actualSavedThisMonth += Math.abs(transaction.amount);
+                                       }
+                                     });
+                                   }
+                                   
+                                   const totalProgress = Math.min((actualSavedTotal / goal.targetAmount) * 100, 100);
+                                   const accountName = budgetState.accounts.find(acc => acc.id === goal.accountId)?.name || 'Okänt konto';
+                                   
+                                   return (
+                                     <div key={goal.id} className="p-3 bg-white border border-green-200 rounded-lg">
+                                       <div className="flex justify-between items-start mb-2">
+                                         <div className="flex-1">
+                                           <div className="font-medium text-sm">{goal.name}</div>
+                                           <div className="text-xs text-muted-foreground">
+                                             {accountName} • {goal.startDate} till {goal.endDate}
+                                           </div>
+                                         </div>
+                                         <div className="text-right">
+                                           <div className="text-sm font-medium text-green-600">
+                                             {formatCurrency(monthlyAmount)}/mån
+                                           </div>
+                                           <div className="text-xs text-muted-foreground">
+                                             {formatCurrency(actualSavedThisMonth)} sparat
+                                           </div>
+                                         </div>
+                                       </div>
+                                       
+                                       <div className="space-y-1">
+                                         <div className="flex justify-between text-xs">
+                                           <span>Total framsteg</span>
+                                           <span 
+                                             className="cursor-pointer hover:underline"
+                                             onClick={() => {
+                                               alert(`${goal.name}\n\nSparat: ${formatCurrency(actualSavedTotal)}\nMål: ${formatCurrency(goal.targetAmount)}\nKvar: ${formatCurrency(goal.targetAmount - actualSavedTotal)}`);
+                                             }}
+                                           >
+                                             {totalProgress.toFixed(1)}% 
+                                             ({formatCurrency(actualSavedTotal)} / {formatCurrency(goal.targetAmount)})
+                                           </span>
+                                         </div>
+                                         <Progress value={totalProgress} className="h-2" />
+                                       </div>
+                                     </div>
+                                   );
+                                 }).filter(Boolean)}
+                               </div>
+                             )}
+                           </div>
                            </div>
                           </div>
                         )}
