@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronUp, Edit3 } from 'lucide-react';
 import { ImportedTransaction } from '@/types/transaction';
+import { StorageKey, get } from '@/services/storageService';
 
 interface TransactionExpandableCardProps {
   transaction: ImportedTransaction;
@@ -32,6 +33,13 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
+  const [subcategoriesData, setSubcategoriesData] = useState<Record<string, string[]>>({});
+
+  // Load subcategories from the same storage as MainCategoriesSettings
+  useEffect(() => {
+    const loadedSubcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
+    setSubcategoriesData(loadedSubcategories);
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -222,7 +230,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                      </Select>
                    </div>
 
-                   {/* Subcategory selector - only show for Transport */}
+                   {/* Subcategory selector - show for any category that has subcategories */}
                    {(() => {
                      const selectedCategoryName = (() => {
                        if (transaction.appCategoryId) {
@@ -235,27 +243,42 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                        return '';
                      })();
 
-                     if (selectedCategoryName === 'Transport') {
-                       const transportGroup = costGroups.find(group => group.name === 'Transport');
-                       const subcategories = transportGroup?.subCategories || [];
+                     // Check if this category has subcategories in the storage
+                     const availableSubcategories = subcategoriesData[selectedCategoryName] || [];
 
+                     if (selectedCategoryName && availableSubcategories.length > 0) {
                        return (
                          <div>
                            <label className="text-xs font-medium text-muted-foreground">Underkategori</label>
                            <Select
                              value={(() => {
-                               // Convert stored subcategory ID back to name for display
+                               // For subcategories from storage, we need to find the subcategory name
+                               // since storage uses names, not IDs for subcategories
                                if (transaction.appSubCategoryId) {
-                                 const subcategory = subcategories.find(sub => sub.id === transaction.appSubCategoryId);
-                                 return subcategory ? subcategory.name : '';
+                                 // Check if it's already a name that exists in our subcategories
+                                 if (availableSubcategories.includes(transaction.appSubCategoryId)) {
+                                   return transaction.appSubCategoryId;
+                                 }
+                                 // For Transport subcategories with IDs, try to map ID to name
+                                 if (selectedCategoryName === 'Transport') {
+                                   const transportGroup = costGroups.find(group => group.name === 'Transport');
+                                   const subcategory = transportGroup?.subCategories?.find(sub => sub.id === transaction.appSubCategoryId);
+                                   return subcategory ? subcategory.name : '';
+                                 }
                                }
                                return '';
                              })()}
                              onValueChange={(subCategoryName) => {
-                               // Find the subcategory ID from the name
-                               const subcategory = subcategories.find(sub => sub.name === subCategoryName);
-                               if (subcategory) {
-                                 onUpdateCategory(transaction.id, selectedCategoryName, subcategory.id);
+                               // For Transport, use the ID mapping from costGroups
+                               if (selectedCategoryName === 'Transport') {
+                                 const transportGroup = costGroups.find(group => group.name === 'Transport');
+                                 const subcategory = transportGroup?.subCategories?.find(sub => sub.name === subCategoryName);
+                                 if (subcategory) {
+                                   onUpdateCategory(transaction.id, selectedCategoryName, subcategory.id);
+                                 }
+                               } else {
+                                 // For other categories, use the subcategory name as ID
+                                 onUpdateCategory(transaction.id, selectedCategoryName, subCategoryName);
                                }
                              }}
                            >
@@ -263,9 +286,9 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                                <SelectValue placeholder="Välj underkategori" />
                              </SelectTrigger>
                              <SelectContent className="bg-background border border-border shadow-lg z-50">
-                               {subcategories.map(subcategory => (
-                                 <SelectItem key={subcategory.id} value={subcategory.name}>
-                                   {subcategory.name}
+                               {availableSubcategories.map(subcategory => (
+                                 <SelectItem key={subcategory} value={subcategory}>
+                                   {subcategory}
                                  </SelectItem>
                                ))}
                              </SelectContent>
