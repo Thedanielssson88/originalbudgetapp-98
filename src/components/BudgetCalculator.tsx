@@ -429,6 +429,11 @@ const BudgetCalculator = () => {
     return monthTransactions.filter((t: Transaction) => t.appCategoryId === categoryId);
   };
 
+  const getTransactionsForAccount = (accountName: string): Transaction[] => {
+    const monthTransactions = (currentMonthData as any).transactions || [];
+    return monthTransactions.filter((t: Transaction) => t.accountId === accountName);
+  };
+
   const openDrillDownDialog = (categoryName: string, categoryId: string, budgetAmount: number) => {
     const transactions = getTransactionsForCategory(categoryId);
     const actualAmount = calculateActualAmountForCategory(categoryId);
@@ -437,6 +442,18 @@ const BudgetCalculator = () => {
       isOpen: true,
       transactions,
       categoryName,
+      budgetAmount,
+      actualAmount
+    });
+  };
+
+  const openAccountDrillDownDialog = (accountName: string, budgetAmount: number, actualAmount: number) => {
+    const transactions = getTransactionsForAccount(accountName);
+    
+    setDrillDownDialog({
+      isOpen: true,
+      transactions,
+      categoryName: accountName,
       budgetAmount,
       actualAmount
     });
@@ -5972,12 +5989,15 @@ const BudgetCalculator = () => {
                                              <div className="text-sm font-medium text-purple-700 dark:text-purple-300">
                                                Budget: <span className="font-bold text-purple-900 dark:text-purple-100">{formatCurrency(data.total)}</span>
                                              </div>
-                                             <div className="text-sm font-medium text-orange-700 dark:text-orange-300 mt-1">
-                                               Faktiskt: 
-                                               <span className="ml-1 font-bold text-orange-800 dark:text-orange-200">
-                                                 {formatCurrency(actualAmount)}
-                                               </span>
-                                             </div>
+                                              <div className="text-sm font-medium text-orange-700 dark:text-orange-300 mt-1">
+                                                Faktiskt: 
+                                                <button
+                                                  className="ml-1 font-bold text-orange-800 dark:text-orange-200 hover:text-orange-600 dark:hover:text-orange-400 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200"
+                                                  onClick={() => openAccountDrillDownDialog(accountName, data.total, actualAmount)}
+                                                >
+                                                  {formatCurrency(actualAmount)}
+                                                </button>
+                                              </div>
                                              <div className={`text-sm font-bold mt-1 ${difference >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
                                                <span className="inline-flex items-center gap-1">
                                                  {difference >= 0 ? '↗' : '↘'} {difference >= 0 ? '+' : ''}{formatCurrency(Math.abs(difference))}
