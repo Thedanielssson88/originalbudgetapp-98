@@ -7006,7 +7006,9 @@ const BudgetCalculator = () => {
                               
                               // Add savings goals monthly amount for this account
                               const savingsGoalsMonthlyAmount = budgetState.savingsGoals.reduce((sum, goal) => {
-                                if (goal.accountId === account) {
+                                // Find the account object that matches this account name
+                                const accountObj = budgetState.accounts.find(acc => acc.name === account);
+                                if (accountObj && goal.accountId === accountObj.id) {
                                   const start = new Date(goal.startDate + '-01');
                                   const end = new Date(goal.endDate + '-01');
                                   const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
@@ -7123,7 +7125,9 @@ const BudgetCalculator = () => {
                                       {/* Individual savings goals for this account */}
                                       {budgetState.savingsGoals
                                         .filter(goal => {
-                                          if (goal.accountId !== account) return false;
+                                          // Find the account object that matches this account name
+                                          const accountObj = budgetState.accounts.find(acc => acc.name === account);
+                                          if (!accountObj || goal.accountId !== accountObj.id) return false;
                                           
                                           const start = new Date(goal.startDate + '-01');
                                           const end = new Date(goal.endDate + '-01');
