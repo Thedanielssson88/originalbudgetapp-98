@@ -1824,8 +1824,12 @@ const BudgetCalculator = () => {
     dailyAmount?: number;
     transferDays?: number[];
   }) => {
+    console.log('🔍 [DEBUG] handleAddCostItem called with:', item);
+    console.log('🔍 [DEBUG] Current costGroups before addition:', costGroups);
+    
     // Find existing group or create new one
     let targetGroup = costGroups.find(group => group.name === item.mainCategory);
+    console.log('🔍 [DEBUG] Found target group:', targetGroup);
     
     if (!targetGroup) {
       // Create new group
@@ -1875,7 +1879,10 @@ const BudgetCalculator = () => {
       ? costGroups.map(group => group.id === targetGroup!.id ? updatedGroup : group)
       : [...costGroups, updatedGroup];
 
+    console.log('🔍 [DEBUG] Updated groups after addition:', updatedGroups);
+    console.log('🔍 [DEBUG] About to call updateCostGroups with:', updatedGroups);
     updateCostGroups(updatedGroups);
+    console.log('🔍 [DEBUG] updateCostGroups called successfully');
     
     // Reset MonthFinalBalances flag when manual values are changed
     const currentDate = new Date();
@@ -5572,13 +5579,17 @@ const BudgetCalculator = () => {
                             </div>
                           </div>
                           
-                           {costViewType === 'category' ? (
+                            {costViewType === 'category' ? (
                              // Enhanced expandable category view
                               (() => {
+                                console.log('🔍 [DEBUG] Rendering cost categories with costGroups:', costGroups);
+                                console.log('🔍 [DEBUG] costGroups length:', costGroups.length);
+                                
                                 // Group subcategories by main category
                                 const categoryGroups: { [key: string]: { total: number; subcategories: ExtendedSubCategory[] } } = {};
                                 
                                 costGroups.forEach((group) => {
+                                  console.log('🔍 [DEBUG] Processing group:', group.name, 'with subcategories:', group.subCategories);
                                   if (!categoryGroups[group.name]) {
                                     categoryGroups[group.name] = { total: 0, subcategories: [] };
                                   }

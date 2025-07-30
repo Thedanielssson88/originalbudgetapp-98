@@ -131,6 +131,16 @@ function updateAndRecalculate(updates: Partial<MonthData>): void {
 // These functions now only write to historicalData[selectedMonthKey]
 
 export function updateCostGroups(value: BudgetGroup[]): void {
+  console.log('🔍 [ORCHESTRATOR] updateCostGroups called with:', value);
+  console.log('🔍 [ORCHESTRATOR] Number of groups being saved:', value.length);
+  value.forEach((group, index) => {
+    console.log(`🔍 [ORCHESTRATOR] Group ${index}: ${group.name} with ${group.subCategories?.length || 0} subcategories`);
+    if (group.subCategories) {
+      group.subCategories.forEach((sub, subIndex) => {
+        console.log(`  🔍 [ORCHESTRATOR] Subcategory ${subIndex}: ${sub.name} - ${sub.amount}`);
+      });
+    }
+  });
   updateAndRecalculate({ costGroups: value });
 }
 
