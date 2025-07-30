@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { StorageKey, get } from '../services/storageService';
 
 interface AddCostItemDialogProps {
@@ -16,6 +18,9 @@ interface AddCostItemDialogProps {
     amount: number;
     account: string;
     financedFrom: string;
+    transferType?: 'monthly' | 'daily';
+    dailyAmount?: number;
+    transferDays?: number[];
   }) => void;
   mainCategories: string[];
   accounts: string[];
@@ -34,7 +39,10 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
     name: '',
     amount: 0,
     account: 'none',
-    financedFrom: 'Löpande kostnad'
+    financedFrom: 'Löpande kostnad',
+    transferType: 'monthly' as 'monthly' | 'daily',
+    dailyAmount: 0,
+    transferDays: [] as number[]
   });
   
   const [subcategories, setSubcategories] = useState<Record<string, string[]>>({});
@@ -55,7 +63,11 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
   }, [formData.mainCategory, subcategories]);
 
   const handleSave = () => {
-    if (formData.mainCategory && formData.subcategory && formData.name && formData.amount > 0) {
+    const isValidAmount = formData.transferType === 'daily' ? 
+      formData.dailyAmount > 0 && formData.transferDays.length > 0 : 
+      formData.amount > 0;
+      
+    if (formData.mainCategory && formData.subcategory && formData.name && isValidAmount) {
       const itemToSave = {
         ...formData,
         account: formData.account === 'none' ? '' : formData.account
@@ -67,7 +79,10 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
         name: '',
         amount: 0,
         account: 'none',
-        financedFrom: 'Löpande kostnad'
+        financedFrom: 'Löpande kostnad',
+        transferType: 'monthly' as 'monthly' | 'daily',
+        dailyAmount: 0,
+        transferDays: [] as number[]
       });
       onClose();
     }
@@ -80,9 +95,27 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
       name: '',
       amount: 0,
       account: 'none',
-      financedFrom: 'Löpande kostnad'
+      financedFrom: 'Löpande kostnad',
+      transferType: 'monthly' as 'monthly' | 'daily',
+      dailyAmount: 0,
+      transferDays: [] as number[]
     });
     onClose();
+  };
+
+  const weekdays = [
+    { value: 1, label: 'M', name: 'Måndag' },
+    { value: 2, label: 'T', name: 'Tisdag' },
+    { value: 3, label: 'O', name: 'Onsdag' },
+    { value: 4, label: 'T', name: 'Torsdag' },
+    { value: 5, label: 'F', name: 'Fredag' },
+    { value: 6, label: 'L', name: 'Lördag' },
+    { value: 0, label: 'S', name: 'Söndag' }
+  ];
+
+  const handleTransferDaysChange = (days: string[]) => {
+    const numericDays = days.map(d => parseInt(d));
+    setFormData({ ...formData, transferDays: numericDays });
   };
 
   return (
@@ -143,15 +176,75 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="amount">Belopp</Label>
-            <Input
-              id="amount"
-              type="number"
-              value={formData.amount || ''}
-              onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) || 0 })}
-              placeholder="0"
-            />
+            <Label>Överföringstyp</Label>
+            <RadioGroup
+              value={formData.transferType}
+              onValueChange={(value: 'monthly' | 'daily') => setFormData({ ...formData, transferType: value })}
+              className="flex gap-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="monthly" id="monthly" />
+                <Label htmlFor="monthly">Fast Månadsöverföring</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="daily" id="daily" />
+                <Label htmlFor="daily">Daglig Överföring</Label>
+              </div>
+            </RadioGroup>
           </div>
+
+          {formData.transferType === 'monthly' ? (
+            <div className="space-y-2">
+              <Label htmlFor="amount">Belopp</Label>
+              <Input
+                id="amount"
+                type="number"
+                value={formData.amount || ''}
+                onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) || 0 })}
+                placeholder="0"
+              />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="dailyAmount">Belopp per dag</Label>
+                <Input
+                  id="dailyAmount"
+                  type="number"
+                  value={formData.dailyAmount || ''}
+                  onChange={(e) => setFormData({ ...formData, dailyAmount: Number(e.target.value) || 0 })}
+                  placeholder="0"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Överföringsdagar</Label>
+                <ToggleGroup
+                  type="multiple"
+                  value={formData.transferDays.map(d => d.toString())}
+                  onValueChange={handleTransferDaysChange}
+                  className="justify-start"
+                >
+                  {weekdays.map((day) => (
+                    <ToggleGroupItem
+                      key={day.value}
+                      value={day.value.toString()}
+                      aria-label={day.name}
+                      size="sm"
+                      className="h-8 w-8"
+                    >
+                      {day.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+                {formData.transferDays.length > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Valda dagar: {formData.transferDays.map(d => weekdays.find(w => w.value === d)?.name).join(', ')}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="account">Konto</Label>
@@ -196,7 +289,15 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
           </Button>
           <Button 
             onClick={handleSave}
-            disabled={!formData.mainCategory || !formData.subcategory || !formData.name || formData.amount <= 0}
+            disabled={
+              !formData.mainCategory || 
+              !formData.subcategory || 
+              !formData.name || 
+              (formData.transferType === 'daily' ? 
+                (formData.dailyAmount <= 0 || formData.transferDays.length === 0) : 
+                formData.amount <= 0
+              )
+            }
           >
             Spara
           </Button>

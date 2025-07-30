@@ -67,6 +67,14 @@ import { StorageKey, get, set } from '../services/storageService';
 import { useBudget } from '../hooks/useBudget';
 import { mobileDebugLogger, addMobileDebugLog } from '../utils/mobileDebugLogger';
 import { Transaction } from '../types/budget';
+import { 
+  calculateMonthlyAmountForDailyTransfer, 
+  calculateEstimatedToDate, 
+  calculateActualTransferred, 
+  calculateDifference, 
+  calculateRemaining, 
+  formatTransferDays 
+} from '../utils/dailyTransferUtils';
 
 interface SubCategory {
   id: string;
@@ -74,6 +82,9 @@ interface SubCategory {
   amount: number;
   account?: string;
   financedFrom?: 'Löpande kostnad' | 'Enskild kostnad';
+  transferType?: 'monthly' | 'daily';
+  dailyAmount?: number;
+  transferDays?: number[];
 }
 
 interface BudgetGroup {
@@ -423,6 +434,14 @@ const BudgetCalculator = () => {
   };
 
 
+  // Helper function to calculate the correct amount for a subcategory (daily or monthly)
+  const getSubcategoryDisplayAmount = (subcategory: SubCategory): number => {
+    if (subcategory.transferType === 'daily' && subcategory.dailyAmount && subcategory.transferDays) {
+      return calculateMonthlyAmountForDailyTransfer(subcategory, selectedBudgetMonth);
+    }
+    return subcategory.amount;
+  };
+
   // FUNCTION DEFINITIONS (must come before useEffect hooks that call them)
   const calculateBudget = () => {
     const andreasTotalIncome = andreasSalary + andreasförsäkringskassan + andreasbarnbidrag;
@@ -432,7 +451,7 @@ const BudgetCalculator = () => {
     
     // Calculate total costs (only from subcategories, main categories are calculated automatically)
     const totalCosts = costGroups.reduce((sum, group) => {
-      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + getSubcategoryDisplayAmount(sub), 0) || 0;
       return sum + subCategoriesTotal;
     }, 0);
     
@@ -1775,6 +1794,9 @@ const BudgetCalculator = () => {
     amount: number;
     account: string;
     financedFrom: string;
+    transferType?: 'monthly' | 'daily';
+    dailyAmount?: number;
+    transferDays?: number[];
   }) => {
     // Find existing group or create new one
     let targetGroup = costGroups.find(group => group.name === item.mainCategory);
@@ -1796,7 +1818,10 @@ const BudgetCalculator = () => {
       name: `${item.subcategory}: ${item.name}`,
       amount: item.amount,
       account: item.account,
-      financedFrom: item.financedFrom
+      financedFrom: item.financedFrom,
+      transferType: item.transferType || 'monthly',
+      dailyAmount: item.dailyAmount,
+      transferDays: item.transferDays
     };
 
     const updatedSubCategories = [...(targetGroup.subCategories || []), newSubCategory];
@@ -6447,16 +6472,48 @@ const BudgetCalculator = () => {
                                               <div className="space-y-1 text-sm">
                                                 {group.subCategories && group.subCategories.length > 0 ? (
                                                   <>
-                                                    {group.subCategories.map((sub) => (
-                                                      <div key={sub.id} className="flex justify-between">
-                                                        <span>• {sub.name}:</span>
-                                                        <span className="font-medium">{formatCurrency(sub.amount)}</span>
-                                                      </div>
-                                                    ))}
-                                                    <div className="flex justify-between pt-1 border-t">
-                                                      <span className="font-medium">Total:</span>
-                                                      <span className="font-semibold">{formatCurrency(group.subCategories.reduce((sum, sub) => sum + sub.amount, 0))}</span>
-                                                    </div>
+                                                     {group.subCategories.map((sub) => (
+                                                       <div key={sub.id} className="space-y-2">
+                                                         <div className="flex justify-between">
+                                                           <span>• {sub.name}:</span>
+                                                           <span className="font-medium">{formatCurrency(getSubcategoryDisplayAmount(sub))}</span>
+                                                         </div>
+                                                         {sub.transferType === 'daily' && sub.dailyAmount && sub.transferDays && (
+                                                           <div className="ml-4 p-2 bg-muted/50 rounded border-l-2 border-primary/20">
+                                                             <div className="text-xs space-y-1">
+                                                               <div className="flex justify-between">
+                                                                 <span>Överföring:</span>
+                                                                 <span>{formatCurrency(sub.dailyAmount)} ({formatTransferDays(sub.transferDays)})</span>
+                                                               </div>
+                                                               <div className="border-t pt-1 space-y-1">
+                                                                 <div className="flex justify-between">
+                                                                   <span>Estimerat t.o.m. idag:</span>
+                                                                   <span>{formatCurrency(calculateEstimatedToDate(sub, selectedBudgetMonth))}</span>
+                                                                 </div>
+                                                                 <div className="flex justify-between">
+                                                                   <span>Faktiskt överfört (CSV):</span>
+                                                                   <span>{formatCurrency(calculateActualTransferred(sub, (currentMonthData as any).transactions || [], selectedBudgetMonth))}</span>
+                                                                 </div>
+                                                                 <div className="flex justify-between">
+                                                                   <span>Differens:</span>
+                                                                    <span className={calculateDifference(sub, (currentMonthData as any).transactions || [], selectedBudgetMonth) >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                                                      {formatCurrency(calculateDifference(sub, (currentMonthData as any).transactions || [], selectedBudgetMonth))}
+                                                                   </span>
+                                                                 </div>
+                                                                 <div className="flex justify-between">
+                                                                   <span>Estimerat kvar att överföra:</span>
+                                                                   <span>{formatCurrency(calculateRemaining(sub, selectedBudgetMonth))}</span>
+                                                                 </div>
+                                                               </div>
+                                                             </div>
+                                                           </div>
+                                                         )}
+                                                       </div>
+                                                     ))}
+                                                     <div className="flex justify-between pt-1 border-t">
+                                                       <span className="font-medium">Total:</span>
+                                                       <span className="font-semibold">{formatCurrency(group.subCategories.reduce((sum, sub) => sum + getSubcategoryDisplayAmount(sub), 0))}</span>
+                                                     </div>
                                                   </>
                                                 ) : (
                                                   <div className="flex justify-between">

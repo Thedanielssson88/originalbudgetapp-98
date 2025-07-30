@@ -23,6 +23,11 @@ export interface SubCategory {
   amount: number;
   account?: string;
   financedFrom?: 'Löpande kostnad' | 'Enskild kostnad';
+  
+  // Nya fält för dagliga överföringar
+  transferType?: 'monthly' | 'daily'; // Typ av överföring (default: 'monthly')
+  dailyAmount?: number; // Belopp per dag för dagliga överföringar
+  transferDays?: number[]; // Dagar då överföring sker (0=Sön, 1=Mån, ..., 6=Lör)
 }
 
 export interface BudgetGroup {
