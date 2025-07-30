@@ -17,6 +17,23 @@ export interface Transaction {
   linkedTransactionId?: string; // För att para ihop överföringar
 }
 
+// Detta representerar nu en enskild budgetpost (både kostnad och sparande)
+export interface BudgetItem {
+  id: string; // Unikt ID för just denna budgetpost
+  mainCategoryId: string; // ID som kopplar till en post i master-listan
+  subCategoryId: string; // ID som kopplar till en post i master-listan
+  description: string; // Användarens egna beskrivning för posten
+  amount: number;
+  accountId?: string; // ID som kopplar till ett konto i master-listan
+  financedFrom?: 'Löpande kostnad' | 'Enskild kostnad';
+  
+  // Nya fält för dagliga överföringar
+  transferType?: 'monthly' | 'daily'; // Typ av överföring (default: 'monthly')
+  dailyAmount?: number; // Belopp per dag för dagliga överföringar
+  transferDays?: number[]; // Dagar då överföring sker (0=Sön, 1=Mån, ..., 6=Lör)
+}
+
+// Legacy interface för bakåtkompatibilitet
 export interface SubCategory {
   id: string;
   name: string;
@@ -30,6 +47,7 @@ export interface SubCategory {
   transferDays?: number[]; // Dagar då överföring sker (0=Sön, 1=Mån, ..., 6=Lör)
 }
 
+// Legacy interface för bakåtkompatibilitet
 export interface BudgetGroup {
   id: string;
   name: string;
@@ -91,9 +109,13 @@ export interface MonthData {
   susannaförsäkringskassan: number;
   susannabarnbidrag: number;
   
-  // Budget groups (tidigare top-level i rawData)
+  // Budget groups (tidigare top-level i rawData) - LEGACY
   costGroups: BudgetGroup[];
   savingsGroups: BudgetGroup[];
+  
+  // Nya struktur med BudgetItem som ersätter groups
+  costItems: BudgetItem[];
+  savingsItems: BudgetItem[];
   
   // Transfer settings
   dailyTransfer: number;

@@ -306,6 +306,8 @@ function createEmptyMonthData(): MonthData {
       { id: '3', name: 'Transport', amount: 2000, type: 'cost', subCategories: [] }
     ],
     savingsGroups: [],
+    costItems: [], // Nya struktur
+    savingsItems: [], // Nya struktur
     dailyTransfer: 300,
     weekendTransfer: 540,
     andreasPersonalCosts: 0,

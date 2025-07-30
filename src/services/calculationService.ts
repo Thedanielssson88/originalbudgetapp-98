@@ -432,3 +432,37 @@ function getNextTenHolidays(fromDate: Date, customHolidays: {date: string, name:
   // Sort and return first 10
   return holidays.sort().slice(0, 10);
 }
+
+/**
+ * Get transactions for a specific month period (25th of previous month to 24th of current month)
+ */
+export function getTransactionsForPeriod(
+  historicalData: { [monthKey: string]: MonthData },
+  selectedMonthKey: string
+): any[] {
+  const allTransactions: any[] = [];
+  
+  // Parse the selected month
+  const [year, month] = selectedMonthKey.split('-').map(Number);
+  
+  // Calculate period: 25th of previous month to 24th of current month
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear = month === 1 ? year - 1 : year;
+  
+  const periodStart = new Date(prevYear, prevMonth - 1, 25); // 25th of previous month
+  const periodEnd = new Date(year, month - 1, 24); // 24th of current month
+  
+  // Go through all months and collect transactions within the period
+  Object.values(historicalData).forEach(monthData => {
+    if (monthData.transactions) {
+      monthData.transactions.forEach(transaction => {
+        const transactionDate = new Date(transaction.date);
+        if (transactionDate >= periodStart && transactionDate <= periodEnd) {
+          allTransactions.push(transaction);
+        }
+      });
+    }
+  });
+  
+  return allTransactions;
+}
