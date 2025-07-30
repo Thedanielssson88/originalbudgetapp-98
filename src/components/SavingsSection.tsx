@@ -446,14 +446,17 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
   };
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+      <CardHeader className="pb-4">
         <div className="flex justify-between items-center">
           <div>
-            <CardTitle className="text-lg">Totalt sparande</CardTitle>
-            <div className="text-2xl font-bold text-green-600">
+            <CardTitle className="text-lg text-green-800">Totalt sparande</CardTitle>
+            <div className="text-3xl font-bold text-green-600">
               {totalSavings.toLocaleString()} kr
             </div>
+          </div>
+          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+            <span className="text-2xl">💰</span>
           </div>
         </div>
       </CardHeader>
