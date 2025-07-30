@@ -13,6 +13,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/component
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight, Target, Receipt } from 'lucide-react';
+import { CostItemEditDialog } from './CostItemEditDialog';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useSwipeGestures } from '@/hooks/useSwipeGestures';
 import { AccountDataTable, AccountDataRow } from '@/components/AccountDataTable';
@@ -217,6 +218,10 @@ const BudgetCalculator = () => {
 
   // Create month dialog state
   const [isCreateMonthDialogOpen, setIsCreateMonthDialogOpen] = useState<boolean>(false);
+  
+  // Cost item edit dialog state
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState<boolean>(false);
+  const [editingItem, setEditingItem] = useState<(SubCategory & { groupId: string; categoryName: string }) | null>(null);
   const [createMonthDirection, setCreateMonthDirection] = useState<'previous' | 'next'>('next');
   
   // Add cost item dialog state
@@ -3304,6 +3309,76 @@ const BudgetCalculator = () => {
     resetMonthFinalBalancesFlag(currentMonthKey);
   };
 
+  // Cost item edit dialog functions
+  const openEditDialog = (item: SubCategory & { groupId: string }, categoryName: string) => {
+    setEditingItem({ ...item, categoryName });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditSave = (updatedItem: SubCategory & { groupId: string; categoryName: string }) => {
+    // Check if category changed - if so, we need to move the item
+    const originalGroup = costGroups.find(g => g.id === updatedItem.groupId);
+    const originalCategoryName = originalGroup?.name;
+    
+    if (updatedItem.categoryName !== originalCategoryName) {
+      // Find or create the target category group
+      let targetGroup = costGroups.find(g => g.name === updatedItem.categoryName);
+      if (!targetGroup) {
+        // Create new group if it doesn't exist
+        targetGroup = {
+          id: `category-${Date.now()}`,
+          name: updatedItem.categoryName,
+          amount: 0,
+          type: 'cost' as const,
+          subCategories: []
+        };
+        updateCostGroups([...costGroups, targetGroup]);
+      }
+      
+      // Remove item from original group and add to target group
+      const updatedCostGroups = costGroups.map(group => {
+        if (group.id === updatedItem.groupId) {
+          // Remove from original group
+          return {
+            ...group,
+            subCategories: group.subCategories?.filter(sub => sub.id !== updatedItem.id) || []
+          };
+        } else if (group.name === updatedItem.categoryName) {
+          // Add to target group
+          const { categoryName, groupId, ...subItem } = updatedItem;
+          return {
+            ...group,
+            subCategories: [...(group.subCategories || []), subItem]
+          };
+        }
+        return group;
+      });
+      
+      updateCostGroups(updatedCostGroups);
+    } else {
+      // Just update the item in place
+      const { categoryName, ...subItem } = updatedItem;
+      updateCostGroups(costGroups.map(group => 
+        group.id === updatedItem.groupId ? {
+          ...group,
+          subCategories: group.subCategories?.map(sub => 
+            sub.id === updatedItem.id ? subItem : sub
+          ) || []
+        } : group
+      ));
+    }
+    
+    // Reset MonthFinalBalances flag when manual values are changed
+    const currentDate = new Date();
+    const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    resetMonthFinalBalancesFlag(currentMonthKey);
+  };
+
+  // Get unique category names for the edit dialog
+  const getCategoryNames = (): string[] => {
+    return [...new Set(costGroups.map(group => group.name))].filter((name): name is string => typeof name === 'string');
+  };
+
   // Account management functions
   const addAccount = () => {
     if (newAccountName.trim() && !accounts.includes(newAccountName.trim())) {
@@ -5648,26 +5723,37 @@ const BudgetCalculator = () => {
                                                         ...prev,
                                                         [`category_${categoryName}_${sub.id}`]: !prev[`category_${categoryName}_${sub.id}`]
                                                       }))}>
-                                                   <div className="flex items-center gap-2">
-                                                     <Button
-                                                       variant="ghost"
-                                                       size="sm"
-                                                       className="p-1 h-8 w-8 rounded-full bg-primary/5 hover:bg-primary/10"
-                                                     >
-                                                       {expandedBudgetCategories[`category_${categoryName}_${sub.id}`] ? (
-                                                         <ChevronUp className="h-4 w-4 text-primary" />
-                                                       ) : (
-                                                         <ChevronDown className="h-4 w-4 text-primary" />
-                                                       )}
-                                                     </Button>
-                                                     <span className="font-medium text-foreground">{sub.name}</span>
-                                                   </div>
-                                                   <span className="font-bold text-destructive bg-destructive/10 px-2 py-1 rounded-full text-sm">
-                                                     {sub.transferType === 'daily' 
-                                                       ? formatCurrency(calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth))
-                                                       : formatCurrency(sub.amount)
-                                                     }
-                                                   </span>
+                                                    <div className="flex items-center gap-2">
+                                                      <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="p-1 h-8 w-8 rounded-full bg-primary/5 hover:bg-primary/10"
+                                                      >
+                                                        {expandedBudgetCategories[`category_${categoryName}_${sub.id}`] ? (
+                                                          <ChevronUp className="h-4 w-4 text-primary" />
+                                                        ) : (
+                                                          <ChevronDown className="h-4 w-4 text-primary" />
+                                                        )}
+                                                      </Button>
+                                                      <span className="font-medium text-foreground">{sub.name}</span>
+                                                      <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          openEditDialog(sub, categoryName);
+                                                        }}
+                                                        className="p-1 h-8 w-8 rounded-full bg-secondary/50 hover:bg-secondary/80 transition-all duration-200 opacity-70 hover:opacity-100"
+                                                      >
+                                                        <Edit className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                                      </Button>
+                                                    </div>
+                                                    <span className="font-bold text-destructive bg-destructive/10 px-2 py-1 rounded-full text-sm">
+                                                      {sub.transferType === 'daily' 
+                                                        ? formatCurrency(calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth))
+                                                        : formatCurrency(sub.amount)
+                                                      }
+                                                    </span>
                                                  </div>
                                                  
                                                  {/* Expandable details */}
@@ -5960,22 +6046,33 @@ const BudgetCalculator = () => {
                                                             ...prev,
                                                             [`account_${accountName}_${sub.id}`]: !prev[`account_${accountName}_${sub.id}`]
                                                           }))}>
-                                                       <div className="flex items-center gap-2">
-                                                         <Button
-                                                           variant="ghost"
-                                                           size="sm"
-                                                           className="p-1 h-8 w-8 rounded-full bg-accent/5 hover:bg-accent/10"
-                                                         >
-                                                           {expandedBudgetCategories[`account_${accountName}_${sub.id}`] ? (
-                                                             <ChevronUp className="h-4 w-4 text-accent" />
-                                                           ) : (
-                                                             <ChevronDown className="h-4 w-4 text-accent" />
-                                                           )}
-                                                         </Button>
-                                                         <span className="font-medium text-foreground">
-                                                           {sub.name} ({sub.category})
-                                                         </span>
-                                                       </div>
+                                                        <div className="flex items-center gap-2">
+                                                          <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="p-1 h-8 w-8 rounded-full bg-accent/5 hover:bg-accent/10"
+                                                          >
+                                                            {expandedBudgetCategories[`account_${accountName}_${sub.id}`] ? (
+                                                              <ChevronUp className="h-4 w-4 text-accent" />
+                                                            ) : (
+                                                              <ChevronDown className="h-4 w-4 text-accent" />
+                                                            )}
+                                                          </Button>
+                                                          <span className="font-medium text-foreground">
+                                                            {sub.name} ({sub.category})
+                                                          </span>
+                                                          <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              openEditDialog(sub, sub.category);
+                                                            }}
+                                                            className="p-1 h-8 w-8 rounded-full bg-secondary/50 hover:bg-secondary/80 transition-all duration-200 opacity-70 hover:opacity-100"
+                                                          >
+                                                            <Edit className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                                          </Button>
+                                                        </div>
                                                        <span className="font-bold text-destructive bg-destructive/10 px-2 py-1 rounded-full text-sm">
                                                          {sub.transferType === 'daily' 
                                                            ? formatCurrency(calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth))
@@ -10117,6 +10214,19 @@ const BudgetCalculator = () => {
         historicalData={historicalData}
         availableMonths={availableMonths}
       />
+
+      {/* Cost Item Edit Dialog */}
+      {editingItem && (
+        <CostItemEditDialog
+          item={editingItem}
+          accounts={accounts}
+          categories={getCategoryNames()}
+          isOpen={isEditDialogOpen}
+          onClose={() => setIsEditDialogOpen(false)}
+          onSave={handleEditSave}
+          onDelete={removeSubCategory}
+        />
+      )}
 
       {/* Add Cost Item Dialog */}
       <AddCostItemDialog
