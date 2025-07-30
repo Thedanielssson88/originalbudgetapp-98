@@ -399,78 +399,48 @@ const BudgetCalculator = () => {
       }
     });
     
-    // 4. Samla alla unika ID:n för konton som används
-    const activeAccountIds = new Set<string>();
+    // 4. Samla alla unika konto-NAMN som används
+    const activeAccountNames = new Set<string>();
     
-    // Från budgetposter
+    // Lägg till kontonamn från budgetposter
     budgetItems.forEach(item => {
-      if (item.accountId) {
-        activeAccountIds.add(item.accountId);
+      if (item.account) { // Notera att fältet heter 'account' i BudgetItems
+        activeAccountNames.add(item.account);
       }
     });
     
-    // Från transaktioner
-    console.log('🔍 [ACCOUNT FILTER DEBUG] Found transactions for period:', transactionsForPeriod.length);
+    // Lägg till kontonamn från transaktioner
     transactionsForPeriod.forEach(transaction => {
-      console.log('🔍 [ACCOUNT FILTER DEBUG] Transaction accountId:', transaction.accountId, 'Account exists in budgetState.accounts:', budgetState.accounts.find(a => a.id === transaction.accountId || a.name === transaction.accountId));
-      if (transaction.accountId) {
-        // Find the account by either ID or name and add the actual account ID
-        const account = budgetState.accounts.find(a => a.id === transaction.accountId || a.name === transaction.accountId);
-        if (account) {
-          activeAccountIds.add(account.id);
-          console.log('🔍 [ACCOUNT FILTER DEBUG] Added account ID:', account.id, 'for transaction accountId:', transaction.accountId);
-        } else {
-          console.log('🔍 [ACCOUNT FILTER DEBUG] No matching account found for transaction accountId:', transaction.accountId);
-        }
+      if (transaction.accountId) { // Notera att fältet heter 'accountId' i Transactions
+        activeAccountNames.add(transaction.accountId);
       }
     });
     
     // Från legacy groups (för bakåtkompatibilitet)
     [...costGroups, ...savingsGroups].forEach(group => {
       if (group.account) {
-        // Hitta account ID från namnet för legacy kompatibilitet
-        const account = budgetState.accounts.find(acc => acc.name === group.account);
-        if (account) {
-          activeAccountIds.add(account.id);
-        }
+        activeAccountNames.add(group.account);
       }
     });
     
-    // 5. Filtrera master-listorna baserat på de aktiva ID:na
+    // 5. Filtrera master-listorna baserat på de aktiva namnen
     const activeCategories = budgetState.mainCategories.filter(category => 
       activeMainCategoryIds.has(category)
     );
     
+    // Filtrera den centrala "master-listan" av konton baserat på de aktiva namnen
     const activeAccounts = budgetState.accounts.filter(account => 
-      activeAccountIds.has(account.id)
+      activeAccountNames.has(account.name)
     );
-    
-    // CRITICAL FIX: Force include accounts that have transactions even if not in activeAccountIds
-    console.log('🔥 FORCE DEBUG - transactionsForPeriod:', transactionsForPeriod.length);
-    const accountsWithTransactions = new Set<string>();
-    transactionsForPeriod.forEach(transaction => {
-      if (transaction.accountId) {
-        accountsWithTransactions.add(transaction.accountId);
-        console.log('🔥 FORCE DEBUG - Found transaction for account:', transaction.accountId);
-      }
-    });
-    
-    // Add any accounts that have transactions but aren't in activeAccounts
-    const additionalAccounts = budgetState.accounts.filter(account => 
-      accountsWithTransactions.has(account.name) && !activeAccounts.some(active => active.id === account.id)
-    );
-    
-    console.log('🔥 FORCE DEBUG - Additional accounts to include:', additionalAccounts.map(a => a.name));
-    const finalActiveAccounts = [...activeAccounts, ...additionalAccounts];
     
     console.log('🔍 [FILTER DEBUG] Active main category IDs:', Array.from(activeMainCategoryIds));
-    console.log('🔍 [FILTER DEBUG] Active account IDs:', Array.from(activeAccountIds));
+    console.log('🔍 [FILTER DEBUG] Active account names:', Array.from(activeAccountNames));
     console.log('🔍 [FILTER DEBUG] Filtered active categories:', activeCategories);
-    console.log('🔍 [FILTER DEBUG] Final active accounts:', finalActiveAccounts.map(a => a.name));
+    console.log('🔍 [FILTER DEBUG] Filtered active accounts:', activeAccounts.map(a => a.name));
     
     return { 
       activeCategories, 
-      activeAccounts: finalActiveAccounts, // Use the enhanced account list
+      activeAccounts, // Use the correctly filtered account list
       budgetItems: { costItems, savingsItems },
       transactionsForPeriod
     };
