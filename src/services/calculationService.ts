@@ -440,6 +440,7 @@ export function getTransactionsForPeriod(
   historicalData: { [monthKey: string]: MonthData },
   selectedMonthKey: string
 ): any[] {
+  console.log(`[getTransactionsForPeriod] Looking for transactions in period for month: ${selectedMonthKey}`);
   const allTransactions: any[] = [];
   
   // Parse the selected month
@@ -453,16 +454,33 @@ export function getTransactionsForPeriod(
   const periodEnd = new Date(year, month - 1, 24); // 24th of current month
   
   // Go through all months and collect transactions within the period
-  Object.values(historicalData).forEach(monthData => {
+  console.log(`[getTransactionsForPeriod] Period: ${periodStart.toISOString()} to ${periodEnd.toISOString()}`);
+  console.log(`[getTransactionsForPeriod] Available months with data:`, Object.keys(historicalData));
+  
+  Object.entries(historicalData).forEach(([monthKey, monthData]) => {
     if (monthData.transactions) {
-      monthData.transactions.forEach(transaction => {
+      console.log(`[getTransactionsForPeriod] Found ${monthData.transactions.length} transactions in month ${monthKey}`);
+      monthData.transactions.forEach((transaction, index) => {
         const transactionDate = new Date(transaction.date);
-        if (transactionDate >= periodStart && transactionDate <= periodEnd) {
+        const inPeriod = transactionDate >= periodStart && transactionDate <= periodEnd;
+        console.log(`[getTransactionsForPeriod] Transaction ${index}: ${transaction.date} (accountId: ${transaction.accountId}) - in period: ${inPeriod}`);
+        if (inPeriod) {
           allTransactions.push(transaction);
         }
       });
+    } else {
+      console.log(`[getTransactionsForPeriod] No transactions found in month ${monthKey}`);
     }
   });
+  
+  console.log(`[getTransactionsForPeriod] Total transactions found in period: ${allTransactions.length}`);
+  console.log(`[getTransactionsForPeriod] Sample transactions:`, allTransactions.slice(0, 3).map(t => ({ 
+    id: t.id, 
+    accountId: t.accountId, 
+    date: t.date, 
+    amount: t.amount,
+    description: t.description
+  })));
   
   return allTransactions;
 }

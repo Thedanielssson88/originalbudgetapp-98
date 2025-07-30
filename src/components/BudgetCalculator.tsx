@@ -403,7 +403,9 @@ const BudgetCalculator = () => {
     });
     
     // Från transaktioner
+    console.log('🔍 [ACCOUNT FILTER DEBUG] Found transactions for period:', transactionsForPeriod.length);
     transactionsForPeriod.forEach(transaction => {
+      console.log('🔍 [ACCOUNT FILTER DEBUG] Transaction accountId:', transaction.accountId, 'Account exists in budgetState.accounts:', budgetState.accounts.find(a => a.id === transaction.accountId || a.name === transaction.accountId));
       if (transaction.accountId) {
         activeAccountIds.add(transaction.accountId);
       }
