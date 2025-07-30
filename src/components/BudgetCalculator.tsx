@@ -5797,9 +5797,10 @@ const BudgetCalculator = () => {
                                  // Group subcategories by account
                                  const accountGroups: { [key: string]: { total: number; subcategories: (SubCategory & { category: string; groupId: string })[] } } = {};
                                 
-                                costGroups.forEach((group) => {
-                                  group.subCategories?.forEach((sub) => {
-                                    const account = sub.account || 'Inget konto';
+                                 costGroups.forEach((group) => {
+                                   group.subCategories?.forEach((sub) => {
+                                     const account = sub.account || 'Inget konto';
+                                     console.log(`🔍 Account grouping: ${sub.name} -> ${account}`, { sub, hasAccount: !!sub.account });
                                     if (!accountGroups[account]) {
                                       accountGroups[account] = { total: 0, subcategories: [] };
                                     }
@@ -5817,7 +5818,10 @@ const BudgetCalculator = () => {
                                        accountGroups[account].total += sub.amount;
                                      }
                                   });
-                                });
+                                 });
+                                 
+                                 console.log(`🔍 Account groups for display:`, accountGroups);
+                                 console.log(`🔍 Account groups keys:`, Object.keys(accountGroups));
 
                                 return Object.entries(accountGroups).map(([accountName, data]) => {
                                   // Calculate actual amount for this account across all categories
@@ -5852,20 +5856,23 @@ const BudgetCalculator = () => {
                                   return (
                                     <div key={accountName} className="border rounded-lg p-3 space-y-2">
                                       <div className="flex items-center gap-2">
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => setExpandedCostGroups(prev => ({
-                                            ...prev,
-                                            [`account_${accountName}`]: !prev[`account_${accountName}`]
-                                          }))}
-                                          className="p-1"
-                                        >
-                                          {expandedCostGroups[`account_${accountName}`] ? (
-                                            <ChevronUp className="h-4 w-4" />
-                                          ) : (
-                                            <ChevronDown className="h-4 w-4" />
-                                          )}
+                                         <Button
+                                           variant="ghost"
+                                           size="sm"
+                                           onClick={() => {
+                                             console.log(`🔍 Toggling account expansion: ${accountName}`);
+                                             setExpandedCostGroups(prev => ({
+                                               ...prev,
+                                               [`account_${accountName}`]: !prev[`account_${accountName}`]
+                                             }));
+                                           }}
+                                           className="p-1 bg-blue-100 border border-blue-300"
+                                         >
+                                           {expandedCostGroups[`account_${accountName}`] ? (
+                                             <ChevronUp className="h-4 w-4" />
+                                           ) : (
+                                             <ChevronDown className="h-4 w-4" />
+                                           )}
                                         </Button>
                                         <div className="flex-1">
                                           <div className="font-medium">{accountName}</div>
