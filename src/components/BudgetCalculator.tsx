@@ -5792,10 +5792,10 @@ const BudgetCalculator = () => {
                               });
                             })()
                              ) : (
-                              // Enhanced account view - same as category view but grouped by account
-                              (() => {
-                                // Group subcategories by account
-                                const accountGroups: { [key: string]: { total: number; subcategories: { id: string; name: string; amount: number; category: string; financedFrom?: string; groupId: string }[] } } = {};
+                               // Enhanced account view - same as category view but grouped by account
+                               (() => {
+                                 // Group subcategories by account
+                                 const accountGroups: { [key: string]: { total: number; subcategories: (SubCategory & { category: string; groupId: string })[] } } = {};
                                 
                                 costGroups.forEach((group) => {
                                   group.subCategories?.forEach((sub) => {
@@ -5804,20 +5804,48 @@ const BudgetCalculator = () => {
                                       accountGroups[account] = { total: 0, subcategories: [] };
                                     }
                                     
-                                    accountGroups[account].subcategories.push({
-                                      ...sub,
-                                      category: group.name,
-                                      groupId: group.id
-                                    });
-                                    accountGroups[account].total += sub.amount;
+                                     accountGroups[account].subcategories.push({
+                                       ...sub,
+                                       category: group.name,
+                                       groupId: group.id
+                                     });
+                                     
+                                     // Use the same calculation logic as category view
+                                     if (sub.transferType === 'daily') {
+                                       accountGroups[account].total += calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth);
+                                     } else {
+                                       accountGroups[account].total += sub.amount;
+                                     }
                                   });
                                 });
 
                                 return Object.entries(accountGroups).map(([accountName, data]) => {
                                   // Calculate actual amount for this account across all categories
+                                  // For each subcategory in this account, calculate the proportional actual amount
                                   const actualAmount = data.subcategories.reduce((sum, sub) => {
                                     const categoryGroup = costGroups.find(g => g.id === sub.groupId);
-                                    return sum + (categoryGroup ? calculateActualAmountForCategory(categoryGroup.id) : 0);
+                                    if (!categoryGroup) return sum;
+                                    
+                                    // Get total actual for the category
+                                    const categoryActualAmount = calculateActualAmountForCategory(categoryGroup.id);
+                                    // Get total budget for the category
+                                    const categoryBudgetAmount = (categoryGroup.subCategories || []).reduce((catSum, catSub) => {
+                                      if (catSub.transferType === 'daily') {
+                                        return catSum + calculateMonthlyAmountForDailyTransfer(catSub, selectedBudgetMonth);
+                                      } else {
+                                        return catSum + catSub.amount;
+                                      }
+                                    }, 0);
+                                    
+                                    // Calculate proportional actual amount for this subcategory
+                                    if (categoryBudgetAmount > 0) {
+                                      const subBudgetAmount = sub.transferType === 'daily' 
+                                        ? calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth)
+                                        : sub.amount;
+                                      const proportion = subBudgetAmount / categoryBudgetAmount;
+                                      return sum + (categoryActualAmount * proportion);
+                                    }
+                                    return sum;
                                   }, 0);
                                   const difference = data.total - actualAmount;
                                   
