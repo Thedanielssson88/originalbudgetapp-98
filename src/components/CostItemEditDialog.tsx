@@ -187,14 +187,14 @@ export const CostItemEditDialog: React.FC<CostItemEditDialogProps> = ({
           <div className="space-y-2">
             <Label>Konto</Label>
             <Select 
-              value={editedItem.account || ''} 
-              onValueChange={(value) => updateField('account', value)}
+              value={editedItem.account || 'none'} 
+              onValueChange={(value) => updateField('account', value === 'none' ? '' : value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Välj konto" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Inget konto</SelectItem>
+                <SelectItem value="none">Inget konto</SelectItem>
                 {accounts.map((account) => (
                   <SelectItem key={account} value={account}>
                     {account}
