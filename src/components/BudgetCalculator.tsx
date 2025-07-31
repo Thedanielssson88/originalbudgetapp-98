@@ -664,8 +664,11 @@ const BudgetCalculator = () => {
 
   const openAccountDrillDownDialog = (accountName: string, budgetAmount: number, actualAmount: number) => {
     const allTransactions = getTransactionsForAccount(accountName);
-    // Filter out positive amounts (income) from cost category drill-downs
-    const transactions = allTransactions.filter(t => t.amount < 0);
+    // Filter out positive amounts (income) from cost category drill-downs using corrected amounts
+    const transactions = allTransactions.filter(t => {
+      const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+      return effectiveAmount < 0;
+    });
     
     setDrillDownDialog({
       isOpen: true,
@@ -6884,9 +6887,15 @@ const BudgetCalculator = () => {
                            const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
                            return sum + subCategoriesTotal;
                          }, 0);
-                         const totalActualCosts = monthTransactions
-                           .filter((t: Transaction) => t.type === 'Transaction' && t.amount < 0)
-                           .reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
+                          const totalActualCosts = monthTransactions
+                            .filter((t: Transaction) => {
+                              const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+                              return t.type === 'Transaction' && effectiveAmount < 0;
+                            })
+                            .reduce((sum: number, t: Transaction) => {
+                              const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+                              return sum + Math.abs(effectiveAmount);
+                            }, 0);
                          const costDifference = totalBudgetCosts - totalActualCosts;
                          
                          return (
