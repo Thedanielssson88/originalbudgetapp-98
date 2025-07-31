@@ -544,10 +544,11 @@ const BudgetCalculator = () => {
     console.log(`🔍 [DEBUG] Total transactions in month:`, monthTransactions.length);
     console.log(`🔍 [DEBUG] All transactions:`, monthTransactions);
     
+    // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
     const matchingTransactions = monthTransactions.filter((t: Transaction) => {
       const matches = t.appCategoryId === categoryId;
-      console.log(`🔍 [DEBUG] Transaction ${t.id}: appCategoryId=${t.appCategoryId}, categoryId=${categoryId}, matches=${matches}`);
-      return matches;
+      console.log(`🔍 [DEBUG] Transaction ${t.id}: appCategoryId=${t.appCategoryId}, categoryId=${categoryId}, status=${t.status}, matches=${matches}`);
+      return matches; // NO status filtering - include all transactions
     });
     
     console.log(`🔍 [DEBUG] Matching transactions for category ${categoryId}:`, matchingTransactions);
@@ -560,6 +561,7 @@ const BudgetCalculator = () => {
 
   const getTransactionsForCategory = (categoryId: string): Transaction[] => {
     const monthTransactions = (currentMonthData as any).transactions || [];
+    // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
     return monthTransactions.filter((t: Transaction) => t.appCategoryId === categoryId);
   };
 
@@ -597,6 +599,7 @@ const BudgetCalculator = () => {
     console.log(`🔍 [DEBUG] Found subcategories for account "${accountName}":`, accountSubcategories);
     
     // Filter transactions by category ID (appCategoryId) that belong to this account
+    // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
     const filtered = monthTransactions.filter((t: Transaction) => 
       accountSubcategories.includes(t.appCategoryId || '')
     );
@@ -6153,9 +6156,10 @@ const BudgetCalculator = () => {
                                      
                                      console.log(`🔍 [ACCOUNT VIEW] Found ${transactionsForThisAccount.length} transactions for ${account.name}:`, transactionsForThisAccount);
                                      
-                                     // 4. Beräkna det FAKTISKA beloppet genom enkel summering
-                                     const actualAmount = transactionsForThisAccount
-                                       .reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0);
+                                      // 4. Beräkna det FAKTISKA beloppet genom enkel summering
+                                      // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
+                                      const actualAmount = transactionsForThisAccount
+                                        .reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0);
                                      
                                      console.log(`🔍 [ACCOUNT VIEW] Actual amount for ${account.name}: ${actualAmount}`);
                                      
