@@ -362,167 +362,122 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
             </ToggleGroupItem>
           </ToggleGroup>
         </div>
-        
-        {/* Account sections organized like category view */}
+
+        <div className="flex justify-between items-center">
+          <h4 className="font-semibold">Sparandekategorier</h4>
+          <div className="space-x-2">
+            <Button size="sm" onClick={() => setIsAddDialogOpen(true)}>
+              <Plus className="w-4 h-4" />
+            </Button>
+            <Button size="sm" variant="outline">
+              <Edit className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
         {Object.entries(groupedSavings).map(([accountName, accountSavings]) => {
           const accountGoals = getSavingsGoalsForAccount(accountName);
+          const accountTotal = accountSavings.reduce((sum, group) => sum + group.amount, 0);
           
           return (
-            <div key={accountName} className="space-y-4">
-              {/* Account section header */}
-              <div className="flex justify-between items-center">
-                <h4 className="font-semibold">Kontot {accountName}</h4>
-                <div className="space-x-2">
-                  <Button size="sm" onClick={() => setIsAddDialogOpen(true)}>
-                    <Plus className="w-4 h-4" />
+            <div key={accountName} className="border rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleAccountExpansion(accountName)}
+                    className="p-1"
+                  >
+                    {expandedAccounts.has(accountName) ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
                   </Button>
-                  <Button size="sm" variant="outline">
-                    <Edit className="w-4 h-4" />
-                  </Button>
+                  <span className="font-medium">{accountName}</span>
+                  <Badge variant="secondary">
+                    {accountSavings.length} kategorier
+                  </Badge>
                 </div>
+                <span className="font-semibold text-green-600">
+                  {accountTotal.toLocaleString()} kr
+                </span>
               </div>
-              
-              {/* Savings items for this account - same design as category view */}
-              {accountSavings.length === 0 ? (
-                <div className="text-center text-muted-foreground py-8">
-                  <div className="text-4xl mb-2">💰</div>
-                  <p>Inga sparandeposter skapade ännu för {accountName}</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {accountSavings.map((group) => {
-                    // For account view, show each subcategory as individual items
-                    return group.subCategories?.map((item) => {
-                      const actualForItem = calculateActualForTarget ? calculateActualForTarget(item.id) : 0;
-                      const difference = item.amount - actualForItem;
-                      const progress = item.amount > 0 ? (actualForItem / item.amount) * 100 : 0;
-                      
-                      return (
-                        <div key={item.id} className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                          <div className="flex justify-between items-start mb-3">
-                            <div className="flex-1">
-                              <h4 className="font-medium text-sm">{item.name}</h4>
-                              <p className="text-xs text-muted-foreground">
-                                Kategori: {group.name}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-sm">
-                                <span className="text-muted-foreground">Budget: </span>
-                                <span className="font-medium">{formatCurrency(item.amount)}</span>
-                              </div>
-                              <div className="text-sm">
-                                <span className="text-muted-foreground">Faktiskt: </span>
-                                {onSavingsTargetDrillDown ? (
-                                  <button
-                                    className="font-bold text-blue-600 hover:text-blue-500 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200"
-                                    onClick={() => onSavingsTargetDrillDown(item.id, item.name, item.amount)}
-                                  >
-                                    {formatCurrency(actualForItem)}
-                                  </button>
-                                ) : (
-                                  <span className="font-bold text-blue-600">{formatCurrency(actualForItem)}</span>
-                                )}
-                              </div>
-                              <div className={`text-sm font-medium ${difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                Diff: {difference >= 0 ? '+' : ''}{formatCurrency(Math.abs(difference))}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <div className="flex justify-between text-xs">
-                              <span>Framsteg</span>
-                              <span>{progress.toFixed(1)}% av budget använd</span>
-                            </div>
-                            <Progress value={Math.min(progress, 100)} className="h-2" />
-                          </div>
-                          
-                          <div className="flex justify-end gap-2 mt-2">
-                            <Button size="sm" variant="outline" onClick={() => onEditSavingsGroup({ id: group.id } as BudgetGroup)}>
-                              <Edit className="w-3 h-3" />
-                            </Button>
-                            <Button size="sm" variant="destructive" onClick={() => onDeleteSavingsGroup(group.id)}>
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    }) || [];
-                  })}
-                </div>
-              )}
 
-              {/* Savings goals for this account - same design as category view */}
-              {accountGoals.length > 0 && (
-                <div className="mt-6 pt-4 border-t border-green-200">
-                  <div className="flex justify-between items-center mb-4">
-                    <h4 className="font-semibold">Sparmål</h4>
-                    <Button size="sm" variant="outline">
-                      <Plus className="w-4 h-4 mr-1" />
-                      Nytt mål
-                    </Button>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    {accountGoals.map((goal) => {
-                      // Calculate monthly amount
-                      const start = new Date(goal.startDate + '-01');
-                      const end = new Date(goal.endDate + '-01');
-                      const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
-                                         (end.getMonth() - start.getMonth()) + 1;
-                      const monthlyAmount = goal.targetAmount / monthsDiff;
-                      
-                      // Calculate actual saved using the target function
-                      const actualSaved = calculateActualForTarget ? calculateActualForTarget(goal.id) : 0;
-                      const totalProgress = Math.min((actualSaved / goal.targetAmount) * 100, 100);
-                      
-                      return (
-                        <div key={goal.id} className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                          <div className="flex justify-between items-start mb-3">
-                            <div className="flex-1">
-                              <h4 className="font-medium text-sm">{goal.name}</h4>
-                              <p className="text-xs text-muted-foreground">
-                                {goal.startDate} till {goal.endDate}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-sm font-medium text-green-600">
-                                {formatCurrency(monthlyAmount)}/mån
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                <button
-                                  className="font-bold text-green-600 hover:text-green-500 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200"
-                                  onClick={() => {
-                                    console.log(`🎯 [SavingsSection] Clicked on goal:`, { 
-                                      id: goal.id, 
-                                      name: goal.name, 
-                                      targetAmount: goal.targetAmount,
-                                      accountId: goal.accountId 
-                                    });
-                                    console.log(`🎯 [SavingsSection] All available savings goals:`, savingsGoals);
-                                    onSavingsTargetDrillDown && onSavingsTargetDrillDown(goal.id, goal.name, goal.targetAmount);
-                                  }}
-                                >
-                                  {formatCurrency(actualSaved)} sparat
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <div className="flex justify-between text-xs">
-                              <span>Total framsteg</span>
-                              <span>
-                                {totalProgress.toFixed(1)}% ({formatCurrency(actualSaved)} / {formatCurrency(goal.targetAmount)})
-                              </span>
-                            </div>
-                            <Progress value={totalProgress} className="h-2" />
-                          </div>
+              {expandedAccounts.has(accountName) && (
+                <div className="mt-3 pl-6 space-y-3 border-l-2 border-muted">
+                  {/* Savings Categories */}
+                  <div className="space-y-2">
+                    {accountSavings.map((group) => (
+                      <div key={group.id} className="flex justify-between items-center p-2 bg-muted/30 rounded">
+                        <span className="font-medium">{group.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-green-600">
+                            {group.amount.toLocaleString()} kr
+                          </span>
+                          <Button size="sm" variant="outline" onClick={() => onEditSavingsGroup(group)}>
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => onDeleteSavingsGroup(group.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
                         </div>
-                      );
-                    })}
+                      </div>
+                    ))}
                   </div>
+
+                  {/* Savings Goals for this account */}
+                  {accountGoals.length > 0 && (
+                    <div className="border-t pt-3">
+                      <h5 className="font-medium text-sm mb-2">Sparmål</h5>
+                      <div className="space-y-2">
+                        {accountGoals.map((goal) => {
+                          // Calculate monthly amount
+                          const start = new Date(goal.startDate + '-01');
+                          const end = new Date(goal.endDate + '-01');
+                          const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
+                                             (end.getMonth() - start.getMonth()) + 1;
+                          const monthlyAmount = goal.targetAmount / monthsDiff;
+                          
+                          // Calculate actual saved using the target function
+                          const actualSaved = calculateActualForTarget ? calculateActualForTarget(goal.id) : 0;
+                          const totalProgress = Math.min((actualSaved / goal.targetAmount) * 100, 100);
+                          
+                          return (
+                            <div key={goal.id} className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex-1">
+                                  <div className="font-medium text-sm">{goal.name}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {goal.startDate} - {goal.endDate}
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-sm font-medium text-green-600">
+                                    {formatCurrency(monthlyAmount)}/mån
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {formatCurrency(actualSaved)} sparat
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-xs">
+                                  <span>Total framsteg</span>
+                                  <span>
+                                    {totalProgress.toFixed(1)}% ({formatCurrency(actualSaved)} / {formatCurrency(goal.targetAmount)})
+                                  </span>
+                                </div>
+                                <Progress value={totalProgress} className="h-2" />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
