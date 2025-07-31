@@ -10,9 +10,11 @@ interface TransactionTypeSelectorProps {
 export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = ({ transaction }) => {
   const handleTypeChange = (newType: string) => {
     console.log(`🔄 [TransactionTypeSelector] Changing type from ${transaction.type} to ${newType} for transaction ${transaction.id}`);
+    console.log(`🔄 [TransactionTypeSelector] Current transaction:`, transaction);
     
     // Derive monthKey from transaction's date (e.g. "2025-07-30" -> "2025-07")
     const monthKey = transaction.date.substring(0, 7);
+    console.log(`🔄 [TransactionTypeSelector] Using monthKey: ${monthKey}`);
     
     // Anropa den nya generella funktionen för att bara uppdatera typen
     updateTransaction(transaction.id, { 
@@ -25,6 +27,8 @@ export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = (
     
     console.log(`✅ [TransactionTypeSelector] updateTransaction called for ${transaction.id}`);
   };
+
+  console.log(`🔍 [TransactionTypeSelector] Rendering with transaction.type: ${transaction.type}, id: ${transaction.id}`);
 
   return (
     <Select value={transaction.type} onValueChange={handleTypeChange}>
