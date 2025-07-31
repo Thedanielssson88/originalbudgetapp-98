@@ -681,11 +681,21 @@ const BudgetCalculator = () => {
 
   const getSavingsTransactions = () => {
     const allTransactions = (currentMonthData as any).transactions || [];
+    console.log('🔍 [DEBUG] getSavingsTransactions - all transactions:', allTransactions.length);
+    console.log('🔍 [DEBUG] getSavingsTransactions - sample transactions:', allTransactions.slice(0, 3));
+    
     // Filter for savings transactions (positive amounts)
-    return allTransactions.filter((t: any) => {
+    const filtered = allTransactions.filter((t: any) => {
       const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
-      return t.type === 'Savings' && effectiveAmount > 0;
+      const isSavings = t.type === 'Savings' && effectiveAmount > 0;
+      if (isSavings) {
+        console.log('🔍 [DEBUG] Found savings transaction:', t.id, t.amount, t.savingsTargetId);
+      }
+      return isSavings;
     });
+    
+    console.log('🔍 [DEBUG] getSavingsTransactions - filtered result:', filtered.length);
+    return filtered;
   };
 
   const calculateTotalActualSavings = () => {
@@ -698,14 +708,36 @@ const BudgetCalculator = () => {
 
   const calculateSavingsActualForCategory = (categoryName: string) => {
     const savingsTransactions = getSavingsTransactions();
-    return savingsTransactions
-      .filter(t => t.savingsTargetId && allSavingsItems.some(group => 
-        group.name === categoryName && group.subCategories?.some(sub => sub.id === t.savingsTargetId)
-      ))
-      .reduce((sum, t) => {
-        const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
-        return sum + Math.abs(effectiveAmount);
-      }, 0);
+    console.log('🔍 [DEBUG] calculateSavingsActualForCategory for:', categoryName);
+    console.log('🔍 [DEBUG] allSavingsItems:', allSavingsItems);
+    
+    const filtered = savingsTransactions
+      .filter(t => {
+        console.log('🔍 [DEBUG] Checking transaction:', t.id, 'savingsTargetId:', t.savingsTargetId);
+        
+        const hasTargetId = !!t.savingsTargetId;
+        const matchesCategory = allSavingsItems.some(group => {
+          const nameMatches = group.name === categoryName;
+          const hasMatchingSub = group.subCategories?.some(sub => sub.id === t.savingsTargetId);
+          
+          if (nameMatches) {
+            console.log('🔍 [DEBUG] Group name matches:', group.name, 'subcategories:', group.subCategories);
+          }
+          
+          return nameMatches && hasMatchingSub;
+        });
+        
+        console.log('🔍 [DEBUG] hasTargetId:', hasTargetId, 'matchesCategory:', matchesCategory);
+        return hasTargetId && matchesCategory;
+      });
+      
+    const total = filtered.reduce((sum, t) => {
+      const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+      return sum + Math.abs(effectiveAmount);
+    }, 0);
+    
+    console.log('🔍 [DEBUG] calculateSavingsActualForCategory result:', total, 'from', filtered.length, 'transactions');
+    return total;
   };
 
   const getSavingsTransactionsForCategory = (categoryName: string) => {
