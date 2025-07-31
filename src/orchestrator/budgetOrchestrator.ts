@@ -11,6 +11,7 @@ import { ImportedTransaction, CategoryRule } from '../types/transaction';
 // Event system for UI updates
 const eventEmitter = new EventTarget();
 export const APP_STATE_UPDATED = 'appstateupdated';
+export { eventEmitter };
 
 function triggerUIRefresh() {
   console.log('🎯 [ORCHESTRATOR] Dispatching APP_STATE_UPDATED event...');

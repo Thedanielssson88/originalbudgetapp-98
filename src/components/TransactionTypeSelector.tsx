@@ -9,6 +9,8 @@ interface TransactionTypeSelectorProps {
 
 export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = ({ transaction }) => {
   const handleTypeChange = (newType: string) => {
+    console.log(`🔄 [TransactionTypeSelector] Changing type from ${transaction.type} to ${newType} for transaction ${transaction.id}`);
+    
     // Anropa den nya generella funktionen för att bara uppdatera typen
     updateTransaction(transaction.id, { 
       type: newType as ImportedTransaction['type'],
@@ -17,10 +19,12 @@ export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = (
       savingsTargetId: undefined,
       correctedAmount: undefined
     });
+    
+    console.log(`✅ [TransactionTypeSelector] updateTransaction called for ${transaction.id}`);
   };
 
   return (
-    <Select value={transaction.type} onValueChange={handleTypeChange}>
+    <Select key={`${transaction.id}-${transaction.type}`} value={transaction.type} onValueChange={handleTypeChange}>
       <SelectTrigger className="w-full min-w-[180px]">
         <SelectValue />
       </SelectTrigger>

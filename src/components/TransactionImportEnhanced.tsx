@@ -49,7 +49,7 @@ import { TransferMatchDialog } from './TransferMatchDialog';
 import { SavingsLinkDialog } from './SavingsLinkDialog';
 import { CostCoverageDialog } from './CostCoverageDialog';
 import { useBudget } from '@/hooks/useBudget';
-import { setTransactionsForCurrentMonth, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups } from '../orchestrator/budgetOrchestrator';
+import { setTransactionsForCurrentMonth, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, APP_STATE_UPDATED, eventEmitter } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState, setMainCategories } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
 
@@ -375,6 +375,48 @@ export const TransactionImportEnhanced: React.FC = () => {
   useEffect(() => {
     const loadedSubcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
     setSubcategoriesFromStorage(loadedSubcategories);
+  }, []);
+
+  // Sync transactions from budgetState when it changes
+  useEffect(() => {
+    const currentMonthData = budgetState?.historicalData?.[budgetState.selectedMonthKey];
+    if (currentMonthData?.transactions) {
+      console.log('🔄 [TransactionImportEnhanced] Syncing transactions from budgetState:', currentMonthData.transactions.length);
+      // Convert Transaction[] to ImportedTransaction[] by adding missing fields
+      const importedTransactions = currentMonthData.transactions.map(t => ({
+        ...t,
+        importedAt: new Date().toISOString(),
+        fileSource: 'budgetState'
+      })) as ImportedTransaction[];
+      setTransactions(importedTransactions);
+    }
+  }, [budgetState?.historicalData, budgetState?.selectedMonthKey]);
+
+  // Listen to orchestrator updates
+  useEffect(() => {
+    const handleStateUpdate = () => {
+      console.log('🎯 [TransactionImportEnhanced] Received APP_STATE_UPDATED event');
+      const currentState = getCurrentState();
+      const currentMonthData = currentState.budgetState.historicalData[currentState.budgetState.selectedMonthKey];
+      if (currentMonthData?.transactions) {
+        console.log('🔄 [TransactionImportEnhanced] Updating transactions from state update:', currentMonthData.transactions.length);
+        // Convert Transaction[] to ImportedTransaction[] by adding missing fields
+        const importedTransactions = currentMonthData.transactions.map(t => ({
+          ...t,
+          importedAt: new Date().toISOString(),
+          fileSource: 'budgetState'
+        })) as ImportedTransaction[];
+        setTransactions(importedTransactions);
+      }
+    };
+
+    const eventEmitterRef = eventEmitter;
+    // Get the event emitter from orchestrator
+    eventEmitterRef.addEventListener(APP_STATE_UPDATED, handleStateUpdate);
+
+    return () => {
+      eventEmitterRef.removeEventListener(APP_STATE_UPDATED, handleStateUpdate);
+    };
   }, []);
 
   // CSV Parsing with enhanced logic
