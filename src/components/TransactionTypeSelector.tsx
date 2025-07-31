@@ -8,8 +8,10 @@ interface TransactionTypeSelectorProps {
 }
 
 export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = ({ transaction }) => {
+  console.log(`🔄 [TransactionTypeSelector] Component rendering for transaction ${transaction.id} with type: ${transaction.type}`);
+  
   const handleTypeChange = (newType: string) => {
-    console.log(`🔄 [TransactionTypeSelector] Changing type from ${transaction.type} to ${newType} for transaction ${transaction.id}`);
+    console.log(`🔄 [TransactionTypeSelector] handleTypeChange called! Changing type from ${transaction.type} to ${newType} for transaction ${transaction.id}`);
     console.log(`🔄 [TransactionTypeSelector] Transaction before update:`, JSON.stringify(transaction, null, 2));
     
     // Derive monthKey from transaction's date (e.g. "2025-07-30" -> "2025-07")
@@ -32,6 +34,8 @@ export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = (
       console.log(`🔍 [TransactionTypeSelector] Transaction after update (delayed check):`, transaction.type);
     }, 100);
   };
+
+  console.log(`🔄 [TransactionTypeSelector] About to render Select with value: ${transaction.type}`);
 
   return (
     <Select key={transaction.id} value={transaction.type} onValueChange={handleTypeChange}>
