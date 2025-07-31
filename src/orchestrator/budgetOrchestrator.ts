@@ -614,6 +614,23 @@ export function coverCost(transferId: string, costId: string): void {
   console.log(`✅ [Orchestrator] Covered ${coverAmount} from transfer ${transferId} to cost ${costId}`);
 }
 
+// New flexible function that can update transactions for any month
+export function updateTransactionsForMonth(monthKey: string, transactions: ImportedTransaction[]): void {
+  if (!state.budgetState.historicalData[monthKey]) {
+    console.error(`[Orchestrator] Månad ${monthKey} finns inte.`);
+    return;
+  }
+  
+  // Update the transaction list for the specific month
+  (state.budgetState.historicalData[monthKey] as any).transactions = transactions;
+
+  console.log(`[Orchestrator] Sparade ${transactions.length} transaktioner till månad ${monthKey}.`);
+
+  // Save the updated state permanently and re-run calculations
+  saveStateToStorage();
+  runCalculationsAndUpdateState();
+}
+
 export function setTransactionsForCurrentMonth(transactions: ImportedTransaction[]): void {
   const currentMonthKey = state.budgetState.selectedMonthKey;
 
@@ -628,16 +645,8 @@ export function setTransactionsForCurrentMonth(transactions: ImportedTransaction
     state.budgetState.historicalData[currentMonthKey] = createEmptyMonthData();
   }
 
-  // Update the transaction list for the selected month (store as any for now due to type differences)
-  (state.budgetState.historicalData[currentMonthKey] as any).transactions = transactions;
-
-  console.log(`[Orchestrator] Sparade ${transactions.length} transaktioner till månad ${currentMonthKey}.`);
-
-  // Save the updated state permanently
-  saveStateToStorage();
-  
-  // Run calculations so the budget view updates immediately
-  runCalculationsAndUpdateState();
+  // Use the new flexible function
+  updateTransactionsForMonth(currentMonthKey, transactions);
 }
 
 // ===== CATEGORY RULES MANAGEMENT =====

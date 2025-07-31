@@ -49,7 +49,7 @@ import { TransferMatchDialog } from './TransferMatchDialog';
 import { SavingsLinkDialog } from './SavingsLinkDialog';
 import { CostCoverageDialog } from './CostCoverageDialog';
 import { useBudget } from '@/hooks/useBudget';
-import { setTransactionsForCurrentMonth, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, APP_STATE_UPDATED, eventEmitter } from '../orchestrator/budgetOrchestrator';
+import { setTransactionsForCurrentMonth, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, APP_STATE_UPDATED, eventEmitter, updateTransactionsForMonth } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState, setMainCategories } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
 
@@ -418,6 +418,32 @@ export const TransactionImportEnhanced: React.FC = () => {
       eventEmitterRef.removeEventListener(APP_STATE_UPDATED, handleStateUpdate);
     };
   }, []);
+
+  // Critical useEffect: Save transaction changes back to central state
+  // This creates the bridge between the temporary local transaction list and the persistent state
+  useEffect(() => {
+    // Don't run on initial empty render
+    if (transactions.length === 0) return;
+
+    console.log('🔄 [TransactionImportEnhanced] Transaction list changed, saving to central state...', transactions.length);
+
+    // Group transactions by month
+    const transactionsByMonth: { [monthKey: string]: ImportedTransaction[] } = {};
+    transactions.forEach(t => {
+      const monthKey = t.date.substring(0, 7); // Extract YYYY-MM from date
+      if (!transactionsByMonth[monthKey]) {
+        transactionsByMonth[monthKey] = [];
+      }
+      transactionsByMonth[monthKey].push(t);
+    });
+
+    // Save each month's transactions to the central state
+    Object.entries(transactionsByMonth).forEach(([monthKey, monthTransactions]) => {
+      console.log(`🔄 [TransactionImportEnhanced] Saving ${monthTransactions.length} transactions to month ${monthKey}`);
+      updateTransactionsForMonth(monthKey, monthTransactions);
+    });
+
+  }, [transactions]); // This hook runs every time the transactions list changes
 
   // CSV Parsing with enhanced logic
   const parseCSV = useCallback((csvContent: string, accountId: string, fileName: string): ImportedTransaction[] => {
