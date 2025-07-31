@@ -149,8 +149,10 @@ export const TransactionGroupByDate: React.FC<TransactionGroupByDateProps> = ({
             <CollapsibleContent>
               <CardContent className="pt-0 pb-4 px-4">
                 <div className="space-y-2 border-t pt-4">
-                  {dateTransactions.map(transaction => (
-                    <TransactionExpandableCard
+                  {dateTransactions.map(transaction => {
+                    console.log(`🎯 [TransactionGroupByDate] Rendering TransactionExpandableCard for ${transaction.id} with type ${transaction.type}`);
+                    return (
+                      <TransactionExpandableCard
                       key={transaction.id}
                       transaction={transaction}
                       account={accounts.find(a => a.id === transaction.accountId)}
@@ -163,8 +165,9 @@ export const TransactionGroupByDate: React.FC<TransactionGroupByDateProps> = ({
                       onTransferMatch={onTransferMatch}
                       onSavingsLink={onSavingsLink}
                       onCostCoverage={onCostCoverage}
-                    />
-                  ))}
+                      />
+                    );
+                  })}
                 </div>
               </CardContent>
             </CollapsibleContent>
