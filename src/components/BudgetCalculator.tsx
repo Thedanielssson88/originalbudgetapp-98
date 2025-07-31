@@ -532,7 +532,36 @@ const BudgetCalculator = () => {
 
   const getTransactionsForAccount = (accountName: string): Transaction[] => {
     const monthTransactions = (currentMonthData as any).transactions || [];
-    return monthTransactions.filter((t: Transaction) => t.accountId === accountName);
+    console.log(`🔍 [DEBUG] getTransactionsForAccount called with accountName: "${accountName}"`);
+    console.log(`🔍 [DEBUG] Available transactions:`, monthTransactions.map((t: Transaction) => ({
+      id: t.id,
+      accountId: t.accountId,
+      description: t.description,
+      amount: t.amount,
+      appCategoryId: t.appCategoryId
+    })));
+    
+    // For budget accounts, we need to find transactions that belong to subcategories in this account
+    // Get all subcategories that belong to this budget account
+    const accountSubcategories: string[] = [];
+    costGroups.forEach(group => {
+      group.subCategories?.forEach(sub => {
+        if (sub.account === accountName) {
+          // Use the group ID as the category ID for transactions
+          accountSubcategories.push(group.id);
+        }
+      });
+    });
+    
+    console.log(`🔍 [DEBUG] Found subcategories for account "${accountName}":`, accountSubcategories);
+    
+    // Filter transactions by category ID (appCategoryId) that belong to this account
+    const filtered = monthTransactions.filter((t: Transaction) => 
+      accountSubcategories.includes(t.appCategoryId || '')
+    );
+    
+    console.log(`🔍 [DEBUG] Filtered transactions for account "${accountName}":`, filtered);
+    return filtered;
   };
 
   const openDrillDownDialog = (categoryName: string, categoryId: string, budgetAmount: number) => {
