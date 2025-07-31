@@ -732,6 +732,14 @@ const BudgetCalculator = () => {
       subCategories: mainGroup.subCategories?.map(sub => ({ id: sub.id, name: sub.name, amount: sub.amount }))
     });
     
+    // Get all savings transactions to debug what's available
+    const allSavingsTransactions = getSavingsTransactions();
+    console.log(`🔍 [DEBUG] Total savings transactions available: ${allSavingsTransactions.length}`);
+    
+    // Debug: Show what savingsTargetIds are available in transactions
+    const availableTargetIds = [...new Set(allSavingsTransactions.map(t => t.savingsTargetId).filter(Boolean))];
+    console.log(`🔍 [DEBUG] Available savingsTargetIds in transactions:`, availableTargetIds);
+    
     // Sum up actual amounts from all subcategories
     const total = (mainGroup.subCategories || []).reduce((sum, subCategory) => {
       const itemActual = calculateActualForTarget(subCategory.id);
@@ -791,6 +799,8 @@ const BudgetCalculator = () => {
     
     // Get all transactions linked to subcategories AND main category
     const savingsTransactions = getSavingsTransactions();
+    console.log(`🔍 [DEBUG] getSavingsTransactionsForCategory - Total savings transactions: ${savingsTransactions.length}`);
+    
     const allCategoryTransactions: any[] = [];
     
     // 1. Get transactions directly linked to the main category
@@ -802,20 +812,32 @@ const BudgetCalculator = () => {
     (mainGroup.subCategories || []).forEach(subCategory => {
       const itemTransactions = savingsTransactions.filter(t => t.savingsTargetId === subCategory.id);
       console.log(`🔍 [DEBUG] Subcategory ${subCategory.name} (${subCategory.id}) has ${itemTransactions.length} transactions`);
+      if (itemTransactions.length > 0) {
+        console.log(`🔍 [DEBUG] Subcategory ${subCategory.name} transactions:`, itemTransactions.map(t => ({
+          id: t.id,
+          description: t.description?.substring(0, 30),
+          amount: t.amount,
+          savingsTargetId: t.savingsTargetId
+        })));
+      }
       allCategoryTransactions.push(...itemTransactions);
     });
     
-    console.log(`🔍 [DEBUG] Total transactions for main category ${mainCategoryId}: ${allCategoryTransactions.length} (${mainCategoryTransactions.length} direct + ${allCategoryTransactions.length - mainCategoryTransactions.length} from subcategories)`);
+    console.log(`🔍 [DEBUG] FINAL: Total transactions for main category ${mainCategoryId}: ${allCategoryTransactions.length} (${mainCategoryTransactions.length} direct + ${allCategoryTransactions.length - mainCategoryTransactions.length} from subcategories)`);
     
     // Debug: Log sample transactions to verify they're being found
-    allCategoryTransactions.slice(0, 3).forEach((t, index) => {
-      console.log(`🔍 [DEBUG] Sample transaction ${index}:`, {
-        id: t.id,
-        description: t.description?.substring(0, 30),
-        amount: t.amount,
-        savingsTargetId: t.savingsTargetId
+    if (allCategoryTransactions.length > 0) {
+      allCategoryTransactions.slice(0, 3).forEach((t, index) => {
+        console.log(`🔍 [DEBUG] Final transaction ${index}:`, {
+          id: t.id,
+          description: t.description?.substring(0, 30),
+          amount: t.amount,
+          savingsTargetId: t.savingsTargetId
+        });
       });
-    });
+    } else {
+      console.log(`🔍 [DEBUG] NO TRANSACTIONS FOUND - This explains why Hushåll shows 0 kr`);
+    }
     
     return allCategoryTransactions;
   };
