@@ -13,6 +13,8 @@ interface SavingsSectionProps {
   savingsGoals: SavingsGoal[];
   accounts: { id: string; name: string }[];
   mainCategories: string[];
+  calculateSavingsActualForCategory?: (categoryName: string) => number;
+  onSavingsCategoryDrillDown?: (categoryName: string, budgetAmount: number) => void;
   onAddSavingsItem: (item: {
     mainCategory: string;
     subcategory: string;
@@ -31,6 +33,8 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
   savingsGoals,
   accounts,
   mainCategories,
+  calculateSavingsActualForCategory,
+  onSavingsCategoryDrillDown,
   onAddSavingsItem,
   onEditSavingsGroup,
   onDeleteSavingsGroup
@@ -166,7 +170,7 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
         </div>
 
         {Object.entries(categoryGroups).map(([categoryName, data]) => {
-          const actualAmount = 0; // TODO: Calculate actual amount for this category
+          const actualAmount = calculateSavingsActualForCategory ? calculateSavingsActualForCategory(categoryName) : 0;
           const difference = data.total - actualAmount;
           const progress = data.total > 0 ? (actualAmount / data.total) * 100 : 0;
          
@@ -200,9 +204,18 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
                   </div>
                   <div className="text-sm">
                     <span className="text-muted-foreground">Faktiskt: </span>
-                    <span className="font-bold text-green-600 underline">
-                      {formatCurrency(actualAmount)}
-                    </span>
+                    {onSavingsCategoryDrillDown ? (
+                      <button
+                        className="font-bold text-green-600 hover:text-green-500 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200"
+                        onClick={() => onSavingsCategoryDrillDown(categoryName, data.total)}
+                      >
+                        {formatCurrency(actualAmount)}
+                      </button>
+                    ) : (
+                      <span className="font-bold text-green-600">
+                        {formatCurrency(actualAmount)}
+                      </span>
+                    )}
                   </div>
                   <div className={`text-sm font-medium ${difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     Diff: {difference >= 0 ? '+' : ''}{formatCurrency(Math.abs(difference))}

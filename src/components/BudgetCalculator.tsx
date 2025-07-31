@@ -679,6 +679,92 @@ const BudgetCalculator = () => {
     });
   };
 
+  const getSavingsTransactions = () => {
+    const allTransactions = (currentMonthData as any).transactions || [];
+    // Filter for savings transactions (positive amounts)
+    return allTransactions.filter((t: any) => {
+      const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+      return t.type === 'Savings' && effectiveAmount > 0;
+    });
+  };
+
+  const calculateTotalActualSavings = () => {
+    const savingsTransactions = getSavingsTransactions();
+    return savingsTransactions.reduce((sum, t) => {
+      const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+      return sum + Math.abs(effectiveAmount);
+    }, 0);
+  };
+
+  const calculateSavingsActualForCategory = (categoryName: string) => {
+    const savingsTransactions = getSavingsTransactions();
+    return savingsTransactions
+      .filter(t => t.savingsTargetId && allSavingsItems.some(group => 
+        group.name === categoryName && group.subCategories?.some(sub => sub.id === t.savingsTargetId)
+      ))
+      .reduce((sum, t) => {
+        const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+        return sum + Math.abs(effectiveAmount);
+      }, 0);
+  };
+
+  const getSavingsTransactionsForCategory = (categoryName: string) => {
+    const savingsTransactions = getSavingsTransactions();
+    return savingsTransactions.filter(t => 
+      t.savingsTargetId && allSavingsItems.some(group => 
+        group.name === categoryName && group.subCategories?.some(sub => sub.id === t.savingsTargetId)
+      )
+    );
+  };
+
+  const openSavingsCategoryDrillDownDialog = (categoryName: string, budgetAmount: number) => {
+    const transactions = getSavingsTransactionsForCategory(categoryName);
+    const actualAmount = calculateSavingsActualForCategory(categoryName);
+    
+    setDrillDownDialog({
+      isOpen: true,
+      transactions,
+      categoryName: `${categoryName} - Sparande`,
+      budgetAmount,
+      actualAmount
+    });
+  };
+
+  const openSavingsDrillDownDialog = () => {
+    const transactions = getSavingsTransactions();
+    const budgetAmount = (() => {
+      const savingsCategoriesTotal = allSavingsItems.reduce((sum, group) => {
+        const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+        return sum + group.amount + subCategoriesTotal;
+      }, 0);
+      
+      const savingsGoalsMonthlyTotal = budgetState.savingsGoals.reduce((sum, goal) => {
+        const start = new Date(goal.startDate + '-01');
+        const end = new Date(goal.endDate + '-01');
+        const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
+                           (end.getMonth() - start.getMonth()) + 1;
+        const monthlyAmount = goal.targetAmount / monthsDiff;
+        
+        const currentMonthDate = new Date(selectedBudgetMonth + '-01');
+        if (currentMonthDate >= start && currentMonthDate <= end) {
+          return sum + monthlyAmount;
+        }
+        return sum;
+      }, 0);
+      
+      return savingsCategoriesTotal + savingsGoalsMonthlyTotal;
+    })();
+    const actualAmount = calculateTotalActualSavings();
+    
+    setDrillDownDialog({
+      isOpen: true,
+      transactions,
+      categoryName: 'Totalt sparande',
+      budgetAmount,
+      actualAmount
+    });
+  };
+
 
   // Helper function to calculate the correct amount for a subcategory (daily or monthly)
   const getSubcategoryDisplayAmount = (subcategory: SubCategory): number => {
@@ -6604,6 +6690,8 @@ const BudgetCalculator = () => {
                               savingsGoals={budgetState.savingsGoals}
                               accounts={budgetState.accounts}
                               mainCategories={budgetState.mainCategories || []}
+                              calculateSavingsActualForCategory={calculateSavingsActualForCategory}
+                              onSavingsCategoryDrillDown={openSavingsCategoryDrillDownDialog}
                               onAddSavingsItem={(item) => {
                                 // Handle adding savings item
                                 const newGroup = {
@@ -6688,6 +6776,15 @@ const BudgetCalculator = () => {
                             
                             return savingsCategoriesTotal + savingsGoalsMonthlyTotal;
                           })())}
+                        </div>
+                        <div className="text-sm font-medium text-green-700 mt-1">
+                          Faktiskt: 
+                          <button
+                            className="ml-1 font-bold text-green-800 hover:text-green-600 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200"
+                            onClick={openSavingsDrillDownDialog}
+                          >
+                            {formatCurrency(calculateTotalActualSavings())}
+                          </button>
                         </div>
                       </div>
                     </div>
