@@ -715,40 +715,29 @@ const BudgetCalculator = () => {
 
   // UPDATED LOGIC: Calculate actual savings for a MAIN CATEGORY by summing subcategories
   const calculateSavingsActualForCategory = (mainCategoryId: string): number => {
-    console.log(`🔍 [DEBUG] calculateSavingsActualForCategory called for category: ${mainCategoryId}`);
-    console.log(`🔍 [DEBUG] Available savingsGroups:`, savingsGroups.map(g => ({ name: g.name, id: g.id, subCount: g.subCategories?.length || 0 })));
-    
-    // Find the main category group
-    const mainGroup = savingsGroups.find(group => group.name === mainCategoryId);
-    if (!mainGroup) {
-      console.log(`🔍 [DEBUG] No main group found for ${mainCategoryId}`);
-      return 0;
+    // 1. Hitta först den relevanta huvudkategorin ("pärmen")
+    const mainCategory = savingsGroups.find(g => g.id === mainCategoryId);
+    if (!mainCategory) {
+      return 0; // Om huvudkategorin inte finns, är summan 0
     }
+
+    // 2. Samla ihop ID:na från ALLA underkategorier ("flikarna") i denna pärm
+    const subCategoryIds = new Set<string>();
+    (mainCategory.subCategories || []).forEach(sub => subCategoryIds.add(sub.id));
+
+    // Vi måste även inkludera sparmål som är kopplade till denna huvudkategori
+    (budgetState.savingsGoals || [])
+      .filter(goal => goal.mainCategoryId === mainCategoryId)
+      .forEach(goal => subCategoryIds.add(goal.id));
     
-    console.log(`🔍 [DEBUG] Found main group for ${mainCategoryId}:`, {
-      id: mainGroup.id,
-      name: mainGroup.name,
-      subCategoriesCount: mainGroup.subCategories?.length || 0,
-      subCategories: mainGroup.subCategories?.map(sub => ({ id: sub.id, name: sub.name, amount: sub.amount }))
-    });
-    
-    // Get all savings transactions to debug what's available
-    const allSavingsTransactions = getSavingsTransactions();
-    console.log(`🔍 [DEBUG] Total savings transactions available: ${allSavingsTransactions.length}`);
-    
-    // Debug: Show what savingsTargetIds are available in transactions
-    const availableTargetIds = [...new Set(allSavingsTransactions.map(t => t.savingsTargetId).filter(Boolean))];
-    console.log(`🔍 [DEBUG] Available savingsTargetIds in transactions:`, availableTargetIds);
-    
-    // Sum up actual amounts from all subcategories
-    const total = (mainGroup.subCategories || []).reduce((sum, subCategory) => {
-      const itemActual = calculateActualForTarget(subCategory.id);
-      console.log(`🔍 [DEBUG] Subcategory ${subCategory.name} (${subCategory.id}) has actual: ${itemActual}`);
-      return sum + itemActual;
-    }, 0);
-    
-    console.log(`🔍 [DEBUG] Total actual for main category ${mainCategoryId}: ${total}`);
-    return total;
+    // 3. Hämta alla spar-transaktioner
+    const savingsTransactions = getSavingsTransactions();
+
+    // 4. Filtrera fram de transaktioner vars `savingsTargetId` matchar något av ID:na i vår insamlade lista
+    const filtered = savingsTransactions.filter(t => t.savingsTargetId && subCategoryIds.has(t.savingsTargetId));
+
+    // 5. Summera beloppen för de matchande transaktionerna
+    return filtered.reduce((sum, t) => sum + (t.correctedAmount ?? t.amount), 0);
   };
 
   // NEW FUNCTION: Calculate actual savings for a specific TARGET (subcategory or goal)
