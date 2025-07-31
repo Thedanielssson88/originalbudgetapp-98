@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Transaction } from '@/types/budget';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface TransactionDrillDownDialogProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
 }) => {
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
   const [expandedTransactions, setExpandedTransactions] = useState<Set<string>>(new Set());
+  const isMobile = useIsMobile();
   
   const difference = budgetAmount - actualAmount;
 
@@ -95,11 +97,11 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent className={`${isMobile ? 'max-w-[95vw] max-h-[90vh] m-2' : 'max-w-4xl max-h-[80vh]'} overflow-hidden flex flex-col`}>
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>Transaktioner för {categoryName}</span>
-            <div className="flex items-center space-x-4 text-sm">
+          <DialogTitle className={`${isMobile ? 'flex flex-col space-y-2' : 'flex items-center justify-between'}`}>
+            <span className="text-lg font-semibold">Transaktioner för {categoryName}</span>
+            <div className={`${isMobile ? 'flex flex-col space-y-1 text-xs' : 'flex items-center space-x-4 text-sm'}`}>
               <span>Budgeterat: {budgetAmount.toLocaleString('sv-SE')} kr</span>
               <span className="font-bold">Faktiskt: {actualAmount.toLocaleString('sv-SE')} kr</span>
               <span className={`font-bold ${difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -109,7 +111,7 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
           </DialogTitle>
         </DialogHeader>
         
-        <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+        <div className={`flex-1 overflow-y-auto space-y-2 ${isMobile ? 'pr-1' : 'pr-2'}`}>
           {transactions.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
               Inga transaktioner hittades för denna kategori
@@ -122,17 +124,17 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
                   onOpenChange={() => toggleDateExpansion(date)}
                 >
                   <CollapsibleTrigger asChild>
-                    <CardContent className="p-4 cursor-pointer transition-colors hover:bg-muted/50">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="text-sm font-medium">
+                    <CardContent className={`${isMobile ? 'p-3' : 'p-4'} cursor-pointer transition-colors hover:bg-muted/50`}>
+                      <div className={`${isMobile ? 'flex flex-col space-y-2' : 'flex items-center justify-between'}`}>
+                        <div className={`${isMobile ? 'flex flex-col space-y-1' : 'flex items-center space-x-3'}`}>
+                          <div className={`${isMobile ? 'text-sm' : 'text-sm'} font-medium`}>
                             {formatDate(date)}
                           </div>
-                          <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                          <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded w-fit">
                             {dateTransactions.length} transaktion{dateTransactions.length !== 1 ? 'er' : ''}
                           </div>
                         </div>
-                        <Button variant="ghost" size="sm" className="flex-shrink-0">
+                        <Button variant="ghost" size="sm" className={`flex-shrink-0 ${isMobile ? 'self-end -mt-8' : ''}`}>
                           {expandedDates.has(date) ? 
                             <ChevronUp className="w-4 h-4" /> : 
                             <ChevronDown className="w-4 h-4" />
@@ -143,7 +145,7 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
                   </CollapsibleTrigger>
 
                   <CollapsibleContent>
-                    <CardContent className="pt-0 pb-4 px-4">
+                    <CardContent className={`pt-0 pb-4 ${isMobile ? 'px-3' : 'px-4'}`}>
                       <div className="space-y-2 border-t pt-4">
                         {dateTransactions.map(transaction => (
                           <Card key={transaction.id} className="border border-border">
@@ -152,23 +154,31 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
                               onOpenChange={() => toggleTransactionExpansion(transaction.id)}
                             >
                               <CollapsibleTrigger asChild>
-                                <CardContent className="p-3 cursor-pointer transition-colors hover:bg-muted/30">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-3">
-                                      <div className="w-6 h-6 rounded-full bg-yellow-500"></div>
-                                      <div>
-                                        <div className="font-medium text-sm">Konto</div>
-                                        <div className="font-bold">{transaction.accountId}</div>
+                                <CardContent className={`${isMobile ? 'p-2' : 'p-3'} cursor-pointer transition-colors hover:bg-muted/30`}>
+                                  <div className={`${isMobile ? 'flex flex-col space-y-2' : 'flex items-center justify-between'}`}>
+                                    <div className={`${isMobile ? 'flex items-start space-x-2' : 'flex items-center space-x-3'}`}>
+                                      <div className="w-6 h-6 rounded-full bg-yellow-500 flex-shrink-0"></div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="font-medium text-xs text-muted-foreground">Konto</div>
+                                        <div className={`font-bold ${isMobile ? 'text-sm' : 'text-base'} truncate`}>{transaction.accountId}</div>
                                       </div>
-                                      <div>
-                                        <div className="text-muted-foreground text-sm">Beskrivning</div>
-                                        <div className="font-medium">{transaction.description}</div>
-                                      </div>
+                                      {!isMobile && (
+                                        <div className="flex-1 min-w-0">
+                                          <div className="text-muted-foreground text-sm">Beskrivning</div>
+                                          <div className="font-medium truncate">{transaction.description}</div>
+                                        </div>
+                                      )}
                                     </div>
-                                    <div className="flex items-center space-x-3">
+                                    {isMobile && (
+                                      <div className="ml-8">
+                                        <div className="text-muted-foreground text-xs">Beskrivning</div>
+                                        <div className="font-medium text-sm break-words">{transaction.description}</div>
+                                      </div>
+                                    )}
+                                    <div className={`${isMobile ? 'flex items-center justify-between ml-8' : 'flex items-center space-x-3'}`}>
                                       <div>
-                                        <div className="text-muted-foreground text-sm">Belopp</div>
-                                        <div className="font-bold text-red-500">{formatCurrency(transaction.amount)}</div>
+                                        <div className="text-muted-foreground text-xs">Belopp</div>
+                                        <div className={`font-bold text-red-500 ${isMobile ? 'text-sm' : 'text-base'}`}>{formatCurrency(transaction.amount)}</div>
                                       </div>
                                       <Button variant="ghost" size="sm" className="flex-shrink-0">
                                         {expandedTransactions.has(transaction.id) ? 
@@ -182,29 +192,31 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
                               </CollapsibleTrigger>
 
                               <CollapsibleContent>
-                                <CardContent className="pt-0 pb-3 px-3">
+                                <CardContent className={`pt-0 pb-3 ${isMobile ? 'px-2' : 'px-3'}`}>
                                   <div className="border-t pt-3 space-y-2">
-                                    <div>
-                                      <div className="text-sm text-muted-foreground">Datum</div>
-                                      <div className="font-medium">{transaction.date}</div>
-                                    </div>
-                                    
-                                     <div>
-                                       <div className="text-sm text-muted-foreground">Beskrivning</div>
-                                       <div className="font-medium">{transaction.description}</div>
-                                     </div>
-                                    
-                                    {transaction.appCategoryId && (
+                                    <div className={`${isMobile ? 'grid grid-cols-2 gap-2' : 'space-y-2'}`}>
                                       <div>
-                                        <div className="text-sm text-muted-foreground">Bankkategori</div>
-                                        <div className="font-medium">{transaction.appCategoryId}</div>
+                                        <div className="text-xs text-muted-foreground">Datum</div>
+                                        <div className={`font-medium ${isMobile ? 'text-sm' : 'text-base'}`}>{transaction.date}</div>
                                       </div>
-                                    )}
-                                    
-                                    <div>
-                                      <div className="text-sm text-muted-foreground">Typ</div>
-                                      <div className="font-medium">
-                                        <Badge variant="outline">{transaction.type}</Badge>
+                                      
+                                      <div>
+                                        <div className="text-xs text-muted-foreground">Beskrivning</div>
+                                        <div className={`font-medium ${isMobile ? 'text-sm break-words' : 'text-base'}`}>{transaction.description}</div>
+                                      </div>
+                                      
+                                      {transaction.appCategoryId && (
+                                        <div>
+                                          <div className="text-xs text-muted-foreground">Bankkategori</div>
+                                          <div className={`font-medium ${isMobile ? 'text-sm break-words' : 'text-base'}`}>{transaction.appCategoryId}</div>
+                                        </div>
+                                      )}
+                                      
+                                      <div>
+                                        <div className="text-xs text-muted-foreground">Typ</div>
+                                        <div className="font-medium">
+                                          <Badge variant="outline" className={isMobile ? 'text-xs' : ''}>{transaction.type}</Badge>
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
