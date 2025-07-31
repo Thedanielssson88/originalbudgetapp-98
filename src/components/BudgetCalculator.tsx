@@ -789,17 +789,34 @@ const BudgetCalculator = () => {
       subCategoriesCount: mainGroup.subCategories?.length || 0
     });
     
-    // Get all transactions linked to subcategories
+    // Get all transactions linked to subcategories AND main category
     const savingsTransactions = getSavingsTransactions();
     const allCategoryTransactions: any[] = [];
     
+    // 1. Get transactions directly linked to the main category
+    const mainCategoryTransactions = savingsTransactions.filter(t => t.savingsTargetId === mainGroup.id);
+    console.log(`🔍 [DEBUG] Main category ${mainCategoryId} (${mainGroup.id}) has ${mainCategoryTransactions.length} direct transactions`);
+    allCategoryTransactions.push(...mainCategoryTransactions);
+    
+    // 2. Get transactions from all subcategories
     (mainGroup.subCategories || []).forEach(subCategory => {
       const itemTransactions = savingsTransactions.filter(t => t.savingsTargetId === subCategory.id);
       console.log(`🔍 [DEBUG] Subcategory ${subCategory.name} (${subCategory.id}) has ${itemTransactions.length} transactions`);
       allCategoryTransactions.push(...itemTransactions);
     });
     
-    console.log(`🔍 [DEBUG] Total transactions for main category ${mainCategoryId}: ${allCategoryTransactions.length}`);
+    console.log(`🔍 [DEBUG] Total transactions for main category ${mainCategoryId}: ${allCategoryTransactions.length} (${mainCategoryTransactions.length} direct + ${allCategoryTransactions.length - mainCategoryTransactions.length} from subcategories)`);
+    
+    // Debug: Log sample transactions to verify they're being found
+    allCategoryTransactions.slice(0, 3).forEach((t, index) => {
+      console.log(`🔍 [DEBUG] Sample transaction ${index}:`, {
+        id: t.id,
+        description: t.description?.substring(0, 30),
+        amount: t.amount,
+        savingsTargetId: t.savingsTargetId
+      });
+    });
+    
     return allCategoryTransactions;
   };
 
