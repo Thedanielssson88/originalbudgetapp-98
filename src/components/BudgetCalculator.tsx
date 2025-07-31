@@ -716,6 +716,7 @@ const BudgetCalculator = () => {
   // UPDATED LOGIC: Calculate actual savings for a MAIN CATEGORY by summing subcategories
   const calculateSavingsActualForCategory = (mainCategoryId: string): number => {
     console.log(`🔍 [DEBUG] calculateSavingsActualForCategory called for category: ${mainCategoryId}`);
+    console.log(`🔍 [DEBUG] Available savingsGroups:`, savingsGroups.map(g => ({ name: g.name, id: g.id, subCount: g.subCategories?.length || 0 })));
     
     // Find the main category group
     const mainGroup = savingsGroups.find(group => group.name === mainCategoryId);
@@ -727,7 +728,8 @@ const BudgetCalculator = () => {
     console.log(`🔍 [DEBUG] Found main group for ${mainCategoryId}:`, {
       id: mainGroup.id,
       name: mainGroup.name,
-      subCategoriesCount: mainGroup.subCategories?.length || 0
+      subCategoriesCount: mainGroup.subCategories?.length || 0,
+      subCategories: mainGroup.subCategories?.map(sub => ({ id: sub.id, name: sub.name, amount: sub.amount }))
     });
     
     // Sum up actual amounts from all subcategories

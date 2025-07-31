@@ -257,7 +257,16 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
                             </div>
                             <div className="text-sm">
                               <span className="text-muted-foreground">Faktiskt: </span>
-                              <span className="font-bold text-green-600">{formatCurrency(actualForSub)}</span>
+                              {onSavingsTargetDrillDown ? (
+                                <button
+                                  className="font-bold text-green-600 hover:text-green-500 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200"
+                                  onClick={() => onSavingsTargetDrillDown(sub.id, sub.name, sub.amount)}
+                                >
+                                  {formatCurrency(actualForSub)}
+                                </button>
+                              ) : (
+                                <span className="font-bold text-green-600">{formatCurrency(actualForSub)}</span>
+                              )}
                             </div>
                             <div className={`text-sm font-medium ${differenceForSub >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                               Diff: {differenceForSub >= 0 ? '+' : ''}{formatCurrency(Math.abs(differenceForSub))}
