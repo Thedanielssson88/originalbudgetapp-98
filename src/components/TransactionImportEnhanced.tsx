@@ -1796,15 +1796,10 @@ export const TransactionImportEnhanced: React.FC = () => {
                                       )}
                                     </TableCell>
                                      <TableCell>
-                                      {(() => {
-                                        console.log('🎯 About to render TransactionTypeSelector for transaction:', transaction.id, transaction.type);
-                                        return (
-                                          <TransactionTypeSelector 
-                                            transaction={transaction} 
-                                            onUpdateTransaction={handleUpdateTransaction}
-                                          />
-                                        );
-                                      })()}
+                                      <TransactionTypeSelector 
+                                        transaction={transaction} 
+                                        onUpdateTransaction={handleUpdateTransaction}
+                                      />
                                      </TableCell>
                                     <TableCell>
                                        <Select
