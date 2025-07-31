@@ -37,7 +37,9 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
 
   const handleChangeToInternalTransfer = () => {
     if (transaction) {
-      updateTransaction(transaction.id, { type: 'InternalTransfer' });
+      // Derive monthKey from transaction's date
+      const monthKey = transaction.date.substring(0, 7);
+      updateTransaction(transaction.id, { type: 'InternalTransfer' }, monthKey);
       onClose();
     }
   };

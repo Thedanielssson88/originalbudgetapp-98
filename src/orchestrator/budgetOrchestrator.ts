@@ -457,24 +457,25 @@ export const deleteSavingsGoal = (goalId: string) => {
 
 // ===== TRANSACTION MANAGEMENT =====
 
-export function updateTransaction(transactionId: string, updates: Partial<ImportedTransaction>): void {
-  const currentMonthKey = state.budgetState.selectedMonthKey;
+export function updateTransaction(transactionId: string, updates: Partial<ImportedTransaction>, monthKey?: string): void {
+  // Use provided monthKey or fall back to selected month
+  const targetMonthKey = monthKey || state.budgetState.selectedMonthKey;
   
-  if (!currentMonthKey) {
-    console.error('[Orchestrator] Ingen månad vald, kan inte uppdatera transaktion.');
+  if (!targetMonthKey) {
+    console.error('[Orchestrator] Ingen månad angiven och ingen månad vald, kan inte uppdatera transaktion.');
     return;
   }
 
-  const currentMonth = state.budgetState.historicalData[currentMonthKey];
+  const currentMonth = state.budgetState.historicalData[targetMonthKey];
   if (!currentMonth || !currentMonth.transactions) {
-    console.error('[Orchestrator] Inga transaktioner finns för aktuell månad.');
+    console.error(`[Orchestrator] Inga transaktioner finns för månad ${targetMonthKey}.`);
     return;
   }
 
   // Find the original transaction to check for restoration logic
   const originalTransaction = currentMonth.transactions.find(t => t.id === transactionId);
   if (!originalTransaction) {
-    console.error(`[Orchestrator] Transaction ${transactionId} not found.`);
+    console.error(`[Orchestrator] Transaction ${transactionId} not found in month ${targetMonthKey}.`);
     return;
   }
 
@@ -517,8 +518,15 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
     return t;
   });
 
-  updateAndRecalculate({ transactions: updatedTransactions });
-  console.log(`✅ [Orchestrator] Transaction ${transactionId} updated successfully`);
+  // Update the specific month's data directly 
+  state.budgetState.historicalData[targetMonthKey] = {
+    ...currentMonth,
+    transactions: updatedTransactions
+  };
+  
+  saveStateToStorage();
+  runCalculationsAndUpdateState();
+  console.log(`✅ [Orchestrator] Transaction ${transactionId} updated successfully in month ${targetMonthKey}`);
 }
 
 export function matchInternalTransfer(t1Id: string, t2Id: string): void {
@@ -540,37 +548,40 @@ export function matchInternalTransfer(t1Id: string, t2Id: string): void {
     type: 'InternalTransfer',
     linkedTransactionId: t2.id,
     userDescription: `Överföring till ${account2Name}`
-  });
+  }, currentMonthKey);
   
   updateTransaction(t2.id, {
     type: 'InternalTransfer',
     linkedTransactionId: t1.id,
     userDescription: `Överföring från ${account1Name}`
-  });
+  }, currentMonthKey);
   
   console.log(`✅ [Orchestrator] Matched internal transfer between ${t1Id} and ${t2Id}`);
 }
 
-export function linkSavingsTransaction(transactionId: string, savingsTargetId: string): void {
-  console.log(`🔗 [DEBUG] linkSavingsTransaction called with:`, { transactionId, savingsTargetId });
-  console.log(`🔗 [DEBUG] Current month:`, state.budgetState.selectedMonthKey);
+export function linkSavingsTransaction(transactionId: string, savingsTargetId: string, monthKey?: string): void {
+  console.log(`🔗 [DEBUG] linkSavingsTransaction called with:`, { transactionId, savingsTargetId, monthKey });
   
-  const currentMonth = state.budgetState.historicalData[state.budgetState.selectedMonthKey];
-  const transactionExists = currentMonth?.transactions?.find(t => t.id === transactionId);
-  console.log(`🔗 [DEBUG] Transaction exists in current month:`, !!transactionExists);
+  // Use provided monthKey or fall back to selected month
+  const targetMonthKey = monthKey || state.budgetState.selectedMonthKey;
+  console.log(`🔗 [DEBUG] Target month:`, targetMonthKey);
+  
+  const targetMonth = state.budgetState.historicalData[targetMonthKey];
+  const transactionExists = targetMonth?.transactions?.find(t => t.id === transactionId);
+  console.log(`🔗 [DEBUG] Transaction exists in target month:`, !!transactionExists);
   console.log(`🔗 [DEBUG] Transaction before update:`, transactionExists ? { id: transactionExists.id, type: transactionExists.type, savingsTargetId: transactionExists.savingsTargetId } : 'NOT FOUND');
   
   updateTransaction(transactionId, {
     type: 'Savings',
     savingsTargetId: savingsTargetId
-  });
+  }, targetMonthKey);
   
   // Check after update
-  const updatedMonth = state.budgetState.historicalData[state.budgetState.selectedMonthKey];
+  const updatedMonth = state.budgetState.historicalData[targetMonthKey];
   const updatedTransaction = updatedMonth?.transactions?.find(t => t.id === transactionId);
   console.log(`🔗 [DEBUG] Transaction after update:`, updatedTransaction ? { id: updatedTransaction.id, type: updatedTransaction.type, savingsTargetId: updatedTransaction.savingsTargetId } : 'NOT FOUND');
   
-  console.log(`✅ [Orchestrator] Linked transaction ${transactionId} to savings target ${savingsTargetId}`);
+  console.log(`✅ [Orchestrator] Linked transaction ${transactionId} to savings target ${savingsTargetId} in month ${targetMonthKey}`);
 }
 
 export function coverCost(transferId: string, costId: string): void {
@@ -591,13 +602,13 @@ export function coverCost(transferId: string, costId: string): void {
     type: 'CostCoverage',
     linkedTransactionId: costId,
     correctedAmount: transfer.amount - coverAmount
-  });
+  }, currentMonthKey);
   
   // Update cost transaction with bidirectional link
   updateTransaction(costId, {
     correctedAmount: cost.amount + coverAmount,
     linkedTransactionId: transferId
-  });
+  }, currentMonthKey);
   
   console.log(`✅ [Orchestrator] Covered ${coverAmount} from transfer ${transferId} to cost ${costId}`);
 }

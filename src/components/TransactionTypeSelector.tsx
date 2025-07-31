@@ -11,6 +11,9 @@ export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = (
   const handleTypeChange = (newType: string) => {
     console.log(`🔄 [TransactionTypeSelector] Changing type from ${transaction.type} to ${newType} for transaction ${transaction.id}`);
     
+    // Derive monthKey from transaction's date (e.g. "2025-07-30" -> "2025-07")
+    const monthKey = transaction.date.substring(0, 7);
+    
     // Anropa den nya generella funktionen för att bara uppdatera typen
     updateTransaction(transaction.id, { 
       type: newType as ImportedTransaction['type'],
@@ -18,7 +21,7 @@ export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = (
       linkedTransactionId: undefined,
       savingsTargetId: undefined,
       correctedAmount: undefined
-    });
+    }, monthKey);
     
     console.log(`✅ [TransactionTypeSelector] updateTransaction called for ${transaction.id}`);
   };

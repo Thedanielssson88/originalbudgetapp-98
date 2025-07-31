@@ -51,8 +51,10 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
   const handleLinkSavings = () => {
     console.log(`🚀 [SavingsLinkDialog] handleLinkSavings called with:`, { selectedTarget, transactionId: transaction?.id });
     if (selectedTarget && transaction) {
-      console.log(`🚀 [SavingsLinkDialog] About to call linkSavingsTransaction:`, { transactionId: transaction.id, selectedTarget });
-      linkSavingsTransaction(transaction.id, selectedTarget);
+      // Derive monthKey from transaction's date (e.g. "2025-07-30" -> "2025-07")
+      const monthKey = transaction.date.substring(0, 7);
+      console.log(`🚀 [SavingsLinkDialog] About to call linkSavingsTransaction:`, { transactionId: transaction.id, selectedTarget, monthKey });
+      linkSavingsTransaction(transaction.id, selectedTarget, monthKey);
       console.log(`🚀 [SavingsLinkDialog] linkSavingsTransaction completed`);
       onClose();
     } else {
