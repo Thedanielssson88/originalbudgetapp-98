@@ -796,6 +796,23 @@ const BudgetCalculator = () => {
     });
   };
 
+  const openSavingsTargetDrillDownDialog = (targetId: string, targetName: string, budgetAmount: number) => {
+    console.log(`🔍 [DEBUG] openSavingsTargetDrillDownDialog called for target: ${targetId} (${targetName})`);
+    const savingsTransactions = getSavingsTransactions();
+    const transactions = savingsTransactions.filter(t => t.savingsTargetId === targetId);
+    const actualAmount = calculateActualForTarget(targetId);
+    
+    console.log(`🔍 [DEBUG] Found ${transactions.length} transactions for target ${targetId}, actual amount: ${actualAmount}`);
+    
+    setDrillDownDialog({
+      isOpen: true,
+      transactions,
+      categoryName: `${targetName} - Sparande`,
+      budgetAmount,
+      actualAmount
+    });
+  };
+
   const openSavingsDrillDownDialog = () => {
     const transactions = getSavingsTransactions();
     const budgetAmount = (() => {
@@ -6759,6 +6776,7 @@ const BudgetCalculator = () => {
                               calculateSavingsActualForCategory={calculateSavingsActualForCategory}
                               calculateActualForTarget={calculateActualForTarget}
                               onSavingsCategoryDrillDown={openSavingsCategoryDrillDownDialog}
+                              onSavingsTargetDrillDown={openSavingsTargetDrillDownDialog}
                               onAddSavingsItem={(item) => {
                                 // Handle adding savings item
                                 const newGroup = {

@@ -16,6 +16,7 @@ interface SavingsSectionProps {
   calculateSavingsActualForCategory?: (categoryName: string) => number;
   calculateActualForTarget?: (targetId: string) => number;
   onSavingsCategoryDrillDown?: (categoryName: string, budgetAmount: number) => void;
+  onSavingsTargetDrillDown?: (targetId: string, targetName: string, budgetAmount: number) => void;
   onAddSavingsItem: (item: {
     mainCategory: string;
     subcategory: string;
@@ -37,6 +38,7 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
   calculateSavingsActualForCategory,
   calculateActualForTarget,
   onSavingsCategoryDrillDown,
+  onSavingsTargetDrillDown,
   onAddSavingsItem,
   onEditSavingsGroup,
   onDeleteSavingsGroup
@@ -302,8 +304,8 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
                                    (end.getMonth() - start.getMonth()) + 1;
                 const monthlyAmount = goal.targetAmount / monthsDiff;
                 
-                // Calculate actual saved (placeholder for now)
-                const actualSaved = 0;
+                // Calculate actual saved using the target function
+                const actualSaved = calculateActualForTarget ? calculateActualForTarget(goal.id) : 0;
                 const totalProgress = Math.min((actualSaved / goal.targetAmount) * 100, 100);
                 
                 return (
@@ -320,7 +322,12 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
                           {formatCurrency(monthlyAmount)}/mån
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {formatCurrency(actualSaved)} sparat
+                          <button
+                            className="font-bold text-green-600 hover:text-green-500 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200"
+                            onClick={() => onSavingsTargetDrillDown && onSavingsTargetDrillDown(goal.id, goal.name, goal.targetAmount)}
+                          >
+                            {formatCurrency(actualSaved)} sparat
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -450,8 +457,8 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
                                              (end.getMonth() - start.getMonth()) + 1;
                           const monthlyAmount = goal.targetAmount / monthsDiff;
                           
-                          // Calculate actual saved (placeholder for now)
-                          const actualSaved = 0;
+                          // Calculate actual saved using the target function
+                          const actualSaved = calculateActualForTarget ? calculateActualForTarget(goal.id) : 0;
                           const totalProgress = Math.min((actualSaved / goal.targetAmount) * 100, 100);
                           
                           return (
