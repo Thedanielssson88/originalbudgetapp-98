@@ -6117,11 +6117,17 @@ const BudgetCalculator = () => {
                                   return activeContent.activeAccounts.map((account) => {
                                     console.log(`🔍 [ACCOUNT VIEW] Processing account: ${account.name} (ID: ${account.id})`);
                                     
-                                    // 1. Hitta alla budgetposter (subCategories) som är kopplade till detta konto via NAMN
-                                    const costItemsForThisAccount = costGroups.flatMap(g => g.subCategories || [])
-                                      .filter(sub => sub.account === account.name);
-                                    
-                                    console.log(`🔍 [ACCOUNT VIEW] Found ${costItemsForThisAccount.length} budget items for ${account.name}:`, costItemsForThisAccount);
+                                     // 1. Hitta alla budgetposter (subCategories) som är kopplade till detta konto via NAMN eller ID
+                                     const costItemsForThisAccount = costGroups.flatMap(g => g.subCategories || [])
+                                       .filter(sub => {
+                                         // Check both legacy account name and new accountId
+                                         const matchesLegacy = sub.account === account.name;
+                                         const matchesNew = sub.accountId === account.id;
+                                         console.log(`🔍 [ACCOUNT VIEW] Checking subcategory ${sub.name}: legacy(${sub.account}=${account.name})=${matchesLegacy}, new(${sub.accountId}=${account.id})=${matchesNew}`);
+                                         return matchesLegacy || matchesNew;
+                                       });
+                                     
+                                     console.log(`🔍 [ACCOUNT VIEW] Found ${costItemsForThisAccount.length} budget items for ${account.name}:`, costItemsForThisAccount);
                                     
                                     // 2. Beräkna den totala BUDGETEN för detta konto
                                     const totalBudget = costItemsForThisAccount.reduce((sum, sub) => {
