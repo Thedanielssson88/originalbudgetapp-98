@@ -32,10 +32,13 @@ export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = (
 
   return (
     <Select value={transaction.type} onValueChange={handleTypeChange}>
-      <SelectTrigger className="w-full min-w-[180px]">
+      <SelectTrigger 
+        className="w-full min-w-[180px]"
+        onClick={() => console.log('🔍 [TransactionTypeSelector] SelectTrigger clicked')}
+      >
         <SelectValue />
       </SelectTrigger>
-      <SelectContent className="bg-background border z-50">
+      <SelectContent className="bg-background border z-[60] relative">
         {transaction.amount < 0 ? (
           // Alternativ för negativa transaktioner
           <>
