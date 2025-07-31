@@ -975,10 +975,16 @@ const BudgetCalculator = () => {
     console.log('🔍 [DEBUG] handleAddBudgetItem called with:', budgetItem);
     console.log('🔍 [DEBUG] budgetItem.accountId:', budgetItem.accountId);
     console.log('🔍 [DEBUG] Available accounts:', budgetState.accounts);
+    console.log('🔍 [DEBUG] Accounts with names:', budgetState.accounts.map(acc => ({ id: acc.id, name: acc.name })));
+    
+    // Special debug for Hushållskonto
+    const hushallskontoAccount = budgetState.accounts.find(acc => acc.name === 'Hushållskonto');
+    console.log('🔍 [DEBUG] Hushållskonto account details:', hushallskontoAccount);
     
     // Hitta rätt konto baserat på accountId
     const selectedAccount = budgetState.accounts.find(acc => acc.id === budgetItem.accountId);
     console.log('🔍 [DEBUG] Found account:', selectedAccount);
+    console.log('🔍 [DEBUG] Selected account name:', selectedAccount?.name);
     
     // För nu, konvertera tillbaka till legacy format för att inte bryta befintlig logik
     const legacyItem = {
@@ -994,6 +1000,7 @@ const BudgetCalculator = () => {
     };
     
     console.log('🔍 [DEBUG] Legacy item created:', legacyItem);
+    console.log('🔍 [DEBUG] Legacy item account field:', legacyItem.account);
     handleAddCostItem(legacyItem);
   };
   
