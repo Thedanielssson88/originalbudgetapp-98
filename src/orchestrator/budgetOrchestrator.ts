@@ -468,6 +468,9 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
     console.error('[Orchestrator] Ingen månad angiven och ingen månad vald, kan inte uppdatera transaktion.');
     return;
   }
+  
+  console.log(`🔄 [Orchestrator] Looking for transaction ${transactionId} in month ${targetMonthKey}`);
+  console.log(`🔄 [Orchestrator] Available months:`, Object.keys(state.budgetState.historicalData));
 
   const currentMonth = state.budgetState.historicalData[targetMonthKey];
   if (!currentMonth || !currentMonth.transactions) {
