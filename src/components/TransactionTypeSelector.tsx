@@ -27,7 +27,7 @@ export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = (
   };
 
   return (
-    <Select key={`${transaction.id}-${transaction.type}`} value={transaction.type} onValueChange={handleTypeChange}>
+    <Select value={transaction.type} onValueChange={handleTypeChange}>
       <SelectTrigger className="w-full min-w-[180px]">
         <SelectValue />
       </SelectTrigger>
