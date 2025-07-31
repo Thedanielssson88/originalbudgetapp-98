@@ -125,15 +125,20 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
                 >
                   <CollapsibleTrigger asChild>
                     <CardContent className={`${isMobile ? 'p-3' : 'p-4'} cursor-pointer transition-colors hover:bg-muted/50`}>
-                      <div className={`${isMobile ? 'flex flex-col space-y-2' : 'flex items-center justify-between'}`}>
-                        <div className={`${isMobile ? 'flex flex-col space-y-1' : 'flex items-center space-x-3'}`}>
-                          <div className={`${isMobile ? 'text-sm' : 'text-sm'} font-medium`}>
-                            {formatDate(date)}
+                        <div className={`${isMobile ? 'flex flex-col space-y-2' : 'flex items-center justify-between'}`}>
+                          <div className={`${isMobile ? 'flex flex-col space-y-1' : 'flex items-center space-x-3'}`}>
+                            <div className={`${isMobile ? 'text-sm' : 'text-sm'} font-medium`}>
+                              {formatDate(date)}
+                            </div>
+                            <div className={`${isMobile ? 'flex flex-col space-y-1' : 'flex items-center space-x-2'}`}>
+                              <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded w-fit">
+                                {dateTransactions.length} transaktion{dateTransactions.length !== 1 ? 'er' : ''}
+                              </div>
+                              <div className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded w-fit">
+                                {formatCurrency(dateTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0))}
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded w-fit">
-                            {dateTransactions.length} transaktion{dateTransactions.length !== 1 ? 'er' : ''}
-                          </div>
-                        </div>
                         <Button variant="ghost" size="sm" className={`flex-shrink-0 ${isMobile ? 'self-end -mt-8' : ''}`}>
                           {expandedDates.has(date) ? 
                             <ChevronUp className="w-4 h-4" /> : 
