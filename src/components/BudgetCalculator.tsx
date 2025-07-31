@@ -6096,9 +6096,9 @@ const BudgetCalculator = () => {
                                     
                                     console.log(`🔍 [ACCOUNT VIEW] Total budget for ${account.name}: ${totalBudget}`);
                                     
-                                    // 3. Hitta alla transaktioner som är kopplade till detta konto via ID
-                                    const transactionsForThisAccount = ((currentMonthData as any).transactions || [])
-                                      .filter((t: any) => t.accountId === account.id);
+                                     // 3. Hitta alla transaktioner som är kopplade till detta konto via ID
+                                     const transactionsForThisAccount = activeContent.transactionsForPeriod
+                                       .filter((t: any) => t.accountId === account.id);
                                     
                                     console.log(`🔍 [ACCOUNT VIEW] Found ${transactionsForThisAccount.length} transactions for ${account.name}:`, transactionsForThisAccount);
                                     
