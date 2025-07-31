@@ -563,9 +563,14 @@ const BudgetCalculator = () => {
 
   const getTransactionsForCategory = (categoryId: string): Transaction[] => {
     const monthTransactions = (currentMonthData as any).transactions || [];
+    console.log(`🔍 [DEBUG] getTransactionsForCategory - categoryId: ${categoryId}`);
+    console.log(`🔍 [DEBUG] All month transactions:`, monthTransactions.map(t => ({ id: t.id, amount: t.amount, categoryId: t.appCategoryId, description: t.description })));
+    
     // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
     // But EXCLUDE positive amounts (income) from cost categories
-    return monthTransactions.filter((t: Transaction) => t.appCategoryId === categoryId && t.amount < 0);
+    const filtered = monthTransactions.filter((t: Transaction) => t.appCategoryId === categoryId && t.amount < 0);
+    console.log(`🔍 [DEBUG] Filtered transactions for category ${categoryId}:`, filtered.map(t => ({ id: t.id, amount: t.amount, description: t.description })));
+    return filtered;
   };
 
   const getTransactionsForAccount = (accountName: string): Transaction[] => {
@@ -658,7 +663,9 @@ const BudgetCalculator = () => {
   };
 
   const openAccountDrillDownDialog = (accountName: string, budgetAmount: number, actualAmount: number) => {
-    const transactions = getTransactionsForAccount(accountName);
+    const allTransactions = getTransactionsForAccount(accountName);
+    // Filter out positive amounts (income) from cost category drill-downs
+    const transactions = allTransactions.filter(t => t.amount < 0);
     
     setDrillDownDialog({
       isOpen: true,
