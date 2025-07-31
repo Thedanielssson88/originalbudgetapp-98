@@ -410,6 +410,13 @@ const BudgetCalculator = () => {
       if (item.account) {
         activeAccountNames.add(item.account);
       }
+      // Handle new accountId structure
+      if (item.accountId) {
+        const account = budgetState.accounts.find(acc => acc.id === item.accountId);
+        if (account) {
+          activeAccountNames.add(account.name);
+        }
+      }
     });
 
     // Lägg till kontonamn från transaktioner, med översättning från ID till namn
@@ -432,6 +439,13 @@ const BudgetCalculator = () => {
         group.subCategories.forEach(sub => {
           if (sub.account) {
             activeAccountNames.add(sub.account);
+          }
+          // Handle new accountId structure in subcategories
+          if (sub.accountId) {
+            const account = budgetState.accounts.find(acc => acc.id === sub.accountId);
+            if (account) {
+              activeAccountNames.add(account.name);
+            }
           }
         });
       }
