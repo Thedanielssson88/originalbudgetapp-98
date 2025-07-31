@@ -745,22 +745,33 @@ const BudgetCalculator = () => {
     
     const filtered = savingsTransactions
       .filter(t => {
-        console.log('🔍 [DEBUG] Checking transaction:', t.id, 'savingsTargetId:', t.savingsTargetId);
+        console.log('🔍 [DEBUG] Checking transaction:', t.id, 'savingsTargetId:', t.savingsTargetId, 'category:', t.category, 'subCategory:', t.subCategory);
         
         const hasTargetId = !!t.savingsTargetId;
+        
+        // Check if this transaction matches the category by either:
+        // 1. Being linked to a subcategory of this savings group
+        // 2. Being linked to a savings goal AND having the category in its category field
+        // 3. Being linked to a savings goal that belongs to this category
         const matchesCategory = allSavingsItems.some(group => {
           const nameMatches = group.name === categoryName;
           const hasMatchingSub = group.subCategories?.some(sub => sub.id === t.savingsTargetId);
           
+          // Check if the savings goal itself matches this category
+          const isGoalForThisCategory = nameMatches && group.id === t.savingsTargetId;
+          
           if (nameMatches) {
-            console.log('🔍 [DEBUG] Group name matches:', group.name, 'subcategories:', group.subCategories);
+            console.log('🔍 [DEBUG] Group name matches:', group.name, 'subcategories:', group.subCategories, 'group.id:', group.id);
           }
           
-          return nameMatches && hasMatchingSub;
+          return nameMatches && (hasMatchingSub || isGoalForThisCategory);
         });
         
-        console.log('🔍 [DEBUG] hasTargetId:', hasTargetId, 'matchesCategory:', matchesCategory);
-        return hasTargetId && matchesCategory;
+        // Also check if transaction's category/subCategory fields match
+        const categoryFieldMatches = t.category === categoryName || t.subCategory === categoryName;
+        
+        console.log('🔍 [DEBUG] hasTargetId:', hasTargetId, 'matchesCategory:', matchesCategory, 'categoryFieldMatches:', categoryFieldMatches);
+        return hasTargetId && (matchesCategory || (hasTargetId && categoryFieldMatches));
       });
       
     const total = filtered.reduce((sum, t) => {
@@ -774,11 +785,20 @@ const BudgetCalculator = () => {
 
   const getSavingsTransactionsForCategory = (categoryName: string) => {
     const savingsTransactions = getSavingsTransactions();
-    return savingsTransactions.filter(t => 
-      t.savingsTargetId && allSavingsItems.some(group => 
-        group.name === categoryName && group.subCategories?.some(sub => sub.id === t.savingsTargetId)
-      )
-    );
+    return savingsTransactions.filter(t => {
+      if (!t.savingsTargetId) return false;
+      
+      const matchesCategory = allSavingsItems.some(group => {
+        const nameMatches = group.name === categoryName;
+        const hasMatchingSub = group.subCategories?.some(sub => sub.id === t.savingsTargetId);
+        const isGoalForThisCategory = nameMatches && group.id === t.savingsTargetId;
+        return nameMatches && (hasMatchingSub || isGoalForThisCategory);
+      });
+      
+      const categoryFieldMatches = t.category === categoryName || t.subCategory === categoryName;
+      
+      return matchesCategory || (t.savingsTargetId && categoryFieldMatches);
+    });
   };
 
   const openSavingsCategoryDrillDownDialog = (categoryName: string, budgetAmount: number) => {
