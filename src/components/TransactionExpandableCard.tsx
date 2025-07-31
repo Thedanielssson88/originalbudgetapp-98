@@ -10,6 +10,7 @@ import { ChevronDown, ChevronUp, Edit3 } from 'lucide-react';
 import { ImportedTransaction } from '@/types/transaction';
 import { StorageKey, get } from '@/services/storageService';
 import { TransactionTypeSelector } from './TransactionTypeSelector';
+import { useBudget } from '@/hooks/useBudget';
 
 interface TransactionExpandableCardProps {
   transaction: ImportedTransaction;
@@ -41,6 +42,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [subcategoriesData, setSubcategoriesData] = useState<Record<string, string[]>>({});
+  const { budgetState } = useBudget();
 
   // Load subcategories from the same storage as MainCategoriesSettings
   useEffect(() => {
@@ -217,6 +219,36 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                     </div>
                   </div>
 
+                  {/* Savings link status */}
+                  {transaction.type === 'Savings' && transaction.savingsTargetId && (
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Kopplat till sparande</label>
+                      <div className="mt-1 p-2 bg-green-50 border border-green-200 rounded-md">
+                        <p className="text-sm text-green-700 font-medium">
+                          {(() => {
+                            const targetId = transaction.savingsTargetId;
+                            // Check if it's a savings group
+                            if (targetId?.startsWith('group-')) {
+                              const groupId = targetId.replace('group-', '');
+                              const currentMonthData = budgetState?.historicalData?.[budgetState.selectedMonthKey];
+                              const savingsGroups = currentMonthData?.savingsGroups || [];
+                              const group = savingsGroups.find((g: any) => g.id === groupId);
+                              return group ? `${group.name} (${group.amount} kr/månad)` : 'Okänt sparmål';
+                            }
+                            // Check if it's a savings goal
+                            if (targetId?.startsWith('goal-')) {
+                              const goalId = targetId.replace('goal-', '');
+                              const savingsGoals = budgetState?.savingsGoals || [];
+                              const goal = savingsGoals.find((g: any) => g.id === goalId);
+                              return goal ? `${goal.name} (${goal.targetAmount} kr)` : 'Okänt sparmål';
+                            }
+                            return 'Okänt sparmål';
+                          })()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Action buttons based on transaction type */}
                   <div>
                     <label className="text-xs font-medium text-muted-foreground">Åtgärder</label>
@@ -238,7 +270,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                           onClick={() => onSavingsLink(transaction)}
                           className="text-xs px-2 py-1"
                         >
-                          Koppla sparande
+                          {transaction.savingsTargetId ? 'Ändra sparande' : 'Koppla sparande'}
                         </Button>
                       )}
                       {transaction.type === 'CostCoverage' && onCostCoverage && (

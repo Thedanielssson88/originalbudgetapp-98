@@ -21,6 +21,15 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
   const [selectedTarget, setSelectedTarget] = useState<string>('');
   const { budgetState } = useBudget();
 
+  // Set initial selection based on existing savings link
+  React.useEffect(() => {
+    if (transaction?.savingsTargetId) {
+      setSelectedTarget(transaction.savingsTargetId);
+    } else {
+      setSelectedTarget('');
+    }
+  }, [transaction?.savingsTargetId]);
+
   // Get month data for savings categories
   const currentMonthData = budgetState?.historicalData?.[budgetState.selectedMonthKey];
   const savingsGroups = currentMonthData?.savingsGroups || [];
@@ -66,6 +75,24 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
               </div>
               <div className="text-sm text-muted-foreground">{transaction.date}</div>
             </div>
+            {transaction.savingsTargetId && (
+              <div className="text-sm text-muted-foreground">
+                Nuvarande koppling: {(() => {
+                  const targetId = transaction.savingsTargetId;
+                  if (targetId.startsWith('group-')) {
+                    const groupId = targetId.replace('group-', '');
+                    const group = savingsGroups.find(g => g.id === groupId);
+                    return group ? `${group.name} (${group.amount} kr/månad)` : 'Okänt sparmål';
+                  }
+                  if (targetId.startsWith('goal-')) {
+                    const goalId = targetId.replace('goal-', '');
+                    const goal = relevantSavingsGoals.find(g => g.id === goalId);
+                    return goal ? `${goal.name} (${goal.targetAmount} kr)` : 'Okänt sparmål';
+                  }
+                  return 'Okänt sparmål';
+                })()}
+              </div>
+            )}
           </div>
 
           <RadioGroup value={selectedTarget} onValueChange={setSelectedTarget}>
