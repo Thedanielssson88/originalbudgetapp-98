@@ -1795,12 +1795,17 @@ export const TransactionImportEnhanced: React.FC = () => {
                                         `${transaction.amount.toLocaleString('sv-SE')} kr`
                                       )}
                                     </TableCell>
-                                    <TableCell>
-                                      <TransactionTypeSelector 
-                                        transaction={transaction} 
-                                        onUpdateTransaction={handleUpdateTransaction}
-                                      />
-                                    </TableCell>
+                                     <TableCell>
+                                      {(() => {
+                                        console.log('🎯 About to render TransactionTypeSelector for transaction:', transaction.id, transaction.type);
+                                        return (
+                                          <TransactionTypeSelector 
+                                            transaction={transaction} 
+                                            onUpdateTransaction={handleUpdateTransaction}
+                                          />
+                                        );
+                                      })()}
+                                     </TableCell>
                                     <TableCell>
                                        <Select
                                          value={(() => {
