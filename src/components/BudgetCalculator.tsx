@@ -713,30 +713,40 @@ const BudgetCalculator = () => {
     }, 0);
   };
 
-  // NEW SIMPLIFIED LOGIC: Calculate actual savings for a MAIN CATEGORY
+  // UPDATED LOGIC: Calculate actual savings for a MAIN CATEGORY by summing subcategories
   const calculateSavingsActualForCategory = (mainCategoryId: string): number => {
     console.log(`🔍 [DEBUG] calculateSavingsActualForCategory called for category: ${mainCategoryId}`);
-    const savingsTransactions = getSavingsTransactions();
     
-    // Find all transactions linked to this main category
-    const filtered = savingsTransactions.filter(t => {
-      const matches = t.appCategoryId === mainCategoryId;
-      if (matches) {
-        console.log(`🔍 [DEBUG] Found transaction for category ${mainCategoryId}:`, {
-          id: t.id, 
-          amount: t.amount, 
-          appCategoryId: t.appCategoryId,
-          savingsTargetId: t.savingsTargetId
+    // Instead of looking for transactions directly linked to main category,
+    // we need to sum up all the actual amounts from subcategories under this main category
+    
+    // Find all savings items that belong to this main category
+    const categoryItems = allSavingsItems.filter(item => {
+      // Check if this item belongs to the main category
+      const belongsToCategory = item.mainCategoryId === mainCategoryId || 
+                               (item.type === 'savings' && item.name && item.name.includes(mainCategoryId));
+      
+      if (belongsToCategory) {
+        console.log(`🔍 [DEBUG] Found savings item in category ${mainCategoryId}:`, {
+          id: item.id,
+          name: item.name,
+          mainCategoryId: item.mainCategoryId
         });
       }
-      return matches;
+      
+      return belongsToCategory;
     });
-
-    console.log(`🔍 [DEBUG] Total transactions found for category ${mainCategoryId}: ${filtered.length}`);
-
-    // Sum their amounts
-    const total = filtered.reduce((sum, t) => sum + (t.correctedAmount ?? t.amount), 0);
-    console.log(`🔍 [DEBUG] Total amount for category ${mainCategoryId}: ${total}`);
+    
+    console.log(`🔍 [DEBUG] Found ${categoryItems.length} savings items in category ${mainCategoryId}`);
+    
+    // Calculate actual for each subcategory and sum them up
+    const total = categoryItems.reduce((sum, item) => {
+      const itemActual = calculateActualForTarget(item.id);
+      console.log(`🔍 [DEBUG] Item ${item.name} (${item.id}) has actual: ${itemActual}`);
+      return sum + itemActual;
+    }, 0);
+    
+    console.log(`🔍 [DEBUG] Total actual for main category ${mainCategoryId}: ${total}`);
     return total;
   };
 
