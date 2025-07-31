@@ -6148,15 +6148,8 @@ const BudgetCalculator = () => {
                                     
                                     console.log(`🔍 [ACCOUNT VIEW] Total budget for ${account.name}: ${totalBudget}`);
                                     
-                                      // 3. Hitta alla transaktioner som är kopplade till detta konto via ID eller namn
-                                      const transactionsForThisAccount = activeContent.transactionsForPeriod
-                                        .filter((t: any) => {
-                                          // Check if transaction accountId matches either the account ID or account name
-                                          const matchesId = t.accountId === account.id;
-                                          const matchesName = t.accountId === account.name;
-                                          console.log(`🔍 [ACCOUNT VIEW] Transaction ${t.id}: accountId="${t.accountId}" vs account.id="${account.id}" (${matchesId}) vs account.name="${account.name}" (${matchesName})`);
-                                          return matchesId || matchesName;
-                                        });
+                                      // 3. Använd samma logik som getTransactionsForAccount för konsistens
+                                      const transactionsForThisAccount = getTransactionsForAccount(account.name);
                                      
                                      console.log(`🔍 [ACCOUNT VIEW] Found ${transactionsForThisAccount.length} transactions for ${account.name}:`, transactionsForThisAccount);
                                      
@@ -6165,8 +6158,8 @@ const BudgetCalculator = () => {
                                        .reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0);
                                      
                                      console.log(`🔍 [ACCOUNT VIEW] Actual amount for ${account.name}: ${actualAmount}`);
-                                    
-                                    const difference = totalBudget - actualAmount;
+                                     
+                                     const difference = totalBudget - actualAmount;
                                     
                                     // 5. Visa endast konton som faktiskt har en budgetpost eller en transaktion
                                     // Show account if it has budget items OR transactions (not both required)
