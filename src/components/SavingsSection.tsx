@@ -174,7 +174,9 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
         </div>
 
         {Object.entries(categoryGroups).map(([categoryName, data]) => {
+          console.log(`🔍 [SavingsSection] Processing category: ${categoryName}`, data);
           const actualAmount = calculateSavingsActualForCategory ? calculateSavingsActualForCategory(categoryName) : 0;
+          console.log(`🔍 [SavingsSection] actualAmount for ${categoryName}: ${actualAmount}`);
           const difference = data.total - actualAmount;
           const progress = data.total > 0 ? (actualAmount / data.total) * 100 : 0;
          
