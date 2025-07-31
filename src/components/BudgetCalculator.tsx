@@ -420,10 +420,18 @@ const BudgetCalculator = () => {
       }
     });
     
-    // Från legacy groups (för bakåtkompatibilitet)
+    // Från legacy groups (för bakåtkompatibilitet) - detta är viktigt för konton med budget men inga transaktioner
     [...costGroups, ...savingsGroups].forEach(group => {
       if (group.account) {
         activeAccountNames.add(group.account);
+      }
+      // Lägg också till alla subkategorier som har konton
+      if (group.subCategories) {
+        group.subCategories.forEach(sub => {
+          if (sub.account) {
+            activeAccountNames.add(sub.account);
+          }
+        });
       }
     });
     
