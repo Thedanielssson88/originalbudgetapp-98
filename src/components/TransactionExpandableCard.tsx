@@ -10,6 +10,7 @@ import { ChevronDown, ChevronUp, Edit3 } from 'lucide-react';
 import { ImportedTransaction } from '@/types/transaction';
 import { StorageKey, get } from '@/services/storageService';
 import { TransactionTypeSelector } from './TransactionTypeSelector';
+import { updateTransaction } from '../orchestrator/budgetOrchestrator';
 import { useBudget } from '@/hooks/useBudget';
 
 interface TransactionExpandableCardProps {
@@ -221,9 +222,8 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                         onChange={(e) => {
                           const newType = e.target.value;
                           console.log(`🔄 EXPANDABLE CARD: Changing type from ${transaction.type} to ${newType} for transaction ${transaction.id}`);
-                          // Direct orchestrator update since this component doesn't have local state
+                          // Direct orchestrator update
                           const monthKey = transaction.date.substring(0, 7);
-                          const { updateTransaction } = require('../orchestrator/budgetOrchestrator');
                           updateTransaction(transaction.id, { 
                             type: newType as ImportedTransaction['type'],
                             linkedTransactionId: undefined,
