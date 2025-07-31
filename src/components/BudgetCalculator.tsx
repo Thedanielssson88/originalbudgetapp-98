@@ -710,6 +710,7 @@ const BudgetCalculator = () => {
           description: t.description,
           type: t.type,
           amount: t.amount,
+          appCategoryId: t.appCategoryId,
           savingsTargetId: t.savingsTargetId,
           hasLink: !!t.savingsTargetId
         });
@@ -740,13 +741,29 @@ const BudgetCalculator = () => {
 
   // NEW SIMPLIFIED LOGIC: Calculate actual savings for a MAIN CATEGORY
   const calculateSavingsActualForCategory = (mainCategoryId: string): number => {
+    console.log(`🔍 [DEBUG] calculateSavingsActualForCategory called for category: ${mainCategoryId}`);
     const savingsTransactions = getSavingsTransactions();
     
     // Find all transactions linked to this main category
-    const filtered = savingsTransactions.filter(t => t.appCategoryId === mainCategoryId);
+    const filtered = savingsTransactions.filter(t => {
+      const matches = t.appCategoryId === mainCategoryId;
+      if (matches) {
+        console.log(`🔍 [DEBUG] Found transaction for category ${mainCategoryId}:`, {
+          id: t.id, 
+          amount: t.amount, 
+          appCategoryId: t.appCategoryId,
+          savingsTargetId: t.savingsTargetId
+        });
+      }
+      return matches;
+    });
+
+    console.log(`🔍 [DEBUG] Total transactions found for category ${mainCategoryId}: ${filtered.length}`);
 
     // Sum their amounts
-    return filtered.reduce((sum, t) => sum + (t.correctedAmount ?? t.amount), 0);
+    const total = filtered.reduce((sum, t) => sum + (t.correctedAmount ?? t.amount), 0);
+    console.log(`🔍 [DEBUG] Total amount for category ${mainCategoryId}: ${total}`);
+    return total;
   };
 
   // NEW FUNCTION: Calculate actual savings for a specific TARGET (subcategory or goal)

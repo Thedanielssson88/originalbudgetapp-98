@@ -120,6 +120,11 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
       savingsTargetId: target.id // Link to specific savings post/goal
     };
     
+    console.log(`🚀 [SavingsLinkDialog] Updates to apply:`, {
+      ...updates,
+      targetName: target.name
+    });
+    
     updateTransaction(transaction.id, updates, monthKey);
     console.log(`🚀 [SavingsLinkDialog] updateTransaction completed`);
     onClose();
