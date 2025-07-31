@@ -973,6 +973,12 @@ const BudgetCalculator = () => {
   // Handler för BudgetItem struktur
   const handleAddBudgetItem = (budgetItem: any) => {
     console.log('🔍 [DEBUG] handleAddBudgetItem called with:', budgetItem);
+    console.log('🔍 [DEBUG] budgetItem.accountId:', budgetItem.accountId);
+    console.log('🔍 [DEBUG] Available accounts:', budgetState.accounts);
+    
+    // Hitta rätt konto baserat på accountId
+    const selectedAccount = budgetState.accounts.find(acc => acc.id === budgetItem.accountId);
+    console.log('🔍 [DEBUG] Found account:', selectedAccount);
     
     // För nu, konvertera tillbaka till legacy format för att inte bryta befintlig logik
     const legacyItem = {
@@ -980,12 +986,14 @@ const BudgetCalculator = () => {
       subcategory: budgetItem.subCategoryId,
       name: budgetItem.description,
       amount: budgetItem.amount,
-      account: budgetState.accounts.find(acc => acc.id === budgetItem.accountId)?.name || '',
+      account: selectedAccount?.name || '',
       financedFrom: budgetItem.financedFrom || 'Löpande kostnad',
       transferType: budgetItem.transferType,
       dailyAmount: budgetItem.dailyAmount,
       transferDays: budgetItem.transferDays
     };
+    
+    console.log('🔍 [DEBUG] Legacy item created:', legacyItem);
     handleAddCostItem(legacyItem);
   };
   
