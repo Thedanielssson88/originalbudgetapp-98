@@ -65,7 +65,8 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
       } else if (selectedTarget.startsWith('goal-')) {
         const goalId = selectedTarget.replace('goal-', '');
         const goal = relevantSavingsGoals.find(g => g.id === goalId);
-        mainCategoryId = goal?.mainCategoryId;
+        // For savings goals, use the goal name as mainCategoryId if not set
+        mainCategoryId = goal?.mainCategoryId || goal?.name;
       }
       
       if (!mainCategoryId) {
