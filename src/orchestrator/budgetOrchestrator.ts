@@ -459,18 +459,24 @@ export const deleteSavingsGoal = (goalId: string) => {
 
 export function updateTransaction(transactionId: string, updates: Partial<ImportedTransaction>, monthKey?: string): void {
   console.log(`🔄 [Orchestrator] updateTransaction called for ${transactionId}`, { updates, monthKey });
+  addMobileDebugLog(`🔄 [ORCHESTRATOR] updateTransaction called for ${transactionId}`);
+  addMobileDebugLog(`🔄 [ORCHESTRATOR] Updates: ${JSON.stringify(updates)}`);
   
   // Use provided monthKey or fall back to selected month
   const targetMonthKey = monthKey || state.budgetState.selectedMonthKey;
   console.log(`🔄 [Orchestrator] Using target monthKey: ${targetMonthKey}`);
+  addMobileDebugLog(`🔄 [ORCHESTRATOR] Using target monthKey: ${targetMonthKey}`);
   
   if (!targetMonthKey) {
     console.error('[Orchestrator] Ingen månad angiven och ingen månad vald, kan inte uppdatera transaktion.');
+    addMobileDebugLog('❌ [ORCHESTRATOR] Ingen månad angiven!');
     return;
   }
   
   console.log(`🔄 [Orchestrator] Looking for transaction ${transactionId} in month ${targetMonthKey}`);
   console.log(`🔄 [Orchestrator] Available months:`, Object.keys(state.budgetState.historicalData));
+  addMobileDebugLog(`🔍 [ORCHESTRATOR] Looking for transaction in month ${targetMonthKey}`);
+  addMobileDebugLog(`🔍 [ORCHESTRATOR] Available months: ${Object.keys(state.budgetState.historicalData).join(', ')}`);
 
   const currentMonth = state.budgetState.historicalData[targetMonthKey];
   if (!currentMonth || !currentMonth.transactions) {
