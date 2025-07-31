@@ -9434,7 +9434,7 @@ const BudgetCalculator = () => {
                           monthData.transactions.forEach(transaction => {
                             if (transaction.type === 'Savings' && 
                                 transaction.accountId === goal.accountId &&
-                                transaction.appCategoryId === goal.id) {
+                                transaction.savingsTargetId === goal.id) {
                               actualSaved += Math.abs(transaction.amount);
                             }
                           });

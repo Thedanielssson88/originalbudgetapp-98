@@ -34,7 +34,7 @@ export function SavingsGoalsPage() {
       monthData.transactions.forEach(transaction => {
         if (transaction.type === 'Savings' && 
             transaction.accountId === goal.accountId &&
-            transaction.appCategoryId === goal.id) {
+            transaction.savingsTargetId === goal.id) {
           totalSaved += Math.abs(transaction.amount);
         }
       });
