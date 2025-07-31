@@ -8,9 +8,14 @@ interface TransactionTypeSelectorProps {
 }
 
 export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = ({ transaction }) => {
+  console.log(`🔄 [TransactionTypeSelector] Rendering with transaction ${transaction.id}, type: ${transaction.type}`);
+  
   const handleTypeChange = (newType: string) => {
+    console.log(`🔄 [TransactionTypeSelector] handleTypeChange called! Changing type from ${transaction.type} to ${newType} for transaction ${transaction.id}`);
+    
     // Derive monthKey from transaction's date (e.g. "2025-07-30" -> "2025-07")
     const monthKey = transaction.date.substring(0, 7);
+    console.log(`🔄 [TransactionTypeSelector] Using monthKey: ${monthKey}`);
     
     // Update transaction type
     updateTransaction(transaction.id, { 
@@ -20,6 +25,8 @@ export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = (
       savingsTargetId: undefined,
       correctedAmount: undefined
     }, monthKey);
+    
+    console.log(`✅ [TransactionTypeSelector] updateTransaction called for ${transaction.id} with type ${newType}`);
   };
 
   return (
