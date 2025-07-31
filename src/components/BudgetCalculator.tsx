@@ -314,8 +314,12 @@ const BudgetCalculator = () => {
   
   // Create unified savings items list that combines savingsGroups with active savings goals
   const allSavingsItems = useMemo(() => {
+    console.log('🔍 [DEBUG] allSavingsItems - building list...');
+    console.log('🔍 [DEBUG] savingsGroups input:', savingsGroups);
+    
     // 1. Start with regular, general savings
     const generalSavings = savingsGroups || [];
+    console.log('🔍 [DEBUG] generalSavings processed:', generalSavings);
 
     // 2. Get all savings goals from global state
     const savingsGoals = budgetState.savingsGoals || [];
@@ -355,7 +359,10 @@ const BudgetCalculator = () => {
       .filter(Boolean); // Filter out null values (inactive goals)
 
     // 4. Combine the two lists into one
-    return [...generalSavings, ...activeGoalsAsSavingsItems];
+    const combined = [...generalSavings, ...activeGoalsAsSavingsItems];
+    console.log('🔍 [DEBUG] allSavingsItems - final combined result:', combined);
+    console.log('🔍 [DEBUG] allSavingsItems - includes "Semester"?', combined.some(item => item.name === 'Semester'));
+    return combined;
 
   }, [savingsGroups, budgetState.savingsGoals, selectedBudgetMonth, budgetState.accounts]);
 
@@ -682,7 +689,21 @@ const BudgetCalculator = () => {
   const getSavingsTransactions = () => {
     const allTransactions = (currentMonthData as any).transactions || [];
     console.log('🔍 [DEBUG] getSavingsTransactions - all transactions:', allTransactions.length);
-    console.log('🔍 [DEBUG] getSavingsTransactions - sample transactions:', allTransactions.slice(0, 3));
+    console.log('🔍 [DEBUG] getSavingsTransactions - currentMonthData.month:', (currentMonthData as any).month);
+    
+    // Log all transaction types and savings target IDs
+    allTransactions.forEach((t: any, index: number) => {
+      if (index < 10) { // Log first 10 transactions
+        console.log('🔍 [DEBUG] Transaction', index, ':', {
+          id: t.id,
+          description: t.description,
+          type: t.type,
+          amount: t.amount,
+          savingsTargetId: t.savingsTargetId,
+          hasLink: !!t.savingsTargetId
+        });
+      }
+    });
     
     // Filter for savings transactions (positive amounts)
     const filtered = allTransactions.filter((t: any) => {
