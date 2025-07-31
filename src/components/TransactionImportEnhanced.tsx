@@ -1035,6 +1035,46 @@ export const TransactionImportEnhanced: React.FC = () => {
     });
   };
 
+  // Handler functions for action buttons
+  const handleTransferMatch = (transaction: ImportedTransaction) => {
+    // Find potential matching transfers (opposite amounts, different accounts)
+    const potentialMatches = transactions.filter(t => 
+      t.id !== transaction.id &&
+      t.accountId !== transaction.accountId &&
+      Math.abs(t.amount + transaction.amount) < 0.01 && // Opposite amounts (with small tolerance)
+      !t.linkedTransactionId // Not already matched
+    );
+
+    setTransferMatchDialog({
+      isOpen: true,
+      transaction,
+      suggestions: potentialMatches
+    });
+  };
+
+  const handleSavingsLink = (transaction: ImportedTransaction) => {
+    setSavingsLinkDialog({
+      isOpen: true,
+      transaction
+    });
+  };
+
+  const handleCostCoverage = (transaction: ImportedTransaction) => {
+    // Find potential costs to cover (negative transactions from same period)
+    const potentialCosts = transactions.filter(t =>
+      t.id !== transaction.id &&
+      t.amount < 0 && // Negative transaction (cost)
+      !t.correctedAmount && // Not already covered
+      new Date(t.date) <= new Date(transaction.date) // Cost should be before or same as coverage
+    );
+
+    setCostCoverageDialog({
+      isOpen: true,
+      transfer: transaction,
+      potentialCosts
+    });
+  };
+
   const renderUploadStep = () => (
     <div className="space-y-4 sm:space-y-6">
       <div className="text-center mb-6 sm:mb-8">
@@ -1627,7 +1667,9 @@ export const TransactionImportEnhanced: React.FC = () => {
                               <TableHead>Beskrivning</TableHead>
                               <TableHead>Egen text</TableHead>
                               <TableHead>Belopp</TableHead>
+                              <TableHead>Typ</TableHead>
                               <TableHead>Kategori</TableHead>
+                              <TableHead>Åtgärder</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -1661,7 +1703,10 @@ export const TransactionImportEnhanced: React.FC = () => {
                                     <TableCell className={transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}>
                                       {transaction.amount.toLocaleString('sv-SE')} kr
                                     </TableCell>
-                                     <TableCell>
+                                    <TableCell>
+                                      <TransactionTypeSelector transaction={transaction} />
+                                    </TableCell>
+                                    <TableCell>
                                        <Select
                                          value={(() => {
                                            // Convert stored ID back to category name for display
@@ -1681,6 +1726,40 @@ export const TransactionImportEnhanced: React.FC = () => {
                                            ))}
                                          </SelectContent>
                                        </Select>
+                                     </TableCell>
+                                     <TableCell>
+                                       <div className="flex gap-1">
+                                         {transaction.type === 'InternalTransfer' && (
+                                           <Button
+                                             size="sm"
+                                             variant="outline"
+                                             onClick={() => handleTransferMatch(transaction)}
+                                             className="text-xs px-2 py-1"
+                                           >
+                                             Matcha
+                                           </Button>
+                                         )}
+                                         {transaction.type === 'Savings' && (
+                                           <Button
+                                             size="sm"
+                                             variant="outline"
+                                             onClick={() => handleSavingsLink(transaction)}
+                                             className="text-xs px-2 py-1"
+                                           >
+                                             Koppla
+                                           </Button>
+                                         )}
+                                         {transaction.type === 'CostCoverage' && (
+                                           <Button
+                                             size="sm"
+                                             variant="outline"
+                                             onClick={() => handleCostCoverage(transaction)}
+                                             className="text-xs px-2 py-1"
+                                           >
+                                             Täck
+                                           </Button>
+                                         )}
+                                       </div>
                                      </TableCell>
                                   </TableRow>
                                 );
@@ -1756,6 +1835,27 @@ export const TransactionImportEnhanced: React.FC = () => {
       {currentStep === 'upload' && renderUploadStep()}
       {currentStep === 'mapping' && renderMappingStep()}
       {currentStep === 'categorization' && renderCategorizationStep()}
+
+      {/* Dialog components */}
+      <TransferMatchDialog
+        isOpen={transferMatchDialog.isOpen}
+        onClose={() => setTransferMatchDialog({ isOpen: false })}
+        transaction={transferMatchDialog.transaction}
+        suggestions={transferMatchDialog.suggestions}
+      />
+
+      <SavingsLinkDialog
+        isOpen={savingsLinkDialog.isOpen}
+        onClose={() => setSavingsLinkDialog({ isOpen: false })}
+        transaction={savingsLinkDialog.transaction}
+      />
+
+      <CostCoverageDialog
+        isOpen={costCoverageDialog.isOpen}
+        onClose={() => setCostCoverageDialog({ isOpen: false })}
+        transfer={costCoverageDialog.transfer}
+        potentialCosts={costCoverageDialog.potentialCosts}
+      />
     </div>
   );
 };
