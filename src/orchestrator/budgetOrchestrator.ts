@@ -458,11 +458,8 @@ export const deleteSavingsGoal = (goalId: string) => {
 // ===== TRANSACTION MANAGEMENT =====
 
 export function updateTransaction(transactionId: string, updates: Partial<ImportedTransaction>, monthKey?: string): void {
-  console.log(`🔄 [Orchestrator] updateTransaction called for ${transactionId}`, { updates, monthKey });
-  
   // Use provided monthKey or fall back to selected month
   const targetMonthKey = monthKey || state.budgetState.selectedMonthKey;
-  console.log(`🔄 [Orchestrator] Using target monthKey: ${targetMonthKey}`);
   
   if (!targetMonthKey) {
     console.error('[Orchestrator] Ingen månad angiven och ingen månad vald, kan inte uppdatera transaktion.');
@@ -481,9 +478,6 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
     console.error(`[Orchestrator] Transaction ${transactionId} not found in month ${targetMonthKey}.`);
     return;
   }
-  
-  console.log(`🔄 [Orchestrator] Original transaction found:`, { id: originalTransaction.id, type: originalTransaction.type });
-  console.log(`🔄 [Orchestrator] Updates to apply:`, updates);
 
   let updatedTransactions = [...currentMonth.transactions];
 

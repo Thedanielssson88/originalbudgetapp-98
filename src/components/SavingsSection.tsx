@@ -133,17 +133,7 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
   };
 
   const renderCategoryView = () => {
-    // Flatten all savings subcategories into a single list
-    const allSavingsItems: { id: string; name: string; amount: number; account?: string; groupId: string }[] = [];
-    
-    savingsGroups.forEach((group) => {
-      group.subCategories?.forEach((sub) => {
-        allSavingsItems.push({
-          ...sub,
-          groupId: group.id
-        });
-      });
-    });
+    const categoryGroups = groupSavingsByCategory();
     
     return (
       <div className="space-y-4">
@@ -171,89 +161,136 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
           </ToggleGroup>
         </div>
         
-        {/* Sparandebudget section */}
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h4 className="font-semibold">Sparandebudget</h4>
-            <div className="space-x-2">
-              <Button size="sm" onClick={() => setIsAddDialogOpen(true)}>
-                <Plus className="w-4 h-4" />
-              </Button>
-              <Button size="sm" variant="outline">
-                <Edit className="w-4 h-4" />
-              </Button>
-            </div>
+        <div className="flex justify-between items-center">
+          <h4 className="font-semibold">Sparandekategorier</h4>
+          <div className="space-x-2">
+            <Button size="sm" onClick={() => setIsAddDialogOpen(true)}>
+              <Plus className="w-4 h-4" />
+            </Button>
+            <Button size="sm" variant="outline">
+              <Edit className="w-4 h-4" />
+            </Button>
           </div>
-          
-          {allSavingsItems.length === 0 ? (
-            <div className="text-center text-muted-foreground py-8">
-              <div className="text-4xl mb-2">💰</div>
-              <p>Inga sparandeposter skapade ännu</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {allSavingsItems.map((item) => {
-                const actualForItem = calculateActualForTarget ? calculateActualForTarget(item.id) : 0;
-                const difference = item.amount - actualForItem;
-                const progress = item.amount > 0 ? (actualForItem / item.amount) * 100 : 0;
-                
-                return (
-                  <div key={item.id} className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-sm">{item.name}</h4>
-                        <p className="text-xs text-muted-foreground">
-                          {item.account ? `Konto: ${item.account}` : 'Inget konto valt'}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Budget: </span>
-                          <span className="font-medium">{formatCurrency(item.amount)}</span>
-                        </div>
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Faktiskt: </span>
-                          {onSavingsTargetDrillDown ? (
-                            <button
-                              className="font-bold text-blue-600 hover:text-blue-500 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200"
-                              onClick={() => onSavingsTargetDrillDown(item.id, item.name, item.amount)}
-                            >
-                              {formatCurrency(actualForItem)}
-                            </button>
-                          ) : (
-                            <span className="font-bold text-blue-600">{formatCurrency(actualForItem)}</span>
-                          )}
-                        </div>
-                        <div className={`text-sm font-medium ${difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          Diff: {difference >= 0 ? '+' : ''}{formatCurrency(Math.abs(difference))}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs">
-                        <span>Framsteg</span>
-                        <span>{progress.toFixed(1)}% av budget använd</span>
-                      </div>
-                      <Progress value={Math.min(progress, 100)} className="h-2" />
-                    </div>
-                    
-                    <div className="flex justify-end gap-2 mt-2">
-                      <Button size="sm" variant="outline" onClick={() => onEditSavingsGroup({ id: item.groupId } as BudgetGroup)}>
-                        <Edit className="w-3 h-3" />
-                      </Button>
-                      <Button size="sm" variant="destructive" onClick={() => onDeleteSavingsGroup(item.groupId)}>
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
 
-        {/* Sparmål section */}
+        {Object.entries(categoryGroups).map(([categoryName, data]) => {
+          console.log(`🔍 [SavingsSection] Processing category: ${categoryName}`, data);
+          const actualAmount = calculateSavingsActualForCategory ? calculateSavingsActualForCategory(categoryName) : 0;
+          console.log(`🔍 [SavingsSection] actualAmount for ${categoryName}: ${actualAmount}`);
+          const difference = data.total - actualAmount;
+          const progress = data.total > 0 ? (actualAmount / data.total) * 100 : 0;
+         
+          return (
+            <div key={categoryName} className="border rounded-lg p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => toggleCategoryExpansion(categoryName)}
+                  className="p-1"
+                >
+                  {expandedCategories.has(categoryName) ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+                <div className="flex-1">
+                  <div className="font-medium">{categoryName}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {data.subcategories.length} {data.subcategories.length === 1 ? 'post' : 'poster'}
+                  </div>
+                </div>
+                
+                {/* Budget vs Actual */}
+                <div className="space-y-1 text-right min-w-32">
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Budget: </span>
+                    <span className="font-medium">{formatCurrency(data.total)}</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Faktiskt: </span>
+                    {onSavingsCategoryDrillDown ? (
+                      <button
+                        className="font-bold text-green-600 hover:text-green-500 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200"
+                        onClick={() => onSavingsCategoryDrillDown(categoryName, data.total)}
+                      >
+                        {formatCurrency(actualAmount)}
+                      </button>
+                    ) : (
+                      <span className="font-bold text-green-600">
+                        {formatCurrency(actualAmount)}
+                      </span>
+                    )}
+                  </div>
+                  <div className={`text-sm font-medium ${difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    Diff: {difference >= 0 ? '+' : ''}{formatCurrency(Math.abs(difference))}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Progress Bar */}
+              <div className="space-y-1">
+                <Progress 
+                  value={Math.min(progress, 100)} 
+                  className="h-2"
+                />
+                <div className="text-xs text-muted-foreground text-right">
+                  {progress.toFixed(1)}% av budget använd
+                </div>
+              </div>
+
+              {expandedCategories.has(categoryName) && (
+                <div className="pl-6 space-y-2 border-l-2 border-muted">
+                  {data.subcategories.map((sub) => {
+                    const actualForSub = calculateActualForTarget ? calculateActualForTarget(sub.id) : 0;
+                    const differenceForSub = sub.amount - actualForSub;
+                    
+                    return (
+                      <div key={sub.id} className="flex justify-between items-center p-2 bg-muted/20 rounded">
+                        <span className="flex-1">
+                          {sub.name}{sub.account ? ` (${sub.account})` : ''}
+                        </span>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right space-y-1">
+                            <div className="text-sm">
+                              <span className="text-muted-foreground">Budget: </span>
+                              <span className="font-medium">{formatCurrency(sub.amount)}</span>
+                            </div>
+                            <div className="text-sm">
+                              <span className="text-muted-foreground">Faktiskt: </span>
+                              {onSavingsTargetDrillDown ? (
+                                <button
+                                  className="font-bold text-green-600 hover:text-green-500 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200"
+                                  onClick={() => onSavingsTargetDrillDown(sub.id, sub.name, sub.amount)}
+                                >
+                                  {formatCurrency(actualForSub)}
+                                </button>
+                              ) : (
+                                <span className="font-bold text-green-600">{formatCurrency(actualForSub)}</span>
+                              )}
+                            </div>
+                            <div className={`text-sm font-medium ${differenceForSub >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              Diff: {differenceForSub >= 0 ? '+' : ''}{formatCurrency(Math.abs(differenceForSub))}
+                            </div>
+                          </div>
+                          <Button size="sm" variant="outline" onClick={() => onEditSavingsGroup({ id: sub.groupId } as BudgetGroup)}>
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => onDeleteSavingsGroup(sub.groupId)}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Savings Goals at bottom for category view */}
         <div className="mt-6 pt-4 border-t border-green-200">
           <div className="flex justify-between items-center mb-4">
             <h4 className="font-semibold">Sparmål</h4>

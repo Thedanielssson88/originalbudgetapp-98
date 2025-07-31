@@ -3,22 +3,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { updateTransaction } from '../orchestrator/budgetOrchestrator';
 import { ImportedTransaction } from '@/types/transaction';
 
-console.log('🚀 [TransactionTypeSelector] FILE LOADED - this should appear immediately!');
-
 interface TransactionTypeSelectorProps {
   transaction: ImportedTransaction;
 }
 
 export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = ({ transaction }) => {
-  console.log(`🔄 [TransactionTypeSelector] Component rendering for transaction ${transaction.id} with type: ${transaction.type}`);
-  
   const handleTypeChange = (newType: string) => {
-    console.log(`🔄 [TransactionTypeSelector] handleTypeChange called! Changing type from ${transaction.type} to ${newType} for transaction ${transaction.id}`);
-    console.log(`🔄 [TransactionTypeSelector] Transaction before update:`, JSON.stringify(transaction, null, 2));
+    console.log(`🔄 [TransactionTypeSelector] Changing type from ${transaction.type} to ${newType} for transaction ${transaction.id}`);
     
     // Derive monthKey from transaction's date (e.g. "2025-07-30" -> "2025-07")
     const monthKey = transaction.date.substring(0, 7);
-    console.log(`🔄 [TransactionTypeSelector] Using monthKey: ${monthKey}`);
     
     // Anropa den nya generella funktionen för att bara uppdatera typen
     updateTransaction(transaction.id, { 
@@ -29,18 +23,11 @@ export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = (
       correctedAmount: undefined
     }, monthKey);
     
-    console.log(`✅ [TransactionTypeSelector] updateTransaction called for ${transaction.id} with type ${newType}`);
-    
-    // Add a small delay to check if the transaction was actually updated
-    setTimeout(() => {
-      console.log(`🔍 [TransactionTypeSelector] Transaction after update (delayed check):`, transaction.type);
-    }, 100);
+    console.log(`✅ [TransactionTypeSelector] updateTransaction called for ${transaction.id}`);
   };
 
-  console.log(`🔄 [TransactionTypeSelector] About to render Select with value: ${transaction.type}`);
-
   return (
-    <Select key={transaction.id} value={transaction.type} onValueChange={handleTypeChange}>
+    <Select key={`${transaction.id}-${transaction.type}`} value={transaction.type} onValueChange={handleTypeChange}>
       <SelectTrigger className="w-full min-w-[180px]">
         <SelectValue />
       </SelectTrigger>
