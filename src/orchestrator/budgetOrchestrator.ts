@@ -531,22 +531,31 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
   // --- END RESTORATION LOGIC ---
 
   // Apply the updates
+  addMobileDebugLog(`🔄 [ORCHESTRATOR] Applying updates to transaction ${transactionId}`);
   updatedTransactions = updatedTransactions.map(t => {
     if (t.id === transactionId) {
-      return { ...t, ...updates };
+      const updated = { ...t, ...updates };
+      addMobileDebugLog(`🔄 [ORCHESTRATOR] Transaction ${transactionId} updated: ${t.type} -> ${updated.type}`);
+      return updated;
     }
     return t;
   });
 
+  addMobileDebugLog(`🔄 [ORCHESTRATOR] Saving updated transactions to state for month ${targetMonthKey}`);
+  
   // Update the specific month's data directly 
   state.budgetState.historicalData[targetMonthKey] = {
     ...currentMonth,
     transactions: updatedTransactions
   };
   
+  addMobileDebugLog(`🔄 [ORCHESTRATOR] Calling saveStateToStorage()`);
   saveStateToStorage();
+  
+  addMobileDebugLog(`🔄 [ORCHESTRATOR] Calling runCalculationsAndUpdateState()`);
   runCalculationsAndUpdateState();
-  console.log(`✅ [Orchestrator] Transaction ${transactionId} updated successfully in month ${targetMonthKey}`);
+  
+  addMobileDebugLog(`✅ [ORCHESTRATOR] Transaction ${transactionId} updated successfully in month ${targetMonthKey}`);
 }
 
 export function matchInternalTransfer(t1Id: string, t2Id: string): void {
