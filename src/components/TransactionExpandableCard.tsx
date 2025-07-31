@@ -9,6 +9,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ChevronDown, ChevronUp, Edit3 } from 'lucide-react';
 import { ImportedTransaction } from '@/types/transaction';
 import { StorageKey, get } from '@/services/storageService';
+import { TransactionTypeSelector } from './TransactionTypeSelector';
 
 interface TransactionExpandableCardProps {
   transaction: ImportedTransaction;
@@ -192,10 +193,45 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
 
                   <div>
                     <label className="text-xs font-medium text-muted-foreground">Typ</label>
-                    <div>
-                      <Badge variant={transaction.type === 'InternalTransfer' ? 'secondary' : 'outline'} className="text-xs">
-                        {transaction.type === 'InternalTransfer' ? 'Intern överföring' : 'Transaktion'}
-                      </Badge>
+                    <div className="mt-1">
+                      <TransactionTypeSelector transaction={transaction} />
+                    </div>
+                  </div>
+
+                  {/* Action buttons based on transaction type */}
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Åtgärder</label>
+                    <div className="mt-1 flex gap-2">
+                      {transaction.type === 'InternalTransfer' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => console.log('Match transfer:', transaction.id)}
+                          className="text-xs px-2 py-1"
+                        >
+                          Matcha överföring
+                        </Button>
+                      )}
+                      {transaction.type === 'Savings' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => console.log('Link savings:', transaction.id)}
+                          className="text-xs px-2 py-1"
+                        >
+                          Koppla sparande
+                        </Button>
+                      )}
+                      {transaction.type === 'CostCoverage' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => console.log('Cover cost:', transaction.id)}
+                          className="text-xs px-2 py-1"
+                        >
+                          Täck kostnad
+                        </Button>
+                      )}
                     </div>
                   </div>
 
