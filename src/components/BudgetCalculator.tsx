@@ -545,13 +545,15 @@ const BudgetCalculator = () => {
     console.log(`🔍 [DEBUG] All transactions:`, monthTransactions);
     
     // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
+    // But EXCLUDE positive amounts (income) from cost categories
     const matchingTransactions = monthTransactions.filter((t: Transaction) => {
       const matches = t.appCategoryId === categoryId;
-      console.log(`🔍 [DEBUG] Transaction ${t.id}: appCategoryId=${t.appCategoryId}, categoryId=${categoryId}, status=${t.status}, matches=${matches}`);
-      return matches; // NO status filtering - include all transactions
+      const isNegativeAmount = t.amount < 0; // Only include negative amounts (costs)
+      console.log(`🔍 [DEBUG] Transaction ${t.id}: appCategoryId=${t.appCategoryId}, categoryId=${categoryId}, status=${t.status}, amount=${t.amount}, isNegative=${isNegativeAmount}, matches=${matches && isNegativeAmount}`);
+      return matches && isNegativeAmount; // NO status filtering - include all transactions but exclude positive amounts
     });
     
-    console.log(`🔍 [DEBUG] Matching transactions for category ${categoryId}:`, matchingTransactions);
+    console.log(`🔍 [DEBUG] Matching transactions for category ${categoryId} (excluding positive amounts):`, matchingTransactions);
     
     const total = matchingTransactions.reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
     console.log(`🔍 [DEBUG] Total amount for category ${categoryId}: ${total}`);
@@ -562,7 +564,8 @@ const BudgetCalculator = () => {
   const getTransactionsForCategory = (categoryId: string): Transaction[] => {
     const monthTransactions = (currentMonthData as any).transactions || [];
     // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
-    return monthTransactions.filter((t: Transaction) => t.appCategoryId === categoryId);
+    // But EXCLUDE positive amounts (income) from cost categories
+    return monthTransactions.filter((t: Transaction) => t.appCategoryId === categoryId && t.amount < 0);
   };
 
   const getTransactionsForAccount = (accountName: string): Transaction[] => {
@@ -6189,10 +6192,12 @@ const BudgetCalculator = () => {
                                      
                                      console.log(`🔍 [ACCOUNT VIEW] Found ${transactionsForThisAccount.length} transactions for ${account.name}:`, transactionsForThisAccount);
                                      
-                                      // 4. Beräkna det FAKTISKA beloppet genom enkel summering
-                                      // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
-                                      const actualAmount = transactionsForThisAccount
-                                        .reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0);
+                                       // 4. Beräkna det FAKTISKA beloppet genom enkel summering
+                                       // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
+                                       // But EXCLUDE positive amounts (income) from cost calculations
+                                       const actualAmount = transactionsForThisAccount
+                                         .filter((t: any) => t.amount < 0) // Only include negative amounts (costs)
+                                         .reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0);
                                      
                                      console.log(`🔍 [ACCOUNT VIEW] Actual amount for ${account.name}: ${actualAmount}`);
                                      
