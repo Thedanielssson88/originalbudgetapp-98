@@ -702,32 +702,36 @@ const BudgetCalculator = () => {
     
     console.log('🔍 [DEBUG] Total transactions across all months:', allTransactions.length);
     
-    // Log all transaction types and savings target IDs
-    allTransactions.forEach((t: any, index: number) => {
-      if (index < 10) { // Log first 10 transactions
-        console.log('🔍 [DEBUG] Transaction', index, ':', {
-          id: t.id,
-          description: t.description,
-          type: t.type,
-          amount: t.amount,
-          appCategoryId: t.appCategoryId,
-          savingsTargetId: t.savingsTargetId,
-          hasLink: !!t.savingsTargetId
-        });
-      }
+    // Log all transactions with savings targets or type 'Savings'
+    const savingsRelated = allTransactions.filter(t => t.type === 'Savings' || t.savingsTargetId);
+    console.log(`🔍 [DEBUG] Found ${savingsRelated.length} transactions with savings type or target`);
+    
+    savingsRelated.forEach((t: any, index: number) => {
+      const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+      console.log(`🔍 [DEBUG] Savings-related transaction ${index}:`, {
+        id: t.id,
+        description: t.description?.substring(0, 30),
+        type: t.type,
+        amount: t.amount,
+        correctedAmount: t.correctedAmount,
+        effectiveAmount,
+        appCategoryId: t.appCategoryId,
+        savingsTargetId: t.savingsTargetId,
+        willBeIncluded: t.type === 'Savings' && effectiveAmount > 0
+      });
     });
     
-    // Filter for savings transactions (positive amounts)
+    // Filter for savings transactions - include all transactions with type 'Savings' or savingsTargetId
     const filtered = allTransactions.filter((t: any) => {
       const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
-      const isSavings = t.type === 'Savings' && effectiveAmount > 0;
-      if (isSavings) {
-        console.log('🔍 [DEBUG] Found savings transaction:', t.id, t.amount, t.savingsTargetId);
-      }
+      // Include transactions that are marked as Savings type OR have a savingsTargetId
+      const isSavings = t.type === 'Savings' || t.savingsTargetId;
       return isSavings;
     });
     
     console.log('🔍 [DEBUG] getSavingsTransactions - filtered result:', filtered.length);
+    console.log('🔍 [DEBUG] IMPORTANT: Filter condition is t.type === "Savings" && effectiveAmount > 0');
+    console.log('🔍 [DEBUG] This means negative amounts or amounts of 0 are excluded');
     return filtered;
   };
 
