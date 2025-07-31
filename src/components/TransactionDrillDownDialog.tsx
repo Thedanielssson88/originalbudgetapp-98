@@ -92,7 +92,7 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
   };
 
   const formatCurrency = (amount: number) => {
-    return `${Math.abs(amount).toLocaleString('sv-SE')} kr`;
+    return `${amount.toLocaleString('sv-SE')} kr`;
   };
 
   return (
@@ -134,7 +134,7 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
                               {dateTransactions.length}
                             </div>
                             <div className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded">
-                              {formatCurrency(dateTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0))}
+                              {Math.abs(dateTransactions.reduce((sum, t) => sum + t.amount, 0)).toLocaleString('sv-SE')} kr
                             </div>
                           </div>
                           <Button variant="ghost" size="sm" className="flex-shrink-0">
@@ -179,10 +179,12 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
                                       </div>
                                     )}
                                     <div className={`${isMobile ? 'flex items-center justify-between ml-8' : 'flex items-center space-x-3'}`}>
-                                      <div>
-                                        <div className="text-muted-foreground text-xs">Belopp</div>
-                                        <div className={`font-bold text-red-500 ${isMobile ? 'text-sm' : 'text-base'}`}>{formatCurrency(transaction.amount)}</div>
-                                      </div>
+                                       <div>
+                                         <div className="text-muted-foreground text-xs">Belopp</div>
+                                         <div className={`font-bold ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-500'} ${isMobile ? 'text-sm' : 'text-base'}`}>
+                                           {formatCurrency(transaction.amount)}
+                                         </div>
+                                       </div>
                                       <Button variant="ghost" size="sm" className="flex-shrink-0">
                                         {expandedTransactions.has(transaction.id) ? 
                                           <ChevronUp className="w-4 h-4" /> : 
