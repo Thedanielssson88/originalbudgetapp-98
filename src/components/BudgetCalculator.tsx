@@ -6740,6 +6740,7 @@ const BudgetCalculator = () => {
                               accounts={budgetState.accounts}
                               mainCategories={budgetState.mainCategories || []}
                               calculateSavingsActualForCategory={calculateSavingsActualForCategory}
+                              calculateActualForTarget={calculateActualForTarget}
                               onSavingsCategoryDrillDown={openSavingsCategoryDrillDownDialog}
                               onAddSavingsItem={(item) => {
                                 // Handle adding savings item

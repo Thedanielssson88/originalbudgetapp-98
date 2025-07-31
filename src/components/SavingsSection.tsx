@@ -14,6 +14,7 @@ interface SavingsSectionProps {
   accounts: { id: string; name: string }[];
   mainCategories: string[];
   calculateSavingsActualForCategory?: (categoryName: string) => number;
+  calculateActualForTarget?: (targetId: string) => number;
   onSavingsCategoryDrillDown?: (categoryName: string, budgetAmount: number) => void;
   onAddSavingsItem: (item: {
     mainCategory: string;
@@ -34,6 +35,7 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
   accounts,
   mainCategories,
   calculateSavingsActualForCategory,
+  calculateActualForTarget,
   onSavingsCategoryDrillDown,
   onAddSavingsItem,
   onEditSavingsGroup,
@@ -236,24 +238,39 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
 
               {expandedCategories.has(categoryName) && (
                 <div className="pl-6 space-y-2 border-l-2 border-muted">
-                  {data.subcategories.map((sub) => (
-                    <div key={sub.id} className="flex justify-between items-center p-2 bg-muted/20 rounded">
-                      <span className="flex-1">
-                        {sub.name}{sub.account ? ` (${sub.account})` : ''}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-green-600">
-                          {formatCurrency(sub.amount)}
+                  {data.subcategories.map((sub) => {
+                    const actualForSub = calculateActualForTarget ? calculateActualForTarget(sub.id) : 0;
+                    const differenceForSub = sub.amount - actualForSub;
+                    
+                    return (
+                      <div key={sub.id} className="flex justify-between items-center p-2 bg-muted/20 rounded">
+                        <span className="flex-1">
+                          {sub.name}{sub.account ? ` (${sub.account})` : ''}
                         </span>
-                        <Button size="sm" variant="outline" onClick={() => onEditSavingsGroup({ id: sub.groupId } as BudgetGroup)}>
-                          <Edit className="w-3 h-3" />
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={() => onDeleteSavingsGroup(sub.groupId)}>
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right space-y-1">
+                            <div className="text-sm">
+                              <span className="text-muted-foreground">Budget: </span>
+                              <span className="font-medium">{formatCurrency(sub.amount)}</span>
+                            </div>
+                            <div className="text-sm">
+                              <span className="text-muted-foreground">Faktiskt: </span>
+                              <span className="font-bold text-green-600">{formatCurrency(actualForSub)}</span>
+                            </div>
+                            <div className={`text-sm font-medium ${differenceForSub >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              Diff: {differenceForSub >= 0 ? '+' : ''}{formatCurrency(Math.abs(differenceForSub))}
+                            </div>
+                          </div>
+                          <Button size="sm" variant="outline" onClick={() => onEditSavingsGroup({ id: sub.groupId } as BudgetGroup)}>
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => onDeleteSavingsGroup(sub.groupId)}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
