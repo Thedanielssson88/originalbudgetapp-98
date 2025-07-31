@@ -49,7 +49,7 @@ import { TransferMatchDialog } from './TransferMatchDialog';
 import { SavingsLinkDialog } from './SavingsLinkDialog';
 import { CostCoverageDialog } from './CostCoverageDialog';
 import { useBudget } from '@/hooks/useBudget';
-import { setTransactionsForCurrentMonth, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, APP_STATE_UPDATED, eventEmitter, updateTransactionsForMonth } from '../orchestrator/budgetOrchestrator';
+import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState, setMainCategories } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
 
@@ -334,8 +334,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<'upload' | 'mapping' | 'categorization'>('upload');
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [fileStructures, setFileStructures] = useState<FileStructure[]>([]);
-  // Remove local categoryRules state - now using budgetState
-  const [transactions, setTransactions] = useState<ImportedTransaction[]>([]);
+  // Remove local transactions state - now reading directly from budgetState
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
   const [activeTransactionTab, setActiveTransactionTab] = useState<'all' | 'account'>('all');
   const [hideGreenTransactions, setHideGreenTransactions] = useState<boolean>(false);
@@ -362,6 +361,15 @@ export const TransactionImportEnhanced: React.FC = () => {
   const { budgetState } = useBudget();
   const costGroups = budgetState?.historicalData?.[budgetState.selectedMonthKey]?.costGroups || [];
   const categoryRulesFromState = budgetState?.transactionImport?.categoryRules || [];
+  
+  // Read transactions directly from central state - merge from all months
+  const transactions = Object.values(budgetState?.historicalData || {}).flatMap(month => 
+    (month.transactions || []).map(t => ({
+      ...t,
+      importedAt: (t as any).importedAt || new Date().toISOString(),
+      fileSource: (t as any).fileSource || 'budgetState'
+    } as ImportedTransaction))
+  );
 
   // Use actual accounts from budget state
   const accounts: Account[] = budgetState?.accounts || [];
@@ -377,73 +385,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     setSubcategoriesFromStorage(loadedSubcategories);
   }, []);
 
-  // Sync transactions from budgetState when it changes
-  useEffect(() => {
-    const currentMonthData = budgetState?.historicalData?.[budgetState.selectedMonthKey];
-    if (currentMonthData?.transactions) {
-      console.log('🔄 [TransactionImportEnhanced] Syncing transactions from budgetState:', currentMonthData.transactions.length);
-      // Convert Transaction[] to ImportedTransaction[] by adding missing fields
-      const importedTransactions = currentMonthData.transactions.map(t => ({
-        ...t,
-        importedAt: new Date().toISOString(),
-        fileSource: 'budgetState'
-      })) as ImportedTransaction[];
-      setTransactions(importedTransactions);
-    }
-  }, [budgetState?.historicalData, budgetState?.selectedMonthKey]);
-
-  // Listen to orchestrator updates
-  useEffect(() => {
-    const handleStateUpdate = () => {
-      console.log('🎯 [TransactionImportEnhanced] Received APP_STATE_UPDATED event');
-      const currentState = getCurrentState();
-      const currentMonthData = currentState.budgetState.historicalData[currentState.budgetState.selectedMonthKey];
-      if (currentMonthData?.transactions) {
-        console.log('🔄 [TransactionImportEnhanced] Updating transactions from state update:', currentMonthData.transactions.length);
-        // Convert Transaction[] to ImportedTransaction[] by adding missing fields
-        const importedTransactions = currentMonthData.transactions.map(t => ({
-          ...t,
-          importedAt: new Date().toISOString(),
-          fileSource: 'budgetState'
-        })) as ImportedTransaction[];
-        setTransactions(importedTransactions);
-      }
-    };
-
-    const eventEmitterRef = eventEmitter;
-    // Get the event emitter from orchestrator
-    eventEmitterRef.addEventListener(APP_STATE_UPDATED, handleStateUpdate);
-
-    return () => {
-      eventEmitterRef.removeEventListener(APP_STATE_UPDATED, handleStateUpdate);
-    };
-  }, []);
-
-  // Critical useEffect: Save transaction changes back to central state
-  // This creates the bridge between the temporary local transaction list and the persistent state
-  useEffect(() => {
-    // Don't run on initial empty render
-    if (transactions.length === 0) return;
-
-    console.log('🔄 [TransactionImportEnhanced] Transaction list changed, saving to central state...', transactions.length);
-
-    // Group transactions by month
-    const transactionsByMonth: { [monthKey: string]: ImportedTransaction[] } = {};
-    transactions.forEach(t => {
-      const monthKey = t.date.substring(0, 7); // Extract YYYY-MM from date
-      if (!transactionsByMonth[monthKey]) {
-        transactionsByMonth[monthKey] = [];
-      }
-      transactionsByMonth[monthKey].push(t);
-    });
-
-    // Save each month's transactions to the central state
-    Object.entries(transactionsByMonth).forEach(([monthKey, monthTransactions]) => {
-      console.log(`🔄 [TransactionImportEnhanced] Saving ${monthTransactions.length} transactions to month ${monthKey}`);
-      updateTransactionsForMonth(monthKey, monthTransactions);
-    });
-
-  }, [transactions]); // This hook runs every time the transactions list changes
+  // Remove the faulty synchronization effects - transactions are now read directly from central state
 
   // CSV Parsing with enhanced logic
   const parseCSV = useCallback((csvContent: string, accountId: string, fileName: string): ImportedTransaction[] => {
@@ -723,17 +665,25 @@ export const TransactionImportEnhanced: React.FC = () => {
       
       console.log(`[FileUpload] Reconciliation complete. Original: ${parsedTransactions.length}, Reconciled: ${reconciledTransactions.length}`);
 
-      // Add reconciled transactions to global list
-      setTransactions(prev => {
-        const filtered = prev.filter(t => t.accountId !== accountName);
-        const updatedTransactions = [...filtered, ...reconciledTransactions];
+      // Save directly to central state - group by month
+      const transactionsByMonth: { [monthKey: string]: ImportedTransaction[] } = {};
+      reconciledTransactions.forEach(t => {
+        const monthKey = t.date.substring(0, 7);
+        if (!transactionsByMonth[monthKey]) {
+          transactionsByMonth[monthKey] = [];
+        }
+        transactionsByMonth[monthKey].push(t);
+      });
+      
+      // Save each month's transactions
+      Object.entries(transactionsByMonth).forEach(([monthKey, monthTransactions]) => {
+        // Get existing transactions for this month and account
+        const existingTransactions = (budgetState?.historicalData?.[monthKey]?.transactions || [])
+          .filter(t => t.accountId !== accountName);
         
-        // Save to persistent storage - verify accountId is preserved
-        console.log(`[FileUpload] Saving ${updatedTransactions.length} transactions. Sample accountIds:`, 
-          updatedTransactions.slice(0, 3).map(t => ({ id: t.id, accountId: t.accountId })));
-        setTransactionsForCurrentMonth(updatedTransactions);
-        
-        return updatedTransactions;
+        // Combine with new transactions
+        const allTransactions = [...existingTransactions, ...monthTransactions] as ImportedTransaction[];
+        updateTransactionsForMonth(monthKey, allTransactions);
       });
 
       toast({
@@ -745,42 +695,36 @@ export const TransactionImportEnhanced: React.FC = () => {
   }, [parseCSV, toast, reconcileTransactions]);
 
   const applyCategorizationRules = useCallback(() => {
-    setTransactions(prev => {
-      const updatedTransactions = prev.map(transaction => {
-        if (transaction.isManuallyChanged) return transaction; // Don't override manual changes
+    // Apply rules to all transactions by updating them individually
+    transactions.forEach(transaction => {
+      if (transaction.isManuallyChanged) return; // Don't override manual changes
 
-        // Find matching rule
-        const matchingRule = categoryRulesFromState
-          .filter(rule => rule.isActive)
-          .sort((a, b) => b.priority - a.priority) // Higher priority first
-          .find(rule => {
-            const bankCategoryMatch = transaction.bankCategory === rule.bankCategory;
-            const subCategoryMatch = !rule.bankSubCategory || transaction.bankSubCategory === rule.bankSubCategory;
+      // Find matching rule
+      const matchingRule = categoryRulesFromState
+        .filter(rule => rule.isActive)
+        .sort((a, b) => b.priority - a.priority) // Higher priority first
+        .find(rule => {
+          const bankCategoryMatch = transaction.bankCategory === rule.bankCategory;
+          const subCategoryMatch = !rule.bankSubCategory || transaction.bankSubCategory === rule.bankSubCategory;
           return bankCategoryMatch && subCategoryMatch;
         });
 
+      const monthKey = transaction.date.substring(0, 7);
+      
       if (matchingRule) {
-      return {
-        ...transaction,
-        appCategoryId: matchingRule.appCategoryId,
-        appSubCategoryId: matchingRule.appSubCategoryId,
-        type: matchingRule.transactionType,
-        status: 'yellow' as const // Auto-categorized
-      };
+        updateTransaction(transaction.id, {
+          appCategoryId: matchingRule.appCategoryId,
+          appSubCategoryId: matchingRule.appSubCategoryId,
+          type: matchingRule.transactionType,
+          status: 'yellow' as const // Auto-categorized
+        }, monthKey);
+      } else {
+        updateTransaction(transaction.id, {
+          status: 'red' as const // Needs manual categorization
+        }, monthKey);
       }
-
-      return {
-        ...transaction,
-        status: 'red' as const // Needs manual categorization
-      };
     });
-    
-    // Save to persistent storage
-    setTransactionsForCurrentMonth(updatedTransactions);
-    
-    return updatedTransactions;
-  });
-  }, [categoryRulesFromState]);
+  }, [transactions, categoryRulesFromState]);
 
   const autoMatchTransfers = useCallback(() => {
     const transfers = transactions.filter(t => t.type === 'InternalTransfer' && !t.linkedTransactionId);
@@ -795,23 +739,19 @@ export const TransactionImportEnhanced: React.FC = () => {
 
       if (potentialMatches.length === 1) {
         const match = potentialMatches[0];
-        // Auto-link them
-        setTransactions(prev => {
-          const updatedTransactions = prev.map(t => {
-            if (t.id === transfer.id) {
-              return { ...t, linkedTransactionId: match.id, status: 'yellow' as const };
-            }
-            if (t.id === match.id) {
-              return { ...t, linkedTransactionId: transfer.id, status: 'yellow' as const };
-            }
-            return t;
-          });
-          
-          // Save to persistent storage
-          setTransactionsForCurrentMonth(updatedTransactions);
-          
-          return updatedTransactions;
-        });
+        const transferMonthKey = transfer.date.substring(0, 7);
+        const matchMonthKey = match.date.substring(0, 7);
+        
+        // Auto-link them using central state
+        updateTransaction(transfer.id, {
+          linkedTransactionId: match.id,
+          status: 'yellow' as const
+        }, transferMonthKey);
+        
+        updateTransaction(match.id, {
+          linkedTransactionId: transfer.id,
+          status: 'yellow' as const
+        }, matchMonthKey);
       }
     });
   }, [transactions]);
@@ -1015,18 +955,15 @@ export const TransactionImportEnhanced: React.FC = () => {
   };
 
   const approveSelectedTransactions = () => {
-    setTransactions(prev => {
-      const updatedTransactions = prev.map(t => 
-        selectedTransactions.includes(t.id) 
-          ? { ...t, status: 'green' as const }
-          : t
-      );
-      
-      // Save to persistent storage
-      setTransactionsForCurrentMonth(updatedTransactions);
-      
-      return updatedTransactions;
+    // Update each selected transaction individually
+    selectedTransactions.forEach(transactionId => {
+      const transaction = transactions.find(t => t.id === transactionId);
+      if (transaction) {
+        const monthKey = transaction.date.substring(0, 7);
+        updateTransaction(transactionId, { status: 'green' as const }, monthKey);
+      }
     });
+    
     setSelectedTransactions([]);
     toast({
       title: "Transaktioner godkända",
@@ -1067,40 +1004,30 @@ export const TransactionImportEnhanced: React.FC = () => {
     console.log(`🔥 [CATEGORY FIX] Converting category name "${categoryName}" to ID "${categoryId}"`);
     console.log(`🔥 [CATEGORY FIX] Available cost groups:`, currentCostGroups.map(g => ({id: g.id, name: g.name})));
     
-    // Update transaction with correct category ID
-    setTransactions(prev => {
-      const updatedTransactions = prev.map(t => 
-        t.id === transactionId 
-          ? { 
-              ...t, 
-            appCategoryId: categoryId, // Store the ID, not the name!
-            appSubCategoryId: subCategoryId,
-            isManuallyChanged: true,
-            status: 'yellow' as const
-            }
-          : t
-      );
-      
-      // Save to persistent storage
-      setTransactionsForCurrentMonth(updatedTransactions);
-      
-      return updatedTransactions;
-    });
+    // Find the transaction to get its month
+    const transaction = transactions.find(t => t.id === transactionId);
+    if (!transaction) return;
+    
+    const monthKey = transaction.date.substring(0, 7);
+    
+    // Update transaction directly in central state
+    updateTransaction(transactionId, {
+      appCategoryId: categoryId, // Store the ID, not the name!
+      appSubCategoryId: subCategoryId,
+      isManuallyChanged: true,
+      status: 'yellow' as const
+    }, monthKey);
   };
 
   const updateTransactionNote = (transactionId: string, note: string) => {
-    setTransactions(prev => {
-      const updatedTransactions = prev.map(t => 
-        t.id === transactionId 
-          ? { ...t, userDescription: note }
-          : t
-      );
-      
-      // Save to persistent storage
-      setTransactionsForCurrentMonth(updatedTransactions);
-      
-      return updatedTransactions;
-    });
+    // Find the transaction to get its month
+    const transaction = transactions.find(t => t.id === transactionId);
+    if (!transaction) return;
+    
+    const monthKey = transaction.date.substring(0, 7);
+    
+    // Update transaction directly in central state
+    updateTransaction(transactionId, { userDescription: note }, monthKey);
   };
 
   // Handler functions for action buttons
@@ -1122,11 +1049,14 @@ export const TransactionImportEnhanced: React.FC = () => {
 
   // Unified transaction update function - the single source of truth for all transaction changes
   const handleUpdateTransaction = (transactionId: string, updates: Partial<ImportedTransaction>) => {
-    setTransactions(currentTransactions => 
-      currentTransactions.map(t => 
-        t.id === transactionId ? { ...t, ...updates } : t
-      )
-    );
+    // Find the transaction to get its month
+    const transaction = transactions.find(t => t.id === transactionId);
+    if (!transaction) return;
+    
+    const monthKey = transaction.date.substring(0, 7);
+    
+    // Update transaction directly in central state
+    updateTransaction(transactionId, updates, monthKey);
   };
 
   const handleSavingsLink = (transaction: ImportedTransaction) => {
