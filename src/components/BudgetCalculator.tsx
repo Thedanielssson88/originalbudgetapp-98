@@ -781,9 +781,38 @@ const BudgetCalculator = () => {
   };
 
   const getSavingsTransactionsForCategory = (mainCategoryId: string) => {
+    console.log(`🔍 [DEBUG] getSavingsTransactionsForCategory called for: ${mainCategoryId}`);
+    
+    // Find all savings items (subcategories) that belong to this main category
+    const categoryItems = allSavingsItems.filter(item => {
+      const belongsToCategory = item.mainCategoryId === mainCategoryId || 
+                               (item.type === 'savings' && item.name && item.name.includes(mainCategoryId));
+      
+      if (belongsToCategory) {
+        console.log(`🔍 [DEBUG] Found subcategory in ${mainCategoryId}:`, {
+          id: item.id,
+          name: item.name,
+          mainCategoryId: item.mainCategoryId
+        });
+      }
+      
+      return belongsToCategory;
+    });
+    
+    console.log(`🔍 [DEBUG] Found ${categoryItems.length} subcategories in ${mainCategoryId}`);
+    
+    // Get all transactions linked to these subcategories
     const savingsTransactions = getSavingsTransactions();
-    // Find all transactions linked to this main category
-    return savingsTransactions.filter(t => t.appCategoryId === mainCategoryId);
+    const allCategoryTransactions: any[] = [];
+    
+    categoryItems.forEach(item => {
+      const itemTransactions = savingsTransactions.filter(t => t.savingsTargetId === item.id);
+      console.log(`🔍 [DEBUG] Subcategory ${item.name} (${item.id}) has ${itemTransactions.length} transactions`);
+      allCategoryTransactions.push(...itemTransactions);
+    });
+    
+    console.log(`🔍 [DEBUG] Total transactions for main category ${mainCategoryId}: ${allCategoryTransactions.length}`);
+    return allCategoryTransactions;
   };
 
   const openSavingsCategoryDrillDownDialog = (categoryName: string, budgetAmount: number) => {
