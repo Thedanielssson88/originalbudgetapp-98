@@ -28,27 +28,15 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
   const [selectedTarget, setSelectedTarget] = useState<string>('');
   const { budgetState } = useBudget();
 
-  // Set initial selection based on existing savings link
-  React.useEffect(() => {
-    if (transaction?.savingsTargetId) {
-      setSelectedTarget(transaction.savingsTargetId);
-    } else {
-      setSelectedTarget('');
-    }
-  }, [transaction?.savingsTargetId]);
-
   // Get month data for savings categories
   const currentMonthData = budgetState?.historicalData?.[budgetState.selectedMonthKey];
   const savingsGroups = currentMonthData?.savingsGroups || [];
   const savingsGoals = budgetState?.savingsGoals || [];
 
-  // Early return if no transaction
-  if (!transaction) {
-    return null;
-  }
-
   // Create unified list of all selectable savings targets
   const selectableTargets = useMemo<SavingsTarget[]>(() => {
+    if (!transaction) return [];
+
     const targets: SavingsTarget[] = [];
 
     // Add savings subcategories (specific savings posts)
@@ -82,7 +70,21 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
     });
 
     return targets;
-  }, [savingsGroups, savingsGoals, transaction.date]);
+  }, [savingsGroups, savingsGoals, transaction]);
+
+  // Set initial selection based on existing savings link
+  React.useEffect(() => {
+    if (transaction?.savingsTargetId) {
+      setSelectedTarget(transaction.savingsTargetId);
+    } else {
+      setSelectedTarget('');
+    }
+  }, [transaction?.savingsTargetId]);
+
+  // Early return if no transaction - MOVED AFTER ALL HOOKS
+  if (!transaction) {
+    return null;
+  }
 
   const handleLinkSavings = () => {
     console.log(`🚀 [SavingsLinkDialog] handleLinkSavings called with:`, { selectedTarget, transactionId: transaction?.id });
