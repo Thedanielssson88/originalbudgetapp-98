@@ -10,7 +10,7 @@ import { useBudget } from '@/hooks/useBudget';
 interface SavingsLinkDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  transaction: ImportedTransaction;
+  transaction?: ImportedTransaction;
 }
 
 export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
@@ -26,6 +26,11 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
   const savingsGroups = currentMonthData?.savingsGroups || [];
   const savingsGoals = budgetState?.savingsGoals || [];
 
+  // Early return if no transaction
+  if (!transaction) {
+    return null;
+  }
+
   // Filter based on transaction date's month
   const transactionDate = new Date(transaction.date);
   const relevantSavingsGoals = savingsGoals.filter(goal => {
@@ -35,7 +40,7 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
   });
 
   const handleLinkSavings = () => {
-    if (selectedTarget) {
+    if (selectedTarget && transaction) {
       linkSavingsTransaction(transaction.id, selectedTarget);
       onClose();
     }
