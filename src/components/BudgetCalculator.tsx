@@ -730,8 +730,8 @@ const BudgetCalculator = () => {
     });
     
     console.log('🔍 [DEBUG] getSavingsTransactions - filtered result:', filtered.length);
-    console.log('🔍 [DEBUG] IMPORTANT: Filter condition is t.type === "Savings" && effectiveAmount > 0');
-    console.log('🔍 [DEBUG] This means negative amounts or amounts of 0 are excluded');
+    console.log('🔍 [DEBUG] CORRECTED: Filter condition is (t.type === "Savings" || t.savingsTargetId)');
+    console.log('🔍 [DEBUG] This includes ALL savings transactions regardless of amount');
     return filtered;
   };
 
@@ -822,10 +822,18 @@ const BudgetCalculator = () => {
   const openSavingsTargetDrillDownDialog = (targetId: string, targetName: string, budgetAmount: number) => {
     console.log(`🔍 [DEBUG] openSavingsTargetDrillDownDialog called for target: ${targetId} (${targetName})`);
     const savingsTransactions = getSavingsTransactions();
-    const transactions = savingsTransactions.filter(t => t.savingsTargetId === targetId);
-    const actualAmount = calculateActualForTarget(targetId);
+    console.log(`🔍 [DEBUG] getAllSavingsTransactions returned ${savingsTransactions.length} total transactions`);
     
-    console.log(`🔍 [DEBUG] Found ${transactions.length} transactions for target ${targetId}, actual amount: ${actualAmount}`);
+    // Debug: Log all savingsTransactions to see what's available
+    savingsTransactions.forEach((t, index) => {
+      console.log(`🔍 [DEBUG] Transaction ${index}: id=${t.id}, savingsTargetId=${t.savingsTargetId}, appCategoryId=${t.appCategoryId}, type=${t.type}, amount=${t.amount}, description=${t.description}`);
+    });
+    
+    const transactions = savingsTransactions.filter(t => t.savingsTargetId === targetId);
+    console.log(`🔍 [DEBUG] After filtering by savingsTargetId=${targetId}, found ${transactions.length} transactions`);
+    
+    const actualAmount = calculateActualForTarget(targetId);
+    console.log(`🔍 [DEBUG] calculateActualForTarget returned: ${actualAmount}`);
     
     setDrillDownDialog({
       isOpen: true,

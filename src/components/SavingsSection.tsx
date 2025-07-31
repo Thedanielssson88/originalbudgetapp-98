@@ -325,7 +325,13 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
                         <button
                           className="font-bold text-green-600 hover:text-green-500 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200"
                           onClick={() => {
-                            console.log(`🎯 [SavingsSection] Clicked on goal:`, { id: goal.id, name: goal.name, targetAmount: goal.targetAmount });
+                            console.log(`🎯 [SavingsSection] Clicked on goal:`, { 
+                              id: goal.id, 
+                              name: goal.name, 
+                              targetAmount: goal.targetAmount,
+                              accountId: goal.accountId 
+                            });
+                            console.log(`🎯 [SavingsSection] All available savings goals:`, savingsGoals);
                             onSavingsTargetDrillDown && onSavingsTargetDrillDown(goal.id, goal.name, goal.targetAmount);
                           }}
                         >
