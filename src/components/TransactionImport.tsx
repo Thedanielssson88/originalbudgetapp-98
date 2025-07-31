@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -98,7 +99,7 @@ export const TransactionImport: React.FC = () => {
       }));
 
       const fileMapping: FileMapping = {
-        fileId: `${accountId}-${Date.now()}`,
+        fileId: `${accountId}-${uuidv4()}`,
         columns,
         structure: headers.join('|') // Simple structure identifier
       };

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Plus, Target, TrendingUp } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 import { useBudget } from '../hooks/useBudget';
 import { createSavingsGoal } from '../orchestrator/budgetOrchestrator';
 import { SavingsGoal } from '../types/budget';
@@ -65,7 +66,13 @@ export function SavingsGoalsPage() {
       endDate: formData.endDate
     };
 
-    createSavingsGoal(newGoal);
+    // Generate UUID for the new goal
+    const goalWithId = {
+      id: uuidv4(),
+      ...newGoal
+    };
+
+    createSavingsGoal(goalWithId);
     setIsCreateDialogOpen(false);
     setFormData({ name: '', accountId: '', targetAmount: '', startDate: '', endDate: '' });
   };

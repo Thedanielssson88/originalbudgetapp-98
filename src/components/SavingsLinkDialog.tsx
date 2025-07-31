@@ -1,16 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { ImportedTransaction } from '@/types/transaction';
-import { linkSavingsTransaction } from '../orchestrator/budgetOrchestrator';
+import { updateTransaction } from '../orchestrator/budgetOrchestrator';
 import { useBudget } from '@/hooks/useBudget';
 
 interface SavingsLinkDialogProps {
   isOpen: boolean;
   onClose: () => void;
   transaction?: ImportedTransaction;
+}
+
+interface SavingsTarget {
+  id: string;
+  name: string;
+  mainCategoryId: string;
+  type: 'subcategory' | 'goal';
 }
 
 export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
@@ -40,54 +47,86 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
     return null;
   }
 
-  // Filter based on transaction date's month
-  const transactionDate = new Date(transaction.date);
-  const relevantSavingsGoals = savingsGoals.filter(goal => {
-    const startDate = new Date(goal.startDate + '-01');
-    const endDate = new Date(goal.endDate + '-01');
-    return transactionDate >= startDate && transactionDate <= endDate;
-  });
+  // Create unified list of all selectable savings targets
+  const selectableTargets = useMemo<SavingsTarget[]>(() => {
+    const targets: SavingsTarget[] = [];
+
+    // Add savings subcategories (specific savings posts)
+    savingsGroups.forEach(group => {
+      (group.subCategories || []).forEach(sub => {
+        targets.push({
+          id: sub.id, // UUID from subcategory
+          name: `${sub.name} (från ${group.name})`,
+          mainCategoryId: group.id, // Main category ID
+          type: 'subcategory'
+        });
+      });
+    });
+
+    // Filter savings goals based on transaction date
+    const transactionDate = new Date(transaction.date);
+    const relevantSavingsGoals = savingsGoals.filter(goal => {
+      const startDate = new Date(goal.startDate + '-01');
+      const endDate = new Date(goal.endDate + '-01');
+      return transactionDate >= startDate && transactionDate <= endDate;
+    });
+
+    // Add relevant savings goals
+    relevantSavingsGoals.forEach(goal => {
+      targets.push({
+        id: goal.id, // UUID from savings goal
+        name: `${goal.name} (Sparmål)`,
+        mainCategoryId: goal.mainCategoryId || goal.id, // Use mainCategoryId if set, otherwise goal ID
+        type: 'goal'
+      });
+    });
+
+    return targets;
+  }, [savingsGroups, savingsGoals, transaction.date]);
 
   const handleLinkSavings = () => {
     console.log(`🚀 [SavingsLinkDialog] handleLinkSavings called with:`, { selectedTarget, transactionId: transaction?.id });
-    if (selectedTarget && transaction) {
-      // Derive monthKey from transaction's date (e.g. "2025-07-30" -> "2025-07")
-      const monthKey = transaction.date.substring(0, 7);
-      
-      // Find the target to get its main category name/ID
-      let mainCategoryId: string | undefined;
-      
-      if (selectedTarget.startsWith('group-')) {
-        const groupId = selectedTarget.replace('group-', '');
-        const group = savingsGroups.find(g => g.id === groupId);
-        // For savings groups, the name IS the main category
-        mainCategoryId = group?.name;
-      } else if (selectedTarget.startsWith('goal-')) {
-        const goalId = selectedTarget.replace('goal-', '');
-        const goal = relevantSavingsGoals.find(g => g.id === goalId);
-        // For savings goals, use the goal name as mainCategoryId if not set
-        mainCategoryId = goal?.mainCategoryId || goal?.name;
-      }
-      
-      if (!mainCategoryId) {
-        console.error('🚨 [SavingsLinkDialog] Could not find main category for target:', selectedTarget);
-        return;
-      }
-      
-      console.log(`🚀 [SavingsLinkDialog] About to call linkSavingsTransaction:`, { 
-        transactionId: transaction.id, 
-        selectedTarget, 
-        mainCategoryId, 
-        monthKey 
-      });
-      
-      // Call the enhanced function with mainCategoryId
-      linkSavingsTransaction(transaction.id, selectedTarget, mainCategoryId, monthKey);
-      console.log(`🚀 [SavingsLinkDialog] linkSavingsTransaction completed`);
-      onClose();
-    } else {
+    
+    if (!selectedTarget || !transaction) {
       console.log(`🚨 [SavingsLinkDialog] Missing data:`, { selectedTarget: !!selectedTarget, transaction: !!transaction });
+      return;
     }
+    
+    // Find the selected target
+    const target = selectableTargets.find(t => t.id === selectedTarget);
+    if (!target) {
+      console.error('🚨 [SavingsLinkDialog] Could not find target for ID:', selectedTarget);
+      return;
+    }
+    
+    // Derive monthKey from transaction's date
+    const monthKey = transaction.date.substring(0, 7);
+    
+    console.log(`🚀 [SavingsLinkDialog] About to call updateTransaction:`, { 
+      transactionId: transaction.id, 
+      monthKey,
+      mainCategoryId: target.mainCategoryId,
+      savingsTargetId: target.id
+    });
+    
+    // Update transaction with correct linking
+    const updates: Partial<ImportedTransaction> = {
+      type: 'Savings',
+      appCategoryId: target.mainCategoryId, // Link to main category
+      savingsTargetId: target.id // Link to specific savings post/goal
+    };
+    
+    updateTransaction(transaction.id, updates, monthKey);
+    console.log(`🚀 [SavingsLinkDialog] updateTransaction completed`);
+    onClose();
+  };
+
+  // Get current link display name
+  const getCurrentLinkName = (): string => {
+    if (!transaction.savingsTargetId) return 'Ingen koppling';
+    
+    const target = selectableTargets.find(t => t.id === transaction.savingsTargetId);
+    return target ? target.name : 'Okänt sparmål';
   };
 
   return (
@@ -96,7 +135,7 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
         <DialogHeader>
           <DialogTitle>Koppla till Sparande</DialogTitle>
           <DialogDescription>
-            Välj vilket sparmål eller sparkategori som transaktionen ska kopplas till.
+            Välj vilken specifik sparandepost eller sparmål som transaktionen ska kopplas till.
           </DialogDescription>
         </DialogHeader>
 
@@ -112,60 +151,28 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
             </div>
             {transaction.savingsTargetId && (
               <div className="text-sm text-muted-foreground">
-                Nuvarande koppling: {(() => {
-                  const targetId = transaction.savingsTargetId;
-                  if (targetId.startsWith('group-')) {
-                    const groupId = targetId.replace('group-', '');
-                    const group = savingsGroups.find(g => g.id === groupId);
-                    return group ? `${group.name} (${group.amount} kr/månad)` : 'Okänt sparmål';
-                  }
-                  if (targetId.startsWith('goal-')) {
-                    const goalId = targetId.replace('goal-', '');
-                    const goal = relevantSavingsGoals.find(g => g.id === goalId);
-                    return goal ? `${goal.name} (${goal.targetAmount} kr)` : 'Okänt sparmål';
-                  }
-                  return 'Okänt sparmål';
-                })()}
+                Nuvarande koppling: {getCurrentLinkName()}
               </div>
             )}
           </div>
 
-          <RadioGroup value={selectedTarget} onValueChange={setSelectedTarget}>
-            {/* Savings groups */}
-            {savingsGroups.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="font-medium">Sparkategorier:</h4>
-                {savingsGroups.map(group => (
-                  <div key={`group-${group.id}`} className="flex items-center space-x-2">
-                    <RadioGroupItem value={`group-${group.id}`} id={`group-${group.id}`} />
-                    <Label htmlFor={`group-${group.id}`} className="flex-1">
-                      {group.name} ({group.amount} kr/månad)
-                    </Label>
-                  </div>
+          <div className="space-y-2">
+            <Label htmlFor="savings-target">Välj sparmål eller sparandepost:</Label>
+            <Select value={selectedTarget} onValueChange={setSelectedTarget}>
+              <SelectTrigger>
+                <SelectValue placeholder="Välj vad transaktionen ska kopplas till" />
+              </SelectTrigger>
+              <SelectContent>
+                {selectableTargets.map(target => (
+                  <SelectItem key={target.id} value={target.id}>
+                    {target.name}
+                  </SelectItem>
                 ))}
-              </div>
-            )}
+              </SelectContent>
+            </Select>
+          </div>
 
-            {/* Savings goals */}
-            {relevantSavingsGoals.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="font-medium">Sparmål:</h4>
-                {relevantSavingsGoals.map(goal => (
-                  <div key={`goal-${goal.id}`} className="flex items-center space-x-2">
-                    <RadioGroupItem value={`goal-${goal.id}`} id={`goal-${goal.id}`} />
-                    <Label htmlFor={`goal-${goal.id}`} className="flex-1">
-                      {goal.name} ({goal.targetAmount} kr)
-                      <div className="text-sm text-muted-foreground">
-                        {goal.startDate} - {goal.endDate}
-                      </div>
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            )}
-          </RadioGroup>
-
-          {savingsGroups.length === 0 && relevantSavingsGoals.length === 0 && (
+          {selectableTargets.length === 0 && (
             <div className="text-center text-muted-foreground py-4">
               Inga sparkategorier eller sparmål tillgängliga för denna period.
             </div>

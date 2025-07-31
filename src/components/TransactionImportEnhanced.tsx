@@ -467,7 +467,7 @@ export const TransactionImportEnhanced: React.FC = () => {
         console.log(`[CSV Parse] Raw amount: "${rawAmountField}" -> Cleaned: "${cleanedAmountField}" -> Parsed: ${parsedAmount}`);
         
         const transaction: ImportedTransaction = {
-          id: `${accountId}-${Date.now()}-${i}`,
+          id: `${accountId}-${uuidv4()}-${i}`,
           accountId, // Explicitly set the account ID from file upload
           date: dateColumnIndex >= 0 ? fields[dateColumnIndex] : fields[0],
           amount: parsedAmount,

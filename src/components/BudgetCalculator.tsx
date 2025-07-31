@@ -738,28 +738,32 @@ const BudgetCalculator = () => {
     }, 0);
   };
 
-  const calculateSavingsActualForCategory = (categoryName: string) => {
-    // Get all savings transactions across all months
+  // NEW SIMPLIFIED LOGIC: Calculate actual savings for a MAIN CATEGORY
+  const calculateSavingsActualForCategory = (mainCategoryId: string): number => {
     const savingsTransactions = getSavingsTransactions();
-    console.log('🔍 [DEBUG] calculateSavingsActualForCategory for:', categoryName);
-    console.log('🔍 [DEBUG] Total savings transactions:', savingsTransactions.length);
     
-    // Simple filter: transactions that have the correct main category ID
-    const filtered = savingsTransactions.filter(t => t.appCategoryId === categoryName);
-    
-    const total = filtered.reduce((sum, t) => {
-      const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
-      return sum + Math.abs(effectiveAmount);
-    }, 0);
-    
-    console.log('🔍 [DEBUG] calculateSavingsActualForCategory result:', total, 'from', filtered.length, 'transactions for category:', categoryName);
-    return total;
+    // Find all transactions linked to this main category
+    const filtered = savingsTransactions.filter(t => t.appCategoryId === mainCategoryId);
+
+    // Sum their amounts
+    return filtered.reduce((sum, t) => sum + (t.correctedAmount ?? t.amount), 0);
   };
 
-  const getSavingsTransactionsForCategory = (categoryName: string) => {
+  // NEW FUNCTION: Calculate actual savings for a specific TARGET (subcategory or goal)
+  const calculateActualForTarget = (targetId: string): number => {
     const savingsTransactions = getSavingsTransactions();
-    // Simple filter: transactions that have the correct main category ID
-    return savingsTransactions.filter(t => t.appCategoryId === categoryName);
+
+    // Find all transactions linked to this specific target
+    const filtered = savingsTransactions.filter(t => t.savingsTargetId === targetId);
+
+    // Sum their amounts
+    return filtered.reduce((sum, t) => sum + (t.correctedAmount ?? t.amount), 0);
+  };
+
+  const getSavingsTransactionsForCategory = (mainCategoryId: string) => {
+    const savingsTransactions = getSavingsTransactions();
+    // Find all transactions linked to this main category
+    return savingsTransactions.filter(t => t.appCategoryId === mainCategoryId);
   };
 
   const openSavingsCategoryDrillDownDialog = (categoryName: string, budgetAmount: number) => {
@@ -3745,9 +3749,9 @@ const BudgetCalculator = () => {
       let targetGroup = costGroups.find(g => g.name === updatedItem.categoryName);
       if (!targetGroup) {
         // Create new group if it doesn't exist
-        targetGroup = {
-          id: `category-${Date.now()}`,
-          name: updatedItem.categoryName,
+         targetGroup = {
+           id: `category-${uuidv4()}`,
+           name: updatedItem.categoryName,
           amount: 0,
           type: 'cost' as const,
           subCategories: []
@@ -6745,7 +6749,7 @@ const BudgetCalculator = () => {
                                   amount: 0,
                                   type: 'savings' as const,
                                   subCategories: [{
-                                    id: (Date.now() + 1).toString(),
+                                    id: uuidv4(),
                                     name: item.name,
                                     amount: item.amount,
                                     account: item.account
