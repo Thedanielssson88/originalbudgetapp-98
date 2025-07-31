@@ -98,6 +98,7 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
     const target = selectableTargets.find(t => t.id === selectedTarget);
     if (!target) {
       console.error('🚨 [SavingsLinkDialog] Could not find target for ID:', selectedTarget);
+      console.log('🚨 [SavingsLinkDialog] Available targets:', selectableTargets.map(t => ({ id: t.id, name: t.name })));
       return;
     }
     
@@ -108,7 +109,8 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
       transactionId: transaction.id, 
       monthKey,
       mainCategoryId: target.mainCategoryId,
-      savingsTargetId: target.id
+      savingsTargetId: target.id,
+      targetName: target.name
     });
     
     // Update transaction with correct linking
@@ -127,8 +129,14 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
   const getCurrentLinkName = (): string => {
     if (!transaction.savingsTargetId) return 'Ingen koppling';
     
+    console.log('🔍 [SavingsLinkDialog] getCurrentLinkName - looking for ID:', transaction.savingsTargetId);
+    console.log('🔍 [SavingsLinkDialog] Available targets:', selectableTargets.map(t => ({ id: t.id, name: t.name })));
+    
     const target = selectableTargets.find(t => t.id === transaction.savingsTargetId);
-    return target ? target.name : 'Okänt sparmål';
+    const result = target ? target.name : 'Okänt sparmål';
+    
+    console.log('🔍 [SavingsLinkDialog] getCurrentLinkName result:', result);
+    return result;
   };
 
   return (
