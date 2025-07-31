@@ -471,7 +471,46 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
     return;
   }
 
-  const updatedTransactions = currentMonth.transactions.map(t => {
+  // Find the original transaction to check for restoration logic
+  const originalTransaction = currentMonth.transactions.find(t => t.id === transactionId);
+  if (!originalTransaction) {
+    console.error(`[Orchestrator] Transaction ${transactionId} not found.`);
+    return;
+  }
+
+  let updatedTransactions = [...currentMonth.transactions];
+
+  // --- RESTORATION LOGIC ---
+  // If the type is being changed AWAY from 'CostCoverage', restore both linked transactions
+  if (originalTransaction.type === 'CostCoverage' && 
+      updates.type && 
+      updates.type !== 'CostCoverage' && 
+      originalTransaction.linkedTransactionId) {
+    
+    console.log(`🔄 [Orchestrator] Restoring cost coverage link for ${transactionId}`);
+    
+    // Find and restore the linked transaction
+    const linkedTxIndex = updatedTransactions.findIndex(t => t.id === originalTransaction.linkedTransactionId);
+    if (linkedTxIndex !== -1) {
+      updatedTransactions[linkedTxIndex] = {
+        ...updatedTransactions[linkedTxIndex],
+        correctedAmount: undefined, // Remove the correction
+        linkedTransactionId: undefined // Break the link
+      };
+      console.log(`🔄 [Orchestrator] Restored linked transaction ${originalTransaction.linkedTransactionId}`);
+    }
+    
+    // Prepare updates for the transaction being changed - break the link and remove correction
+    updates = {
+      ...updates,
+      correctedAmount: undefined, // Remove the correction
+      linkedTransactionId: undefined // Break the link
+    };
+  }
+  // --- END RESTORATION LOGIC ---
+
+  // Apply the updates
+  updatedTransactions = updatedTransactions.map(t => {
     if (t.id === transactionId) {
       return { ...t, ...updates };
     }
@@ -541,9 +580,10 @@ export function coverCost(transferId: string, costId: string): void {
     correctedAmount: transfer.amount - coverAmount
   });
   
-  // Update cost transaction
+  // Update cost transaction with bidirectional link
   updateTransaction(costId, {
-    correctedAmount: cost.amount + coverAmount
+    correctedAmount: cost.amount + coverAmount,
+    linkedTransactionId: transferId
   });
   
   console.log(`✅ [Orchestrator] Covered ${coverAmount} from transfer ${transferId} to cost ${costId}`);
