@@ -481,16 +481,21 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
   const currentMonth = state.budgetState.historicalData[targetMonthKey];
   if (!currentMonth || !currentMonth.transactions) {
     console.error(`[Orchestrator] Inga transaktioner finns för månad ${targetMonthKey}.`);
+    addMobileDebugLog(`❌ [ORCHESTRATOR] Inga transaktioner för månad ${targetMonthKey}`);
     return;
   }
+  
+  addMobileDebugLog(`🔍 [ORCHESTRATOR] Found ${currentMonth.transactions.length} transactions in month`);
 
   // Find the original transaction to check for restoration logic
   const originalTransaction = currentMonth.transactions.find(t => t.id === transactionId);
   if (!originalTransaction) {
     console.error(`[Orchestrator] Transaction ${transactionId} not found in month ${targetMonthKey}.`);
+    addMobileDebugLog(`❌ [ORCHESTRATOR] Transaction ${transactionId} not found!`);
     return;
   }
   
+  addMobileDebugLog(`✅ [ORCHESTRATOR] Found transaction ${transactionId}, current type: ${originalTransaction.type}`);
   console.log(`🔄 [Orchestrator] Original transaction found:`, { id: originalTransaction.id, type: originalTransaction.type });
   console.log(`🔄 [Orchestrator] Updates to apply:`, updates);
 
