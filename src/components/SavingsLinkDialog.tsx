@@ -49,9 +49,14 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
   });
 
   const handleLinkSavings = () => {
+    console.log(`🚀 [SavingsLinkDialog] handleLinkSavings called with:`, { selectedTarget, transactionId: transaction?.id });
     if (selectedTarget && transaction) {
+      console.log(`🚀 [SavingsLinkDialog] About to call linkSavingsTransaction:`, { transactionId: transaction.id, selectedTarget });
       linkSavingsTransaction(transaction.id, selectedTarget);
+      console.log(`🚀 [SavingsLinkDialog] linkSavingsTransaction completed`);
       onClose();
+    } else {
+      console.log(`🚨 [SavingsLinkDialog] Missing data:`, { selectedTarget: !!selectedTarget, transaction: !!transaction });
     }
   };
 
