@@ -83,6 +83,7 @@ interface SubCategory {
   name: string;
   amount: number;
   account?: string;
+  accountId?: string;  // New property for account ID
   financedFrom?: 'Löpande kostnad' | 'Enskild kostnad';
   transferType?: 'monthly' | 'daily';
   dailyAmount?: number;
@@ -5989,10 +5990,10 @@ const BudgetCalculator = () => {
                                                          <span className="text-muted-foreground">Överföringstyp:</span>
                                                          <div className="font-medium">{sub.transferType === 'daily' ? 'Daglig överföring' : 'Månadsöverföring'}</div>
                                                        </div>
-                                                       <div>
-                                                         <span className="text-muted-foreground">Konto:</span>
-                                                         <div className="font-medium">{sub.account || 'Inget konto'}</div>
-                                                       </div>
+                                                        <div>
+                                                          <span className="text-muted-foreground">Konto:</span>
+                                                          <div className="font-medium">{sub.accountId ? budgetState.accounts.find(acc => acc.id === sub.accountId)?.name || 'Inget konto' : sub.account || 'Inget konto'}</div>
+                                                        </div>
                                                      </div>
                                                      
                                                      <div className="grid grid-cols-2 gap-4 text-sm mt-3">
@@ -6309,10 +6310,10 @@ const BudgetCalculator = () => {
                                                              <span className="text-muted-foreground">Överföringstyp:</span>
                                                              <div className="font-medium">{sub.transferType === 'daily' ? 'Daglig överföring' : 'Månadsöverföring'}</div>
                                                            </div>
-                                                           <div>
-                                                             <span className="text-muted-foreground">Konto:</span>
-                                                             <div className="font-medium">{sub.account || 'Inget konto'}</div>
-                                                           </div>
+                                                            <div>
+                                                              <span className="text-muted-foreground">Konto:</span>
+                                                              <div className="font-medium">{sub.accountId ? budgetState.accounts.find(acc => acc.id === sub.accountId)?.name || 'Inget konto' : sub.account || 'Inget konto'}</div>
+                                                            </div>
                                                          </div>
                                                          
                                                          <div className="grid grid-cols-2 gap-4 text-sm mt-3">
