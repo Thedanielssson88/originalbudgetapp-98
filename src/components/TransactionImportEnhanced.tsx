@@ -52,6 +52,7 @@ import { useBudget } from '@/hooks/useBudget';
 import { setTransactionsForCurrentMonth, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, APP_STATE_UPDATED, eventEmitter, updateTransactionsForMonth } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState, setMainCategories } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
+import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 
 // Category Management Component
 interface CategoryManagementSectionProps {
@@ -396,12 +397,22 @@ export const TransactionImportEnhanced: React.FC = () => {
   useEffect(() => {
     const handleStateUpdate = () => {
       console.log('🎯 [TransactionImportEnhanced] Received APP_STATE_UPDATED event');
+      addMobileDebugLog('🎯 [TransactionImportEnhanced] Received APP_STATE_UPDATED event');
+      
       const currentState = getCurrentState();
       const currentMonthData = currentState.budgetState.historicalData[currentState.budgetState.selectedMonthKey];
       if (currentMonthData?.transactions) {
         console.log('🔄 [TransactionImportEnhanced] About to replace local transactions with orchestrator data');
         console.log('📊 [TransactionImportEnhanced] Sample orchestrator transaction types:', 
           currentMonthData.transactions.slice(0, 3).map(t => ({ id: t.id, type: t.type })));
+        
+        addMobileDebugLog(`📊 [TransactionImportEnhanced] Orchestrator has ${currentMonthData.transactions.length} transactions`);
+        
+        // Find the specific transaction we just updated
+        const bilTransaction = currentMonthData.transactions.find(t => t.id.includes('Bil-8201005a'));
+        if (bilTransaction) {
+          addMobileDebugLog(`🔍 [TransactionImportEnhanced] Bil transaction in orchestrator has type: ${bilTransaction.type}`);
+        }
         
         // Convert Transaction[] to ImportedTransaction[] by adding missing fields
         const importedTransactions = currentMonthData.transactions.map(t => ({
@@ -411,6 +422,7 @@ export const TransactionImportEnhanced: React.FC = () => {
         })) as ImportedTransaction[];
         
         console.log('📊 [TransactionImportEnhanced] Setting transactions from orchestrator update:', importedTransactions.length);
+        addMobileDebugLog('📊 [TransactionImportEnhanced] Updating local state with orchestrator data');
         setTransactions(importedTransactions);
       }
     };
