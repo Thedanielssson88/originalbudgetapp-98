@@ -6148,17 +6148,23 @@ const BudgetCalculator = () => {
                                     
                                     console.log(`🔍 [ACCOUNT VIEW] Total budget for ${account.name}: ${totalBudget}`);
                                     
-                                     // 3. Hitta alla transaktioner som är kopplade till detta konto via ID
-                                     const transactionsForThisAccount = activeContent.transactionsForPeriod
-                                       .filter((t: any) => t.accountId === account.id);
-                                    
-                                    console.log(`🔍 [ACCOUNT VIEW] Found ${transactionsForThisAccount.length} transactions for ${account.name}:`, transactionsForThisAccount);
-                                    
-                                    // 4. Beräkna det FAKTISKA beloppet genom enkel summering
-                                    const actualAmount = transactionsForThisAccount
-                                      .reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0);
-                                    
-                                    console.log(`🔍 [ACCOUNT VIEW] Actual amount for ${account.name}: ${actualAmount}`);
+                                      // 3. Hitta alla transaktioner som är kopplade till detta konto via ID eller namn
+                                      const transactionsForThisAccount = activeContent.transactionsForPeriod
+                                        .filter((t: any) => {
+                                          // Check if transaction accountId matches either the account ID or account name
+                                          const matchesId = t.accountId === account.id;
+                                          const matchesName = t.accountId === account.name;
+                                          console.log(`🔍 [ACCOUNT VIEW] Transaction ${t.id}: accountId="${t.accountId}" vs account.id="${account.id}" (${matchesId}) vs account.name="${account.name}" (${matchesName})`);
+                                          return matchesId || matchesName;
+                                        });
+                                     
+                                     console.log(`🔍 [ACCOUNT VIEW] Found ${transactionsForThisAccount.length} transactions for ${account.name}:`, transactionsForThisAccount);
+                                     
+                                     // 4. Beräkna det FAKTISKA beloppet genom enkel summering
+                                     const actualAmount = transactionsForThisAccount
+                                       .reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0);
+                                     
+                                     console.log(`🔍 [ACCOUNT VIEW] Actual amount for ${account.name}: ${actualAmount}`);
                                     
                                     const difference = totalBudget - actualAmount;
                                     
