@@ -17,6 +17,8 @@ export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = (
     // Anropa den nya generella funktionen för att bara uppdatera typen
     updateTransaction(transaction.id, { 
       type: newType as ImportedTransaction['type'],
+      // Mark as manually changed to preserve user's choice on re-import
+      isManuallyChanged: true,
       // Reset related fields when changing type
       linkedTransactionId: undefined,
       savingsTargetId: undefined,
