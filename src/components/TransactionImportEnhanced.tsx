@@ -1668,6 +1668,9 @@ export const TransactionImportEnhanced: React.FC = () => {
                     onToggleSelection={toggleTransactionSelection}
                     onUpdateCategory={updateTransactionCategory}
                     onUpdateNote={updateTransactionNote}
+                    onTransferMatch={handleTransferMatch}
+                    onSavingsLink={handleSavingsLink}
+                    onCostCoverage={handleCostCoverage}
                   />
                 </div>
               );

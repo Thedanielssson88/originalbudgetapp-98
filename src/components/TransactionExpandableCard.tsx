@@ -20,6 +20,9 @@ interface TransactionExpandableCardProps {
   onToggleSelection: (id: string) => void;
   onUpdateCategory: (id: string, category: string, subCategoryId?: string) => void;
   onUpdateNote: (id: string, note: string) => void;
+  onTransferMatch?: (transaction: ImportedTransaction) => void;
+  onSavingsLink?: (transaction: ImportedTransaction) => void;
+  onCostCoverage?: (transaction: ImportedTransaction) => void;
 }
 
 export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps> = ({
@@ -30,7 +33,10 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   costGroups = [],
   onToggleSelection,
   onUpdateCategory,
-  onUpdateNote
+  onUpdateNote,
+  onTransferMatch,
+  onSavingsLink,
+  onCostCoverage
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
@@ -202,31 +208,31 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                   <div>
                     <label className="text-xs font-medium text-muted-foreground">Åtgärder</label>
                     <div className="mt-1 flex gap-2">
-                      {transaction.type === 'InternalTransfer' && (
+                      {transaction.type === 'InternalTransfer' && onTransferMatch && (
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => console.log('Match transfer:', transaction.id)}
+                          onClick={() => onTransferMatch(transaction)}
                           className="text-xs px-2 py-1"
                         >
                           Matcha överföring
                         </Button>
                       )}
-                      {transaction.type === 'Savings' && (
+                      {transaction.type === 'Savings' && onSavingsLink && (
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => console.log('Link savings:', transaction.id)}
+                          onClick={() => onSavingsLink(transaction)}
                           className="text-xs px-2 py-1"
                         >
                           Koppla sparande
                         </Button>
                       )}
-                      {transaction.type === 'CostCoverage' && (
+                      {transaction.type === 'CostCoverage' && onCostCoverage && (
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => console.log('Cover cost:', transaction.id)}
+                          onClick={() => onCostCoverage(transaction)}
                           className="text-xs px-2 py-1"
                         >
                           Täck kostnad
