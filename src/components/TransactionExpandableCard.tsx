@@ -39,6 +39,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   onSavingsLink,
   onCostCoverage
 }) => {
+  console.log(`🎯 [TransactionExpandableCard] Rendering for transaction ${transaction.id}, type: ${transaction.type}`);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [subcategoriesData, setSubcategoriesData] = useState<Record<string, string[]>>({});
