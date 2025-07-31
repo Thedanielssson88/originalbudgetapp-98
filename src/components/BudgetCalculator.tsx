@@ -414,9 +414,12 @@ const BudgetCalculator = () => {
     console.log('🚨 CRITICAL - Processing transactions for account names...');
     transactionsForPeriod.forEach(transaction => {
       console.log('🚨 CRITICAL - Transaction found:', { accountId: transaction.accountId, amount: transaction.amount, date: transaction.date });
-      if (transaction.accountId) { // Notera att fältet heter 'accountId' i Transactions
-        activeAccountNames.add(transaction.accountId);
-        console.log('🚨 CRITICAL - Added account name:', transaction.accountId, 'to activeAccountNames');
+      if (transaction.accountId) { 
+        // Map account ID to account name - transaction.accountId might be ID or name
+        const accountFromId = budgetState.accounts.find(acc => acc.id === transaction.accountId);
+        const accountName = accountFromId ? accountFromId.name : transaction.accountId;
+        activeAccountNames.add(accountName);
+        console.log('🚨 CRITICAL - Added account name:', accountName, 'to activeAccountNames (from accountId:', transaction.accountId, ')');
       }
     });
     
@@ -6109,6 +6112,7 @@ const BudgetCalculator = () => {
                                     const difference = totalBudget - actualAmount;
                                     
                                     // 5. Visa endast konton som faktiskt har en budgetpost eller en transaktion
+                                    // Show account if it has budget items OR transactions (not both required)
                                     if (costItemsForThisAccount.length === 0 && transactionsForThisAccount.length === 0) {
                                       console.log(`🔍 [ACCOUNT VIEW] Skipping ${account.name} - no budget items or transactions`);
                                       return null;
