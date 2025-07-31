@@ -573,11 +573,21 @@ const BudgetCalculator = () => {
       accountId: t.accountId,
       description: t.description,
       amount: t.amount,
-      appCategoryId: t.appCategoryId
+      appCategoryId: t.appCategoryId,
+      status: t.status
     })));
     
-    // For budget accounts, we need to find transactions that belong to subcategories in this account
-    // Get all subcategories that belong to this budget account
+    // Method 1: Find transactions directly by accountId
+    const directAccountTransactions = monthTransactions.filter((t: Transaction) => {
+      const account = budgetState.accounts.find(acc => acc.id === t.accountId);
+      const matchesDirect = account?.name === accountName;
+      console.log(`🔍 [DEBUG] Direct check - Transaction ${t.id}: accountId=${t.accountId}, resolved name=${account?.name}, matches=${matchesDirect}`);
+      return matchesDirect;
+    });
+    
+    console.log(`🔍 [DEBUG] Direct account transactions for "${accountName}":`, directAccountTransactions);
+    
+    // Method 2: For budget accounts, also find transactions that belong to subcategories in this account
     const accountSubcategories: string[] = [];
     costGroups.forEach(group => {
       group.subCategories?.forEach(sub => {
@@ -598,14 +608,24 @@ const BudgetCalculator = () => {
     
     console.log(`🔍 [DEBUG] Found subcategories for account "${accountName}":`, accountSubcategories);
     
-    // Filter transactions by category ID (appCategoryId) that belong to this account
-    // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
-    const filtered = monthTransactions.filter((t: Transaction) => 
+    // Filter transactions by category ID (appCategoryId) that belong to this account through subcategories
+    const categoryBasedTransactions = monthTransactions.filter((t: Transaction) => 
       accountSubcategories.includes(t.appCategoryId || '')
     );
     
-    console.log(`🔍 [DEBUG] Filtered transactions for account "${accountName}":`, filtered);
-    return filtered;
+    console.log(`🔍 [DEBUG] Category-based transactions for account "${accountName}":`, categoryBasedTransactions);
+    
+    // Combine both methods and remove duplicates
+    const allTransactions = [...directAccountTransactions];
+    categoryBasedTransactions.forEach(t => {
+      if (!allTransactions.some(existing => existing.id === t.id)) {
+        allTransactions.push(t);
+      }
+    });
+    
+    console.log(`🔍 [DEBUG] Combined transactions for account "${accountName}":`, allTransactions);
+    // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
+    return allTransactions;
   };
 
   const openDrillDownDialog = (categoryName: string, categoryId: string, budgetAmount: number) => {
