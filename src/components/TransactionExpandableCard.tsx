@@ -11,6 +11,7 @@ import { ImportedTransaction } from '@/types/transaction';
 import { StorageKey, get } from '@/services/storageService';
 import { TransactionTypeSelector } from './TransactionTypeSelector';
 import { updateTransaction } from '../orchestrator/budgetOrchestrator';
+import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 import { useBudget } from '@/hooks/useBudget';
 
 interface TransactionExpandableCardProps {
@@ -223,7 +224,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                         value={transaction.type} 
                         onChange={(e) => {
                           const newType = e.target.value;
-                          console.log(`🔄 EXPANDABLE CARD: Changing type from ${transaction.type} to ${newType} for transaction ${transaction.id}`);
+                          addMobileDebugLog(`🔄 EXPANDABLE: Changing ${transaction.id} from ${transaction.type} to ${newType}`);
                           
                           const updates = { 
                             type: newType as ImportedTransaction['type'],
@@ -232,21 +233,20 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                             correctedAmount: undefined
                           };
                           
-                          console.log(`🔄 EXPANDABLE CARD: About to call updateTransaction with monthKey derived from date: ${transaction.date}`);
+                          addMobileDebugLog(`🔄 EXPANDABLE: About to call updateTransaction with monthKey: ${transaction.date.substring(0, 7)}`);
                           
                           // Update orchestrator
                           const monthKey = transaction.date.substring(0, 7);
-                          console.log(`🔄 EXPANDABLE CARD: Calling updateTransaction(${transaction.id}, updates, ${monthKey})`);
                           updateTransaction(transaction.id, updates, monthKey);
                           
-                          console.log(`🔄 EXPANDABLE CARD: updateTransaction called, now calling local callback`);
+                          addMobileDebugLog(`🔄 EXPANDABLE: updateTransaction called, calling local callback`);
                           
                           // Update local state if callback provided
                           if (onUpdateTransaction) {
                             onUpdateTransaction(transaction.id, updates);
-                            console.log(`✅ EXPANDABLE CARD: Local state updated via callback`);
+                            addMobileDebugLog(`✅ EXPANDABLE: Local state updated via callback`);
                           } else {
-                            console.log(`⚠️ EXPANDABLE CARD: No onUpdateTransaction callback provided!`);
+                            addMobileDebugLog(`⚠️ EXPANDABLE: No onUpdateTransaction callback!`);
                           }
                         }}
                         className="w-full p-2 border border-input bg-background rounded-md text-sm"
