@@ -717,32 +717,23 @@ const BudgetCalculator = () => {
   const calculateSavingsActualForCategory = (mainCategoryId: string): number => {
     console.log(`🔍 [DEBUG] calculateSavingsActualForCategory called for category: ${mainCategoryId}`);
     
-    // Instead of looking for transactions directly linked to main category,
-    // we need to sum up all the actual amounts from subcategories under this main category
+    // Find the main category group
+    const mainGroup = savingsGroups.find(group => group.name === mainCategoryId);
+    if (!mainGroup) {
+      console.log(`🔍 [DEBUG] No main group found for ${mainCategoryId}`);
+      return 0;
+    }
     
-    // Find all savings items that belong to this main category
-    const categoryItems = allSavingsItems.filter(item => {
-      // Check if this item belongs to the main category
-      const belongsToCategory = item.mainCategoryId === mainCategoryId || 
-                               (item.type === 'savings' && item.name && item.name.includes(mainCategoryId));
-      
-      if (belongsToCategory) {
-        console.log(`🔍 [DEBUG] Found savings item in category ${mainCategoryId}:`, {
-          id: item.id,
-          name: item.name,
-          mainCategoryId: item.mainCategoryId
-        });
-      }
-      
-      return belongsToCategory;
+    console.log(`🔍 [DEBUG] Found main group for ${mainCategoryId}:`, {
+      id: mainGroup.id,
+      name: mainGroup.name,
+      subCategoriesCount: mainGroup.subCategories?.length || 0
     });
     
-    console.log(`🔍 [DEBUG] Found ${categoryItems.length} savings items in category ${mainCategoryId}`);
-    
-    // Calculate actual for each subcategory and sum them up
-    const total = categoryItems.reduce((sum, item) => {
-      const itemActual = calculateActualForTarget(item.id);
-      console.log(`🔍 [DEBUG] Item ${item.name} (${item.id}) has actual: ${itemActual}`);
+    // Sum up actual amounts from all subcategories
+    const total = (mainGroup.subCategories || []).reduce((sum, subCategory) => {
+      const itemActual = calculateActualForTarget(subCategory.id);
+      console.log(`🔍 [DEBUG] Subcategory ${subCategory.name} (${subCategory.id}) has actual: ${itemActual}`);
       return sum + itemActual;
     }, 0);
     
@@ -783,31 +774,26 @@ const BudgetCalculator = () => {
   const getSavingsTransactionsForCategory = (mainCategoryId: string) => {
     console.log(`🔍 [DEBUG] getSavingsTransactionsForCategory called for: ${mainCategoryId}`);
     
-    // Find all savings items (subcategories) that belong to this main category
-    const categoryItems = allSavingsItems.filter(item => {
-      const belongsToCategory = item.mainCategoryId === mainCategoryId || 
-                               (item.type === 'savings' && item.name && item.name.includes(mainCategoryId));
-      
-      if (belongsToCategory) {
-        console.log(`🔍 [DEBUG] Found subcategory in ${mainCategoryId}:`, {
-          id: item.id,
-          name: item.name,
-          mainCategoryId: item.mainCategoryId
-        });
-      }
-      
-      return belongsToCategory;
+    // Find the main category group
+    const mainGroup = savingsGroups.find(group => group.name === mainCategoryId);
+    if (!mainGroup) {
+      console.log(`🔍 [DEBUG] No main group found for ${mainCategoryId}`);
+      return [];
+    }
+    
+    console.log(`🔍 [DEBUG] Found main group for ${mainCategoryId}:`, {
+      id: mainGroup.id,
+      name: mainGroup.name,
+      subCategoriesCount: mainGroup.subCategories?.length || 0
     });
     
-    console.log(`🔍 [DEBUG] Found ${categoryItems.length} subcategories in ${mainCategoryId}`);
-    
-    // Get all transactions linked to these subcategories
+    // Get all transactions linked to subcategories
     const savingsTransactions = getSavingsTransactions();
     const allCategoryTransactions: any[] = [];
     
-    categoryItems.forEach(item => {
-      const itemTransactions = savingsTransactions.filter(t => t.savingsTargetId === item.id);
-      console.log(`🔍 [DEBUG] Subcategory ${item.name} (${item.id}) has ${itemTransactions.length} transactions`);
+    (mainGroup.subCategories || []).forEach(subCategory => {
+      const itemTransactions = savingsTransactions.filter(t => t.savingsTargetId === subCategory.id);
+      console.log(`🔍 [DEBUG] Subcategory ${subCategory.name} (${subCategory.id}) has ${itemTransactions.length} transactions`);
       allCategoryTransactions.push(...itemTransactions);
     });
     
