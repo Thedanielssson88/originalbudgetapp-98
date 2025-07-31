@@ -14,6 +14,7 @@ interface TransactionGroupByDateProps {
   costGroups?: { id: string; name: string; subCategories?: { id: string; name: string }[] }[];
   onToggleSelection: (id: string) => void;
   onUpdateCategory: (id: string, category: string, subCategoryId?: string) => void;
+  onUpdateTransaction?: (transactionId: string, updates: Partial<ImportedTransaction>) => void;
   onUpdateNote: (id: string, note: string) => void;
   onTransferMatch?: (transaction: ImportedTransaction) => void;
   onSavingsLink?: (transaction: ImportedTransaction) => void;
@@ -28,6 +29,7 @@ export const TransactionGroupByDate: React.FC<TransactionGroupByDateProps> = ({
   costGroups,
   onToggleSelection,
   onUpdateCategory,
+  onUpdateTransaction,
   onUpdateNote,
   onTransferMatch,
   onSavingsLink,
@@ -161,6 +163,7 @@ export const TransactionGroupByDate: React.FC<TransactionGroupByDateProps> = ({
                       costGroups={costGroups}
                       onToggleSelection={onToggleSelection}
                       onUpdateCategory={onUpdateCategory}
+                      onUpdateTransaction={onUpdateTransaction}
                       onUpdateNote={onUpdateNote}
                       onTransferMatch={onTransferMatch}
                       onSavingsLink={onSavingsLink}

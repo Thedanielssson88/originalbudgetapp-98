@@ -22,6 +22,7 @@ interface TransactionExpandableCardProps {
   onToggleSelection: (id: string) => void;
   onUpdateCategory: (id: string, category: string, subCategoryId?: string) => void;
   onUpdateNote: (id: string, note: string) => void;
+  onUpdateTransaction?: (transactionId: string, updates: Partial<ImportedTransaction>) => void;
   onTransferMatch?: (transaction: ImportedTransaction) => void;
   onSavingsLink?: (transaction: ImportedTransaction) => void;
   onCostCoverage?: (transaction: ImportedTransaction) => void;
@@ -36,6 +37,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   onToggleSelection,
   onUpdateCategory,
   onUpdateNote,
+  onUpdateTransaction,
   onTransferMatch,
   onSavingsLink,
   onCostCoverage
@@ -222,14 +224,22 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                         onChange={(e) => {
                           const newType = e.target.value;
                           console.log(`🔄 EXPANDABLE CARD: Changing type from ${transaction.type} to ${newType} for transaction ${transaction.id}`);
-                          // Direct orchestrator update
-                          const monthKey = transaction.date.substring(0, 7);
-                          updateTransaction(transaction.id, { 
+                          
+                          const updates = { 
                             type: newType as ImportedTransaction['type'],
                             linkedTransactionId: undefined,
                             savingsTargetId: undefined,
                             correctedAmount: undefined
-                          }, monthKey);
+                          };
+                          
+                          // Update orchestrator
+                          const monthKey = transaction.date.substring(0, 7);
+                          updateTransaction(transaction.id, updates, monthKey);
+                          
+                          // Update local state if callback provided
+                          if (onUpdateTransaction) {
+                            onUpdateTransaction(transaction.id, updates);
+                          }
                         }}
                         className="w-full p-2 border border-input bg-background rounded-md text-sm"
                       >
