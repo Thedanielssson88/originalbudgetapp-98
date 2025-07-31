@@ -1745,8 +1745,20 @@ export const TransactionImportEnhanced: React.FC = () => {
                                         className="w-32"
                                       />
                                     </TableCell>
-                                    <TableCell className={transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                      {transaction.amount.toLocaleString('sv-SE')} kr
+                                    <TableCell className={transaction.correctedAmount !== undefined ? (transaction.correctedAmount >= 0 ? 'text-green-600' : 'text-red-600') : (transaction.amount >= 0 ? 'text-green-600' : 'text-red-600')}>
+                                      {transaction.correctedAmount !== undefined ? (
+                                        <div className="space-y-1">
+                                          <div className="text-xs text-muted-foreground">Korrigerat:</div>
+                                          <div className="font-semibold">
+                                            {transaction.correctedAmount.toLocaleString('sv-SE')} kr
+                                          </div>
+                                          <div className="text-xs line-through opacity-60">
+                                            Urspr: {transaction.amount.toLocaleString('sv-SE')} kr
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        `${transaction.amount.toLocaleString('sv-SE')} kr`
+                                      )}
                                     </TableCell>
                                     <TableCell>
                                       <TransactionTypeSelector transaction={transaction} />

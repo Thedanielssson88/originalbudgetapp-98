@@ -111,9 +111,22 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                   {/* Amount */}
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">Belopp</p>
-                    <p className={`font-semibold text-sm ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {transaction.amount >= 0 ? '+' : ''}{Math.abs(transaction.amount).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
-                    </p>
+                    {transaction.correctedAmount !== undefined ? (
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Korrigerat belopp</p>
+                        <p className={`font-semibold text-sm ${transaction.correctedAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {transaction.correctedAmount >= 0 ? '+' : ''}{Math.abs(transaction.correctedAmount).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
+                        </p>
+                        <p className="text-xs text-muted-foreground">Ursprungligt belopp</p>
+                        <p className={`text-xs ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'} line-through`}>
+                          {transaction.amount >= 0 ? '+' : ''}{Math.abs(transaction.amount).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
+                        </p>
+                      </div>
+                    ) : (
+                      <p className={`font-semibold text-sm ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {transaction.amount >= 0 ? '+' : ''}{Math.abs(transaction.amount).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
