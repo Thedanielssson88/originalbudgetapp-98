@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { v4 as uuidv4 } from 'uuid';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -1957,7 +1958,7 @@ const BudgetCalculator = () => {
 
   const addCostGroup = () => {
     const newGroup: BudgetGroup = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       name: '',
       amount: 0,
       type: 'cost',
@@ -1999,7 +2000,7 @@ const BudgetCalculator = () => {
     if (!targetGroup) {
       console.log(`Huvudkategori '${item.mainCategory}' hittades inte, skapar en ny.`);
       targetGroup = {
-        id: Date.now().toString(),
+        id: uuidv4(),
         name: item.mainCategory,
         amount: 0,
         type: 'cost',
@@ -2029,10 +2030,10 @@ const BudgetCalculator = () => {
 
     // Create the new subcategory (cost item)
     const newSubCategory = {
-      id: Date.now().toString() + '_sub',
+      id: uuidv4(),
       name: `${item.subcategory}: ${item.name}`,
       amount: calculatedAmount,
-      account: item.account,
+      accountId: item.account ? budgetState.accounts.find(acc => acc.name === item.account)?.id : undefined,
       financedFrom: item.financedFrom,
       transferType: item.transferType || 'monthly',
       dailyAmount: item.dailyAmount,
@@ -2061,7 +2062,7 @@ const BudgetCalculator = () => {
 
   const addSavingsGroup = () => {
     const newGroup: BudgetGroup = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       name: '',
       amount: 0,
       type: 'savings'
@@ -2101,7 +2102,7 @@ const BudgetCalculator = () => {
 
   const addSubCategory = (groupId: string) => {
     const newSubCategory: SubCategory = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       name: '',
       amount: 0
     };
@@ -3349,7 +3350,7 @@ const BudgetCalculator = () => {
     if (!editingTemplateData) return;
     
     const newGroup = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       name: '',
       amount: 0,
       type: 'cost',
@@ -3366,7 +3367,7 @@ const BudgetCalculator = () => {
     if (!editingTemplateData) return;
     
     const newGroup = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       name: '',
       amount: 0,
       type: 'savings'
@@ -3382,7 +3383,7 @@ const BudgetCalculator = () => {
     if (!editingTemplateData) return;
     
     const newSubCategory = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       name: '',
       amount: 0
     };
@@ -6492,12 +6493,12 @@ const BudgetCalculator = () => {
                             <SavingsSection
                               savingsGroups={allSavingsItems}
                               savingsGoals={budgetState.savingsGoals}
-                              accounts={accounts}
+                              accounts={budgetState.accounts}
                               mainCategories={budgetState.mainCategories || []}
                               onAddSavingsItem={(item) => {
                                 // Handle adding savings item
                                 const newGroup = {
-                                  id: Date.now().toString(),
+                                  id: uuidv4(),
                                   name: item.mainCategory,
                                   amount: 0,
                                   type: 'savings' as const,

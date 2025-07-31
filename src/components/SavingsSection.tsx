@@ -11,7 +11,7 @@ import { AddSavingsItemDialog } from './AddSavingsItemDialog';
 interface SavingsSectionProps {
   savingsGroups: BudgetGroup[];
   savingsGoals: SavingsGoal[];
-  accounts: string[];
+  accounts: { id: string; name: string }[];
   mainCategories: string[];
   onAddSavingsItem: (item: {
     mainCategory: string;
@@ -71,7 +71,7 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
       // For savings groups, check subcategories for account information
       if (group.subCategories && group.subCategories.length > 0) {
         group.subCategories.forEach(sub => {
-          const accountName = sub.account || 'Inget konto';
+          const accountName = sub.accountId ? accounts.find(acc => acc.id === sub.accountId)?.name || 'Inget konto' : 'Inget konto';
           
           // Create a virtual group for each subcategory with account info
           const virtualGroup = {
@@ -87,7 +87,7 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
         });
       } else {
         // Fallback for groups without subcategories
-        const accountName = group.account || 'Inget konto';
+        const accountName = group.accountId ? accounts.find(acc => acc.id === group.accountId)?.name || 'Inget konto' : 'Inget konto';
         if (!grouped[accountName]) {
           grouped[accountName] = [];
         }
@@ -120,7 +120,7 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
 
   const getSavingsGoalsForAccount = (accountName: string) => {
     return savingsGoals.filter(goal => 
-      goal.accountId === accountName || accounts.find(acc => acc === accountName)
+      goal.accountId === accounts.find(acc => acc.name === accountName)?.id
     );
   };
 
@@ -489,7 +489,7 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
         onClose={() => setIsAddDialogOpen(false)}
         onSave={onAddSavingsItem}
         mainCategories={mainCategories}
-        accounts={accounts.map(acc => typeof acc === 'string' ? acc : (acc as any).name || (acc as any).id)}
+        accounts={accounts.map(acc => acc.name)}
       />
     </div>
   );

@@ -3,6 +3,7 @@
 import { get, set, StorageKey } from '../services/storageService';
 import { BudgetState, MonthData, Account } from '../types/budget';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
+import { v4 as uuidv4 } from 'uuid';
 
 interface AppState {
   isLoading: boolean;
@@ -103,10 +104,10 @@ export function initializeStateFromStorage(): void {
         // Migrate all historical data to new structure
         state.budgetState.historicalData = existingHistoricalData;
         
-        // Migrate accounts
+        // Migrate accounts with UUID
         if (oldRawData.accounts && Array.isArray(oldRawData.accounts)) {
-          state.budgetState.accounts = oldRawData.accounts.map((accountName: string, index: number) => ({
-            id: (index + 1).toString(),
+          state.budgetState.accounts = oldRawData.accounts.map((accountName: string) => ({
+            id: uuidv4(),
             name: accountName,
             startBalance: 0
           }));
@@ -261,8 +262,8 @@ export function initializeStateFromStorage(): void {
       const accountNames = Object.keys(state.budgetState.accountCategoryMapping);
       if (accountNames.length > 0) {
         addMobileDebugLog(`[INIT] 📂 Creating accounts from category mapping: ${accountNames.join(', ')}`);
-        state.budgetState.accounts = accountNames.map((name, index) => ({
-          id: (index + 1).toString(),
+        state.budgetState.accounts = accountNames.map((name) => ({
+          id: uuidv4(),
           name: name,
           startBalance: 0
         }));
@@ -270,8 +271,8 @@ export function initializeStateFromStorage(): void {
         // Use standard accounts that match the interface shown
         const standardAccounts = ['Löpande', 'Sparkonto', 'Buffert', 'Nöje', 'Hushållskonto'];
         addMobileDebugLog(`[INIT] 📂 Using standard accounts: ${standardAccounts.join(', ')}`);
-        state.budgetState.accounts = standardAccounts.map((name, index) => ({
-          id: (index + 1).toString(),
+        state.budgetState.accounts = standardAccounts.map((name) => ({
+          id: uuidv4(),
           name: name,
           startBalance: 0
         }));
@@ -333,9 +334,9 @@ function createEmptyMonthData(): MonthData {
     susannaförsäkringskassan: 5000,
     susannabarnbidrag: 0,
     costGroups: [
-      { id: '1', name: 'Hyra', amount: 15000, type: 'cost' },
-      { id: '2', name: 'Mat & Kläder', amount: 8000, type: 'cost' },
-      { id: '3', name: 'Transport', amount: 2000, type: 'cost', subCategories: [] }
+      { id: uuidv4(), name: 'Hyra', amount: 15000, type: 'cost' },
+      { id: uuidv4(), name: 'Mat & Kläder', amount: 8000, type: 'cost' },
+      { id: uuidv4(), name: 'Transport', amount: 2000, type: 'cost', subCategories: [] }
     ],
     savingsGroups: [],
     costItems: [], // Nya struktur

@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { v4 as uuidv4 } from 'uuid';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
@@ -964,7 +965,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     if (!targetGroup) {
       console.log(`Huvudkategori '${categoryName}' hittades inte för denna månad, skapar den.`);
       targetGroup = {
-        id: Date.now().toString(),
+        id: uuidv4(),
         name: categoryName,
         amount: 0,
         type: 'cost',

@@ -38,7 +38,7 @@ export interface SubCategory {
   id: string;
   name: string;
   amount: number;
-  account?: string;
+  accountId?: string; // ÄNDRING: Nu lagrar kontots ID, inte namn
   financedFrom?: 'Löpande kostnad' | 'Enskild kostnad';
   
   // Nya fält för dagliga överföringar
@@ -55,7 +55,7 @@ export interface BudgetGroup {
   actualAmount?: number; // NYTT FÄLT för faktiska transaktioner
   type: 'cost' | 'savings';
   subCategories?: SubCategory[];
-  account?: string;
+  accountId?: string; // ÄNDRING: Nu lagrar kontots ID, inte namn
   financedFrom?: 'Löpande kostnad' | 'Enskild kostnad';
 }
 

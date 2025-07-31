@@ -5,6 +5,7 @@ import { StorageKey, set } from '../services/storageService';
 import { calculateFullPrognosis, calculateBudgetResults, calculateAccountProgression, calculateMonthlyBreakdowns, calculateProjectedBalances } from '../services/calculationService';
 import { BudgetGroup, MonthData, SavingsGoal } from '../types/budget';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
+import { v4 as uuidv4 } from 'uuid';
 import { ImportedTransaction, CategoryRule } from '../types/transaction';
 
 // Event system for UI updates
@@ -416,7 +417,7 @@ export const createSavingsGoal = (goalData: Omit<SavingsGoal, 'id'>) => {
   
   const newGoal: SavingsGoal = {
     ...goalData,
-    id: Date.now().toString() // Simple ID generation
+    id: uuidv4() // Generate unique ID
   };
   
   state.budgetState.savingsGoals.push(newGoal);
@@ -484,7 +485,7 @@ export function setTransactionsForCurrentMonth(transactions: ImportedTransaction
 // ===== CATEGORY RULES MANAGEMENT =====
 
 export function addCategoryRule(newRule: Omit<CategoryRule, 'id'>): void {
-  const ruleWithId = { ...newRule, id: Date.now().toString() };
+  const ruleWithId = { ...newRule, id: uuidv4() };
   state.budgetState.transactionImport.categoryRules.push(ruleWithId);
   saveStateToStorage();
   triggerUIRefresh();

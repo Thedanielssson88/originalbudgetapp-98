@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { v4 as uuidv4 } from 'uuid';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -102,7 +103,7 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
       console.log('🔍 [DEBUG] Validation passed, calling onSave...');
       
       const budgetItem: BudgetItem = {
-        id: Date.now().toString(), // Generate unique ID
+        id: uuidv4(), // Generate unique ID
         mainCategoryId: formData.mainCategoryId,
         subCategoryId: formData.subCategoryId,
         description: formData.description,

@@ -187,8 +187,8 @@ export const CostItemEditDialog: React.FC<CostItemEditDialogProps> = ({
           <div className="space-y-2">
             <Label>Konto</Label>
             <Select 
-              value={editedItem.account || (accounts.length > 0 ? accounts[0] : '')} 
-              onValueChange={(value) => updateField('account', value)}
+              value={editedItem.accountId || ''} 
+              onValueChange={(value) => updateField('accountId', value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Välj konto" />

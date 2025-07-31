@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { v4 as uuidv4 } from 'uuid';
 import { 
   Select, 
   SelectContent, 
@@ -48,7 +49,7 @@ export const CategoryRuleManager: React.FC<CategoryRuleManagerProps> = ({
     if (!newRule.bankCategory || !newRule.appCategoryId) return;
 
     const rule: CategoryRule = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       bankCategory: newRule.bankCategory!,
       bankSubCategory: newRule.bankSubCategory,
       appCategoryId: newRule.appCategoryId!,
