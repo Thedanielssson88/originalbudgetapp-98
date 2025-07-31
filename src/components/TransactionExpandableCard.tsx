@@ -10,8 +10,6 @@ import { ChevronDown, ChevronUp, Edit3 } from 'lucide-react';
 import { ImportedTransaction } from '@/types/transaction';
 import { StorageKey, get } from '@/services/storageService';
 import { TransactionTypeSelector } from './TransactionTypeSelector';
-import { updateTransaction } from '../orchestrator/budgetOrchestrator';
-import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 import { useBudget } from '@/hooks/useBudget';
 
 interface TransactionExpandableCardProps {
@@ -23,7 +21,6 @@ interface TransactionExpandableCardProps {
   onToggleSelection: (id: string) => void;
   onUpdateCategory: (id: string, category: string, subCategoryId?: string) => void;
   onUpdateNote: (id: string, note: string) => void;
-  onUpdateTransaction?: (transactionId: string, updates: Partial<ImportedTransaction>) => void;
   onTransferMatch?: (transaction: ImportedTransaction) => void;
   onSavingsLink?: (transaction: ImportedTransaction) => void;
   onCostCoverage?: (transaction: ImportedTransaction) => void;
@@ -38,12 +35,10 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   onToggleSelection,
   onUpdateCategory,
   onUpdateNote,
-  onUpdateTransaction,
   onTransferMatch,
   onSavingsLink,
   onCostCoverage
 }) => {
-  console.log(`🎯 [TransactionExpandableCard] Rendering for transaction ${transaction.id}, type: ${transaction.type}`);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [subcategoriesData, setSubcategoriesData] = useState<Record<string, string[]>>({});
@@ -220,51 +215,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                   <div>
                     <label className="text-xs font-medium text-muted-foreground">Typ</label>
                     <div className="mt-1">
-                      <select 
-                        value={transaction.type} 
-                        onChange={(e) => {
-                          const newType = e.target.value;
-                          addMobileDebugLog(`🔄 EXPANDABLE: Changing ${transaction.id} from ${transaction.type} to ${newType}`);
-                          
-                          const updates = { 
-                            type: newType as ImportedTransaction['type'],
-                            linkedTransactionId: undefined,
-                            savingsTargetId: undefined,
-                            correctedAmount: undefined
-                          };
-                          
-                          addMobileDebugLog(`🔄 EXPANDABLE: About to call updateTransaction with monthKey: ${transaction.date.substring(0, 7)}`);
-                          
-                          // Update orchestrator
-                          const monthKey = transaction.date.substring(0, 7);
-                          updateTransaction(transaction.id, updates, monthKey);
-                          
-                          addMobileDebugLog(`🔄 EXPANDABLE: updateTransaction called, calling local callback`);
-                          
-                          // Update local state if callback provided
-                          if (onUpdateTransaction) {
-                            onUpdateTransaction(transaction.id, updates);
-                            addMobileDebugLog(`✅ EXPANDABLE: Local state updated via callback`);
-                          } else {
-                            addMobileDebugLog(`⚠️ EXPANDABLE: No onUpdateTransaction callback!`);
-                          }
-                        }}
-                        className="w-full p-2 border border-input bg-background rounded-md text-sm"
-                      >
-                        {transaction.amount < 0 ? (
-                          <>
-                            <option value="Transaction">Transaktion</option>
-                            <option value="InternalTransfer">Intern Överföring</option>
-                          </>
-                        ) : (
-                          <>
-                            <option value="Transaction">Transaktion</option>
-                            <option value="InternalTransfer">Intern Överföring</option>
-                            <option value="Savings">Sparande</option>
-                            <option value="CostCoverage">Täck en kostnad</option>
-                          </>
-                        )}
-                      </select>
+                      <TransactionTypeSelector transaction={transaction} />
                     </div>
                   </div>
 

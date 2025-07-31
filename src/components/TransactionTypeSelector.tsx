@@ -5,31 +5,29 @@ import { ImportedTransaction } from '@/types/transaction';
 
 interface TransactionTypeSelectorProps {
   transaction: ImportedTransaction;
-  onUpdateTransaction?: (transactionId: string, updates: Partial<ImportedTransaction>) => void;
 }
 
-export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = ({ transaction, onUpdateTransaction }) => {
+export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = ({ transaction }) => {
   const handleTypeChange = (newType: string) => {
-    const updates = { 
+    console.log(`🔄 [TransactionTypeSelector] Changing type from ${transaction.type} to ${newType} for transaction ${transaction.id}`);
+    
+    // Derive monthKey from transaction's date (e.g. "2025-07-30" -> "2025-07")
+    const monthKey = transaction.date.substring(0, 7);
+    
+    // Anropa den nya generella funktionen för att bara uppdatera typen
+    updateTransaction(transaction.id, { 
       type: newType as ImportedTransaction['type'],
       // Reset related fields when changing type
       linkedTransactionId: undefined,
       savingsTargetId: undefined,
       correctedAmount: undefined
-    };
+    }, monthKey);
     
-    // Update orchestrator (for persistent storage)
-    const monthKey = transaction.date.substring(0, 7);
-    updateTransaction(transaction.id, updates, monthKey);
-    
-    // Update local state if callback provided (for immediate UI feedback)
-    if (onUpdateTransaction) {
-      onUpdateTransaction(transaction.id, updates);
-    }
+    console.log(`✅ [TransactionTypeSelector] updateTransaction called for ${transaction.id}`);
   };
 
   return (
-    <Select value={transaction.type} onValueChange={handleTypeChange}>
+    <Select key={`${transaction.id}-${transaction.type}`} value={transaction.type} onValueChange={handleTypeChange}>
       <SelectTrigger className="w-full min-w-[180px]">
         <SelectValue />
       </SelectTrigger>

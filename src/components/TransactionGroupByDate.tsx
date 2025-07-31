@@ -14,7 +14,6 @@ interface TransactionGroupByDateProps {
   costGroups?: { id: string; name: string; subCategories?: { id: string; name: string }[] }[];
   onToggleSelection: (id: string) => void;
   onUpdateCategory: (id: string, category: string, subCategoryId?: string) => void;
-  onUpdateTransaction?: (transactionId: string, updates: Partial<ImportedTransaction>) => void;
   onUpdateNote: (id: string, note: string) => void;
   onTransferMatch?: (transaction: ImportedTransaction) => void;
   onSavingsLink?: (transaction: ImportedTransaction) => void;
@@ -29,7 +28,6 @@ export const TransactionGroupByDate: React.FC<TransactionGroupByDateProps> = ({
   costGroups,
   onToggleSelection,
   onUpdateCategory,
-  onUpdateTransaction,
   onUpdateNote,
   onTransferMatch,
   onSavingsLink,
@@ -151,10 +149,8 @@ export const TransactionGroupByDate: React.FC<TransactionGroupByDateProps> = ({
             <CollapsibleContent>
               <CardContent className="pt-0 pb-4 px-4">
                 <div className="space-y-2 border-t pt-4">
-                  {dateTransactions.map(transaction => {
-                    console.log(`🎯 [TransactionGroupByDate] Rendering TransactionExpandableCard for ${transaction.id} with type ${transaction.type}`);
-                    return (
-                      <TransactionExpandableCard
+                  {dateTransactions.map(transaction => (
+                    <TransactionExpandableCard
                       key={transaction.id}
                       transaction={transaction}
                       account={accounts.find(a => a.id === transaction.accountId)}
@@ -163,14 +159,12 @@ export const TransactionGroupByDate: React.FC<TransactionGroupByDateProps> = ({
                       costGroups={costGroups}
                       onToggleSelection={onToggleSelection}
                       onUpdateCategory={onUpdateCategory}
-                      onUpdateTransaction={onUpdateTransaction}
                       onUpdateNote={onUpdateNote}
                       onTransferMatch={onTransferMatch}
                       onSavingsLink={onSavingsLink}
                       onCostCoverage={onCostCoverage}
-                      />
-                    );
-                  })}
+                    />
+                  ))}
                 </div>
               </CardContent>
             </CollapsibleContent>
