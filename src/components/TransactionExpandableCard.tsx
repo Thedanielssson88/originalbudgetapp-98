@@ -216,7 +216,37 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                   <div>
                     <label className="text-xs font-medium text-muted-foreground">Typ</label>
                     <div className="mt-1">
-                      <TransactionTypeSelector transaction={transaction} />
+                      <select 
+                        value={transaction.type} 
+                        onChange={(e) => {
+                          const newType = e.target.value;
+                          console.log(`🔄 EXPANDABLE CARD: Changing type from ${transaction.type} to ${newType} for transaction ${transaction.id}`);
+                          // Direct orchestrator update since this component doesn't have local state
+                          const monthKey = transaction.date.substring(0, 7);
+                          const { updateTransaction } = require('../orchestrator/budgetOrchestrator');
+                          updateTransaction(transaction.id, { 
+                            type: newType as ImportedTransaction['type'],
+                            linkedTransactionId: undefined,
+                            savingsTargetId: undefined,
+                            correctedAmount: undefined
+                          }, monthKey);
+                        }}
+                        className="w-full p-2 border border-input bg-background rounded-md text-sm"
+                      >
+                        {transaction.amount < 0 ? (
+                          <>
+                            <option value="Transaction">Transaktion</option>
+                            <option value="InternalTransfer">Intern Överföring</option>
+                          </>
+                        ) : (
+                          <>
+                            <option value="Transaction">Transaktion</option>
+                            <option value="InternalTransfer">Intern Överföring</option>
+                            <option value="Savings">Sparande</option>
+                            <option value="CostCoverage">Täck en kostnad</option>
+                          </>
+                        )}
+                      </select>
                     </div>
                   </div>
 
