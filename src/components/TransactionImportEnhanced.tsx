@@ -410,11 +410,17 @@ export const TransactionImportEnhanced: React.FC = () => {
       if (fields.length < headers.length) continue;
 
       try {
+        // Debug amount parsing
+        const rawAmountField = amountColumnIndex >= 0 ? fields[amountColumnIndex] : '0';
+        const cleanedAmountField = rawAmountField.trim().replace(',', '.').replace(/\s/g, '');
+        const parsedAmount = parseFloat(cleanedAmountField);
+        console.log(`[CSV Parse] Raw amount: "${rawAmountField}" -> Cleaned: "${cleanedAmountField}" -> Parsed: ${parsedAmount}`);
+        
         const transaction: ImportedTransaction = {
           id: `${accountId}-${Date.now()}-${i}`,
           accountId, // Explicitly set the account ID from file upload
           date: dateColumnIndex >= 0 ? fields[dateColumnIndex] : fields[0],
-          amount: amountColumnIndex >= 0 ? parseFloat(fields[amountColumnIndex].replace(',', '.')) : 0,
+          amount: parsedAmount,
           balanceAfter: balanceColumnIndex >= 0 ? 
             (fields[balanceColumnIndex] && fields[balanceColumnIndex].trim() !== '' ? 
               parseFloat(fields[balanceColumnIndex].replace(',', '.')) : undefined) : undefined,
