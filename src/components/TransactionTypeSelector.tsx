@@ -35,27 +35,28 @@ export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = (
   };
 
   return (
-    <Select value={transaction.type} onValueChange={handleTypeChange}>
-      <SelectTrigger className="w-full min-w-[180px]">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent className="bg-background border z-50">
+    <div className="w-full min-w-[180px]">
+      <select 
+        value={transaction.type} 
+        onChange={(e) => handleTypeChange(e.target.value)}
+        className="w-full p-2 border border-input bg-background rounded-md text-sm"
+      >
         {transaction.amount < 0 ? (
           // Alternativ för negativa transaktioner
           <>
-            <SelectItem value="Transaction">Transaktion</SelectItem>
-            <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
+            <option value="Transaction">Transaktion</option>
+            <option value="InternalTransfer">Intern Överföring</option>
           </>
         ) : (
           // Alternativ för positiva transaktioner
           <>
-            <SelectItem value="Transaction">Transaktion</SelectItem>
-            <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
-            <SelectItem value="Savings">Sparande</SelectItem>
-            <SelectItem value="CostCoverage">Täck en kostnad</SelectItem>
+            <option value="Transaction">Transaktion</option>
+            <option value="InternalTransfer">Intern Överföring</option>
+            <option value="Savings">Sparande</option>
+            <option value="CostCoverage">Täck en kostnad</option>
           </>
         )}
-      </SelectContent>
-    </Select>
+      </select>
+    </div>
   );
 };
