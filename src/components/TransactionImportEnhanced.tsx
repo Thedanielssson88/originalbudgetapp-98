@@ -49,7 +49,7 @@ import { TransferMatchDialog } from './TransferMatchDialog';
 import { SavingsLinkDialog } from './SavingsLinkDialog';
 import { CostCoverageDialog } from './CostCoverageDialog';
 import { useBudget } from '@/hooks/useBudget';
-import { setTransactionsForCurrentMonth, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, APP_STATE_UPDATED, eventEmitter, updateTransactionsForMonth } from '../orchestrator/budgetOrchestrator';
+import { setTransactionsForCurrentMonth, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, APP_STATE_UPDATED, eventEmitter, updateTransactionsForMonth, updateTransaction } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState, setMainCategories } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
@@ -336,7 +336,8 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [fileStructures, setFileStructures] = useState<FileStructure[]>([]);
   // Remove local categoryRules state - now using budgetState
-  const [transactions, setTransactions] = useState<ImportedTransaction[]>([]);
+  // REMOVED: Local state för transaktioner - använder nu centralt state
+  // const [transactions, setTransactions] = useState<ImportedTransaction[]>([]);
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
   const [activeTransactionTab, setActiveTransactionTab] = useState<'all' | 'account'>('all');
   const [hideGreenTransactions, setHideGreenTransactions] = useState<boolean>(false);
@@ -360,7 +361,18 @@ export const TransactionImportEnhanced: React.FC = () => {
   const { toast } = useToast();
   
   // Get budget data to access cost groups and their IDs
+  
+  // READ TRANSACTIONS DIRECTLY FROM CENTRAL STATE (no local copy)
   const { budgetState } = useBudget();
+  const transactions = Object.values(budgetState.historicalData).flatMap(month => 
+    (month.transactions || []).map(t => ({
+      ...t,
+      importedAt: new Date().toISOString(), // Transaction-typen har inte importedAt, så vi lägger till det
+      fileSource: 'budgetState'
+    } as ImportedTransaction))
+  );
+  
+  addMobileDebugLog(`📊 [TransactionImportEnhanced] Reading ${transactions.length} transactions directly from central state`);
   const costGroups = budgetState?.historicalData?.[budgetState.selectedMonthKey]?.costGroups || [];
   const categoryRulesFromState = budgetState?.transactionImport?.categoryRules || [];
 
@@ -378,96 +390,13 @@ export const TransactionImportEnhanced: React.FC = () => {
     setSubcategoriesFromStorage(loadedSubcategories);
   }, []);
 
-  // Sync transactions from budgetState when it changes
-  useEffect(() => {
-    const currentMonthData = budgetState?.historicalData?.[budgetState.selectedMonthKey];
-    if (currentMonthData?.transactions) {
-      console.log('🔄 [TransactionImportEnhanced] Syncing transactions from budgetState:', currentMonthData.transactions.length);
-      // Convert Transaction[] to ImportedTransaction[] by adding missing fields
-      const importedTransactions = currentMonthData.transactions.map(t => ({
-        ...t,
-        importedAt: new Date().toISOString(),
-        fileSource: 'budgetState'
-      })) as ImportedTransaction[];
-      setTransactions(importedTransactions);
-    }
-  }, [budgetState?.historicalData, budgetState?.selectedMonthKey]);
+  // REMOVED: Synkronisering med budgetState - används inte längre eftersom vi läser direkt från central state
+  // useEffect som synkroniserade lokalt state med budgetState är nu överflödig
 
-  // Listen to orchestrator updates
-  useEffect(() => {
-    const handleStateUpdate = () => {
-      console.log('🎯 [TransactionImportEnhanced] Received APP_STATE_UPDATED event');
-      addMobileDebugLog('🎯 [TransactionImportEnhanced] Received APP_STATE_UPDATED event');
-      
-      const currentState = getCurrentState();
-      const currentMonthData = currentState.budgetState.historicalData[currentState.budgetState.selectedMonthKey];
-      if (currentMonthData?.transactions) {
-        console.log('🔄 [TransactionImportEnhanced] About to replace local transactions with orchestrator data');
-        console.log('📊 [TransactionImportEnhanced] Sample orchestrator transaction types:', 
-          currentMonthData.transactions.slice(0, 3).map(t => ({ id: t.id, type: t.type })));
-        
-        addMobileDebugLog(`📊 [TransactionImportEnhanced] Orchestrator has ${currentMonthData.transactions.length} transactions`);
-        
-        // Find the specific transaction we just updated
-        const bilTransaction = currentMonthData.transactions.find(t => t.id.includes('Bil-8201005a'));
-        if (bilTransaction) {
-          addMobileDebugLog(`🔍 [TransactionImportEnhanced] Bil transaction in orchestrator has type: ${bilTransaction.type}`);
-        }
-        
-        // Convert Transaction[] to ImportedTransaction[] by adding missing fields
-        const importedTransactions = currentMonthData.transactions.map(t => ({
-          ...t,
-          importedAt: new Date().toISOString(),
-          fileSource: 'budgetState'
-        })) as ImportedTransaction[];
-        
-        console.log('📊 [TransactionImportEnhanced] Setting transactions from orchestrator update:', importedTransactions.length);
-        addMobileDebugLog('📊 [TransactionImportEnhanced] Updating local state with orchestrator data');
-        setTransactions(importedTransactions);
-      }
-    };
+  // REMOVED: APP_STATE_UPDATED listener - inte längre nödvändig eftersom vi läser direkt från central state
+  // useEffect som lyssnade på orchestrator-events är nu överflödig
 
-    const eventEmitterRef = eventEmitter;
-    // Get the event emitter from orchestrator
-    eventEmitterRef.addEventListener(APP_STATE_UPDATED, handleStateUpdate);
-
-    return () => {
-      eventEmitterRef.removeEventListener(APP_STATE_UPDATED, handleStateUpdate);
-    };
-  }, []);
-
-  // Critical useEffect: Save transaction changes back to central state
-  // This creates the bridge between the temporary local transaction list and the persistent state
-  // FIXED: Prevent infinite loops by only saving when transactions are NOT from budgetState
-  useEffect(() => {
-    // Don't run on initial empty render
-    if (transactions.length === 0) return;
-    
-    // CRITICAL FIX: Skip if all transactions come from budgetState (to avoid infinite loops)
-    if (transactions.every(t => t.fileSource === 'budgetState')) {
-      console.log('🔄 [TransactionImportEnhanced] Skipping save - all transactions are from budgetState');
-      return;
-    }
-
-    console.log('🔄 [TransactionImportEnhanced] Transaction list changed, saving NEW imported transactions to central state...', transactions.length);
-
-    // Group transactions by month
-    const transactionsByMonth: { [monthKey: string]: ImportedTransaction[] } = {};
-    transactions.forEach(t => {
-      const monthKey = t.date.substring(0, 7); // Extract YYYY-MM from date
-      if (!transactionsByMonth[monthKey]) {
-        transactionsByMonth[monthKey] = [];
-      }
-      transactionsByMonth[monthKey].push(t);
-    });
-
-    // Save each month's transactions to the central state
-    Object.entries(transactionsByMonth).forEach(([monthKey, monthTransactions]) => {
-      console.log(`🔄 [TransactionImportEnhanced] Saving ${monthTransactions.length} NEW transactions to month ${monthKey}`);
-      updateTransactionsForMonth(monthKey, monthTransactions);
-    });
-
-  }, [transactions]); // This hook runs every time the transactions list changes
+  // REMOVED: useEffect som sparade transaktioner till central state - inte längre nödvändig eftersom vi arbetar direkt med central state
 
   // CSV Parsing with enhanced logic
   const parseCSV = useCallback((csvContent: string, accountId: string, fileName: string): ImportedTransaction[] => {
@@ -747,7 +676,10 @@ export const TransactionImportEnhanced: React.FC = () => {
       
       console.log(`[FileUpload] Reconciliation complete. Original: ${parsedTransactions.length}, Reconciled: ${reconciledTransactions.length}`);
 
-      // Add reconciled transactions to global list
+      // TEMPORARILY DISABLED: File upload functionality - will be refactored later
+      console.log(`[FileUpload] File upload functionality temporarily disabled during refactoring`);
+      addMobileDebugLog(`🔄 [FileUpload] File upload temporarily disabled - will be refactored`);
+      /*
       setTransactions(prev => {
         const filtered = prev.filter(t => t.accountId !== accountName);
         const updatedTransactions = [...filtered, ...reconciledTransactions];
@@ -759,6 +691,7 @@ export const TransactionImportEnhanced: React.FC = () => {
         
         return updatedTransactions;
       });
+      */
 
       toast({
         title: "Fil uppladdad",
@@ -768,8 +701,11 @@ export const TransactionImportEnhanced: React.FC = () => {
     reader.readAsText(file);
   }, [parseCSV, toast, reconcileTransactions]);
 
+  // TEMPORARILY DISABLED: Auto-categorization during refactoring
   const applyCategorizationRules = useCallback(() => {
-    setTransactions(prev => {
+    console.log('Auto-categorization temporarily disabled during refactoring');
+    /*
+    // Old setTransactions logic commented out
       const updatedTransactions = prev.map(transaction => {
         if (transaction.isManuallyChanged) return transaction; // Don't override manual changes
 
@@ -819,7 +755,9 @@ export const TransactionImportEnhanced: React.FC = () => {
 
       if (potentialMatches.length === 1) {
         const match = potentialMatches[0];
-        // Auto-link them
+        // TEMPORARILY DISABLED during refactoring
+        console.log('Auto-linking temporarily disabled');
+        /*
         setTransactions(prev => {
           const updatedTransactions = prev.map(t => {
             if (t.id === transfer.id) {
@@ -1038,7 +976,10 @@ export const TransactionImportEnhanced: React.FC = () => {
     );
   };
 
+  // TEMPORARILY DISABLED during refactoring  
   const approveSelectedTransactions = () => {
+    console.log('Approve transactions temporarily disabled');
+    /*
     setTransactions(prev => {
       const updatedTransactions = prev.map(t => 
         selectedTransactions.includes(t.id) 
@@ -1091,7 +1032,18 @@ export const TransactionImportEnhanced: React.FC = () => {
     console.log(`🔥 [CATEGORY FIX] Converting category name "${categoryName}" to ID "${categoryId}"`);
     console.log(`🔥 [CATEGORY FIX] Available cost groups:`, currentCostGroups.map(g => ({id: g.id, name: g.name})));
     
-    // Update transaction with correct category ID
+    // CALL ORCHESTRATOR DIRECTLY instead of local state
+    const transaction = transactions.find(t => t.id === transactionId);
+    if (transaction) {
+      const monthKey = transaction.date.substring(0, 7);
+      updateTransaction(transactionId, { 
+        appCategoryId: categoryId,
+        appSubCategoryId: subCategoryId,
+        isManuallyChanged: true
+      }, monthKey);
+    }
+    /*
+    // Old setTransactions logic:
     setTransactions(prev => {
       const updatedTransactions = prev.map(t => 
         t.id === transactionId 
@@ -1112,7 +1064,10 @@ export const TransactionImportEnhanced: React.FC = () => {
     });
   };
 
-  const updateTransactionNote = (transactionId: string, note: string) => {
+  // ALREADY REFACTORED ABOVE - this should be gone
+  const updateTransactionNote_OLD = (transactionId: string, note: string) => {
+    console.log('This old function should not be called');
+    /*
     setTransactions(prev => {
       const updatedTransactions = prev.map(t => 
         t.id === transactionId 
@@ -1144,16 +1099,20 @@ export const TransactionImportEnhanced: React.FC = () => {
     });
   };
 
-  // Unified transaction update function - the single source of truth for all transaction changes
+  // REFACTORED: Nu använder vi direkt orchestrator istället för lokalt state
   const handleUpdateTransaction = (transactionId: string, updates: Partial<ImportedTransaction>) => {
     console.log(`🔄 [handleUpdateTransaction] Updating transaction ${transactionId} with:`, updates);
-    setTransactions(currentTransactions => {
-      const updatedTransactions = currentTransactions.map(t => 
-        t.id === transactionId ? { ...t, ...updates } : t
-      );
-      console.log(`✅ [handleUpdateTransaction] Local state updated. Transaction ${transactionId} now has type:`, updatedTransactions.find(t => t.id === transactionId)?.type);
-      return updatedTransactions;
-    });
+    addMobileDebugLog(`🔄 [handleUpdateTransaction] Directly calling orchestrator for ${transactionId}`);
+    
+    // Hitta vilken månad transaktionen tillhör
+    const transaction = transactions.find(t => t.id === transactionId);
+    if (transaction) {
+      const monthKey = transaction.date.substring(0, 7);
+      updateTransaction(transactionId, updates, monthKey);
+      addMobileDebugLog(`✅ [handleUpdateTransaction] Called orchestrator updateTransaction for month ${monthKey}`);
+    } else {
+      addMobileDebugLog(`❌ [handleUpdateTransaction] Could not find transaction ${transactionId}`);
+    }
   };
 
   const handleSavingsLink = (transaction: ImportedTransaction) => {
