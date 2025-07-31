@@ -131,7 +131,7 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
                               {formatDate(date)}
                             </div>
                             <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-                              {dateTransactions.length} transaktion{dateTransactions.length !== 1 ? 'er' : ''}
+                              {dateTransactions.length}
                             </div>
                             <div className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded">
                               {formatCurrency(dateTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0))}
