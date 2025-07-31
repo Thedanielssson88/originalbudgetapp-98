@@ -399,13 +399,18 @@ export const TransactionImportEnhanced: React.FC = () => {
       const currentState = getCurrentState();
       const currentMonthData = currentState.budgetState.historicalData[currentState.budgetState.selectedMonthKey];
       if (currentMonthData?.transactions) {
-        console.log('🔄 [TransactionImportEnhanced] Updating transactions from state update:', currentMonthData.transactions.length);
+        console.log('🔄 [TransactionImportEnhanced] About to replace local transactions with orchestrator data');
+        console.log('📊 [TransactionImportEnhanced] Sample orchestrator transaction types:', 
+          currentMonthData.transactions.slice(0, 3).map(t => ({ id: t.id, type: t.type })));
+        
         // Convert Transaction[] to ImportedTransaction[] by adding missing fields
         const importedTransactions = currentMonthData.transactions.map(t => ({
           ...t,
           importedAt: new Date().toISOString(),
           fileSource: 'budgetState'
         })) as ImportedTransaction[];
+        
+        console.log('📊 [TransactionImportEnhanced] Setting transactions from orchestrator update:', importedTransactions.length);
         setTransactions(importedTransactions);
       }
     };
@@ -1122,11 +1127,14 @@ export const TransactionImportEnhanced: React.FC = () => {
 
   // Unified transaction update function - the single source of truth for all transaction changes
   const handleUpdateTransaction = (transactionId: string, updates: Partial<ImportedTransaction>) => {
-    setTransactions(currentTransactions => 
-      currentTransactions.map(t => 
+    console.log(`🔄 [handleUpdateTransaction] Updating transaction ${transactionId} with:`, updates);
+    setTransactions(currentTransactions => {
+      const updatedTransactions = currentTransactions.map(t => 
         t.id === transactionId ? { ...t, ...updates } : t
-      )
-    );
+      );
+      console.log(`✅ [handleUpdateTransaction] Local state updated. Transaction ${transactionId} now has type:`, updatedTransactions.find(t => t.id === transactionId)?.type);
+      return updatedTransactions;
+    });
   };
 
   const handleSavingsLink = (transaction: ImportedTransaction) => {
