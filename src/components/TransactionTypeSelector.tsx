@@ -5,26 +5,31 @@ import { ImportedTransaction } from '@/types/transaction';
 
 interface TransactionTypeSelectorProps {
   transaction: ImportedTransaction;
+  onUpdateTransaction?: (transactionId: string, updates: Partial<ImportedTransaction>) => void;
 }
 
-export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = ({ transaction }) => {
+export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = ({ transaction, onUpdateTransaction }) => {
   console.log(`🔄 [TransactionTypeSelector] Rendering with transaction ${transaction.id}, type: ${transaction.type}`);
   
   const handleTypeChange = (newType: string) => {
     console.log(`🔄 [TransactionTypeSelector] handleTypeChange called! Changing type from ${transaction.type} to ${newType} for transaction ${transaction.id}`);
     
-    // Derive monthKey from transaction's date (e.g. "2025-07-30" -> "2025-07")
-    const monthKey = transaction.date.substring(0, 7);
-    console.log(`🔄 [TransactionTypeSelector] Using monthKey: ${monthKey}`);
-    
-    // Update transaction type
-    updateTransaction(transaction.id, { 
+    const updates = { 
       type: newType as ImportedTransaction['type'],
       // Reset related fields when changing type
       linkedTransactionId: undefined,
       savingsTargetId: undefined,
       correctedAmount: undefined
-    }, monthKey);
+    };
+    
+    // Update orchestrator (for persistent storage)
+    const monthKey = transaction.date.substring(0, 7);
+    updateTransaction(transaction.id, updates, monthKey);
+    
+    // Update local state if callback provided (for immediate UI feedback)
+    if (onUpdateTransaction) {
+      onUpdateTransaction(transaction.id, updates);
+    }
     
     console.log(`✅ [TransactionTypeSelector] updateTransaction called for ${transaction.id} with type ${newType}`);
   };

@@ -1796,7 +1796,10 @@ export const TransactionImportEnhanced: React.FC = () => {
                                       )}
                                     </TableCell>
                                     <TableCell>
-                                      <TransactionTypeSelector transaction={transaction} />
+                                      <TransactionTypeSelector 
+                                        transaction={transaction} 
+                                        onUpdateTransaction={handleUpdateTransaction}
+                                      />
                                     </TableCell>
                                     <TableCell>
                                        <Select
