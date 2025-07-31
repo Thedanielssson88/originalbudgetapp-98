@@ -4,13 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { ImportedTransaction } from '@/types/transaction';
-import { updateTransaction } from '../orchestrator/budgetOrchestrator';
 import { useBudget } from '@/hooks/useBudget';
 
 interface SavingsLinkDialogProps {
   isOpen: boolean;
   onClose: () => void;
   transaction?: ImportedTransaction;
+  onUpdateTransaction: (transactionId: string, updates: Partial<ImportedTransaction>) => void;
 }
 
 interface SavingsTarget {
@@ -23,7 +23,8 @@ interface SavingsTarget {
 export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
   isOpen,
   onClose,
-  transaction
+  transaction,
+  onUpdateTransaction
 }) => {
   const [selectedTarget, setSelectedTarget] = useState<string>('');
   const { budgetState } = useBudget();
@@ -87,10 +88,7 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
   }
 
   const handleLinkSavings = () => {
-    console.log(`🚀 [SavingsLinkDialog] handleLinkSavings called with:`, { selectedTarget, transactionId: transaction?.id });
-    
     if (!selectedTarget || !transaction) {
-      console.log(`🚨 [SavingsLinkDialog] Missing data:`, { selectedTarget: !!selectedTarget, transaction: !!transaction });
       return;
     }
     
@@ -98,35 +96,18 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
     const target = selectableTargets.find(t => t.id === selectedTarget);
     if (!target) {
       console.error('🚨 [SavingsLinkDialog] Could not find target for ID:', selectedTarget);
-      console.log('🚨 [SavingsLinkDialog] Available targets:', selectableTargets.map(t => ({ id: t.id, name: t.name })));
       return;
     }
     
-    // Derive monthKey from transaction's date
-    const monthKey = transaction.date.substring(0, 7);
-    
-    console.log(`🚀 [SavingsLinkDialog] About to call updateTransaction:`, { 
-      transactionId: transaction.id, 
-      monthKey,
-      mainCategoryId: target.mainCategoryId,
-      savingsTargetId: target.id,
-      targetName: target.name
-    });
-    
-    // Update transaction with correct linking
+    // Update transaction with correct linking via prop function
     const updates: Partial<ImportedTransaction> = {
       type: 'Savings',
       appCategoryId: target.mainCategoryId, // Link to main category
       savingsTargetId: target.id // Link to specific savings post/goal
     };
     
-    console.log(`🚀 [SavingsLinkDialog] Updates to apply:`, {
-      ...updates,
-      targetName: target.name
-    });
-    
-    updateTransaction(transaction.id, updates, monthKey);
-    console.log(`🚀 [SavingsLinkDialog] updateTransaction completed`);
+    // Call the prop function instead of direct orchestrator call
+    onUpdateTransaction(transaction.id, updates);
     onClose();
   };
 

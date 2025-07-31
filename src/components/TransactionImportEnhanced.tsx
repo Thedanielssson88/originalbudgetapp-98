@@ -1120,6 +1120,15 @@ export const TransactionImportEnhanced: React.FC = () => {
     });
   };
 
+  // Unified transaction update function - the single source of truth for all transaction changes
+  const handleUpdateTransaction = (transactionId: string, updates: Partial<ImportedTransaction>) => {
+    setTransactions(currentTransactions => 
+      currentTransactions.map(t => 
+        t.id === transactionId ? { ...t, ...updates } : t
+      )
+    );
+  };
+
   const handleSavingsLink = (transaction: ImportedTransaction) => {
     setSavingsLinkDialog({
       isOpen: true,
@@ -1931,6 +1940,7 @@ export const TransactionImportEnhanced: React.FC = () => {
         isOpen={savingsLinkDialog.isOpen}
         onClose={() => setSavingsLinkDialog({ isOpen: false })}
         transaction={savingsLinkDialog.transaction}
+        onUpdateTransaction={handleUpdateTransaction}
       />
 
       <CostCoverageDialog
