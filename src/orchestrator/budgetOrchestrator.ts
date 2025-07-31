@@ -552,10 +552,23 @@ export function matchInternalTransfer(t1Id: string, t2Id: string): void {
 }
 
 export function linkSavingsTransaction(transactionId: string, savingsTargetId: string): void {
+  console.log(`🔗 [DEBUG] linkSavingsTransaction called with:`, { transactionId, savingsTargetId });
+  console.log(`🔗 [DEBUG] Current month:`, state.budgetState.selectedMonthKey);
+  
+  const currentMonth = state.budgetState.historicalData[state.budgetState.selectedMonthKey];
+  const transactionExists = currentMonth?.transactions?.find(t => t.id === transactionId);
+  console.log(`🔗 [DEBUG] Transaction exists in current month:`, !!transactionExists);
+  console.log(`🔗 [DEBUG] Transaction before update:`, transactionExists ? { id: transactionExists.id, type: transactionExists.type, savingsTargetId: transactionExists.savingsTargetId } : 'NOT FOUND');
+  
   updateTransaction(transactionId, {
     type: 'Savings',
     savingsTargetId: savingsTargetId
   });
+  
+  // Check after update
+  const updatedMonth = state.budgetState.historicalData[state.budgetState.selectedMonthKey];
+  const updatedTransaction = updatedMonth?.transactions?.find(t => t.id === transactionId);
+  console.log(`🔗 [DEBUG] Transaction after update:`, updatedTransaction ? { id: updatedTransaction.id, type: updatedTransaction.type, savingsTargetId: updatedTransaction.savingsTargetId } : 'NOT FOUND');
   
   console.log(`✅ [Orchestrator] Linked transaction ${transactionId} to savings target ${savingsTargetId}`);
 }
