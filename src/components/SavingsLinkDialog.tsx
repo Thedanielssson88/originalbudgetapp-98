@@ -127,15 +127,22 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
 
   // Get current link display name
   const getCurrentLinkName = (): string => {
-    if (!transaction.savingsTargetId) return 'Ingen koppling';
+    if (!transaction.savingsTargetId) {
+      console.log('🔍 [getCurrentLinkName] No savingsTargetId found');
+      return 'Ingen koppling';
+    }
     
-    console.log('🔍 [SavingsLinkDialog] getCurrentLinkName - looking for ID:', transaction.savingsTargetId);
-    console.log('🔍 [SavingsLinkDialog] Available targets:', selectableTargets.map(t => ({ id: t.id, name: t.name })));
+    console.log('🔍 [getCurrentLinkName] Looking for ID:', transaction.savingsTargetId);
+    console.log('🔍 [getCurrentLinkName] Available targets:', selectableTargets.map(t => ({ id: t.id, name: t.name })));
+    console.log('🔍 [getCurrentLinkName] Current month data:', currentMonthData);
+    console.log('🔍 [getCurrentLinkName] Savings groups:', savingsGroups);
+    console.log('🔍 [getCurrentLinkName] Savings goals:', savingsGoals);
     
     const target = selectableTargets.find(t => t.id === transaction.savingsTargetId);
     const result = target ? target.name : 'Okänt sparmål';
     
-    console.log('🔍 [SavingsLinkDialog] getCurrentLinkName result:', result);
+    console.log('🔍 [getCurrentLinkName] Found target:', target);
+    console.log('🔍 [getCurrentLinkName] Returning result:', result);
     return result;
   };
 
