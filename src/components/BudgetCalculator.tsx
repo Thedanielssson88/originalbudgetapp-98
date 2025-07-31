@@ -567,27 +567,41 @@ const BudgetCalculator = () => {
 
   const getTransactionsForAccount = (accountName: string): Transaction[] => {
     const monthTransactions = (currentMonthData as any).transactions || [];
-    console.log(`🔍 [DEBUG] getTransactionsForAccount called with accountName: "${accountName}"`);
-    console.log(`🔍 [DEBUG] Available transactions:`, monthTransactions.map((t: Transaction) => ({
-      id: t.id,
-      accountId: t.accountId,
-      description: t.description,
-      amount: t.amount,
-      appCategoryId: t.appCategoryId,
-      status: t.status
-    })));
+    console.log(`🔍 [DEBUG] ============= getTransactionsForAccount START =============`);
+    console.log(`🔍 [DEBUG] Looking for account: "${accountName}"`);
+    console.log(`🔍 [DEBUG] Total transactions in month: ${monthTransactions.length}`);
+    console.log(`🔍 [DEBUG] Available accounts:`, budgetState.accounts);
+    
+    // Log all transactions with their account info
+    console.log(`🔍 [DEBUG] ALL TRANSACTIONS WITH ACCOUNT INFO:`);
+    monthTransactions.forEach((t: Transaction, index: number) => {
+      const account = budgetState.accounts.find(acc => acc.id === t.accountId);
+      console.log(`🔍 [DEBUG] Transaction ${index}: id=${t.id}, accountId=${t.accountId}, resolved account name="${account?.name}", amount=${t.amount}, description="${t.description}", status=${t.status}, appCategoryId=${t.appCategoryId}`);
+    });
     
     // Method 1: Find transactions directly by accountId
     const directAccountTransactions = monthTransactions.filter((t: Transaction) => {
       const account = budgetState.accounts.find(acc => acc.id === t.accountId);
       const matchesDirect = account?.name === accountName;
-      console.log(`🔍 [DEBUG] Direct check - Transaction ${t.id}: accountId=${t.accountId}, resolved name=${account?.name}, matches=${matchesDirect}`);
+      if (matchesDirect) {
+        console.log(`🔍 [DEBUG] ✅ DIRECT MATCH - Transaction ${t.id}: accountId=${t.accountId}, resolved name=${account?.name}, amount=${t.amount}`);
+      }
       return matchesDirect;
     });
     
-    console.log(`🔍 [DEBUG] Direct account transactions for "${accountName}":`, directAccountTransactions);
+    // Method 2: Also check for transactions that might have accountId directly matching the account name
+    const nameMatchTransactions = monthTransactions.filter((t: Transaction) => {
+      const matchesName = t.accountId === accountName;
+      if (matchesName) {
+        console.log(`🔍 [DEBUG] ✅ NAME MATCH - Transaction ${t.id}: accountId=${t.accountId} matches account name directly`);
+      }
+      return matchesName;
+    });
     
-    // Method 2: For budget accounts, also find transactions that belong to subcategories in this account
+    console.log(`🔍 [DEBUG] Direct account transactions (${directAccountTransactions.length}):`, directAccountTransactions.map(t => ({ id: t.id, amount: t.amount, description: t.description })));
+    console.log(`🔍 [DEBUG] Name match transactions (${nameMatchTransactions.length}):`, nameMatchTransactions.map(t => ({ id: t.id, amount: t.amount, description: t.description })));
+    
+    // Method 3: For budget accounts, also find transactions that belong to subcategories in this account
     const accountSubcategories: string[] = [];
     costGroups.forEach(group => {
       group.subCategories?.forEach(sub => {
@@ -596,34 +610,33 @@ const BudgetCalculator = () => {
         const account = budgetState.accounts.find(acc => acc.id === sub.accountId);
         const matchesNew = account?.name === accountName;
         
-        console.log(`🔍 [DEBUG] Checking subcategory "${sub.name}": legacy(${sub.account}===${accountName})=${matchesLegacy}, new(accountId=${sub.accountId}, resolved name=${account?.name}===${accountName})=${matchesNew}`);
-        
         if (matchesLegacy || matchesNew) {
-          // Use the group ID as the category ID for transactions
           accountSubcategories.push(group.id);
-          console.log(`🔍 [DEBUG] Added group ID ${group.id} for account ${accountName}`);
+          console.log(`🔍 [DEBUG] ✅ SUBCATEGORY MATCH - Added group ID ${group.id} for account ${accountName} via subcategory "${sub.name}"`);
         }
       });
     });
-    
-    console.log(`🔍 [DEBUG] Found subcategories for account "${accountName}":`, accountSubcategories);
     
     // Filter transactions by category ID (appCategoryId) that belong to this account through subcategories
     const categoryBasedTransactions = monthTransactions.filter((t: Transaction) => 
       accountSubcategories.includes(t.appCategoryId || '')
     );
     
-    console.log(`🔍 [DEBUG] Category-based transactions for account "${accountName}":`, categoryBasedTransactions);
+    console.log(`🔍 [DEBUG] Category-based transactions (${categoryBasedTransactions.length}):`, categoryBasedTransactions.map(t => ({ id: t.id, amount: t.amount, description: t.description, appCategoryId: t.appCategoryId })));
     
-    // Combine both methods and remove duplicates
-    const allTransactions = [...directAccountTransactions];
+    // Combine all methods and remove duplicates
+    const allTransactions = [...directAccountTransactions, ...nameMatchTransactions];
     categoryBasedTransactions.forEach(t => {
       if (!allTransactions.some(existing => existing.id === t.id)) {
         allTransactions.push(t);
       }
     });
     
-    console.log(`🔍 [DEBUG] Combined transactions for account "${accountName}":`, allTransactions);
+    console.log(`🔍 [DEBUG] ============= FINAL RESULT =============`);
+    console.log(`🔍 [DEBUG] Combined transactions for account "${accountName}": ${allTransactions.length} transactions`);
+    console.log(`🔍 [DEBUG] Final transactions:`, allTransactions.map(t => ({ id: t.id, amount: t.amount, description: t.description, status: t.status })));
+    console.log(`🔍 [DEBUG] ============= getTransactionsForAccount END =============`);
+    
     // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
     return allTransactions;
   };
