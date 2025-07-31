@@ -232,13 +232,21 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                             correctedAmount: undefined
                           };
                           
+                          console.log(`🔄 EXPANDABLE CARD: About to call updateTransaction with monthKey derived from date: ${transaction.date}`);
+                          
                           // Update orchestrator
                           const monthKey = transaction.date.substring(0, 7);
+                          console.log(`🔄 EXPANDABLE CARD: Calling updateTransaction(${transaction.id}, updates, ${monthKey})`);
                           updateTransaction(transaction.id, updates, monthKey);
+                          
+                          console.log(`🔄 EXPANDABLE CARD: updateTransaction called, now calling local callback`);
                           
                           // Update local state if callback provided
                           if (onUpdateTransaction) {
                             onUpdateTransaction(transaction.id, updates);
+                            console.log(`✅ EXPANDABLE CARD: Local state updated via callback`);
+                          } else {
+                            console.log(`⚠️ EXPANDABLE CARD: No onUpdateTransaction callback provided!`);
                           }
                         }}
                         className="w-full p-2 border border-input bg-background rounded-md text-sm"
