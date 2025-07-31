@@ -154,6 +154,15 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
           <DialogDescription>
             Välj vilken specifik sparandepost eller sparmål som transaktionen ska kopplas till.
           </DialogDescription>
+          
+          {/* DEBUG INFO - TEMPORARY */}
+          <div className="bg-yellow-100 p-2 rounded text-xs mt-2">
+            <div><strong>DEBUG INFO:</strong></div>
+            <div>Transaction savingsTargetId: {transaction.savingsTargetId || 'NONE'}</div>
+            <div>Available targets count: {selectableTargets.length}</div>
+            <div>Current link name: {getCurrentLinkName()}</div>
+            <div>Targets: {selectableTargets.map(t => `${t.name} (${t.id.slice(0,8)}...)`).join(', ')}</div>
+          </div>
         </DialogHeader>
 
         <div className="space-y-4">
