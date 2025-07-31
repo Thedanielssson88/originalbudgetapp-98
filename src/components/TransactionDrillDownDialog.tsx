@@ -133,9 +133,12 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
                             <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
                               {dateTransactions.length}
                             </div>
-                            <div className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded">
-                              {Math.abs(dateTransactions.reduce((sum, t) => sum + t.amount, 0)).toLocaleString('sv-SE')} kr
-                            </div>
+                                            <div className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded">
+                                              {Math.abs(dateTransactions.reduce((sum, t) => {
+                                                const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+                                                return sum + effectiveAmount;
+                                              }, 0)).toLocaleString('sv-SE')} kr
+                                            </div>
                           </div>
                           <Button variant="ghost" size="sm" className="flex-shrink-0">
                             {expandedDates.has(date) ? 
@@ -180,10 +183,25 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
                                     )}
                                     <div className={`${isMobile ? 'flex items-center justify-between ml-8' : 'flex items-center space-x-3'}`}>
                                        <div>
-                                         <div className="text-muted-foreground text-xs">Belopp</div>
-                                         <div className={`font-bold ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-500'} ${isMobile ? 'text-sm' : 'text-base'}`}>
-                                           {formatCurrency(transaction.amount)}
-                                         </div>
+                                         {transaction.correctedAmount !== undefined ? (
+                                           <div className="space-y-1">
+                                             <div className="text-muted-foreground text-xs">Korrigerat belopp</div>
+                                             <div className={`font-bold ${transaction.correctedAmount >= 0 ? 'text-green-600' : 'text-red-500'} ${isMobile ? 'text-sm' : 'text-base'}`}>
+                                               {formatCurrency(transaction.correctedAmount)}
+                                             </div>
+                                             <div className="text-muted-foreground text-xs">Ursprungligt belopp</div>
+                                             <div className={`text-xs line-through opacity-60 ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                               {formatCurrency(transaction.amount)}
+                                             </div>
+                                           </div>
+                                         ) : (
+                                           <div>
+                                             <div className="text-muted-foreground text-xs">Belopp</div>
+                                             <div className={`font-bold ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-500'} ${isMobile ? 'text-sm' : 'text-base'}`}>
+                                               {formatCurrency(transaction.amount)}
+                                             </div>
+                                           </div>
+                                         )}
                                        </div>
                                       <Button variant="ghost" size="sm" className="flex-shrink-0">
                                         {expandedTransactions.has(transaction.id) ? 

@@ -6199,12 +6199,18 @@ const BudgetCalculator = () => {
                                      
                                      console.log(`🔍 [ACCOUNT VIEW] Found ${transactionsForThisAccount.length} transactions for ${account.name}:`, transactionsForThisAccount);
                                      
-                                       // 4. Beräkna det FAKTISKA beloppet genom enkel summering
-                                       // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
-                                       // But EXCLUDE positive amounts (income) from cost calculations
-                                       const actualAmount = transactionsForThisAccount
-                                         .filter((t: any) => t.amount < 0) // Only include negative amounts (costs)
-                                         .reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0);
+                                        // 4. Beräkna det FAKTISKA beloppet genom enkel summering
+                                        // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
+                                        // But EXCLUDE positive amounts (income) from cost calculations
+                                        const actualAmount = transactionsForThisAccount
+                                          .filter((t: any) => {
+                                            const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+                                            return effectiveAmount < 0; // Only include negative amounts (costs)
+                                          })
+                                          .reduce((sum: number, t: any) => {
+                                            const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+                                            return sum + Math.abs(effectiveAmount);
+                                          }, 0);
                                      
                                      console.log(`🔍 [ACCOUNT VIEW] Actual amount for ${account.name}: ${actualAmount}`);
                                      
