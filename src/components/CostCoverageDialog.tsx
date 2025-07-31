@@ -12,21 +12,20 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { ImportedTransaction } from '@/types/transaction';
+import { coverCost } from '../orchestrator/budgetOrchestrator';
 
 interface CostCoverageDialogProps {
   isOpen: boolean;
   onClose: () => void;
   transfer?: ImportedTransaction;
   potentialCosts?: ImportedTransaction[];
-  onCover: (transferId: string, costId: string) => void;
 }
 
 export const CostCoverageDialog: React.FC<CostCoverageDialogProps> = ({
   isOpen,
   onClose,
   transfer,
-  potentialCosts = [],
-  onCover
+  potentialCosts = []
 }) => {
   const [selectedCost, setSelectedCost] = React.useState<string>('');
   const [searchTerm, setSearchTerm] = React.useState<string>('');
@@ -38,7 +37,7 @@ export const CostCoverageDialog: React.FC<CostCoverageDialogProps> = ({
 
   const handleCover = () => {
     if (transfer && selectedCost) {
-      onCover(transfer.id, selectedCost);
+      coverCost(transfer.id, selectedCost);
       onClose();
     }
   };

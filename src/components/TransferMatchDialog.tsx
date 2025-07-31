@@ -11,27 +11,33 @@ import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { ImportedTransaction } from '@/types/transaction';
+import { matchInternalTransfer, updateTransaction } from '../orchestrator/budgetOrchestrator';
 
 interface TransferMatchDialogProps {
   isOpen: boolean;
   onClose: () => void;
   transaction?: ImportedTransaction;
   suggestions?: ImportedTransaction[];
-  onMatch: (transferId: string, matchId: string) => void;
 }
 
 export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
   isOpen,
   onClose,
   transaction,
-  suggestions = [],
-  onMatch
+  suggestions = []
 }) => {
   const [selectedMatch, setSelectedMatch] = React.useState<string>('');
 
   const handleMatch = () => {
     if (transaction && selectedMatch) {
-      onMatch(transaction.id, selectedMatch);
+      matchInternalTransfer(transaction.id, selectedMatch);
+      onClose();
+    }
+  };
+
+  const handleChangeToInternalTransfer = () => {
+    if (transaction) {
+      updateTransaction(transaction.id, { type: 'InternalTransfer' });
       onClose();
     }
   };
@@ -85,13 +91,18 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="space-x-2">
           <Button variant="outline" onClick={onClose}>
             Avbryt
           </Button>
-          <Button onClick={handleMatch} disabled={!selectedMatch}>
-            Para ihop
+          <Button variant="secondary" onClick={handleChangeToInternalTransfer}>
+            Ändra till Intern Överföring
           </Button>
+          {suggestions.length > 0 && (
+            <Button onClick={handleMatch} disabled={!selectedMatch}>
+              Matcha transaktioner
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

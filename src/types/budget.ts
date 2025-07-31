@@ -8,13 +8,15 @@ export interface Transaction {
   bankSubCategory: string;
   description: string; // Bankens text
   userDescription: string; // Användarens egna text/notering
-  amount: number;
+  amount: number; // Originalbelopp från banken, ändras aldrig
   balanceAfter: number; // Saldo efter transaktion
   status: 'red' | 'yellow' | 'green'; // Röd=kräver åtgärd, Gul=automatisk, Grön=godkänd
   type: 'Transaction' | 'InternalTransfer' | 'Savings' | 'CostCoverage';
   appCategoryId?: string; // Koppling till vår egen kategori
   appSubCategoryId?: string;
   linkedTransactionId?: string; // För att para ihop överföringar
+  correctedAmount?: number; // För "Täck en kostnad"-logiken
+  savingsTargetId?: string; // ID för kopplat sparmål eller sparkategori
 }
 
 // Detta representerar nu en enskild budgetpost (både kostnad och sparande)

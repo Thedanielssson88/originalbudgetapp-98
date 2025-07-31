@@ -44,6 +44,10 @@ import { Upload, CheckCircle, FileText, Settings, AlertCircle, Circle, CheckSqua
 import { ImportedTransaction, CategoryRule, FileStructure, ColumnMapping } from '@/types/transaction';
 import { TransactionExpandableCard } from './TransactionExpandableCard';
 import { TransactionGroupByDate } from './TransactionGroupByDate';
+import { TransactionTypeSelector } from './TransactionTypeSelector';
+import { TransferMatchDialog } from './TransferMatchDialog';
+import { SavingsLinkDialog } from './SavingsLinkDialog';
+import { CostCoverageDialog } from './CostCoverageDialog';
 import { useBudget } from '@/hooks/useBudget';
 import { setTransactionsForCurrentMonth, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState, setMainCategories } from '../orchestrator/budgetOrchestrator';
@@ -345,6 +349,10 @@ export const TransactionImportEnhanced: React.FC = () => {
     isOpen: boolean;
     transfer?: ImportedTransaction;
     potentialCosts?: ImportedTransaction[];
+  }>({ isOpen: false });
+  const [savingsLinkDialog, setSavingsLinkDialog] = useState<{
+    isOpen: boolean;
+    transaction?: ImportedTransaction;
   }>({ isOpen: false });
   
   const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});

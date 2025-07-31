@@ -456,6 +456,98 @@ export const deleteSavingsGoal = (goalId: string) => {
 
 // ===== TRANSACTION MANAGEMENT =====
 
+export function updateTransaction(transactionId: string, updates: Partial<ImportedTransaction>): void {
+  const currentMonthKey = state.budgetState.selectedMonthKey;
+  
+  if (!currentMonthKey) {
+    console.error('[Orchestrator] Ingen månad vald, kan inte uppdatera transaktion.');
+    return;
+  }
+
+  const currentMonth = state.budgetState.historicalData[currentMonthKey];
+  if (!currentMonth || !currentMonth.transactions) {
+    console.error('[Orchestrator] Inga transaktioner finns för aktuell månad.');
+    return;
+  }
+
+  const updatedTransactions = currentMonth.transactions.map(t => {
+    if (t.id === transactionId) {
+      return { ...t, ...updates };
+    }
+    return t;
+  });
+
+  updateAndRecalculate({ transactions: updatedTransactions });
+  console.log(`✅ [Orchestrator] Transaction ${transactionId} updated successfully`);
+}
+
+export function matchInternalTransfer(t1Id: string, t2Id: string): void {
+  const currentMonthKey = state.budgetState.selectedMonthKey;
+  const currentMonth = state.budgetState.historicalData[currentMonthKey];
+  
+  if (!currentMonth?.transactions) return;
+  
+  const t1 = currentMonth.transactions.find(t => t.id === t1Id);
+  const t2 = currentMonth.transactions.find(t => t.id === t2Id);
+  
+  if (!t1 || !t2) return;
+  
+  const account1Name = state.budgetState.accounts.find(a => a.id === t1.accountId)?.name || t1.accountId;
+  const account2Name = state.budgetState.accounts.find(a => a.id === t2.accountId)?.name || t2.accountId;
+  
+  // Update both transactions
+  updateTransaction(t1.id, {
+    type: 'InternalTransfer',
+    linkedTransactionId: t2.id,
+    userDescription: `Överföring till ${account2Name}`
+  });
+  
+  updateTransaction(t2.id, {
+    type: 'InternalTransfer',
+    linkedTransactionId: t1.id,
+    userDescription: `Överföring från ${account1Name}`
+  });
+  
+  console.log(`✅ [Orchestrator] Matched internal transfer between ${t1Id} and ${t2Id}`);
+}
+
+export function linkSavingsTransaction(transactionId: string, savingsTargetId: string): void {
+  updateTransaction(transactionId, {
+    type: 'Savings',
+    savingsTargetId: savingsTargetId
+  });
+  
+  console.log(`✅ [Orchestrator] Linked transaction ${transactionId} to savings target ${savingsTargetId}`);
+}
+
+export function coverCost(transferId: string, costId: string): void {
+  const currentMonthKey = state.budgetState.selectedMonthKey;
+  const currentMonth = state.budgetState.historicalData[currentMonthKey];
+  
+  if (!currentMonth?.transactions) return;
+  
+  const transfer = currentMonth.transactions.find(t => t.id === transferId);
+  const cost = currentMonth.transactions.find(t => t.id === costId);
+  
+  if (!transfer || !cost || transfer.amount <= 0 || cost.amount >= 0) return;
+  
+  const coverAmount = Math.min(transfer.amount, Math.abs(cost.amount));
+  
+  // Update transfer transaction
+  updateTransaction(transferId, {
+    type: 'CostCoverage',
+    linkedTransactionId: costId,
+    correctedAmount: transfer.amount - coverAmount
+  });
+  
+  // Update cost transaction
+  updateTransaction(costId, {
+    correctedAmount: cost.amount + coverAmount
+  });
+  
+  console.log(`✅ [Orchestrator] Covered ${coverAmount} from transfer ${transferId} to cost ${costId}`);
+}
+
 export function setTransactionsForCurrentMonth(transactions: ImportedTransaction[]): void {
   const currentMonthKey = state.budgetState.selectedMonthKey;
 

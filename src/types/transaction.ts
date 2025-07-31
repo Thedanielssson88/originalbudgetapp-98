@@ -28,6 +28,8 @@ export interface ImportedTransaction {
   transferFromAccount?: string;
   transferType?: 'intern' | 'sparande' | 'täck_kostnad';
   coveredCostId?: string; // If this transfer covers a specific cost
+  correctedAmount?: number; // För "Täck en kostnad"-logiken
+  savingsTargetId?: string; // ID för kopplat sparmål eller sparkategori
   
   // Metadata
   isManuallyChanged?: boolean; // If user manually changed category, don't override on re-import
