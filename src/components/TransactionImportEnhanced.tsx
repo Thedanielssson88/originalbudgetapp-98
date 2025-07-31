@@ -1796,10 +1796,37 @@ export const TransactionImportEnhanced: React.FC = () => {
                                       )}
                                     </TableCell>
                                      <TableCell>
-                                      <TransactionTypeSelector 
-                                        transaction={transaction} 
-                                        onUpdateTransaction={handleUpdateTransaction}
-                                      />
+                                       <Select 
+                                         value={transaction.type} 
+                                         onValueChange={(newType: string) => {
+                                           console.log(`🔄 DIRECT: Changing type from ${transaction.type} to ${newType} for transaction ${transaction.id}`);
+                                           handleUpdateTransaction(transaction.id, { 
+                                             type: newType as ImportedTransaction['type'],
+                                             linkedTransactionId: undefined,
+                                             savingsTargetId: undefined,
+                                             correctedAmount: undefined
+                                           });
+                                         }}
+                                       >
+                                         <SelectTrigger className="w-full min-w-[180px]">
+                                           <SelectValue />
+                                         </SelectTrigger>
+                                         <SelectContent className="bg-background border z-50">
+                                           {transaction.amount < 0 ? (
+                                             <>
+                                               <SelectItem value="Transaction">Transaktion</SelectItem>
+                                               <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
+                                             </>
+                                           ) : (
+                                             <>
+                                               <SelectItem value="Transaction">Transaktion</SelectItem>
+                                               <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
+                                               <SelectItem value="Savings">Sparande</SelectItem>
+                                               <SelectItem value="CostCoverage">Täck en kostnad</SelectItem>
+                                             </>
+                                           )}
+                                         </SelectContent>
+                                       </Select>
                                      </TableCell>
                                     <TableCell>
                                        <Select
