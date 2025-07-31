@@ -687,9 +687,20 @@ const BudgetCalculator = () => {
   };
 
   const getSavingsTransactions = () => {
-    const allTransactions = (currentMonthData as any).transactions || [];
-    console.log('🔍 [DEBUG] getSavingsTransactions - all transactions:', allTransactions.length);
-    console.log('🔍 [DEBUG] getSavingsTransactions - currentMonthData.month:', (currentMonthData as any).month);
+    console.log('🔍 [DEBUG] getSavingsTransactions called - looking across ALL months');
+    const allTransactions: any[] = [];
+    
+    // Look across all historical data, not just current month
+    Object.entries(budgetState.historicalData).forEach(([monthKey, monthData]) => {
+      if (monthData.transactions && monthData.transactions.length > 0) {
+        console.log(`🔍 [DEBUG] Found ${monthData.transactions.length} transactions in month ${monthKey}`);
+        monthData.transactions.forEach(t => {
+          allTransactions.push(t);
+        });
+      }
+    });
+    
+    console.log('🔍 [DEBUG] Total transactions across all months:', allTransactions.length);
     
     // Log all transaction types and savings target IDs
     allTransactions.forEach((t: any, index: number) => {
