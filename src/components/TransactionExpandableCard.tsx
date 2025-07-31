@@ -227,21 +227,26 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                         <p className="text-sm text-green-700 font-medium">
                           {(() => {
                             const targetId = transaction.savingsTargetId;
-                            // Check if it's a savings group
-                            if (targetId?.startsWith('group-')) {
-                              const groupId = targetId.replace('group-', '');
-                              const currentMonthData = budgetState?.historicalData?.[budgetState.selectedMonthKey];
-                              const savingsGroups = currentMonthData?.savingsGroups || [];
-                              const group = savingsGroups.find((g: any) => g.id === groupId);
-                              return group ? `${group.name} (${group.amount} kr/månad)` : 'Okänt sparmål';
+                            if (!targetId) return 'Okänt sparmål';
+                            
+                            const currentMonthData = budgetState?.historicalData?.[budgetState.selectedMonthKey];
+                            const savingsGroups = currentMonthData?.savingsGroups || [];
+                            const savingsGoals = budgetState?.savingsGoals || [];
+                            
+                            // Check if it's a savings subcategory (specific savings post)
+                            for (const group of savingsGroups) {
+                              const subcategory = (group.subCategories || []).find((sub: any) => sub.id === targetId);
+                              if (subcategory) {
+                                return `${subcategory.name} (från ${group.name})`;
+                              }
                             }
+                            
                             // Check if it's a savings goal
-                            if (targetId?.startsWith('goal-')) {
-                              const goalId = targetId.replace('goal-', '');
-                              const savingsGoals = budgetState?.savingsGoals || [];
-                              const goal = savingsGoals.find((g: any) => g.id === goalId);
-                              return goal ? `${goal.name} (${goal.targetAmount} kr)` : 'Okänt sparmål';
+                            const goal = savingsGoals.find((g: any) => g.id === targetId);
+                            if (goal) {
+                              return `${goal.name} (Sparmål)`;
                             }
+                            
                             return 'Okänt sparmål';
                           })()}
                         </p>
