@@ -322,45 +322,15 @@ const BudgetCalculator = () => {
     console.log('🔍 [DEBUG] generalSavings processed:', generalSavings);
 
     // 2. Get all savings goals from global state
-    const savingsGoals = budgetState.savingsGoals || [];
+     const savingsGoals = budgetState.savingsGoals || [];
 
-    // 3. Filter and transform savings goals that are active this month
-    const activeGoalsAsSavingsItems = savingsGoals
-      .map(goal => {
-        // Calculate monthly savings amount for the goal
-        const start = new Date(goal.startDate + '-01');
-        const end = new Date(goal.endDate + '-01');
-        const currentMonthDate = new Date(selectedBudgetMonth + '-01');
+    // 3. REMOVED: No longer adding savings goals to savings categories
+    // Savings goals will only appear in their dedicated "Sparmål" section
+    // This prevents duplicates where goals appear as categories with 0 budget/0 actual
 
-        // Check if goal is active
-        if (currentMonthDate >= start && currentMonthDate <= end) {
-          const monthsDiff = Math.max(1, (end.getFullYear() - start.getFullYear()) * 12 + 
-                             (end.getMonth() - start.getMonth()) + 1);
-          
-          if (monthsDiff > 0) {
-            const monthlyAmount = goal.targetAmount / monthsDiff;
-
-            // Transform savings goal into an object that looks like regular savings
-            return {
-              id: goal.id,
-              name: `${goal.name} (Sparmål)`, // Clarify that it's a savings goal
-              amount: monthlyAmount,
-              type: 'savings' as const,
-              mainCategoryId: goal.mainCategoryId,
-              subCategoryId: goal.subCategoryId,
-              account: goal.accountId ? budgetState.accounts.find(a => a.id === goal.accountId)?.name : undefined,
-              // Keep original savings goal properties for compatibility
-              _originalGoal: goal
-            };
-          }
-        }
-        return null;
-      })
-      .filter(Boolean); // Filter out null values (inactive goals)
-
-    // 4. Combine the two lists into one
-    const combined = [...generalSavings, ...activeGoalsAsSavingsItems];
-    console.log('🔍 [DEBUG] allSavingsItems - final combined result:', combined);
+    // 4. Return only the regular savings categories (no savings goals)
+    const combined = [...generalSavings]; // Only include regular savings, not goals
+    console.log('🔍 [DEBUG] allSavingsItems - final combined result (no savings goals):', combined);
     console.log('🔍 [DEBUG] allSavingsItems - includes "Semester"?', combined.some(item => item.name === 'Semester'));
     return combined;
 
