@@ -3,6 +3,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { updateTransaction } from '../orchestrator/budgetOrchestrator';
 import { ImportedTransaction } from '@/types/transaction';
 
+console.log('🚀 [TransactionTypeSelector] FILE LOADED - this should appear immediately!');
+
 interface TransactionTypeSelectorProps {
   transaction: ImportedTransaction;
 }
