@@ -400,42 +400,32 @@ const BudgetCalculator = () => {
       }
     });
     
-    // 4. Samla alla unika konto-NAMN som används
+    // 1. Hitta alla unika och aktiva KONTO-NAMN
     const activeAccountNames = new Set<string>();
-    
+
     // Lägg till kontonamn från budgetposter
     budgetItems.forEach(item => {
-      if (item.account) { // Notera att fältet heter 'account' i BudgetItems
+      if (item.account) {
         activeAccountNames.add(item.account);
       }
     });
-    
-    // Lägg till kontonamn från transaktioner
-    console.log('🚨 CRITICAL - Processing transactions for account names...');
-    console.log('🚨 CRITICAL - All available accounts:', budgetState.accounts.map(a => ({ id: a.id, name: a.name })));
-    transactionsForPeriod.forEach(transaction => {
-      console.log('🚨 CRITICAL - Transaction found:', { 
-        accountId: transaction.accountId, 
-        amount: transaction.amount, 
-        date: transaction.date,
-        description: transaction.description
-      });
-      if (transaction.accountId) { 
-        // Map account ID to account name - transaction.accountId might be ID or name
-        const accountFromId = budgetState.accounts.find(acc => acc.id === transaction.accountId);
-        console.log('🚨 CRITICAL - Looking for account with ID:', transaction.accountId, 'Found:', accountFromId);
-        const accountName = accountFromId ? accountFromId.name : transaction.accountId;
-        activeAccountNames.add(accountName);
-        console.log('🚨 CRITICAL - Added account name:', accountName, 'to activeAccountNames (from accountId:', transaction.accountId, ')');
+
+    // Lägg till kontonamn från transaktioner, med översättning från ID till namn
+    transactionsForPeriod.forEach(t => {
+      if (t.accountId) {
+        // Hitta det matchande kontot i master-listan
+        const account = budgetState.accounts.find(acc => acc.id === t.accountId);
+        if (account) {
+          activeAccountNames.add(account.name);
+        }
       }
     });
-    
-    // Från legacy groups (för bakåtkompatibilitet) - detta är viktigt för konton med budget men inga transaktioner
+
+    // Från legacy groups (för bakåtkompatibilitet)
     [...costGroups, ...savingsGroups].forEach(group => {
       if (group.account) {
         activeAccountNames.add(group.account);
       }
-      // Lägg också till alla subkategorier som har konton
       if (group.subCategories) {
         group.subCategories.forEach(sub => {
           if (sub.account) {
@@ -444,13 +434,14 @@ const BudgetCalculator = () => {
         });
       }
     });
-    
-    // 5. Filtrera master-listorna baserat på de aktiva namnen
+
+    // Filtrera kategorier baserat på de aktiva ID:n
     const activeCategories = budgetState.mainCategories.filter(category => 
       activeMainCategoryIds.has(category)
     );
-    
-    // Filtrera den centrala "master-listan" av konton baserat på de aktiva namnen
+
+    // 2. Filtrera den centrala "master-listan" av konton
+    // baserat på de aktiva namnen.
     const activeAccounts = budgetState.accounts.filter(account => 
       activeAccountNames.has(account.name)
     );
