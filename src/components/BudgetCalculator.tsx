@@ -772,13 +772,32 @@ const BudgetCalculator = () => {
 
   // NEW FUNCTION: Calculate actual savings for a specific TARGET (subcategory or goal)
   const calculateActualForTarget = (targetId: string): number => {
+    console.log(`🎯 [DEBUG] calculateActualForTarget called for targetId: ${targetId}`);
     const savingsTransactions = getSavingsTransactions();
+    console.log(`🎯 [DEBUG] Total savings transactions available: ${savingsTransactions.length}`);
 
     // Find all transactions linked to this specific target
     const filtered = savingsTransactions.filter(t => t.savingsTargetId === targetId);
+    console.log(`🎯 [DEBUG] Found ${filtered.length} transactions for targetId ${targetId}`);
+    
+    filtered.forEach((t, index) => {
+      console.log(`🎯 [DEBUG] Transaction ${index} for target ${targetId}:`, {
+        id: t.id,
+        description: t.description?.substring(0, 30),
+        amount: t.amount,
+        correctedAmount: t.correctedAmount,
+        savingsTargetId: t.savingsTargetId
+      });
+    });
 
-    // Sum their amounts
-    return filtered.reduce((sum, t) => sum + (t.correctedAmount ?? t.amount), 0);
+    // Sum their amounts (use absolute value for savings)
+    const total = filtered.reduce((sum, t) => {
+      const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+      return sum + Math.abs(effectiveAmount);
+    }, 0);
+    
+    console.log(`🎯 [DEBUG] Total calculated for target ${targetId}: ${total}`);
+    return total;
   };
 
   const getSavingsTransactionsForCategory = (mainCategoryId: string) => {
