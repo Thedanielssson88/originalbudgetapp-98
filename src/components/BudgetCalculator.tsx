@@ -412,11 +412,18 @@ const BudgetCalculator = () => {
     
     // Lägg till kontonamn från transaktioner
     console.log('🚨 CRITICAL - Processing transactions for account names...');
+    console.log('🚨 CRITICAL - All available accounts:', budgetState.accounts.map(a => ({ id: a.id, name: a.name })));
     transactionsForPeriod.forEach(transaction => {
-      console.log('🚨 CRITICAL - Transaction found:', { accountId: transaction.accountId, amount: transaction.amount, date: transaction.date });
+      console.log('🚨 CRITICAL - Transaction found:', { 
+        accountId: transaction.accountId, 
+        amount: transaction.amount, 
+        date: transaction.date,
+        description: transaction.description
+      });
       if (transaction.accountId) { 
         // Map account ID to account name - transaction.accountId might be ID or name
         const accountFromId = budgetState.accounts.find(acc => acc.id === transaction.accountId);
+        console.log('🚨 CRITICAL - Looking for account with ID:', transaction.accountId, 'Found:', accountFromId);
         const accountName = accountFromId ? accountFromId.name : transaction.accountId;
         activeAccountNames.add(accountName);
         console.log('🚨 CRITICAL - Added account name:', accountName, 'to activeAccountNames (from accountId:', transaction.accountId, ')');
