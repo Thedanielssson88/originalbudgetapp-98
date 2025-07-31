@@ -406,18 +406,26 @@ const BudgetCalculator = () => {
     const activeAccountNames = new Set<string>();
 
     // Lägg till kontonamn från budgetposter
+    console.log('🔍 DEBUG: Starting to process budgetItems for active accounts:', budgetItems);
     budgetItems.forEach(item => {
+      console.log('🔍 DEBUG: Processing budget item:', item);
       if (item.account) {
+        console.log('🔍 DEBUG: Found legacy account:', item.account);
         activeAccountNames.add(item.account);
       }
       // Handle new accountId structure
       if (item.accountId) {
+        console.log('🔍 DEBUG: Found accountId:', item.accountId);
         const account = budgetState.accounts.find(acc => acc.id === item.accountId);
+        console.log('🔍 DEBUG: Resolved account:', account);
         if (account) {
+          console.log('🔍 DEBUG: Adding account name to active list:', account.name);
           activeAccountNames.add(account.name);
         }
       }
     });
+
+    console.log('🔍 DEBUG: Active account names after budget items:', Array.from(activeAccountNames));
 
     // Lägg till kontonamn från transaktioner, med översättning från ID till namn
     transactionsForPeriod.forEach(t => {
