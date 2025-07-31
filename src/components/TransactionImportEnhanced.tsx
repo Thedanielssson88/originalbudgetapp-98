@@ -1796,10 +1796,11 @@ export const TransactionImportEnhanced: React.FC = () => {
                                       )}
                                     </TableCell>
                                      <TableCell>
-                                       <Select 
+                                       <select 
                                          value={transaction.type} 
-                                         onValueChange={(newType: string) => {
-                                           console.log(`🔄 DIRECT: Changing type from ${transaction.type} to ${newType} for transaction ${transaction.id}`);
+                                         onChange={(e) => {
+                                           const newType = e.target.value;
+                                           console.log(`🔄 HTML SELECT: Changing type from ${transaction.type} to ${newType} for transaction ${transaction.id}`);
                                            handleUpdateTransaction(transaction.id, { 
                                              type: newType as ImportedTransaction['type'],
                                              linkedTransactionId: undefined,
@@ -1807,26 +1808,22 @@ export const TransactionImportEnhanced: React.FC = () => {
                                              correctedAmount: undefined
                                            });
                                          }}
+                                         className="w-full p-2 border border-input bg-background rounded-md text-sm"
                                        >
-                                         <SelectTrigger className="w-full min-w-[180px]">
-                                           <SelectValue />
-                                         </SelectTrigger>
-                                         <SelectContent className="bg-background border z-50">
-                                           {transaction.amount < 0 ? (
-                                             <>
-                                               <SelectItem value="Transaction">Transaktion</SelectItem>
-                                               <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
-                                             </>
-                                           ) : (
-                                             <>
-                                               <SelectItem value="Transaction">Transaktion</SelectItem>
-                                               <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
-                                               <SelectItem value="Savings">Sparande</SelectItem>
-                                               <SelectItem value="CostCoverage">Täck en kostnad</SelectItem>
-                                             </>
-                                           )}
-                                         </SelectContent>
-                                       </Select>
+                                         {transaction.amount < 0 ? (
+                                           <>
+                                             <option value="Transaction">Transaktion</option>
+                                             <option value="InternalTransfer">Intern Överföring</option>
+                                           </>
+                                         ) : (
+                                           <>
+                                             <option value="Transaction">Transaktion</option>
+                                             <option value="InternalTransfer">Intern Överföring</option>
+                                             <option value="Savings">Sparande</option>
+                                             <option value="CostCoverage">Täck en kostnad</option>
+                                           </>
+                                         )}
+                                       </select>
                                      </TableCell>
                                     <TableCell>
                                        <Select
