@@ -83,6 +83,8 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
 
   const handleSave = () => {
     console.log('🔍 [DEBUG] AddBudgetItemDialog handleSave called with formData:', formData);
+    console.log('🔍 [DEBUG] formData.accountId:', formData.accountId);
+    console.log('🔍 [DEBUG] accounts prop:', accounts);
     
     const isValidAmount = formData.transferType === 'daily' ? 
       formData.dailyAmount > 0 && formData.transferDays.length > 0 : 
