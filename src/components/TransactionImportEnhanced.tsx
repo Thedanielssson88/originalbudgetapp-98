@@ -426,11 +426,18 @@ export const TransactionImportEnhanced: React.FC = () => {
 
   // Critical useEffect: Save transaction changes back to central state
   // This creates the bridge between the temporary local transaction list and the persistent state
+  // FIXED: Prevent infinite loops by only saving when transactions are NOT from budgetState
   useEffect(() => {
     // Don't run on initial empty render
     if (transactions.length === 0) return;
+    
+    // CRITICAL FIX: Skip if all transactions come from budgetState (to avoid infinite loops)
+    if (transactions.every(t => t.fileSource === 'budgetState')) {
+      console.log('🔄 [TransactionImportEnhanced] Skipping save - all transactions are from budgetState');
+      return;
+    }
 
-    console.log('🔄 [TransactionImportEnhanced] Transaction list changed, saving to central state...', transactions.length);
+    console.log('🔄 [TransactionImportEnhanced] Transaction list changed, saving NEW imported transactions to central state...', transactions.length);
 
     // Group transactions by month
     const transactionsByMonth: { [monthKey: string]: ImportedTransaction[] } = {};
@@ -444,7 +451,7 @@ export const TransactionImportEnhanced: React.FC = () => {
 
     // Save each month's transactions to the central state
     Object.entries(transactionsByMonth).forEach(([monthKey, monthTransactions]) => {
-      console.log(`🔄 [TransactionImportEnhanced] Saving ${monthTransactions.length} transactions to month ${monthKey}`);
+      console.log(`🔄 [TransactionImportEnhanced] Saving ${monthTransactions.length} NEW transactions to month ${monthKey}`);
       updateTransactionsForMonth(monthKey, monthTransactions);
     });
 
