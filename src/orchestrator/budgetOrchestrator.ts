@@ -559,8 +559,8 @@ export function matchInternalTransfer(t1Id: string, t2Id: string): void {
   console.log(`✅ [Orchestrator] Matched internal transfer between ${t1Id} and ${t2Id}`);
 }
 
-export function linkSavingsTransaction(transactionId: string, savingsTargetId: string, monthKey?: string): void {
-  console.log(`🔗 [DEBUG] linkSavingsTransaction called with:`, { transactionId, savingsTargetId, monthKey });
+export function linkSavingsTransaction(transactionId: string, savingsTargetId: string, mainCategoryId: string, monthKey?: string): void {
+  console.log(`🔗 [DEBUG] linkSavingsTransaction called with:`, { transactionId, savingsTargetId, mainCategoryId, monthKey });
   
   // Use provided monthKey or fall back to selected month
   const targetMonthKey = monthKey || state.budgetState.selectedMonthKey;
@@ -569,19 +569,20 @@ export function linkSavingsTransaction(transactionId: string, savingsTargetId: s
   const targetMonth = state.budgetState.historicalData[targetMonthKey];
   const transactionExists = targetMonth?.transactions?.find(t => t.id === transactionId);
   console.log(`🔗 [DEBUG] Transaction exists in target month:`, !!transactionExists);
-  console.log(`🔗 [DEBUG] Transaction before update:`, transactionExists ? { id: transactionExists.id, type: transactionExists.type, savingsTargetId: transactionExists.savingsTargetId } : 'NOT FOUND');
+  console.log(`🔗 [DEBUG] Transaction before update:`, transactionExists ? { id: transactionExists.id, type: transactionExists.type, savingsTargetId: transactionExists.savingsTargetId, appCategoryId: transactionExists.appCategoryId } : 'NOT FOUND');
   
   updateTransaction(transactionId, {
     type: 'Savings',
-    savingsTargetId: savingsTargetId
+    savingsTargetId: savingsTargetId,
+    appCategoryId: mainCategoryId // Save the main category ID directly on the transaction
   }, targetMonthKey);
   
   // Check after update
   const updatedMonth = state.budgetState.historicalData[targetMonthKey];
   const updatedTransaction = updatedMonth?.transactions?.find(t => t.id === transactionId);
-  console.log(`🔗 [DEBUG] Transaction after update:`, updatedTransaction ? { id: updatedTransaction.id, type: updatedTransaction.type, savingsTargetId: updatedTransaction.savingsTargetId } : 'NOT FOUND');
+  console.log(`🔗 [DEBUG] Transaction after update:`, updatedTransaction ? { id: updatedTransaction.id, type: updatedTransaction.type, savingsTargetId: updatedTransaction.savingsTargetId, appCategoryId: updatedTransaction.appCategoryId } : 'NOT FOUND');
   
-  console.log(`✅ [Orchestrator] Linked transaction ${transactionId} to savings target ${savingsTargetId} in month ${targetMonthKey}`);
+  console.log(`✅ [Orchestrator] Linked transaction ${transactionId} to savings target ${savingsTargetId} with main category ${mainCategoryId} in month ${targetMonthKey}`);
 }
 
 export function coverCost(transferId: string, costId: string): void {

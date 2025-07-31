@@ -53,8 +53,35 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
     if (selectedTarget && transaction) {
       // Derive monthKey from transaction's date (e.g. "2025-07-30" -> "2025-07")
       const monthKey = transaction.date.substring(0, 7);
-      console.log(`🚀 [SavingsLinkDialog] About to call linkSavingsTransaction:`, { transactionId: transaction.id, selectedTarget, monthKey });
-      linkSavingsTransaction(transaction.id, selectedTarget, monthKey);
+      
+      // Find the target to get its main category name/ID
+      let mainCategoryId: string | undefined;
+      
+      if (selectedTarget.startsWith('group-')) {
+        const groupId = selectedTarget.replace('group-', '');
+        const group = savingsGroups.find(g => g.id === groupId);
+        // For savings groups, the name IS the main category
+        mainCategoryId = group?.name;
+      } else if (selectedTarget.startsWith('goal-')) {
+        const goalId = selectedTarget.replace('goal-', '');
+        const goal = relevantSavingsGoals.find(g => g.id === goalId);
+        mainCategoryId = goal?.mainCategoryId;
+      }
+      
+      if (!mainCategoryId) {
+        console.error('🚨 [SavingsLinkDialog] Could not find main category for target:', selectedTarget);
+        return;
+      }
+      
+      console.log(`🚀 [SavingsLinkDialog] About to call linkSavingsTransaction:`, { 
+        transactionId: transaction.id, 
+        selectedTarget, 
+        mainCategoryId, 
+        monthKey 
+      });
+      
+      // Call the enhanced function with mainCategoryId
+      linkSavingsTransaction(transaction.id, selectedTarget, mainCategoryId, monthKey);
       console.log(`🚀 [SavingsLinkDialog] linkSavingsTransaction completed`);
       onClose();
     } else {
