@@ -579,9 +579,17 @@ const BudgetCalculator = () => {
     const accountSubcategories: string[] = [];
     costGroups.forEach(group => {
       group.subCategories?.forEach(sub => {
-        if (sub.account === accountName) {
+        // Check both legacy account name and new accountId structure
+        const matchesLegacy = sub.account === accountName;
+        const account = budgetState.accounts.find(acc => acc.id === sub.accountId);
+        const matchesNew = account?.name === accountName;
+        
+        console.log(`🔍 [DEBUG] Checking subcategory "${sub.name}": legacy(${sub.account}===${accountName})=${matchesLegacy}, new(accountId=${sub.accountId}, resolved name=${account?.name}===${accountName})=${matchesNew}`);
+        
+        if (matchesLegacy || matchesNew) {
           // Use the group ID as the category ID for transactions
           accountSubcategories.push(group.id);
+          console.log(`🔍 [DEBUG] Added group ID ${group.id} for account ${accountName}`);
         }
       });
     });
