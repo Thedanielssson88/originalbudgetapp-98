@@ -54,15 +54,26 @@ export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = (
     }
     
     // Then update the current transaction
-    updateTransaction(transaction.id, { 
+    // Prepare updates based on the new type
+    const updates: any = {
       type: newType as ImportedTransaction['type'],
       // Mark as manually changed to preserve user's choice on re-import
-      isManuallyChanged: true,
-      // Reset related fields when changing type
-      linkedTransactionId: undefined,
-      savingsTargetId: undefined,
-      correctedAmount: undefined
-    }, monthKey);
+      isManuallyChanged: true
+    };
+    
+    // Only reset fields that are not relevant to the new type
+    if (newType !== 'InternalTransfer' && newType !== 'CostCoverage') {
+      updates.linkedTransactionId = undefined;
+    }
+    if (newType !== 'CostCoverage') {
+      updates.correctedAmount = undefined;
+    }
+    // Keep savingsTargetId when changing TO Savings type, reset when changing away
+    if (newType !== 'Savings' && newType !== 'Transaction') {
+      updates.savingsTargetId = undefined;
+    }
+    
+    updateTransaction(transaction.id, updates, monthKey);
     
     console.log(`✅ [TransactionTypeSelector] updateTransaction called for ${transaction.id}`);
     
