@@ -1578,7 +1578,14 @@ export const TransactionImportEnhanced: React.FC = () => {
           </DialogHeader>
           
           <div className="flex-1 overflow-hidden">
-            <div className="h-full overflow-auto border rounded-lg">
+            <div 
+              className="h-full overflow-auto border rounded-lg"
+              onTouchStart={(e) => e.stopPropagation()}
+              onTouchMove={(e) => e.stopPropagation()}
+              onTouchEnd={(e) => e.stopPropagation()}
+              onWheel={(e) => e.stopPropagation()}
+              style={{ touchAction: 'auto' }}
+            >
               <Table>
                 <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow>
