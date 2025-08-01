@@ -112,9 +112,11 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
         }
       });
 
-      // Select only one entry per month - prefer accounts that exist in system, then most recent
-      if (monthEntries.length > 0) {
-        const bestEntry = monthEntries
+      // Select only entries where bank balance is not 0, prefer accounts with system balances
+      const validEntries = monthEntries.filter(entry => entry.bankBalance !== 0);
+      
+      if (validEntries.length > 0) {
+        const bestEntry = validEntries
           .sort((a, b) => {
             // First priority: accounts that exist in the system (have balances)
             const aHasSystemBalance = (accountBalances[monthKey]?.[a.accountId] || 0) !== 0;
@@ -124,8 +126,8 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
               return bHasSystemBalance ? 1 : -1;
             }
             
-            // Second priority: most recent transaction
-            return new Date(b.lastTransactionDate).getTime() - new Date(a.lastTransactionDate).getTime();
+            // Second priority: highest bank balance
+            return Math.abs(b.bankBalance) - Math.abs(a.bankBalance);
           })[0];
         
         data.push(bestEntry);
@@ -183,14 +185,9 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className={`${isMobile ? 'max-w-[95vw] max-h-[85vh] p-4' : 'max-w-4xl max-h-[80vh]'} overflow-y-auto`}>
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className={`${isMobile ? 'text-lg' : 'text-xl'} font-bold`}>
-              Korrigera startsaldo för månader
-            </DialogTitle>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+          <DialogTitle className={`${isMobile ? 'text-lg' : 'text-xl'} font-bold`}>
+            Korrigera startsaldo för månader
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
