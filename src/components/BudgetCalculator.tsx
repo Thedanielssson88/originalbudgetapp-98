@@ -27,6 +27,8 @@ import { TransactionImportEnhanced } from '@/components/TransactionImportEnhance
 import { TransactionDrillDownDialog } from '@/components/TransactionDrillDownDialog';
 import { SavingsSection } from '@/components/SavingsSection';
 import { calculateAccountEndBalances, getTransactionsForPeriod } from '../services/calculationService';
+import { updateAccountBalanceForMonth, getAccountNameById } from '../orchestrator/budgetOrchestrator';
+import { useToast } from '@/hooks/use-toast';
 import { 
   createSavingsGoal,
   updateCostGroups,
@@ -111,6 +113,7 @@ const BudgetCalculator = () => {
   console.log('🔥🔥🔥 FORCING BUDGET CALCULATOR TO LOG 🔥🔥🔥');
   // Use the original useBudget hook - fix hook ordering instead
   const { isLoading, budgetState, calculated } = useBudget();
+  const { toast } = useToast();
   
   // ALL HOOKS MUST BE DECLARED FIRST - BEFORE ANY CONDITIONAL LOGIC
   const [isEditingCategories, setIsEditingCategories] = useState<boolean>(false);
@@ -4000,6 +4003,98 @@ const BudgetCalculator = () => {
     }).format(amount);
   };
 
+  // Function to get bank balance for a specific account and month
+  const getBankBalance = (accountName: string, monthKey: string) => {
+    // Find account ID from account name
+    const accountId = Object.keys(budgetState.accounts).find(id => 
+      budgetState.accounts[id].name === accountName
+    );
+    
+    if (!accountId) {
+      return null;
+    }
+
+    // Get all transactions for the month
+    const allTransactions: any[] = [];
+    Object.values(appHistoricalData).forEach(monthData => {
+      if (monthData.transactions) {
+        allTransactions.push(...monthData.transactions);
+      }
+    });
+
+    console.log(`🔍 [BANK BALANCE] Finding bank balance for account ${accountName} (${accountId}) in month ${monthKey}`);
+    
+    // Filter transactions for this account with balanceAfter data
+    const accountTransactions = allTransactions.filter(tx => 
+      tx.accountId === accountId && 
+      tx.balanceAfter !== undefined && 
+      tx.balanceAfter !== null
+    );
+
+    if (accountTransactions.length === 0) {
+      console.log(`🔍 [BANK BALANCE] No transactions with balanceAfter found for account ${accountName}`);
+      return null;
+    }
+
+    // Group transactions by month-account combination
+    const [year, month] = monthKey.split('-');
+    const monthAccountTransactions = accountTransactions.filter(tx => {
+      const date = new Date(tx.date);
+      const txMonthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      return txMonthKey === monthKey;
+    });
+
+    if (monthAccountTransactions.length === 0) {
+      console.log(`🔍 [BANK BALANCE] No transactions found for account ${accountName} in month ${monthKey}`);
+      return null;
+    }
+
+    // Filter to transactions on or before the 24th day of the month
+    const relevantTransactions = monthAccountTransactions.filter(tx => {
+      const transactionDate = new Date(tx.date);
+      const dayOfMonth = transactionDate.getDate();
+      return dayOfMonth <= 24;
+    });
+
+    if (relevantTransactions.length === 0) {
+      console.log(`🔍 [BANK BALANCE] No transactions found before 25th for account ${accountName} in month ${monthKey}`);
+      return null;
+    }
+
+    // Sort by date to find the latest transaction before 25th
+    relevantTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const latestTransaction = relevantTransactions[0];
+
+    console.log(`🔍 [BANK BALANCE] Found bank balance for ${accountName} in ${monthKey}: ${latestTransaction.balanceAfter} on ${latestTransaction.date}`);
+    
+    return {
+      balance: latestTransaction.balanceAfter,
+      date: latestTransaction.date
+    };
+  };
+
+  // Function to handle bank balance correction
+  const handleBankBalanceCorrection = async (accountName: string, bankBalance: number) => {
+    try {
+      console.log(`🔄 [BANK BALANCE] Correcting balance for ${accountName} in ${selectedMonthKey} to ${bankBalance}`);
+      
+      // Update the account balance for the selected month
+      updateAccountBalanceForMonth(selectedMonthKey, accountName, bankBalance);
+      
+      toast({
+        title: "Saldo uppdaterat",
+        description: `Kontosaldo för ${accountName} har uppdaterats till ${bankBalance.toLocaleString('sv-SE')} kr`,
+      });
+    } catch (error) {
+      console.error('Error updating balance:', error);
+      toast({
+        title: "Fel vid uppdatering",
+        description: "Kunde inte uppdatera kontosaldot",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Personal budget helper functions
   const getCurrentPersonalCosts = () => {
     return selectedPerson === 'andreas' ? andreasPersonalCosts : susannaPersonalCosts;
@@ -5620,10 +5715,50 @@ const BudgetCalculator = () => {
                                                      />
                                                     <span className="text-sm text-blue-700 min-w-8">kr</span>
                                                   </div>
-                                                </div>
-                                               
-                                                 {/* Estimerat slutsaldo */}
-                                                 {estimatedResult && (
+                                                 </div>
+
+                                                  {/* Bankens saldo */}
+                                                  {(() => {
+                                                    const bankBalanceData = getBankBalance(account, selectedMonthKey);
+                                                    
+                                                    if (!bankBalanceData) {
+                                                      return null;
+                                                    }
+
+                                                    const bankBalance = bankBalanceData.balance;
+                                                    const lastTransactionDate = bankBalanceData.date;
+                                                    const systemBalance = currentBalance;
+                                                    const balancesMatch = Math.abs(bankBalance - systemBalance) < 0.01;
+
+                                                    return (
+                                                      <div className="flex justify-between items-center">
+                                                        <span className="text-sm font-medium text-purple-700">Bankens saldo</span>
+                                                        <div className="flex items-center gap-2">
+                                                          <div className="text-right">
+                                                            <div className={`w-32 text-right text-sm ${balancesMatch ? 'text-green-600' : 'text-purple-600'}`}>
+                                                              {formatCurrency(bankBalance)}
+                                                            </div>
+                                                            <div className="text-[10px] text-muted-foreground">
+                                                              {new Date(lastTransactionDate).toLocaleDateString('sv-SE')}
+                                                            </div>
+                                                          </div>
+                                                          <span className={`text-sm min-w-8 ${balancesMatch ? 'text-green-600' : 'text-purple-600'}`}>kr</span>
+                                                          {!balancesMatch && (
+                                                            <Button
+                                                              size="sm"
+                                                              onClick={() => handleBankBalanceCorrection(account, bankBalance)}
+                                                              className="text-xs px-2 py-1 ml-2"
+                                                            >
+                                                              Korrigera
+                                                            </Button>
+                                                          )}
+                                                        </div>
+                                                      </div>
+                                                    );
+                                                  })()}
+                                                
+                                                  {/* Estimerat slutsaldo */}
+                                                  {estimatedResult && (
                                                   <div className="space-y-2">
                                                     <div className="flex justify-between items-center">
                                                       <span className="text-sm font-medium text-orange-700">Estimerad ingående balans</span>
