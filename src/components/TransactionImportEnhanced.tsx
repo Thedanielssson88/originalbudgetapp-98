@@ -435,29 +435,43 @@ export const TransactionImportEnhanced: React.FC = () => {
     );
   };
 
-  const updateTransactionNote = (transactionId: string, userDescription: string) => {
+  // UNIFIED UPDATE FUNCTION - This connects the UI back to the central state
+  const handleTransactionUpdate = (transactionId: string, updates: Partial<ImportedTransaction>) => {
+    // Find the transaction to get its date and derive monthKey
     const transaction = transactions.find(t => t.id === transactionId);
-    if (transaction) {
-      const monthKey = transaction.date.substring(0, 7);
-      updateTransaction(transactionId, { 
-        userDescription,
-        isManuallyChanged: true 
-      }, monthKey);
+    if (!transaction) {
+      console.error(`Transaction ${transactionId} not found`);
+      return;
     }
+
+    const monthKey = transaction.date.substring(0, 7);
+    
+    // Always mark as manually changed for user interactions
+    const updatesWithManualFlag = {
+      ...updates,
+      isManuallyChanged: true
+    };
+    
+    // Call the central orchestrator function
+    updateTransaction(transactionId, updatesWithManualFlag, monthKey);
   };
 
-  const updateTransactionCategory = (transactionId: string, categoryName: string) => {
-    const transaction = transactions.find(t => t.id === transactionId);
-    if (transaction) {
-      const monthKey = transaction.date.substring(0, 7);
-      const costGroup = costGroups.find(g => g.name === categoryName);
-      const categoryId = costGroup ? costGroup.id : categoryName;
-      
-      updateTransaction(transactionId, { 
-        appCategoryId: categoryId,
-        isManuallyChanged: true 
-      }, monthKey);
-    }
+  const updateTransactionNote = (transactionId: string, userDescription: string) => {
+    handleTransactionUpdate(transactionId, { userDescription });
+  };
+
+  const updateTransactionCategory = (transactionId: string, categoryName: string, subCategoryId?: string) => {
+    const costGroup = costGroups.find(g => g.name === categoryName);
+    const categoryId = costGroup ? costGroup.id : categoryName;
+    
+    handleTransactionUpdate(transactionId, { 
+      appCategoryId: categoryId,
+      appSubCategoryId: subCategoryId 
+    });
+  };
+
+  const updateTransactionStatus = (transactionId: string, status: 'green' | 'yellow' | 'red') => {
+    handleTransactionUpdate(transactionId, { status });
   };
 
   const handleTransferMatch = (transaction: ImportedTransaction) => {
@@ -1119,6 +1133,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                       onToggleSelection={toggleTransactionSelection}
                       onUpdateCategory={updateTransactionCategory}
                       onUpdateNote={updateTransactionNote}
+                      onUpdateStatus={updateTransactionStatus}
                       onTransferMatch={handleTransferMatch}
                       onSavingsLink={handleSavingsLink}
                       onCostCoverage={handleCostCoverage}
@@ -1154,6 +1169,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                           onToggleSelection={toggleTransactionSelection}
                           onUpdateCategory={updateTransactionCategory}
                           onUpdateNote={updateTransactionNote}
+                          onUpdateStatus={updateTransactionStatus}
                           onTransferMatch={handleTransferMatch}
                           onSavingsLink={handleSavingsLink}
                           onCostCoverage={handleCostCoverage}

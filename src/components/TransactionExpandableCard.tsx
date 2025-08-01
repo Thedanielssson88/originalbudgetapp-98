@@ -21,6 +21,7 @@ interface TransactionExpandableCardProps {
   onToggleSelection: (id: string) => void;
   onUpdateCategory: (id: string, category: string, subCategoryId?: string) => void;
   onUpdateNote: (id: string, note: string) => void;
+  onUpdateStatus?: (id: string, status: 'green' | 'yellow' | 'red') => void;
   onTransferMatch?: (transaction: ImportedTransaction) => void;
   onSavingsLink?: (transaction: ImportedTransaction) => void;
   onCostCoverage?: (transaction: ImportedTransaction) => void;
@@ -35,6 +36,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   onToggleSelection,
   onUpdateCategory,
   onUpdateNote,
+  onUpdateStatus,
   onTransferMatch,
   onSavingsLink,
   onCostCoverage
@@ -391,17 +393,30 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                      return null;
                    })()}
 
-                   <div>
-                     <label className="text-xs font-medium text-muted-foreground">Status</label>
-                     <div className="flex items-center space-x-2">
-                       <div className={`w-2 h-2 rounded-full ${getStatusColor(transaction.status)}`} />
-                       <span className="text-sm">
-                         {transaction.status === 'green' && 'Godkänd'}
-                         {transaction.status === 'yellow' && 'Automatisk kategorisering'}
-                         {transaction.status === 'red' && 'Behöver granskning'}
-                       </span>
-                     </div>
-                   </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Status</label>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (onUpdateStatus) {
+                              const newStatus = transaction.status === 'green' ? 'red' : 
+                                              transaction.status === 'red' ? 'yellow' : 'green';
+                              onUpdateStatus(transaction.id, newStatus);
+                            }
+                          }}
+                          className="p-1 h-auto hover:bg-muted"
+                        >
+                          <div className={`w-3 h-3 rounded-full ${getStatusColor(transaction.status)}`} />
+                        </Button>
+                        <span className="text-sm">
+                          {transaction.status === 'green' && 'Godkänd'}
+                          {transaction.status === 'yellow' && 'Automatisk kategorisering'}
+                          {transaction.status === 'red' && 'Behöver granskning'}
+                        </span>
+                      </div>
+                    </div>
 
                    {/* Bank Status */}
                    {transaction.bankStatus && (
