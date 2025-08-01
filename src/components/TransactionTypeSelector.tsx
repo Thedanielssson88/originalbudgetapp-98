@@ -15,7 +15,37 @@ export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = (
     // Derive monthKey from transaction's date (e.g. "2025-07-30" -> "2025-07")
     const monthKey = transaction.date.substring(0, 7);
     
-    // Anropa den nya generella funktionen för att bara uppdatera typen
+    // If this transaction is linked to another (cost coverage), we need to unlink both
+    if (transaction.linkedTransactionId) {
+      console.log(`🔗 [TransactionTypeSelector] Breaking bidirectional link with transaction ${transaction.linkedTransactionId}`);
+      
+      // First, find and reset the linked transaction
+      const state = getCurrentState();
+      let linkedTransaction: any = null;
+      let linkedMonthKey = '';
+      
+      // Search for the linked transaction across all months
+      Object.entries(state.budgetState.historicalData || {}).forEach(([monthKey, monthData]) => {
+        const transactions = (monthData as any)?.transactions || [];
+        const found = transactions.find((t: any) => t.id === transaction.linkedTransactionId);
+        if (found) {
+          linkedTransaction = found;
+          linkedMonthKey = monthKey;
+        }
+      });
+      
+      if (linkedTransaction && linkedMonthKey) {
+        console.log(`🔗 [TransactionTypeSelector] Found linked transaction in month ${linkedMonthKey}, resetting its fields`);
+        // Reset the linked transaction's fields
+        updateTransaction(transaction.linkedTransactionId, {
+          linkedTransactionId: undefined,
+          correctedAmount: undefined,
+          isManuallyChanged: true
+        }, linkedMonthKey);
+      }
+    }
+    
+    // Then update the current transaction
     updateTransaction(transaction.id, { 
       type: newType as ImportedTransaction['type'],
       // Mark as manually changed to preserve user's choice on re-import
