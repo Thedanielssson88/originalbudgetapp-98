@@ -903,19 +903,41 @@ export function linkSavingsTransaction(transactionId: string, savingsTargetId: s
 export function coverCost(transferId: string, costId: string): void {
   console.log(`🔗 [Orchestrator] Covering cost - transfer: ${transferId}, cost: ${costId}`);
   
-  const currentMonthKey = state.budgetState.selectedMonthKey;
-  const currentMonth = state.budgetState.historicalData[currentMonthKey];
+  // Search for transactions in all months, not just current month
+  let transfer: any = null;
+  let cost: any = null;
+  let transferMonthKey = '';
+  let costMonthKey = '';
   
-  if (!currentMonth?.transactions) {
-    console.error(`[Orchestrator] No transactions found for month ${currentMonthKey}`);
-    return;
-  }
+  // Find transactions across all historical data
+  Object.entries(state.budgetState.historicalData || {}).forEach(([monthKey, monthData]) => {
+    const transactions = (monthData as any)?.transactions || [];
+    
+    const foundTransfer = transactions.find((t: any) => t.id === transferId);
+    if (foundTransfer) {
+      transfer = foundTransfer;
+      transferMonthKey = monthKey;
+    }
+    
+    const foundCost = transactions.find((t: any) => t.id === costId);
+    if (foundCost) {
+      cost = foundCost;
+      costMonthKey = monthKey;
+    }
+  });
   
-  const transfer = currentMonth.transactions.find(t => t.id === transferId);
-  const cost = currentMonth.transactions.find(t => t.id === costId);
-  
-  console.log(`🔗 [Orchestrator] Found transfer:`, transfer ? { id: transfer.id, amount: transfer.amount, type: transfer.type } : 'NOT FOUND');
-  console.log(`🔗 [Orchestrator] Found cost:`, cost ? { id: cost.id, amount: cost.amount, type: cost.type } : 'NOT FOUND');
+  console.log(`🔗 [Orchestrator] Found transfer:`, transfer ? { 
+    id: transfer.id, 
+    amount: transfer.amount, 
+    type: transfer.type, 
+    month: transferMonthKey 
+  } : 'NOT FOUND');
+  console.log(`🔗 [Orchestrator] Found cost:`, cost ? { 
+    id: cost.id, 
+    amount: cost.amount, 
+    type: cost.type,
+    month: costMonthKey 
+  } : 'NOT FOUND');
   
   if (!transfer || !cost || transfer.amount <= 0 || cost.amount >= 0) {
     console.error(`[Orchestrator] Invalid transactions for cost coverage:`, {
@@ -930,25 +952,25 @@ export function coverCost(transferId: string, costId: string): void {
   const coverAmount = Math.min(transfer.amount, Math.abs(cost.amount));
   console.log(`🔗 [Orchestrator] Cover amount calculated: ${coverAmount}`);
   
-  // Update transfer transaction
+  // Update transfer transaction in its month
   updateTransaction(transferId, {
     type: 'CostCoverage',
     linkedTransactionId: costId,
     correctedAmount: transfer.amount - coverAmount,
     isManuallyChanged: true
-  }, currentMonthKey);
+  }, transferMonthKey);
   
-  // Update cost transaction with bidirectional link
+  // Update cost transaction with bidirectional link in its month
   updateTransaction(costId, {
     correctedAmount: cost.amount + coverAmount,
     linkedTransactionId: transferId,
     isManuallyChanged: true
-  }, currentMonthKey);
+  }, costMonthKey);
   
   // Force UI update by running calculations and triggering state update
   runCalculationsAndUpdateState();
   
-  console.log(`✅ [Orchestrator] Cost coverage complete - covered ${coverAmount} from transfer ${transferId} to cost ${costId}`);
+  console.log(`✅ [Orchestrator] Cost coverage complete - covered ${coverAmount} from transfer ${transferId} (${transferMonthKey}) to cost ${costId} (${costMonthKey})`);
 }
 
 // New flexible function that can update transactions for any month

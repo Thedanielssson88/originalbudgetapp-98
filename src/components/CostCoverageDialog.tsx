@@ -39,17 +39,41 @@ export const CostCoverageDialog: React.FC<CostCoverageDialogProps> = ({
 
   const handleCover = () => {
     if (transfer && selectedCost) {
-      console.log(`🔗 [CostCoverageDialog] Covering cost - transfer: ${transfer.id}, cost: ${selectedCost}`);
+      console.log(`🔗 [CostCoverageDialog] About to cover cost:`);
+      console.log(`🔗 [CostCoverageDialog] Transfer:`, { 
+        id: transfer.id, 
+        amount: transfer.amount, 
+        date: transfer.date, 
+        description: transfer.description 
+      });
+      console.log(`🔗 [CostCoverageDialog] Selected cost ID:`, selectedCost);
+      
+      const selectedCostTransaction = potentialCosts.find(c => c.id === selectedCost);
+      if (selectedCostTransaction) {
+        console.log(`🔗 [CostCoverageDialog] Cost transaction:`, { 
+          id: selectedCostTransaction.id, 
+          amount: selectedCostTransaction.amount, 
+          date: selectedCostTransaction.date, 
+          description: selectedCostTransaction.description 
+        });
+      }
+      
       coverCost(transfer.id, selectedCost);
       
       // Trigger refresh if callback provided
       if (onRefresh) {
+        console.log(`🔗 [CostCoverageDialog] Triggering refresh...`);
         setTimeout(() => {
           onRefresh();
         }, 100);
       }
       
       onClose();
+    } else {
+      console.error(`🔗 [CostCoverageDialog] Missing data:`, { 
+        hasTransfer: !!transfer, 
+        hasSelectedCost: !!selectedCost 
+      });
     }
   };
 
