@@ -346,6 +346,11 @@ export const TransactionImportEnhanced: React.FC = () => {
     transaction?: ImportedTransaction;
   }>({ isOpen: false });
   const [balanceCorrectionDialog, setBalanceCorrectionDialog] = useState(false);
+  const [allTransactionsDialog, setAllTransactionsDialog] = useState<{
+    isOpen: boolean;
+    accountId?: string;
+    accountName?: string;
+  }>({ isOpen: false });
   const [refreshKey, setRefreshKey] = useState(0);
   const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
   
@@ -783,7 +788,15 @@ export const TransactionImportEnhanced: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {hasTransactions && (
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge 
+                          variant="secondary" 
+                          className="text-xs cursor-pointer hover:bg-secondary/80 transition-colors"
+                          onClick={() => setAllTransactionsDialog({
+                            isOpen: true,
+                            accountId: account.id,
+                            accountName: account.name
+                          })}
+                        >
                           {accountTransactions.length} transaktioner
                         </Badge>
                       )}
@@ -1551,6 +1564,102 @@ export const TransactionImportEnhanced: React.FC = () => {
         transactions={getAllTransactionsFromDatabase()}
         accountBalances={accountBalancesForDialog}
       />
+
+      {/* All Transactions Dialog */}
+      <Dialog open={allTransactionsDialog.isOpen} onOpenChange={(open) => setAllTransactionsDialog({ isOpen: open })}>
+        <DialogContent className="max-w-[95vw] w-full h-[80vh] max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="text-lg">
+              Alla transaktioner - {allTransactionsDialog.accountName}
+            </DialogTitle>
+            <DialogDescription>
+              {allTransactions.filter(t => t.accountId === allTransactionsDialog.accountId).length} transaktioner
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-hidden">
+            <div className="h-full overflow-auto border rounded-lg">
+              <Table>
+                <TableHeader className="sticky top-0 bg-background z-10">
+                  <TableRow>
+                    <TableHead className="min-w-[100px]">Datum</TableHead>
+                    <TableHead className="min-w-[120px]">Bankkategori</TableHead>
+                    <TableHead className="min-w-[120px]">Underkategori</TableHead>
+                    <TableHead className="min-w-[200px]">Beskrivning</TableHead>
+                    <TableHead className="min-w-[150px]">Användarbeskrivning</TableHead>
+                    <TableHead className="min-w-[100px] text-right">Belopp</TableHead>
+                    <TableHead className="min-w-[100px] text-right">Saldo</TableHead>
+                    <TableHead className="min-w-[80px]">Status</TableHead>
+                    <TableHead className="min-w-[100px]">Typ</TableHead>
+                    <TableHead className="min-w-[120px]">App-kategori</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {allTransactions
+                    .filter(t => t.accountId === allTransactionsDialog.accountId)
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .map((transaction) => (
+                      <TableRow key={transaction.id}>
+                        <TableCell className="font-mono text-sm">
+                          {new Date(transaction.date).toLocaleDateString('sv-SE')}
+                        </TableCell>
+                        <TableCell className="text-sm">{transaction.bankCategory || '-'}</TableCell>
+                        <TableCell className="text-sm">{transaction.bankSubCategory || '-'}</TableCell>
+                        <TableCell className="text-sm max-w-[200px] truncate" title={transaction.description}>
+                          {transaction.description}
+                        </TableCell>
+                        <TableCell className="text-sm max-w-[150px] truncate" title={transaction.userDescription || ''}>
+                          {transaction.userDescription || '-'}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          <span className={transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}>
+                            {transaction.amount.toLocaleString('sv-SE', { minimumFractionDigits: 2 })} kr
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          {transaction.balanceAfter.toLocaleString('sv-SE', { minimumFractionDigits: 2 })} kr
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={
+                              transaction.status === 'green' ? 'default' :
+                              transaction.status === 'yellow' ? 'secondary' : 
+                              'destructive'
+                            }
+                            className="text-xs"
+                          >
+                            {transaction.status === 'green' ? 'Klar' :
+                             transaction.status === 'yellow' ? 'Granskas' : 'Fel'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {transaction.type === 'Transaction' ? 'Transaktion' :
+                           transaction.type === 'InternalTransfer' ? 'Intern transfer' :
+                           transaction.type === 'Savings' ? 'Sparande' :
+                           transaction.type === 'CostCoverage' ? 'Kostnadstäckning' :
+                           transaction.type}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {transaction.appCategoryId ? (
+                            <div>
+                              <div>{costGroups.find(g => g.id === transaction.appCategoryId)?.name || transaction.appCategoryId}</div>
+                              {transaction.appSubCategoryId && (
+                                <div className="text-xs text-muted-foreground">
+                                  {transaction.appSubCategoryId}
+                                </div>
+                              )}
+                            </div>
+                          ) : '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  }
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
