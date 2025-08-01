@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -327,7 +327,7 @@ interface UploadedFile {
     from: string;
     to: string;
   };
-  transactions: ImportedTransaction[];
+  // transactions field removed - data now lives in central state
 }
 
 export const TransactionImportEnhanced: React.FC = () => {
@@ -362,12 +362,14 @@ export const TransactionImportEnhanced: React.FC = () => {
   const categoryRulesFromState = budgetState?.transactionImport?.categoryRules || [];
   
   // Read transactions directly from central state - this is now the ONLY source of truth
-  const transactions = Object.values(budgetState?.historicalData || {}).flatMap(month => 
-    (month.transactions || []).map(t => ({
-      ...t,
-      importedAt: (t as any).importedAt || new Date().toISOString(),
-      fileSource: (t as any).fileSource || 'budgetState'
-    } as ImportedTransaction))
+  const transactions = useMemo(() => 
+    Object.values(budgetState?.historicalData || {}).flatMap(month => 
+      (month.transactions || []).map(t => ({
+        ...t,
+        importedAt: (t as any).importedAt || new Date().toISOString(),
+        fileSource: (t as any).fileSource || 'budgetState'
+      } as ImportedTransaction))
+    ), [budgetState.historicalData]
   );
 
   // Use actual accounts from budget state
@@ -560,8 +562,8 @@ export const TransactionImportEnhanced: React.FC = () => {
         const uploadedFile: UploadedFile = {
           file,
           accountId: accountName,
-          status: 'processed',
-          transactions: [] // No longer needed - data is in central state
+          status: 'processed'
+          // transactions field removed - data is in central state
         };
 
         setUploadedFiles(prev => {
@@ -671,7 +673,7 @@ export const TransactionImportEnhanced: React.FC = () => {
               </CardTitle>
               <CardDescription>
                 Konto: {accounts.find(acc => acc.id === uploadedFile.accountId)?.name} • 
-                {uploadedFile.transactions.length} transaktioner
+                {transactions.filter(t => t.accountId === uploadedFile.accountId).length} transaktioner
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -698,7 +700,8 @@ export const TransactionImportEnhanced: React.FC = () => {
                             ['Date', 'Category', 'Amount', 'Description'];
                           
                           return csvHeaders.map((header, colIndex) => {
-                            const exampleData = uploadedFile.transactions.slice(0, 2).map(t => {
+                            const accountTransactions = transactions.filter(t => t.accountId === uploadedFile.accountId);
+                            const exampleData = accountTransactions.slice(0, 2).map(t => {
                               if (header.toLowerCase().includes('datum') || header.toLowerCase().includes('date')) return t.date;
                               if (header.toLowerCase().includes('belopp') || header.toLowerCase().includes('amount')) return t.amount.toString();
                               if (header.toLowerCase().includes('text') || header.toLowerCase().includes('beskrivning') || header.toLowerCase().includes('description')) return t.description;
@@ -1007,7 +1010,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                         </div>
                       )}
                       <div className="text-muted-foreground">
-                        <span className="font-medium">Transaktioner:</span> {uploadedFile.transactions.length} st
+                        <span className="font-medium">Transaktioner:</span> {transactions.filter(t => t.accountId === uploadedFile.accountId).length} st
                       </div>
                     </div>
                   )}
