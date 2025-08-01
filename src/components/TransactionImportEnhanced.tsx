@@ -792,7 +792,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                         size="sm"
                         variant={hasTransactions ? "outline" : "default"}
                         className="text-xs sm:text-sm"
-                        disabled={!selectedBanks[account.id]}
+                        disabled={!account.bankTemplateId && !selectedBanks[account.id]}
                       >
                         <Upload className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                         {hasTransactions ? "Ändra fil" : "Ladda upp"}
