@@ -571,74 +571,55 @@ export const TransactionImportEnhanced: React.FC = () => {
       const existingTransaction = savedTransactionsMap.get(fingerprint);
       
       if (existingTransaction) {
-        // SMART MERGE: Start with saved transaction (preserves user changes) 
-        // but update bank-controlled fields with latest data from file
+        // KORREKT SMART MERGE: Börja med den sparade versionen som har användarens ändringar.
         console.log(`[Reconciliation] ✅ Match found for: ${fingerprint}. Performing smart merge.`);
-        console.log(`[Reconciliation] Existing transaction:`, {
-          id: existingTransaction.id,
-          userDescription: existingTransaction.userDescription,
-          type: existingTransaction.type,
-          status: existingTransaction.status,
-          appCategoryId: existingTransaction.appCategoryId,
-          appSubCategoryId: existingTransaction.appSubCategoryId,
-          savingsTargetId: existingTransaction.savingsTargetId,
-          linkedTransactionId: existingTransaction.linkedTransactionId,
-          isManuallyChanged: existingTransaction.isManuallyChanged,
-          correctedAmount: existingTransaction.correctedAmount,
-          coveredCostId: existingTransaction.coveredCostId,
-          transferType: existingTransaction.transferType
-        });
-        console.log(`[Reconciliation] File transaction:`, {
-          id: fileTransaction.id,
-          userDescription: fileTransaction.userDescription,
-          type: fileTransaction.type,
-          status: fileTransaction.status,
-          appCategoryId: fileTransaction.appCategoryId,
-          appSubCategoryId: fileTransaction.appSubCategoryId
-        });
         
-        const mergedTransaction = { ...existingTransaction };
+        const merged = { ...existingTransaction };
         
-        // Update bank-controlled fields with latest data from file
-        mergedTransaction.bankCategory = fileTransaction.bankCategory;
-        mergedTransaction.bankSubCategory = fileTransaction.bankSubCategory;
-        mergedTransaction.bankStatus = fileTransaction.bankStatus;
-        mergedTransaction.reconciled = fileTransaction.reconciled;
-        mergedTransaction.balanceAfter = fileTransaction.balanceAfter;
-        mergedTransaction.fileSource = fileTransaction.fileSource;
-        mergedTransaction.importedAt = fileTransaction.importedAt;
+        // Uppdatera endast bankens data - BEVARA alla användarändringar
+        merged.bankCategory = fileTransaction.bankCategory;
+        merged.bankSubCategory = fileTransaction.bankSubCategory;
+        merged.bankStatus = fileTransaction.bankStatus;
+        merged.reconciled = fileTransaction.reconciled;
+        merged.balanceAfter = fileTransaction.balanceAfter;
+        merged.fileSource = fileTransaction.fileSource;
+        merged.importedAt = fileTransaction.importedAt;
+        merged.date = fileTransaction.date;
+        merged.description = fileTransaction.description;
+        merged.amount = fileTransaction.amount;
         
-        // Update date and description in case bank has corrected them
-        mergedTransaction.date = fileTransaction.date;
-        mergedTransaction.description = fileTransaction.description;
-        
-        // Amount should generally stay the same, but update in case of corrections
-        mergedTransaction.amount = fileTransaction.amount;
-        
-        // EXPLICITLY preserve all user-controlled fields:
-        // Keep existing values for all user-controlled fields (don't overwrite with CSV data)
-        // These fields represent user choices and manual edits that must be preserved
-        
-        console.log(`[Reconciliation] Merged transaction result:`, {
-          id: mergedTransaction.id,
-          userDescription: mergedTransaction.userDescription,
-          type: mergedTransaction.type,
-          status: mergedTransaction.status,
-          appCategoryId: mergedTransaction.appCategoryId,
-          appSubCategoryId: mergedTransaction.appSubCategoryId,
-          savingsTargetId: mergedTransaction.savingsTargetId,
-          linkedTransactionId: mergedTransaction.linkedTransactionId,
-          isManuallyChanged: mergedTransaction.isManuallyChanged,
-          correctedAmount: mergedTransaction.correctedAmount,
-          coveredCostId: mergedTransaction.coveredCostId,
-          transferType: mergedTransaction.transferType
-        });
-        
-        return mergedTransaction;
+        console.log(`[Reconciliation] Smart merge completed. User changes preserved.`);
+        return merged;
       } else {
-        // New transaction - use data from file
-        console.log(`[Reconciliation] ⚠️ No match for: ${fingerprint}. Creating new transaction.`);
-        return fileTransaction;
+        // NY TRANSAKTION: Applicera regler för automatisk kategorisering
+        console.log(`[Reconciliation] ⚠️ No match for: ${fingerprint}. Creating new transaction with rules applied.`);
+        
+        // Find matching rule for new transaction
+        const matchingRule = categoryRulesFromState
+          .filter(rule => rule.isActive)
+          .sort((a, b) => b.priority - a.priority)
+          .find(rule => {
+            const bankCategoryMatch = fileTransaction.bankCategory === rule.bankCategory;
+            const subCategoryMatch = !rule.bankSubCategory || fileTransaction.bankSubCategory === rule.bankSubCategory;
+            return bankCategoryMatch && subCategoryMatch;
+          });
+
+        if (matchingRule) {
+          // Apply rule to new transaction
+          return {
+            ...fileTransaction,
+            appCategoryId: matchingRule.appCategoryId,
+            appSubCategoryId: matchingRule.appSubCategoryId,
+            type: matchingRule.transactionType,
+            status: 'yellow' as const // Auto-categorized
+          };
+        } else {
+          // No rule found - needs manual categorization
+          return {
+            ...fileTransaction,
+            status: 'red' as const // Needs manual categorization
+          };
+        }
       }
     });
     
@@ -727,37 +708,6 @@ export const TransactionImportEnhanced: React.FC = () => {
     reader.readAsText(file);
   }, [parseCSV, toast, reconcileTransactions]);
 
-  const applyCategorizationRules = useCallback(() => {
-    // Apply rules to all transactions by updating them individually
-    transactions.forEach(transaction => {
-      if (transaction.isManuallyChanged) return; // Don't override manual changes
-
-      // Find matching rule
-      const matchingRule = categoryRulesFromState
-        .filter(rule => rule.isActive)
-        .sort((a, b) => b.priority - a.priority) // Higher priority first
-        .find(rule => {
-          const bankCategoryMatch = transaction.bankCategory === rule.bankCategory;
-          const subCategoryMatch = !rule.bankSubCategory || transaction.bankSubCategory === rule.bankSubCategory;
-          return bankCategoryMatch && subCategoryMatch;
-        });
-
-      const monthKey = transaction.date.substring(0, 7);
-      
-      if (matchingRule) {
-        updateTransaction(transaction.id, {
-          appCategoryId: matchingRule.appCategoryId,
-          appSubCategoryId: matchingRule.appSubCategoryId,
-          type: matchingRule.transactionType,
-          status: 'yellow' as const // Auto-categorized
-        }, monthKey);
-      } else {
-        updateTransaction(transaction.id, {
-          status: 'red' as const // Needs manual categorization
-        }, monthKey);
-      }
-    });
-  }, [transactions, categoryRulesFromState]);
 
   const autoMatchTransfers = useCallback(() => {
     const transfers = transactions.filter(t => t.type === 'InternalTransfer' && !t.linkedTransactionId);
@@ -1442,11 +1392,6 @@ export const TransactionImportEnhanced: React.FC = () => {
         </AccordionItem>
       </Accordion>
 
-      <div className="flex justify-center pt-4">
-        <Button onClick={applyCategorizationRules} variant="outline">
-          Tillämpa alla regler
-        </Button>
-      </div>
 
       {/* Add Rule Dialog */}
       <Dialog open={isAddingRule} onOpenChange={setIsAddingRule}>
@@ -1832,9 +1777,6 @@ export const TransactionImportEnhanced: React.FC = () => {
           <div className="flex justify-center space-x-4 pt-4">
             <Button onClick={autoMatchTransfers} variant="outline">
               Auto-matcha överföringar
-            </Button>
-            <Button onClick={applyCategorizationRules} variant="outline">
-              Tillämpa regler
             </Button>
           </div>
         </TabsContent>

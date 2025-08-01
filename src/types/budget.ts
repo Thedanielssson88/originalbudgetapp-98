@@ -17,6 +17,7 @@ export interface Transaction {
   linkedTransactionId?: string; // För att para ihop överföringar
   correctedAmount?: number; // För "Täck en kostnad"-logiken
   savingsTargetId?: string; // ID för kopplat sparmål eller sparkategori
+  isManuallyChanged?: boolean; // Håller reda på om användaren gjort en ändring
 }
 
 // Detta representerar nu en enskild budgetpost (både kostnad och sparande)
