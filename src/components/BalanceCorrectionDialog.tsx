@@ -40,6 +40,10 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
     console.log('🔍 [BALANCE CORRECTION] Transactions count:', transactions.length);
     console.log('🔍 [BALANCE CORRECTION] Account balances:', accountBalances);
     
+    // Debug: Log all unique account IDs in transactions
+    const allAccountIds = [...new Set(transactions.map(tx => tx.accountId))];
+    console.log('🔍 [BALANCE CORRECTION] All account IDs in transactions:', allAccountIds);
+    
     const data: MonthBalanceData[] = [];
     const monthlyTransactions: Record<string, ImportedTransaction[]> = {};
     
@@ -66,7 +70,11 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
         return date.getDate() >= 24;
       });
 
+      console.log(`🔍 [BALANCE CORRECTION] Month ${monthKey} has transactions on/after 24th: ${hasTransactionsOnOrAfter24th}`);
+      console.log(`🔍 [BALANCE CORRECTION] Accounts in month ${monthKey}:`, [...new Set(monthTransactions.map(tx => tx.accountId))]);
+
       if (!hasTransactionsOnOrAfter24th) {
+        console.log(`🔍 [BALANCE CORRECTION] Skipping month ${monthKey} - no transactions on/after 24th`);
         return;
       }
 
@@ -119,6 +127,9 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
 
       // Select only entries where bank balance is not 0, prefer accounts with system balances
       const validEntries = monthEntries.filter(entry => entry.bankBalance !== 0);
+      
+      console.log(`🔍 [BALANCE CORRECTION] Month ${monthKey} - All entries:`, monthEntries.map(e => ({ accountId: e.accountId, bankBalance: e.bankBalance })));
+      console.log(`🔍 [BALANCE CORRECTION] Month ${monthKey} - Valid entries (bankBalance !== 0):`, validEntries.map(e => ({ accountId: e.accountId, bankBalance: e.bankBalance })));
       
       if (validEntries.length > 0) {
         const bestEntry = validEntries
