@@ -400,10 +400,13 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                           variant="ghost"
                           size="sm"
                           onClick={() => {
+                            console.log(`🔴 [TransactionExpandableCard] Status button clicked for transaction ${transaction.id}, current status: ${transaction.status}`);
                             if (onUpdateStatus) {
                               const newStatus = transaction.status === 'green' ? 'red' : 
                                               transaction.status === 'red' ? 'yellow' : 'green';
+                              console.log(`🔴 [TransactionExpandableCard] Calling onUpdateStatus with newStatus: ${newStatus}`);
                               onUpdateStatus(transaction.id, newStatus);
+                              console.log(`🔴 [TransactionExpandableCard] onUpdateStatus called, current transaction status still: ${transaction.status}`);
                             }
                           }}
                           className="p-1 h-auto hover:bg-muted"
