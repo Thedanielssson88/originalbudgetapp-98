@@ -369,8 +369,8 @@ export const TransactionImportEnhanced: React.FC = () => {
   // Get subcategories from storage
   const [subcategoriesFromStorage, setSubcategoriesFromStorage] = useState<Record<string, string[]>>({});
   
-  // Category rules state
-  const [categoryRules, setCategoryRules] = useState<CategoryRule[]>(categoryRulesFromState);
+  // Read category rules directly from central state (no local state)
+  const categoryRules = categoryRulesFromState;
   const [newRule, setNewRule] = useState<Partial<CategoryRule>>({});
   const [editingRule, setEditingRule] = useState<CategoryRule | null>(null);
   
@@ -378,11 +378,6 @@ export const TransactionImportEnhanced: React.FC = () => {
     const loadedSubcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
     setSubcategoriesFromStorage(loadedSubcategories);
   }, []);
-
-  // Sync category rules with state
-  useEffect(() => {
-    setCategoryRules(categoryRulesFromState);
-  }, [categoryRulesFromState]);
 
   // File upload handler - uses the new Smart Merge function
   const handleFileUpload = useCallback(async (file: File, accountId: string, accountName: string) => {
@@ -453,7 +448,7 @@ export const TransactionImportEnhanced: React.FC = () => {
       isManuallyChanged: true
     };
     
-    // Call the central orchestrator function
+    // Call the central orchestrator function with CORRECT signature
     updateTransaction(transactionId, updatesWithManualFlag, monthKey);
   };
 
