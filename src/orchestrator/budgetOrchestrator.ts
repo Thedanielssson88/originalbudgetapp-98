@@ -8,6 +8,249 @@ import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 import { v4 as uuidv4 } from 'uuid';
 import { ImportedTransaction, CategoryRule } from '../types/transaction';
 
+// CSV processing and reconciliation functions moved from TransactionImportEnhanced
+export function processAndReconcileCSV(
+  csvContent: string, 
+  accountId: string, 
+  accountName: string,
+  fileName: string
+): void {
+  console.log(`[ORCHESTRATOR] 🔥 processAndReconcileCSV called for account ${accountName}`);
+  
+  // Parse CSV content 
+  const transactionsFromFile = parseCSVContent(csvContent, accountId, fileName);
+  
+  // Get ALL existing transactions from the permanent database (single source of truth)
+  const allSavedTransactions = Object.values(state.budgetState.historicalData)
+    .flatMap(month => (month.transactions || []).map(t => ({
+      ...t,
+      importedAt: (t as any).importedAt || new Date().toISOString(),
+      fileSource: (t as any).fileSource || 'budgetState'
+    } as ImportedTransaction)));
+  
+  // Apply categorization rules and reconcile
+  const reconciledTransactions = reconcileTransactions(
+    transactionsFromFile, 
+    allSavedTransactions, 
+    state.budgetState.transactionImport?.categoryRules || []
+  );
+  
+  console.log(`[ORCHESTRATOR] 🔥 Reconciled ${reconciledTransactions.length} transactions`);
+  
+  // Group by month and update the central state
+  const transactionsByMonth = groupTransactionsByMonth(reconciledTransactions);
+  
+  Object.entries(transactionsByMonth).forEach(([monthKey, monthTransactions]) => {
+    console.log(`[ORCHESTRATOR] 🔥 Updating month ${monthKey} with ${monthTransactions.length} transactions`);
+    
+    // Ensure month exists in historical data
+    if (!state.budgetState.historicalData[monthKey]) {
+      state.budgetState.historicalData[monthKey] = {
+        andreasSalary: 0,
+        andreasförsäkringskassan: 0,
+        andreasbarnbidrag: 0,
+        susannaSalary: 0,
+        susannaförsäkringskassan: 0,
+        susannabarnbidrag: 0,
+        costGroups: [],
+        savingsGroups: [],
+        costItems: [],
+        savingsItems: [],
+        dailyTransfer: 0,
+        weekendTransfer: 0,
+        andreasPersonalCosts: 0,
+        andreasPersonalSavings: 0,
+        susannaPersonalCosts: 0,
+        susannaPersonalSavings: 0,
+        customHolidays: [],
+        accountBalances: {},
+        accountBalancesSet: {},
+        accountEstimatedFinalBalances: {},
+        accountEstimatedFinalBalancesSet: {},
+        accountEstimatedStartBalances: {},
+        accountStartBalancesSet: {},
+        userName1: 'Andreas',
+        userName2: 'Susanna',
+        transferChecks: {},
+        andreasShareChecked: false,
+        susannaShareChecked: false,
+        monthFinalBalances: {},
+        accountEndingBalances: {},
+        transactions: [],
+        createdAt: new Date().toISOString()
+      };
+    }
+    
+    // Get existing transactions for this month that are NOT from the account being imported
+    const existingOtherAccountTransactions = (state.budgetState.historicalData[monthKey].transactions || [])
+      .filter(tx => tx.accountId !== accountName);
+    
+    // Combine with new reconciled transactions for this account
+    // Convert ImportedTransaction to Transaction type
+    const convertedTransactions = monthTransactions.map(tx => ({
+      ...tx,
+      bankCategory: tx.bankCategory || '',
+      bankSubCategory: tx.bankSubCategory || '',
+      userDescription: tx.userDescription || '',
+      balanceAfter: tx.balanceAfter || 0,
+      status: tx.status || 'red' as const
+    }));
+    
+    state.budgetState.historicalData[monthKey].transactions = [
+      ...existingOtherAccountTransactions,
+      ...convertedTransactions
+    ];
+  });
+  
+  // Save and trigger UI refresh
+  saveStateToStorage();
+  runCalculationsAndUpdateState();
+}
+
+// CSV parsing function moved from TransactionImportEnhanced
+function parseCSVContent(csvContent: string, accountId: string, fileName: string): ImportedTransaction[] {
+  const cleanedContent = csvContent.replace(/�/g, '');
+  const lines = cleanedContent.split('\n').filter(line => line.trim());
+  if (lines.length < 2) return [];
+
+  const headers = lines[0].split(';').map(h => h.trim());
+  const transactions: ImportedTransaction[] = [];
+  
+  // Auto-detect column indices
+  const dateColumnIndex = headers.findIndex(h => 
+    h.toLowerCase().includes('datum') || h.toLowerCase().includes('date')
+  );
+  const amountColumnIndex = headers.findIndex(h => 
+    h.toLowerCase().includes('belopp') || h.toLowerCase().includes('amount')
+  );
+  const descriptionColumnIndex = headers.findIndex(h => 
+    h.toLowerCase().includes('beskrivning') || h.toLowerCase().includes('text') || h.toLowerCase().includes('description')
+  );
+
+  for (let i = 1; i < lines.length; i++) {
+    const fields = lines[i].split(';');
+    if (fields.length < headers.length) continue;
+
+    try {
+      const rawAmountField = amountColumnIndex >= 0 ? fields[amountColumnIndex] : '0';
+      const cleanedAmountField = rawAmountField.trim().replace(',', '.').replace(/\s/g, '');
+      const parsedAmount = parseFloat(cleanedAmountField);
+
+      if (isNaN(parsedAmount)) continue;
+
+      const rawDate = dateColumnIndex >= 0 ? fields[dateColumnIndex] : '';
+      const parsedDate = parseSwedishDate(rawDate);
+      if (!parsedDate) continue;
+
+      const transaction: ImportedTransaction = {
+        id: uuidv4(),
+        date: parsedDate,
+        description: descriptionColumnIndex >= 0 ? fields[descriptionColumnIndex].trim() : '',
+        amount: parsedAmount,
+        accountId: accountId,
+        type: 'Transaction',
+        status: 'red',
+        importedAt: new Date().toISOString(),
+        fileSource: fileName
+      };
+
+      transactions.push(transaction);
+    } catch (error) {
+      console.warn(`Failed to parse transaction at line ${i + 1}:`, error);
+    }
+  }
+
+  return transactions;
+}
+
+// Helper functions moved from TransactionImportEnhanced
+function parseSwedishDate(dateString: string): string | null {
+  if (!dateString) return null;
+  
+  const trimmed = dateString.trim();
+  const swedishDatePattern = /^(\d{4})-(\d{2})-(\d{2})$/;
+  const match = trimmed.match(swedishDatePattern);
+  
+  if (match) {
+    const [, year, month, day] = match;
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    if (!isNaN(date.getTime())) {
+      return date.toISOString().split('T')[0];
+    }
+  }
+  
+  return null;
+}
+
+function groupTransactionsByMonth(transactions: ImportedTransaction[]): Record<string, ImportedTransaction[]> {
+  const groups: Record<string, ImportedTransaction[]> = {};
+  
+  transactions.forEach(transaction => {
+    const date = new Date(transaction.date);
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    
+    if (!groups[monthKey]) {
+      groups[monthKey] = [];
+    }
+    groups[monthKey].push(transaction);
+  });
+  
+  return groups;
+}
+
+function reconcileTransactions(
+  fileTransactions: ImportedTransaction[],
+  existingTransactions: ImportedTransaction[],
+  categoryRules: CategoryRule[]
+): ImportedTransaction[] {
+  const reconciledTransactions: ImportedTransaction[] = [];
+  const existingFingerprints = new Set(
+    existingTransactions.map(t => createTransactionFingerprint(t))
+  );
+
+  fileTransactions.forEach(fileTx => {
+    const fingerprint = createTransactionFingerprint(fileTx);
+    const existingTransaction = existingTransactions.find(
+      existing => createTransactionFingerprint(existing) === fingerprint
+    );
+
+    if (existingTransaction) {
+      // Preserve manual changes from existing transaction
+      reconciledTransactions.push({
+        ...fileTx,
+        id: existingTransaction.id,
+        type: existingTransaction.type,
+        status: existingTransaction.status,
+        appCategoryId: existingTransaction.appCategoryId,
+        appSubCategoryId: existingTransaction.appSubCategoryId,
+        linkedTransactionId: existingTransaction.linkedTransactionId,
+        savingsTargetId: existingTransaction.savingsTargetId,
+        coveredCostId: existingTransaction.coveredCostId
+      });
+    } else {
+      // Apply categorization rules to new transaction
+      let categorizedTransaction = { ...fileTx };
+      
+      for (const rule of categoryRules) {
+        if (rule.description && fileTx.description.toLowerCase().includes(rule.description.toLowerCase())) {
+          categorizedTransaction.type = rule.transactionType;
+          categorizedTransaction.appCategoryId = rule.appCategoryId;
+          categorizedTransaction.appSubCategoryId = rule.appSubCategoryId;
+          break;
+        }
+      }
+      
+      reconciledTransactions.push(categorizedTransaction);
+    }
+  });
+
+  return reconciledTransactions;
+}
+
+function createTransactionFingerprint(transaction: { date: string; description: string; amount: number }): string {
+  return `${transaction.date.trim()}_${transaction.description.trim().toLowerCase()}_${transaction.amount}`;
+}
+
 // Event system for UI updates
 const eventEmitter = new EventTarget();
 export const APP_STATE_UPDATED = 'appstateupdated';

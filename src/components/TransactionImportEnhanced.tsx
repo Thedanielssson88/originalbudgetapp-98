@@ -49,7 +49,7 @@ import { TransferMatchDialog } from './TransferMatchDialog';
 import { SavingsLinkDialog } from './SavingsLinkDialog';
 import { CostCoverageDialog } from './CostCoverageDialog';
 import { useBudget } from '@/hooks/useBudget';
-import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth } from '../orchestrator/budgetOrchestrator';
+import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, processAndReconcileCSV } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState, setMainCategories } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
 
@@ -334,7 +334,6 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<'upload' | 'mapping' | 'categorization'>('upload');
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [fileStructures, setFileStructures] = useState<FileStructure[]>([]);
-  // Remove local transactions state - now reading directly from budgetState
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
   const [activeTransactionTab, setActiveTransactionTab] = useState<'all' | 'account'>('all');
   const [hideGreenTransactions, setHideGreenTransactions] = useState<boolean>(false);
@@ -357,12 +356,12 @@ export const TransactionImportEnhanced: React.FC = () => {
   const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
   const { toast } = useToast();
   
-  // Get budget data to access cost groups and their IDs
+  // Get budget data from central state (single source of truth)
   const { budgetState } = useBudget();
   const costGroups = budgetState?.historicalData?.[budgetState.selectedMonthKey]?.costGroups || [];
   const categoryRulesFromState = budgetState?.transactionImport?.categoryRules || [];
   
-  // Read transactions directly from central state - merge from all months
+  // Read transactions directly from central state - this is now the ONLY source of truth
   const transactions = Object.values(budgetState?.historicalData || {}).flatMap(month => 
     (month.transactions || []).map(t => ({
       ...t,
@@ -526,208 +525,11 @@ export const TransactionImportEnhanced: React.FC = () => {
     return transactions;
   }, [accounts]);
 
-  // Create unique fingerprint for transaction matching
-  const createTransactionFingerprint = useCallback((transaction: { date: string; description: string; amount: number }): string => {
-    const fingerprint = `${transaction.date.trim()}_${transaction.description.trim().toLowerCase()}_${transaction.amount}`;
-    // Debug fingerprinting for Bilkonto transactions
-    if (transaction.description?.includes('Bilkonto')) {
-      console.error(`[FINGERPRINT] 🚗 Created fingerprint for Bilkonto: "${fingerprint}" from date:"${transaction.date}" desc:"${transaction.description}" amount:${transaction.amount}`);
-    }
-    return fingerprint;
-  }, []);
-
-  // Reconcile transactions from file with already saved transactions
-  const reconcileTransactions = useCallback((transactionsFromFile: ImportedTransaction[], accountId: string): ImportedTransaction[] => {
-    console.error(`[RECONCILIATION CRITICAL] 🚨 Starting reconciliation for account ${accountId} with ${transactionsFromFile.length} transactions from file`);
-    
-    // Get currently saved transactions for this month and account
-    const currentState = getCurrentState();
-    const currentMonthKey = currentState.budgetState.selectedMonthKey;
-    const currentMonthData = currentState.budgetState.historicalData[currentMonthKey];
-    const savedTransactions: ImportedTransaction[] = (currentMonthData as any)?.transactions || [];
-    
-    // Critical debug: Check if we have any manually changed Bilkonto transactions
-    const bilkontoSaved = savedTransactions.filter(t => t.accountId === accountId && t.description?.includes('Bilkonto'));
-    console.error(`[BILKONTO CRITICAL] 🚗 Found ${bilkontoSaved.length} existing Bilkonto transactions for account ${accountId}`);
-    bilkontoSaved.forEach(t => {
-      console.error(`[BILKONTO CRITICAL] 🚗 Existing: ${t.description} | Type: ${t.type} | Status: ${t.status} | ManuallyChanged: ${t.isManuallyChanged}`);
-    });
-    
-    console.log(`[Reconciliation] Found ${savedTransactions.length} already saved transactions for month ${currentMonthKey}`);
-    
-    // Filter saved transactions for this account only
-    const savedTransactionsForAccount = savedTransactions.filter(t => t.accountId === accountId);
-    console.log(`[Reconciliation] Found ${savedTransactionsForAccount.length} saved transactions for account ${accountId}`);
-    console.log(`[DEBUG] Saved transactions for account:`, savedTransactionsForAccount.map(t => ({
-      id: t.id,
-      type: t.type,
-      status: t.status,
-      isManuallyChanged: t.isManuallyChanged,
-      userDescription: t.userDescription,
-      description: t.description,
-      amount: t.amount,
-      date: t.date
-    })));
-    
-    // Create a map of saved transactions for quick lookup
-    const savedTransactionsMap = new Map<string, ImportedTransaction>();
-    savedTransactionsForAccount.forEach(transaction => {
-      const fingerprint = createTransactionFingerprint({
-        date: transaction.date,
-        description: transaction.description,
-        amount: transaction.amount
-      });
-      savedTransactionsMap.set(fingerprint, transaction);
-    });
-    
-    console.log(`[Reconciliation] Created fingerprint map with ${savedTransactionsMap.size} entries`);
-    
-    // Reconcile: match file transactions with saved transactions
-    const reconciledTransactions = transactionsFromFile.map(fileTransaction => {
-      const fingerprint = createTransactionFingerprint({
-        date: fileTransaction.date,
-        description: fileTransaction.description,
-        amount: fileTransaction.amount
-      });
-      
-      const existingTransaction = savedTransactionsMap.get(fingerprint);
-      
-      const isBilkontoTransaction = fileTransaction.description?.includes('Bilkonto');
-      if (isBilkontoTransaction) {
-        console.error(`[BILKONTO DEBUG] 🚗 Processing BILKONTO transaction: ${fingerprint}`);
-        console.error(`[BILKONTO DEBUG] File transaction:`, fileTransaction);
-        console.error(`[BILKONTO DEBUG] Existing transaction found:`, !!existingTransaction);
-        if (existingTransaction) {
-          console.error(`[BILKONTO DEBUG] Existing transaction details:`, existingTransaction);
-        }
-      }
-      
-      if (existingTransaction) {
-        // KORREKT SMART MERGE: Börja med den sparade versionen som har användarens ändringar.
-        if (isBilkontoTransaction) {
-          console.error(`[BILKONTO DEBUG] 🚗 ✅ Match found for BILKONTO: ${fingerprint}. Performing smart merge.`);
-          console.error(`[BILKONTO DEBUG] BEFORE MERGE - Existing transaction:`, {
-            id: existingTransaction.id,
-            type: existingTransaction.type,
-            status: existingTransaction.status,
-            appCategoryId: existingTransaction.appCategoryId,
-            appSubCategoryId: existingTransaction.appSubCategoryId,
-            savingsTargetId: existingTransaction.savingsTargetId,
-            isManuallyChanged: existingTransaction.isManuallyChanged,
-            userDescription: existingTransaction.userDescription
-          });
-          console.error(`[BILKONTO DEBUG] BEFORE MERGE - File transaction:`, {
-            id: fileTransaction.id,
-            type: fileTransaction.type,
-            status: fileTransaction.status,
-            appCategoryId: fileTransaction.appCategoryId,
-            appSubCategoryId: fileTransaction.appSubCategoryId,
-            savingsTargetId: fileTransaction.savingsTargetId,
-            isManuallyChanged: fileTransaction.isManuallyChanged,
-            userDescription: fileTransaction.userDescription
-          });
-        } else {
-          console.log(`[Reconciliation] ✅ Match found for: ${fingerprint}. Performing smart merge.`);
-        }
-        
-        const merged = { ...existingTransaction };
-        
-        if (isBilkontoTransaction) {
-          console.error(`[BILKONTO DEBUG] 🚗 AFTER SPREAD - merged object:`, {
-            id: merged.id,
-            type: merged.type,
-            status: merged.status,
-            appCategoryId: merged.appCategoryId,
-            appSubCategoryId: merged.appSubCategoryId,
-            savingsTargetId: merged.savingsTargetId,
-            isManuallyChanged: merged.isManuallyChanged,
-            userDescription: merged.userDescription
-          });
-        }
-        
-        // Uppdatera endast bankens data - BEVARA alla användarändringar
-        merged.bankCategory = fileTransaction.bankCategory;
-        merged.bankSubCategory = fileTransaction.bankSubCategory;
-        merged.bankStatus = fileTransaction.bankStatus;
-        merged.reconciled = fileTransaction.reconciled;
-        merged.balanceAfter = fileTransaction.balanceAfter;
-        merged.fileSource = fileTransaction.fileSource;
-        merged.importedAt = fileTransaction.importedAt;
-        merged.date = fileTransaction.date;
-        merged.description = fileTransaction.description;
-        merged.amount = fileTransaction.amount;
-        
-        if (isBilkontoTransaction) {
-          console.error(`[BILKONTO DEBUG] 🚗 Merged BILKONTO transaction result:`, {
-            type: merged.type,
-            status: merged.status,
-            appCategoryId: merged.appCategoryId,
-            appSubCategoryId: merged.appSubCategoryId,
-            savingsTargetId: merged.savingsTargetId,
-            isManuallyChanged: merged.isManuallyChanged,
-            userDescription: merged.userDescription
-          });
-          console.error(`[BILKONTO DEBUG] 🚗 Smart merge completed for BILKONTO. User changes preserved.`);
-        } else {
-          console.log(`[DEBUG] Merged transaction result:`, {
-            type: merged.type,
-            status: merged.status,
-            appCategoryId: merged.appCategoryId,
-            appSubCategoryId: merged.appSubCategoryId,
-            savingsTargetId: merged.savingsTargetId,
-            isManuallyChanged: merged.isManuallyChanged,
-            userDescription: merged.userDescription
-          });
-          console.log(`[Reconciliation] Smart merge completed. User changes preserved.`);
-        }
-        return merged;
-      } else {
-        // NY TRANSAKTION: Applicera regler för automatisk kategorisering
-        console.log(`[Reconciliation] ⚠️ No match for: ${fingerprint}. Creating new transaction with rules applied.`);
-        
-        // Find matching rule for new transaction
-        const matchingRule = categoryRulesFromState
-          .filter(rule => rule.isActive)
-          .sort((a, b) => b.priority - a.priority)
-          .find(rule => {
-            const bankCategoryMatch = fileTransaction.bankCategory === rule.bankCategory;
-            const subCategoryMatch = !rule.bankSubCategory || fileTransaction.bankSubCategory === rule.bankSubCategory;
-            return bankCategoryMatch && subCategoryMatch;
-          });
-
-        if (matchingRule) {
-          // Apply rule to new transaction
-          return {
-            ...fileTransaction,
-            appCategoryId: matchingRule.appCategoryId,
-            appSubCategoryId: matchingRule.appSubCategoryId,
-            type: matchingRule.transactionType,
-            status: 'yellow' as const // Auto-categorized
-          };
-        } else {
-          // No rule found - needs manual categorization
-          return {
-            ...fileTransaction,
-            status: 'red' as const // Needs manual categorization
-          };
-        }
-      }
-    });
-    
-    console.log(`[Reconciliation] Reconciliation complete. ${reconciledTransactions.length} transactions reconciled.`);
-    
-    // Final debug: Check what we're returning for Bilkonto transactions
-    const finalBilkonto = reconciledTransactions.filter(t => t.description?.includes('Bilkonto'));
-    console.error(`[BILKONTO FINAL] 🚗 Returning ${finalBilkonto.length} Bilkonto transactions after reconciliation:`);
-    finalBilkonto.forEach(t => {
-      console.error(`[BILKONTO FINAL] 🚗 Final: ${t.description} | Type: ${t.type} | Status: ${t.status} | ManuallyChanged: ${t.isManuallyChanged}`);
-    });
-    
-    return reconciledTransactions;
-  }, [createTransactionFingerprint]);
+  // Note: reconcileTransactions and createTransactionFingerprint functions have been moved to the orchestrator
+  // to eliminate the "two worlds" problem and ensure single source of truth
 
   const handleFileUpload = useCallback((accountId: string, file: File) => {
-    console.error(`[FILE UPLOAD START] 🚨🚨🚨 Starting file upload for account ${accountId}, file: ${file.name}`);
+    console.log(`[SIMPLIFIED UPLOAD] 🚀 Processing ${file.name} for account ${accountId}`);
     // Find the account name from the ID for backward compatibility
     const account = accounts.find(acc => acc.id === accountId);
     const accountName = account ? account.name : accountId;
@@ -735,129 +537,49 @@ export const TransactionImportEnhanced: React.FC = () => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const csvContent = e.target?.result as string;
-      const parsedTransactions = parseCSV(csvContent, accountName, file.name);
       
-      console.log(`[FileUpload] Parsed ${parsedTransactions.length} transactions for account ${accountId}`);
-      console.log(`[FileUpload] Sample transaction accountId:`, parsedTransactions[0]?.accountId);
-      
-      if (parsedTransactions.length === 0) {
+      if (!csvContent) {
         toast({
           title: "Fel vid filläsning",
-          description: "Kunde inte läsa några transaktioner från filen.",
+          description: "Kunde inte läsa filinnehållet.",
           variant: "destructive"
         });
         return;
       }
 
-      // Calculate date range
-      const dates = parsedTransactions.map(t => new Date(t.date)).filter(d => !isNaN(d.getTime()));
-      const dateRange = dates.length > 0 ? {
-        from: new Date(Math.min(...dates.map(d => d.getTime()))).toISOString().split('T')[0],
-        to: new Date(Math.max(...dates.map(d => d.getTime()))).toISOString().split('T')[0]
-      } : undefined;
-
-      // Extract balance from last transaction
-      const lastTransaction = parsedTransactions[parsedTransactions.length - 1];
-      const extractedBalance = lastTransaction?.balanceAfter;
-
-      const uploadedFile: UploadedFile = {
-        file,
-        accountId: accountName, // Use account name for consistency
-        balance: extractedBalance,
-        status: 'uploaded',
-        dateRange,
-        transactions: parsedTransactions
-      };
-
-      setUploadedFiles(prev => {
-        const filtered = prev.filter(f => f.accountId !== accountName);
-        return [...filtered, uploadedFile];
-      });
-
-      // Reconcile transactions with already saved data before adding to global list
-      console.log(`[FileUpload] ⚠️ STARTING RECONCILIATION for account: ${accountName}`);
-      console.log(`[FileUpload] Parsed transactions count: ${parsedTransactions.length}`);
-      const reconciledTransactions = reconcileTransactions(parsedTransactions, accountName);
-      
-      console.log(`[FileUpload] ✅ RECONCILIATION COMPLETED. Original: ${parsedTransactions.length}, Reconciled: ${reconciledTransactions.length}`);
-      console.log(`[FileUpload] Sample reconciled transaction:`, reconciledTransactions[0]);
-
-      // Save directly to central state - group by month
-      const transactionsByMonth: { [monthKey: string]: ImportedTransaction[] } = {};
-      reconciledTransactions.forEach(t => {
-        const monthKey = t.date.substring(0, 7);
-        if (!transactionsByMonth[monthKey]) {
-          transactionsByMonth[monthKey] = [];
-        }
-        transactionsByMonth[monthKey].push(t);
-      });
-      
-      // Save each month's transactions with proper merging
-      console.error(`[CRITICAL SAVE] 🚨🚨🚨 About to save transactions grouped by month - Total months: ${Object.keys(transactionsByMonth).length}`);
-      Object.entries(transactionsByMonth).forEach(([monthKey, monthTransactions]) => {
-        console.error(`[SAVE LOGIC] 🚨 Processing month ${monthKey} with ${monthTransactions.length} reconciled transactions`);
+      try {
+        // Use the centralized function - this handles ALL the complexity
+        processAndReconcileCSV(csvContent, accountId, accountName, file.name);
         
-        // Get ALL existing transactions for this month
-        const allExistingTransactions = (budgetState?.historicalData?.[monthKey]?.transactions || []) as ImportedTransaction[];
-        console.error(`[SAVE LOGIC] Found ${allExistingTransactions.length} total existing transactions for month ${monthKey}`);
-        
-        // Create fingerprint map of reconciled transactions for this account
-        const reconciledMap = new Map<string, ImportedTransaction>();
-        monthTransactions.forEach(transaction => {
-          const fingerprint = createTransactionFingerprint({
-            date: transaction.date,
-            description: transaction.description,
-            amount: transaction.amount
-          });
-          reconciledMap.set(fingerprint, transaction);
+        toast({
+          title: "Fil uppladdad",
+          description: `Transaktioner från ${file.name} har bearbetats och sparats till budgeten.`,
         });
         
-        console.error(`[SAVE LOGIC] Created reconciled map with ${reconciledMap.size} entries for account ${accountName}`);
-        
-        // Merge logic: Keep existing transactions that are NOT in the reconciled set,
-        // and add all reconciled transactions (which already preserve manual changes)
-        const keptTransactions = allExistingTransactions.filter(existingTx => {
-          // Debug account matching for the first few transactions
-          if (allExistingTransactions.indexOf(existingTx) < 3) {
-            console.error(`[SAVE LOGIC DEBUG] Existing tx accountId: "${existingTx.accountId}" vs import accountName: "${accountName}"`);
-          }
-          
-          // Keep transactions from OTHER accounts
-          if (existingTx.accountId !== accountName) {
-            return true;
-          }
-          
-          // For transactions from the SAME account, only keep if they're NOT in the reconciled set
-          const fingerprint = createTransactionFingerprint({
-            date: existingTx.date,
-            description: existingTx.description,
-            amount: existingTx.amount
-          });
-          const isInReconciledSet = reconciledMap.has(fingerprint);
-          
-          if (isInReconciledSet) {
-            console.error(`[SAVE LOGIC] ⚠️ Replacing existing transaction: ${fingerprint}`);
-          }
-          
-          return !isInReconciledSet;
+        // Update UI state to show the file was processed
+        const uploadedFile: UploadedFile = {
+          file,
+          accountId: accountName,
+          status: 'processed',
+          transactions: [] // No longer needed - data is in central state
+        };
+
+        setUploadedFiles(prev => {
+          const filtered = prev.filter(f => f.accountId !== accountName);
+          return [...filtered, uploadedFile];
         });
         
-        console.error(`[SAVE LOGIC] Kept ${keptTransactions.length} existing transactions, adding ${monthTransactions.length} reconciled transactions`);
-        
-        // Final transaction list: kept transactions + all reconciled transactions
-        const finalTransactions = [...keptTransactions, ...monthTransactions] as ImportedTransaction[];
-        console.error(`[SAVE LOGIC] ✅ Final transaction count for month ${monthKey}: ${finalTransactions.length}`);
-        
-        updateTransactionsForMonth(monthKey, finalTransactions);
-      });
-
-      toast({
-        title: "Fil uppladdad",
-        description: `${reconciledTransactions.length} transaktioner bearbetade från ${file.name}. Tidigare kategoriseringar och ändringar bevarade.`,
-      });
+      } catch (error) {
+        console.error('Error processing CSV:', error);
+        toast({
+          title: "Fel vid bearbetning",
+          description: "Ett fel uppstod vid bearbetning av filen.",
+          variant: "destructive"
+        });
+      }
     };
     reader.readAsText(file);
-  }, [parseCSV, toast, reconcileTransactions]);
+  }, [accounts, toast]);
 
 
   const autoMatchTransfers = useCallback(() => {
