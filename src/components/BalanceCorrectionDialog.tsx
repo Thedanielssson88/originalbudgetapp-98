@@ -47,53 +47,42 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
     console.log('🔍 [BALANCE CORRECTION] Transactions count:', transactions.length);
     console.log('🔍 [BALANCE CORRECTION] Account balances:', accountBalances);
     
-    // Debug: Log all unique account IDs in transactions
-    const allAccountIds = [...new Set(transactions.map(tx => tx.accountId))];
-    console.log('🔍 [BALANCE CORRECTION] All account IDs in transactions:', allAccountIds);
-    
-    // Debug: Look specifically for Hushållskonto transactions
-    const hushallskontoTransactions = transactions.filter(tx => tx.accountId.toLowerCase().includes('hushåll'));
-    console.log('🔍 [BALANCE CORRECTION] Hushållskonto transactions found:', hushallskontoTransactions.length);
-    console.log('🔍 [BALANCE CORRECTION] Hushållskonto sample:', hushallskontoTransactions.slice(0, 5).map(t => ({ 
-      date: t.date, 
-      day: new Date(t.date).getDate(), 
-      balanceAfter: t.balanceAfter 
-    })));
-    
     const data: MonthBalanceData[] = [];
-    const monthlyTransactions: Record<string, ImportedTransaction[]> = {};
     
-    // Group transactions by month
-    transactions.forEach(tx => {
-      const date = new Date(tx.date);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      
-      if (!monthlyTransactions[monthKey]) {
-        monthlyTransactions[monthKey] = [];
-      }
-      monthlyTransactions[monthKey].push(tx);
-    });
+    // Helper functions
+    const groupTransactionsByMonth = (transactions: ImportedTransaction[]) => {
+      const grouped: Record<string, ImportedTransaction[]> = {};
+      transactions.forEach(tx => {
+        const date = new Date(tx.date);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        
+        if (!grouped[monthKey]) {
+          grouped[monthKey] = [];
+        }
+        grouped[monthKey].push(tx);
+      });
+      return grouped;
+    };
 
-    console.log('🔍 [BALANCE CORRECTION] Monthly transactions:', Object.keys(monthlyTransactions));
+    const groupTransactionsByAccount = (transactions: ImportedTransaction[]) => {
+      const grouped: Record<string, ImportedTransaction[]> = {};
+      transactions.forEach(tx => {
+        if (!grouped[tx.accountId]) {
+          grouped[tx.accountId] = [];
+        }
+        grouped[tx.accountId].push(tx);
+      });
+      return grouped;
+    };
 
-    // Check each month for transactions on/after 24th and find last balance before 25th
-    Object.entries(monthlyTransactions).forEach(([monthKey, monthTransactions]) => {
+    // 1. Group ALL transactions by month
+    const transactionsByMonth = groupTransactionsByMonth(transactions);
+    console.log('🔍 [BALANCE CORRECTION] Monthly transactions:', Object.keys(transactionsByMonth));
+
+    // 2. Process each month
+    Object.entries(transactionsByMonth).forEach(([monthKey, monthTransactions]) => {
       const [year, month] = monthKey.split('-');
       
-      // Check if month has transactions on or after 24th
-      const hasTransactionsOnOrAfter24th = monthTransactions.some(tx => {
-        const date = new Date(tx.date);
-        return date.getDate() >= 24;
-      });
-
-      console.log(`🔍 [BALANCE CORRECTION] Month ${monthKey} has transactions on/after 24th: ${hasTransactionsOnOrAfter24th}`);
-      console.log(`🔍 [BALANCE CORRECTION] Accounts in month ${monthKey}:`, [...new Set(monthTransactions.map(tx => tx.accountId))]);
-
-      if (!hasTransactionsOnOrAfter24th) {
-        console.log(`🔍 [BALANCE CORRECTION] Skipping month ${monthKey} - no transactions on/after 24th`);
-        return;
-      }
-
       // Calculate next month for display and balance update
       const currentDate = new Date(parseInt(year), parseInt(month) - 1);
       const nextMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1);
@@ -103,34 +92,40 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
         month: 'long' 
       });
 
-      // Group by account
-      const accountGroups: Record<string, ImportedTransaction[]> = {};
-      monthTransactions.forEach(tx => {
-        if (!accountGroups[tx.accountId]) {
-          accountGroups[tx.accountId] = [];
-        }
-        accountGroups[tx.accountId].push(tx);
-      });
+      console.log(`🔍 [BALANCE CORRECTION] Processing month ${monthKey} -> Next Month ${nextMonthKey}`);
+      console.log(`🔍 [BALANCE CORRECTION] Accounts in month ${monthKey}:`, [...new Set(monthTransactions.map(tx => tx.accountId))]);
+      
+      // 3. Group month's transactions by account
+      const transactionsByAccount = groupTransactionsByAccount(monthTransactions);
 
-      // For each account, find last transaction before 25th
-      const monthEntries: MonthBalanceData[] = [];
-      Object.entries(accountGroups).forEach(([accountId, accountTransactions]) => {
-        const transactionsBefor25th = accountTransactions
-          .filter(tx => new Date(tx.date).getDate() < 25)
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      // 4. For each account, find the correct balance
+      Object.entries(transactionsByAccount).forEach(([accountId, accountTransactions]) => {
+        
+        // 5. Filter to include only transactions up to and including the 24th
+        const relevantTransactions = accountTransactions.filter(tx => {
+          const transactionDate = new Date(tx.date);
+          return transactionDate.getDate() <= 24;
+        });
 
-        if (transactionsBefor25th.length > 0) {
-          const lastTransaction = transactionsBefor25th[0];
+        console.log(`🔍 [BALANCE CORRECTION] Account ${accountId} - relevant transactions (≤24th):`, relevantTransactions.length);
+
+        // 6. If there are relevant transactions, find the latest one
+        if (relevantTransactions.length > 0) {
+          // Sort to find the absolutely latest transaction
+          relevantTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          const lastTransaction = relevantTransactions[0];
+          
+          // Get its balance
           const bankBalance = lastTransaction.balanceAfter || 0;
           const systemBalance = accountBalances[nextMonthKey]?.[accountId] || 0;
 
-          console.log(`🔍 [BALANCE CORRECTION] Month ${monthKey} -> Next Month ${nextMonthKey}, Account ${accountId}:`, {
+          console.log(`🔍 [BALANCE CORRECTION] Account ${accountId} in ${monthKey}:`, {
             bankBalance,
             systemBalance,
             lastTransactionDate: lastTransaction.date
           });
 
-          monthEntries.push({
+          data.push({
             monthKey: nextMonthKey,
             monthName: nextMonthName,
             bankBalance,
@@ -140,17 +135,6 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
           });
         }
       });
-
-      // Select all entries, don't filter by bank balance
-      const validEntries = monthEntries;
-      
-      console.log(`🔍 [BALANCE CORRECTION] Month ${monthKey} - All entries:`, monthEntries.map(e => ({ accountId: e.accountId, bankBalance: e.bankBalance })));
-      console.log(`🔍 [BALANCE CORRECTION] Month ${monthKey} - Valid entries (all):`, validEntries.map(e => ({ accountId: e.accountId, bankBalance: e.bankBalance })));
-      
-      if (validEntries.length > 0) {
-        // Add all entries instead of just the "best" one
-        data.push(...validEntries);
-      }
     });
 
     console.log('🔍 [BALANCE CORRECTION] Final data:', data);
