@@ -4479,21 +4479,21 @@ const BudgetCalculator = () => {
     
     // Render month selection UI
     const monthSelectorUI = (
-      <div className="bg-muted/50 p-4 rounded-lg">
+      <div className={`bg-muted/50 rounded-lg ${isMobile ? 'p-3' : 'p-4'}`}>
         <div className="flex items-center space-x-2 mb-3">
           <Checkbox 
             checked={useCustomTimeRange}
             onCheckedChange={(checked) => setUseCustomTimeRange(checked as boolean)}
           />
-          <h4 className="font-medium">Anpassa tidsintervall</h4>
+          <h4 className={`font-medium ${isMobile ? 'text-sm' : ''}`}>Anpassa tidsintervall</h4>
         </div>
         
         {useCustomTimeRange && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className={`grid ${isMobile ? 'grid-cols-1 gap-3' : 'grid-cols-1 md:grid-cols-2 gap-4'}`}>
              <div>
-               <Label htmlFor="chart-start-month" className="text-sm">Startmånad:</Label>
+               <Label htmlFor="chart-start-month" className={isMobile ? 'text-xs' : 'text-sm'}>Startmånad:</Label>
                <Select value={chartStartMonth} onValueChange={setChartStartMonth}>
-                 <SelectTrigger>
+                 <SelectTrigger className={isMobile ? 'h-8 text-sm' : ''}>
                    <SelectValue placeholder="Välj startmånad" />
                  </SelectTrigger>
                  <SelectContent>
@@ -4521,7 +4521,7 @@ const BudgetCalculator = () => {
                                           'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
                        const monthName = monthNames[parseInt(monthNum) - 1];
                        return (
-                         <SelectItem key={month} value={month}>{year} - {monthName}</SelectItem>
+                         <SelectItem key={month} value={month}>{isMobile ? `${year.toString().slice(2)}-${monthName.slice(0,3)}` : `${year} - ${monthName}`}</SelectItem>
                        );
                      });
                    })()}
@@ -4529,9 +4529,9 @@ const BudgetCalculator = () => {
                </Select>
              </div>
             <div>
-              <Label htmlFor="chart-end-month" className="text-sm">Slutmånad:</Label>
+              <Label htmlFor="chart-end-month" className={isMobile ? 'text-xs' : 'text-sm'}>Slutmånad:</Label>
               <Select value={chartEndMonth} onValueChange={setChartEndMonth}>
-                <SelectTrigger>
+                <SelectTrigger className={isMobile ? 'h-8 text-sm' : ''}>
                   <SelectValue placeholder="Välj slutmånad" />
                 </SelectTrigger>
                 <SelectContent>
@@ -4541,7 +4541,7 @@ const BudgetCalculator = () => {
                                        'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
                     const monthName = monthNames[parseInt(monthNum) - 1];
                     return (
-                      <SelectItem key={month} value={month}>{year} - {monthName}</SelectItem>
+                      <SelectItem key={month} value={month}>{isMobile ? `${year.toString().slice(2)}-${monthName.slice(0,3)}` : `${year} - ${monthName}`}</SelectItem>
                     );
                   })}
                 </SelectContent>
@@ -4553,7 +4553,7 @@ const BudgetCalculator = () => {
     );
 
     return (
-      <div className="space-y-6">
+      <div className={`space-y-6 ${isMobile ? 'space-y-4' : ''}`}>
         {monthSelectorUI}
 
         {/* Account Selection */}
@@ -4567,23 +4567,23 @@ const BudgetCalculator = () => {
         />
 
         {/* Balance Type Option */}
-        <div className="bg-muted/50 p-4 rounded-lg">
-          <h4 className="font-medium mb-3">Visa saldo som:</h4>
+        <div className={`bg-muted/50 rounded-lg ${isMobile ? 'p-3' : 'p-4'}`}>
+          <h4 className={`font-medium mb-3 ${isMobile ? 'text-sm' : ''}`}>Visa saldo som:</h4>
           <ToggleGroup 
             type="single" 
             value={balanceType} 
             onValueChange={(value) => value && setBalanceType(value as 'starting' | 'closing')}
-            className="grid grid-cols-2 w-full max-w-md"
+            className={`grid grid-cols-2 w-full ${isMobile ? 'max-w-xs' : 'max-w-md'}`}
           >
             <ToggleGroupItem 
               value="starting" 
-              className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              className={`data-[state=on]:bg-primary data-[state=on]:text-primary-foreground ${isMobile ? 'text-xs h-8' : 'text-sm'}`}
             >
               Ingående
             </ToggleGroupItem>
             <ToggleGroupItem 
               value="closing" 
-              className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              className={`data-[state=on]:bg-primary data-[state=on]:text-primary-foreground ${isMobile ? 'text-xs h-8' : 'text-sm'}`}
             >
               Slutsaldo
             </ToggleGroupItem>
@@ -4591,8 +4591,8 @@ const BudgetCalculator = () => {
         </div>
 
         {/* Chart Display Options */}
-        <div className="bg-muted/50 p-4 rounded-lg">
-          <h4 className="font-medium mb-3">Visa även i grafen:</h4>
+        <div className={`bg-muted/50 rounded-lg ${isMobile ? 'p-3' : 'p-4'}`}>
+          <h4 className={`font-medium mb-3 ${isMobile ? 'text-sm' : ''}`}>Visa även i grafen:</h4>
           <ToggleGroup 
             type="multiple" 
             value={[
@@ -4605,23 +4605,23 @@ const BudgetCalculator = () => {
               setShowSavingsSeparately(values.includes('sparande'));
               setShowEstimatedBudgetAmounts(values.includes('estimat'));
             }}
-            className="grid grid-cols-3 w-full max-w-lg"
+            className={`grid w-full ${isMobile ? 'grid-cols-1 gap-2 max-w-xs' : 'grid-cols-3 max-w-lg'}`}
           >
             <ToggleGroupItem 
               value="utgifter" 
-              className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              className={`data-[state=on]:bg-primary data-[state=on]:text-primary-foreground ${isMobile ? 'text-xs h-8' : 'text-sm'}`}
             >
               Utgifter
             </ToggleGroupItem>
             <ToggleGroupItem 
               value="sparande" 
-              className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              className={`data-[state=on]:bg-primary data-[state=on]:text-primary-foreground ${isMobile ? 'text-xs h-8' : 'text-sm'}`}
             >
               Sparande
             </ToggleGroupItem>
             <ToggleGroupItem 
               value="estimat" 
-              className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              className={`data-[state=on]:bg-primary data-[state=on]:text-primary-foreground ${isMobile ? 'text-xs h-8' : 'text-sm'}`}
             >
               Estimat
             </ToggleGroupItem>
@@ -4662,48 +4662,50 @@ const BudgetCalculator = () => {
         <Collapsible open={isChartLegendExpanded} onOpenChange={setIsChartLegendExpanded}>
           <div className="flex items-center gap-2">
             <CollapsibleTrigger asChild>
-              <Button variant="ghost" className="flex-1 justify-between p-3 h-auto">
-                <span className="font-medium">Diagramförklaring</span>
+              <Button variant="ghost" className={`flex-1 justify-between h-auto ${isMobile ? 'p-2 text-sm' : 'p-3'}`}>
+                <span className={`font-medium ${isMobile ? 'text-sm' : ''}`}>Diagramförklaring</span>
                 <ChevronDown className={`h-4 w-4 transition-transform ${isChartLegendExpanded ? 'rotate-180' : ''}`} />
               </Button>
             </CollapsibleTrigger>
-            <Button 
-              onClick={() => {
-                addDebugLog('[STORAGE CHECK] Checking localStorage now...');
-                const data = localStorage.getItem('budgetCalculatorData');
-                if (data) {
-                  try {
-                    const parsed = JSON.parse(data);
-                    addDebugLog(`[STORAGE] Data found - structure: ${Object.keys(parsed).join(', ')}`);
-                    if (parsed.budgetState?.historicalData) {
-                      const months = Object.keys(parsed.budgetState.historicalData);
-                      addDebugLog(`[STORAGE] Historical months: ${months.join(', ')}`);
-                      if (parsed.budgetState.historicalData['2025-07']) {
-                        const july = parsed.budgetState.historicalData['2025-07'];
-                        addDebugLog(`[STORAGE] July accountBalances: ${JSON.stringify(july.accountBalances || {})}`);
-                        addDebugLog(`[STORAGE] July accountBalancesSet: ${JSON.stringify(july.accountBalancesSet || {})}`);
+            {!isMobile && (
+              <Button 
+                onClick={() => {
+                  addDebugLog('[STORAGE CHECK] Checking localStorage now...');
+                  const data = localStorage.getItem('budgetCalculatorData');
+                  if (data) {
+                    try {
+                      const parsed = JSON.parse(data);
+                      addDebugLog(`[STORAGE] Data found - structure: ${Object.keys(parsed).join(', ')}`);
+                      if (parsed.budgetState?.historicalData) {
+                        const months = Object.keys(parsed.budgetState.historicalData);
+                        addDebugLog(`[STORAGE] Historical months: ${months.join(', ')}`);
+                        if (parsed.budgetState.historicalData['2025-07']) {
+                          const july = parsed.budgetState.historicalData['2025-07'];
+                          addDebugLog(`[STORAGE] July accountBalances: ${JSON.stringify(july.accountBalances || {})}`);
+                          addDebugLog(`[STORAGE] July accountBalancesSet: ${JSON.stringify(july.accountBalancesSet || {})}`);
+                        }
                       }
+                    } catch (e) {
+                      addDebugLog(`[STORAGE] Error parsing data: ${e}`);
                     }
-                  } catch (e) {
-                    addDebugLog(`[STORAGE] Error parsing data: ${e}`);
+                  } else {
+                    addDebugLog('[STORAGE] No data found in localStorage');
                   }
-                } else {
-                  addDebugLog('[STORAGE] No data found in localStorage');
-                }
-              }} 
-              variant="ghost"
-              size="sm"
-              className="text-xs"
-            >
-              Kolla Storage
-            </Button>
+                }} 
+                variant="ghost"
+                size="sm"
+                className="text-xs"
+              >
+                Kolla Storage
+              </Button>
+            )}
           </div>
           <CollapsibleContent>
-            <div className="bg-muted/30 p-4 rounded-lg text-sm space-y-3">
+            <div className={`bg-muted/30 rounded-lg space-y-3 ${isMobile ? 'p-3 text-xs' : 'p-4 text-sm'}`}>
               {/* Dynamic legend based on selected accounts and settings */}
               <div className="space-y-2">
-                <p className="font-medium mb-2">Kontosaldon:</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <p className={`font-medium mb-2 ${isMobile ? 'text-xs' : ''}`}>Kontosaldon:</p>
+                <div className={`grid gap-2 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
                   {selectedAccountsForChart.map((account, index) => {
                     const color = accountColors[accounts.indexOf(account) % accountColors.length];
                     return (
@@ -4713,14 +4715,14 @@ const BudgetCalculator = () => {
                             className="w-3 h-0.5 rounded" 
                             style={{ backgroundColor: color }}
                           />
-                          <span className="text-xs">{account} (Historisk)</span>
+                          <span className={isMobile ? 'text-xs' : 'text-xs'}>{account} (Historisk)</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <div 
                             className="w-3 h-0.5 rounded border-dashed border-2" 
                             style={{ borderColor: color }}
                           />
-                          <span className="text-xs">{account} (Prognos)</span>
+                          <span className={isMobile ? 'text-xs' : 'text-xs'}>{account} (Prognos)</span>
                         </div>
                       </div>
                     );
@@ -4731,12 +4733,10 @@ const BudgetCalculator = () => {
               {/* Individual costs legend - only show if enabled */}
               {showIndividualCostsOutsideBudget && selectedAccountsForChart.length > 0 && (
                 <div className="space-y-2 border-t pt-3">
-                  <h4 className="font-medium text-sm">Enskilda kostnader</h4>
+                  <h4 className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>Enskilda kostnader</h4>
                   <div className="flex items-center space-x-2">
-                    <div 
-                      className="w-4 h-4 rounded-full bg-red-500"
-                    />
-                    <Label className="text-sm">Enskilda kostnader (röd cirkel)</Label>
+                    <div className="w-4 h-4 rounded-full bg-red-500" />
+                    <Label className={isMobile ? 'text-xs' : 'text-sm'}>Enskilda kostnader (röd cirkel)</Label>
                   </div>
                 </div>
               )}
@@ -4744,12 +4744,10 @@ const BudgetCalculator = () => {
               {/* Savings legend - only show if enabled */}
               {showSavingsSeparately && selectedAccountsForChart.length > 0 && (
                 <div className="space-y-2 border-t pt-3">
-                  <h4 className="font-medium text-sm">Sparande</h4>
+                  <h4 className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>Sparande</h4>
                   <div className="flex items-center space-x-2">
-                    <div 
-                      className="w-4 h-4 rounded-full bg-green-500"
-                    />
-                    <Label className="text-sm">Sparande (grön cirkel)</Label>
+                    <div className="w-4 h-4 rounded-full bg-green-500" />
+                    <Label className={isMobile ? 'text-xs' : 'text-sm'}>Sparande (grön cirkel)</Label>
                   </div>
                 </div>
               )}
@@ -4757,8 +4755,8 @@ const BudgetCalculator = () => {
               {/* Estimated values legend - only show if enabled */}
               {showEstimatedBudgetAmounts && selectedAccountsForChart.length > 0 && (
                 <div className="space-y-2 border-t pt-3">
-                  <p className="font-medium mb-2">Estimerade budgetbelopp:</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <p className={`font-medium mb-2 ${isMobile ? 'text-xs' : ''}`}>Estimerade budgetbelopp:</p>
+                  <div className={`grid gap-2 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
                     {selectedAccountsForChart.map((account) => {
                       const color = accountColors[accounts.indexOf(account) % accountColors.length];
                       return (
@@ -4773,7 +4771,7 @@ const BudgetCalculator = () => {
                               style={{ borderColor: color, backgroundColor: color }}
                             />
                           </div>
-                          <span className="text-xs">{account} (Estimerat)</span>
+                          <span className={isMobile ? 'text-xs' : 'text-xs'}>{account} (Estimerat)</span>
                         </div>
                       );
                     })}
@@ -4783,8 +4781,8 @@ const BudgetCalculator = () => {
 
               {/* General legend */}
               <div className="border-t pt-3">
-                <p className="font-medium mb-2">Allmän förklaring:</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-1 text-muted-foreground text-xs">
+                <p className={`font-medium mb-2 ${isMobile ? 'text-xs' : ''}`}>Allmän förklaring:</p>
+                <div className={`grid gap-1 text-muted-foreground ${isMobile ? 'grid-cols-1 text-xs' : 'grid-cols-1 md:grid-cols-2 text-xs'}`}>
                   <div>• Heldragna linjer: Historiska data</div>
                   <div>• Streckade linjer: Prognoser</div>
                   <div>• Grön linje: Dagens datum</div>
@@ -9248,35 +9246,35 @@ const BudgetCalculator = () => {
                     : "animate-slide-in-left"
                   : ""
             }`}>
-              <div className="space-y-4 sm:space-y-6 px-2 sm:px-4">
+              <div className={`space-y-4 sm:space-y-6 ${isMobile ? 'px-1' : 'px-2 sm:px-4'}`}>
               {/* Charts Section */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+              <Card className={isMobile ? 'mx-1' : ''}>
+                <CardHeader className={isMobile ? 'px-3 py-4' : ''}>
+                  <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-base' : ''}`}>
                     <History className="h-5 w-5 text-primary" />
                     Historisk Översikt
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className={isMobile ? 'text-sm' : ''}>
                     Visa utvecklingen av intäkter, kostnader och sparande över tid
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className={isMobile ? 'px-3 pb-4' : ''}>
                   {renderHistoricalCharts()}
                 </CardContent>
               </Card>
 
               {/* Update All Months Button */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+              <Card className={isMobile ? 'mx-1' : ''}>
+                <CardHeader className={isMobile ? 'px-3 py-4' : ''}>
+                  <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-base' : ''}`}>
                     <Calendar className="h-5 w-5 text-primary" />
                     Uppdatera alla månader
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className={isMobile ? 'text-sm' : ''}>
                     Gå igenom alla månader automatiskt för att uppdatera tabellen och grafen
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className={isMobile ? 'px-3 pb-4' : ''}>
                   {!isUpdatingAllMonths ? (
                     <Button 
                       onClick={() => {
@@ -9390,6 +9388,7 @@ const BudgetCalculator = () => {
                       }}
                       disabled={getMonthsToUpdate().length === 0}
                       className="w-full"
+                      size={isMobile ? "sm" : "default"}
                     >
                       <Calendar className="mr-2 h-4 w-4" />
                       Uppdatera alla månader
@@ -9397,19 +9396,19 @@ const BudgetCalculator = () => {
                   ) : (
                     <div className="w-full space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Uppdaterar månader...</span>
-                        <span className="text-sm text-muted-foreground">{updateProgress}%</span>
+                        <span className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>Uppdaterar månader...</span>
+                        <span className={`text-muted-foreground ${isMobile ? 'text-xs' : 'text-sm'}`}>{updateProgress}%</span>
                       </div>
                       <Progress value={updateProgress} className="w-full" />
                     </div>
                   )}
                   {getMonthsToUpdate().length > 0 && (
-                    <p className="text-sm text-muted-foreground mt-2">
+                    <p className={`text-muted-foreground mt-2 ${isMobile ? 'text-xs' : 'text-sm'}`}>
                       Kommer att gå igenom {getMonthsToUpdate().length} månader från första månad med flagga falsk: {getMonthsToUpdate().join(', ')}
                     </p>
                   )}
                   {getMonthsToUpdate().length === 0 && (
-                    <p className="text-sm text-muted-foreground mt-2">
+                    <p className={`text-muted-foreground mt-2 ${isMobile ? 'text-xs' : 'text-sm'}`}>
                       Alla månader är redan uppdaterade (alla flaggor är sanna)
                     </p>
                   )}
@@ -9417,38 +9416,48 @@ const BudgetCalculator = () => {
               </Card>
 
               {/* Account Balance History and Forecast */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+              <Card className={isMobile ? 'mx-1' : ''}>
+                <CardHeader className={isMobile ? 'px-3 py-4' : ''}>
+                  <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-base' : ''}`}>
                     <TrendingUp className="h-5 w-5 text-primary" />
                     Historik och Prognos på konton
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className={isMobile ? 'text-sm' : ''}>
                     Visa utvecklingen av kontosaldon med historiska data och prognoser
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className={isMobile ? 'px-3 pb-4' : ''}>
                   {renderAccountBalanceChart()}
                 </CardContent>
               </Card>
 
               {/* Account Data Table */}
-              <div className="overflow-x-auto">
-                <AccountDataTable 
-                  data={accountDataRows}
-                  className="w-full min-w-[640px]"
-                />
-              </div>
+              <Card className={isMobile ? 'mx-1' : ''}>
+                <CardHeader className={isMobile ? 'px-3 py-4' : ''}>
+                  <CardTitle className={`${isMobile ? 'text-base' : ''}`}>Kontosaldon</CardTitle>
+                  <CardDescription className={isMobile ? 'text-sm' : ''}>
+                    Detaljerad tabell över alla kontosaldon
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className={isMobile ? 'px-1 pb-4' : ''}>
+                  <div className={`${isMobile ? 'overflow-x-auto -mx-1' : 'overflow-x-auto'}`}>
+                    <AccountDataTable 
+                      data={accountDataRows}
+                      className={`${isMobile ? 'min-w-[280px] text-xs' : 'w-full min-w-[640px]'}`}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Month Selector and Data Display */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Välj Månad</CardTitle>
-                  <CardDescription>
+              <Card className={isMobile ? 'mx-1' : ''}>
+                <CardHeader className={isMobile ? 'px-3 py-4' : ''}>
+                  <CardTitle className={isMobile ? 'text-base' : ''}>Välj Månad</CardTitle>
+                  <CardDescription className={isMobile ? 'text-sm' : ''}>
                     Visa detaljerad information för en specifik månad
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className={isMobile ? 'px-3 pb-4' : ''}>
                   {renderMonthSelector()}
                   {renderHistoricalData()}
                 </CardContent>
