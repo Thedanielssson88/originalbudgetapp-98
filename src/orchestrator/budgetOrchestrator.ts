@@ -310,7 +310,15 @@ export { eventEmitter };
 function triggerUIRefresh() {
   console.log('🎯 [ORCHESTRATOR] Dispatching APP_STATE_UPDATED event...');
   addMobileDebugLog('🎯 [ORCHESTRATOR] Dispatching APP_STATE_UPDATED event...');
+  
+  // Dispatch immediately
   eventEmitter.dispatchEvent(new Event(APP_STATE_UPDATED));
+  
+  // Also dispatch in the next tick to ensure all state updates are captured
+  setTimeout(() => {
+    console.log('🎯 [ORCHESTRATOR] Dispatching delayed APP_STATE_UPDATED event...');
+    eventEmitter.dispatchEvent(new Event(APP_STATE_UPDATED));
+  }, 0);
 }
 
 // Track initialization to prevent multiple calls
