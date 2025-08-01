@@ -528,7 +528,12 @@ export const TransactionImportEnhanced: React.FC = () => {
 
   // Create unique fingerprint for transaction matching
   const createTransactionFingerprint = useCallback((transaction: { date: string; description: string; amount: number }): string => {
-    return `${transaction.date.trim()}_${transaction.description.trim().toLowerCase()}_${transaction.amount}`;
+    const fingerprint = `${transaction.date.trim()}_${transaction.description.trim().toLowerCase()}_${transaction.amount}`;
+    // Debug fingerprinting for Bilkonto transactions
+    if (transaction.description?.includes('Bilkonto')) {
+      console.error(`[FINGERPRINT] 🚗 Created fingerprint for Bilkonto: "${fingerprint}" from date:"${transaction.date}" desc:"${transaction.description}" amount:${transaction.amount}`);
+    }
+    return fingerprint;
   }, []);
 
   // Reconcile transactions from file with already saved transactions
@@ -722,6 +727,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   }, [createTransactionFingerprint]);
 
   const handleFileUpload = useCallback((accountId: string, file: File) => {
+    console.error(`[FILE UPLOAD START] 🚨🚨🚨 Starting file upload for account ${accountId}, file: ${file.name}`);
     // Find the account name from the ID for backward compatibility
     const account = accounts.find(acc => acc.id === accountId);
     const accountName = account ? account.name : accountId;
@@ -787,6 +793,7 @@ export const TransactionImportEnhanced: React.FC = () => {
       });
       
       // Save each month's transactions with proper merging
+      console.error(`[CRITICAL SAVE] 🚨🚨🚨 About to save transactions grouped by month - Total months: ${Object.keys(transactionsByMonth).length}`);
       Object.entries(transactionsByMonth).forEach(([monthKey, monthTransactions]) => {
         console.error(`[SAVE LOGIC] 🚨 Processing month ${monthKey} with ${monthTransactions.length} reconciled transactions`);
         
@@ -810,6 +817,11 @@ export const TransactionImportEnhanced: React.FC = () => {
         // Merge logic: Keep existing transactions that are NOT in the reconciled set,
         // and add all reconciled transactions (which already preserve manual changes)
         const keptTransactions = allExistingTransactions.filter(existingTx => {
+          // Debug account matching for the first few transactions
+          if (allExistingTransactions.indexOf(existingTx) < 3) {
+            console.error(`[SAVE LOGIC DEBUG] Existing tx accountId: "${existingTx.accountId}" vs import accountName: "${accountName}"`);
+          }
+          
           // Keep transactions from OTHER accounts
           if (existingTx.accountId !== accountName) {
             return true;
