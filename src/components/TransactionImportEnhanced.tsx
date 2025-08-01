@@ -574,6 +574,28 @@ export const TransactionImportEnhanced: React.FC = () => {
         // SMART MERGE: Start with saved transaction (preserves user changes) 
         // but update bank-controlled fields with latest data from file
         console.log(`[Reconciliation] ✅ Match found for: ${fingerprint}. Performing smart merge.`);
+        console.log(`[Reconciliation] Existing transaction:`, {
+          id: existingTransaction.id,
+          userDescription: existingTransaction.userDescription,
+          type: existingTransaction.type,
+          status: existingTransaction.status,
+          appCategoryId: existingTransaction.appCategoryId,
+          appSubCategoryId: existingTransaction.appSubCategoryId,
+          savingsTargetId: existingTransaction.savingsTargetId,
+          linkedTransactionId: existingTransaction.linkedTransactionId,
+          isManuallyChanged: existingTransaction.isManuallyChanged,
+          correctedAmount: existingTransaction.correctedAmount,
+          coveredCostId: existingTransaction.coveredCostId,
+          transferType: existingTransaction.transferType
+        });
+        console.log(`[Reconciliation] File transaction:`, {
+          id: fileTransaction.id,
+          userDescription: fileTransaction.userDescription,
+          type: fileTransaction.type,
+          status: fileTransaction.status,
+          appCategoryId: fileTransaction.appCategoryId,
+          appSubCategoryId: fileTransaction.appSubCategoryId
+        });
         
         const mergedTransaction = { ...existingTransaction };
         
@@ -593,13 +615,24 @@ export const TransactionImportEnhanced: React.FC = () => {
         // Amount should generally stay the same, but update in case of corrections
         mergedTransaction.amount = fileTransaction.amount;
         
-        // Preserve user-controlled fields (these are NOT overwritten):
-        // - appCategoryId (user's category choice)
-        // - appSubCategoryId (user's subcategory choice) 
-        // - status (user's approval status: red/yellow/green)
-        // - egenText (user's custom notes)
-        // - isManuallyChanged (user modification flag)
-        // - linkedTransactionId (user's transfer matching)
+        // EXPLICITLY preserve all user-controlled fields:
+        // Keep existing values for all user-controlled fields (don't overwrite with CSV data)
+        // These fields represent user choices and manual edits that must be preserved
+        
+        console.log(`[Reconciliation] Merged transaction result:`, {
+          id: mergedTransaction.id,
+          userDescription: mergedTransaction.userDescription,
+          type: mergedTransaction.type,
+          status: mergedTransaction.status,
+          appCategoryId: mergedTransaction.appCategoryId,
+          appSubCategoryId: mergedTransaction.appSubCategoryId,
+          savingsTargetId: mergedTransaction.savingsTargetId,
+          linkedTransactionId: mergedTransaction.linkedTransactionId,
+          isManuallyChanged: mergedTransaction.isManuallyChanged,
+          correctedAmount: mergedTransaction.correctedAmount,
+          coveredCostId: mergedTransaction.coveredCostId,
+          transferType: mergedTransaction.transferType
+        });
         
         return mergedTransaction;
       } else {
