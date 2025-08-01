@@ -162,7 +162,8 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
         
         // Get balances
         const bankBalance = latestTransaction.balanceAfter || 0;
-        const systemBalance = accountBalances[nextMonthKey]?.[accountId] || 0;
+        const accountName = getAccountNameById(accountId);
+        const systemBalance = accountBalances[nextMonthKey]?.[accountName] || 0;
         
         console.log(`🔍 [BALANCE CORRECTION] Row data for ${accountId} in ${monthKey}:`, {
           latestTransactionDate: latestTransaction.date,
