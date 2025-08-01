@@ -666,11 +666,9 @@ export const TransactionImportEnhanced: React.FC = () => {
     selectedTransactions.forEach(transactionId => {
       const transaction = allTransactions.find(t => t.id === transactionId);
       if (transaction && transaction.status !== 'green') {
-        const monthKey = transaction.date.substring(0, 7);
-        updateTransaction(transactionId, { 
-          status: 'green' as const,
-          isManuallyChanged: true 
-        }, monthKey);
+        console.log(`🔄 [BULK APPROVE] Approving transaction ${transactionId} via handleTransactionUpdate`);
+        // Use handleTransactionUpdate instead of direct updateTransaction to get force refresh
+        handleTransactionUpdate(transactionId, { status: 'green' as const });
       }
     });
 
