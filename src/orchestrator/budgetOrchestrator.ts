@@ -760,6 +760,8 @@ export const deleteSavingsGoal = (goalId: string) => {
 // ===== TRANSACTION MANAGEMENT =====
 
 export function updateTransaction(transactionId: string, updates: Partial<ImportedTransaction>, monthKey?: string): void {
+  console.log(`🔄 [ORCHESTRATOR] updateTransaction called with:`, { transactionId, updates, monthKey });
+  
   // Use provided monthKey or fall back to selected month
   const targetMonthKey = monthKey || state.budgetState.selectedMonthKey;
   
@@ -780,6 +782,8 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
     console.error(`[Orchestrator] Transaction ${transactionId} not found in month ${targetMonthKey}.`);
     return;
   }
+
+  console.log(`🔄 [ORCHESTRATOR] Original transaction status: ${originalTransaction.status}, new status: ${updates.status}`);
 
   let updatedTransactions = [...currentMonth.transactions];
 
@@ -815,7 +819,14 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
   // Apply the updates
   updatedTransactions = updatedTransactions.map(t => {
     if (t.id === transactionId) {
-      return { ...t, ...updates };
+      const updatedTransaction = { ...t, ...updates };
+      console.log(`🔄 [ORCHESTRATOR] Updated transaction ${transactionId}:`, { 
+        oldStatus: t.status, 
+        newStatus: updatedTransaction.status,
+        oldType: t.type,
+        newType: updatedTransaction.type
+      });
+      return updatedTransaction;
     }
     return t;
   });
@@ -825,6 +836,8 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
     ...currentMonth,
     transactions: updatedTransactions
   };
+  
+  console.log(`🔄 [ORCHESTRATOR] State updated, about to save and trigger refresh...`);
   
   saveStateToStorage();
   runCalculationsAndUpdateState();
