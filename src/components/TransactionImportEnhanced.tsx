@@ -355,7 +355,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   const allTransactions = useMemo(() => {
     console.log('🔍 [DEBUG] budgetState.historicalData:', budgetState?.historicalData);
     console.log('🔍 [DEBUG] Available months:', Object.keys(budgetState?.historicalData || {}));
-    console.log('🔍 [DEBUG] useMemo re-calculating allTransactions...');
+    console.log('🔍 [DEBUG] useMemo re-calculating allTransactions... refreshKey:', refreshKey);
     
     const transactions = Object.values(budgetState?.historicalData || {}).flatMap(month => {
       console.log('🔍 [DEBUG] Month data:', month);
@@ -370,7 +370,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     console.log('🔍 [DEBUG] Total allTransactions count:', transactions.length);
     console.log('🔍 [DEBUG] Sample transactions:', transactions.slice(0, 3));
     return transactions;
-  }, [budgetState?.historicalData, budgetState?.selectedMonthKey]);
+  }, [budgetState?.historicalData, budgetState?.selectedMonthKey, refreshKey]);
 
   // Use actual accounts from budget state
   const accounts: Account[] = budgetState?.accounts || [];
