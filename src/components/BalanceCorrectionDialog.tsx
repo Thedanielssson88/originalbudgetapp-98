@@ -47,14 +47,54 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
     console.log('🔍 [BALANCE CORRECTION] Transactions count:', transactions.length);
     console.log('🔍 [BALANCE CORRECTION] Account balances:', accountBalances);
     
+    // Debug: Log all unique account IDs and their transaction counts
+    const allAccountIds = [...new Set(transactions.map(tx => tx.accountId))];
+    console.log('🔍 [BALANCE CORRECTION] All account IDs in transactions:', allAccountIds);
+    
+    allAccountIds.forEach(accountId => {
+      const accountTransactions = transactions.filter(tx => tx.accountId === accountId);
+      const transactionsWithBalance = accountTransactions.filter(tx => 
+        tx.balanceAfter !== undefined && tx.balanceAfter !== null
+      );
+      console.log(`🔍 [BALANCE CORRECTION] Account "${accountId}": ${accountTransactions.length} total transactions, ${transactionsWithBalance.length} with balanceAfter`);
+      
+      if (accountId.toLowerCase().includes('hushåll') || accountId === 'Hushållskonto' || 
+          accountId.toLowerCase().includes('buffert') || accountId === 'Buffert') {
+        console.log(`🔍 [BALANCE CORRECTION] SPECIAL ACCOUNT "${accountId}" transactions:`, 
+          accountTransactions.slice(0, 5).map(t => ({ 
+            date: t.date, 
+            amount: t.amount,
+            balanceAfter: t.balanceAfter,
+            hasBalance: t.balanceAfter !== undefined && t.balanceAfter !== null
+          }))
+        );
+      }
+    });
+    
     const data: MonthBalanceData[] = [];
     
     // Step 1: Group all transactions by month-account combination
     const monthAccountGroups = new Map<string, ImportedTransaction[]>();
     
     transactions.forEach(tx => {
+      // Debug: Log what we're processing
+      if (tx.accountId?.toLowerCase().includes('hushåll') || tx.accountId === 'Hushållskonto' || 
+          tx.accountId?.toLowerCase().includes('buffert') || tx.accountId === 'Buffert') {
+        console.log(`🔍 [BALANCE CORRECTION] Processing special account transaction:`, {
+          accountId: tx.accountId,
+          date: tx.date,
+          amount: tx.amount,
+          balanceAfter: tx.balanceAfter,
+          hasBalance: tx.balanceAfter !== undefined && tx.balanceAfter !== null
+        });
+      }
+      
       // Only process transactions that have balanceAfter data
       if (tx.balanceAfter === undefined || tx.balanceAfter === null) {
+        if (tx.accountId?.toLowerCase().includes('hushåll') || tx.accountId === 'Hushållskonto' || 
+            tx.accountId?.toLowerCase().includes('buffert') || tx.accountId === 'Buffert') {
+          console.log(`🔍 [BALANCE CORRECTION] SKIPPING special account transaction due to missing balanceAfter:`, tx.accountId);
+        }
         return;
       }
       
