@@ -47,131 +47,111 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
     console.log('🔍 [BALANCE CORRECTION] Transactions count:', transactions.length);
     console.log('🔍 [BALANCE CORRECTION] Account balances:', accountBalances);
     
-    // Debug: Log all unique account IDs and check for Hushållskonto specifically
-    const allAccountIds = [...new Set(transactions.map(tx => tx.accountId))];
-    console.log('🔍 [BALANCE CORRECTION] All account IDs in transactions:', allAccountIds);
-    
-    const hushallskontoTransactions = transactions.filter(tx => 
-      tx.accountId.toLowerCase().includes('hushåll') || tx.accountId === 'Hushållskonto'
-    );
-    console.log('🔍 [BALANCE CORRECTION] Hushållskonto transactions found:', hushallskontoTransactions.length);
-    console.log('🔍 [BALANCE CORRECTION] Hushållskonto sample:', hushallskontoTransactions.slice(0, 5).map(t => ({ 
-      date: t.date, 
-      day: new Date(t.date).getDate(), 
-      balanceAfter: t.balanceAfter,
-      accountId: t.accountId
-    })));
-    
     const data: MonthBalanceData[] = [];
     
-    // Helper functions
-    const groupTransactionsByMonth = (transactions: ImportedTransaction[]) => {
-      const grouped: Record<string, ImportedTransaction[]> = {};
-      transactions.forEach(tx => {
-        const date = new Date(tx.date);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        
-        if (!grouped[monthKey]) {
-          grouped[monthKey] = [];
-        }
-        grouped[monthKey].push(tx);
-      });
-      return grouped;
-    };
-
-    const groupTransactionsByAccount = (transactions: ImportedTransaction[]) => {
-      const grouped: Record<string, ImportedTransaction[]> = {};
-      transactions.forEach(tx => {
-        if (!grouped[tx.accountId]) {
-          grouped[tx.accountId] = [];
-        }
-        grouped[tx.accountId].push(tx);
-      });
-      return grouped;
-    };
-
-    // 1. Group ALL transactions by month
-    const transactionsByMonth = groupTransactionsByMonth(transactions);
-    console.log('🔍 [BALANCE CORRECTION] Monthly transactions:', Object.keys(transactionsByMonth));
-
-    // 2. Process each month
-    Object.entries(transactionsByMonth).forEach(([monthKey, monthTransactions]) => {
+    // Step 1: Group all transactions by month-account combination
+    const monthAccountGroups = new Map<string, ImportedTransaction[]>();
+    
+    transactions.forEach(tx => {
+      // Only process transactions that have balanceAfter data
+      if (tx.balanceAfter === undefined || tx.balanceAfter === null) {
+        return;
+      }
+      
+      const date = new Date(tx.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const groupKey = `${monthKey}_${tx.accountId}`;
+      
+      if (!monthAccountGroups.has(groupKey)) {
+        monthAccountGroups.set(groupKey, []);
+      }
+      monthAccountGroups.get(groupKey)!.push(tx);
+    });
+    
+    console.log('🔍 [BALANCE CORRECTION] Found month-account groups:', monthAccountGroups.size);
+    
+    // Step 2: Process each month-account group to find latest transaction before 25th
+    monthAccountGroups.forEach((groupTransactions, groupKey) => {
+      const [monthKey, accountId] = groupKey.split('_');
       const [year, month] = monthKey.split('-');
       
-      // Calculate next month for display and balance update
-      const currentDate = new Date(parseInt(year), parseInt(month) - 1);
-      const nextMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1);
-      const nextMonthKey = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}`;
-      const nextMonthName = nextMonthDate.toLocaleDateString('sv-SE', { 
-        year: 'numeric', 
-        month: 'long' 
-      });
-
-      console.log(`🔍 [BALANCE CORRECTION] Processing month ${monthKey} -> Next Month ${nextMonthKey}`);
-      console.log(`🔍 [BALANCE CORRECTION] Accounts in month ${monthKey}:`, [...new Set(monthTransactions.map(tx => tx.accountId))]);
+      console.log(`🔍 [BALANCE CORRECTION] Processing group: ${groupKey} with ${groupTransactions.length} transactions`);
       
-      // 3. Group month's transactions by account
-      const transactionsByAccount = groupTransactionsByAccount(monthTransactions);
-
-      // 4. For each account, find the correct balance
-      Object.entries(transactionsByAccount).forEach(([accountId, accountTransactions]) => {
-        
-        // 5. Filter to include only transactions up to and including the 24th
-        const relevantTransactions = accountTransactions.filter(tx => {
-          const transactionDate = new Date(tx.date);
-          return transactionDate.getDate() <= 24;
-        });
-
-        console.log(`🔍 [BALANCE CORRECTION] Account ${accountId} - relevant transactions (≤24th):`, relevantTransactions.length);
-        
-        // Extra debugging for Hushållskonto
-        if (accountId.toLowerCase().includes('hushåll') || accountId === 'Hushållskonto') {
-          console.log(`🔍 [BALANCE CORRECTION] HUSHÅLLSKONTO DEBUG - All transactions for ${accountId}:`, 
-            accountTransactions.map(tx => ({
-              date: tx.date,
-              day: new Date(tx.date).getDate(),
-              balanceAfter: tx.balanceAfter,
-              hasBalance: tx.balanceAfter !== undefined && tx.balanceAfter !== null
-            }))
-          );
-          console.log(`🔍 [BALANCE CORRECTION] HUSHÅLLSKONTO DEBUG - Relevant transactions (≤24th):`, 
-            relevantTransactions.map(tx => ({
-              date: tx.date,
-              day: new Date(tx.date).getDate(),
-              balanceAfter: tx.balanceAfter
-            }))
-          );
-        }
-
-        // 6. If there are relevant transactions, find the latest one
-        if (relevantTransactions.length > 0) {
-          // Sort to find the absolutely latest transaction
-          relevantTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          const lastTransaction = relevantTransactions[0];
-          
-          // Get its balance
-          const bankBalance = lastTransaction.balanceAfter || 0;
-          const systemBalance = accountBalances[nextMonthKey]?.[accountId] || 0;
-
-          console.log(`🔍 [BALANCE CORRECTION] Account ${accountId} in ${monthKey}:`, {
-            bankBalance,
-            systemBalance,
-            lastTransactionDate: lastTransaction.date
-          });
-
-          data.push({
-            monthKey: nextMonthKey,
-            monthName: nextMonthName,
-            bankBalance,
-            systemBalance,
-            accountId,
-            lastTransactionDate: lastTransaction.date
-          });
-        }
+      // Filter to transactions on or before the 24th day of the month
+      const relevantTransactions = groupTransactions.filter(tx => {
+        const transactionDate = new Date(tx.date);
+        const dayOfMonth = transactionDate.getDate();
+        return dayOfMonth <= 24;
       });
+      
+      console.log(`🔍 [BALANCE CORRECTION] Relevant transactions (≤24th) for ${groupKey}:`, relevantTransactions.length);
+      
+      // Extra debugging for Hushållskonto
+      if (accountId.toLowerCase().includes('hushåll') || accountId === 'Hushållskonto') {
+        console.log(`🔍 [BALANCE CORRECTION] HUSHÅLLSKONTO DEBUG - Group ${groupKey}:`, {
+          totalTransactions: groupTransactions.length,
+          relevantTransactions: relevantTransactions.length,
+          allTransactions: groupTransactions.map(tx => ({
+            date: tx.date,
+            day: new Date(tx.date).getDate(),
+            balanceAfter: tx.balanceAfter,
+            hasBalance: tx.balanceAfter !== undefined && tx.balanceAfter !== null
+          })),
+          relevantTransactionsDetail: relevantTransactions.map(tx => ({
+            date: tx.date,
+            day: new Date(tx.date).getDate(),
+            balanceAfter: tx.balanceAfter
+          }))
+        });
+      }
+      
+      // If we have relevant transactions, find the latest one
+      if (relevantTransactions.length > 0) {
+        // Sort by date to find the absolutely latest transaction before 25th
+        relevantTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const latestTransaction = relevantTransactions[0];
+        
+        // Calculate next month for balance comparison
+        const currentDate = new Date(parseInt(year), parseInt(month) - 1);
+        const nextMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1);
+        const nextMonthKey = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}`;
+        const nextMonthName = nextMonthDate.toLocaleDateString('sv-SE', { 
+          year: 'numeric', 
+          month: 'long' 
+        });
+        
+        // Get balances
+        const bankBalance = latestTransaction.balanceAfter || 0;
+        const systemBalance = accountBalances[nextMonthKey]?.[accountId] || 0;
+        
+        console.log(`🔍 [BALANCE CORRECTION] Row data for ${accountId} in ${monthKey}:`, {
+          latestTransactionDate: latestTransaction.date,
+          bankBalance,
+          systemBalance,
+          nextMonthKey,
+          nextMonthName
+        });
+        
+        // Create the row data
+        data.push({
+          monthKey: nextMonthKey,
+          monthName: nextMonthName,
+          bankBalance,
+          systemBalance,
+          accountId,
+          lastTransactionDate: latestTransaction.date
+        });
+      }
     });
-
-    console.log('🔍 [BALANCE CORRECTION] Final data:', data);
+    
+    // Sort data by month and account for consistent display
+    data.sort((a, b) => {
+      const monthCompare = a.monthKey.localeCompare(b.monthKey);
+      if (monthCompare !== 0) return monthCompare;
+      return a.accountId.localeCompare(b.accountId);
+    });
+    
+    console.log('🔍 [BALANCE CORRECTION] Final processed data:', data);
     return data;
   }, [transactions, accountBalances]);
 
