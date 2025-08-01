@@ -43,6 +43,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Upload, CheckCircle, FileText, Settings, AlertCircle, Circle, CheckSquare, AlertTriangle, ChevronDown, ChevronUp, Trash2, Plus, Edit, Save, X } from 'lucide-react';
 import { ImportedTransaction, CategoryRule, FileStructure, ColumnMapping } from '@/types/transaction';
 import { Bank, BankCSVMapping } from '@/types/bank';
+import { Account as BudgetAccount } from '@/types/budget';
 import { AddBankDialog } from './AddBankDialog';
 import { TransactionExpandableCard } from './TransactionExpandableCard';
 import { TransactionGroupByDate } from './TransactionGroupByDate';
@@ -52,7 +53,7 @@ import { SavingsLinkDialog } from './SavingsLinkDialog';
 import { CostCoverageDialog } from './CostCoverageDialog';
 import { BalanceCorrectionDialog } from './BalanceCorrectionDialog';
 import { useBudget } from '@/hooks/useBudget';
-import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping, getAllTransactionsFromDatabase } from '../orchestrator/budgetOrchestrator';
+import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping, getAllTransactionsFromDatabase, linkAccountToBankTemplate } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState, setMainCategories } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
 
@@ -319,6 +320,7 @@ interface Account {
   id: string;
   name: string;
   startBalance: number;
+  bankTemplateId?: string;
 }
 
 export const TransactionImportEnhanced: React.FC = () => {
@@ -440,13 +442,18 @@ export const TransactionImportEnhanced: React.FC = () => {
   };
 
   const handleBankSelection = (accountId: string, bankId: string) => {
+    console.log(`🏦 [TransactionImportEnhanced] Bank selection: Account ${accountId} -> Bank ${bankId}`);
+    
+    // Spara permanent koppling via orchestrator
+    linkAccountToBankTemplate(accountId, bankId);
+    
+    // Uppdatera lokalt state för UI
     setSelectedBanks(prev => ({ ...prev, [accountId]: bankId }));
     
     // Load existing mapping for this bank if available
     const existingMapping = bankCSVMappings.find(mapping => mapping.bankId === bankId && mapping.isActive);
     if (existingMapping) {
-      // Apply existing mapping if available
-      console.log('Found existing mapping for bank:', bankId, existingMapping);
+      console.log('🔗 Found existing mapping for bank:', bankId, existingMapping);
     }
   };
 
@@ -800,7 +807,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                       <Label htmlFor={`bank-${account.id}`} className="text-sm font-medium">Bank</Label>
                       <div className="flex items-center space-x-2">
                         <Select 
-                          value={selectedBanks[account.id] || ''} 
+                          value={account.bankTemplateId || selectedBanks[account.id] || ''} 
                           onValueChange={(value) => handleBankSelection(account.id, value)}
                         >
                           <SelectTrigger className="flex-1">

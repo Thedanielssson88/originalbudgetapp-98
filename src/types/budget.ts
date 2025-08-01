@@ -66,6 +66,7 @@ export interface Account {
   id: string;
   name: string;
   startBalance: number;
+  bankTemplateId?: string; // Koppling till bankmall
 }
 
 export interface SavingsGoal {

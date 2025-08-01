@@ -169,10 +169,30 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
   const headers = lines[0].split(';').map(h => h.trim());
   console.log(`[ORCHESTRATOR] 🔍 CSV headers:`, headers);
   
-  // Create a file fingerprint to look up saved mappings
-  const fileFingerprint = `${headers.join('|')}_${lines.length}`;
-  const savedMapping = getCsvMapping(fileFingerprint);
-  console.log(`[ORCHESTRATOR] 🔍 Found saved mapping:`, savedMapping);
+  // NEW: Hämta bankmallen från kontot och använd dess mappning
+  const account = state.budgetState.accounts.find(acc => acc.id === accountId);
+  let savedMapping: CsvMapping | undefined;
+  
+  if (account?.bankTemplateId) {
+    console.log(`[ORCHESTRATOR] 🔍 Account has bank template: ${account.bankTemplateId}`);
+    
+    // Skapa fingerprint för att matcha CSV-strukturen
+    const fileFingerprint = `${headers.join('|')}_${lines.length}`;
+    
+    // Hämta mappning för denna bankmall och CSV-struktur
+    savedMapping = state.budgetState.csvMappings.find(mapping => 
+      mapping.fileFingerprint === fileFingerprint
+    );
+    
+    console.log(`[ORCHESTRATOR] 🔍 Found bank template mapping:`, savedMapping);
+  } else {
+    console.log(`[ORCHESTRATOR] 🔍 No bank template linked to account ${accountId}`);
+    
+    // Fallback: Sök efter mappning baserat på enbart CSV-fingerprint
+    const fileFingerprint = `${headers.join('|')}_${lines.length}`;
+    savedMapping = getCsvMapping(fileFingerprint);
+    console.log(`[ORCHESTRATOR] 🔍 Found legacy mapping:`, savedMapping);
+  }
   
   const transactions: ImportedTransaction[] = [];
   
@@ -180,7 +200,7 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
   let dateColumnIndex: number;
   let amountColumnIndex: number; 
   let descriptionColumnIndex: number;
-  let balanceColumnIndex: number = -1; // NEW: Add balance column support
+  let balanceColumnIndex: number = -1;
   
   if (savedMapping && savedMapping.columnMapping) {
     // Use saved mappings - find which CSV columns map to our app fields
@@ -197,6 +217,8 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
     amountColumnIndex = amountColumn ? headers.indexOf(amountColumn) : -1;
     descriptionColumnIndex = descriptionColumn ? headers.indexOf(descriptionColumn) : -1;
     balanceColumnIndex = balanceColumn ? headers.indexOf(balanceColumn) : -1;
+    
+    console.log(`[ORCHESTRATOR] 🔍 Dynamic column mapping - Date: ${dateColumn}(${dateColumnIndex}), Amount: ${amountColumn}(${amountColumnIndex}), Description: ${descriptionColumn}(${descriptionColumnIndex}), Balance: ${balanceColumn}(${balanceColumnIndex})`);
   } else {
     // Auto-detect column indices (fallback)
     console.log(`[ORCHESTRATOR] 🔍 Auto-detecting columns...`);
@@ -668,6 +690,22 @@ export function setAccounts(accounts: any[]): void {
   }
   saveStateToStorage();
   triggerUIRefresh();
+}
+
+// ===== BANK TEMPLATE MANAGEMENT =====
+
+export function linkAccountToBankTemplate(accountId: string, templateId: string): void {
+  console.log(`[ORCHESTRATOR] 🏦 Linking account ${accountId} to bank template ${templateId}`);
+  
+  const account = state.budgetState.accounts.find(acc => acc.id === accountId);
+  if (account) {
+    account.bankTemplateId = templateId;
+    saveStateToStorage();
+    triggerUIRefresh();
+    console.log(`[ORCHESTRATOR] ✅ Account ${accountId} linked to template ${templateId}`);
+  } else {
+    console.error(`[ORCHESTRATOR] ❌ Account ${accountId} not found`);
+  }
 }
 
 // ===== HELPER FUNCTIONS =====
