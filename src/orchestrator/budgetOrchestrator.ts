@@ -1058,3 +1058,29 @@ export function getCsvMapping(fileFingerprint: string): CsvMapping | undefined {
 // ===== UNIFIED CATEGORY SYSTEM =====
 // Categories are now directly managed through mainCategories and subcategories
 // No more separate linking system needed
+
+// ===== TRANSACTION RETRIEVAL =====
+
+export function getAllTransactionsFromDatabase(): ImportedTransaction[] {
+  console.log('🔍 [ORCHESTRATOR] Getting all transactions from database...');
+  
+  const allTransactions: ImportedTransaction[] = [];
+  
+  // Iterate through all historical data and collect transactions
+  Object.entries(state.budgetState.historicalData || {}).forEach(([monthKey, monthData]) => {
+    const transactions = (monthData as any)?.transactions || [];
+    console.log(`🔍 [ORCHESTRATOR] Found ${transactions.length} transactions in month ${monthKey}`);
+    
+    transactions.forEach((transaction: any) => {
+      // Convert to ImportedTransaction format
+      allTransactions.push({
+        ...transaction,
+        importedAt: transaction.importedAt || new Date().toISOString(),
+        fileSource: transaction.fileSource || 'database'
+      } as ImportedTransaction);
+    });
+  });
+  
+  console.log(`🔍 [ORCHESTRATOR] Total transactions from database: ${allTransactions.length}`);
+  return allTransactions;
+}

@@ -229,7 +229,7 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
 
         <div className="space-y-4">
           <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground`}>
-            Denna dialog visar månader där CSV-filen innehåller transaktioner med saldo. 
+            Denna dialog visar månader där databasen innehåller transaktioner med saldo. 
             Du kan använda bankens saldo från den sista transaktionen före den 25:e för att korrigera startsaldot i systemet.
           </p>
 
@@ -237,7 +237,7 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
             <div className="text-center py-8 text-muted-foreground">
               <p>Inga månader hittades som behöver korrigering.</p>
               <p className="text-sm mt-2">
-                Denna funktion visas endast när CSV-filen innehåller transaktioner med banksaldo.
+                Denna funktion visas endast när databasen innehåller transaktioner med banksaldo.
               </p>
             </div>
           ) : (

@@ -50,7 +50,7 @@ import { SavingsLinkDialog } from './SavingsLinkDialog';
 import { CostCoverageDialog } from './CostCoverageDialog';
 import { BalanceCorrectionDialog } from './BalanceCorrectionDialog';
 import { useBudget } from '@/hooks/useBudget';
-import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping } from '../orchestrator/budgetOrchestrator';
+import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping, getAllTransactionsFromDatabase } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState, setMainCategories } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
 
@@ -772,19 +772,6 @@ export const TransactionImportEnhanced: React.FC = () => {
           })}
         </div>
 
-        {/* Balance correction button - only show if CSV contains transactions on/after 24th */}
-        {hasTransactionsOnOrAfter24th && allTransactions.length > 0 && (
-          <div className="flex justify-center px-2 sm:px-0">
-            <Button
-              onClick={() => setBalanceCorrectionDialog(true)}
-              variant="secondary"
-              className="text-sm"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Korrigera startsaldo för månader
-            </Button>
-          </div>
-        )}
 
         <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-3 px-2 sm:px-0">
           <Button 
@@ -1355,6 +1342,18 @@ export const TransactionImportEnhanced: React.FC = () => {
           </TabsContent>
         </Tabs>
 
+        {/* Balance correction button */}
+        <div className="flex justify-center mb-4">
+          <Button
+            onClick={() => setBalanceCorrectionDialog(true)}
+            variant="secondary"
+            className="text-sm"
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            Korrigera startsaldo för månader
+          </Button>
+        </div>
+
         <div className="flex justify-center gap-3">
           <Button onClick={() => setCurrentStep('upload')} variant="outline">
             Tillbaka till uppladdning
@@ -1440,7 +1439,7 @@ export const TransactionImportEnhanced: React.FC = () => {
       <BalanceCorrectionDialog
         open={balanceCorrectionDialog}
         onClose={() => setBalanceCorrectionDialog(false)}
-        transactions={allTransactions}
+        transactions={getAllTransactionsFromDatabase()}
         accountBalances={accountBalancesForDialog}
       />
     </div>
