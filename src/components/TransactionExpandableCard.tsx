@@ -311,6 +311,67 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                     </div>
                   </div>
 
+                  {/* Linked transaction information */}
+                  {transaction.linkedTransactionId && (
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">
+                        {transaction.type === 'CostCoverage' ? 'Täcker kostnad' : 'Länkad transaktion'}
+                      </label>
+                      <div className="mt-1 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                        {(() => {
+                          // Find the linked transaction
+                          const allTransactions = Object.values(budgetState?.historicalData || {}).flatMap(month => 
+                            (month as any)?.transactions || []
+                          );
+                          const linkedTransaction = allTransactions.find((t: any) => t.id === transaction.linkedTransactionId);
+                          
+                          if (!linkedTransaction) {
+                            return (
+                              <p className="text-sm text-blue-700">
+                                Länkad transaktion hittades inte
+                              </p>
+                            );
+                          }
+
+                          const account = budgetState?.accounts?.find(acc => acc.id === linkedTransaction.accountId);
+                          
+                          if (transaction.type === 'CostCoverage') {
+                            const coveredAmount = transaction.amount - (transaction.correctedAmount || 0);
+                            return (
+                              <div className="space-y-1">
+                                <p className="text-sm text-blue-700 font-medium">
+                                  Täcker {Math.abs(coveredAmount).toLocaleString('sv-SE')} kr av kostnad:
+                                </p>
+                                <p className="text-sm text-blue-600">
+                                  {linkedTransaction.date}: {linkedTransaction.description}
+                                </p>
+                                <p className="text-xs text-blue-500">
+                                  Konto: {account?.name || linkedTransaction.accountId}
+                                </p>
+                              </div>
+                            );
+                          } else {
+                            // For costs being covered
+                            const coveredAmount = Math.abs(transaction.amount) - Math.abs(transaction.correctedAmount || transaction.amount);
+                            return (
+                              <div className="space-y-1">
+                                <p className="text-sm text-blue-700 font-medium">
+                                  {coveredAmount > 0 ? `${coveredAmount.toLocaleString('sv-SE')} kr täcks av:` : 'Täcks av:'}
+                                </p>
+                                <p className="text-sm text-blue-600">
+                                  {linkedTransaction.date}: {linkedTransaction.description}
+                                </p>
+                                <p className="text-xs text-blue-500">
+                                  Konto: {account?.name || linkedTransaction.accountId}
+                                </p>
+                              </div>
+                            );
+                          }
+                        })()}
+                      </div>
+                    </div>
+                  )}
+
                    <div>
                      <label className="text-xs font-medium text-muted-foreground">Kategori</label>
                      <Select
