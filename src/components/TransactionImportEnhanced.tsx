@@ -346,19 +346,30 @@ export const TransactionImportEnhanced: React.FC = () => {
   
   // Get budget data from central state (SINGLE SOURCE OF TRUTH)
   const { budgetState } = useBudget();
+  console.log('🔍 [DEBUG] Full budgetState:', budgetState);
+  console.log('🔍 [DEBUG] budgetState keys:', Object.keys(budgetState || {}));
   const costGroups = budgetState?.historicalData?.[budgetState.selectedMonthKey]?.costGroups || [];
   const categoryRulesFromState = budgetState?.transactionImport?.categoryRules || [];
   
   // Read transactions directly from central state - this is now the ONLY source of truth
-  const allTransactions = useMemo(() => 
-    Object.values(budgetState?.historicalData || {}).flatMap(month => 
-      (month.transactions || []).map(t => ({
+  const allTransactions = useMemo(() => {
+    console.log('🔍 [DEBUG] budgetState.historicalData:', budgetState?.historicalData);
+    console.log('🔍 [DEBUG] Available months:', Object.keys(budgetState?.historicalData || {}));
+    
+    const transactions = Object.values(budgetState?.historicalData || {}).flatMap(month => {
+      console.log('🔍 [DEBUG] Month data:', month);
+      console.log('🔍 [DEBUG] Month transactions count:', month.transactions?.length || 0);
+      return (month.transactions || []).map(t => ({
         ...t,
         importedAt: (t as any).importedAt || new Date().toISOString(),
         fileSource: (t as any).fileSource || 'budgetState'
       } as ImportedTransaction))
-    ), [budgetState.historicalData]
-  );
+    });
+    
+    console.log('🔍 [DEBUG] Total allTransactions count:', transactions.length);
+    console.log('🔍 [DEBUG] Sample transactions:', transactions.slice(0, 3));
+    return transactions;
+  }, [budgetState.historicalData]);
 
   // Use actual accounts from budget state
   const accounts: Account[] = budgetState?.accounts || [];
@@ -394,7 +405,17 @@ export const TransactionImportEnhanced: React.FC = () => {
       }
 
       // Use the new Smart Merge function - eliminates duplicates and preserves manual changes
+      console.log('🔄 [DEBUG] About to import file with accountId:', accountId);
+      console.log('🔄 [DEBUG] CSV content preview:', csvContent.substring(0, 200));
+      
       importAndReconcileFile(csvContent, accountId);
+      
+      console.log('🔄 [DEBUG] After importAndReconcileFile - checking budgetState...');
+      setTimeout(() => {
+        const currentState = getCurrentState();
+        console.log('🔄 [DEBUG] Post-import budgetState:', currentState.budgetState);
+        console.log('🔄 [DEBUG] Post-import historicalData keys:', Object.keys(currentState.budgetState.historicalData || {}));
+      }, 100);
         
       toast({
         title: "Fil uppladdad",
