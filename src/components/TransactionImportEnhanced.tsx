@@ -462,6 +462,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     }
 
     const monthKey = transaction.date.substring(0, 7);
+    console.log(`🔄 [TransactionImportEnhanced] Derived monthKey: ${monthKey} from date: ${transaction.date}`);
     
     // Always mark as manually changed for user interactions
     const updatesWithManualFlag = {
@@ -469,8 +470,26 @@ export const TransactionImportEnhanced: React.FC = () => {
       isManuallyChanged: true
     };
     
+    console.log(`🔄 [TransactionImportEnhanced] About to call updateTransaction with:`, {
+      transactionId,
+      updatesWithManualFlag,
+      monthKey
+    });
+    
     // Call the central orchestrator function with CORRECT signature
     updateTransaction(transactionId, updatesWithManualFlag, monthKey);
+    
+    console.log(`🔄 [TransactionImportEnhanced] Called updateTransaction, checking state in 100ms...`);
+    setTimeout(() => {
+      const currentState = getCurrentState();
+      const updatedTransaction = currentState.budgetState.historicalData[monthKey]?.transactions?.find((t: any) => t.id === transactionId);
+      console.log(`🔄 [TransactionImportEnhanced] Transaction after update:`, updatedTransaction ? {
+        id: updatedTransaction.id,
+        status: updatedTransaction.status,
+        type: updatedTransaction.type,
+        isManuallyChanged: updatedTransaction.isManuallyChanged
+      } : 'NOT FOUND');
+    }, 100);
   };
 
   const updateTransactionNote = (transactionId: string, userDescription: string) => {
