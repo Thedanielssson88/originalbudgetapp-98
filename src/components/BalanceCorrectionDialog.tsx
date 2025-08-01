@@ -7,6 +7,7 @@ import { X } from 'lucide-react';
 import { ImportedTransaction } from '@/types/transaction';
 import { updateAccountBalance } from '@/orchestrator/budgetOrchestrator';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface MonthBalanceData {
   monthKey: string;
@@ -31,6 +32,7 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
   accountBalances
 }) => {
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [updatingBalances, setUpdatingBalances] = useState<Set<string>>(new Set());
 
   const monthBalanceData = useMemo(() => {
@@ -82,6 +84,7 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
       });
 
       // For each account, find last transaction before 25th
+      const monthEntries: MonthBalanceData[] = [];
       Object.entries(accountGroups).forEach(([accountId, accountTransactions]) => {
         const transactionsBefor25th = accountTransactions
           .filter(tx => new Date(tx.date).getDate() < 25)
@@ -98,7 +101,7 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
             lastTransactionDate: lastTransaction.date
           });
 
-          data.push({
+          monthEntries.push({
             monthKey,
             monthName,
             bankBalance,
@@ -108,6 +111,25 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
           });
         }
       });
+
+      // Select only one entry per month - prefer accounts that exist in system, then most recent
+      if (monthEntries.length > 0) {
+        const bestEntry = monthEntries
+          .sort((a, b) => {
+            // First priority: accounts that exist in the system (have balances)
+            const aHasSystemBalance = (accountBalances[monthKey]?.[a.accountId] || 0) !== 0;
+            const bHasSystemBalance = (accountBalances[monthKey]?.[b.accountId] || 0) !== 0;
+            
+            if (aHasSystemBalance !== bHasSystemBalance) {
+              return bHasSystemBalance ? 1 : -1;
+            }
+            
+            // Second priority: most recent transaction
+            return new Date(b.lastTransactionDate).getTime() - new Date(a.lastTransactionDate).getTime();
+          })[0];
+        
+        data.push(bestEntry);
+      }
     });
 
     console.log('🔍 [BALANCE CORRECTION] Final data:', data);
@@ -159,10 +181,10 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className={`${isMobile ? 'max-w-[95vw] max-h-[85vh] p-4' : 'max-w-4xl max-h-[80vh]'} overflow-y-auto`}>
         <DialogHeader>
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl font-bold">
+            <DialogTitle className={`${isMobile ? 'text-lg' : 'text-xl'} font-bold`}>
               Korrigera startsaldo för månader
             </DialogTitle>
             <Button variant="ghost" size="sm" onClick={onClose}>
@@ -172,7 +194,7 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
         </DialogHeader>
 
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground`}>
             Denna dialog visar månader där CSV-filen innehåller transaktioner på eller efter den 24:e i månaden. 
             Du kan använda bankens saldo från den sista transaktionen före den 25:e för att korrigera startsaldot i systemet.
           </p>
@@ -189,12 +211,12 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Månad</TableHead>
-                    <TableHead>Konto</TableHead>
-                    <TableHead>Saldo enligt bank</TableHead>
-                    <TableHead>Saldo i system</TableHead>
-                    <TableHead>Skillnad</TableHead>
-                    <TableHead>Åtgärd</TableHead>
+                    <TableHead className={isMobile ? 'text-xs p-2' : ''}>Månad</TableHead>
+                    <TableHead className={isMobile ? 'text-xs p-2' : ''}>Konto</TableHead>
+                    {!isMobile && <TableHead>Saldo enligt bank</TableHead>}
+                    {!isMobile && <TableHead>Saldo i system</TableHead>}
+                    {!isMobile && <TableHead>Skillnad</TableHead>}
+                    <TableHead className={isMobile ? 'text-xs p-2' : ''}>Åtgärd</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -205,41 +227,54 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
                     
                     return (
                       <TableRow key={key}>
-                        <TableCell className="font-medium">
+                        <TableCell className={`font-medium ${isMobile ? 'text-xs p-2' : ''}`}>
                           {monthData.monthName}
-                          <div className="text-xs text-muted-foreground">
-                            Senaste transaktion: {new Date(monthData.lastTransactionDate).toLocaleDateString('sv-SE')}
+                          <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-muted-foreground`}>
+                            Senaste: {new Date(monthData.lastTransactionDate).toLocaleDateString('sv-SE')}
                           </div>
-                        </TableCell>
-                        <TableCell>{monthData.accountId}</TableCell>
-                        <TableCell className="font-mono">
-                          {formatCurrency(monthData.bankBalance)}
-                        </TableCell>
-                        <TableCell className="font-mono">
-                          {formatCurrency(monthData.systemBalance)}
-                        </TableCell>
-                        <TableCell>
-                          {difference.isZero ? (
-                            <Badge variant="outline" className="text-green-600">
-                              Lika
-                            </Badge>
-                          ) : (
-                            <Badge variant={difference.isPositive ? "default" : "destructive"}>
-                              {difference.isPositive ? '+' : '-'}{formatCurrency(difference.amount)}
-                            </Badge>
+                          {isMobile && (
+                            <div className="text-[10px] text-muted-foreground mt-1">
+                              Bank: {formatCurrency(monthData.bankBalance)} | System: {formatCurrency(monthData.systemBalance)}
+                            </div>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className={isMobile ? 'text-xs p-2' : ''}>{monthData.accountId}</TableCell>
+                        {!isMobile && (
+                          <TableCell className="font-mono">
+                            {formatCurrency(monthData.bankBalance)}
+                          </TableCell>
+                        )}
+                        {!isMobile && (
+                          <TableCell className="font-mono">
+                            {formatCurrency(monthData.systemBalance)}
+                          </TableCell>
+                        )}
+                        {!isMobile && (
+                          <TableCell>
+                            {difference.isZero ? (
+                              <Badge variant="outline" className="text-green-600">
+                                Lika
+                              </Badge>
+                            ) : (
+                              <Badge variant={difference.isPositive ? "default" : "destructive"}>
+                                {difference.isPositive ? '+' : '-'}{formatCurrency(difference.amount)}
+                              </Badge>
+                            )}
+                          </TableCell>
+                        )}
+                        <TableCell className={isMobile ? 'p-2' : ''}>
                           {difference.isZero ? (
-                            <span className="text-sm text-muted-foreground">Ingen åtgärd krävs</span>
+                            <span className={`${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground`}>
+                              {isMobile ? 'OK' : 'Ingen åtgärd krävs'}
+                            </span>
                           ) : (
                             <Button
-                              size="sm"
+                              size={isMobile ? 'sm' : 'sm'}
                               onClick={() => handleUseBankBalance(monthData)}
                               disabled={isUpdating}
-                              className="whitespace-nowrap"
+                              className={`whitespace-nowrap ${isMobile ? 'text-xs px-2 py-1' : ''}`}
                             >
-                              {isUpdating ? 'Uppdaterar...' : 'Använd bankens saldo'}
+                              {isUpdating ? (isMobile ? 'Uppdaterar...' : 'Uppdaterar...') : (isMobile ? 'Korrigera' : 'Använd bankens saldo')}
                             </Button>
                           )}
                         </TableCell>
