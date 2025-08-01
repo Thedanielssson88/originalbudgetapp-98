@@ -497,19 +497,22 @@ export const TransactionImportEnhanced: React.FC = () => {
       importAndReconcileFile(csvContent, accountId);
       
       console.log('🔄 [DEBUG] After importAndReconcileFile - checking budgetState...');
+      
+      // Force immediate UI refresh after import
       setTimeout(() => {
         const currentState = getCurrentState();
         console.log('🔄 [DEBUG] Post-import budgetState:', currentState.budgetState);
         console.log('🔄 [DEBUG] Post-import historicalData keys:', Object.keys(currentState.budgetState.historicalData || {}));
-      }, 100);
+        
+        // Trigger component re-render by updating refresh key
+        setRefreshKey(prev => prev + 1);
+        console.log('🔄 [DEBUG] Triggered UI refresh after file import');
+      }, 200);
         
       toast({
         title: "Fil uppladdad",
         description: `Transaktioner från ${file.name} har bearbetats och sparats till budgeten.`,
       });
-        
-      // No need to update local state - data is now in central state
-      // Component will re-render automatically due to budget state changes
       
     } catch (error) {
       console.error('Error uploading file:', error);
