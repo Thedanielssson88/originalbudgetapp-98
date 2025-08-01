@@ -200,10 +200,11 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
     setUpdatingBalances(prev => new Set([...prev, key]));
 
     try {
-      console.log(`🔄 [BALANCE CORRECTION] Updating balance for ${monthData.accountId} in ${monthData.monthKey} to ${monthData.bankBalance}`);
+      const accountName = getAccountNameById(monthData.accountId);
+      console.log(`🔄 [BALANCE CORRECTION] Updating balance for ${monthData.accountId} (${accountName}) in ${monthData.monthKey} to ${monthData.bankBalance}`);
       
-      // Update the account balance for this specific month
-      updateAccountBalance(monthData.accountId, monthData.bankBalance);
+      // Update the account balance for this specific month using the resolved account name
+      updateAccountBalance(accountName, monthData.bankBalance);
       
       toast({
         title: "Saldo uppdaterat",
