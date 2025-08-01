@@ -4007,13 +4007,12 @@ const BudgetCalculator = () => {
   const getBankBalance = (accountName: string, monthKey: string) => {
     console.log(`🔍 [BANK BALANCE] Starting getBankBalance for account: ${accountName}, month: ${monthKey}`);
     
-    // Find account ID from account name
-    const accountId = Object.keys(budgetState.accounts).find(id => 
-      budgetState.accounts[id].name === accountName
-    );
+    // Find account ID from account name - budgetState.accounts is an array of {id, name} objects
+    const accountObj = budgetState.accounts.find(acc => acc.name === accountName);
+    const accountId = accountObj?.id;
     
     console.log(`🔍 [BANK BALANCE] Found accountId: ${accountId} for accountName: ${accountName}`);
-    console.log(`🔍 [BANK BALANCE] Available accounts:`, budgetState.accounts);
+    console.log(`🔍 [BANK BALANCE] Available accounts:`, budgetState.accounts.map(acc => ({ id: acc.id, name: acc.name })));
     
     if (!accountId) {
       console.log(`🔍 [BANK BALANCE] No accountId found for account name: ${accountName}`);
