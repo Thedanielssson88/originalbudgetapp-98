@@ -141,11 +141,11 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
         }
       });
 
-      // Select only entries where bank balance is not 0, prefer accounts with system balances
-      const validEntries = monthEntries.filter(entry => entry.bankBalance !== 0);
+      // Select all entries, don't filter by bank balance
+      const validEntries = monthEntries;
       
       console.log(`🔍 [BALANCE CORRECTION] Month ${monthKey} - All entries:`, monthEntries.map(e => ({ accountId: e.accountId, bankBalance: e.bankBalance })));
-      console.log(`🔍 [BALANCE CORRECTION] Month ${monthKey} - Valid entries (bankBalance !== 0):`, validEntries.map(e => ({ accountId: e.accountId, bankBalance: e.bankBalance })));
+      console.log(`🔍 [BALANCE CORRECTION] Month ${monthKey} - Valid entries (all):`, validEntries.map(e => ({ accountId: e.accountId, bankBalance: e.bankBalance })));
       
       if (validEntries.length > 0) {
         const bestEntry = validEntries
