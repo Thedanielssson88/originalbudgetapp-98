@@ -11,6 +11,7 @@ import { ImportedTransaction } from '@/types/transaction';
 import { StorageKey, get } from '@/services/storageService';
 import { TransactionTypeSelector } from './TransactionTypeSelector';
 import { useBudget } from '@/hooks/useBudget';
+import { useTransactionExpansion } from '@/hooks/useTransactionExpansion';
 
 interface TransactionExpandableCardProps {
   transaction: ImportedTransaction;
@@ -41,10 +42,18 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   onSavingsLink,
   onCostCoverage
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const { isExpanded, setIsExpanded } = useTransactionExpansion(transaction.id);
   const [isEditingNote, setIsEditingNote] = useState(false);
+  const [localNoteValue, setLocalNoteValue] = useState(transaction.userDescription || '');
   const [subcategoriesData, setSubcategoriesData] = useState<Record<string, string[]>>({});
   const { budgetState } = useBudget();
+
+  // Update local note value when transaction changes but preserve editing state
+  useEffect(() => {
+    if (!isEditingNote) {
+      setLocalNoteValue(transaction.userDescription || '');
+    }
+  }, [transaction.userDescription, isEditingNote]);
 
   // Load subcategories from the same storage as MainCategoriesSettings
   useEffect(() => {
@@ -164,11 +173,15 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                     <div className="flex items-center space-x-2">
                       {isEditingNote ? (
                         <Input
-                          value={transaction.userDescription || ''}
-                          onChange={(e) => onUpdateNote(transaction.id, e.target.value)}
-                          onBlur={() => setIsEditingNote(false)}
+                          value={localNoteValue}
+                          onChange={(e) => setLocalNoteValue(e.target.value)}
+                          onBlur={() => {
+                            onUpdateNote(transaction.id, localNoteValue);
+                            setIsEditingNote(false);
+                          }}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
+                              onUpdateNote(transaction.id, localNoteValue);
                               setIsEditingNote(false);
                             }
                           }}
@@ -186,7 +199,10 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setIsEditingNote(true)}
+                            onClick={() => {
+                              setLocalNoteValue(transaction.userDescription || '');
+                              setIsEditingNote(true);
+                            }}
                             className="p-1 h-auto"
                           >
                             <Edit3 className="w-3 h-3" />

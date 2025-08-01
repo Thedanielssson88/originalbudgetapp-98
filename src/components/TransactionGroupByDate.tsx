@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -33,7 +33,13 @@ export const TransactionGroupByDate: React.FC<TransactionGroupByDateProps> = ({
   onSavingsLink,
   onCostCoverage
 }) => {
-  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+  // Use a more stable way to track expanded dates
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(() => {
+    // Initialize with all dates expanded for better UX
+    const allDates = new Set<string>();
+    transactions.forEach(transaction => allDates.add(transaction.date));
+    return allDates;
+  });
 
   // Group transactions by date
   const groupedTransactions = useMemo(() => {
@@ -55,6 +61,23 @@ export const TransactionGroupByDate: React.FC<TransactionGroupByDateProps> = ({
     });
 
     return sortedEntries;
+  }, [transactions]);
+
+  // Update expanded dates when new transactions are added, but preserve existing expansion state
+  useEffect(() => {
+    const allDates = new Set<string>();
+    transactions.forEach(transaction => allDates.add(transaction.date));
+    
+    setExpandedDates(prev => {
+      const newSet = new Set(prev);
+      // Add any new dates to expanded state
+      allDates.forEach(date => {
+        if (!newSet.has(date)) {
+          newSet.add(date);
+        }
+      });
+      return newSet;
+    });
   }, [transactions]);
 
   const toggleDateExpansion = (date: string) => {

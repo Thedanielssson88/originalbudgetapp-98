@@ -1254,7 +1254,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                 <div className="space-y-3">
                   {filteredTransactions.map(transaction => (
                     <TransactionExpandableCard
-                      key={`${transaction.id}-${transaction.status}-${transaction.type}-${transaction.isManuallyChanged || 'auto'}-${refreshKey}`}
+                      key={transaction.id}
                       transaction={transaction}
                       account={accounts.find(acc => acc.id === transaction.accountId)}
                       isSelected={selectedTransactions.includes(transaction.id)}
@@ -1290,7 +1290,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                     <div className="space-y-3">
                       {accountTransactions.map(transaction => (
                         <TransactionExpandableCard
-                          key={`${transaction.id}-${transaction.status}-${transaction.type}-${transaction.isManuallyChanged || 'auto'}-${refreshKey}`}
+                          key={transaction.id}
                           transaction={transaction}
                           account={account}
                           isSelected={selectedTransactions.includes(transaction.id)}
