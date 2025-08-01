@@ -960,8 +960,9 @@ export function coverCost(transferId: string, costId: string): void {
     isManuallyChanged: true
   }, transferMonthKey);
   
-  // Update cost transaction with bidirectional link in its month
+  // Update cost transaction with bidirectional link and set type to Transaction
   updateTransaction(costId, {
+    type: 'Transaction',
     correctedAmount: cost.amount + coverAmount,
     linkedTransactionId: transferId,
     isManuallyChanged: true
