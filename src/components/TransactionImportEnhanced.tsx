@@ -327,6 +327,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<'upload' | 'mapping' | 'categorization'>('upload');
   // NO MORE LOCAL STATE FOR FILES OR MAPPINGS - reading everything from central state
   const [fileStructures, setFileStructures] = useState<FileStructure[]>([]);
+  const [rawCsvData, setRawCsvData] = useState<{[accountId: string]: {headers: string[], rows: string[][]}}>({})
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
   const [activeTransactionTab, setActiveTransactionTab] = useState<'all' | 'account' | 'rules'>('all');
   const [hideGreenTransactions, setHideGreenTransactions] = useState<boolean>(false);
@@ -478,6 +479,16 @@ export const TransactionImportEnhanced: React.FC = () => {
         });
         return;
       }
+
+      // Parse and store raw CSV data for table display
+      const lines = csvContent.split('\n').filter(line => line.trim());
+      const headers = lines[0]?.split(';').map(h => h.trim()) || [];
+      const rows = lines.slice(1).map(line => line.split(';').map(cell => cell.trim()));
+      
+      setRawCsvData(prev => ({
+        ...prev,
+        [accountId]: { headers, rows }
+      }));
 
       // Use the new Smart Merge function - eliminates duplicates and preserves manual changes
       console.log('🔄 [DEBUG] About to import file with accountId:', accountId);
@@ -1592,78 +1603,27 @@ export const TransactionImportEnhanced: React.FC = () => {
               <Table>
                 <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow>
-                    <TableHead className="min-w-[100px]">Datum</TableHead>
-                    <TableHead className="min-w-[120px]">Bankkategori</TableHead>
-                    <TableHead className="min-w-[120px]">Underkategori</TableHead>
-                    <TableHead className="min-w-[200px]">Beskrivning</TableHead>
-                    <TableHead className="min-w-[150px]">Användarbeskrivning</TableHead>
-                    <TableHead className="min-w-[100px] text-right">Belopp</TableHead>
-                    <TableHead className="min-w-[100px] text-right">Saldo</TableHead>
-                    <TableHead className="min-w-[80px]">Status</TableHead>
-                    <TableHead className="min-w-[100px]">Typ</TableHead>
-                    <TableHead className="min-w-[120px]">App-kategori</TableHead>
+                    {rawCsvData[allTransactionsDialog.accountId || '']?.headers?.map((header, index) => (
+                      <TableHead key={index} className="min-w-[120px] whitespace-nowrap">
+                        {header}
+                      </TableHead>
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {allTransactions
-                    .filter(t => t.accountId === allTransactionsDialog.accountId)
-                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                    .map((transaction) => (
-                      <TableRow key={transaction.id}>
-                        <TableCell className="font-mono text-sm">
-                          {new Date(transaction.date).toLocaleDateString('sv-SE')}
+                  {rawCsvData[allTransactionsDialog.accountId || '']?.rows?.map((row, rowIndex) => (
+                    <TableRow key={rowIndex}>
+                      {row.map((cell, cellIndex) => (
+                        <TableCell 
+                          key={cellIndex} 
+                          className="text-sm whitespace-nowrap"
+                          title={cell}
+                        >
+                          {cell}
                         </TableCell>
-                        <TableCell className="text-sm">{transaction.bankCategory || '-'}</TableCell>
-                        <TableCell className="text-sm">{transaction.bankSubCategory || '-'}</TableCell>
-                        <TableCell className="text-sm max-w-[200px] truncate" title={transaction.description}>
-                          {transaction.description}
-                        </TableCell>
-                        <TableCell className="text-sm max-w-[150px] truncate" title={transaction.userDescription || ''}>
-                          {transaction.userDescription || '-'}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          <span className={transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}>
-                            {transaction.amount.toLocaleString('sv-SE', { minimumFractionDigits: 2 })} kr
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {transaction.balanceAfter.toLocaleString('sv-SE', { minimumFractionDigits: 2 })} kr
-                        </TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={
-                              transaction.status === 'green' ? 'default' :
-                              transaction.status === 'yellow' ? 'secondary' : 
-                              'destructive'
-                            }
-                            className="text-xs"
-                          >
-                            {transaction.status === 'green' ? 'Klar' :
-                             transaction.status === 'yellow' ? 'Granskas' : 'Fel'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {transaction.type === 'Transaction' ? 'Transaktion' :
-                           transaction.type === 'InternalTransfer' ? 'Intern transfer' :
-                           transaction.type === 'Savings' ? 'Sparande' :
-                           transaction.type === 'CostCoverage' ? 'Kostnadstäckning' :
-                           transaction.type}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {transaction.appCategoryId ? (
-                            <div>
-                              <div>{costGroups.find(g => g.id === transaction.appCategoryId)?.name || transaction.appCategoryId}</div>
-                              {transaction.appSubCategoryId && (
-                                <div className="text-xs text-muted-foreground">
-                                  {transaction.appSubCategoryId}
-                                </div>
-                              )}
-                            </div>
-                          ) : '-'}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  }
+                      ))}
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </div>
