@@ -832,7 +832,13 @@ export const TransactionImportEnhanced: React.FC = () => {
         isOpen={savingsLinkDialog.isOpen}
         onClose={() => setSavingsLinkDialog({ isOpen: false })}
         transaction={savingsLinkDialog.transaction}
-        onUpdateTransaction={(id, updates, monthKey) => updateTransaction(id, updates, monthKey)}
+        onUpdateTransaction={(transactionId, updates) => {
+          const transaction = transactions.find(t => t.id === transactionId);
+          if (transaction) {
+            const monthKey = transaction.date.substring(0, 7);
+            updateTransaction(transactionId, updates, monthKey);
+          }
+        }}
       />
 
       <CostCoverageDialog
