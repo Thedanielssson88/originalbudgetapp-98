@@ -4135,76 +4135,76 @@ const BudgetCalculator = () => {
     }
 
     return (
-      <div className="h-64 sm:h-80 lg:h-96 overflow-x-auto">
-        <div className={`${isMobile ? 'min-w-[600px]' : 'w-full'}`}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart 
-              data={chartData}
-              margin={{ 
-                top: 20, 
-                right: isMobile ? 10 : 30, 
-                left: isMobile ? 40 : 60, 
-                bottom: isMobile ? 60 : 40 
-              }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="month" 
-                angle={isMobile ? -45 : 0}
-                textAnchor={isMobile ? 'end' : 'middle'}
-                height={isMobile ? 60 : 40}
-                fontSize={isMobile ? 10 : 12}
-                interval={isMobile ? 'preserveStartEnd' : 0}
-              />
-              <YAxis 
-                fontSize={isMobile ? 10 : 12}
-                width={isMobile ? 40 : 60}
-                tickFormatter={(value) => isMobile ? `${Math.round(value / 1000)}k` : formatCurrency(value)}
-              />
-              <Tooltip 
-                formatter={(value: number) => formatCurrency(value)}
-                labelStyle={{ fontSize: isMobile ? '12px' : '14px' }}
-                contentStyle={{ fontSize: isMobile ? '12px' : '14px' }}
-              />
-              <Legend 
-                wrapperStyle={{ fontSize: isMobile ? '12px' : '14px' }}
-                iconSize={isMobile ? 12 : 18}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="totalIncome" 
-                stroke="#22c55e" 
-                name="Totala Intäkter"
-                strokeWidth={isMobile ? 2 : 3}
-                dot={{ r: isMobile ? 3 : 4 }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="totalCosts" 
-                stroke="#ef4444" 
-                name="Totala Kostnader"
-                strokeWidth={isMobile ? 2 : 3}
-                dot={{ r: isMobile ? 3 : 4 }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="totalSavings" 
-                stroke="#3b82f6" 
-                name="Totalt Sparande"
-                strokeWidth={isMobile ? 2 : 3}
-                dot={{ r: isMobile ? 3 : 4 }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="totalDailyBudget" 
-                stroke="#f59e0b" 
-                name="Total Daglig Budget"
-                strokeWidth={isMobile ? 2 : 3}
-                dot={{ r: isMobile ? 3 : 4 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+      <div className={`${isMobile ? 'h-64' : 'h-64 sm:h-80 lg:h-96'} w-full`}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart 
+            data={chartData}
+            margin={{ 
+              top: 20, 
+              right: isMobile ? 5 : 30, 
+              left: isMobile ? 20 : 60, 
+              bottom: isMobile ? 80 : 40 
+            }}
+          >
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis 
+              dataKey="month" 
+              angle={isMobile ? -45 : 0}
+              textAnchor={isMobile ? 'end' : 'middle'}
+              height={isMobile ? 80 : 40}
+              fontSize={isMobile ? 8 : 12}
+              interval={isMobile ? 'preserveStartEnd' : 0}
+              tick={isMobile ? { fontSize: 8 } : undefined}
+            />
+            <YAxis 
+              fontSize={isMobile ? 8 : 12}
+              width={isMobile ? 20 : 60}
+              tickFormatter={(value) => isMobile ? `${Math.round(value / 1000)}k` : formatCurrency(value)}
+              tick={isMobile ? { fontSize: 8 } : undefined}
+            />
+            <Tooltip 
+              formatter={(value: number) => formatCurrency(value)}
+              labelStyle={{ fontSize: isMobile ? '10px' : '14px' }}
+              contentStyle={{ fontSize: isMobile ? '10px' : '14px' }}
+            />
+            <Legend 
+              wrapperStyle={{ fontSize: isMobile ? '10px' : '14px' }}
+              iconSize={isMobile ? 8 : 18}
+            />
+            <Line 
+              type="monotone" 
+              dataKey="totalIncome" 
+              stroke="#22c55e" 
+              name={isMobile ? "Intäkter" : "Totala Intäkter"}
+              strokeWidth={isMobile ? 1.5 : 3}
+              dot={{ r: isMobile ? 2 : 4 }}
+            />
+            <Line 
+              type="monotone" 
+              dataKey="totalCosts" 
+              stroke="#ef4444" 
+              name={isMobile ? "Kostnader" : "Totala Kostnader"}
+              strokeWidth={isMobile ? 1.5 : 3}
+              dot={{ r: isMobile ? 2 : 4 }}
+            />
+            <Line 
+              type="monotone" 
+              dataKey="totalSavings" 
+              stroke="#3b82f6" 
+              name={isMobile ? "Sparande" : "Totalt Sparande"}
+              strokeWidth={isMobile ? 1.5 : 3}
+              dot={{ r: isMobile ? 2 : 4 }}
+            />
+            <Line 
+              type="monotone" 
+              dataKey="totalDailyBudget" 
+              stroke="#f59e0b" 
+              name={isMobile ? "Daglig Budget" : "Total Daglig Budget"}
+              strokeWidth={isMobile ? 1.5 : 3}
+              dot={{ r: isMobile ? 2 : 4 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
     );
   };
