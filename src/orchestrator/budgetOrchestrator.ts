@@ -160,23 +160,61 @@ function applyCategoryRules(transaction: ImportedTransaction, categoryRules: Cat
 
 // CSV parsing function moved from TransactionImportEnhanced
 function parseCSVContent(csvContent: string, accountId: string, fileName: string): ImportedTransaction[] {
+  console.log(`[ORCHESTRATOR] 🔍 parseCSVContent called for account: ${accountId}`);
+  
   const cleanedContent = csvContent.replace(/�/g, '');
   const lines = cleanedContent.split('\n').filter(line => line.trim());
   if (lines.length < 2) return [];
 
   const headers = lines[0].split(';').map(h => h.trim());
+  console.log(`[ORCHESTRATOR] 🔍 CSV headers:`, headers);
+  
+  // Create a file fingerprint to look up saved mappings
+  const fileFingerprint = `${headers.join('|')}_${lines.length}`;
+  const savedMapping = getCsvMapping(fileFingerprint);
+  console.log(`[ORCHESTRATOR] 🔍 Found saved mapping:`, savedMapping);
+  
   const transactions: ImportedTransaction[] = [];
   
-  // Auto-detect column indices
-  const dateColumnIndex = headers.findIndex(h => 
-    h.toLowerCase().includes('datum') || h.toLowerCase().includes('date')
-  );
-  const amountColumnIndex = headers.findIndex(h => 
-    h.toLowerCase().includes('belopp') || h.toLowerCase().includes('amount')
-  );
-  const descriptionColumnIndex = headers.findIndex(h => 
-    h.toLowerCase().includes('beskrivning') || h.toLowerCase().includes('text') || h.toLowerCase().includes('description')
-  );
+  // Use saved mapping if available, otherwise auto-detect
+  let dateColumnIndex: number;
+  let amountColumnIndex: number; 
+  let descriptionColumnIndex: number;
+  let balanceColumnIndex: number = -1; // NEW: Add balance column support
+  
+  if (savedMapping && savedMapping.columnMapping) {
+    // Use saved mappings - find which CSV columns map to our app fields
+    console.log(`[ORCHESTRATOR] 🔍 Using saved column mappings:`, savedMapping.columnMapping);
+    
+    // Find the CSV column names that map to each app field
+    const dateColumn = Object.keys(savedMapping.columnMapping).find(csvCol => savedMapping.columnMapping[csvCol] === 'date');
+    const amountColumn = Object.keys(savedMapping.columnMapping).find(csvCol => savedMapping.columnMapping[csvCol] === 'amount');
+    const descriptionColumn = Object.keys(savedMapping.columnMapping).find(csvCol => savedMapping.columnMapping[csvCol] === 'description');
+    const balanceColumn = Object.keys(savedMapping.columnMapping).find(csvCol => savedMapping.columnMapping[csvCol] === 'balanceAfter');
+    
+    // Get the indices of these columns in the headers
+    dateColumnIndex = dateColumn ? headers.indexOf(dateColumn) : -1;
+    amountColumnIndex = amountColumn ? headers.indexOf(amountColumn) : -1;
+    descriptionColumnIndex = descriptionColumn ? headers.indexOf(descriptionColumn) : -1;
+    balanceColumnIndex = balanceColumn ? headers.indexOf(balanceColumn) : -1;
+  } else {
+    // Auto-detect column indices (fallback)
+    console.log(`[ORCHESTRATOR] 🔍 Auto-detecting columns...`);
+    dateColumnIndex = headers.findIndex(h => 
+      h.toLowerCase().includes('datum') || h.toLowerCase().includes('date')
+    );
+    amountColumnIndex = headers.findIndex(h => 
+      h.toLowerCase().includes('belopp') || h.toLowerCase().includes('amount')
+    );
+    descriptionColumnIndex = headers.findIndex(h => 
+      h.toLowerCase().includes('beskrivning') || h.toLowerCase().includes('text') || h.toLowerCase().includes('description')
+    );
+    balanceColumnIndex = headers.findIndex(h => 
+      h.toLowerCase().includes('saldo') || h.toLowerCase().includes('balance')
+    );
+  }
+  
+  console.log(`[ORCHESTRATOR] 🔍 Column indices - Date: ${dateColumnIndex}, Amount: ${amountColumnIndex}, Description: ${descriptionColumnIndex}, Balance: ${balanceColumnIndex}`);
 
   for (let i = 1; i < lines.length; i++) {
     const fields = lines[i].split(';');
@@ -193,11 +231,24 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
       const parsedDate = parseSwedishDate(rawDate);
       if (!parsedDate) continue;
 
+      // NEW: Parse balance after transaction
+      let balanceAfter: number | undefined;
+      if (balanceColumnIndex >= 0) {
+        const rawBalanceField = fields[balanceColumnIndex];
+        const cleanedBalanceField = rawBalanceField.trim().replace(',', '.').replace(/\s/g, '');
+        const parsedBalance = parseFloat(cleanedBalanceField);
+        if (!isNaN(parsedBalance)) {
+          balanceAfter = parsedBalance;
+          console.log(`[ORCHESTRATOR] 🔍 Parsed balance for transaction ${i}: ${balanceAfter}`);
+        }
+      }
+
       const transaction: ImportedTransaction = {
         id: uuidv4(),
         date: parsedDate,
         description: descriptionColumnIndex >= 0 ? fields[descriptionColumnIndex].trim() : '',
         amount: parsedAmount,
+        balanceAfter: balanceAfter, // NEW: Include balance after transaction
         accountId: accountId,
         type: 'Transaction',
         status: 'red',
@@ -210,7 +261,8 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
       console.warn(`Failed to parse transaction at line ${i + 1}:`, error);
     }
   }
-
+  
+  console.log(`[ORCHESTRATOR] 🔍 Parsed ${transactions.length} transactions, balance data found: ${transactions.filter(t => t.balanceAfter !== undefined).length}`);
   return transactions;
 }
 
