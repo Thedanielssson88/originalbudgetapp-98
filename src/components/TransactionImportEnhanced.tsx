@@ -866,15 +866,15 @@ export const TransactionImportEnhanced: React.FC = () => {
   };
 
   // Get saved CSV mappings from central state - single source of truth
-  const getCurrentMapping = (accountId: string) => {
-    // Create file fingerprint for this account
-    const fileFingerprint = `account_${accountId}`;
+  const getCurrentMapping = (bankId: string) => {
+    // Create file fingerprint for this bank
+    const fileFingerprint = `bank_${bankId}`;
     return getCsvMapping(fileFingerprint)?.columnMapping || {};
   };
 
   // Save mapping to central state
-  const saveCurrentMapping = (accountId: string, columnMapping: { [key: string]: string }) => {
-    const fileFingerprint = `account_${accountId}`;
+  const saveCurrentMapping = (bankId: string, columnMapping: { [key: string]: string }) => {
+    const fileFingerprint = `bank_${bankId}`;
     console.log(`💾 [TransactionImportEnhanced] Saving mapping for ${fileFingerprint}:`, columnMapping);
     
     saveCsvMapping({
@@ -897,9 +897,13 @@ export const TransactionImportEnhanced: React.FC = () => {
       { value: 'ignore', label: 'Ignorera' }
     ];
 
-    // Get unique accounts that have transactions
-    const accountsWithTransactions = accounts.filter(account => 
-      allTransactions.some(t => t.accountId === account.id)
+    // Get unique banks that have uploaded files/transactions
+    const banksWithTransactions = banks.filter(bank => 
+      Object.values(selectedBanks).includes(bank.id) && 
+      accounts.some(account => 
+        selectedBanks[account.id] === bank.id && 
+        allTransactions.some(t => t.accountId === account.id)
+      )
     );
 
     return (
@@ -907,7 +911,7 @@ export const TransactionImportEnhanced: React.FC = () => {
         <div className="text-center mb-6 sm:mb-8">
           <h2 className="text-xl sm:text-2xl font-bold mb-2">Kolumnmappning</h2>
           <p className="text-sm sm:text-base text-muted-foreground px-2">
-            Mappa CSV-kolumner till appens fält. Detta sparas för framtida imports.
+            Mappa CSV-kolumner till appens fält per bank. Detta sparas för framtida imports från samma bank.
           </p>
         </div>
 
@@ -917,18 +921,27 @@ export const TransactionImportEnhanced: React.FC = () => {
           </div>
         </div>
 
-        {accountsWithTransactions.map((account) => {
-          const accountTransactions = allTransactions.filter(t => t.accountId === account.id);
+        {banksWithTransactions.map((bank) => {
+          // Get accounts using this bank that have transactions
+          const accountsUsingThisBank = accounts.filter(account => 
+            selectedBanks[account.id] === bank.id && 
+            allTransactions.some(t => t.accountId === account.id)
+          );
+          
+          // Get sample transactions from the first account using this bank
+          const sampleAccount = accountsUsingThisBank[0];
+          const sampleTransactions = sampleAccount ? allTransactions.filter(t => t.accountId === sampleAccount.id) : [];
           const sampleCSVHeaders = ['Datum', 'Kategori', 'Underkategori', 'Text', 'Belopp', 'Saldo'];
           
           return (
-            <Card key={account.id}>
+            <Card key={bank.id}>
               <CardHeader>
                 <CardTitle className="text-lg">
-                  CSV-mappning för {account.name}
+                  CSV-mappning för {bank.name}
                 </CardTitle>
                 <CardDescription>
-                  {accountTransactions.length} transaktioner • Mappa kolumner till appfält
+                  Används för konton: {accountsUsingThisBank.map(acc => acc.name).join(', ')} • 
+                  {sampleTransactions.length} transaktioner i exempel
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -939,7 +952,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                     {/* Mobile-first responsive layout */}
                     <div className="space-y-4 md:hidden">
                       {sampleCSVHeaders.map((header, colIndex) => {
-                        const exampleData = accountTransactions.slice(0, 2).map(t => {
+                        const exampleData = sampleTransactions.slice(0, 2).map(t => {
                           if (header.toLowerCase().includes('datum')) return t.date;
                           if (header.toLowerCase().includes('belopp')) return t.amount.toString();
                           if (header.toLowerCase().includes('text')) return t.description;
@@ -969,14 +982,14 @@ export const TransactionImportEnhanced: React.FC = () => {
                               <div>
                                 <Label className="text-xs font-medium text-muted-foreground">Mappa till</Label>
                                 <Select
-                                  value={getCurrentMapping(account.id)[header] || 'ignore'}
+                                  value={getCurrentMapping(bank.id)[header] || 'ignore'}
                                   onValueChange={(value) => {
-                                    const currentMapping = getCurrentMapping(account.id);
+                                    const currentMapping = getCurrentMapping(bank.id);
                                     const updatedMapping = {
                                       ...currentMapping,
                                       [header]: value
                                     };
-                                    saveCurrentMapping(account.id, updatedMapping);
+                                    saveCurrentMapping(bank.id, updatedMapping);
                                   }}
                                 >
                                   <SelectTrigger className="w-full h-8 text-xs mt-1">
@@ -1009,7 +1022,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                         </TableHeader>
                         <TableBody>
                           {sampleCSVHeaders.map((header, colIndex) => {
-                            const exampleData = accountTransactions.slice(0, 2).map(t => {
+                            const exampleData = sampleTransactions.slice(0, 2).map(t => {
                               if (header.toLowerCase().includes('datum')) return t.date;
                               if (header.toLowerCase().includes('belopp')) return t.amount.toString();
                               if (header.toLowerCase().includes('text')) return t.description;
@@ -1033,14 +1046,14 @@ export const TransactionImportEnhanced: React.FC = () => {
                                 </TableCell>
                                 <TableCell>
                                   <Select
-                                    value={getCurrentMapping(account.id)[header] || 'ignore'}
+                                    value={getCurrentMapping(bank.id)[header] || 'ignore'}
                                     onValueChange={(value) => {
-                                      const currentMapping = getCurrentMapping(account.id);
+                                      const currentMapping = getCurrentMapping(bank.id);
                                       const updatedMapping = {
                                         ...currentMapping,
                                         [header]: value
                                       };
-                                      saveCurrentMapping(account.id, updatedMapping);
+                                      saveCurrentMapping(bank.id, updatedMapping);
                                     }}
                                   >
                                     <SelectTrigger className="w-32 h-8 text-xs">
@@ -1074,7 +1087,7 @@ export const TransactionImportEnhanced: React.FC = () => {
           </Button>
           <Button 
             onClick={() => setCurrentStep('categorization')}
-            disabled={accountsWithTransactions.length === 0}
+            disabled={banksWithTransactions.length === 0}
           >
             Nästa: Kategorisering
           </Button>
