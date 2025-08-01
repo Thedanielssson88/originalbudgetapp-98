@@ -533,7 +533,6 @@ export const TransactionImportEnhanced: React.FC = () => {
 
   // Reconcile transactions from file with already saved transactions
   const reconcileTransactions = useCallback((transactionsFromFile: ImportedTransaction[], accountId: string): ImportedTransaction[] => {
-    alert(`🚨 RECONCILIATION CALLED for account: ${accountId}!`);
     console.error(`[RECONCILIATION CRITICAL] 🚨 Starting reconciliation for account ${accountId} with ${transactionsFromFile.length} transactions from file`);
     
     // Get currently saved transactions for this month and account
@@ -581,22 +580,32 @@ export const TransactionImportEnhanced: React.FC = () => {
       
       const existingTransaction = savedTransactionsMap.get(fingerprint);
       
-      console.error(`[DEBUG CRITICAL] Processing transaction: ${fingerprint}`);
-      console.error(`[DEBUG CRITICAL] File transaction:`, fileTransaction);
-      console.error(`[DEBUG CRITICAL] Existing transaction found:`, !!existingTransaction);
+      const isBilkontoTransaction = fileTransaction.description?.includes('Bilkonto');
+      if (isBilkontoTransaction) {
+        console.error(`[BILKONTO DEBUG] 🚗 Processing BILKONTO transaction: ${fingerprint}`);
+        console.error(`[BILKONTO DEBUG] File transaction:`, fileTransaction);
+        console.error(`[BILKONTO DEBUG] Existing transaction found:`, !!existingTransaction);
+        if (existingTransaction) {
+          console.error(`[BILKONTO DEBUG] Existing transaction details:`, existingTransaction);
+        }
+      }
       
       if (existingTransaction) {
         // KORREKT SMART MERGE: Börja med den sparade versionen som har användarens ändringar.
-        console.log(`[Reconciliation] ✅ Match found for: ${fingerprint}. Performing smart merge.`);
-        console.log(`[DEBUG] Existing transaction details:`, {
-          type: existingTransaction.type,
-          status: existingTransaction.status,
-          appCategoryId: existingTransaction.appCategoryId,
-          appSubCategoryId: existingTransaction.appSubCategoryId,
-          savingsTargetId: existingTransaction.savingsTargetId,
-          isManuallyChanged: existingTransaction.isManuallyChanged,
-          userDescription: existingTransaction.userDescription
-        });
+        if (isBilkontoTransaction) {
+          console.error(`[BILKONTO DEBUG] 🚗 ✅ Match found for BILKONTO: ${fingerprint}. Performing smart merge.`);
+          console.error(`[BILKONTO DEBUG] Existing transaction details:`, {
+            type: existingTransaction.type,
+            status: existingTransaction.status,
+            appCategoryId: existingTransaction.appCategoryId,
+            appSubCategoryId: existingTransaction.appSubCategoryId,
+            savingsTargetId: existingTransaction.savingsTargetId,
+            isManuallyChanged: existingTransaction.isManuallyChanged,
+            userDescription: existingTransaction.userDescription
+          });
+        } else {
+          console.log(`[Reconciliation] ✅ Match found for: ${fingerprint}. Performing smart merge.`);
+        }
         
         const merged = { ...existingTransaction };
         
@@ -612,16 +621,29 @@ export const TransactionImportEnhanced: React.FC = () => {
         merged.description = fileTransaction.description;
         merged.amount = fileTransaction.amount;
         
-        console.log(`[DEBUG] Merged transaction result:`, {
-          type: merged.type,
-          status: merged.status,
-          appCategoryId: merged.appCategoryId,
-          appSubCategoryId: merged.appSubCategoryId,
-          savingsTargetId: merged.savingsTargetId,
-          isManuallyChanged: merged.isManuallyChanged,
-          userDescription: merged.userDescription
-        });
-        console.log(`[Reconciliation] Smart merge completed. User changes preserved.`);
+        if (isBilkontoTransaction) {
+          console.error(`[BILKONTO DEBUG] 🚗 Merged BILKONTO transaction result:`, {
+            type: merged.type,
+            status: merged.status,
+            appCategoryId: merged.appCategoryId,
+            appSubCategoryId: merged.appSubCategoryId,
+            savingsTargetId: merged.savingsTargetId,
+            isManuallyChanged: merged.isManuallyChanged,
+            userDescription: merged.userDescription
+          });
+          console.error(`[BILKONTO DEBUG] 🚗 Smart merge completed for BILKONTO. User changes preserved.`);
+        } else {
+          console.log(`[DEBUG] Merged transaction result:`, {
+            type: merged.type,
+            status: merged.status,
+            appCategoryId: merged.appCategoryId,
+            appSubCategoryId: merged.appSubCategoryId,
+            savingsTargetId: merged.savingsTargetId,
+            isManuallyChanged: merged.isManuallyChanged,
+            userDescription: merged.userDescription
+          });
+          console.log(`[Reconciliation] Smart merge completed. User changes preserved.`);
+        }
         return merged;
       } else {
         // NY TRANSAKTION: Applicera regler för automatisk kategorisering
@@ -707,7 +729,7 @@ export const TransactionImportEnhanced: React.FC = () => {
         return [...filtered, uploadedFile];
       });
 
-      alert(`🚨 FILE UPLOAD STARTED for account: ${accountName}!`);
+      // Reconcile transactions with already saved data before adding to global list
       console.log(`[FileUpload] ⚠️ STARTING RECONCILIATION for account: ${accountName}`);
       console.log(`[FileUpload] Parsed transactions count: ${parsedTransactions.length}`);
       const reconciledTransactions = reconcileTransactions(parsedTransactions, accountName);
