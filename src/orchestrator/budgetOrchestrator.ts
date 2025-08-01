@@ -3,7 +3,7 @@
 import { state, initializeStateFromStorage, saveStateToStorage, getCurrentMonthData, updateCurrentMonthData } from '../state/budgetState';
 import { StorageKey, set } from '../services/storageService';
 import { calculateFullPrognosis, calculateBudgetResults, calculateAccountProgression, calculateMonthlyBreakdowns, calculateProjectedBalances } from '../services/calculationService';
-import { BudgetGroup, MonthData, SavingsGoal } from '../types/budget';
+import { BudgetGroup, MonthData, SavingsGoal, CsvMapping } from '../types/budget';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 import { v4 as uuidv4 } from 'uuid';
 import { ImportedTransaction, CategoryRule } from '../types/transaction';
@@ -965,6 +965,28 @@ export function deleteCategoryRule(ruleId: string): void {
   state.budgetState.transactionImport.categoryRules = state.budgetState.transactionImport.categoryRules.filter(r => r.id !== ruleId);
   saveStateToStorage();
   triggerUIRefresh();
+}
+
+// ===== CSV MAPPING MANAGEMENT =====
+
+export function saveCsvMapping(mapping: CsvMapping): void {
+  console.log(`🔗 [ORCHESTRATOR] Saving CSV mapping for fingerprint: ${mapping.fileFingerprint}`);
+  
+  const existingIndex = state.budgetState.csvMappings.findIndex(m => m.fileFingerprint === mapping.fileFingerprint);
+  if (existingIndex !== -1) {
+    state.budgetState.csvMappings[existingIndex] = mapping;
+    console.log(`✅ [ORCHESTRATOR] Updated existing CSV mapping`);
+  } else {
+    state.budgetState.csvMappings.push(mapping);
+    console.log(`✅ [ORCHESTRATOR] Added new CSV mapping`);
+  }
+  
+  saveStateToStorage();
+  triggerUIRefresh();
+}
+
+export function getCsvMapping(fileFingerprint: string): CsvMapping | undefined {
+  return state.budgetState.csvMappings.find(m => m.fileFingerprint === fileFingerprint);
 }
 
 // ===== UNIFIED CATEGORY SYSTEM =====

@@ -49,7 +49,7 @@ import { TransferMatchDialog } from './TransferMatchDialog';
 import { SavingsLinkDialog } from './SavingsLinkDialog';
 import { CostCoverageDialog } from './CostCoverageDialog';
 import { useBudget } from '@/hooks/useBudget';
-import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile } from '../orchestrator/budgetOrchestrator';
+import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState, setMainCategories } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
 
@@ -320,9 +320,8 @@ interface Account {
 
 export const TransactionImportEnhanced: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<'upload' | 'mapping' | 'categorization'>('upload');
-  // NO MORE LOCAL STATE FOR FILES - reading everything from central state
+  // NO MORE LOCAL STATE FOR FILES OR MAPPINGS - reading everything from central state
   const [fileStructures, setFileStructures] = useState<FileStructure[]>([]);
-  const [columnMappings, setColumnMappings] = useState<{[fileId: string]: {[csvColumn: string]: string}}>({});
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
   const [activeTransactionTab, setActiveTransactionTab] = useState<'all' | 'account' | 'rules'>('all');
   const [hideGreenTransactions, setHideGreenTransactions] = useState<boolean>(false);
@@ -437,6 +436,8 @@ export const TransactionImportEnhanced: React.FC = () => {
 
   // UNIFIED UPDATE FUNCTION - This connects the UI back to the central state
   const handleTransactionUpdate = (transactionId: string, updates: Partial<ImportedTransaction>) => {
+    console.log(`🔄 [TransactionImportEnhanced] Updating transaction ${transactionId} with updates:`, updates);
+    
     // Find the transaction to get its date and derive monthKey
     const transaction = transactions.find(t => t.id === transactionId);
     if (!transaction) {
@@ -724,6 +725,24 @@ export const TransactionImportEnhanced: React.FC = () => {
     );
   };
 
+  // Get saved CSV mappings from central state - single source of truth
+  const getCurrentMapping = (accountId: string) => {
+    // Create file fingerprint for this account
+    const fileFingerprint = `account_${accountId}`;
+    return getCsvMapping(fileFingerprint)?.columnMapping || {};
+  };
+
+  // Save mapping to central state
+  const saveCurrentMapping = (accountId: string, columnMapping: { [key: string]: string }) => {
+    const fileFingerprint = `account_${accountId}`;
+    console.log(`💾 [TransactionImportEnhanced] Saving mapping for ${fileFingerprint}:`, columnMapping);
+    
+    saveCsvMapping({
+      fileFingerprint,
+      columnMapping
+    });
+  };
+
   // Mapping step - restored functionality
   const renderMappingStep = () => {
     const systemFields = [
@@ -810,15 +829,14 @@ export const TransactionImportEnhanced: React.FC = () => {
                               <div>
                                 <Label className="text-xs font-medium text-muted-foreground">Mappa till</Label>
                                 <Select
-                                  value={columnMappings[account.id]?.[header] || 'ignore'}
+                                  value={getCurrentMapping(account.id)[header] || 'ignore'}
                                   onValueChange={(value) => {
-                                    setColumnMappings(prev => ({
-                                      ...prev,
-                                      [account.id]: {
-                                        ...prev[account.id],
-                                        [header]: value
-                                      }
-                                    }));
+                                    const currentMapping = getCurrentMapping(account.id);
+                                    const updatedMapping = {
+                                      ...currentMapping,
+                                      [header]: value
+                                    };
+                                    saveCurrentMapping(account.id, updatedMapping);
                                   }}
                                 >
                                   <SelectTrigger className="w-full h-8 text-xs mt-1">
@@ -875,15 +893,14 @@ export const TransactionImportEnhanced: React.FC = () => {
                                 </TableCell>
                                 <TableCell>
                                   <Select
-                                    value={columnMappings[account.id]?.[header] || 'ignore'}
+                                    value={getCurrentMapping(account.id)[header] || 'ignore'}
                                     onValueChange={(value) => {
-                                      setColumnMappings(prev => ({
-                                        ...prev,
-                                        [account.id]: {
-                                          ...prev[account.id],
-                                          [header]: value
-                                        }
-                                      }));
+                                      const currentMapping = getCurrentMapping(account.id);
+                                      const updatedMapping = {
+                                        ...currentMapping,
+                                        [header]: value
+                                      };
+                                      saveCurrentMapping(account.id, updatedMapping);
                                     }}
                                   >
                                     <SelectTrigger className="w-32 h-8 text-xs">

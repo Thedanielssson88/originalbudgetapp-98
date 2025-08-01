@@ -165,6 +165,12 @@ export interface MonthData {
   createdAt?: string;
 }
 
+// Skapa en typ för en mappningsregel
+export interface CsvMapping {
+  fileFingerprint: string; // Unikt "fingeravtryck" för en filtyp
+  columnMapping: { [key: string]: string }; // Ex: { 'Datum': 'date', 'Belopp': 'amount' }
+}
+
 // Ny, förenklad state-struktur - Single Source of Truth
 export interface BudgetState {
   historicalData: { [monthKey: string]: MonthData };
@@ -206,6 +212,9 @@ export interface BudgetState {
     importHistory: any[];
     transactions: any[];
   };
+  
+  // CSV mappings - permanent storage for mapping rules
+  csvMappings: CsvMapping[];
 }
 
 // Legacy interface för bakåtkompatibilitet under övergången

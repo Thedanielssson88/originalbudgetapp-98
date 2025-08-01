@@ -57,6 +57,9 @@ export const state: AppState = {
       importHistory: [],
       transactions: [],
     },
+    
+    // CSV mappings - permanent storage for mapping rules
+    csvMappings: [],
   },
   calculated: {
     results: null,
