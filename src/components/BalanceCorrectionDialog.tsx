@@ -148,21 +148,8 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
       console.log(`🔍 [BALANCE CORRECTION] Month ${monthKey} - Valid entries (all):`, validEntries.map(e => ({ accountId: e.accountId, bankBalance: e.bankBalance })));
       
       if (validEntries.length > 0) {
-        const bestEntry = validEntries
-          .sort((a, b) => {
-            // First priority: accounts that exist in the system (have balances)
-            const aHasSystemBalance = (accountBalances[a.monthKey]?.[a.accountId] || 0) !== 0;
-            const bHasSystemBalance = (accountBalances[b.monthKey]?.[b.accountId] || 0) !== 0;
-            
-            if (aHasSystemBalance !== bHasSystemBalance) {
-              return bHasSystemBalance ? 1 : -1;
-            }
-            
-            // Second priority: highest bank balance
-            return Math.abs(b.bankBalance) - Math.abs(a.bankBalance);
-          })[0];
-        
-        data.push(bestEntry);
+        // Add all entries instead of just the "best" one
+        data.push(...validEntries);
       }
     });
 
