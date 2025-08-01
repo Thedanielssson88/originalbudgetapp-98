@@ -541,6 +541,13 @@ export const TransactionImportEnhanced: React.FC = () => {
     const currentMonthData = currentState.budgetState.historicalData[currentMonthKey];
     const savedTransactions: ImportedTransaction[] = (currentMonthData as any)?.transactions || [];
     
+    // Critical debug: Check if we have any manually changed Bilkonto transactions
+    const bilkontoSaved = savedTransactions.filter(t => t.accountId === accountId && t.description?.includes('Bilkonto'));
+    console.error(`[BILKONTO CRITICAL] 🚗 Found ${bilkontoSaved.length} existing Bilkonto transactions for account ${accountId}`);
+    bilkontoSaved.forEach(t => {
+      console.error(`[BILKONTO CRITICAL] 🚗 Existing: ${t.description} | Type: ${t.type} | Status: ${t.status} | ManuallyChanged: ${t.isManuallyChanged}`);
+    });
+    
     console.log(`[Reconciliation] Found ${savedTransactions.length} already saved transactions for month ${currentMonthKey}`);
     
     // Filter saved transactions for this account only
@@ -594,7 +601,8 @@ export const TransactionImportEnhanced: React.FC = () => {
         // KORREKT SMART MERGE: Börja med den sparade versionen som har användarens ändringar.
         if (isBilkontoTransaction) {
           console.error(`[BILKONTO DEBUG] 🚗 ✅ Match found for BILKONTO: ${fingerprint}. Performing smart merge.`);
-          console.error(`[BILKONTO DEBUG] Existing transaction details:`, {
+          console.error(`[BILKONTO DEBUG] BEFORE MERGE - Existing transaction:`, {
+            id: existingTransaction.id,
             type: existingTransaction.type,
             status: existingTransaction.status,
             appCategoryId: existingTransaction.appCategoryId,
@@ -603,11 +611,34 @@ export const TransactionImportEnhanced: React.FC = () => {
             isManuallyChanged: existingTransaction.isManuallyChanged,
             userDescription: existingTransaction.userDescription
           });
+          console.error(`[BILKONTO DEBUG] BEFORE MERGE - File transaction:`, {
+            id: fileTransaction.id,
+            type: fileTransaction.type,
+            status: fileTransaction.status,
+            appCategoryId: fileTransaction.appCategoryId,
+            appSubCategoryId: fileTransaction.appSubCategoryId,
+            savingsTargetId: fileTransaction.savingsTargetId,
+            isManuallyChanged: fileTransaction.isManuallyChanged,
+            userDescription: fileTransaction.userDescription
+          });
         } else {
           console.log(`[Reconciliation] ✅ Match found for: ${fingerprint}. Performing smart merge.`);
         }
         
         const merged = { ...existingTransaction };
+        
+        if (isBilkontoTransaction) {
+          console.error(`[BILKONTO DEBUG] 🚗 AFTER SPREAD - merged object:`, {
+            id: merged.id,
+            type: merged.type,
+            status: merged.status,
+            appCategoryId: merged.appCategoryId,
+            appSubCategoryId: merged.appSubCategoryId,
+            savingsTargetId: merged.savingsTargetId,
+            isManuallyChanged: merged.isManuallyChanged,
+            userDescription: merged.userDescription
+          });
+        }
         
         // Uppdatera endast bankens data - BEVARA alla användarändringar
         merged.bankCategory = fileTransaction.bankCategory;
@@ -679,6 +710,14 @@ export const TransactionImportEnhanced: React.FC = () => {
     });
     
     console.log(`[Reconciliation] Reconciliation complete. ${reconciledTransactions.length} transactions reconciled.`);
+    
+    // Final debug: Check what we're returning for Bilkonto transactions
+    const finalBilkonto = reconciledTransactions.filter(t => t.description?.includes('Bilkonto'));
+    console.error(`[BILKONTO FINAL] 🚗 Returning ${finalBilkonto.length} Bilkonto transactions after reconciliation:`);
+    finalBilkonto.forEach(t => {
+      console.error(`[BILKONTO FINAL] 🚗 Final: ${t.description} | Type: ${t.type} | Status: ${t.status} | ManuallyChanged: ${t.isManuallyChanged}`);
+    });
+    
     return reconciledTransactions;
   }, [createTransactionFingerprint]);
 
