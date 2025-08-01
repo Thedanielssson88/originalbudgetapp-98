@@ -786,15 +786,57 @@ export const TransactionImportEnhanced: React.FC = () => {
         transactionsByMonth[monthKey].push(t);
       });
       
-      // Save each month's transactions
+      // Save each month's transactions with proper merging
       Object.entries(transactionsByMonth).forEach(([monthKey, monthTransactions]) => {
-        // Get existing transactions for this month and account
-        const existingTransactions = (budgetState?.historicalData?.[monthKey]?.transactions || [])
-          .filter(t => t.accountId !== accountName);
+        console.error(`[SAVE LOGIC] 🚨 Processing month ${monthKey} with ${monthTransactions.length} reconciled transactions`);
         
-        // Combine with new transactions
-        const allTransactions = [...existingTransactions, ...monthTransactions] as ImportedTransaction[];
-        updateTransactionsForMonth(monthKey, allTransactions);
+        // Get ALL existing transactions for this month
+        const allExistingTransactions = (budgetState?.historicalData?.[monthKey]?.transactions || []) as ImportedTransaction[];
+        console.error(`[SAVE LOGIC] Found ${allExistingTransactions.length} total existing transactions for month ${monthKey}`);
+        
+        // Create fingerprint map of reconciled transactions for this account
+        const reconciledMap = new Map<string, ImportedTransaction>();
+        monthTransactions.forEach(transaction => {
+          const fingerprint = createTransactionFingerprint({
+            date: transaction.date,
+            description: transaction.description,
+            amount: transaction.amount
+          });
+          reconciledMap.set(fingerprint, transaction);
+        });
+        
+        console.error(`[SAVE LOGIC] Created reconciled map with ${reconciledMap.size} entries for account ${accountName}`);
+        
+        // Merge logic: Keep existing transactions that are NOT in the reconciled set,
+        // and add all reconciled transactions (which already preserve manual changes)
+        const keptTransactions = allExistingTransactions.filter(existingTx => {
+          // Keep transactions from OTHER accounts
+          if (existingTx.accountId !== accountName) {
+            return true;
+          }
+          
+          // For transactions from the SAME account, only keep if they're NOT in the reconciled set
+          const fingerprint = createTransactionFingerprint({
+            date: existingTx.date,
+            description: existingTx.description,
+            amount: existingTx.amount
+          });
+          const isInReconciledSet = reconciledMap.has(fingerprint);
+          
+          if (isInReconciledSet) {
+            console.error(`[SAVE LOGIC] ⚠️ Replacing existing transaction: ${fingerprint}`);
+          }
+          
+          return !isInReconciledSet;
+        });
+        
+        console.error(`[SAVE LOGIC] Kept ${keptTransactions.length} existing transactions, adding ${monthTransactions.length} reconciled transactions`);
+        
+        // Final transaction list: kept transactions + all reconciled transactions
+        const finalTransactions = [...keptTransactions, ...monthTransactions] as ImportedTransaction[];
+        console.error(`[SAVE LOGIC] ✅ Final transaction count for month ${monthKey}: ${finalTransactions.length}`);
+        
+        updateTransactionsForMonth(monthKey, finalTransactions);
       });
 
       toast({
