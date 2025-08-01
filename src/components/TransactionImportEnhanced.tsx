@@ -48,6 +48,7 @@ import { TransactionTypeSelector } from './TransactionTypeSelector';
 import { TransferMatchDialog } from './TransferMatchDialog';
 import { SavingsLinkDialog } from './SavingsLinkDialog';
 import { CostCoverageDialog } from './CostCoverageDialog';
+import { BalanceCorrectionDialog } from './BalanceCorrectionDialog';
 import { useBudget } from '@/hooks/useBudget';
 import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState, setMainCategories } from '../orchestrator/budgetOrchestrator';
@@ -340,6 +341,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     isOpen: boolean;
     transaction?: ImportedTransaction;
   }>({ isOpen: false });
+  const [balanceCorrectionDialog, setBalanceCorrectionDialog] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
   const { toast } = useToast();
@@ -385,6 +387,25 @@ export const TransactionImportEnhanced: React.FC = () => {
   const categoryRules = categoryRulesFromState;
   const [newRule, setNewRule] = useState<Partial<CategoryRule>>({});
   const [editingRule, setEditingRule] = useState<CategoryRule | null>(null);
+
+  // Check if CSV contains transactions on/after 24th for balance correction
+  const hasTransactionsOnOrAfter24th = useMemo(() => {
+    return allTransactions.some(tx => {
+      const date = new Date(tx.date);
+      return date.getDate() >= 24;
+    });
+  }, [allTransactions]);
+
+  // Prepare account balances data for balance correction dialog
+  const accountBalancesForDialog = useMemo(() => {
+    const balances: Record<string, Record<string, number>> = {};
+    
+    Object.entries(budgetState?.historicalData || {}).forEach(([monthKey, monthData]) => {
+      balances[monthKey] = monthData.accountBalances || {};
+    });
+    
+    return balances;
+  }, [budgetState?.historicalData]);
   
   useEffect(() => {
     const loadedSubcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
@@ -750,6 +771,20 @@ export const TransactionImportEnhanced: React.FC = () => {
             );
           })}
         </div>
+
+        {/* Balance correction button - only show if CSV contains transactions on/after 24th */}
+        {hasTransactionsOnOrAfter24th && allTransactions.length > 0 && (
+          <div className="flex justify-center px-2 sm:px-0">
+            <Button
+              onClick={() => setBalanceCorrectionDialog(true)}
+              variant="secondary"
+              className="text-sm"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Korrigera startsaldo för månader
+            </Button>
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-3 px-2 sm:px-0">
           <Button 
@@ -1400,6 +1435,13 @@ export const TransactionImportEnhanced: React.FC = () => {
         transfer={costCoverageDialog.transfer}
         potentialCosts={costCoverageDialog.potentialCosts || []}
         onRefresh={triggerRefresh}
+      />
+
+      <BalanceCorrectionDialog
+        open={balanceCorrectionDialog}
+        onClose={() => setBalanceCorrectionDialog(false)}
+        transactions={allTransactions}
+        accountBalances={accountBalancesForDialog}
       />
     </div>
   );
