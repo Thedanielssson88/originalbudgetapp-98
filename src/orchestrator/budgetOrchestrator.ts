@@ -8,19 +8,25 @@ import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 import { v4 as uuidv4 } from 'uuid';
 import { ImportedTransaction, CategoryRule } from '../types/transaction';
 
-// CSV processing and reconciliation functions moved from TransactionImportEnhanced
-export function processAndReconcileCSV(
-  csvContent: string, 
-  accountId: string, 
-  accountName: string,
-  fileName: string
-): void {
-  console.log(`[ORCHESTRATOR] 🔥 processAndReconcileCSV called for account ${accountName}`);
+// SMART MERGE FUNCTION - The definitive solution to duplicate and lost changes
+export function importAndReconcileFile(csvContent: string, accountId: string): void {
+  console.log(`[ORCHESTRATOR] 🔥 Smart merge starting for account ${accountId}`);
   
-  // Parse CSV content 
-  const transactionsFromFile = parseCSVContent(csvContent, accountId, fileName);
+  // 1. Parse CSV content
+  const transactionsFromFile = parseCSVContent(csvContent, accountId, 'imported');
+  if (transactionsFromFile.length === 0) {
+    console.log(`[ORCHESTRATOR] ⚠️ No transactions found in CSV`);
+    return;
+  }
   
-  // Get ALL existing transactions from the permanent database (single source of truth)
+  // 2. Define date range of the file
+  const datesInFile = transactionsFromFile.map(t => new Date(t.date).getTime());
+  const minDate = new Date(Math.min(...datesInFile));
+  const maxDate = new Date(Math.max(...datesInFile));
+  
+  console.log(`[ORCHESTRATOR] 📅 File date range: ${minDate.toISOString().split('T')[0]} to ${maxDate.toISOString().split('T')[0]}`);
+  
+  // 3. Get ALL existing transactions from central state
   const allSavedTransactions = Object.values(state.budgetState.historicalData)
     .flatMap(month => (month.transactions || []).map(t => ({
       ...t,
@@ -28,66 +34,56 @@ export function processAndReconcileCSV(
       fileSource: (t as any).fileSource || 'budgetState'
     } as ImportedTransaction)));
   
-  // Apply categorization rules and reconcile
-  const reconciledTransactions = reconcileTransactions(
-    transactionsFromFile, 
-    allSavedTransactions, 
-    state.budgetState.transactionImport?.categoryRules || []
+  // 4. Remove old transactions for this account within the date range (CSV is truth)
+  const transactionsToKeep = allSavedTransactions.filter(t => 
+    !(t.accountId === accountId && new Date(t.date) >= minDate && new Date(t.date) <= maxDate)
   );
   
-  console.log(`[ORCHESTRATOR] 🔥 Reconciled ${reconciledTransactions.length} transactions`);
+  console.log(`[ORCHESTRATOR] 🧹 Kept ${transactionsToKeep.length} transactions, removing ${allSavedTransactions.length - transactionsToKeep.length} within date range`);
   
-  // Group by month and update the central state
-  const transactionsByMonth = groupTransactionsByMonth(reconciledTransactions);
+  // 5. Create map of existing transactions for smart merge
+  const savedTransactionsMap = new Map<string, ImportedTransaction>();
+  allSavedTransactions.forEach(t => savedTransactionsMap.set(createTransactionFingerprint(t), t));
   
-  Object.entries(transactionsByMonth).forEach(([monthKey, monthTransactions]) => {
-    console.log(`[ORCHESTRATOR] 🔥 Updating month ${monthKey} with ${monthTransactions.length} transactions`);
-    
-    // Ensure month exists in historical data
-    if (!state.budgetState.historicalData[monthKey]) {
-      state.budgetState.historicalData[monthKey] = {
-        andreasSalary: 0,
-        andreasförsäkringskassan: 0,
-        andreasbarnbidrag: 0,
-        susannaSalary: 0,
-        susannaförsäkringskassan: 0,
-        susannabarnbidrag: 0,
-        costGroups: [],
-        savingsGroups: [],
-        costItems: [],
-        savingsItems: [],
-        dailyTransfer: 0,
-        weekendTransfer: 0,
-        andreasPersonalCosts: 0,
-        andreasPersonalSavings: 0,
-        susannaPersonalCosts: 0,
-        susannaPersonalSavings: 0,
-        customHolidays: [],
-        accountBalances: {},
-        accountBalancesSet: {},
-        accountEstimatedFinalBalances: {},
-        accountEstimatedFinalBalancesSet: {},
-        accountEstimatedStartBalances: {},
-        accountStartBalancesSet: {},
-        userName1: 'Andreas',
-        userName2: 'Susanna',
-        transferChecks: {},
-        andreasShareChecked: false,
-        susannaShareChecked: false,
-        monthFinalBalances: {},
-        accountEndingBalances: {},
-        transactions: [],
-        createdAt: new Date().toISOString()
+  // 6. Intelligent merge - preserve manual changes
+  const mergedTransactions = transactionsFromFile.map(fileTx => {
+    const fingerprint = createTransactionFingerprint(fileTx);
+    const existingTx = savedTransactionsMap.get(fingerprint);
+
+    if (existingTx && existingTx.isManuallyChanged) {
+      // PRESERVE user changes but update bank fields
+      console.log(`[ORCHESTRATOR] 💾 Preserving manual changes for transaction: ${fileTx.description}`);
+      return {
+        ...existingTx,
+        // Update bank data from file
+        bankCategory: fileTx.bankCategory,
+        bankSubCategory: fileTx.bankSubCategory,
+        bankStatus: fileTx.bankStatus,
+        balanceAfter: fileTx.balanceAfter,
+        fileSource: fileTx.fileSource
       };
     }
     
-    // Get existing transactions for this month that are NOT from the account being imported
-    const existingOtherAccountTransactions = (state.budgetState.historicalData[monthKey].transactions || [])
-      .filter(tx => tx.accountId !== accountName);
+    // New transaction or unchanged - apply category rules
+    return applyCategoryRules(fileTx, state.budgetState.transactionImport?.categoryRules || []);
+  });
+  
+  // 7. Combine cleaned list with new merged transactions
+  const finalTransactionList = [...transactionsToKeep, ...mergedTransactions];
+  
+  console.log(`[ORCHESTRATOR] ✅ Final transaction count: ${finalTransactionList.length}`);
+  
+  // 8. Save back to central state grouped by month
+  const finalGroupedByMonth = groupTransactionsByMonth(finalTransactionList);
+  
+  // Clear existing months and update with new data
+  Object.keys(state.budgetState.historicalData).forEach(monthKey => {
+    if (!state.budgetState.historicalData[monthKey]) {
+      state.budgetState.historicalData[monthKey] = createEmptyMonthDataForImport();
+    }
     
-    // Combine with new reconciled transactions for this account
-    // Convert ImportedTransaction to Transaction type
-    const convertedTransactions = monthTransactions.map(tx => ({
+    // Convert ImportedTransaction to Transaction format for storage
+    const monthTransactions = (finalGroupedByMonth[monthKey] || []).map(tx => ({
       ...tx,
       bankCategory: tx.bankCategory || '',
       bankSubCategory: tx.bankSubCategory || '',
@@ -96,15 +92,70 @@ export function processAndReconcileCSV(
       status: tx.status || 'red' as const
     }));
     
-    state.budgetState.historicalData[monthKey].transactions = [
-      ...existingOtherAccountTransactions,
-      ...convertedTransactions
-    ];
+    state.budgetState.historicalData[monthKey].transactions = monthTransactions;
   });
   
-  // Save and trigger UI refresh
+  // 9. Save and refresh UI
   saveStateToStorage();
   runCalculationsAndUpdateState();
+  
+  console.log(`[ORCHESTRATOR] 🎉 Smart merge completed successfully`);
+}
+
+// Helper function to create empty month data for import
+function createEmptyMonthDataForImport() {
+  return {
+    andreasSalary: 0,
+    andreasförsäkringskassan: 0,
+    andreasbarnbidrag: 0,
+    susannaSalary: 0,
+    susannaförsäkringskassan: 0,
+    susannabarnbidrag: 0,
+    costGroups: [],
+    savingsGroups: [],
+    costItems: [],
+    savingsItems: [],
+    dailyTransfer: 0,
+    weekendTransfer: 0,
+    andreasPersonalCosts: 0,
+    andreasPersonalSavings: 0,
+    susannaPersonalCosts: 0,
+    susannaPersonalSavings: 0,
+    customHolidays: [],
+    accountBalances: {},
+    accountBalancesSet: {},
+    accountEstimatedFinalBalances: {},
+    accountEstimatedFinalBalancesSet: {},
+    accountEstimatedStartBalances: {},
+    accountStartBalancesSet: {},
+    userName1: 'Andreas',
+    userName2: 'Susanna',
+    transferChecks: {},
+    andreasShareChecked: false,
+    susannaShareChecked: false,
+    monthFinalBalances: {},
+    accountEndingBalances: {},
+    transactions: [],
+    createdAt: new Date().toISOString()
+  };
+}
+
+// Apply category rules to a transaction
+function applyCategoryRules(transaction: ImportedTransaction, categoryRules: CategoryRule[]): ImportedTransaction {
+  let categorizedTransaction = { ...transaction };
+  
+  for (const rule of categoryRules) {
+    if (rule.isActive && rule.description && 
+        transaction.description.toLowerCase().includes(rule.description.toLowerCase())) {
+      categorizedTransaction.type = rule.transactionType;
+      categorizedTransaction.appCategoryId = rule.appCategoryId;
+      categorizedTransaction.appSubCategoryId = rule.appSubCategoryId;
+      categorizedTransaction.status = 'yellow'; // Auto-categorized
+      break;
+    }
+  }
+  
+  return categorizedTransaction;
 }
 
 // CSV parsing function moved from TransactionImportEnhanced
