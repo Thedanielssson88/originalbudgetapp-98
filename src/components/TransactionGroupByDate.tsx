@@ -18,6 +18,7 @@ interface TransactionGroupByDateProps {
   onTransferMatch?: (transaction: ImportedTransaction) => void;
   onSavingsLink?: (transaction: ImportedTransaction) => void;
   onCostCoverage?: (transaction: ImportedTransaction) => void;
+  onRefresh?: () => void; // Add refresh callback
 }
 
 export const TransactionGroupByDate: React.FC<TransactionGroupByDateProps> = ({
@@ -31,7 +32,8 @@ export const TransactionGroupByDate: React.FC<TransactionGroupByDateProps> = ({
   onUpdateNote,
   onTransferMatch,
   onSavingsLink,
-  onCostCoverage
+  onCostCoverage,
+  onRefresh
 }) => {
   // Use a more stable way to track expanded dates
   const [expandedDates, setExpandedDates] = useState<Set<string>>(() => {
@@ -186,6 +188,7 @@ export const TransactionGroupByDate: React.FC<TransactionGroupByDateProps> = ({
                       onTransferMatch={onTransferMatch}
                       onSavingsLink={onSavingsLink}
                       onCostCoverage={onCostCoverage}
+                      onRefresh={onRefresh}
                     />
                   ))}
                 </div>

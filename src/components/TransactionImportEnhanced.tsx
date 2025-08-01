@@ -496,6 +496,11 @@ export const TransactionImportEnhanced: React.FC = () => {
     }, 100);
   };
 
+  // Create a refresh function to be passed to components
+  const triggerRefresh = () => {
+    setRefreshKey(prev => prev + 1);
+  };
+
   const updateTransactionNote = (transactionId: string, userDescription: string) => {
     handleTransactionUpdate(transactionId, { userDescription });
   };
@@ -1265,6 +1270,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                       onTransferMatch={handleTransferMatch}
                       onSavingsLink={handleSavingsLink}
                       onCostCoverage={handleCostCoverage}
+                      onRefresh={triggerRefresh}
                       mainCategories={mainCategories}
                       costGroups={costGroups}
                     />
@@ -1301,6 +1307,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                           onTransferMatch={handleTransferMatch}
                           onSavingsLink={handleSavingsLink}
                           onCostCoverage={handleCostCoverage}
+                          onRefresh={triggerRefresh}
                           mainCategories={mainCategories}
                           costGroups={costGroups}
                         />

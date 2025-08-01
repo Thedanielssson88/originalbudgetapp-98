@@ -26,6 +26,7 @@ interface TransactionExpandableCardProps {
   onTransferMatch?: (transaction: ImportedTransaction) => void;
   onSavingsLink?: (transaction: ImportedTransaction) => void;
   onCostCoverage?: (transaction: ImportedTransaction) => void;
+  onRefresh?: () => void; // Add refresh callback
 }
 
 export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps> = ({
@@ -40,7 +41,8 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   onUpdateStatus,
   onTransferMatch,
   onSavingsLink,
-  onCostCoverage
+  onCostCoverage,
+  onRefresh
 }) => {
   const { isExpanded, setIsExpanded } = useTransactionExpansion(transaction.id);
   const [isEditingNote, setIsEditingNote] = useState(false);
@@ -233,7 +235,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                   <div>
                     <label className="text-xs font-medium text-muted-foreground">Typ</label>
                     <div className="mt-1">
-                      <TransactionTypeSelector transaction={transaction} />
+                      <TransactionTypeSelector transaction={transaction} onRefresh={onRefresh} />
                     </div>
                   </div>
 
