@@ -21,27 +21,35 @@ export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = (
       
       // First, find and reset the linked transaction
       const state = getCurrentState();
+      console.log(`🔍 [TransactionTypeSelector] Current state:`, state);
       let linkedTransaction: any = null;
       let linkedMonthKey = '';
       
       // Search for the linked transaction across all months
+      console.log(`🔍 [TransactionTypeSelector] Searching for linked transaction ${transaction.linkedTransactionId} across all months`);
       Object.entries(state.budgetState.historicalData || {}).forEach(([monthKey, monthData]) => {
         const transactions = (monthData as any)?.transactions || [];
+        console.log(`🔍 [TransactionTypeSelector] Checking month ${monthKey} with ${transactions.length} transactions`);
         const found = transactions.find((t: any) => t.id === transaction.linkedTransactionId);
         if (found) {
           linkedTransaction = found;
           linkedMonthKey = monthKey;
+          console.log(`✅ [TransactionTypeSelector] Found linked transaction in month ${linkedMonthKey}:`, found);
         }
       });
       
       if (linkedTransaction && linkedMonthKey) {
-        console.log(`🔗 [TransactionTypeSelector] Found linked transaction in month ${linkedMonthKey}, resetting its fields`);
+        console.log(`🔗 [TransactionTypeSelector] Resetting linked transaction fields for ${transaction.linkedTransactionId} in month ${linkedMonthKey}`);
         // Reset the linked transaction's fields
         updateTransaction(transaction.linkedTransactionId, {
           linkedTransactionId: undefined,
           correctedAmount: undefined,
+          type: 'Transaction', // Ensure it goes back to Transaction type
           isManuallyChanged: true
         }, linkedMonthKey);
+        console.log(`✅ [TransactionTypeSelector] Called updateTransaction for linked transaction ${transaction.linkedTransactionId}`);
+      } else {
+        console.log(`❌ [TransactionTypeSelector] Could not find linked transaction ${transaction.linkedTransactionId}`);
       }
     }
     
