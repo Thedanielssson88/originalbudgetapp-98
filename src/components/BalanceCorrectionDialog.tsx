@@ -51,6 +51,15 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
     const allAccountIds = [...new Set(transactions.map(tx => tx.accountId))];
     console.log('🔍 [BALANCE CORRECTION] All account IDs in transactions:', allAccountIds);
     
+    // Debug: Look specifically for Hushållskonto transactions
+    const hushallskontoTransactions = transactions.filter(tx => tx.accountId.toLowerCase().includes('hushåll'));
+    console.log('🔍 [BALANCE CORRECTION] Hushållskonto transactions found:', hushallskontoTransactions.length);
+    console.log('🔍 [BALANCE CORRECTION] Hushållskonto sample:', hushallskontoTransactions.slice(0, 5).map(t => ({ 
+      date: t.date, 
+      day: new Date(t.date).getDate(), 
+      balanceAfter: t.balanceAfter 
+    })));
+    
     const data: MonthBalanceData[] = [];
     const monthlyTransactions: Record<string, ImportedTransaction[]> = {};
     
