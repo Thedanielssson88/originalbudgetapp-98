@@ -350,7 +350,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   const categoryRulesFromState = budgetState?.transactionImport?.categoryRules || [];
   
   // Read transactions directly from central state - this is now the ONLY source of truth
-  const transactions = useMemo(() => 
+  const allTransactions = useMemo(() => 
     Object.values(budgetState?.historicalData || {}).flatMap(month => 
       (month.transactions || []).map(t => ({
         ...t,
@@ -439,7 +439,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     console.log(`🔄 [TransactionImportEnhanced] Updating transaction ${transactionId} with updates:`, updates);
     
     // Find the transaction to get its date and derive monthKey
-    const transaction = transactions.find(t => t.id === transactionId);
+    const transaction = allTransactions.find(t => t.id === transactionId);
     if (!transaction) {
       console.error(`Transaction ${transactionId} not found`);
       return;
@@ -476,7 +476,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   };
 
   const handleTransferMatch = (transaction: ImportedTransaction) => {
-    const potentialMatches = transactions.filter(t => 
+    const potentialMatches = allTransactions.filter(t => 
       t.id !== transaction.id &&
       t.type === 'InternalTransfer' &&
       Math.abs(t.amount + transaction.amount) < 0.01 &&
@@ -498,7 +498,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   };
 
   const handleCostCoverage = (transaction: ImportedTransaction) => {
-    const potentialCosts = transactions.filter(t => 
+    const potentialCosts = allTransactions.filter(t => 
       t.type === 'Transaction' && 
       t.amount < 0 && 
       !t.coveredCostId &&
@@ -514,7 +514,7 @@ export const TransactionImportEnhanced: React.FC = () => {
 
   // Auto-match transfers
   useEffect(() => {
-    const transfers = transactions.filter(t => t.type === 'InternalTransfer' && !t.linkedTransactionId);
+    const transfers = allTransactions.filter(t => t.type === 'InternalTransfer' && !t.linkedTransactionId);
     
     transfers.forEach(transfer => {
       const potentialMatches = transfers.filter(other => 
@@ -541,7 +541,7 @@ export const TransactionImportEnhanced: React.FC = () => {
         }, matchMonthKey);
       }
     });
-  }, [transactions]);
+  }, [allTransactions]);
 
   const getTransactionStatus = (transaction: ImportedTransaction) => {
     if (transaction.status === 'green') return { color: 'text-green-600', icon: CheckCircle };
@@ -625,7 +625,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     }
 
     selectedTransactions.forEach(transactionId => {
-      const transaction = transactions.find(t => t.id === transactionId);
+      const transaction = allTransactions.find(t => t.id === transactionId);
       if (transaction && transaction.status !== 'green') {
         const monthKey = transaction.date.substring(0, 7);
         updateTransaction(transactionId, { 
@@ -656,7 +656,7 @@ export const TransactionImportEnhanced: React.FC = () => {
 
         <div className="grid gap-4">
           {accounts.map((account) => {
-            const accountTransactions = transactions.filter(t => t.accountId === account.id);
+            const accountTransactions = allTransactions.filter(t => t.accountId === account.id);
             const hasTransactions = accountTransactions.length > 0;
             
             return (
@@ -708,14 +708,14 @@ export const TransactionImportEnhanced: React.FC = () => {
         <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-3 px-2 sm:px-0">
           <Button 
             onClick={() => setCurrentStep('mapping')}
-            disabled={transactions.length === 0}
+            disabled={allTransactions.length === 0}
             variant="outline"
           >
             Kolumnmappning
           </Button>
           <Button 
             onClick={() => setCurrentStep('categorization')}
-            disabled={transactions.length === 0}
+            disabled={allTransactions.length === 0}
             variant="default"
           >
             Gå till kategorisering
@@ -759,7 +759,7 @@ export const TransactionImportEnhanced: React.FC = () => {
 
     // Get unique accounts that have transactions
     const accountsWithTransactions = accounts.filter(account => 
-      transactions.some(t => t.accountId === account.id)
+      allTransactions.some(t => t.accountId === account.id)
     );
 
     return (
@@ -778,7 +778,7 @@ export const TransactionImportEnhanced: React.FC = () => {
         </div>
 
         {accountsWithTransactions.map((account) => {
-          const accountTransactions = transactions.filter(t => t.accountId === account.id);
+          const accountTransactions = allTransactions.filter(t => t.accountId === account.id);
           const sampleCSVHeaders = ['Datum', 'Kategori', 'Underkategori', 'Text', 'Belopp', 'Saldo'];
           
           return (
@@ -944,8 +944,8 @@ export const TransactionImportEnhanced: React.FC = () => {
   };
   const renderCategorizationStep = () => {
     const filteredTransactions = hideGreenTransactions 
-      ? transactions.filter(t => t.status !== 'green')
-      : transactions;
+      ? allTransactions.filter(t => t.status !== 'green')
+      : allTransactions;
 
     return (
       <div className="space-y-4 sm:space-y-6">
@@ -968,7 +968,7 @@ export const TransactionImportEnhanced: React.FC = () => {
           </div>
           
           <div className="text-xs sm:text-sm text-muted-foreground">
-            Visar {filteredTransactions.length} av {transactions.length} transaktioner
+            Visar {filteredTransactions.length} av {allTransactions.length} transaktioner
           </div>
           
           <div className="flex flex-col sm:flex-row sm:ml-auto gap-2">
@@ -1337,7 +1337,7 @@ export const TransactionImportEnhanced: React.FC = () => {
         onClose={() => setSavingsLinkDialog({ isOpen: false })}
         transaction={savingsLinkDialog.transaction}
         onUpdateTransaction={(transactionId, updates) => {
-          const transaction = transactions.find(t => t.id === transactionId);
+          const transaction = allTransactions.find(t => t.id === transactionId);
           if (transaction) {
             const monthKey = transaction.date.substring(0, 7);
             updateTransaction(transactionId, updates, monthKey);

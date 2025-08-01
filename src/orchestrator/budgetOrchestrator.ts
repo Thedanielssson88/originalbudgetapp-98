@@ -298,8 +298,8 @@ function reconcileTransactions(
   return reconciledTransactions;
 }
 
-function createTransactionFingerprint(transaction: { date: string; description: string; amount: number }): string {
-  return `${transaction.date.trim()}_${transaction.description.trim().toLowerCase()}_${transaction.amount}`;
+function createTransactionFingerprint(transaction: { date: string; description: string; amount: number; accountId?: string }): string {
+  return `${transaction.accountId || ''}_${transaction.date.trim()}_${transaction.description.trim().toLowerCase()}_${transaction.amount}`;
 }
 
 // Event system for UI updates
