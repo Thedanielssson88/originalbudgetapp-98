@@ -1398,6 +1398,7 @@ export const TransactionImportEnhanced: React.FC = () => {
         onClose={() => setCostCoverageDialog({ isOpen: false })}
         transfer={costCoverageDialog.transfer}
         potentialCosts={costCoverageDialog.potentialCosts || []}
+        onRefresh={triggerRefresh}
       />
     </div>
   );

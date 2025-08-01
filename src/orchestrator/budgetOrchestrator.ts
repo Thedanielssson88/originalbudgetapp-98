@@ -901,32 +901,54 @@ export function linkSavingsTransaction(transactionId: string, savingsTargetId: s
 }
 
 export function coverCost(transferId: string, costId: string): void {
+  console.log(`🔗 [Orchestrator] Covering cost - transfer: ${transferId}, cost: ${costId}`);
+  
   const currentMonthKey = state.budgetState.selectedMonthKey;
   const currentMonth = state.budgetState.historicalData[currentMonthKey];
   
-  if (!currentMonth?.transactions) return;
+  if (!currentMonth?.transactions) {
+    console.error(`[Orchestrator] No transactions found for month ${currentMonthKey}`);
+    return;
+  }
   
   const transfer = currentMonth.transactions.find(t => t.id === transferId);
   const cost = currentMonth.transactions.find(t => t.id === costId);
   
-  if (!transfer || !cost || transfer.amount <= 0 || cost.amount >= 0) return;
+  console.log(`🔗 [Orchestrator] Found transfer:`, transfer ? { id: transfer.id, amount: transfer.amount, type: transfer.type } : 'NOT FOUND');
+  console.log(`🔗 [Orchestrator] Found cost:`, cost ? { id: cost.id, amount: cost.amount, type: cost.type } : 'NOT FOUND');
+  
+  if (!transfer || !cost || transfer.amount <= 0 || cost.amount >= 0) {
+    console.error(`[Orchestrator] Invalid transactions for cost coverage:`, {
+      transferFound: !!transfer,
+      costFound: !!cost,
+      transferAmount: transfer?.amount,
+      costAmount: cost?.amount
+    });
+    return;
+  }
   
   const coverAmount = Math.min(transfer.amount, Math.abs(cost.amount));
+  console.log(`🔗 [Orchestrator] Cover amount calculated: ${coverAmount}`);
   
   // Update transfer transaction
   updateTransaction(transferId, {
     type: 'CostCoverage',
     linkedTransactionId: costId,
-    correctedAmount: transfer.amount - coverAmount
+    correctedAmount: transfer.amount - coverAmount,
+    isManuallyChanged: true
   }, currentMonthKey);
   
   // Update cost transaction with bidirectional link
   updateTransaction(costId, {
     correctedAmount: cost.amount + coverAmount,
-    linkedTransactionId: transferId
+    linkedTransactionId: transferId,
+    isManuallyChanged: true
   }, currentMonthKey);
   
-  console.log(`✅ [Orchestrator] Covered ${coverAmount} from transfer ${transferId} to cost ${costId}`);
+  // Force UI update by running calculations and triggering state update
+  runCalculationsAndUpdateState();
+  
+  console.log(`✅ [Orchestrator] Cost coverage complete - covered ${coverAmount} from transfer ${transferId} to cost ${costId}`);
 }
 
 // New flexible function that can update transactions for any month

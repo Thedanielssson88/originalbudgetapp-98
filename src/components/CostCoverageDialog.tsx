@@ -19,13 +19,15 @@ interface CostCoverageDialogProps {
   onClose: () => void;
   transfer?: ImportedTransaction;
   potentialCosts?: ImportedTransaction[];
+  onRefresh?: () => void; // Add refresh callback
 }
 
 export const CostCoverageDialog: React.FC<CostCoverageDialogProps> = ({
   isOpen,
   onClose,
   transfer,
-  potentialCosts = []
+  potentialCosts = [],
+  onRefresh
 }) => {
   const [selectedCost, setSelectedCost] = React.useState<string>('');
   const [searchTerm, setSearchTerm] = React.useState<string>('');
@@ -37,7 +39,16 @@ export const CostCoverageDialog: React.FC<CostCoverageDialogProps> = ({
 
   const handleCover = () => {
     if (transfer && selectedCost) {
+      console.log(`🔗 [CostCoverageDialog] Covering cost - transfer: ${transfer.id}, cost: ${selectedCost}`);
       coverCost(transfer.id, selectedCost);
+      
+      // Trigger refresh if callback provided
+      if (onRefresh) {
+        setTimeout(() => {
+          onRefresh();
+        }, 100);
+      }
+      
       onClose();
     }
   };
