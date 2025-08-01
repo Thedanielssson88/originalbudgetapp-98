@@ -355,6 +355,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   const allTransactions = useMemo(() => {
     console.log('🔍 [DEBUG] budgetState.historicalData:', budgetState?.historicalData);
     console.log('🔍 [DEBUG] Available months:', Object.keys(budgetState?.historicalData || {}));
+    console.log('🔍 [DEBUG] useMemo re-calculating allTransactions...');
     
     const transactions = Object.values(budgetState?.historicalData || {}).flatMap(month => {
       console.log('🔍 [DEBUG] Month data:', month);
@@ -369,7 +370,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     console.log('🔍 [DEBUG] Total allTransactions count:', transactions.length);
     console.log('🔍 [DEBUG] Sample transactions:', transactions.slice(0, 3));
     return transactions;
-  }, [budgetState.historicalData]);
+  }, [budgetState?.historicalData, budgetState?.selectedMonthKey]);
 
   // Use actual accounts from budget state
   const accounts: Account[] = budgetState?.accounts || [];
@@ -1248,7 +1249,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                 <div className="space-y-3">
                   {filteredTransactions.map(transaction => (
                     <TransactionExpandableCard
-                      key={transaction.id}
+                      key={`${transaction.id}-${transaction.status}-${transaction.type}-${transaction.isManuallyChanged || 'auto'}`}
                       transaction={transaction}
                       account={accounts.find(acc => acc.id === transaction.accountId)}
                       isSelected={selectedTransactions.includes(transaction.id)}
@@ -1284,7 +1285,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                     <div className="space-y-3">
                       {accountTransactions.map(transaction => (
                         <TransactionExpandableCard
-                          key={transaction.id}
+                          key={`${transaction.id}-${transaction.status}-${transaction.type}-${transaction.isManuallyChanged || 'auto'}`}
                           transaction={transaction}
                           account={account}
                           isSelected={selectedTransactions.includes(transaction.id)}
