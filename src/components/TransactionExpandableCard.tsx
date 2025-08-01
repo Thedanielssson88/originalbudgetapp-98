@@ -239,40 +239,6 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                     </div>
                   </div>
 
-                  {/* Savings link status */}
-                  {transaction.type === 'Savings' && transaction.savingsTargetId && (
-                    <div>
-                      <label className="text-xs font-medium text-muted-foreground">Kopplat till sparande</label>
-                      <div className="mt-1 p-2 bg-green-50 border border-green-200 rounded-md">
-                        <p className="text-sm text-green-700 font-medium">
-                          {(() => {
-                            const targetId = transaction.savingsTargetId;
-                            if (!targetId) return 'Okänt sparmål';
-                            
-                            const currentMonthData = budgetState?.historicalData?.[budgetState.selectedMonthKey];
-                            const savingsGroups = currentMonthData?.savingsGroups || [];
-                            const savingsGoals = budgetState?.savingsGoals || [];
-                            
-                            // Check if it's a savings subcategory (specific savings post)
-                            for (const group of savingsGroups) {
-                              const subcategory = (group.subCategories || []).find((sub: any) => sub.id === targetId);
-                              if (subcategory) {
-                                return `${subcategory.name} (från ${group.name})`;
-                              }
-                            }
-                            
-                            // Check if it's a savings goal
-                            const goal = savingsGoals.find((g: any) => g.id === targetId);
-                            if (goal) {
-                              return `${goal.name} (Sparmål)`;
-                            }
-                            
-                            return 'Okänt sparmål';
-                          })()}
-                        </p>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Action buttons based on transaction type */}
                   <div>
@@ -367,6 +333,71 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                               </div>
                             );
                           }
+                        })()}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Linked savings information */}
+                  {transaction.savingsTargetId && (transaction.type === 'Savings' || transaction.type === 'Transaction') && (
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Kopplad till sparande
+                      </label>
+                      <div className="mt-1 p-2 bg-green-50 border border-green-200 rounded-md">
+                        {(() => {
+                          // Get current month data for savings categories
+                          const currentMonthData = budgetState?.historicalData?.[budgetState.selectedMonthKey];
+                          const savingsGroups = currentMonthData?.savingsGroups || [];
+                          const savingsGoals = budgetState?.savingsGoals || [];
+                          
+                          // First check savings subcategories
+                          let foundTarget = null;
+                          savingsGroups.forEach(group => {
+                            (group.subCategories || []).forEach(sub => {
+                              if (sub.id === transaction.savingsTargetId) {
+                                foundTarget = {
+                                  name: sub.name,
+                                  groupName: group.name,
+                                  type: 'subcategory'
+                                };
+                              }
+                            });
+                          });
+                          
+                          // If not found in subcategories, check savings goals
+                          if (!foundTarget) {
+                            const goal = savingsGoals.find(g => g.id === transaction.savingsTargetId);
+                            if (goal) {
+                              foundTarget = {
+                                name: goal.name,
+                                groupName: 'Sparmål',
+                                type: 'goal'
+                              };
+                            }
+                          }
+                          
+                          if (!foundTarget) {
+                            return (
+                              <p className="text-sm text-green-700">
+                                Kopplad till okänt sparmål (ID: {transaction.savingsTargetId})
+                              </p>
+                            );
+                          }
+                          
+                          return (
+                            <div className="space-y-1">
+                              <p className="text-sm text-green-700 font-medium">
+                                {transaction.amount.toLocaleString('sv-SE')} kr sparas i:
+                              </p>
+                              <p className="text-sm text-green-600">
+                                {foundTarget.name}
+                              </p>
+                              <p className="text-xs text-green-500">
+                                Kategori: {foundTarget.groupName}
+                              </p>
+                            </div>
+                          );
                         })()}
                       </div>
                     </div>
