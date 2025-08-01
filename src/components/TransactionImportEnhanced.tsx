@@ -533,7 +533,7 @@ export const TransactionImportEnhanced: React.FC = () => {
 
   // Reconcile transactions from file with already saved transactions
   const reconcileTransactions = useCallback((transactionsFromFile: ImportedTransaction[], accountId: string): ImportedTransaction[] => {
-    console.log(`[Reconciliation] Starting reconciliation for account ${accountId} with ${transactionsFromFile.length} transactions from file`);
+    console.error(`[RECONCILIATION CRITICAL] 🚨 Starting reconciliation for account ${accountId} with ${transactionsFromFile.length} transactions from file`);
     
     // Get currently saved transactions for this month and account
     const currentState = getCurrentState();
@@ -580,9 +580,9 @@ export const TransactionImportEnhanced: React.FC = () => {
       
       const existingTransaction = savedTransactionsMap.get(fingerprint);
       
-      console.log(`[DEBUG] Processing transaction: ${fingerprint}`);
-      console.log(`[DEBUG] File transaction:`, fileTransaction);
-      console.log(`[DEBUG] Existing transaction found:`, !!existingTransaction);
+      console.error(`[DEBUG CRITICAL] Processing transaction: ${fingerprint}`);
+      console.error(`[DEBUG CRITICAL] File transaction:`, fileTransaction);
+      console.error(`[DEBUG CRITICAL] Existing transaction found:`, !!existingTransaction);
       
       if (existingTransaction) {
         // KORREKT SMART MERGE: Börja med den sparade versionen som har användarens ändringar.
@@ -707,9 +707,12 @@ export const TransactionImportEnhanced: React.FC = () => {
       });
 
       // Reconcile transactions with already saved data before adding to global list
+      console.log(`[FileUpload] ⚠️ STARTING RECONCILIATION for account: ${accountName}`);
+      console.log(`[FileUpload] Parsed transactions count: ${parsedTransactions.length}`);
       const reconciledTransactions = reconcileTransactions(parsedTransactions, accountName);
       
-      console.log(`[FileUpload] Reconciliation complete. Original: ${parsedTransactions.length}, Reconciled: ${reconciledTransactions.length}`);
+      console.log(`[FileUpload] ✅ RECONCILIATION COMPLETED. Original: ${parsedTransactions.length}, Reconciled: ${reconciledTransactions.length}`);
+      console.log(`[FileUpload] Sample reconciled transaction:`, reconciledTransactions[0]);
 
       // Save directly to central state - group by month
       const transactionsByMonth: { [monthKey: string]: ImportedTransaction[] } = {};
