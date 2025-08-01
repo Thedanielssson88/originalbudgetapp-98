@@ -546,6 +546,16 @@ export const TransactionImportEnhanced: React.FC = () => {
     // Filter saved transactions for this account only
     const savedTransactionsForAccount = savedTransactions.filter(t => t.accountId === accountId);
     console.log(`[Reconciliation] Found ${savedTransactionsForAccount.length} saved transactions for account ${accountId}`);
+    console.log(`[DEBUG] Saved transactions for account:`, savedTransactionsForAccount.map(t => ({
+      id: t.id,
+      type: t.type,
+      status: t.status,
+      isManuallyChanged: t.isManuallyChanged,
+      userDescription: t.userDescription,
+      description: t.description,
+      amount: t.amount,
+      date: t.date
+    })));
     
     // Create a map of saved transactions for quick lookup
     const savedTransactionsMap = new Map<string, ImportedTransaction>();
@@ -570,9 +580,22 @@ export const TransactionImportEnhanced: React.FC = () => {
       
       const existingTransaction = savedTransactionsMap.get(fingerprint);
       
+      console.log(`[DEBUG] Processing transaction: ${fingerprint}`);
+      console.log(`[DEBUG] File transaction:`, fileTransaction);
+      console.log(`[DEBUG] Existing transaction found:`, !!existingTransaction);
+      
       if (existingTransaction) {
         // KORREKT SMART MERGE: Börja med den sparade versionen som har användarens ändringar.
         console.log(`[Reconciliation] ✅ Match found for: ${fingerprint}. Performing smart merge.`);
+        console.log(`[DEBUG] Existing transaction details:`, {
+          type: existingTransaction.type,
+          status: existingTransaction.status,
+          appCategoryId: existingTransaction.appCategoryId,
+          appSubCategoryId: existingTransaction.appSubCategoryId,
+          savingsTargetId: existingTransaction.savingsTargetId,
+          isManuallyChanged: existingTransaction.isManuallyChanged,
+          userDescription: existingTransaction.userDescription
+        });
         
         const merged = { ...existingTransaction };
         
@@ -588,6 +611,15 @@ export const TransactionImportEnhanced: React.FC = () => {
         merged.description = fileTransaction.description;
         merged.amount = fileTransaction.amount;
         
+        console.log(`[DEBUG] Merged transaction result:`, {
+          type: merged.type,
+          status: merged.status,
+          appCategoryId: merged.appCategoryId,
+          appSubCategoryId: merged.appSubCategoryId,
+          savingsTargetId: merged.savingsTargetId,
+          isManuallyChanged: merged.isManuallyChanged,
+          userDescription: merged.userDescription
+        });
         console.log(`[Reconciliation] Smart merge completed. User changes preserved.`);
         return merged;
       } else {
@@ -728,12 +760,14 @@ export const TransactionImportEnhanced: React.FC = () => {
         // Auto-link them using central state
         updateTransaction(transfer.id, {
           linkedTransactionId: match.id,
-          status: 'yellow' as const
+          status: 'yellow' as const,
+          isManuallyChanged: true
         }, transferMonthKey);
         
         updateTransaction(match.id, {
           linkedTransactionId: transfer.id,
-          status: 'yellow' as const
+          status: 'yellow' as const,
+          isManuallyChanged: true
         }, matchMonthKey);
       }
     });
@@ -943,7 +977,7 @@ export const TransactionImportEnhanced: React.FC = () => {
       const transaction = transactions.find(t => t.id === transactionId);
       if (transaction) {
         const monthKey = transaction.date.substring(0, 7);
-        updateTransaction(transactionId, { status: 'green' as const }, monthKey);
+        updateTransaction(transactionId, { status: 'green' as const, isManuallyChanged: true }, monthKey);
       }
     });
     
@@ -1010,7 +1044,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     const monthKey = transaction.date.substring(0, 7);
     
     // Update transaction directly in central state
-    updateTransaction(transactionId, { userDescription: note }, monthKey);
+    updateTransaction(transactionId, { userDescription: note, isManuallyChanged: true }, monthKey);
   };
 
   // Handler functions for action buttons
