@@ -17,7 +17,9 @@ export enum StorageKey {
   CUSTOM_HOLIDAYS = 'custom_holidays',
   CHART_SETTINGS = 'chart_settings',
   MAIN_CATEGORIES = 'main_categories',
-  SUBCATEGORIES = 'subcategories'
+  SUBCATEGORIES = 'subcategories',
+  BANKS = 'banks',
+  BANK_CSV_MAPPINGS = 'bank_csv_mappings'
 }
 
 export function get<T>(key: StorageKey): T | null {

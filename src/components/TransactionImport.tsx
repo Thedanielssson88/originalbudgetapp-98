@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,11 +21,15 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
-import { Upload, CheckCircle, FileText, Settings, AlertCircle } from 'lucide-react';
+import { Upload, CheckCircle, FileText, Settings, AlertCircle, Plus } from 'lucide-react';
+import { AddBankDialog } from './AddBankDialog';
+import { Bank, BankCSVMapping, ColumnMapping } from '@/types/bank';
+import { get, set, StorageKey } from '@/services/storageService';
 
 interface UploadedFile {
   file: File;
   accountId: string;
+  bankId?: string;
   balance?: number;
   status: 'uploaded' | 'mapped' | 'processed';
 }
@@ -38,6 +42,7 @@ interface CSVColumn {
 
 interface FileMapping {
   fileId: string;
+  bankId?: string;
   columns: CSVColumn[];
   structure: string; // unique identifier for this file structure
 }
@@ -46,6 +51,9 @@ export const TransactionImport: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<'upload' | 'mapping' | 'categorization'>('upload');
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [fileMappings, setFileMappings] = useState<FileMapping[]>([]);
+  const [banks, setBanks] = useState<Bank[]>([]);
+  const [bankCSVMappings, setBankCSVMappings] = useState<BankCSVMapping[]>([]);
+  const [selectedBanks, setSelectedBanks] = useState<{[accountId: string]: string}>({});
   const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
 
   // Mock accounts - this should come from props or context
@@ -54,6 +62,49 @@ export const TransactionImport: React.FC = () => {
     { id: 'sparkonto', name: 'Sparkonto', balance: 0 },
     { id: 'barnkonto', name: 'Barnkonto', balance: 0 }
   ];
+
+  // Load banks and mappings from storage
+  useEffect(() => {
+    const storedBanks = get<Bank[]>(StorageKey.BANKS) || [];
+    const storedMappings = get<BankCSVMapping[]>(StorageKey.BANK_CSV_MAPPINGS) || [];
+    setBanks(storedBanks);
+    setBankCSVMappings(storedMappings);
+  }, []);
+
+  const handleAddBank = (bankName: string) => {
+    const newBank: Bank = {
+      id: uuidv4(),
+      name: bankName,
+      createdAt: new Date().toISOString()
+    };
+    
+    const updatedBanks = [...banks, newBank];
+    setBanks(updatedBanks);
+    set(StorageKey.BANKS, updatedBanks);
+  };
+
+  const handleBankSelection = (accountId: string, bankId: string) => {
+    setSelectedBanks(prev => ({ ...prev, [accountId]: bankId }));
+    
+    // Load existing mapping for this bank if available
+    const existingMapping = bankCSVMappings.find(mapping => mapping.bankId === bankId && mapping.isActive);
+    if (existingMapping) {
+      // Apply the existing mapping to current file mappings
+      setFileMappings(prev => prev.map(mapping => {
+        if (mapping.fileId.startsWith(accountId)) {
+          return {
+            ...mapping,
+            bankId,
+            columns: mapping.columns.map(col => {
+              const existingCol = existingMapping.columns.find(c => c.csvColumn === col.name);
+              return existingCol ? { ...col, mappedTo: existingCol.appField } : col;
+            })
+          };
+        }
+        return mapping;
+      }));
+    }
+  };
 
   const handleFileUpload = (accountId: string, file: File) => {
     // Parse CSV and extract sample data
@@ -76,9 +127,11 @@ export const TransactionImport: React.FC = () => {
         }
       }
 
+      const bankId = selectedBanks[accountId];
       const uploadedFile: UploadedFile = {
         file,
         accountId,
+        bankId,
         balance: extractedBalance,
         status: 'uploaded'
       };
@@ -100,6 +153,7 @@ export const TransactionImport: React.FC = () => {
 
       const fileMapping: FileMapping = {
         fileId: `${accountId}-${uuidv4()}`,
+        bankId,
         columns,
         structure: headers.join('|') // Simple structure identifier
       };
@@ -108,8 +162,82 @@ export const TransactionImport: React.FC = () => {
         const filtered = prev.filter(f => !f.fileId.startsWith(accountId));
         return [...filtered, fileMapping];
       });
+
+      // If a bank is selected and has existing mappings, apply them
+      if (bankId) {
+        const existingMapping = bankCSVMappings.find(mapping => mapping.bankId === bankId && mapping.isActive);
+        if (existingMapping) {
+          setTimeout(() => {
+            setFileMappings(prev => prev.map(mapping => {
+              if (mapping.fileId.startsWith(accountId) && mapping.bankId === bankId) {
+                return {
+                  ...mapping,
+                  columns: mapping.columns.map(col => {
+                    const existingCol = existingMapping.columns.find(c => c.csvColumn === col.name);
+                    return existingCol ? { ...col, mappedTo: existingCol.appField } : col;
+                  })
+                };
+              }
+              return mapping;
+            }));
+          }, 100);
+        }
+      }
     };
     reader.readAsText(file);
+  };
+
+  const handleColumnMapping = (fileId: string, columnIndex: number, appField: string) => {
+    setFileMappings(prev => prev.map(mapping => {
+      if (mapping.fileId === fileId) {
+        const updatedColumns = [...mapping.columns];
+        updatedColumns[columnIndex] = { ...updatedColumns[columnIndex], mappedTo: appField };
+        return { ...mapping, columns: updatedColumns };
+      }
+      return mapping;
+    }));
+  };
+
+  const saveBankCSVMappings = () => {
+    fileMappings.forEach(mapping => {
+      if (mapping.bankId) {
+        const bankName = banks.find(b => b.id === mapping.bankId)?.name || 'Unknown Bank';
+        const columns: ColumnMapping[] = mapping.columns
+          .filter(col => col.mappedTo && col.mappedTo !== 'ignore')
+          .map(col => ({
+            csvColumn: col.name,
+            appField: col.mappedTo as any
+          }));
+
+        const existingMappingIndex = bankCSVMappings.findIndex(bm => bm.bankId === mapping.bankId);
+        let updatedMappings: BankCSVMapping[];
+
+        if (existingMappingIndex >= 0) {
+          // Update existing mapping
+          updatedMappings = [...bankCSVMappings];
+          updatedMappings[existingMappingIndex] = {
+            ...updatedMappings[existingMappingIndex],
+            columns,
+            fingerprint: mapping.structure
+          };
+        } else {
+          // Create new mapping
+          const newMapping: BankCSVMapping = {
+            id: uuidv4(),
+            bankId: mapping.bankId,
+            name: `${bankName} Format`,
+            columns,
+            fingerprint: mapping.structure,
+            isActive: true,
+            createdAt: new Date().toISOString()
+          };
+          updatedMappings = [...bankCSVMappings, newMapping];
+        }
+
+        setBankCSVMappings(updatedMappings);
+        set(StorageKey.BANK_CSV_MAPPINGS, updatedMappings);
+      }
+    });
   };
 
   const triggerFileUpload = (accountId: string) => {
@@ -166,11 +294,42 @@ export const TransactionImport: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
+                  {/* Bank selection */}
+                  <div className="space-y-2">
+                    <Label htmlFor={`bank-${account.id}`} className="text-sm font-medium">Bank</Label>
+                    <div className="flex items-center space-x-2">
+                      <Select 
+                        value={selectedBanks[account.id] || ''} 
+                        onValueChange={(value) => handleBankSelection(account.id, value)}
+                      >
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Välj bank" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {banks.map(bank => (
+                            <SelectItem key={bank.id} value={bank.id}>
+                              {bank.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <AddBankDialog 
+                        onAddBank={handleAddBank}
+                        trigger={
+                          <Button variant="outline" size="icon">
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        }
+                      />
+                    </div>
+                  </div>
+
                   {uploadStatus === 'pending' ? (
                     <Button 
                       onClick={() => triggerFileUpload(account.id)}
                       className="w-full"
                       variant="outline"
+                      disabled={!selectedBanks[account.id]}
                     >
                       <Upload className="w-4 h-4 mr-2" />
                       Läs In
@@ -266,7 +425,10 @@ export const TransactionImport: React.FC = () => {
                       {column.sampleData.length > 2 && '...'}
                     </TableCell>
                     <TableCell>
-                      <Select>
+                      <Select 
+                        value={column.mappedTo || ''} 
+                        onValueChange={(value) => handleColumnMapping(mapping.fileId, colIndex, value)}
+                      >
                         <SelectTrigger className="w-32 sm:w-48">
                           <SelectValue placeholder="Välj fält" />
                         </SelectTrigger>
@@ -301,7 +463,10 @@ export const TransactionImport: React.FC = () => {
           Tillbaka
         </Button>
         <Button 
-          onClick={() => setCurrentStep('categorization')}
+          onClick={() => {
+            saveBankCSVMappings();
+            setCurrentStep('categorization');
+          }}
           className="w-full sm:min-w-48"
         >
           Fortsätt till kategorisering
