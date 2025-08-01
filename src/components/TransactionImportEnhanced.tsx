@@ -1391,6 +1391,7 @@ export const TransactionImportEnhanced: React.FC = () => {
             updateTransaction(transactionId, updates, monthKey);
           }
         }}
+        onRefresh={() => setRefreshKey(prev => prev + 1)}
       />
 
       <CostCoverageDialog

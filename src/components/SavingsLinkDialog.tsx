@@ -11,6 +11,7 @@ interface SavingsLinkDialogProps {
   onClose: () => void;
   transaction?: ImportedTransaction;
   onUpdateTransaction: (transactionId: string, updates: Partial<ImportedTransaction>) => void;
+  onRefresh?: () => void; // Add refresh callback
 }
 
 interface SavingsTarget {
@@ -24,7 +25,8 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
   isOpen,
   onClose,
   transaction,
-  onUpdateTransaction
+  onUpdateTransaction,
+  onRefresh
 }) => {
   const [selectedTarget, setSelectedTarget] = useState<string>('');
   const { budgetState } = useBudget();
@@ -108,6 +110,14 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
     
     // Call the prop function instead of direct orchestrator call
     onUpdateTransaction(transaction.id, updates);
+    
+    // Trigger refresh after the update
+    if (onRefresh) {
+      setTimeout(() => {
+        onRefresh();
+      }, 100);
+    }
+    
     onClose();
   };
 
