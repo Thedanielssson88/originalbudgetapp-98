@@ -47,6 +47,21 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
     console.log('🔍 [BALANCE CORRECTION] Transactions count:', transactions.length);
     console.log('🔍 [BALANCE CORRECTION] Account balances:', accountBalances);
     
+    // Debug: Log all unique account IDs and check for Hushållskonto specifically
+    const allAccountIds = [...new Set(transactions.map(tx => tx.accountId))];
+    console.log('🔍 [BALANCE CORRECTION] All account IDs in transactions:', allAccountIds);
+    
+    const hushallskontoTransactions = transactions.filter(tx => 
+      tx.accountId.toLowerCase().includes('hushåll') || tx.accountId === 'Hushållskonto'
+    );
+    console.log('🔍 [BALANCE CORRECTION] Hushållskonto transactions found:', hushallskontoTransactions.length);
+    console.log('🔍 [BALANCE CORRECTION] Hushållskonto sample:', hushallskontoTransactions.slice(0, 5).map(t => ({ 
+      date: t.date, 
+      day: new Date(t.date).getDate(), 
+      balanceAfter: t.balanceAfter,
+      accountId: t.accountId
+    })));
+    
     const data: MonthBalanceData[] = [];
     
     // Helper functions
@@ -108,6 +123,25 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
         });
 
         console.log(`🔍 [BALANCE CORRECTION] Account ${accountId} - relevant transactions (≤24th):`, relevantTransactions.length);
+        
+        // Extra debugging for Hushållskonto
+        if (accountId.toLowerCase().includes('hushåll') || accountId === 'Hushållskonto') {
+          console.log(`🔍 [BALANCE CORRECTION] HUSHÅLLSKONTO DEBUG - All transactions for ${accountId}:`, 
+            accountTransactions.map(tx => ({
+              date: tx.date,
+              day: new Date(tx.date).getDate(),
+              balanceAfter: tx.balanceAfter,
+              hasBalance: tx.balanceAfter !== undefined && tx.balanceAfter !== null
+            }))
+          );
+          console.log(`🔍 [BALANCE CORRECTION] HUSHÅLLSKONTO DEBUG - Relevant transactions (≤24th):`, 
+            relevantTransactions.map(tx => ({
+              date: tx.date,
+              day: new Date(tx.date).getDate(),
+              balanceAfter: tx.balanceAfter
+            }))
+          );
+        }
 
         // 6. If there are relevant transactions, find the latest one
         if (relevantTransactions.length > 0) {
@@ -195,7 +229,7 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
 
         <div className="space-y-4">
           <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground`}>
-            Denna dialog visar månader där CSV-filen innehåller transaktioner på eller efter den 24:e i månaden. 
+            Denna dialog visar månader där CSV-filen innehåller transaktioner med saldo. 
             Du kan använda bankens saldo från den sista transaktionen före den 25:e för att korrigera startsaldot i systemet.
           </p>
 
@@ -203,7 +237,7 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
             <div className="text-center py-8 text-muted-foreground">
               <p>Inga månader hittades som behöver korrigering.</p>
               <p className="text-sm mt-2">
-                Denna funktion visas endast när CSV-filen innehåller transaktioner på eller efter den 24:e i månaden.
+                Denna funktion visas endast när CSV-filen innehåller transaktioner med banksaldo.
               </p>
             </div>
           ) : (
