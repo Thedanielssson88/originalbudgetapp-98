@@ -645,10 +645,10 @@ export const TransactionImportEnhanced: React.FC = () => {
   // Main upload step - shows accounts and upload status
   const renderUploadStep = () => {
     return (
-      <div className="space-y-6">
-        <div className="text-center space-y-4">
-          <h2 className="text-2xl font-bold">Ladda upp CSV-filer</h2>
-          <p className="text-muted-foreground max-w-md mx-auto">
+      <div className="space-y-4 sm:space-y-6">
+        <div className="text-center space-y-3 sm:space-y-4 px-2">
+          <h2 className="text-xl sm:text-2xl font-bold">Ladda upp CSV-filer</h2>
+          <p className="text-sm sm:text-base text-muted-foreground max-w-md mx-auto">
             Välj kontona du vill importera transaktioner för och ladda upp motsvarande CSV-filer från din bank.
           </p>
         </div>
@@ -661,14 +661,16 @@ export const TransactionImportEnhanced: React.FC = () => {
             return (
               <Card key={account.id} className="relative">
                 <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-lg">{account.name}</CardTitle>
-                      <CardDescription>Startbalans: {account.startBalance.toLocaleString('sv-SE')} kr</CardDescription>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-base sm:text-lg truncate">{account.name}</CardTitle>
+                      <CardDescription className="text-sm">
+                        Startbalans: {account.startBalance.toLocaleString('sv-SE')} kr
+                      </CardDescription>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       {hasTransactions && (
-                        <Badge variant="secondary">
+                        <Badge variant="secondary" className="text-xs">
                           {accountTransactions.length} transaktioner
                         </Badge>
                       )}
@@ -676,8 +678,9 @@ export const TransactionImportEnhanced: React.FC = () => {
                         onClick={() => triggerFileUpload(account.id)}
                         size="sm"
                         variant={hasTransactions ? "outline" : "default"}
+                        className="text-xs sm:text-sm"
                       >
-                        <Upload className="w-4 h-4 mr-2" />
+                        <Upload className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                         {hasTransactions ? "Ändra fil" : "Ladda upp"}
                       </Button>
                     </div>
@@ -701,7 +704,7 @@ export const TransactionImportEnhanced: React.FC = () => {
           })}
         </div>
 
-        <div className="flex justify-center gap-3">
+        <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-3 px-2 sm:px-0">
           <Button 
             onClick={() => setCurrentStep('mapping')}
             disabled={transactions.length === 0}
@@ -773,71 +776,133 @@ export const TransactionImportEnhanced: React.FC = () => {
                 <div className="space-y-6">
                   <div>
                     <h4 className="text-sm font-medium mb-3">Kolumnmappning</h4>
-                    <div className="overflow-x-auto">
-                      <div className="min-w-full">
-                        <Table className="text-xs">
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="w-20 text-xs">Kolumn</TableHead>
-                              <TableHead className="w-24 text-xs">Exempeldata</TableHead>
-                              <TableHead className="w-32 text-xs">Mappa till</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {sampleCSVHeaders.map((header, colIndex) => {
-                              const exampleData = accountTransactions.slice(0, 2).map(t => {
-                                if (header.toLowerCase().includes('datum')) return t.date;
-                                if (header.toLowerCase().includes('belopp')) return t.amount.toString();
-                                if (header.toLowerCase().includes('text')) return t.description;
-                                if (header.toLowerCase().includes('kategori')) return t.bankCategory || '';
-                                return `Exempel ${colIndex + 1}`;
-                              });
+                    
+                    {/* Mobile-first responsive layout */}
+                    <div className="space-y-4 md:hidden">
+                      {sampleCSVHeaders.map((header, colIndex) => {
+                        const exampleData = accountTransactions.slice(0, 2).map(t => {
+                          if (header.toLowerCase().includes('datum')) return t.date;
+                          if (header.toLowerCase().includes('belopp')) return t.amount.toString();
+                          if (header.toLowerCase().includes('text')) return t.description;
+                          if (header.toLowerCase().includes('kategori')) return t.bankCategory || '';
+                          return `Exempel ${colIndex + 1}`;
+                        });
 
-                              return (
-                                <TableRow key={colIndex}>
-                                  <TableCell className="font-medium text-xs">
-                                    {header}
-                                  </TableCell>
-                                  <TableCell className="text-xs">
-                                    <div className="space-y-1 max-w-32">
-                                      {exampleData.map((data, i) => (
-                                        <div key={i} className="truncate bg-muted/30 px-2 py-1 rounded text-xs">
-                                          {data}
-                                        </div>
-                                      ))}
+                        return (
+                          <Card key={colIndex} className="p-3">
+                            <div className="space-y-3">
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Kolumn</Label>
+                                <p className="text-sm font-medium">{header}</p>
+                              </div>
+                              
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Exempeldata</Label>
+                                <div className="space-y-1 mt-1">
+                                  {exampleData.map((data, i) => (
+                                    <div key={i} className="text-xs bg-muted/30 px-2 py-1 rounded truncate">
+                                      {data}
                                     </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Select
-                                      value={columnMappings[account.id]?.[header] || 'ignore'}
-                                      onValueChange={(value) => {
-                                        setColumnMappings(prev => ({
-                                          ...prev,
-                                          [account.id]: {
-                                            ...prev[account.id],
-                                            [header]: value
-                                          }
-                                        }));
-                                      }}
-                                    >
-                                      <SelectTrigger className="w-28 h-8 text-xs">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {systemFields.map(field => (
-                                          <SelectItem key={field.value} value={field.value} className="text-xs">
-                                            {field.label}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
-                      </div>
+                                  ))}
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Mappa till</Label>
+                                <Select
+                                  value={columnMappings[account.id]?.[header] || 'ignore'}
+                                  onValueChange={(value) => {
+                                    setColumnMappings(prev => ({
+                                      ...prev,
+                                      [account.id]: {
+                                        ...prev[account.id],
+                                        [header]: value
+                                      }
+                                    }));
+                                  }}
+                                >
+                                  <SelectTrigger className="w-full h-8 text-xs mt-1">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {systemFields.map(field => (
+                                      <SelectItem key={field.value} value={field.value} className="text-xs">
+                                        {field.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+
+                    {/* Desktop table layout */}
+                    <div className="hidden md:block overflow-x-auto">
+                      <Table className="text-xs min-w-full">
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-24 text-xs">Kolumn</TableHead>
+                            <TableHead className="w-32 text-xs">Exempeldata</TableHead>
+                            <TableHead className="w-36 text-xs">Mappa till</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {sampleCSVHeaders.map((header, colIndex) => {
+                            const exampleData = accountTransactions.slice(0, 2).map(t => {
+                              if (header.toLowerCase().includes('datum')) return t.date;
+                              if (header.toLowerCase().includes('belopp')) return t.amount.toString();
+                              if (header.toLowerCase().includes('text')) return t.description;
+                              if (header.toLowerCase().includes('kategori')) return t.bankCategory || '';
+                              return `Exempel ${colIndex + 1}`;
+                            });
+
+                            return (
+                              <TableRow key={colIndex}>
+                                <TableCell className="font-medium text-xs">
+                                  {header}
+                                </TableCell>
+                                <TableCell className="text-xs">
+                                  <div className="space-y-1 max-w-32">
+                                    {exampleData.map((data, i) => (
+                                      <div key={i} className="truncate bg-muted/30 px-2 py-1 rounded text-xs">
+                                        {data}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Select
+                                    value={columnMappings[account.id]?.[header] || 'ignore'}
+                                    onValueChange={(value) => {
+                                      setColumnMappings(prev => ({
+                                        ...prev,
+                                        [account.id]: {
+                                          ...prev[account.id],
+                                          [header]: value
+                                        }
+                                      }));
+                                    }}
+                                  >
+                                    <SelectTrigger className="w-32 h-8 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {systemFields.map(field => (
+                                        <SelectItem key={field.value} value={field.value} className="text-xs">
+                                          {field.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
                     </div>
                   </div>
                 </div>
@@ -846,7 +911,7 @@ export const TransactionImportEnhanced: React.FC = () => {
           );
         })}
 
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center px-2 sm:px-0">
           <Button onClick={() => setCurrentStep('upload')} variant="outline">
             Tillbaka: Uppladdning
           </Button>
@@ -866,34 +931,38 @@ export const TransactionImportEnhanced: React.FC = () => {
       : transactions;
 
     return (
-      <div className="space-y-6">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-2">Kategorisering</h2>
-          <p className="text-muted-foreground">
+      <div className="space-y-4 sm:space-y-6">
+        <div className="text-center px-2">
+          <h2 className="text-xl sm:text-2xl font-bold mb-2">Kategorisering</h2>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Granska och kategorisera dina importerade transaktioner.
           </p>
         </div>
 
-        <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg">
+        {/* Mobile-optimized controls */}
+        <div className="space-y-3 sm:space-y-0 sm:flex sm:items-center sm:gap-4 p-3 sm:p-4 bg-muted/30 rounded-lg">
           <div className="flex items-center space-x-2">
             <Checkbox
               id="hideGreen"
               checked={hideGreenTransactions}
               onCheckedChange={(checked) => setHideGreenTransactions(checked === true)}
             />
-            <Label htmlFor="hideGreen">Dölj godkända transaktioner</Label>
+            <Label htmlFor="hideGreen" className="text-sm">Dölj godkända transaktioner</Label>
           </div>
-          <div className="text-sm text-muted-foreground">
+          
+          <div className="text-xs sm:text-sm text-muted-foreground">
             Visar {filteredTransactions.length} av {transactions.length} transaktioner
           </div>
-          <div className="ml-auto flex gap-2">
+          
+          <div className="flex flex-col sm:flex-row sm:ml-auto gap-2">
             <Button
               onClick={handleApproveSelected}
               disabled={selectedTransactions.length === 0}
               size="sm"
               variant="default"
+              className="text-xs sm:text-sm"
             >
-              <CheckCircle className="w-4 h-4 mr-1" />
+              <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
               Godkänn valda ({selectedTransactions.length})
             </Button>
             <Button
@@ -901,6 +970,7 @@ export const TransactionImportEnhanced: React.FC = () => {
               disabled={selectedTransactions.length === 0}
               size="sm"
               variant="outline"
+              className="text-xs sm:text-sm"
             >
               Rensa urval
             </Button>
@@ -908,10 +978,10 @@ export const TransactionImportEnhanced: React.FC = () => {
         </div>
 
         <Tabs value={activeTransactionTab} onValueChange={(value) => setActiveTransactionTab(value as 'all' | 'account' | 'rules')}>
-          <TabsList>
-            <TabsTrigger value="rules">Regler</TabsTrigger>
-            <TabsTrigger value="all">Alla transaktioner</TabsTrigger>
-            <TabsTrigger value="account">Per konto</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 text-xs sm:text-sm">
+            <TabsTrigger value="rules" className="text-xs sm:text-sm">Regler</TabsTrigger>
+            <TabsTrigger value="all" className="text-xs sm:text-sm">Alla transaktioner</TabsTrigger>
+            <TabsTrigger value="account" className="text-xs sm:text-sm">Per konto</TabsTrigger>
           </TabsList>
           
           
@@ -1207,25 +1277,25 @@ export const TransactionImportEnhanced: React.FC = () => {
   const currentStepIndex = steps.findIndex(step => step.id === currentStep);
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      {/* Progress indicator */}
+    <div className="container mx-auto p-2 sm:p-4 space-y-4 sm:space-y-6">
+      {/* Progress indicator - Mobile optimized */}
       <div className="flex justify-center">
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2 sm:space-x-4 overflow-x-auto px-2">
           {steps.map((step, index) => (
-            <div key={step.id} className="flex items-center">
+            <div key={step.id} className="flex items-center flex-shrink-0">
               <div className={`
-                w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+                w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium
                 ${index <= currentStepIndex 
                   ? 'bg-primary text-primary-foreground' 
                   : 'bg-muted text-muted-foreground'}
               `}>
                 {index + 1}
               </div>
-              <span className={`ml-2 text-sm ${index <= currentStepIndex ? 'text-foreground' : 'text-muted-foreground'}`}>
+              <span className={`ml-1 sm:ml-2 text-xs sm:text-sm whitespace-nowrap ${index <= currentStepIndex ? 'text-foreground' : 'text-muted-foreground'}`}>
                 {step.label}
               </span>
               {index < steps.length - 1 && (
-                <div className={`ml-4 w-8 h-px ${index < currentStepIndex ? 'bg-primary' : 'bg-muted'}`} />
+                <div className={`ml-2 sm:ml-4 w-4 sm:w-8 h-px ${index < currentStepIndex ? 'bg-primary' : 'bg-muted'}`} />
               )}
             </div>
           ))}
