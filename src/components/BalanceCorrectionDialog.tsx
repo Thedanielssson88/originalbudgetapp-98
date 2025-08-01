@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { X } from 'lucide-react';
 import { ImportedTransaction } from '@/types/transaction';
-import { updateAccountBalance, getAccountNameById } from '@/orchestrator/budgetOrchestrator';
+import { updateAccountBalanceForMonth, getAccountNameById } from '@/orchestrator/budgetOrchestrator';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -205,7 +205,7 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
       console.log(`🔄 [BALANCE CORRECTION] Updating balance for ${monthData.accountId} (${accountName}) in ${monthData.monthKey} to ${monthData.bankBalance}`);
       
       // Update the account balance for this specific month using the resolved account name
-      updateAccountBalance(accountName, monthData.bankBalance);
+      updateAccountBalanceForMonth(monthData.monthKey, accountName, monthData.bankBalance);
       
       toast({
         title: "Saldo uppdaterat",

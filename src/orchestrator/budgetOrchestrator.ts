@@ -588,6 +588,30 @@ export function updateAccountBalance(accountName: string, balance: number): void
   console.log(`✅ Updated account balance for ${accountName}: ${balance} (accountEndBalances now calculated dynamically)`);
 }
 
+export function updateAccountBalanceForMonth(monthKey: string, accountName: string, balance: number): void {
+  // Ensure the month exists
+  if (!state.budgetState.historicalData[monthKey]) {
+    state.budgetState.historicalData[monthKey] = createEmptyMonthData();
+  }
+  
+  const monthData = state.budgetState.historicalData[monthKey];
+  const newBalances = { ...monthData.accountBalances, [accountName]: balance };
+  const newBalancesSet = { ...monthData.accountBalancesSet, [accountName]: true };
+  
+  // Update the specific month's account balances
+  state.budgetState.historicalData[monthKey] = {
+    ...monthData,
+    accountBalances: newBalances,
+    accountBalancesSet: newBalancesSet
+  };
+  
+  saveStateToStorage();
+  runCalculationsAndUpdateState();
+  triggerUIRefresh();
+  
+  console.log(`✅ Updated account balance for ${accountName} in ${monthKey}: ${balance}`);
+}
+
 export function unsetAccountBalance(accountName: string): void {
   const currentMonthData = getCurrentMonthData();
   const newBalances = { ...currentMonthData.accountBalances };
