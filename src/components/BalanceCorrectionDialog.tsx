@@ -59,11 +59,7 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
     // Check each month for transactions on/after 24th and find last balance before 25th
     Object.entries(monthlyTransactions).forEach(([monthKey, monthTransactions]) => {
       const [year, month] = monthKey.split('-');
-      const monthName = new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('sv-SE', { 
-        year: 'numeric', 
-        month: 'long' 
-      });
-
+      
       // Check if month has transactions on or after 24th
       const hasTransactionsOnOrAfter24th = monthTransactions.some(tx => {
         const date = new Date(tx.date);
@@ -73,6 +69,15 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
       if (!hasTransactionsOnOrAfter24th) {
         return;
       }
+
+      // Calculate next month for display and balance update
+      const currentDate = new Date(parseInt(year), parseInt(month) - 1);
+      const nextMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1);
+      const nextMonthKey = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}`;
+      const nextMonthName = nextMonthDate.toLocaleDateString('sv-SE', { 
+        year: 'numeric', 
+        month: 'long' 
+      });
 
       // Group by account
       const accountGroups: Record<string, ImportedTransaction[]> = {};
@@ -93,17 +98,17 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
         if (transactionsBefor25th.length > 0) {
           const lastTransaction = transactionsBefor25th[0];
           const bankBalance = lastTransaction.balanceAfter || 0;
-          const systemBalance = accountBalances[monthKey]?.[accountId] || 0;
+          const systemBalance = accountBalances[nextMonthKey]?.[accountId] || 0;
 
-          console.log(`🔍 [BALANCE CORRECTION] Month ${monthKey}, Account ${accountId}:`, {
+          console.log(`🔍 [BALANCE CORRECTION] Month ${monthKey} -> Next Month ${nextMonthKey}, Account ${accountId}:`, {
             bankBalance,
             systemBalance,
             lastTransactionDate: lastTransaction.date
           });
 
           monthEntries.push({
-            monthKey,
-            monthName,
+            monthKey: nextMonthKey,
+            monthName: nextMonthName,
             bankBalance,
             systemBalance,
             accountId,
@@ -119,8 +124,8 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
         const bestEntry = validEntries
           .sort((a, b) => {
             // First priority: accounts that exist in the system (have balances)
-            const aHasSystemBalance = (accountBalances[monthKey]?.[a.accountId] || 0) !== 0;
-            const bHasSystemBalance = (accountBalances[monthKey]?.[b.accountId] || 0) !== 0;
+            const aHasSystemBalance = (accountBalances[a.monthKey]?.[a.accountId] || 0) !== 0;
+            const bHasSystemBalance = (accountBalances[b.monthKey]?.[b.accountId] || 0) !== 0;
             
             if (aHasSystemBalance !== bHasSystemBalance) {
               return bHasSystemBalance ? 1 : -1;
