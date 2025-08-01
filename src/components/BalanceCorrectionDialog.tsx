@@ -31,6 +31,13 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
   transactions,
   accountBalances
 }) => {
+  console.log('🔍 [BALANCE CORRECTION] Dialog rendered with:', { 
+    open, 
+    transactionsCount: transactions.length, 
+    accountBalancesKeys: Object.keys(accountBalances),
+    sampleTransactions: transactions.slice(0, 3).map(t => ({ accountId: t.accountId, date: t.date, balanceAfter: t.balanceAfter }))
+  });
+  
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [updatingBalances, setUpdatingBalances] = useState<Set<string>>(new Set());
