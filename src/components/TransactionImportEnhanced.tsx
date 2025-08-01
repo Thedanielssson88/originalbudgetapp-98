@@ -340,7 +340,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     isOpen: boolean;
     transaction?: ImportedTransaction;
   }>({ isOpen: false });
-  
+  const [refreshKey, setRefreshKey] = useState(0);
   const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
   const { toast } = useToast();
   
@@ -490,6 +490,9 @@ export const TransactionImportEnhanced: React.FC = () => {
         type: updatedTransaction.type,
         isManuallyChanged: updatedTransaction.isManuallyChanged
       } : 'NOT FOUND');
+      
+      // Force a state refresh by updating a dummy state value
+      setRefreshKey(prev => prev + 1);
     }, 100);
   };
 
@@ -1249,7 +1252,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                 <div className="space-y-3">
                   {filteredTransactions.map(transaction => (
                     <TransactionExpandableCard
-                      key={`${transaction.id}-${transaction.status}-${transaction.type}-${transaction.isManuallyChanged || 'auto'}`}
+                      key={`${transaction.id}-${transaction.status}-${transaction.type}-${transaction.isManuallyChanged || 'auto'}-${refreshKey}`}
                       transaction={transaction}
                       account={accounts.find(acc => acc.id === transaction.accountId)}
                       isSelected={selectedTransactions.includes(transaction.id)}
@@ -1285,7 +1288,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                     <div className="space-y-3">
                       {accountTransactions.map(transaction => (
                         <TransactionExpandableCard
-                          key={`${transaction.id}-${transaction.status}-${transaction.type}-${transaction.isManuallyChanged || 'auto'}`}
+                          key={`${transaction.id}-${transaction.status}-${transaction.type}-${transaction.isManuallyChanged || 'auto'}-${refreshKey}`}
                           transaction={transaction}
                           account={account}
                           isSelected={selectedTransactions.includes(transaction.id)}
