@@ -639,62 +639,23 @@ export const TransactionImportEnhanced: React.FC = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Datum</TableHead>
-                        <TableHead>Beskrivning</TableHead>
-                        <TableHead>Belopp</TableHead>
-                        <TableHead>Konto</TableHead>
-                        <TableHead>Typ</TableHead>
-                        <TableHead>Kategori</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredTransactions.map(transaction => {
-                        const statusInfo = getTransactionStatus(transaction);
-                        const StatusIcon = statusInfo.icon;
-                        
-                        return (
-                          <TableRow key={transaction.id}>
-                            <TableCell>
-                              <StatusIcon className={`w-4 h-4 ${statusInfo.color}`} />
-                            </TableCell>
-                            <TableCell>{transaction.date}</TableCell>
-                            <TableCell className="max-w-48 truncate">{transaction.description}</TableCell>
-                            <TableCell className={transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}>
-                              {transaction.amount.toLocaleString('sv-SE')} kr
-                            </TableCell>
-                            <TableCell>
-                              {accounts.find(acc => acc.id === transaction.accountId)?.name}
-                            </TableCell>
-                            <TableCell>
-                              <TransactionTypeSelector transaction={transaction} />
-                            </TableCell>
-                            <TableCell>
-                              <Select
-                                value={transaction.appCategoryId || ''}
-                                onValueChange={(value) => updateTransactionCategory(transaction.id, value)}
-                              >
-                                <SelectTrigger className="w-32">
-                                  <SelectValue placeholder="Välj kategori" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {mainCategories.map(category => (
-                                    <SelectItem key={category} value={category}>
-                                      {category}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                <div className="space-y-3">
+                  {filteredTransactions.map(transaction => (
+                    <TransactionExpandableCard
+                      key={transaction.id}
+                      transaction={transaction}
+                      account={accounts.find(acc => acc.id === transaction.accountId)}
+                      isSelected={selectedTransactions.includes(transaction.id)}
+                      onToggleSelection={toggleTransactionSelection}
+                      onUpdateCategory={updateTransactionCategory}
+                      onUpdateNote={updateTransactionNote}
+                      onTransferMatch={handleTransferMatch}
+                      onSavingsLink={handleSavingsLink}
+                      onCostCoverage={handleCostCoverage}
+                      mainCategories={mainCategories}
+                      costGroups={costGroups}
+                    />
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -713,58 +674,23 @@ export const TransactionImportEnhanced: React.FC = () => {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Datum</TableHead>
-                            <TableHead>Beskrivning</TableHead>
-                            <TableHead>Belopp</TableHead>
-                            <TableHead>Typ</TableHead>
-                            <TableHead>Kategori</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {accountTransactions.map(transaction => {
-                            const statusInfo = getTransactionStatus(transaction);
-                            const StatusIcon = statusInfo.icon;
-                            
-                            return (
-                              <TableRow key={transaction.id}>
-                                <TableCell>
-                                  <StatusIcon className={`w-4 h-4 ${statusInfo.color}`} />
-                                </TableCell>
-                                <TableCell>{transaction.date}</TableCell>
-                                <TableCell className="max-w-48 truncate">{transaction.description}</TableCell>
-                                <TableCell className={transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                  {transaction.amount.toLocaleString('sv-SE')} kr
-                                </TableCell>
-                                <TableCell>
-                                  <TransactionTypeSelector transaction={transaction} />
-                                </TableCell>
-                                <TableCell>
-                                  <Select
-                                    value={transaction.appCategoryId || ''}
-                                    onValueChange={(value) => updateTransactionCategory(transaction.id, value)}
-                                  >
-                                    <SelectTrigger className="w-32">
-                                      <SelectValue placeholder="Välj kategori" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {mainCategories.map(category => (
-                                        <SelectItem key={category} value={category}>
-                                          {category}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
+                    <div className="space-y-3">
+                      {accountTransactions.map(transaction => (
+                        <TransactionExpandableCard
+                          key={transaction.id}
+                          transaction={transaction}
+                          account={account}
+                          isSelected={selectedTransactions.includes(transaction.id)}
+                          onToggleSelection={toggleTransactionSelection}
+                          onUpdateCategory={updateTransactionCategory}
+                          onUpdateNote={updateTransactionNote}
+                          onTransferMatch={handleTransferMatch}
+                          onSavingsLink={handleSavingsLink}
+                          onCostCoverage={handleCostCoverage}
+                          mainCategories={mainCategories}
+                          costGroups={costGroups}
+                        />
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
