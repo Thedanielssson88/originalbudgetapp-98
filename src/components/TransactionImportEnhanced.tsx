@@ -674,6 +674,10 @@ export const TransactionImportEnhanced: React.FC = () => {
 
     setSelectedTransactions([]);
     
+    // Force immediate UI refresh
+    console.log(`🔄 [BULK APPROVE] Forcing refresh by updating refreshKey`);
+    setRefreshKey(prev => prev + 1);
+    
     toast({
       title: "Transaktioner godkända",
       description: `${selectedTransactions.length} transaktioner har godkänts.`,
