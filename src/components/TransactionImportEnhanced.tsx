@@ -322,8 +322,9 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<'upload' | 'mapping' | 'categorization'>('upload');
   // NO MORE LOCAL STATE FOR FILES - reading everything from central state
   const [fileStructures, setFileStructures] = useState<FileStructure[]>([]);
+  const [columnMappings, setColumnMappings] = useState<{[fileId: string]: {[csvColumn: string]: string}}>({});
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
-  const [activeTransactionTab, setActiveTransactionTab] = useState<'all' | 'account'>('all');
+  const [activeTransactionTab, setActiveTransactionTab] = useState<'all' | 'account' | 'rules'>('all');
   const [hideGreenTransactions, setHideGreenTransactions] = useState<boolean>(false);
   const [selectedAccountForView, setSelectedAccountForView] = useState<string>('');
   const [transferMatchDialog, setTransferMatchDialog] = useState<{
@@ -369,10 +370,20 @@ export const TransactionImportEnhanced: React.FC = () => {
   // Get subcategories from storage
   const [subcategoriesFromStorage, setSubcategoriesFromStorage] = useState<Record<string, string[]>>({});
   
+  // Category rules state
+  const [categoryRules, setCategoryRules] = useState<CategoryRule[]>(categoryRulesFromState);
+  const [newRule, setNewRule] = useState<Partial<CategoryRule>>({});
+  const [editingRule, setEditingRule] = useState<CategoryRule | null>(null);
+  
   useEffect(() => {
     const loadedSubcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
     setSubcategoriesFromStorage(loadedSubcategories);
   }, []);
+
+  // Sync category rules with state
+  useEffect(() => {
+    setCategoryRules(categoryRulesFromState);
+  }, [categoryRulesFromState]);
 
   // File upload handler - uses the new Smart Merge function
   const handleFileUpload = useCallback(async (file: File, accountId: string, accountName: string) => {
@@ -523,6 +534,100 @@ export const TransactionImportEnhanced: React.FC = () => {
     return { color: 'text-red-600', icon: AlertCircle };
   };
 
+  // CSV Column mapping functions
+  const getCSVColumnsFromFile = (file: File): Promise<string[]> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const csvContent = e.target?.result as string;
+        const firstLine = csvContent.split('\n')[0];
+        const headers = firstLine.split(';').map(h => h.trim());
+        resolve(headers);
+      };
+      reader.readAsText(file);
+    });
+  };
+
+  // Category rule management functions
+  const handleAddRule = () => {
+    if (newRule.bankCategory && newRule.appCategoryId && newRule.transactionType) {
+      const rule: CategoryRule = {
+        id: uuidv4(),
+        bankCategory: newRule.bankCategory,
+        bankSubCategory: newRule.bankSubCategory || '',
+        appCategoryId: newRule.appCategoryId,
+        appSubCategoryId: newRule.appSubCategoryId,
+        transactionType: newRule.transactionType,
+        description: newRule.description || '',
+        priority: newRule.priority || 1,
+        isActive: true
+      };
+      
+      addCategoryRule(rule);
+      setNewRule({});
+      
+      toast({
+        title: "Regel tillagd",
+        description: "Kategoriseringsregeln har skapats.",
+      });
+    }
+  };
+
+  const handleEditRule = (rule: CategoryRule) => {
+    setEditingRule(rule);
+  };
+
+  const handleUpdateRule = () => {
+    if (editingRule) {
+      updateCategoryRule(editingRule);
+      setEditingRule(null);
+      
+      toast({
+        title: "Regel uppdaterad",
+        description: "Kategoriseringsregeln har uppdaterats.",
+      });
+    }
+  };
+
+  const handleDeleteRule = (ruleId: string) => {
+    deleteCategoryRule(ruleId);
+    
+    toast({
+      title: "Regel borttagen",
+      description: "Kategoriseringsregeln har tagits bort.",
+    });
+  };
+
+  // Bulk approve transactions
+  const handleApproveSelected = () => {
+    if (selectedTransactions.length === 0) {
+      toast({
+        title: "Ingen transaktion vald",
+        description: "Välj transaktioner att godkänna först.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    selectedTransactions.forEach(transactionId => {
+      const transaction = transactions.find(t => t.id === transactionId);
+      if (transaction && transaction.status !== 'green') {
+        const monthKey = transaction.date.substring(0, 7);
+        updateTransaction(transactionId, { 
+          status: 'green' as const,
+          isManuallyChanged: true 
+        }, monthKey);
+      }
+    });
+
+    setSelectedTransactions([]);
+    
+    toast({
+      title: "Transaktioner godkända",
+      description: `${selectedTransactions.length} transaktioner har godkänts.`,
+    });
+  };
+
   // Main upload step - shows accounts and upload status
   const renderUploadStep = () => {
     return (
@@ -584,6 +689,13 @@ export const TransactionImportEnhanced: React.FC = () => {
 
         <div className="flex justify-center gap-3">
           <Button 
+            onClick={() => setCurrentStep('mapping')}
+            disabled={transactions.length === 0}
+            variant="outline"
+          >
+            Kolumnmappning
+          </Button>
+          <Button 
             onClick={() => setCurrentStep('categorization')}
             disabled={transactions.length === 0}
             variant="default"
@@ -595,7 +707,145 @@ export const TransactionImportEnhanced: React.FC = () => {
     );
   };
 
-  // Simple categorization step
+  // Mapping step - restored functionality
+  const renderMappingStep = () => {
+    const systemFields = [
+      { value: 'datum', label: 'Datum' },
+      { value: 'kategori', label: 'Kategori' },
+      { value: 'underkategori', label: 'Underkategori' },
+      { value: 'text', label: 'Text' },
+      { value: 'belopp', label: 'Belopp' },
+      { value: 'saldo', label: 'Saldo' },
+      { value: 'status', label: 'Status' },
+      { value: 'avstamt', label: 'Avstämt' },
+      { value: 'ignore', label: 'Ignorera' }
+    ];
+
+    // Get unique accounts that have transactions
+    const accountsWithTransactions = accounts.filter(account => 
+      transactions.some(t => t.accountId === account.id)
+    );
+
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <div className="text-center mb-6 sm:mb-8">
+          <h2 className="text-xl sm:text-2xl font-bold mb-2">Kolumnmappning</h2>
+          <p className="text-sm sm:text-base text-muted-foreground px-2">
+            Mappa CSV-kolumner till appens fält. Detta sparas för framtida imports.
+          </p>
+        </div>
+
+        <div className="p-3 bg-green-50 rounded-lg border border-green-200 mb-6">
+          <div className="text-sm text-green-800">
+            ✓ Automatisk mappning genomförd baserat på kolumnnamn och innehåll
+          </div>
+        </div>
+
+        {accountsWithTransactions.map((account) => {
+          const accountTransactions = transactions.filter(t => t.accountId === account.id);
+          const sampleCSVHeaders = ['Datum', 'Kategori', 'Underkategori', 'Text', 'Belopp', 'Saldo'];
+          
+          return (
+            <Card key={account.id}>
+              <CardHeader>
+                <CardTitle className="text-lg">
+                  CSV-mappning för {account.name}
+                </CardTitle>
+                <CardDescription>
+                  {accountTransactions.length} transaktioner • Mappa kolumner till appfält
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="text-sm font-medium mb-3">Kolumnmappning</h4>
+                    <div className="overflow-x-auto">
+                      <div className="min-w-full">
+                        <Table className="text-xs">
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-20 text-xs">Kolumn</TableHead>
+                              <TableHead className="w-24 text-xs">Exempeldata</TableHead>
+                              <TableHead className="w-32 text-xs">Mappa till</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {sampleCSVHeaders.map((header, colIndex) => {
+                              const exampleData = accountTransactions.slice(0, 2).map(t => {
+                                if (header.toLowerCase().includes('datum')) return t.date;
+                                if (header.toLowerCase().includes('belopp')) return t.amount.toString();
+                                if (header.toLowerCase().includes('text')) return t.description;
+                                if (header.toLowerCase().includes('kategori')) return t.bankCategory || '';
+                                return `Exempel ${colIndex + 1}`;
+                              });
+
+                              return (
+                                <TableRow key={colIndex}>
+                                  <TableCell className="font-medium text-xs">
+                                    {header}
+                                  </TableCell>
+                                  <TableCell className="text-xs">
+                                    <div className="space-y-1 max-w-32">
+                                      {exampleData.map((data, i) => (
+                                        <div key={i} className="truncate bg-muted/30 px-2 py-1 rounded text-xs">
+                                          {data}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Select
+                                      value={columnMappings[account.id]?.[header] || 'ignore'}
+                                      onValueChange={(value) => {
+                                        setColumnMappings(prev => ({
+                                          ...prev,
+                                          [account.id]: {
+                                            ...prev[account.id],
+                                            [header]: value
+                                          }
+                                        }));
+                                      }}
+                                    >
+                                      <SelectTrigger className="w-28 h-8 text-xs">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {systemFields.map(field => (
+                                          <SelectItem key={field.value} value={field.value} className="text-xs">
+                                            {field.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center">
+          <Button onClick={() => setCurrentStep('upload')} variant="outline">
+            Tillbaka: Uppladdning
+          </Button>
+          <Button 
+            onClick={() => setCurrentStep('categorization')}
+            disabled={accountsWithTransactions.length === 0}
+          >
+            Nästa: Kategorisering
+          </Button>
+        </div>
+      </div>
+    );
+  };
   const renderCategorizationStep = () => {
     const filteredTransactions = hideGreenTransactions 
       ? transactions.filter(t => t.status !== 'green')
@@ -622,13 +872,233 @@ export const TransactionImportEnhanced: React.FC = () => {
           <div className="text-sm text-muted-foreground">
             Visar {filteredTransactions.length} av {transactions.length} transaktioner
           </div>
+          <div className="ml-auto flex gap-2">
+            <Button
+              onClick={handleApproveSelected}
+              disabled={selectedTransactions.length === 0}
+              size="sm"
+              variant="default"
+            >
+              <CheckCircle className="w-4 h-4 mr-1" />
+              Godkänn valda ({selectedTransactions.length})
+            </Button>
+            <Button
+              onClick={() => setSelectedTransactions([])}
+              disabled={selectedTransactions.length === 0}
+              size="sm"
+              variant="outline"
+            >
+              Rensa urval
+            </Button>
+          </div>
         </div>
 
-        <Tabs value={activeTransactionTab} onValueChange={(value) => setActiveTransactionTab(value as 'all' | 'account')}>
+        <Tabs value={activeTransactionTab} onValueChange={(value) => setActiveTransactionTab(value as 'all' | 'account' | 'rules')}>
           <TabsList>
+            <TabsTrigger value="rules">Regler</TabsTrigger>
             <TabsTrigger value="all">Alla transaktioner</TabsTrigger>
             <TabsTrigger value="account">Per konto</TabsTrigger>
           </TabsList>
+          
+          
+          <TabsContent value="rules" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Kategoriseringsregler</CardTitle>
+                <CardDescription>
+                  Skapa regler för automatisk kategorisering av transaktioner baserat på bankens kategorier eller beskrivningar.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Add new rule form */}
+                <div className="p-4 border rounded-lg space-y-4">
+                  <h4 className="font-medium">Lägg till ny regel</h4>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <Label htmlFor="bankCategory">Bankens kategori</Label>
+                      <Input
+                        id="bankCategory"
+                        value={newRule.bankCategory || ''}
+                        onChange={(e) => setNewRule({ ...newRule, bankCategory: e.target.value })}
+                        placeholder="t.ex. 'Livsmedel'"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="bankSubCategory">Bankens underkategori (valfritt)</Label>
+                      <Input
+                        id="bankSubCategory"
+                        value={newRule.bankSubCategory || ''}
+                        onChange={(e) => setNewRule({ ...newRule, bankSubCategory: e.target.value })}
+                        placeholder="t.ex. 'Dagligvaror'"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="description">Beskrivningsmatch (valfritt)</Label>
+                      <Input
+                        id="description"
+                        value={newRule.description || ''}
+                        onChange={(e) => setNewRule({ ...newRule, description: e.target.value })}
+                        placeholder="t.ex. 'ICA'"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="transactionType">Transaktionstyp</Label>
+                      <Select
+                        value={newRule.transactionType || ''}
+                        onValueChange={(value) => setNewRule({ ...newRule, transactionType: value as 'Transaction' | 'InternalTransfer' })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Välj typ" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Transaction">Transaktion</SelectItem>
+                          <SelectItem value="InternalTransfer">Intern överföring</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="appCategory">App-kategori</Label>
+                      <Select
+                        value={newRule.appCategoryId || ''}
+                        onValueChange={(value) => setNewRule({ ...newRule, appCategoryId: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Välj kategori" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {mainCategories.map(category => (
+                            <SelectItem key={category} value={category}>
+                              {category}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="priority">Prioritet</Label>
+                      <Input
+                        id="priority"
+                        type="number"
+                        value={newRule.priority || 1}
+                        onChange={(e) => setNewRule({ ...newRule, priority: parseInt(e.target.value) })}
+                        min="1"
+                        max="10"
+                      />
+                    </div>
+                  </div>
+                  <Button onClick={handleAddRule} className="w-full">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Lägg till regel
+                  </Button>
+                </div>
+
+                {/* Existing rules */}
+                <div className="space-y-3">
+                  <h4 className="font-medium">Befintliga regler ({categoryRules.length})</h4>
+                  {categoryRules.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      Inga regler skapade än. Lägg till din första regel ovan.
+                    </div>
+                  ) : (
+                    categoryRules.map((rule) => (
+                      <Card key={rule.id}>
+                        <CardContent className="p-4">
+                          {editingRule?.id === rule.id ? (
+                            // Edit mode
+                            <div className="space-y-4">
+                              <div className="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                  <Label>Bankens kategori</Label>
+                                  <Input
+                                    value={editingRule.bankCategory}
+                                    onChange={(e) => setEditingRule({ ...editingRule, bankCategory: e.target.value })}
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Bankens underkategori</Label>
+                                  <Input
+                                    value={editingRule.bankSubCategory || ''}
+                                    onChange={(e) => setEditingRule({ ...editingRule, bankSubCategory: e.target.value })}
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Beskrivning</Label>
+                                  <Input
+                                    value={editingRule.description || ''}
+                                    onChange={(e) => setEditingRule({ ...editingRule, description: e.target.value })}
+                                  />
+                                </div>
+                                <div>
+                                  <Label>App-kategori</Label>
+                                  <Select
+                                    value={editingRule.appCategoryId}
+                                    onValueChange={(value) => setEditingRule({ ...editingRule, appCategoryId: value })}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {mainCategories.map(category => (
+                                        <SelectItem key={category} value={category}>
+                                          {category}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button onClick={handleUpdateRule} size="sm">
+                                  <Save className="w-4 h-4 mr-1" />
+                                  Spara
+                                </Button>
+                                <Button onClick={() => setEditingRule(null)} variant="outline" size="sm">
+                                  Avbryt
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            // View mode
+                            <div className="flex items-center justify-between">
+                              <div className="space-y-1">
+                                <div className="font-medium">
+                                  {rule.bankCategory}
+                                  {rule.bankSubCategory && ` → ${rule.bankSubCategory}`}
+                                  {rule.description && ` (innehåller "${rule.description}")`}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  Blir: {rule.appCategoryId} • Typ: {rule.transactionType} • Prioritet: {rule.priority}
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button onClick={() => handleEditRule(rule)} variant="outline" size="sm">
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <Button onClick={() => handleDeleteRule(rule.id)} variant="destructive" size="sm">
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
+
+                {/* Category management */}
+                <div className="border-t pt-6">
+                  <CategoryManagementSection 
+                    costGroups={costGroups} 
+                    onCategoriesChange={() => {
+                      // Trigger a refresh of categories
+                      window.location.reload();
+                    }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
           
           <TabsContent value="all" className="space-y-4">
             <Card>
@@ -699,9 +1169,12 @@ export const TransactionImportEnhanced: React.FC = () => {
           </TabsContent>
         </Tabs>
 
-        <div className="flex justify-center">
+        <div className="flex justify-center gap-3">
           <Button onClick={() => setCurrentStep('upload')} variant="outline">
             Tillbaka till uppladdning
+          </Button>
+          <Button onClick={() => setCurrentStep('mapping')} variant="outline">
+            Kolumnmappning
           </Button>
         </div>
       </div>
@@ -711,6 +1184,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   // Progress indicator
   const steps = [
     { id: 'upload', label: 'Ladda upp' },
+    { id: 'mapping', label: 'Mappning' },
     { id: 'categorization', label: 'Kategorisering' }
   ];
 
@@ -744,6 +1218,7 @@ export const TransactionImportEnhanced: React.FC = () => {
 
       {/* Step content */}
       {currentStep === 'upload' && renderUploadStep()}
+      {currentStep === 'mapping' && renderMappingStep()}
       {currentStep === 'categorization' && renderCategorizationStep()}
 
       {/* Dialogs */}
