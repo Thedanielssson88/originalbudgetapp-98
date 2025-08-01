@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { X } from 'lucide-react';
 import { ImportedTransaction } from '@/types/transaction';
-import { updateAccountBalance } from '@/orchestrator/budgetOrchestrator';
+import { updateAccountBalance, getAccountNameById } from '@/orchestrator/budgetOrchestrator';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -207,7 +207,7 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
       
       toast({
         title: "Saldo uppdaterat",
-        description: `Kontosaldo för ${monthData.accountId} har uppdaterats till ${monthData.bankBalance.toLocaleString('sv-SE')} kr`,
+        description: `Kontosaldo för ${getAccountNameById(monthData.accountId)} har uppdaterats till ${monthData.bankBalance.toLocaleString('sv-SE')} kr`,
       });
     } catch (error) {
       console.error('Error updating balance:', error);
@@ -292,7 +292,7 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className={isMobile ? 'text-xs p-2' : ''}>{monthData.accountId}</TableCell>
+                        <TableCell className={isMobile ? 'text-xs p-2' : ''}>{getAccountNameById(monthData.accountId)}</TableCell>
                         {!isMobile && (
                           <TableCell className="font-mono">
                             {formatCurrency(monthData.bankBalance)}

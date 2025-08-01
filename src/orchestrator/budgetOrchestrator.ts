@@ -1107,7 +1107,19 @@ export function getCsvMapping(fileFingerprint: string): CsvMapping | undefined {
   return state.budgetState.csvMappings.find(m => m.fileFingerprint === fileFingerprint);
 }
 
-// ===== UNIFIED CATEGORY SYSTEM =====
+// ===== ACCOUNT HELPER FUNCTIONS =====
+
+export function getAccountNameById(accountId: string): string {
+  // First check if the accountId is already a name (like "Bil")
+  const accountByName = state.budgetState.accounts.find(acc => acc.name === accountId);
+  if (accountByName) {
+    return accountId; // It's already a name
+  }
+  
+  // Otherwise, look up by ID
+  const accountById = state.budgetState.accounts.find(acc => acc.id === accountId);
+  return accountById?.name || accountId; // Return name if found, otherwise return the original ID
+}
 // Categories are now directly managed through mainCategories and subcategories
 // No more separate linking system needed
 
