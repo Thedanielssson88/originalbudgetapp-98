@@ -533,6 +533,7 @@ export const TransactionImportEnhanced: React.FC = () => {
 
   // Reconcile transactions from file with already saved transactions
   const reconcileTransactions = useCallback((transactionsFromFile: ImportedTransaction[], accountId: string): ImportedTransaction[] => {
+    alert(`🚨 RECONCILIATION CALLED for account: ${accountId}!`);
     console.error(`[RECONCILIATION CRITICAL] 🚨 Starting reconciliation for account ${accountId} with ${transactionsFromFile.length} transactions from file`);
     
     // Get currently saved transactions for this month and account
@@ -706,7 +707,7 @@ export const TransactionImportEnhanced: React.FC = () => {
         return [...filtered, uploadedFile];
       });
 
-      // Reconcile transactions with already saved data before adding to global list
+      alert(`🚨 FILE UPLOAD STARTED for account: ${accountName}!`);
       console.log(`[FileUpload] ⚠️ STARTING RECONCILIATION for account: ${accountName}`);
       console.log(`[FileUpload] Parsed transactions count: ${parsedTransactions.length}`);
       const reconciledTransactions = reconcileTransactions(parsedTransactions, accountName);
