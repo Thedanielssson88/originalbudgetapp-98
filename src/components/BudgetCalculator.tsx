@@ -4005,12 +4005,18 @@ const BudgetCalculator = () => {
 
   // Function to get bank balance for a specific account and month
   const getBankBalance = (accountName: string, monthKey: string) => {
+    console.log(`🔍 [BANK BALANCE] Starting getBankBalance for account: ${accountName}, month: ${monthKey}`);
+    
     // Find account ID from account name
     const accountId = Object.keys(budgetState.accounts).find(id => 
       budgetState.accounts[id].name === accountName
     );
     
+    console.log(`🔍 [BANK BALANCE] Found accountId: ${accountId} for accountName: ${accountName}`);
+    console.log(`🔍 [BANK BALANCE] Available accounts:`, budgetState.accounts);
+    
     if (!accountId) {
+      console.log(`🔍 [BANK BALANCE] No accountId found for account name: ${accountName}`);
       return null;
     }
 
@@ -4021,6 +4027,11 @@ const BudgetCalculator = () => {
         allTransactions.push(...monthData.transactions);
       }
     });
+
+    console.log(`🔍 [BANK BALANCE] Total transactions found across all months: ${allTransactions.length}`);
+    console.log(`🔍 [BANK BALANCE] Sample transactions:`, allTransactions.slice(0, 3));
+    console.log(`🔍 [BANK BALANCE] Historical data keys:`, Object.keys(appHistoricalData));
+    console.log(`🔍 [BANK BALANCE] Current month data transactions:`, (currentMonthData as any)?.transactions || 'undefined');
 
     console.log(`🔍 [BANK BALANCE] Finding bank balance for account ${accountName} (${accountId}) in month ${monthKey}`);
     
@@ -5719,10 +5730,29 @@ const BudgetCalculator = () => {
 
                                                   {/* Bankens saldo */}
                                                   {(() => {
+                                                    console.log(`🔍 [BANK BALANCE UI] Checking bank balance for account: ${account}`);
                                                     const bankBalanceData = getBankBalance(account, selectedMonthKey);
                                                     
+                                                    console.log(`🔍 [BANK BALANCE UI] Bank balance data result:`, bankBalanceData);
+                                                    
+                                                    // Show debug row if no data found
                                                     if (!bankBalanceData) {
-                                                      return null;
+                                                      return (
+                                                        <div className="flex justify-between items-center">
+                                                          <span className="text-sm font-medium text-purple-700">Bankens saldo</span>
+                                                          <div className="flex items-center gap-2">
+                                                            <div className="text-right">
+                                                              <div className="w-32 text-right text-sm text-gray-500">
+                                                                Ingen data tillgänglig
+                                                              </div>
+                                                              <div className="text-[10px] text-muted-foreground">
+                                                                Importera transaktioner med saldo
+                                                              </div>
+                                                            </div>
+                                                            <span className="text-sm text-gray-500 min-w-8"></span>
+                                                          </div>
+                                                        </div>
+                                                      );
                                                     }
 
                                                     const bankBalance = bankBalanceData.balance;
