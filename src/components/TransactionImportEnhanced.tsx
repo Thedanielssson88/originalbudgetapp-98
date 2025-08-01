@@ -42,6 +42,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useToast } from '@/hooks/use-toast';
 import { Upload, CheckCircle, FileText, Settings, AlertCircle, Circle, CheckSquare, AlertTriangle, ChevronDown, ChevronUp, Trash2, Plus, Edit, Save, X } from 'lucide-react';
 import { ImportedTransaction, CategoryRule, FileStructure, ColumnMapping } from '@/types/transaction';
+import { Bank, BankCSVMapping } from '@/types/bank';
+import { AddBankDialog } from './AddBankDialog';
 import { TransactionExpandableCard } from './TransactionExpandableCard';
 import { TransactionGroupByDate } from './TransactionGroupByDate';
 import { TransactionTypeSelector } from './TransactionTypeSelector';
@@ -344,6 +346,11 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [balanceCorrectionDialog, setBalanceCorrectionDialog] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
+  
+  // Bank selection state
+  const [banks, setBanks] = useState<Bank[]>([]);
+  const [bankCSVMappings, setBankCSVMappings] = useState<BankCSVMapping[]>([]);
+  const [selectedBanks, setSelectedBanks] = useState<{[accountId: string]: string}>({});
   const { toast } = useToast();
   
   // Get budget data from central state (SINGLE SOURCE OF TRUTH)
@@ -411,6 +418,37 @@ export const TransactionImportEnhanced: React.FC = () => {
     const loadedSubcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
     setSubcategoriesFromStorage(loadedSubcategories);
   }, []);
+
+  // Load banks and mappings from storage
+  useEffect(() => {
+    const storedBanks = get<Bank[]>(StorageKey.BANKS) || [];
+    const storedMappings = get<BankCSVMapping[]>(StorageKey.BANK_CSV_MAPPINGS) || [];
+    setBanks(storedBanks);
+    setBankCSVMappings(storedMappings);
+  }, []);
+
+  const handleAddBank = (bankName: string) => {
+    const newBank: Bank = {
+      id: uuidv4(),
+      name: bankName,
+      createdAt: new Date().toISOString()
+    };
+    
+    const updatedBanks = [...banks, newBank];
+    setBanks(updatedBanks);
+    set(StorageKey.BANKS, updatedBanks);
+  };
+
+  const handleBankSelection = (accountId: string, bankId: string) => {
+    setSelectedBanks(prev => ({ ...prev, [accountId]: bankId }));
+    
+    // Load existing mapping for this bank if available
+    const existingMapping = bankCSVMappings.find(mapping => mapping.bankId === bankId && mapping.isActive);
+    if (existingMapping) {
+      // Apply existing mapping if available
+      console.log('Found existing mapping for bank:', bankId, existingMapping);
+    }
+  };
 
   // File upload handler - uses the new Smart Merge function
   const handleFileUpload = useCallback(async (file: File, accountId: string, accountName: string) => {
@@ -747,6 +785,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                         size="sm"
                         variant={hasTransactions ? "outline" : "default"}
                         className="text-xs sm:text-sm"
+                        disabled={!selectedBanks[account.id]}
                       >
                         <Upload className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                         {hasTransactions ? "Ändra fil" : "Ladda upp"}
@@ -754,6 +793,39 @@ export const TransactionImportEnhanced: React.FC = () => {
                     </div>
                   </div>
                 </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {/* Bank selection */}
+                    <div className="space-y-2">
+                      <Label htmlFor={`bank-${account.id}`} className="text-sm font-medium">Bank</Label>
+                      <div className="flex items-center space-x-2">
+                        <Select 
+                          value={selectedBanks[account.id] || ''} 
+                          onValueChange={(value) => handleBankSelection(account.id, value)}
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Välj bank" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {banks.map(bank => (
+                              <SelectItem key={bank.id} value={bank.id}>
+                                {bank.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <AddBankDialog 
+                          onAddBank={handleAddBank}
+                          trigger={
+                            <Button variant="outline" size="icon">
+                              <Plus className="w-4 h-4" />
+                            </Button>
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
                 
                 <input
                   type="file"
