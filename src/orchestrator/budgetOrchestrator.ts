@@ -25,7 +25,8 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
   const maxDateStr = fileDates.reduce((max, date) => date > max ? date : max);
   
   console.log(`[ORCHESTRATOR] 📅 File date range: ${minDateStr} to ${maxDateStr}`);
-  addMobileDebugLog(`📅 File date range: ${minDateStr} to ${maxDateStr}`);
+  addMobileDebugLog(`📅 FILE RANGE: ${minDateStr} to ${maxDateStr}`);
+  addMobileDebugLog(`📅 All file dates: ${fileDates.sort().join(', ')}`);
   console.log(`[ORCHESTRATOR] 📅 File contains ${transactionsFromFile.length} transactions`);
   addMobileDebugLog(`📅 File contains ${transactionsFromFile.length} transactions`);
   
