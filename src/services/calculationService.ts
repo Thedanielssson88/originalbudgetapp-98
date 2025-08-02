@@ -3,13 +3,13 @@ import { RawDataState, CalculatedState, BudgetResults, MonthData, Account, Budge
 import { calculateMonthlyAmountForDailyTransfer } from '../utils/dailyTransferUtils';
 
 /**
- * Parsar en datumsträng (YYYY-MM-DD) på ett säkert sätt till ett Date-objekt
- * i den lokala tidszonen, för att undvika UTC-tolkningsproblem.
+ * Formaterar ett Date-objekt till YYYY-MM-DD-sträng
  */
-function parseLocalDate(dateString: string): Date {
-  const [year, month, day] = dateString.split('-').map(Number);
-  // Skapa datumet med explicita delar för att tvinga lokal tidszon.
-  return new Date(year, month - 1, day);
+function formatDateToString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -511,50 +511,34 @@ function getNextTenHolidays(fromDate: Date, customHolidays: {date: string, name:
  * Get transactions for a specific month period (25th of previous month to 24th of current month)
  */
 export function getTransactionsForPeriod(
-  historicalData: { [monthKey: string]: MonthData },
+  budgetState: BudgetState,
   selectedMonthKey: string
 ): any[] {
   console.log(`[getTransactionsForPeriod] Looking for transactions in period for month: ${selectedMonthKey}`);
-  console.log(`[getTransactionsForPeriod] FORCED DEBUG - Starting transaction search...`);
-  const allTransactions: any[] = [];
+  console.log(`[getTransactionsForPeriod] PURE STRING COMPARISON - Starting transaction search...`);
   
-  // Parse the selected month
-  const [year, month] = selectedMonthKey.split('-').map(Number);
+  // Hämta start- och slutdatum som STRÄNGAR
+  const { startDate, endDate } = getDateRangeForMonth(selectedMonthKey, budgetState.settings?.payday || 25);
+  const allTransactions = Object.values(budgetState.historicalData).flatMap(m => m.transactions || []);
   
-  // Calculate period: 25th of previous month to 24th of current month
-  const prevMonth = month === 1 ? 12 : month - 1;
-  const prevYear = month === 1 ? year - 1 : year;
+  console.log(`[getTransactionsForPeriod] Period: ${startDate} to ${endDate} (pure strings)`);
+  console.log(`[getTransactionsForPeriod] Available months with data:`, Object.keys(budgetState.historicalData));
+  console.log(`[getTransactionsForPeriod] Total transactions to check: ${allTransactions.length}`);
   
-  const periodStart = new Date(prevYear, prevMonth - 1, 25); // 25th of previous month
-  const periodEnd = new Date(year, month - 1, 24, 23, 59, 59); // 24th of current month, end of day
-  
-  console.log(`[getTransactionsForPeriod] Period: ${periodStart.toISOString()} to ${periodEnd.toISOString()}`);
-  console.log(`[getTransactionsForPeriod] Period formatted: ${periodStart.toLocaleDateString('sv-SE')} to ${periodEnd.toLocaleDateString('sv-SE')}`);
-  console.log(`[getTransactionsForPeriod] Available months with data:`, Object.keys(historicalData));
-  
-  // Go through all months and collect transactions within the period
-  Object.entries(historicalData).forEach(([monthKey, monthData]) => {
-    if (monthData.transactions) {
-      console.log(`[getTransactionsForPeriod] Found ${monthData.transactions.length} transactions in month ${monthKey}`);
-      monthData.transactions.forEach((transaction, index) => {
-        const transactionDate = parseLocalDate(transaction.date);
-        const inPeriod = transactionDate >= periodStart && transactionDate <= periodEnd;
-        console.log(`[getTransactionsForPeriod] Transaction ${index}: ${transaction.date} -> ${transactionDate.toLocaleDateString('sv-SE')} (accountId: ${transaction.accountId}) - in period: ${inPeriod}`);
-        console.log(`[getTransactionsForPeriod] Transaction ${index} comparison: ${transactionDate.getTime()} >= ${periodStart.getTime()} && ${transactionDate.getTime()} <= ${periodEnd.getTime()}`);
-        if (inPeriod) {
-          allTransactions.push(transaction);
-          console.log(`[getTransactionsForPeriod] ✅ INCLUDED transaction: ${transaction.date} - ${transaction.description} - ${transaction.amount}`);
-        } else {
-          console.log(`[getTransactionsForPeriod] ❌ EXCLUDED transaction: ${transaction.date} - ${transaction.description} - ${transaction.amount}`);
-        }
-      });
+  // Filtrera med ren strängjämförelse
+  const transactionsForPeriod = allTransactions.filter(t => {
+    // t.date är redan en 'YYYY-MM-DD'-sträng från importen
+    const inPeriod = t.date >= startDate && t.date <= endDate;
+    if (inPeriod) {
+      console.log(`[getTransactionsForPeriod] ✅ INCLUDED: ${t.date} (${startDate} <= ${t.date} <= ${endDate}) - ${t.description} - ${t.amount}`);
     } else {
-      console.log(`[getTransactionsForPeriod] No transactions found in month ${monthKey}`);
+      console.log(`[getTransactionsForPeriod] ❌ EXCLUDED: ${t.date} (${startDate} <= ${t.date} <= ${endDate}) - ${t.description} - ${t.amount}`);
     }
+    return inPeriod;
   });
   
-  console.log(`[getTransactionsForPeriod] Total transactions found in period: ${allTransactions.length}`);
-  console.log(`[getTransactionsForPeriod] Final transactions:`, allTransactions.map(t => ({ 
+  console.log(`[getTransactionsForPeriod] Total transactions found in period: ${transactionsForPeriod.length}`);
+  console.log(`[getTransactionsForPeriod] Final transactions:`, transactionsForPeriod.map(t => ({ 
     id: t.id, 
     accountId: t.accountId, 
     date: t.date, 
@@ -562,18 +546,18 @@ export function getTransactionsForPeriod(
     description: t.description
   })));
   
-  return allTransactions;
+  return transactionsForPeriod;
 }
 
-// NEW: Central date logic for payday-based months
-export function getDateRangeForMonth(monthKey: string, payday: number): { startDate: Date, endDate: Date } {
+// NEW: Central date logic for payday-based months - now returns string dates
+export function getDateRangeForMonth(monthKey: string, payday: number): { startDate: string, endDate: string } {
   const [year, month] = monthKey.split('-').map(Number);
 
   if (payday === 1) {
     // Calendar month
     const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59, 999); // Last day, last millisecond
-    return { startDate, endDate };
+    const endDate = new Date(year, month, 0); // Last day of month
+    return { startDate: formatDateToString(startDate), endDate: formatDateToString(endDate) };
   } else {
     // Payday month (e.g., 25th to 24th)
     let prevMonth = month - 1;
@@ -584,8 +568,8 @@ export function getDateRangeForMonth(monthKey: string, payday: number): { startD
     }
     
     const startDate = new Date(prevYear, prevMonth - 1, payday);
-    const endDate = new Date(year, month - 1, payday - 1, 23, 59, 59, 999);
-    return { startDate, endDate };
+    const endDate = new Date(year, month - 1, payday - 1);
+    return { startDate: formatDateToString(startDate), endDate: formatDateToString(endDate) };
   }
 }
 
@@ -622,7 +606,7 @@ export function getProcessedBudgetDataForMonth(budgetState: any, selectedMonthKe
   const budgetItems = [...costItems, ...savingsItems];
   
   // 3. FIXED: Use the centralized getTransactionsForPeriod function instead of duplicating logic
-  const transactionsForPeriod = getTransactionsForPeriod(budgetState.historicalData, selectedMonthKey);
+  const transactionsForPeriod = getTransactionsForPeriod(budgetState, selectedMonthKey);
 
   // 4. MOVE THE LOGIC from activeContent (useMemo in BudgetCalculator)
   // Find active accounts and categories
@@ -691,17 +675,16 @@ export function getInternalTransferSummary(
   const { startDate, endDate } = getDateRangeForMonth(selectedMonthKey, budgetState.settings?.payday || 25);
   const allTransactions = Object.values(budgetState.historicalData).flatMap(m => m.transactions || []);
   
-  console.log('🔍 [INTERNAL TRANSFERS CALCULATION] Date range and transactions', {
-    startDate: startDate.toISOString(),
-    endDate: endDate.toISOString(),
+  console.log('🔍 [INTERNAL TRANSFERS CALCULATION] Date range and transactions (string dates)', {
+    startDate,
+    endDate,
     totalTransactions: allTransactions.length,
     internalTransferTransactions: allTransactions.filter(t => t.type === 'InternalTransfer').length
   });
   
-  // 2. Filtrera ut alla interna överföringar inom den korrekta perioden
+  // 2. Filtrera ut alla interna överföringar inom den korrekta perioden - ren strängjämförelse
   const transfersForPeriod = allTransactions.filter(t => {
-    const transactionDate = parseLocalDate(t.date);
-    return t.type === 'InternalTransfer' && transactionDate >= startDate && transactionDate <= endDate;
+    return t.type === 'InternalTransfer' && t.date >= startDate && t.date <= endDate;
   });
 
   console.log('🔍 [INTERNAL TRANSFERS CALCULATION] Filtered transfers', {

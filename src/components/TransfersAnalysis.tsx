@@ -51,8 +51,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
     const { startDate, endDate } = getDateRangeForMonth(selectedMonth, budgetState.settings?.payday || 25);
     const allTransactions = Object.values(budgetState.historicalData).flatMap(m => m.transactions || []);
     const transactionsForPeriod = allTransactions.filter(t => {
-      const transactionDate = new Date(t.date);
-      return transactionDate >= startDate && transactionDate <= endDate;
+      return t.date >= startDate && t.date <= endDate;
     });
 
     // Find potential matches - ALL transactions with opposite sign within 7 days from OTHER accounts
@@ -97,8 +96,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
     const { startDate, endDate } = getDateRangeForMonth(selectedMonth, budgetState.settings?.payday || 25);
     const allTransactions = Object.values(budgetState.historicalData).flatMap(m => m.transactions || []);
     const transactionsForPeriod = allTransactions.filter(t => {
-      const transactionDate = new Date(t.date);
-      return transactionDate >= startDate && transactionDate <= endDate;
+      return t.date >= startDate && t.date <= endDate;
     });
     
     // 2. Extrahera cost items från costGroups struktur

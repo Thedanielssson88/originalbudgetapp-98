@@ -364,9 +364,15 @@ function parseSwedishDate(dateString: string): string | null {
   
   if (match) {
     const [, year, month, day] = match;
-    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    if (!isNaN(date.getTime())) {
-      return date.toISOString().split('T')[0]; // Return YYYY-MM-DD string
+    // Validate the date values without creating a Date object
+    const yearNum = parseInt(year);
+    const monthNum = parseInt(month);
+    const dayNum = parseInt(day);
+    
+    if (yearNum >= 1900 && yearNum <= 2100 && 
+        monthNum >= 1 && monthNum <= 12 && 
+        dayNum >= 1 && dayNum <= 31) {
+      return trimmed; // Return the original YYYY-MM-DD string if valid
     }
   }
   
@@ -377,9 +383,8 @@ function groupTransactionsByMonth(transactions: ImportedTransaction[]): Record<s
   const groups: Record<string, ImportedTransaction[]> = {};
   
   transactions.forEach(transaction => {
-    const date = new Date(transaction.date);
-    // Simple calendar month grouping - no budget logic here
-    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    // Extract month from YYYY-MM-DD string directly - no Date object needed
+    const monthKey = transaction.date.substring(0, 7); // Extract "YYYY-MM" from "YYYY-MM-DD"
     
     console.log(`[ORCHESTRATOR] 📅 Transaction ${transaction.date} -> calendar month ${monthKey}`);
     addMobileDebugLog(`📅 TX ${transaction.date} -> calendar month ${monthKey}`);
