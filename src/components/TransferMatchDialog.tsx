@@ -45,14 +45,23 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
   // Auto-select the best match when suggestions change
   React.useEffect(() => {
     if (filteredSuggestions.length > 0 && transaction) {
-      // Find the best match: same date and same absolute amount
-      const bestMatch = filteredSuggestions.find(s => 
+      // Find the best match: prioritize same date, amount, and description
+      const perfectMatch = filteredSuggestions.find(s => 
+        s.date === transaction.date && 
+        Math.abs(s.amount) === Math.abs(transaction.amount) &&
+        s.description === transaction.description
+      );
+      
+      // If no perfect match, find same date and amount
+      const goodMatch = filteredSuggestions.find(s => 
         s.date === transaction.date && 
         Math.abs(s.amount) === Math.abs(transaction.amount)
       );
       
-      if (bestMatch) {
-        setSelectedMatch(bestMatch.id);
+      if (perfectMatch) {
+        setSelectedMatch(perfectMatch.id);
+      } else if (goodMatch) {
+        setSelectedMatch(goodMatch.id);
       } else {
         setSelectedMatch('');
       }
@@ -129,16 +138,23 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
                 <div className="space-y-2">
                   {filteredSuggestions.map((suggestion) => {
                     const isSelected = selectedMatch === suggestion.id;
-                    const isBestMatch = transaction && suggestion.date === transaction.date && Math.abs(suggestion.amount) === Math.abs(transaction.amount);
+                    const isSameDateAndAmount = transaction && suggestion.date === transaction.date && Math.abs(suggestion.amount) === Math.abs(transaction.amount);
+                    const isPerfectMatch = isSameDateAndAmount && suggestion.description === transaction.description;
                     
                     return (
                     <div 
                       key={suggestion.id} 
                       className={`flex items-center space-x-2 p-3 border rounded-lg hover:bg-blue-50 ${
-                        isSelected && isBestMatch 
+                        isSelected && isPerfectMatch
                           ? 'border-green-500 bg-green-50 shadow-md' 
+                          : isSelected && isSameDateAndAmount
+                          ? 'border-yellow-500 bg-yellow-50 shadow-md'
                           : isSelected 
                           ? 'border-blue-500 bg-blue-50' 
+                          : isPerfectMatch
+                          ? 'border-green-300 bg-green-25'
+                          : isSameDateAndAmount
+                          ? 'border-yellow-300 bg-yellow-25'
                           : ''
                       }`}
                     >
