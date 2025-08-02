@@ -119,7 +119,13 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
   const finalGroupedByMonth = groupTransactionsByMonth(finalTransactionList);
   
   // Clear existing months and update with new data
-  Object.keys(state.budgetState.historicalData).forEach(monthKey => {
+  // IMPORTANT: Iterate over ALL months that have transactions (existing + new)
+  const allMonthKeys = new Set([
+    ...Object.keys(state.budgetState.historicalData),
+    ...Object.keys(finalGroupedByMonth)
+  ]);
+  
+  allMonthKeys.forEach(monthKey => {
     if (!state.budgetState.historicalData[monthKey]) {
       state.budgetState.historicalData[monthKey] = createEmptyMonthDataForImport();
     }
@@ -135,6 +141,9 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
     }));
     
     state.budgetState.historicalData[monthKey].transactions = monthTransactions;
+    
+    console.log(`[ORCHESTRATOR] 📅 Updated month ${monthKey} with ${monthTransactions.length} transactions`);
+    addMobileDebugLog(`📅 Updated month ${monthKey} with ${monthTransactions.length} transactions`);
   });
   
   // 9. Save and refresh UI
