@@ -506,40 +506,19 @@ export function getTransactionsForPeriod(
 ): any[] {
   console.log(`[getTransactionsForPeriod] Looking for transactions in period for month: ${selectedMonthKey}`);
   console.log(`[getTransactionsForPeriod] FORCED DEBUG - Starting transaction search...`);
-  const allTransactions: any[] = [];
   
-  // Parse the selected month
-  const [year, month] = selectedMonthKey.split('-').map(Number);
+  // UPDATED LOGIC: Simply get transactions from the selectedMonthKey
+  // This matches our new import logic where transactions are grouped by budget month
+  const monthData = historicalData[selectedMonthKey];
   
-  // Calculate period: 25th of previous month to 24th of current month
-  const prevMonth = month === 1 ? 12 : month - 1;
-  const prevYear = month === 1 ? year - 1 : year;
+  if (!monthData || !monthData.transactions) {
+    console.log(`[getTransactionsForPeriod] No transactions found for month ${selectedMonthKey}`);
+    return [];
+  }
   
-  const periodStart = new Date(prevYear, prevMonth - 1, 25); // 25th of previous month
-  const periodEnd = new Date(year, month - 1, 24); // 24th of current month
-  
-  // Go through all months and collect transactions within the period
-  console.log(`[getTransactionsForPeriod] Period: ${periodStart.toISOString()} to ${periodEnd.toISOString()}`);
-  console.log(`[getTransactionsForPeriod] Available months with data:`, Object.keys(historicalData));
-  
-  Object.entries(historicalData).forEach(([monthKey, monthData]) => {
-    if (monthData.transactions) {
-      console.log(`[getTransactionsForPeriod] Found ${monthData.transactions.length} transactions in month ${monthKey}`);
-      monthData.transactions.forEach((transaction, index) => {
-        const transactionDate = new Date(transaction.date);
-        const inPeriod = transactionDate >= periodStart && transactionDate <= periodEnd;
-        console.log(`[getTransactionsForPeriod] Transaction ${index}: ${transaction.date} (accountId: ${transaction.accountId}) - in period: ${inPeriod}`);
-        if (inPeriod) {
-          allTransactions.push(transaction);
-        }
-      });
-    } else {
-      console.log(`[getTransactionsForPeriod] No transactions found in month ${monthKey}`);
-    }
-  });
-  
-  console.log(`[getTransactionsForPeriod] Total transactions found in period: ${allTransactions.length}`);
-  console.log(`[getTransactionsForPeriod] Sample transactions:`, allTransactions.slice(0, 3).map(t => ({ 
+  const transactions = monthData.transactions || [];
+  console.log(`[getTransactionsForPeriod] Found ${transactions.length} transactions for budget month ${selectedMonthKey}`);
+  console.log(`[getTransactionsForPeriod] Sample transactions:`, transactions.slice(0, 3).map(t => ({ 
     id: t.id, 
     accountId: t.accountId, 
     date: t.date, 
@@ -547,7 +526,7 @@ export function getTransactionsForPeriod(
     description: t.description
   })));
   
-  return allTransactions;
+  return transactions;
 }
 
 // NEW: Central date logic for payday-based months
