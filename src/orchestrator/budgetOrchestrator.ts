@@ -97,9 +97,9 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
   
   // 9. Save and refresh UI
   saveStateToStorage();
-  runCalculationsAndUpdateState();
+  triggerUIRefresh();
   
-  console.log(`[ORCHESTRATOR] 🎉 Smart merge completed successfully`);
+  console.log(`[ORCHESTRATOR] 🎉 Smart merge completed successfully - UI refresh triggered`);
 }
 
 // Helper function to create empty month data for import
@@ -1129,7 +1129,9 @@ export function updateTransactionsForMonth(monthKey: string, transactions: Impor
 
   // Save the updated state permanently and re-run calculations
   saveStateToStorage();
-  runCalculationsAndUpdateState();
+  triggerUIRefresh();
+  
+  console.log(`[ORCHESTRATOR] Triggered UI refresh after updating transactions for month ${monthKey}`);
 }
 
 export function setTransactionsForCurrentMonth(transactions: ImportedTransaction[]): void {
