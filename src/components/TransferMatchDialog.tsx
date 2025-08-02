@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { ImportedTransaction } from '@/types/transaction';
-import { matchInternalTransfer, updateTransaction } from '../orchestrator/budgetOrchestrator';
+import { matchInternalTransfer, updateTransaction, getAccountNameById } from '../orchestrator/budgetOrchestrator';
 
 interface TransferMatchDialogProps {
   isOpen: boolean;
@@ -28,9 +28,52 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
 }) => {
   const [selectedMatch, setSelectedMatch] = React.useState<string>('');
 
+  // Auto-select the best match when suggestions change
+  React.useEffect(() => {
+    if (suggestions.length > 0 && transaction) {
+      // Find the best match: same date and same absolute amount
+      const bestMatch = suggestions.find(s => 
+        s.date === transaction.date && 
+        Math.abs(s.amount) === Math.abs(transaction.amount)
+      );
+      
+      if (bestMatch) {
+        setSelectedMatch(bestMatch.id);
+      } else {
+        setSelectedMatch('');
+      }
+    }
+  }, [suggestions, transaction]);
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('sv-SE', {
+      style: 'currency',
+      currency: 'SEK',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
   const handleMatch = () => {
     if (transaction && selectedMatch) {
-      matchInternalTransfer(transaction.id, selectedMatch);
+      const selectedTransaction = suggestions.find(s => s.id === selectedMatch);
+      
+      if (selectedTransaction) {
+        // Get month key from transaction date
+        const monthKey = transaction.date.substring(0, 7);
+        
+        // Convert both transactions to InternalTransfer if they aren't already
+        if (transaction.type !== 'InternalTransfer') {
+          updateTransaction(transaction.id, { type: 'InternalTransfer', isManuallyChanged: true }, monthKey);
+        }
+        if (selectedTransaction.type !== 'InternalTransfer') {
+          updateTransaction(selectedTransaction.id, { type: 'InternalTransfer', isManuallyChanged: true }, monthKey);
+        }
+        
+        // Match the transactions
+        matchInternalTransfer(transaction.id, selectedMatch);
+      }
+      
       onClose();
     }
   };
@@ -50,45 +93,67 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Föreslå matchning för överföring</DialogTitle>
+          <DialogTitle>Matcha överföring</DialogTitle>
           <DialogDescription>
-            Jag ser en överföring på {Math.abs(transaction.amount).toLocaleString('sv-SE')} kr från {transaction.accountId}.
-            Vill du para ihop denna med någon av följande transaktioner?
+            Matcha denna transaktion på {formatCurrency(Math.abs(transaction.amount))} kr från {getAccountNameById(transaction.accountId)}
+            med en motsvarande transaktion. Båda transaktionerna kommer att konverteras till interna överföringar och länkas.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="p-4 bg-muted rounded-lg">
-            <h4 className="font-medium">Transaktion att matcha:</h4>
-            <div className="text-sm text-muted-foreground mt-1">
-              {transaction.date}: {transaction.description} ({transaction.amount.toLocaleString('sv-SE')} kr)
+          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <h4 className="font-medium text-blue-900">Transaktion att matcha:</h4>
+            <div className="text-sm text-blue-700 mt-1">
+              <div className="font-medium">{getAccountNameById(transaction.accountId)}</div>
+              <div>{transaction.date}: {transaction.description} ({formatCurrency(transaction.amount)})</div>
             </div>
           </div>
 
           {suggestions.length > 0 ? (
             <RadioGroup value={selectedMatch} onValueChange={setSelectedMatch}>
               <div className="space-y-2">
-                {suggestions.map((suggestion) => (
-                  <div key={suggestion.id} className="flex items-center space-x-2 p-3 border rounded-lg">
+                {suggestions.map((suggestion) => {
+                  const isSelected = selectedMatch === suggestion.id;
+                  const isBestMatch = transaction && suggestion.date === transaction.date && Math.abs(suggestion.amount) === Math.abs(transaction.amount);
+                  
+                  return (
+                  <div 
+                    key={suggestion.id} 
+                    className={`flex items-center space-x-2 p-3 border rounded-lg hover:bg-blue-50 ${
+                      isSelected && isBestMatch 
+                        ? 'border-green-500 bg-green-50 shadow-md' 
+                        : isSelected 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : ''
+                    }`}
+                  >
                     <RadioGroupItem value={suggestion.id} id={suggestion.id} />
                     <Label htmlFor={suggestion.id} className="flex-1 cursor-pointer">
                       <div className="flex justify-between items-center">
-                        <span>{suggestion.date}: {suggestion.description}</span>
-                        <span className={`font-medium ${suggestion.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {suggestion.amount.toLocaleString('sv-SE')} kr
+                        <div className="flex-1">
+                          <div className="font-medium text-blue-900">{getAccountNameById(suggestion.accountId)}</div>
+                          <div className="text-sm text-gray-700">{suggestion.date}: {suggestion.description}</div>
+                        </div>
+                        <span className={`font-medium ml-4 ${suggestion.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {formatCurrency(suggestion.amount)}
                         </span>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        Konto: {suggestion.accountId}
+                      <div className="text-xs text-blue-600 mt-1">
+                        Typ: {suggestion.type || 'Transaktion'}
+                        {suggestion.type !== 'InternalTransfer' && (
+                          <span className="ml-2 text-orange-600">(kommer konverteras till Intern Överföring)</span>
+                        )}
                       </div>
                     </Label>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </RadioGroup>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              Inga matchande överföringar hittades automatiskt.
+            <div className="text-center py-8 text-blue-600">
+              <div className="text-blue-800 font-medium mb-2">Inga matchande transaktioner hittades</div>
+              <div className="text-sm">Kontrollera att den motsvarande transaktionen finns inom 7 dagar och har motsatt belopp.</div>
             </div>
           )}
         </div>
@@ -101,7 +166,11 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
             Ändra till Intern Överföring
           </Button>
           {suggestions.length > 0 && (
-            <Button onClick={handleMatch} disabled={!selectedMatch}>
+            <Button 
+              onClick={handleMatch} 
+              disabled={!selectedMatch}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
               Matcha transaktioner
             </Button>
           )}
