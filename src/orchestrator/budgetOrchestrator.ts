@@ -298,11 +298,22 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
       const cleanedAmountField = rawAmountField.trim().replace(',', '.').replace(/\s/g, '');
       const parsedAmount = parseFloat(cleanedAmountField);
 
-      if (isNaN(parsedAmount)) continue;
+      console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: Raw line: "${lines[i]}"`);
+      console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: Amount field: "${rawAmountField}" -> ${parsedAmount}`);
+
+      if (isNaN(parsedAmount)) {
+        console.log(`[ORCHESTRATOR] ⚠️ Skipping line ${i}: Invalid amount`);
+        continue;
+      }
 
       const rawDate = dateColumnIndex >= 0 ? fields[dateColumnIndex] : '';
       const parsedDate = parseSwedishDate(rawDate);
-      if (!parsedDate) continue;
+      console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: Date field: "${rawDate}" -> "${parsedDate}"`);
+      
+      if (!parsedDate) {
+        console.log(`[ORCHESTRATOR] ⚠️ Skipping line ${i}: Invalid date`);
+        continue;
+      }
 
       // NEW: Parse balance after transaction
       let balanceAfter: number | undefined;
@@ -316,10 +327,13 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
         }
       }
 
+      const description = descriptionColumnIndex >= 0 ? fields[descriptionColumnIndex].trim() : '';
+      console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: Description: "${description}"`);
+
       const transaction: ImportedTransaction = {
         id: uuidv4(),
         date: parsedDate, // Already in YYYY-MM-DD string format
-        description: descriptionColumnIndex >= 0 ? fields[descriptionColumnIndex].trim() : '',
+        description: description,
         amount: parsedAmount,
         balanceAfter: balanceAfter, // NEW: Include balance after transaction
         accountId: accountId,
@@ -329,6 +343,7 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
         fileSource: fileName
       };
 
+      console.log(`[ORCHESTRATOR] ✅ Created transaction for line ${i}:`, transaction);
       transactions.push(transaction);
     } catch (error) {
       console.warn(`Failed to parse transaction at line ${i + 1}:`, error);
