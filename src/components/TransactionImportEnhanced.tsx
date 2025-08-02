@@ -481,11 +481,14 @@ export const TransactionImportEnhanced: React.FC = () => {
 
   // File upload handler - uses the new Smart Merge function
   const handleFileUpload = useCallback(async (file: File, accountId: string, accountName: string) => {
+    addMobileDebugLog(`📁 FILE UPLOAD STARTED: ${file.name} for account ${accountId}`);
     try {
       // Read file with proper encoding for Swedish characters
       const arrayBuffer = await file.arrayBuffer();
       const decoder = new TextDecoder('utf-8');
       const csvContent = decoder.decode(arrayBuffer);
+      
+      addMobileDebugLog(`📁 File read successfully: ${csvContent.length} characters`);
       
       if (!csvContent || csvContent.trim().length === 0) {
         toast({
