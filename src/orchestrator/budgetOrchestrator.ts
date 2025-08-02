@@ -902,13 +902,14 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
   let updatedTransactions = [...currentMonth.transactions];
 
   // --- RESTORATION LOGIC ---
-  // If the type is being changed AWAY from 'CostCoverage', restore both linked transactions
-  if (originalTransaction.type === 'CostCoverage' && 
+  // If the type is being changed AWAY from 'CostCoverage' or 'ExpenseClaim', restore both linked transactions
+  if ((originalTransaction.type === 'CostCoverage' || originalTransaction.type === 'ExpenseClaim') && 
       updates.type && 
       updates.type !== 'CostCoverage' && 
+      updates.type !== 'ExpenseClaim' &&
       originalTransaction.linkedTransactionId) {
     
-    console.log(`🔄 [Orchestrator] Restoring cost coverage link for ${transactionId}`);
+    console.log(`🔄 [Orchestrator] Restoring ${originalTransaction.type} link for ${transactionId}`);
     
     // Find and restore the linked transaction
     const linkedTxIndex = updatedTransactions.findIndex(t => t.id === originalTransaction.linkedTransactionId);
@@ -1086,6 +1087,80 @@ export function coverCost(transferId: string, costId: string): void {
   runCalculationsAndUpdateState();
   
   console.log(`✅ [Orchestrator] Cost coverage complete - covered ${coverAmount} from transfer ${transferId} (${transferMonthKey}) to cost ${costId} (${costMonthKey})`);
+}
+
+export function applyExpenseClaim(expenseId: string, paymentId: string): void {
+  console.log(`🔗 [Orchestrator] Applying expense claim - expense: ${expenseId}, payment: ${paymentId}`);
+  
+  // Search for transactions in all months, not just current month
+  let expense: any = null;
+  let payment: any = null;
+  let expenseMonthKey = '';
+  let paymentMonthKey = '';
+  
+  // Find transactions across all historical data
+  Object.entries(state.budgetState.historicalData || {}).forEach(([monthKey, monthData]) => {
+    const transactions = (monthData as any)?.transactions || [];
+    
+    const foundExpense = transactions.find((t: any) => t.id === expenseId);
+    if (foundExpense) {
+      expense = foundExpense;
+      expenseMonthKey = monthKey;
+    }
+    
+    const foundPayment = transactions.find((t: any) => t.id === paymentId);
+    if (foundPayment) {
+      payment = foundPayment;
+      paymentMonthKey = monthKey;
+    }
+  });
+  
+  console.log(`🔗 [Orchestrator] Found expense:`, expense ? { 
+    id: expense.id, 
+    amount: expense.amount, 
+    type: expense.type, 
+    month: expenseMonthKey 
+  } : 'NOT FOUND');
+  console.log(`🔗 [Orchestrator] Found payment:`, payment ? { 
+    id: payment.id, 
+    amount: payment.amount, 
+    type: payment.type,
+    month: paymentMonthKey 
+  } : 'NOT FOUND');
+  
+  if (!expense || !payment || expense.amount >= 0 || payment.amount <= 0) {
+    console.error(`[Orchestrator] Invalid transactions for expense claim:`, {
+      expenseFound: !!expense,
+      paymentFound: !!payment,
+      expenseAmount: expense?.amount,
+      paymentAmount: payment?.amount
+    });
+    return;
+  }
+  
+  const claimAmount = Math.min(Math.abs(expense.amount), payment.amount);
+  console.log(`🔗 [Orchestrator] Claim amount calculated: ${claimAmount}`);
+  
+  // Update expense transaction to zero out the cost
+  updateTransaction(expenseId, {
+    type: 'ExpenseClaim',
+    linkedTransactionId: paymentId,
+    correctedAmount: 0, // Expense is fully covered
+    isManuallyChanged: true
+  }, expenseMonthKey);
+  
+  // Update payment transaction with remaining amount after covering the expense
+  updateTransaction(paymentId, {
+    type: 'Transaction',
+    correctedAmount: payment.amount - claimAmount,
+    linkedTransactionId: expenseId,
+    isManuallyChanged: true
+  }, paymentMonthKey);
+  
+  // Force UI update by running calculations and triggering state update
+  runCalculationsAndUpdateState();
+  
+  console.log(`✅ [Orchestrator] Expense claim complete - claimed ${claimAmount} from payment ${paymentId} (${paymentMonthKey}) to expense ${expenseId} (${expenseMonthKey})`);
 }
 
 // New flexible function that can update transactions for any month

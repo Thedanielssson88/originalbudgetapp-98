@@ -51,6 +51,7 @@ import { TransactionTypeSelector } from './TransactionTypeSelector';
 import { TransferMatchDialog } from './TransferMatchDialog';
 import { SavingsLinkDialog } from './SavingsLinkDialog';
 import { CostCoverageDialog } from './CostCoverageDialog';
+import { ExpenseClaimDialog } from './ExpenseClaimDialog';
 import { BalanceCorrectionDialog } from './BalanceCorrectionDialog';
 import { useBudget } from '@/hooks/useBudget';
 import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping, getAllTransactionsFromDatabase, linkAccountToBankTemplate } from '../orchestrator/budgetOrchestrator';
@@ -341,6 +342,10 @@ export const TransactionImportEnhanced: React.FC = () => {
     isOpen: boolean;
     transfer?: ImportedTransaction;
     potentialCosts?: ImportedTransaction[];
+  }>({ isOpen: false });
+  const [expenseClaimDialog, setExpenseClaimDialog] = useState<{
+    isOpen: boolean;
+    expense?: ImportedTransaction;
   }>({ isOpen: false });
   const [savingsLinkDialog, setSavingsLinkDialog] = useState<{
     isOpen: boolean;
@@ -641,6 +646,13 @@ export const TransactionImportEnhanced: React.FC = () => {
       isOpen: true,
       transfer: transaction,
       potentialCosts
+    });
+  };
+
+  const handleExpenseClaim = (transaction: ImportedTransaction) => {
+    setExpenseClaimDialog({
+      isOpen: true,
+      expense: transaction
     });
   };
 
@@ -1431,6 +1443,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                       onTransferMatch={handleTransferMatch}
                       onSavingsLink={handleSavingsLink}
                       onCostCoverage={handleCostCoverage}
+                      onExpenseClaim={handleExpenseClaim}
                       onRefresh={triggerRefresh}
                       mainCategories={mainCategories}
                       costGroups={costGroups}
@@ -1468,6 +1481,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                           onTransferMatch={handleTransferMatch}
                           onSavingsLink={handleSavingsLink}
                           onCostCoverage={handleCostCoverage}
+                          onExpenseClaim={handleExpenseClaim}
                           onRefresh={triggerRefresh}
                           mainCategories={mainCategories}
                           costGroups={costGroups}
@@ -1572,6 +1586,13 @@ export const TransactionImportEnhanced: React.FC = () => {
         onClose={() => setCostCoverageDialog({ isOpen: false })}
         transfer={costCoverageDialog.transfer}
         potentialCosts={costCoverageDialog.potentialCosts || []}
+        onRefresh={triggerRefresh}
+      />
+
+      <ExpenseClaimDialog
+        isOpen={expenseClaimDialog.isOpen}
+        onClose={() => setExpenseClaimDialog({ isOpen: false })}
+        transaction={expenseClaimDialog.expense}
         onRefresh={triggerRefresh}
       />
 

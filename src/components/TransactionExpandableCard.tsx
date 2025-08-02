@@ -26,6 +26,7 @@ interface TransactionExpandableCardProps {
   onTransferMatch?: (transaction: ImportedTransaction) => void;
   onSavingsLink?: (transaction: ImportedTransaction) => void;
   onCostCoverage?: (transaction: ImportedTransaction) => void;
+  onExpenseClaim?: (transaction: ImportedTransaction) => void;
   onRefresh?: () => void; // Add refresh callback
 }
 
@@ -42,6 +43,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   onTransferMatch,
   onSavingsLink,
   onCostCoverage,
+  onExpenseClaim,
   onRefresh
 }) => {
   const { isExpanded, setIsExpanded } = useTransactionExpansion(transaction.id);
@@ -274,6 +276,16 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                           Täck kostnad
                         </Button>
                       )}
+                      {transaction.type === 'ExpenseClaim' && onExpenseClaim && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onExpenseClaim(transaction)}
+                          className="text-xs px-2 py-1"
+                        >
+                          Koppla utlägg
+                        </Button>
+                      )}
                     </div>
                   </div>
 
@@ -281,7 +293,8 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                   {transaction.linkedTransactionId && (
                     <div>
                       <label className="text-xs font-medium text-muted-foreground">
-                        {transaction.type === 'CostCoverage' ? 'Täcker kostnad' : 'Länkad transaktion'}
+                        {transaction.type === 'CostCoverage' ? 'Täcker kostnad' : 
+                         transaction.type === 'ExpenseClaim' ? 'Utlägg täcks av' : 'Länkad transaktion'}
                       </label>
                       <div className="mt-1 p-2 bg-blue-50 border border-blue-200 rounded-md">
                         {(() => {
@@ -307,6 +320,21 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                               <div className="space-y-1">
                                 <p className="text-sm text-blue-700 font-medium">
                                   Täcker {Math.abs(coveredAmount).toLocaleString('sv-SE')} kr av kostnad:
+                                </p>
+                                <p className="text-sm text-blue-600">
+                                  {linkedTransaction.date}: {linkedTransaction.description}
+                                </p>
+                                <p className="text-xs text-blue-500">
+                                  Konto: {account?.name || linkedTransaction.accountId}
+                                </p>
+                              </div>
+                            );
+                          } else if (transaction.type === 'ExpenseClaim') {
+                            const claimedAmount = Math.abs(transaction.amount);
+                            return (
+                              <div className="space-y-1">
+                                <p className="text-sm text-blue-700 font-medium">
+                                  Utlägg på {claimedAmount.toLocaleString('sv-SE')} kr täcks av:
                                 </p>
                                 <p className="text-sm text-blue-600">
                                   {linkedTransaction.date}: {linkedTransaction.description}

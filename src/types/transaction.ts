@@ -19,7 +19,7 @@ export interface ImportedTransaction {
   appSubCategoryId?: string;
   
   // Transaction type and status
-  type: 'Transaction' | 'InternalTransfer' | 'Savings' | 'CostCoverage';
+  type: 'Transaction' | 'InternalTransfer' | 'Savings' | 'CostCoverage' | 'ExpenseClaim';
   status: 'red' | 'yellow' | 'green'; // Red=needs action, Yellow=auto, Green=approved
   
   // Transfer specific fields
@@ -43,7 +43,7 @@ export interface CategoryRule {
   bankSubCategory?: string;
   appCategoryId: string;
   appSubCategoryId?: string;
-  transactionType: 'Transaction' | 'InternalTransfer';
+  transactionType: 'Transaction' | 'InternalTransfer' | 'ExpenseClaim';
   description?: string; // Optional description pattern matching
   priority: number; // Higher number = higher priority
   isActive: boolean;

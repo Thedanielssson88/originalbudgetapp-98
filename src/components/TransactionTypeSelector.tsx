@@ -62,10 +62,10 @@ export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = (
     };
     
     // Only reset fields that are not relevant to the new type
-    if (newType !== 'InternalTransfer' && newType !== 'CostCoverage') {
+    if (newType !== 'InternalTransfer' && newType !== 'CostCoverage' && newType !== 'ExpenseClaim') {
       updates.linkedTransactionId = undefined;
     }
-    if (newType !== 'CostCoverage') {
+    if (newType !== 'CostCoverage' && newType !== 'ExpenseClaim') {
       updates.correctedAmount = undefined;
     }
     // Keep savingsTargetId when changing TO Savings type, reset when changing away
@@ -96,6 +96,7 @@ export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = (
           <>
             <SelectItem value="Transaction">Transaktion</SelectItem>
             <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
+            <SelectItem value="ExpenseClaim">Utlägg</SelectItem>
           </>
         ) : (
           // Alternativ för positiva transaktioner

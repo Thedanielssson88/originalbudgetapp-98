@@ -11,7 +11,7 @@ export interface Transaction {
   amount: number; // Originalbelopp från banken, ändras aldrig
   balanceAfter: number; // Saldo efter transaktion
   status: 'red' | 'yellow' | 'green'; // Röd=kräver åtgärd, Gul=automatisk, Grön=godkänd
-  type: 'Transaction' | 'InternalTransfer' | 'Savings' | 'CostCoverage';
+  type: 'Transaction' | 'InternalTransfer' | 'Savings' | 'CostCoverage' | 'ExpenseClaim';
   appCategoryId?: string; // Koppling till vår egen kategori
   appSubCategoryId?: string;
   linkedTransactionId?: string; // För att para ihop överföringar
