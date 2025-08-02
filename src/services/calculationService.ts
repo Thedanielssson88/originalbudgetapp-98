@@ -519,6 +519,7 @@ export function getTransactionsForPeriod(
   const periodEnd = new Date(year, month - 1, 24, 23, 59, 59); // 24th of current month, end of day
   
   console.log(`[getTransactionsForPeriod] Period: ${periodStart.toISOString()} to ${periodEnd.toISOString()}`);
+  console.log(`[getTransactionsForPeriod] Period formatted: ${periodStart.toLocaleDateString('sv-SE')} to ${periodEnd.toLocaleDateString('sv-SE')}`);
   console.log(`[getTransactionsForPeriod] Available months with data:`, Object.keys(historicalData));
   
   // Go through all months and collect transactions within the period
@@ -528,9 +529,13 @@ export function getTransactionsForPeriod(
       monthData.transactions.forEach((transaction, index) => {
         const transactionDate = new Date(transaction.date);
         const inPeriod = transactionDate >= periodStart && transactionDate <= periodEnd;
-        console.log(`[getTransactionsForPeriod] Transaction ${index}: ${transaction.date} (accountId: ${transaction.accountId}) - in period: ${inPeriod}`);
+        console.log(`[getTransactionsForPeriod] Transaction ${index}: ${transaction.date} -> ${transactionDate.toLocaleDateString('sv-SE')} (accountId: ${transaction.accountId}) - in period: ${inPeriod}`);
+        console.log(`[getTransactionsForPeriod] Transaction ${index} comparison: ${transactionDate.getTime()} >= ${periodStart.getTime()} && ${transactionDate.getTime()} <= ${periodEnd.getTime()}`);
         if (inPeriod) {
           allTransactions.push(transaction);
+          console.log(`[getTransactionsForPeriod] ✅ INCLUDED transaction: ${transaction.date} - ${transaction.description} - ${transaction.amount}`);
+        } else {
+          console.log(`[getTransactionsForPeriod] ❌ EXCLUDED transaction: ${transaction.date} - ${transaction.description} - ${transaction.amount}`);
         }
       });
     } else {
@@ -539,7 +544,7 @@ export function getTransactionsForPeriod(
   });
   
   console.log(`[getTransactionsForPeriod] Total transactions found in period: ${allTransactions.length}`);
-  console.log(`[getTransactionsForPeriod] Sample transactions:`, allTransactions.slice(0, 3).map(t => ({ 
+  console.log(`[getTransactionsForPeriod] Final transactions:`, allTransactions.map(t => ({ 
     id: t.id, 
     accountId: t.accountId, 
     date: t.date, 
