@@ -546,9 +546,13 @@ export const TransactionImportEnhanced: React.FC = () => {
   }, [toast]);
 
   const triggerFileUpload = useCallback((accountId: string) => {
+    addMobileDebugLog(`🔄 TRIGGER FILE UPLOAD clicked for account: ${accountId}`);
     const input = fileInputRefs.current[accountId];
     if (input) {
+      addMobileDebugLog(`🔄 File input found, triggering click`);
       input.click();
+    } else {
+      addMobileDebugLog(`❌ No file input found for account: ${accountId}`);
     }
   }, []);
 
@@ -945,7 +949,9 @@ export const TransactionImportEnhanced: React.FC = () => {
                   style={{ display: 'none' }}
                   onChange={(e) => {
                     const file = e.target.files?.[0];
+                    addMobileDebugLog(`📁 FILE INPUT CHANGE EVENT: ${file ? file.name : 'no file'} for account ${account.id}`);
                     if (file) {
+                      addMobileDebugLog(`📁 Calling handleFileUpload for: ${file.name}`);
                       handleFileUpload(file, account.id, account.name);
                     }
                   }}
