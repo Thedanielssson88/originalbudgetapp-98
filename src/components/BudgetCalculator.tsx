@@ -7009,40 +7009,23 @@ const BudgetCalculator = () => {
                               onAddSavingsItem={(item) => {
                                 // Handle adding savings item
                               }}
-                            />
-
-                            {/* Nya sektionen för planerade överföringar */}
-                            <div className="mt-6">
-                              <TransfersAnalysis
-                                budgetState={budgetState}
-                                selectedMonth={selectedBudgetMonth}
-                              />
-                            </div>
-                              onAddSavingsItem={(item) => {
-                                // Handle adding savings item
-                                const newGroup = {
-                                  id: uuidv4(),
-                                  name: item.mainCategory,
-                                  amount: 0,
-                                  type: 'savings' as const,
-                                  subCategories: [{
-                                    id: uuidv4(),
-                                    name: item.name,
-                                    amount: item.amount,
-                                    account: item.account
-                                  }]
-                                };
-                                setSavingsGroups([...savingsGroups, newGroup]);
-                              }}
                               onEditSavingsGroup={(group) => {
                                 // Handle editing savings group
                                 console.log('Edit savings group:', group);
                               }}
                               onDeleteSavingsGroup={(id) => {
                                 // Handle deleting savings group
-                                setSavingsGroups(savingsGroups.filter(g => g.id !== id));
+                                console.log('Delete savings group:', id);
                               }}
                             />
+
+                            {/* Nya sektionen för planerade överföringar */}
+                            <div className="mt-6">
+                              <TransfersAnalysis
+                                budgetState={budgetState}
+                                selectedMonth={selectedMonthKey}
+                              />
+                            </div>
                           </div>
                         )}
                       </div>
@@ -7054,7 +7037,7 @@ const BudgetCalculator = () => {
               <div className="mt-6">
                 <TransfersAnalysis 
                   budgetState={budgetState} 
-                  selectedMonth={selectedMonth} 
+                  selectedMonth={selectedMonthKey} 
                 />
               </div>
 
