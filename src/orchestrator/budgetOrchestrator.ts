@@ -1249,9 +1249,15 @@ export function updatePaydaySetting(newPayday: number): void {
   // Save to storage first
   saveStateToStorage();
   
-  // Force recalculation since this affects how months are interpreted
-  // This will also trigger UI refresh
-  forceRecalculation();
+  // Clear calculated data to force complete recalculation
+  state.calculated = {
+    results: null,
+    fullPrognosis: null
+  };
   
-  console.log(`[updatePaydaySetting] Payday updated to ${newPayday} with UI refresh triggered`);
+  // Force complete recalculation since payday affects month boundaries
+  console.log(`[updatePaydaySetting] Forcing complete recalculation due to payday change...`);
+  runCalculationsAndUpdateState();
+  
+  console.log(`[updatePaydaySetting] Payday updated to ${newPayday} with complete recalculation triggered`);
 }
