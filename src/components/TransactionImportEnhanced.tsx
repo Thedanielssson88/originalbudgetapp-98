@@ -333,6 +333,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
   const [activeTransactionTab, setActiveTransactionTab] = useState<'all' | 'account' | 'rules'>('all');
   const [hideGreenTransactions, setHideGreenTransactions] = useState<boolean>(false);
+  const [showAllSystemTransactions, setShowAllSystemTransactions] = useState<boolean>(false);
   const [selectedAccountForView, setSelectedAccountForView] = useState<string>('');
   const [transferMatchDialog, setTransferMatchDialog] = useState<{
     isOpen: boolean;
@@ -1217,9 +1218,20 @@ export const TransactionImportEnhanced: React.FC = () => {
     );
   };
   const renderCategorizationStep = () => {
-    const filteredTransactions = hideGreenTransactions 
-      ? allTransactions.filter(t => t.status !== 'green')
+    // Get all system transactions if checkbox is checked, otherwise use imported transactions
+    const baseTransactions = showAllSystemTransactions 
+      ? Object.values(budgetState?.historicalData || {}).flatMap(month => 
+          (month.transactions || []).map(t => ({
+            ...t,
+            importedAt: (t as any).importedAt || new Date().toISOString(),
+            fileSource: (t as any).fileSource || 'system'
+          } as ImportedTransaction))
+        )
       : allTransactions;
+    
+    const filteredTransactions = hideGreenTransactions 
+      ? baseTransactions.filter(t => t.status !== 'green')
+      : baseTransactions;
 
     return (
       <div className="space-y-4 sm:space-y-6">
@@ -1234,6 +1246,15 @@ export const TransactionImportEnhanced: React.FC = () => {
         <div className="space-y-3 sm:space-y-0 sm:flex sm:items-center sm:gap-4 p-3 sm:p-4 bg-muted/30 rounded-lg">
           <div className="flex items-center space-x-2">
             <Checkbox
+              id="showAllSystem"
+              checked={showAllSystemTransactions}
+              onCheckedChange={(checked) => setShowAllSystemTransactions(checked === true)}
+            />
+            <Label htmlFor="showAllSystem" className="text-sm">Visa alla transaktioner i systemet</Label>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <Checkbox
               id="hideGreen"
               checked={hideGreenTransactions}
               onCheckedChange={(checked) => setHideGreenTransactions(checked === true)}
@@ -1242,7 +1263,8 @@ export const TransactionImportEnhanced: React.FC = () => {
           </div>
           
           <div className="text-xs sm:text-sm text-muted-foreground">
-            Visar {filteredTransactions.length} av {allTransactions.length} transaktioner
+            Visar {filteredTransactions.length} av {baseTransactions.length} transaktioner
+            {showAllSystemTransactions && ' (alla systemtransaktioner)'}
           </div>
           
           <div className="flex flex-col sm:flex-row sm:ml-auto gap-2">
@@ -1476,11 +1498,12 @@ export const TransactionImportEnhanced: React.FC = () => {
           </TabsContent>
           
           <TabsContent value="all" className="space-y-4">
-            <Card>
+             <Card>
               <CardHeader>
                 <CardTitle>Alla transaktioner</CardTitle>
                 <CardDescription>
                   {filteredTransactions.length} transaktioner totalt
+                  {showAllSystemTransactions && ' (från hela systemet)'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
