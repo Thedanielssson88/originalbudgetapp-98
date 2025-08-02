@@ -117,3 +117,15 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Table responsiveness for mobile devices */
+@layer utilities {
+  .table-responsive {
+    @apply overflow-x-auto w-full;
+  }
+  
+  .table-responsive table {
+    @apply w-full border-collapse;
+    min-width: 600px; /* Ensure table doesn't get too cramped */
+  }
+}

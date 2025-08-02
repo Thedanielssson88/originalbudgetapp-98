@@ -43,7 +43,7 @@ export const AccountDataTable: React.FC<AccountDataTableProps> = ({ data, classN
           </div>
           
           {/* Desktop view */}
-          <div className="hidden md:block">
+          <div className="hidden md:block table-responsive">
             <Table>
               <TableHeader>
                 <TableRow>
