@@ -613,11 +613,14 @@ export const TransactionImportEnhanced: React.FC = () => {
   };
 
   const handleTransferMatch = (transaction: ImportedTransaction) => {
+    // Find potential matches - ALL transactions with opposite sign within 7 days from OTHER accounts
     const potentialMatches = allTransactions.filter(t => 
       t.id !== transaction.id &&
-      t.type === 'InternalTransfer' &&
-      Math.abs(t.amount + transaction.amount) < 0.01 &&
-      Math.abs(new Date(t.date).getTime() - new Date(transaction.date).getTime()) <= 24 * 60 * 60 * 1000
+      t.accountId !== transaction.accountId && // Different account
+      // Opposite signs (positive matches negative, negative matches positive)
+      ((transaction.amount > 0 && t.amount < 0) || (transaction.amount < 0 && t.amount > 0)) &&
+      Math.abs(Math.abs(t.amount) - Math.abs(transaction.amount)) < 0.01 && // Same absolute amount
+      Math.abs(new Date(t.date).getTime() - new Date(transaction.date).getTime()) <= 7 * 24 * 60 * 60 * 1000 // Within 7 days
     );
 
     setTransferMatchDialog({
