@@ -58,6 +58,7 @@ import { useBudget } from '@/hooks/useBudget';
 import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping, getAllTransactionsFromDatabase, linkAccountToBankTemplate } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState, setMainCategories } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
+import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 
 // Category Management Component
 interface CategoryManagementSectionProps {
@@ -508,6 +509,8 @@ export const TransactionImportEnhanced: React.FC = () => {
       // Use the new Smart Merge function - eliminates duplicates and preserves manual changes
       console.log('🔄 [DEBUG] About to import file with accountId:', accountId);
       console.log('🔄 [DEBUG] CSV content preview:', csvContent.substring(0, 200));
+      addMobileDebugLog(`🔄 About to import for account: ${accountId}`);
+      addMobileDebugLog(`🔄 CSV preview: ${csvContent.substring(0, 100)}...`);
       
       importAndReconcileFile(csvContent, accountId);
       
