@@ -16,14 +16,14 @@ interface AddCostItemDialogProps {
     subcategory: string;
     name: string;
     amount: number;
-    account: string;
+    accountId?: string; // ÄNDRAT: Nu sparas accountId istället för account name
     financedFrom: string;
     transferType?: 'monthly' | 'daily';
     dailyAmount?: number;
     transferDays?: number[];
   }) => void;
   mainCategories: string[];
-  accounts: string[];
+  accounts: { id: string; name: string }[]; // ÄNDRAT: Förväntar sig account objects istället för strings
 }
 
 export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({ 
@@ -96,9 +96,11 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
       console.log('🔍 [DEBUG] Validation passed, calling onSave...');
       const itemToSave = {
         ...formData,
-        account: formData.account === 'none' ? '' : formData.account
+        accountId: formData.account === 'none' ? undefined : formData.account // Konvertera till accountId
       };
-      onSave(itemToSave);
+      // Ta bort den gamla 'account' propertyn
+      const { account, ...finalItem } = itemToSave;
+      onSave(finalItem);
       setFormData({
         mainCategory: '',
         subcategory: '',
@@ -286,8 +288,8 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
               <SelectContent className="bg-popover border border-border shadow-lg z-50">
                 <SelectItem value="none">Inget konto</SelectItem>
                 {accounts.map((account) => (
-                  <SelectItem key={account} value={account}>
-                    {account}
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.name}
                   </SelectItem>
                 ))}
               </SelectContent>

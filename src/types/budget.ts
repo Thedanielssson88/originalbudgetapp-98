@@ -41,7 +41,7 @@ export interface SubCategory {
   id: string;
   name: string;
   amount: number;
-  accountId?: string; // ÄNDRING: Nu lagrar kontots ID, inte namn
+  accountId?: string; // KONSISTENT: Använder alltid kontots ID, aldrig namn
   financedFrom?: 'Löpande kostnad' | 'Enskild kostnad';
   
   // Nya fält för dagliga överföringar
@@ -58,7 +58,7 @@ export interface BudgetGroup {
   actualAmount?: number; // NYTT FÄLT för faktiska transaktioner
   type: 'cost' | 'savings';
   subCategories?: SubCategory[];
-  accountId?: string; // ÄNDRING: Nu lagrar kontots ID, inte namn
+  accountId?: string; // KONSISTENT: Använder alltid kontots ID, aldrig namn
   financedFrom?: 'Löpande kostnad' | 'Enskild kostnad';
 }
 
@@ -216,6 +216,9 @@ export interface BudgetState {
   
   // CSV mappings - permanent storage for mapping rules
   csvMappings: CsvMapping[];
+  
+  // Migration version to track data migrations
+  migrationVersion?: number;
 }
 
 // Legacy interface för bakåtkompatibilitet under övergången

@@ -85,8 +85,7 @@ interface SubCategory {
   id: string;
   name: string;
   amount: number;
-  account?: string;
-  accountId?: string;  // New property for account ID
+  accountId?: string; // ENDAST accountId - ingen account-property längre
   financedFrom?: 'Löpande kostnad' | 'Enskild kostnad';
   transferType?: 'monthly' | 'daily';
   dailyAmount?: number;
@@ -103,7 +102,7 @@ interface BudgetGroup {
   amount: number;
   type: 'cost' | 'savings';
   subCategories?: SubCategory[];
-  account?: string;
+  accountId?: string; // ENDAST accountId - ingen account-property längre
   financedFrom?: 'Löpande kostnad' | 'Enskild kostnad';
 }
 
@@ -114,6 +113,17 @@ const BudgetCalculator = () => {
   // Use the original useBudget hook - fix hook ordering instead
   const { isLoading, budgetState, calculated } = useBudget();
   const { toast } = useToast();
+  
+  // Utility function to check if a SubCategory belongs to a specific account
+  const subCategoryBelongsToAccount = (sub: SubCategory, accountName: string): boolean => {
+    if (sub.accountId) {
+      // New logic: compare accountId
+      const account = budgetState.accounts.find(acc => acc.name === accountName);
+      return account ? sub.accountId === account.id : false;
+    }
+    // Legacy fallback: this should not happen after migration
+    return false;
+  };
   
   // ALL HOOKS MUST BE DECLARED FIRST - BEFORE ANY CONDITIONAL LOGIC
   const [isEditingCategories, setIsEditingCategories] = useState<boolean>(false);
@@ -984,7 +994,7 @@ const BudgetCalculator = () => {
       // Get all cost subcategories for this account that are "Löpande kostnad" (same as UI)
       const accountCostItems = costGroups.reduce((items, group) => {
         const groupCosts = group.subCategories?.filter(sub => 
-          sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom)
+          subCategoryBelongsToAccount(sub, account) && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom)
         ) || [];
         return items.concat(groupCosts);
       }, []);
@@ -994,8 +1004,9 @@ const BudgetCalculator = () => {
       
       // Calculate final balance as sum of ALL entries shown in the table (same as UI):
       // original balance + savings deposits + cost budget deposits - all costs
+      const accountData = budgetState.accounts.find(acc => acc.name === account);
       const allCostItems = costGroups.reduce((items, group) => {
-        const groupCosts = group.subCategories?.filter(sub => sub.account === account) || [];
+        const groupCosts = group.subCategories?.filter(sub => subCategoryBelongsToAccount(sub, account)) || [];
         return items.concat(groupCosts);
       }, []);
       const totalAllCosts = allCostItems.reduce((sum, item) => sum + item.amount, 0);
@@ -2257,7 +2268,7 @@ const BudgetCalculator = () => {
       // Calculate only "Enskild kostnad" (one-time costs) that should be subtracted
       const accountOneTimeCosts = (prevMonthData.costGroups || []).reduce((sum: number, group: any) => {
         const groupOneTimeCosts = group.subCategories
-          ?.filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
+          ?.filter((sub: any) => subCategoryBelongsToAccount(sub, account) && sub.financedFrom === 'Enskild kostnad')
           .reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
         return sum + groupOneTimeCosts;
       }, 0);
@@ -2472,28 +2483,28 @@ const BudgetCalculator = () => {
           id: 'transport_fuel_sub',
           name: 'Bränsle',
           amount: 800,
-          account: 'Löpande',
+          accountId: budgetState.accounts.find(acc => acc.name === 'Löpande')?.id,
           financedFrom: 'Löpande kostnad'
         },
         {
           id: 'transport_maintenance_sub', 
           name: 'Underhåll fordon',
           amount: 600,
-          account: 'Löpande',
+          accountId: budgetState.accounts.find(acc => acc.name === 'Löpande')?.id,
           financedFrom: 'Löpande kostnad'
         },
         {
           id: 'transport_parking_sub',
           name: 'Parkering',
           amount: 300,
-          account: 'Löpande', 
+          accountId: budgetState.accounts.find(acc => acc.name === 'Löpande')?.id,
           financedFrom: 'Löpande kostnad'
         },
         {
           id: 'transport_public_sub',
           name: 'Kollektivtrafik',
           amount: 300,
-          account: 'Löpande',
+          accountId: budgetState.accounts.find(acc => acc.name === 'Löpande')?.id,
           financedFrom: 'Löpande kostnad'
         }
       ];
@@ -4421,7 +4432,7 @@ const BudgetCalculator = () => {
           monthData.costGroups.forEach((group: any) => {
             if (group.subCategories) {
               group.subCategories
-                .filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
+                .filter((sub: any) => subCategoryBelongsToAccount(sub, account) && sub.financedFrom === 'Enskild kostnad')
                 .forEach((sub: any) => {
                   totalIndividualCosts += sub.amount;
                   console.log(`Individual cost found in costGroups - Month: ${monthKey}, Account: ${account}, Amount: ${sub.amount}, Name: ${sub.name}`);
@@ -4441,7 +4452,7 @@ const BudgetCalculator = () => {
           monthData.savingsGroups.forEach((group: any) => {
             if (group.subCategories) {
               group.subCategories
-                .filter((sub: any) => sub.account === account && sub.financedFrom === 'Enskild kostnad')
+                .filter((sub: any) => subCategoryBelongsToAccount(sub, account) && sub.financedFrom === 'Enskild kostnad')
                 .forEach((sub: any) => {
                   totalIndividualCosts += sub.amount;
                   console.log(`Individual cost found in savingsGroups subCategories - Month: ${monthKey}, Account: ${account}, Amount: ${sub.amount}, Name: ${sub.name}`);
@@ -6544,8 +6555,8 @@ const BudgetCalculator = () => {
                                                          <div className="font-medium">{sub.transferType === 'daily' ? 'Daglig överföring' : 'Månadsöverföring'}</div>
                                                        </div>
                                                         <div>
-                                                          <span className="text-muted-foreground">Konto:</span>
-                                                          <div className="font-medium">{sub.accountId ? budgetState.accounts.find(acc => acc.id === sub.accountId)?.name || 'Inget konto' : sub.account || 'Inget konto'}</div>
+                                                           <span className="text-muted-foreground">Konto:</span>
+                                                           <div className="font-medium">{sub.accountId ? budgetState.accounts.find(acc => acc.id === sub.accountId)?.name || 'Inget konto' : 'Inget konto'}</div>
                                                         </div>
                                                      </div>
                                                      
@@ -7996,9 +8007,9 @@ const BudgetCalculator = () => {
                              
                              // Calculate costs for this account
                              const accountCosts = costGroups.reduce((sum, group) => {
-                               const groupCosts = group.subCategories
-                                 ?.filter(sub => sub.account === account)
-                                 .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                const groupCosts = group.subCategories
+                                  ?.filter(sub => subCategoryBelongsToAccount(sub, account))
+                                  .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
                                return sum + groupCosts;
                              }, 0);
                              

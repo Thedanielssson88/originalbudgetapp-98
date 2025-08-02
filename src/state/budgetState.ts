@@ -282,6 +282,51 @@ export function initializeStateFromStorage(): void {
       }
     }
     
+    // STEP 4: MIGRATION - Convert account names to account IDs (One-time operation)
+    if (state.budgetState.historicalData && !state.budgetState.migrationVersion) {
+      console.log('[MIGRATION] 🔄 Old data structure detected. Starting migration to ID-based accounts...');
+      
+      const accounts = state.budgetState.accounts || [];
+      
+      // Go through each month in historical data
+      Object.values(state.budgetState.historicalData).forEach((monthData: any) => {
+        // Migrate cost groups
+        (monthData.costGroups || []).forEach((group: any) => {
+          (group.subCategories || []).forEach((sub: any) => {
+            if (sub.account && !sub.accountId) {  // If old account field exists but no accountId
+              const matchingAccount = accounts.find(acc => acc.name === sub.account);
+              if (matchingAccount) {
+                sub.accountId = matchingAccount.id;  // Set the new accountId field
+                console.log(`[MIGRATION] Converted cost item "${sub.name}" from account "${sub.account}" to accountId "${sub.accountId}"`);
+              }
+              delete sub.account;  // Remove the old, deprecated field
+            }
+          });
+        });
+        
+        // Migrate savings groups
+        (monthData.savingsGroups || []).forEach((group: any) => {
+          (group.subCategories || []).forEach((sub: any) => {
+            if (sub.account && !sub.accountId) {  // If old account field exists but no accountId
+              const matchingAccount = accounts.find(acc => acc.name === sub.account);
+              if (matchingAccount) {
+                sub.accountId = matchingAccount.id;  // Set the new accountId field
+                console.log(`[MIGRATION] Converted savings item "${sub.name}" from account "${sub.account}" to accountId "${sub.accountId}"`);
+              }
+              delete sub.account;  // Remove the old, deprecated field
+            }
+          });
+        });
+      });
+      
+      // Mark migration as complete to prevent it from running again
+      state.budgetState.migrationVersion = 2;  // Set a version number
+      console.log('[MIGRATION] ✅ Migration completed successfully!');
+      
+      // Save immediately to persist the migrated data
+      saveStateToStorage();
+    }
+    
     // Ensure current month exists
     const currentMonth = state.budgetState.selectedMonthKey;
     if (!state.budgetState.historicalData[currentMonth]) {
