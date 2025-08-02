@@ -27,12 +27,26 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
   suggestions = []
 }) => {
   const [selectedMatch, setSelectedMatch] = React.useState<string>('');
+  const [showAllSuggestions, setShowAllSuggestions] = React.useState<boolean>(false);
+
+  // Filter suggestions to show only same-date initially, with option to show all 7-day range
+  const filteredSuggestions = React.useMemo(() => {
+    if (!transaction) return suggestions;
+    
+    const sameDateSuggestions = suggestions.filter(s => s.date === transaction.date);
+    
+    if (showAllSuggestions) {
+      return suggestions;
+    }
+    
+    return sameDateSuggestions;
+  }, [suggestions, transaction, showAllSuggestions]);
 
   // Auto-select the best match when suggestions change
   React.useEffect(() => {
-    if (suggestions.length > 0 && transaction) {
+    if (filteredSuggestions.length > 0 && transaction) {
       // Find the best match: same date and same absolute amount
-      const bestMatch = suggestions.find(s => 
+      const bestMatch = filteredSuggestions.find(s => 
         s.date === transaction.date && 
         Math.abs(s.amount) === Math.abs(transaction.amount)
       );
@@ -43,7 +57,7 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
         setSelectedMatch('');
       }
     }
-  }, [suggestions, transaction]);
+  }, [filteredSuggestions, transaction]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('sv-SE', {
@@ -110,46 +124,72 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
           </div>
 
           {suggestions.length > 0 ? (
-            <RadioGroup value={selectedMatch} onValueChange={setSelectedMatch}>
-              <div className="space-y-2">
-                {suggestions.map((suggestion) => {
-                  const isSelected = selectedMatch === suggestion.id;
-                  const isBestMatch = transaction && suggestion.date === transaction.date && Math.abs(suggestion.amount) === Math.abs(transaction.amount);
-                  
-                  return (
-                  <div 
-                    key={suggestion.id} 
-                    className={`flex items-center space-x-2 p-3 border rounded-lg hover:bg-blue-50 ${
-                      isSelected && isBestMatch 
-                        ? 'border-green-500 bg-green-50 shadow-md' 
-                        : isSelected 
-                        ? 'border-blue-500 bg-blue-50' 
-                        : ''
-                    }`}
-                  >
-                    <RadioGroupItem value={suggestion.id} id={suggestion.id} />
-                    <Label htmlFor={suggestion.id} className="flex-1 cursor-pointer">
-                      <div className="flex justify-between items-center">
-                        <div className="flex-1">
-                          <div className="font-medium text-blue-900">{getAccountNameById(suggestion.accountId)}</div>
-                          <div className="text-sm text-gray-700">{suggestion.date}: {suggestion.description}</div>
+            <div className="space-y-4">
+              <RadioGroup value={selectedMatch} onValueChange={setSelectedMatch}>
+                <div className="space-y-2">
+                  {filteredSuggestions.map((suggestion) => {
+                    const isSelected = selectedMatch === suggestion.id;
+                    const isBestMatch = transaction && suggestion.date === transaction.date && Math.abs(suggestion.amount) === Math.abs(transaction.amount);
+                    
+                    return (
+                    <div 
+                      key={suggestion.id} 
+                      className={`flex items-center space-x-2 p-3 border rounded-lg hover:bg-blue-50 ${
+                        isSelected && isBestMatch 
+                          ? 'border-green-500 bg-green-50 shadow-md' 
+                          : isSelected 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : ''
+                      }`}
+                    >
+                      <RadioGroupItem value={suggestion.id} id={suggestion.id} />
+                      <Label htmlFor={suggestion.id} className="flex-1 cursor-pointer">
+                        <div className="flex justify-between items-center">
+                          <div className="flex-1">
+                            <div className="font-medium text-blue-900">{getAccountNameById(suggestion.accountId)}</div>
+                            <div className="text-sm text-gray-700">{suggestion.date}: {suggestion.description}</div>
+                          </div>
+                          <span className={`font-medium ml-4 ${suggestion.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {formatCurrency(suggestion.amount)}
+                          </span>
                         </div>
-                        <span className={`font-medium ml-4 ${suggestion.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {formatCurrency(suggestion.amount)}
-                        </span>
-                      </div>
-                      <div className="text-xs text-blue-600 mt-1">
-                        Typ: {suggestion.type || 'Transaktion'}
-                        {suggestion.type !== 'InternalTransfer' && (
-                          <span className="ml-2 text-orange-600">(kommer konverteras till Intern Överföring)</span>
-                        )}
-                      </div>
-                    </Label>
-                  </div>
-                  );
-                })}
-              </div>
-            </RadioGroup>
+                        <div className="text-xs text-blue-600 mt-1">
+                          Typ: {suggestion.type || 'Transaktion'}
+                          {suggestion.type !== 'InternalTransfer' && (
+                            <span className="ml-2 text-orange-600">(kommer konverteras till Intern Överföring)</span>
+                          )}
+                        </div>
+                      </Label>
+                    </div>
+                    );
+                  })}
+                </div>
+              </RadioGroup>
+              
+              {!showAllSuggestions && suggestions.length > filteredSuggestions.length && (
+                <div className="text-center">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowAllSuggestions(true)}
+                    className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                  >
+                    Visa fler ({suggestions.length - filteredSuggestions.length} transaktioner inom 7 dagar)
+                  </Button>
+                </div>
+              )}
+              
+              {showAllSuggestions && filteredSuggestions.length < suggestions.length && (
+                <div className="text-center">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowAllSuggestions(false)}
+                    className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                  >
+                    Visa endast samma datum
+                  </Button>
+                </div>
+              )}
+            </div>
           ) : (
             <div className="text-center py-8 text-blue-600">
               <div className="text-blue-800 font-medium mb-2">Inga matchande transaktioner hittades</div>
@@ -165,7 +205,7 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
           <Button variant="secondary" onClick={handleChangeToInternalTransfer}>
             Ändra till Intern Överföring
           </Button>
-          {suggestions.length > 0 && (
+          {filteredSuggestions.length > 0 && (
             <Button 
               onClick={handleMatch} 
               disabled={!selectedMatch}
