@@ -6589,7 +6589,7 @@ const BudgetCalculator = () => {
                                });
                              })()
                                ) : (
-                                // Korrekt "Visa per konto" - börjar med konton först
+                                 // Korrekt "Visa per konto" - börjar med konton först
                                  (() => {
                                    console.log('🔍 [ACCOUNT VIEW] Starting account-first logic');
                                    console.log('🔍 [ACCOUNT VIEW] DEBUG - Current month:', selectedBudgetMonth);
@@ -6597,8 +6597,11 @@ const BudgetCalculator = () => {
                                    console.log('🔍 [ACCOUNT VIEW] activeContent.budgetItems.costItems:', activeContent.budgetItems.costItems);
                                    console.log('🔍 [ACCOUNT VIEW] transactionsForPeriod:', activeContent.transactionsForPeriod || []);
                                    console.log('🔍 [ACCOUNT VIEW] PaydaySettings date range:', activeContent.dateRange);
+                                   console.log('🔍 [ACCOUNT VIEW] Total activeAccounts count:', activeContent.activeAccounts.length);
+                                   console.log('🔍 [ACCOUNT VIEW] Account names:', activeContent.activeAccounts.map(a => a.name));
+                                   console.log('🔍 [ACCOUNT VIEW] Looking for Hushållskonto in activeAccounts:', activeContent.activeAccounts.find(a => a.name === 'Hushållskonto'));
 
-                                  return activeContent.activeAccounts.map((account) => {
+                                 return activeContent.activeAccounts.map((account) => {
                                     console.log(`🔍 [ACCOUNT VIEW] Processing account: ${account.name} (ID: ${account.id})`);
                                     
                                      // 1. FIXED: Use correctly filtered budget items according to PaydaySettings
