@@ -583,8 +583,27 @@ export function getProcessedBudgetDataForMonth(budgetState: any, selectedMonthKe
   // 2. Get all relevant raw data
   const allTransactions = Object.values(budgetState.historicalData).flatMap((m: any) => m.transactions || []);
   const currentMonthData = budgetState.historicalData[selectedMonthKey] || {};
-  const costItems = currentMonthData.costItems || [];
-  const savingsItems = currentMonthData.savingsItems || [];
+  
+  // FIXED: Convert costGroups to flat costItems array
+  const costGroups = currentMonthData.costGroups || [];
+  const costItems = costGroups.flatMap((group: any) => 
+    (group.subCategories || []).map((sub: any) => ({
+      ...sub,
+      mainCategoryId: group.name,  // Use group name as main category
+      groupId: group.id
+    }))
+  );
+  
+  // FIXED: Convert savingsGroups to flat savingsItems array  
+  const savingsGroups = currentMonthData.savingsGroups || [];
+  const savingsItems = savingsGroups.flatMap((group: any) => 
+    (group.subCategories || []).map((sub: any) => ({
+      ...sub,
+      mainCategoryId: group.name,  // Use group name as main category
+      groupId: group.id
+    }))
+  );
+  
   const budgetItems = [...costItems, ...savingsItems];
   
   // 3. Filter transactions based on the new, correct date range
