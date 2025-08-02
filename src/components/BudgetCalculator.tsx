@@ -366,9 +366,14 @@ const BudgetCalculator = () => {
   // CENTRALIZED LOGIC: Use single function call to replace complex logic
   const activeContent = useMemo(() => {
     console.log('✅ Using centralized getProcessedBudgetDataForMonth');
+    console.log('🔍 [DEBUG] activeContent useMemo - budgetState:', budgetState);
+    console.log('🔍 [DEBUG] activeContent useMemo - selectedMonthKey:', selectedMonthKey);
     
     const processedData = getProcessedBudgetDataForMonth(budgetState, selectedMonthKey);
     
+    console.log(`🔍 [DEBUG] activeContent - processedData:`, processedData);
+    console.log(`🔍 [DEBUG] activeContent - activeAccounts count: ${processedData.activeAccounts?.length || 0}`);
+    console.log(`🔍 [DEBUG] activeContent - activeAccounts:`, processedData.activeAccounts);
     console.log(`🔍 [DEBUG] activeContent - transactionsForPeriod count: ${processedData.transactionsForPeriod?.length || 0}`);
     console.log(`🔍 [DEBUG] activeContent - sample transactions:`, processedData.transactionsForPeriod?.slice(0, 3).map(t => ({ 
       id: t.id, 
