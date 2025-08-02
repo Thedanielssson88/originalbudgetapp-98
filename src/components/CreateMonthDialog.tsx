@@ -256,6 +256,7 @@ const CreateMonthDialog: React.FC<CreateMonthDialogProps> = ({
                     const template = budgetTemplates[selectedTemplate];
                     const formatCurrency = (amount: number) => `${amount.toLocaleString('sv-SE')} kr`;
                     
+                    // Note: For templates, we keep simple calculation since they don't have monthKey context
                     const totalCosts = template.costGroups?.reduce((sum: number, group: any) => {
                       const subTotal = group.subCategories?.reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
                       return sum + subTotal;

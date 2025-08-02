@@ -68,6 +68,7 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
     setExpandedAccounts(newExpanded);
   };
 
+  // For now, use simple calculation since SavingsSection doesn't have budgetState access
   const totalSavings = savingsGroups.reduce((sum, group) => sum + (group.amount || 0), 0);
 
   const formatCurrency = (amount: number) => `${amount.toLocaleString()} kr`;

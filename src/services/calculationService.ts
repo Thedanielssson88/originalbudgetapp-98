@@ -1,5 +1,35 @@
 // Innehåller all ren beräkningslogik.
-import { RawDataState, CalculatedState, BudgetResults, MonthData, Account } from '../types/budget';
+import { RawDataState, CalculatedState, BudgetResults, MonthData, Account, BudgetItem } from '../types/budget';
+import { calculateMonthlyAmountForDailyTransfer } from '../utils/dailyTransferUtils';
+
+/**
+ * Beräknar totala budgeterade kostnader för en given månad
+ */
+export function calculateTotalBudgetedCosts(costItems: BudgetItem[], monthKey: string): number {
+  if (!costItems) return 0;
+  
+  return costItems.reduce((sum, item) => {
+    if (item.transferType === 'daily' && item.dailyAmount && item.transferDays) {
+      // Konvertera BudgetItem till format som dagliga överföringsutils förväntar sig
+      const subCategoryForCalculation = {
+        ...item,
+        name: item.description // BudgetItem har description istället för name
+      };
+      return sum + calculateMonthlyAmountForDailyTransfer(subCategoryForCalculation, monthKey);
+    }
+    return sum + item.amount;
+  }, 0);
+}
+
+/**
+ * Beräknar totalt budgeterat sparande för en given månad
+ */
+export function calculateTotalBudgetedSavings(savingsItems: BudgetItem[], monthKey: string): number {
+  if (!savingsItems) return 0;
+
+  // Lägg till logik för sparmål här om det behövs
+  return savingsItems.reduce((sum, item) => sum + item.amount, 0);
+}
 
 /**
  * Calculate account end balances from the next month's account balances

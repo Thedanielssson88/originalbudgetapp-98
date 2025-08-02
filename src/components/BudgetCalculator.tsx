@@ -26,7 +26,13 @@ import { AddBudgetItemDialog } from '@/components/AddBudgetItemDialog';
 import { TransactionImportEnhanced } from '@/components/TransactionImportEnhanced';
 import { TransactionDrillDownDialog } from '@/components/TransactionDrillDownDialog';
 import { SavingsSection } from '@/components/SavingsSection';
-import { calculateAccountEndBalances, getTransactionsForPeriod, getProcessedBudgetDataForMonth } from '../services/calculationService';
+import { 
+  calculateAccountEndBalances, 
+  getTransactionsForPeriod, 
+  getProcessedBudgetDataForMonth,
+  calculateTotalBudgetedCosts,
+  calculateTotalBudgetedSavings
+} from '../services/calculationService';
 import { updateAccountBalanceForMonth, getAccountNameById } from '../orchestrator/budgetOrchestrator';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -844,14 +850,11 @@ const BudgetCalculator = () => {
     const totalSalary = andreasTotalIncome + susannaTotalIncome;
     const budgetData = calculateDailyBudget();
     
-    // Calculate total costs (only from subcategories, main categories are calculated automatically)
-    const totalCosts = costGroups.reduce((sum, group) => {
-      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + getSubcategoryDisplayAmount(sub), 0) || 0;
-      return sum + subCategoriesTotal;
-    }, 0);
+    // Calculate total costs using centralized logic
+    const totalCosts = calculateTotalBudgetedCosts(activeContent.budgetItems.costItems, selectedMonthKey);
     
-    // Calculate total savings
-    const totalSavings = allSavingsItems.reduce((sum, group) => sum + group.amount, 0);
+    // Calculate total savings using centralized logic  
+    const totalSavings = calculateTotalBudgetedSavings(activeContent.budgetItems.savingsItems, selectedMonthKey);
     
     const totalMonthlyExpenses = totalCosts + totalSavings;
     const preliminaryBalance = totalSalary - budgetData.totalBudget - totalMonthlyExpenses;
@@ -973,8 +976,7 @@ const BudgetCalculator = () => {
         ...historicalData[monthKey], // Keep existing data
         // Update with fresh calculated results
         totalMonthlyExpenses,
-        totalCosts,
-        totalSavings,
+        // Removed totalCosts and totalSavings - now calculated on-demand
         balanceLeft,
         susannaShare,
         andreasShare,
@@ -4141,13 +4143,10 @@ const BudgetCalculator = () => {
     const chartData = Object.keys(historicalData).map(monthKey => {
       const data = historicalData[monthKey];
       
-      // Calculate totals from groups since MonthData doesn't store calculated results
-      const totalCosts = (data.costGroups?.reduce((sum: number, group: any) => {
-        const subCategoriesTotal = group.subCategories?.reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-        return sum + subCategoriesTotal;
-      }, 0) || 0);
-      
-      const totalSavings = (data.savingsGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0);
+      // Calculate totals using centralized logic
+      const processedData = getProcessedBudgetDataForMonth(budgetState, monthKey);
+      const totalCosts = calculateTotalBudgetedCosts(processedData.costItems, monthKey);
+      const totalSavings = calculateTotalBudgetedSavings(processedData.savingsItems, monthKey);
       
       // Calculate total income from salary fields
       const totalIncome = (data.andreasSalary || 0) + (data.andreasförsäkringskassan || 0) + (data.andreasbarnbidrag || 0) +
@@ -4984,13 +4983,10 @@ const BudgetCalculator = () => {
 
     const data = historicalData[selectedHistoricalMonth];
     
-    // Calculate totals from groups since MonthData doesn't store calculated results
-    const totalCosts = (data.costGroups?.reduce((sum: number, group: any) => {
-      const subCategoriesTotal = group.subCategories?.reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-      return sum + subCategoriesTotal;
-    }, 0) || 0);
-    
-    const totalSavings = (data.savingsGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0);
+    // Calculate totals using centralized logic
+    const processedData = getProcessedBudgetDataForMonth(budgetState, selectedHistoricalMonth);
+    const totalCosts = calculateTotalBudgetedCosts(processedData.costItems, selectedHistoricalMonth);
+    const totalSavings = calculateTotalBudgetedSavings(processedData.savingsItems, selectedHistoricalMonth);
     
     // Calculate total income from salary fields  
     const totalIncome = (data.andreasSalary || 0) + (data.andreasförsäkringskassan || 0) + (data.andreasbarnbidrag || 0) +
