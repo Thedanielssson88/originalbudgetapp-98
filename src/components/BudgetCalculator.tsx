@@ -22,6 +22,7 @@ import CreateMonthDialog from './CreateMonthDialog';
 import { CustomLineChart } from './CustomLineChart';
 import { AccountSelector } from '@/components/AccountSelector';
 import { MainCategoriesSettings } from '@/components/MainCategoriesSettings';
+import { PaydaySettings } from '@/components/PaydaySettings';
 import { AddBudgetItemDialog } from '@/components/AddBudgetItemDialog';
 import { TransactionImportEnhanced } from '@/components/TransactionImportEnhanced';
 import { TransactionDrillDownDialog } from '@/components/TransactionDrillDownDialog';
@@ -9820,6 +9821,12 @@ const BudgetCalculator = () => {
                   </ToggleGroup>
                 </CardContent>
               </Card>
+
+              {/* Payday Settings */}
+              <PaydaySettings 
+                currentPayday={budgetState.settings?.payday || 25}
+                onPaydayChange={(newPayday) => updatePaydaySetting(newPayday)}
+              />
 
               {/* Main Categories Settings */}
               <MainCategoriesSettings 
