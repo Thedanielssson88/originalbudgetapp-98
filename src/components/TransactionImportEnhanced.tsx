@@ -361,6 +361,12 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+  const [dateRangeDialog, setDateRangeDialog] = useState<{
+    isOpen: boolean;
+    date: string;
+    accountId: string;
+    transactions: any[];
+  }>({ isOpen: false, date: '', accountId: '', transactions: [] });
   const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
   
   // Bank selection state
@@ -615,6 +621,29 @@ export const TransactionImportEnhanced: React.FC = () => {
       newExpanded.add(dateKey);
     }
     setExpandedDates(newExpanded);
+  };
+
+  const getTransactionsInDateRange = (targetDate: string, accountTransactions: any[]) => {
+    const target = new Date(targetDate);
+    const startDate = new Date(target);
+    startDate.setDate(target.getDate() - 7);
+    const endDate = new Date(target);
+    endDate.setDate(target.getDate() + 7);
+
+    return accountTransactions.filter(transaction => {
+      const transactionDate = new Date(transaction.date);
+      return transactionDate >= startDate && transactionDate <= endDate && transaction.date !== targetDate;
+    });
+  };
+
+  const openDateRangeDialog = (date: string, accountId: string, accountTransactions: any[]) => {
+    const rangeTransactions = getTransactionsInDateRange(date, accountTransactions);
+    setDateRangeDialog({
+      isOpen: true,
+      date,
+      accountId,
+      transactions: rangeTransactions
+    });
   };
 
   const updateTransactionNote = (transactionId: string, userDescription: string) => {
@@ -1571,6 +1600,22 @@ export const TransactionImportEnhanced: React.FC = () => {
                                     costGroups={costGroups}
                                   />
                                 ))}
+                                
+                                {(() => {
+                                  const rangeTransactions = getTransactionsInDateRange(date, accountTransactions);
+                                  return rangeTransactions.length > 0 && (
+                                    <div className="pt-2 border-t border-muted">
+                                      <Button
+                                        variant="link"
+                                        size="sm"
+                                        onClick={() => openDateRangeDialog(date, account.id, accountTransactions)}
+                                        className="text-xs text-muted-foreground p-0 h-auto"
+                                      >
+                                        Visa fler transaktioner ({rangeTransactions.length} inom 7 dagar)
+                                      </Button>
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             )}
                           </div>
@@ -1582,6 +1627,45 @@ export const TransactionImportEnhanced: React.FC = () => {
               );
             })}
           </TabsContent>
+
+          {/* Date Range Dialog */}
+          <Dialog open={dateRangeDialog.isOpen} onOpenChange={(open) => setDateRangeDialog(prev => ({ ...prev, isOpen: open }))}>
+            <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+              <DialogHeader>
+                <DialogTitle>
+                  Transaktioner inom 7 dagar från {new Date(dateRangeDialog.date).toLocaleDateString('sv-SE')}
+                </DialogTitle>
+                <DialogDescription>
+                  {dateRangeDialog.transactions.length} transaktioner
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+                {dateRangeDialog.transactions.map(transaction => {
+                  const account = accounts.find(acc => acc.id === transaction.accountId);
+                  return account ? (
+                    <TransactionExpandableCard
+                      key={transaction.id}
+                      transaction={transaction}
+                      account={account}
+                      isSelected={selectedTransactions.includes(transaction.id)}
+                      onToggleSelection={toggleTransactionSelection}
+                      onUpdateCategory={updateTransactionCategory}
+                      onUpdateNote={updateTransactionNote}
+                      onUpdateStatus={updateTransactionStatus}
+                      onTransferMatch={handleTransferMatch}
+                      onSavingsLink={handleSavingsLink}
+                      onCostCoverage={handleCostCoverage}
+                      onExpenseClaim={handleExpenseClaim}
+                      onRefresh={triggerRefresh}
+                      mainCategories={mainCategories}
+                      costGroups={costGroups}
+                    />
+                  ) : null;
+                })}
+              </div>
+            </DialogContent>
+          </Dialog>
         </Tabs>
 
         {/* Balance correction button */}
