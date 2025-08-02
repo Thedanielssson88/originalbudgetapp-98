@@ -125,26 +125,34 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                     </p>
                   </div>
                   
-                  {/* Amount */}
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">Belopp</p>
-                    {transaction.correctedAmount !== undefined ? (
-                      <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Korrigerat belopp</p>
-                        <p className={`font-semibold text-sm ${transaction.correctedAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {transaction.correctedAmount >= 0 ? '+' : ''}{Math.abs(transaction.correctedAmount).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
-                        </p>
-                        <p className="text-xs text-muted-foreground">Ursprungligt belopp</p>
-                        <p className={`text-xs ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'} line-through`}>
-                          {transaction.amount >= 0 ? '+' : ''}{Math.abs(transaction.amount).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
-                        </p>
-                      </div>
-                    ) : (
-                      <p className={`font-semibold text-sm ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {transaction.amount >= 0 ? '+' : ''}{Math.abs(transaction.amount).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
-                      </p>
-                    )}
-                  </div>
+                   {/* Amount */}
+                   <div className="min-w-0">
+                     <p className="text-xs text-muted-foreground">Belopp</p>
+                     {transaction.correctedAmount !== undefined ? (
+                       <div className="space-y-1">
+                         <p className="text-xs text-muted-foreground">Korrigerat belopp</p>
+                         <p className={`font-semibold text-sm ${transaction.correctedAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                           {transaction.correctedAmount >= 0 ? '+' : ''}{Math.abs(transaction.correctedAmount).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
+                         </p>
+                         <p className="text-xs text-muted-foreground">Ursprungligt belopp</p>
+                         <p className={`text-xs ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'} line-through`}>
+                           {transaction.amount >= 0 ? '+' : ''}{Math.abs(transaction.amount).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
+                         </p>
+                         
+                         {/* --- NEW UI ELEMENT --- */}
+                         {transaction.type === 'ExpenseClaim' && transaction.correctedAmount !== undefined && transaction.correctedAmount < 0 && (
+                           <div className="text-xs text-orange-600 italic mt-1 bg-orange-50 p-2 rounded border">
+                             ⚠️ Kvarstående belopp: {Math.abs(transaction.correctedAmount).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr räknas som kostnad i budget.
+                           </div>
+                         )}
+                         {/* --- END NEW UI ELEMENT --- */}
+                       </div>
+                     ) : (
+                       <p className={`font-semibold text-sm ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                         {transaction.amount >= 0 ? '+' : ''}{Math.abs(transaction.amount).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
+                       </p>
+                     )}
+                   </div>
                 </div>
               </div>
 

@@ -1015,152 +1015,104 @@ export function linkSavingsTransaction(transactionId: string, savingsTargetId: s
   console.log(`✅ [Orchestrator] Linked transaction ${transactionId} to savings target ${savingsTargetId} with main category ${mainCategoryId} in month ${targetMonthKey}`);
 }
 
-export function coverCost(transferId: string, costId: string): void {
-  console.log(`🔗 [Orchestrator] Covering cost - transfer: ${transferId}, cost: ${costId}`);
-  
-  // Search for transactions in all months, not just current month
-  let transfer: any = null;
-  let cost: any = null;
-  let transferMonthKey = '';
-  let costMonthKey = '';
-  
-  // Find transactions across all historical data
-  Object.entries(state.budgetState.historicalData || {}).forEach(([monthKey, monthData]) => {
+// Helper function to find transaction by ID across all months
+function findTransactionById(transactionId: string): any {
+  for (const [monthKey, monthData] of Object.entries(state.budgetState.historicalData || {})) {
     const transactions = (monthData as any)?.transactions || [];
-    
-    const foundTransfer = transactions.find((t: any) => t.id === transferId);
-    if (foundTransfer) {
-      transfer = foundTransfer;
-      transferMonthKey = monthKey;
-    }
-    
-    const foundCost = transactions.find((t: any) => t.id === costId);
-    if (foundCost) {
-      cost = foundCost;
-      costMonthKey = monthKey;
-    }
+    const found = transactions.find((t: any) => t.id === transactionId);
+    if (found) return found;
+  }
+  return null;
+}
+
+// Helper function to find month key for a transaction
+function findMonthKeyForTransaction(transactionId: string): string | null {
+  for (const [monthKey, monthData] of Object.entries(state.budgetState.historicalData || {})) {
+    const transactions = (monthData as any)?.transactions || [];
+    const found = transactions.find((t: any) => t.id === transactionId);
+    if (found) return monthKey;
+  }
+  return null;
+}
+
+// Helper function to update multiple transactions efficiently
+function updateMultipleTransactions(updates: { transactionId: string, monthKey: string, updates: Partial<any> }[]): void {
+  updates.forEach(({ transactionId, monthKey, updates: transactionUpdates }) => {
+    updateTransaction(transactionId, transactionUpdates, monthKey);
   });
+}
+
+// NEW UNIFIED FUNCTION - replaces both applyExpenseClaim and coverCost
+export function linkExpenseAndCoverage(negativeTxId: string, positiveTxId: string): void {
+  console.log(`🔗 [Orchestrator] Linking expense and coverage - negative: ${negativeTxId}, positive: ${positiveTxId}`);
   
-  console.log(`🔗 [Orchestrator] Found transfer:`, transfer ? { 
-    id: transfer.id, 
-    amount: transfer.amount, 
-    type: transfer.type, 
-    month: transferMonthKey 
-  } : 'NOT FOUND');
-  console.log(`🔗 [Orchestrator] Found cost:`, cost ? { 
-    id: cost.id, 
-    amount: cost.amount, 
-    type: cost.type,
-    month: costMonthKey 
-  } : 'NOT FOUND');
-  
-  if (!transfer || !cost || transfer.amount <= 0 || cost.amount >= 0) {
-    console.error(`[Orchestrator] Invalid transactions for cost coverage:`, {
-      transferFound: !!transfer,
-      costFound: !!cost,
-      transferAmount: transfer?.amount,
-      costAmount: cost?.amount
-    });
+  const negativeTx = findTransactionById(negativeTxId);
+  const positiveTx = findTransactionById(positiveTxId);
+
+  if (!negativeTx || !positiveTx) {
+    console.error("[Orchestrator] Could not find one or both transactions.");
     return;
   }
-  
-  const coverAmount = Math.min(transfer.amount, Math.abs(cost.amount));
-  console.log(`🔗 [Orchestrator] Cover amount calculated: ${coverAmount}`);
-  
-  // Update transfer transaction in its month
-  updateTransaction(transferId, {
-    type: 'CostCoverage',
-    linkedTransactionId: costId,
-    correctedAmount: transfer.amount - coverAmount,
-    isManuallyChanged: true
-  }, transferMonthKey);
-  
-  // Update cost transaction with bidirectional link and set type to Transaction
-  updateTransaction(costId, {
-    type: 'Transaction',
-    correctedAmount: cost.amount + coverAmount,
-    linkedTransactionId: transferId,
-    isManuallyChanged: true
-  }, costMonthKey);
+
+  const expenseAmount = Math.abs(negativeTx.amount); // e.g., 414
+  const coverageAmount = positiveTx.amount;          // e.g., 300 or 1000
+
+  // Calculate how much of the expense can be covered
+  const amountToCover = Math.min(expenseAmount, coverageAmount); // e.g., min(414, 300) -> 300
+
+  // Calculate the new corrected amounts
+  const newNegativeCorrectedAmount = negativeTx.amount + amountToCover; // e.g., -414 + 300 = -114
+  const newPositiveCorrectedAmount = coverageAmount - amountToCover; // e.g., 300 - 300 = 0
+
+  console.log(`🔗 [Orchestrator] Coverage calculation:`, {
+    expenseAmount,
+    coverageAmount,
+    amountToCover,
+    newNegativeCorrectedAmount,
+    newPositiveCorrectedAmount
+  });
+
+  // Create updates for BOTH transactions
+  const updates: { transactionId: string, monthKey: string, updates: Partial<any> }[] = [
+    {
+      transactionId: negativeTxId,
+      monthKey: findMonthKeyForTransaction(negativeTxId)!,
+      updates: {
+        type: 'ExpenseClaim',
+        correctedAmount: newNegativeCorrectedAmount,
+        linkedTransactionId: positiveTxId,
+        isManuallyChanged: true
+      }
+    },
+    {
+      transactionId: positiveTxId,
+      monthKey: findMonthKeyForTransaction(positiveTxId)!,
+      updates: {
+        type: 'CostCoverage',
+        correctedAmount: newPositiveCorrectedAmount,
+        linkedTransactionId: negativeTxId,
+        isManuallyChanged: true
+      }
+    }
+  ];
+
+  updateMultipleTransactions(updates);
   
   // Force UI update by running calculations and triggering state update
   runCalculationsAndUpdateState();
   
-  console.log(`✅ [Orchestrator] Cost coverage complete - covered ${coverAmount} from transfer ${transferId} (${transferMonthKey}) to cost ${costId} (${costMonthKey})`);
+  console.log(`✅ [Orchestrator] Expense and coverage linked successfully - covered ${amountToCover} from ${positiveTxId} to ${negativeTxId}`);
+}
+
+// LEGACY FUNCTIONS - kept for backward compatibility, now just call the unified function
+export function coverCost(transferId: string, costId: string): void {
+  console.log(`🔗 [Orchestrator] Legacy coverCost called - delegating to linkExpenseAndCoverage`);
+  linkExpenseAndCoverage(costId, transferId);
 }
 
 export function applyExpenseClaim(expenseId: string, paymentId: string): void {
-  console.log(`🔗 [Orchestrator] Applying expense claim - expense: ${expenseId}, payment: ${paymentId}`);
-  
-  // Search for transactions in all months, not just current month
-  let expense: any = null;
-  let payment: any = null;
-  let expenseMonthKey = '';
-  let paymentMonthKey = '';
-  
-  // Find transactions across all historical data
-  Object.entries(state.budgetState.historicalData || {}).forEach(([monthKey, monthData]) => {
-    const transactions = (monthData as any)?.transactions || [];
-    
-    const foundExpense = transactions.find((t: any) => t.id === expenseId);
-    if (foundExpense) {
-      expense = foundExpense;
-      expenseMonthKey = monthKey;
-    }
-    
-    const foundPayment = transactions.find((t: any) => t.id === paymentId);
-    if (foundPayment) {
-      payment = foundPayment;
-      paymentMonthKey = monthKey;
-    }
-  });
-  
-  console.log(`🔗 [Orchestrator] Found expense:`, expense ? { 
-    id: expense.id, 
-    amount: expense.amount, 
-    type: expense.type, 
-    month: expenseMonthKey 
-  } : 'NOT FOUND');
-  console.log(`🔗 [Orchestrator] Found payment:`, payment ? { 
-    id: payment.id, 
-    amount: payment.amount, 
-    type: payment.type,
-    month: paymentMonthKey 
-  } : 'NOT FOUND');
-  
-  if (!expense || !payment || expense.amount >= 0 || payment.amount <= 0) {
-    console.error(`[Orchestrator] Invalid transactions for expense claim:`, {
-      expenseFound: !!expense,
-      paymentFound: !!payment,
-      expenseAmount: expense?.amount,
-      paymentAmount: payment?.amount
-    });
-    return;
-  }
-  
-  const claimAmount = Math.min(Math.abs(expense.amount), payment.amount);
-  console.log(`🔗 [Orchestrator] Claim amount calculated: ${claimAmount}`);
-  
-  // Update expense transaction to zero out the cost
-  updateTransaction(expenseId, {
-    type: 'ExpenseClaim',
-    linkedTransactionId: paymentId,
-    correctedAmount: 0, // Expense is fully covered
-    isManuallyChanged: true
-  }, expenseMonthKey);
-  
-  // Update payment transaction with remaining amount after covering the expense
-  updateTransaction(paymentId, {
-    type: 'Transaction',
-    correctedAmount: payment.amount - claimAmount,
-    linkedTransactionId: expenseId,
-    isManuallyChanged: true
-  }, paymentMonthKey);
-  
-  // Force UI update by running calculations and triggering state update
-  runCalculationsAndUpdateState();
-  
-  console.log(`✅ [Orchestrator] Expense claim complete - claimed ${claimAmount} from payment ${paymentId} (${paymentMonthKey}) to expense ${expenseId} (${expenseMonthKey})`);
+  console.log(`🔗 [Orchestrator] Legacy applyExpenseClaim called - delegating to linkExpenseAndCoverage`);
+  linkExpenseAndCoverage(expenseId, paymentId);
 }
 
 // New flexible function that can update transactions for any month

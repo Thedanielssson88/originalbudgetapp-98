@@ -12,7 +12,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { ImportedTransaction } from '@/types/transaction';
-import { coverCost } from '../orchestrator/budgetOrchestrator';
+import { linkExpenseAndCoverage } from '../orchestrator/budgetOrchestrator';
 
 interface CostCoverageDialogProps {
   isOpen: boolean;
@@ -58,7 +58,7 @@ export const CostCoverageDialog: React.FC<CostCoverageDialogProps> = ({
         });
       }
       
-      coverCost(transfer.id, selectedCost);
+      linkExpenseAndCoverage(selectedCost, transfer.id);
       
       // Trigger refresh if callback provided
       if (onRefresh) {

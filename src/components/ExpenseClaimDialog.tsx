@@ -6,7 +6,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Search } from 'lucide-react';
 import { ImportedTransaction } from '@/types/transaction';
-import { getCurrentState, applyExpenseClaim } from '../orchestrator/budgetOrchestrator';
+import { getCurrentState, linkExpenseAndCoverage } from '../orchestrator/budgetOrchestrator';
 
 interface ExpenseClaimDialogProps {
   isOpen: boolean;
@@ -56,7 +56,7 @@ export const ExpenseClaimDialog: React.FC<ExpenseClaimDialogProps> = ({
   const handleCover = () => {
     if (!transaction || !selectedPayment) return;
 
-    applyExpenseClaim(transaction.id, selectedPayment);
+    linkExpenseAndCoverage(transaction.id, selectedPayment);
     
     if (onRefresh) {
       onRefresh();

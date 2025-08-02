@@ -529,18 +529,31 @@ const BudgetCalculator = () => {
     console.log(`🔍 [DEBUG] All transactions:`, monthTransactions);
     
     // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
-    // But EXCLUDE positive amounts (income) from cost categories
     const matchingTransactions = monthTransactions.filter((t: Transaction) => {
-      const matches = t.appCategoryId === categoryId;
-      const isNegativeAmount = t.amount < 0; // Only include negative amounts (costs)
-      console.log(`🔍 [DEBUG] Transaction ${t.id}: appCategoryId=${t.appCategoryId}, categoryId=${categoryId}, status=${t.status}, amount=${t.amount}, isNegative=${isNegativeAmount}, matches=${matches && isNegativeAmount}`);
-      return matches && isNegativeAmount; // NO status filtering - include all transactions but exclude positive amounts
+      return t.appCategoryId === categoryId;
     });
     
-    console.log(`🔍 [DEBUG] Matching transactions for category ${categoryId} (excluding positive amounts):`, matchingTransactions);
+    const total = matchingTransactions
+      .reduce((sum: number, t: Transaction) => {
+        
+        // --- NEW SMART LOGIC ---
+        // Standard rule: a cost is a negative transaction
+        if (t.type === 'Transaction' && t.amount < 0) {
+          return sum + Math.abs(t.amount);
+        }
+        
+        // Special rule: If it's an expense claim with a remaining negative amount,
+        // count the remaining amount as a cost.
+        if (t.type === 'ExpenseClaim' && t.correctedAmount !== undefined && t.correctedAmount < 0) {
+          return sum + Math.abs(t.correctedAmount);
+        }
+        // --- END OF NEW LOGIC ---
+
+        // For all other types, don't count as costs
+        return sum;
+      }, 0);
     
-    const total = matchingTransactions.reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
-    console.log(`🔍 [DEBUG] Total amount for category ${categoryId}: ${total}`);
+    console.log(`🔍 [DEBUG] Calculated total for category ${categoryId}: ${total} from ${matchingTransactions.length} transactions`);
     
     return total;
   };
