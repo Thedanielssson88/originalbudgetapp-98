@@ -369,6 +369,15 @@ const BudgetCalculator = () => {
     
     const processedData = getProcessedBudgetDataForMonth(budgetState, selectedMonthKey);
     
+    console.log(`🔍 [DEBUG] activeContent - transactionsForPeriod count: ${processedData.transactionsForPeriod?.length || 0}`);
+    console.log(`🔍 [DEBUG] activeContent - sample transactions:`, processedData.transactionsForPeriod?.slice(0, 3).map(t => ({ 
+      id: t.id, 
+      accountId: t.accountId, 
+      date: t.date, 
+      amount: t.amount, 
+      description: t.description 
+    })));
+    
     return {
       activeCategories: processedData.activeCategories,
       activeAccounts: processedData.activeAccounts,
