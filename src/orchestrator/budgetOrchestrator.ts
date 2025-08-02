@@ -27,9 +27,10 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
   console.log(`[ORCHESTRATOR] 📊 Raw transactions from file:`, transactionsFromFile.map(t => ({ date: t.date, desc: t.description.substring(0, 30) })));
   addMobileDebugLog(`📊 Raw transactions: ${transactionsFromFile.length} found`);
   
-  const fileDates = transactionsFromFile.map(t => {
+  const fileDates = transactionsFromFile.map((t, index) => {
     const dateStr = t.date.split('T')[0];
-    console.log(`[ORCHESTRATOR] 📊 Processing date: "${t.date}" -> "${dateStr}"`);
+    console.log(`[ORCHESTRATOR] 📊 Transaction ${index}: "${t.date}" -> "${dateStr}" (Amount: ${t.amount}, Description: "${t.description}")`);
+    addMobileDebugLog(`📊 TX ${index}: ${dateStr} - ${t.amount} - "${t.description?.substring(0, 30)}"`);
     return dateStr;
   });
   
