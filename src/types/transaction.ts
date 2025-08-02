@@ -55,7 +55,7 @@ export interface FileStructure {
   columns: ColumnMapping[];
   fingerprint: string; // Unique identifier based on column names
   isActive: boolean;
-  createdAt: string;
+  createdAt: Date;
 }
 
 export interface ColumnMapping {
@@ -65,7 +65,7 @@ export interface ColumnMapping {
 
 export interface ImportSession {
   id: string;
-  startedAt: string;
+  startedAt: Date;
   files: ImportedFile[];
   status: 'uploading' | 'mapping' | 'categorizing' | 'completed';
   transactions: ImportedTransaction[];
@@ -79,11 +79,11 @@ export interface ImportedFile {
   rowCount: number;
   balance?: number;
   dateRange: {
-    from: string;
-    to: string;
+    from: Date;
+    to: Date;
   };
   structure: FileStructure;
-  uploadedAt: string;
+  uploadedAt: Date;
 }
 
 // State for the transaction import system

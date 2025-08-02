@@ -19,39 +19,44 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
     return;
   }
   
-  // 2. Define date range of the file (use date strings for precise comparison)
-  const datesInFile = transactionsFromFile.map(t => t.date.split('T')[0]); // Get YYYY-MM-DD format
-  const minDateStr = datesInFile.reduce((min, date) => date < min ? date : min);
-  const maxDateStr = datesInFile.reduce((max, date) => date > max ? date : max);
+  // 2. Define date range of the file (convert string dates to Date objects for precise comparison)
+  const datesInFile = transactionsFromFile.map(t => new Date(t.date));
+  const minDate = new Date(Math.min(...datesInFile.map(d => d.getTime())));
+  const maxDate = new Date(Math.max(...datesInFile.map(d => d.getTime())));
   
-  console.log(`[ORCHESTRATOR] 📅 File date range: ${minDateStr} to ${maxDateStr}`);
+  console.log(`[ORCHESTRATOR] 📅 File date range: ${minDate.toISOString().split('T')[0]} to ${maxDate.toISOString().split('T')[0]}`);
   
   // 3. Get ALL existing transactions from central state
   const allSavedTransactions = Object.values(state.budgetState.historicalData)
     .flatMap(month => (month.transactions || []).map(t => ({
       ...t,
-      importedAt: (t as any).importedAt || new Date().toISOString(),
+      date: typeof t.date === 'string' ? new Date(t.date) : t.date, // Convert string dates to Date objects
+      importedAt: (t as any).importedAt || new Date(),
       fileSource: (t as any).fileSource || 'budgetState'
     } as ImportedTransaction)));
   
   // 4. Remove old transactions for this account within the date range (CSV is truth)
-  // Use string comparison for precise date matching without timezone issues
+  // Use proper Date comparison for precise date matching
   const transactionsToKeep = allSavedTransactions.filter(t => {
     if (t.accountId !== accountId) return true; // Keep transactions from other accounts
     
-    const transactionDateStr = t.date.split('T')[0]; // Get YYYY-MM-DD format
-    const isWithinRange = transactionDateStr >= minDateStr && transactionDateStr <= maxDateStr;
+    // Normalize dates to compare only the date part (YYYY-MM-DD)
+    const transactionDate = new Date(t.date.getFullYear(), t.date.getMonth(), t.date.getDate());
+    const minDateNormalized = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate());
+    const maxDateNormalized = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate());
     
-    console.log(`[ORCHESTRATOR] 🔍 Transaction ${t.date} (${transactionDateStr}) - Within range ${minDateStr} to ${maxDateStr}: ${isWithinRange} - ${isWithinRange ? 'REMOVING' : 'KEEPING'}`);
+    const isWithinRange = transactionDate >= minDateNormalized && transactionDate <= maxDateNormalized;
+    
+    console.log(`[ORCHESTRATOR] 🔍 Transaction ${t.date.toISOString().split('T')[0]} - Within range ${minDate.toISOString().split('T')[0]} to ${maxDate.toISOString().split('T')[0]}: ${isWithinRange} - ${isWithinRange ? 'REMOVING' : 'KEEPING'}`);
     
     return !isWithinRange; // Keep transactions OUTSIDE the date range
   });
   
-  console.log(`[ORCHESTRATOR] 🧹 Kept ${transactionsToKeep.length} transactions, removing ${allSavedTransactions.length - transactionsToKeep.length} within date range`);
-  
   // 5. Create map of existing transactions for smart merge
   const savedTransactionsMap = new Map<string, ImportedTransaction>();
   allSavedTransactions.forEach(t => savedTransactionsMap.set(createTransactionFingerprint(t), t));
+  
+  console.log(`[ORCHESTRATOR] 🧹 Kept ${transactionsToKeep.length} transactions, removing ${allSavedTransactions.length - transactionsToKeep.length} within date range`);
   
   // 6. Intelligent merge - preserve manual changes
   const mergedTransactions = transactionsFromFile.map(fileTx => {
@@ -275,7 +280,7 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
 
       const transaction: ImportedTransaction = {
         id: uuidv4(),
-        date: parsedDate,
+        date: parsedDate, // Already in YYYY-MM-DD string format
         description: descriptionColumnIndex >= 0 ? fields[descriptionColumnIndex].trim() : '',
         amount: parsedAmount,
         balanceAfter: balanceAfter, // NEW: Include balance after transaction
@@ -308,7 +313,7 @@ function parseSwedishDate(dateString: string): string | null {
     const [, year, month, day] = match;
     const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
     if (!isNaN(date.getTime())) {
-      return date.toISOString().split('T')[0];
+      return date.toISOString().split('T')[0]; // Return YYYY-MM-DD string
     }
   }
   
