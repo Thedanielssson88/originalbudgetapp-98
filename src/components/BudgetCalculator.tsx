@@ -433,15 +433,16 @@ const BudgetCalculator = () => {
 
   // Helper functions for calculating actual amounts from transactions
   const calculateActualAmountForCategory = (categoryId: string): number => {
-    const monthTransactions = (currentMonthData as any).transactions || [];
+    // FIXED: Use correctly filtered transactions according to PaydaySettings
+    const allPeriodTransactions = activeContent.transactionsForPeriod || [];
     
     // DEBUG: Log all transaction data to understand the structure
     console.log(`🔍 [DEBUG] calculateActualAmountForCategory for categoryId: ${categoryId}`);
-    console.log(`🔍 [DEBUG] Total transactions in month:`, monthTransactions.length);
-    console.log(`🔍 [DEBUG] All transactions:`, monthTransactions);
+    console.log(`🔍 [DEBUG] Total transactions in period:`, allPeriodTransactions.length);
+    console.log(`🔍 [DEBUG] All transactions:`, allPeriodTransactions);
     
     // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
-    const matchingTransactions = monthTransactions.filter((t: Transaction) => {
+    const matchingTransactions = allPeriodTransactions.filter((t: Transaction) => {
       return t.appCategoryId === categoryId;
     });
     
@@ -471,46 +472,48 @@ const BudgetCalculator = () => {
   };
 
   const getTransactionsForCategory = (categoryId: string): Transaction[] => {
-    const monthTransactions = (currentMonthData as any).transactions || [];
+    // FIXED: Use correctly filtered transactions according to PaydaySettings
+    const allPeriodTransactions = activeContent.transactionsForPeriod || [];
     console.log(`🔍 [DEBUG] getTransactionsForCategory - categoryId: ${categoryId}`);
-    console.log(`🔍 [DEBUG] All month transactions:`, monthTransactions.map(t => ({ id: t.id, amount: t.amount, categoryId: t.appCategoryId, description: t.description })));
+    console.log(`🔍 [DEBUG] All period transactions (${allPeriodTransactions.length}):`, allPeriodTransactions.map(t => ({ id: t.id, amount: t.amount, categoryId: t.appCategoryId, description: t.description, date: t.date })));
     
     // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
     // But EXCLUDE positive amounts (income) from cost categories
-    const filtered = monthTransactions.filter((t: Transaction) => t.appCategoryId === categoryId && t.amount < 0);
-    console.log(`🔍 [DEBUG] Filtered transactions for category ${categoryId}:`, filtered.map(t => ({ id: t.id, amount: t.amount, description: t.description })));
+    const filtered = allPeriodTransactions.filter((t: Transaction) => t.appCategoryId === categoryId && t.amount < 0);
+    console.log(`🔍 [DEBUG] Filtered transactions for category ${categoryId}:`, filtered.map(t => ({ id: t.id, amount: t.amount, description: t.description, date: t.date })));
     return filtered;
   };
 
   const getTransactionsForAccount = (accountName: string): Transaction[] => {
-    const monthTransactions = (currentMonthData as any).transactions || [];
+    // FIXED: Use correctly filtered transactions according to PaydaySettings
+    const allPeriodTransactions = activeContent.transactionsForPeriod || [];
     console.log(`🔍 [DEBUG] ============= getTransactionsForAccount START =============`);
     console.log(`🔍 [DEBUG] Looking for account: "${accountName}"`);
-    console.log(`🔍 [DEBUG] Total transactions in month: ${monthTransactions.length}`);
+    console.log(`🔍 [DEBUG] Total transactions in period: ${allPeriodTransactions.length}`);
     console.log(`🔍 [DEBUG] Available accounts:`, budgetState.accounts);
     
     // Log all transactions with their account info
     console.log(`🔍 [DEBUG] ALL TRANSACTIONS WITH ACCOUNT INFO:`);
-    monthTransactions.forEach((t: Transaction, index: number) => {
+    allPeriodTransactions.forEach((t: Transaction, index: number) => {
       const account = budgetState.accounts.find(acc => acc.id === t.accountId);
-      console.log(`🔍 [DEBUG] Transaction ${index}: id=${t.id}, accountId=${t.accountId}, resolved account name="${account?.name}", amount=${t.amount}, description="${t.description}", status=${t.status}, appCategoryId=${t.appCategoryId}`);
+      console.log(`🔍 [DEBUG] Transaction ${index}: id=${t.id}, accountId=${t.accountId}, resolved account name="${account?.name}", amount=${t.amount}, description="${t.description}", status=${t.status}, appCategoryId=${t.appCategoryId}, date=${t.date}`);
     });
     
     // Method 1: Find transactions directly by accountId
-    const directAccountTransactions = monthTransactions.filter((t: Transaction) => {
+    const directAccountTransactions = allPeriodTransactions.filter((t: Transaction) => {
       const account = budgetState.accounts.find(acc => acc.id === t.accountId);
       const matchesDirect = account?.name === accountName;
       if (matchesDirect) {
-        console.log(`🔍 [DEBUG] ✅ DIRECT MATCH - Transaction ${t.id}: accountId=${t.accountId}, resolved name=${account?.name}, amount=${t.amount}`);
+        console.log(`🔍 [DEBUG] ✅ DIRECT MATCH - Transaction ${t.id}: accountId=${t.accountId}, resolved name=${account?.name}, amount=${t.amount}, date=${t.date}`);
       }
       return matchesDirect;
     });
     
     // Method 2: Also check for transactions that might have accountId directly matching the account name
-    const nameMatchTransactions = monthTransactions.filter((t: Transaction) => {
+    const nameMatchTransactions = allPeriodTransactions.filter((t: Transaction) => {
       const matchesName = t.accountId === accountName;
       if (matchesName) {
-        console.log(`🔍 [DEBUG] ✅ NAME MATCH - Transaction ${t.id}: accountId=${t.accountId} matches account name directly`);
+        console.log(`🔍 [DEBUG] ✅ NAME MATCH - Transaction ${t.id}: accountId=${t.accountId} matches account name directly, date=${t.date}`);
       }
       return matchesName;
     });
@@ -535,7 +538,7 @@ const BudgetCalculator = () => {
     });
     
     // Filter transactions by category ID (appCategoryId) that belong to this account through subcategories
-    const categoryBasedTransactions = monthTransactions.filter((t: Transaction) => 
+    const categoryBasedTransactions = allPeriodTransactions.filter((t: Transaction) => 
       accountSubcategories.includes(t.appCategoryId || '')
     );
     
@@ -7271,13 +7274,14 @@ const BudgetCalculator = () => {
                        <CardDescription>Jämförelse mellan budgeterade och faktiska belopp</CardDescription>
                      </CardHeader>
                      <CardContent>
-                       {(() => {
-                         const monthTransactions = (currentMonthData as any).transactions || [];
-                         const totalBudgetCosts = costGroups.reduce((sum, group) => {
-                           const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                           return sum + subCategoriesTotal;
-                         }, 0);
-                          const totalActualCosts = monthTransactions
+                        {(() => {
+                          // FIXED: Use correctly filtered transactions according to PaydaySettings
+                          const periodTransactions = activeContent.transactionsForPeriod || [];
+                          const totalBudgetCosts = costGroups.reduce((sum, group) => {
+                            const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                            return sum + subCategoriesTotal;
+                          }, 0);
+                           const totalActualCosts = periodTransactions
                             .filter((t: Transaction) => {
                               const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
                               return t.type === 'Transaction' && effectiveAmount < 0;
@@ -7300,8 +7304,8 @@ const BudgetCalculator = () => {
                              </div>
                              <div className="space-y-2">
                                <div className="text-sm text-muted-foreground">Status</div>
-                               <div className="text-xs">
-                                 {monthTransactions.length} importerade transaktioner
+                                <div className="text-xs">
+                                  {periodTransactions.length} transaktioner för period
                                </div>
                                <div className="text-xs text-blue-600">
                                  Klicka på "Läs in transaktioner" för att importera
