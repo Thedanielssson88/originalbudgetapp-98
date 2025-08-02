@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { ChevronDown, ChevronUp, ArrowLeftRight, Plus } from 'lucide-react';
-import { AccountRow } from './AccountRow';
 import { BudgetState, PlannedTransfer, BudgetItem, Account, MonthData } from '@/types/budget';
 import { getAccountNameById } from '../orchestrator/budgetOrchestrator';
-import { getDateRangeForMonth } from '../services/calculationService';
+import { getDateRangeForMonth, getInternalTransferSummary } from '../services/calculationService';
 
 interface TransfersAnalysisProps {
   budgetState: BudgetState;
@@ -26,6 +26,18 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
   selectedMonth 
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
+
+  // Toggle account expansion
+  const toggleAccount = (accountId: string) => {
+    const newExpanded = new Set(expandedAccounts);
+    if (newExpanded.has(accountId)) {
+      newExpanded.delete(accountId);
+    } else {
+      newExpanded.add(accountId);
+    }
+    setExpandedAccounts(newExpanded);
+  };
 
   // Utility function för att formatera valuta
   const formatCurrency = (amount: number) => {
@@ -181,6 +193,9 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
   const totalTransfers = analysisData.reduce((sum, data) => sum + data.totalTransferredIn, 0);
   const totalActualTransfers = analysisData.reduce((sum, data) => sum + data.actualTransferredIn, 0);
 
+  // Hämta interna överföringar för varje konto
+  const allInternalTransfers = getInternalTransferSummary(budgetState, selectedMonth);
+
   return (
     <Card className="shadow-lg border-0 bg-blue-50/50 backdrop-blur-sm">
       <CardHeader>
@@ -223,48 +238,171 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                   <p className="text-sm opacity-75">Lägg till överföringar för att se en översikt här</p>
                 </div>
               ) : (
-                analysisData.map(data => (
-                  <div key={data.account.id} className="bg-white rounded-lg border border-blue-200 overflow-hidden">
-                    <div className="p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-semibold text-blue-900">{data.account.name}</h4>
-                        <div className="flex items-center gap-4 text-sm">
-                          <div className="text-right">
-                            <div className="text-blue-700">Budgeterat</div>
-                            <div className="font-medium">{formatCurrency(data.totalBudgeted)}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-blue-700">Planerat</div>
-                            <div className="font-medium">{formatCurrency(data.totalTransferredIn)}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-blue-700">Faktiskt</div>
-                            <div className="font-medium text-green-600">{formatCurrency(data.actualTransferredIn)}</div>
+                analysisData.map(data => {
+                  const isAccountExpanded = expandedAccounts.has(data.account.id);
+                  const accountInternalTransfers = allInternalTransfers.find(t => t.accountId === data.account.id);
+                  
+                  return (
+                    <div key={data.account.id} className="bg-white rounded-lg border border-blue-200 overflow-hidden">
+                      {/* Account Header - Klickbar för expansion */}
+                      <div 
+                        className="p-4 cursor-pointer hover:bg-blue-50/50 transition-colors"
+                        onClick={() => toggleAccount(data.account.id)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="font-semibold text-blue-900 text-lg">{data.account.name}</h4>
+                              <ChevronDown className={`h-4 w-4 text-blue-600 transition-transform ${isAccountExpanded ? 'rotate-180' : ''}`} />
+                            </div>
+                            
+                            <div className="grid grid-cols-3 gap-4 text-sm">
+                              <div className="text-center">
+                                <div className="text-blue-700 font-medium">Budgeterat</div>
+                                <div className="font-semibold text-blue-900">{formatCurrency(data.totalBudgeted)}</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-blue-700 font-medium">Planerat</div>
+                                <div className="font-semibold text-blue-900">{formatCurrency(data.totalTransferredIn)}</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-blue-700 font-medium">Faktiskt</div>
+                                <div className="font-semibold text-green-600">{formatCurrency(data.actualTransferredIn)}</div>
+                              </div>
+                            </div>
+                            
+                            {/* Progress bar för planerat vs faktiskt */}
+                            <div className="w-full bg-blue-100 rounded-full h-2 mt-3">
+                              <div 
+                                className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                                style={{ 
+                                  width: data.totalTransferredIn > 0 
+                                    ? `${Math.min((data.actualTransferredIn / data.totalTransferredIn) * 100, 100)}%` 
+                                    : '0%' 
+                                }}
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
-                      
-                      {/* Progress bar för planerat vs faktiskt */}
-                      <div className="w-full bg-blue-100 rounded-full h-2 mb-3">
-                        <div 
-                          className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                          style={{ 
-                            width: data.totalTransferredIn > 0 
-                              ? `${Math.min((data.actualTransferredIn / data.totalTransferredIn) * 100, 100)}%` 
-                              : '0%' 
-                          }}
-                        />
-                      </div>
-                      
-                      {/* Budget items preview */}
-                      {data.budgetItems.length > 0 && (
-                        <div className="text-sm text-blue-600">
-                          {data.budgetItems.length} budgetpost{data.budgetItems.length !== 1 ? 'er' : ''} kopplad{data.budgetItems.length !== 1 ? 'e' : ''} till detta konto
+
+                      {/* Expanderat innehåll med detaljer */}
+                      {isAccountExpanded && (
+                        <div className="border-t border-blue-200 bg-blue-25/25">
+                          <div className="p-4 space-y-4">
+                            
+                            {/* Budgeterade poster */}
+                            {data.budgetItems.length > 0 && (
+                              <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                                <h4 className="font-semibold mb-3 text-sm text-blue-800 uppercase tracking-wide">
+                                  Budgeterade Poster ({data.budgetItems.length})
+                                </h4>
+                                <div className="space-y-2">
+                                  {data.budgetItems.map(item => (
+                                    <div key={item.id} className="flex justify-between items-center py-2 px-3 rounded bg-white border border-blue-100">
+                                      <span className="text-sm text-blue-900">{item.description}</span>
+                                      <span className="font-medium text-sm text-blue-800">{formatCurrency(item.amount)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Planerade överföringar ut */}
+                            {data.transfersOut.length > 0 && (
+                              <div className="bg-red-50 rounded-lg p-3 border border-red-200">
+                                <h4 className="font-semibold mb-3 text-sm text-red-800 uppercase tracking-wide">
+                                  Planerade Överföringar Ut ({data.transfersOut.length})
+                                </h4>
+                                <div className="space-y-2">
+                                  {data.transfersOut.map(t => (
+                                    <div key={t.id} className="flex justify-between items-center py-2 px-3 rounded bg-white border border-red-100">
+                                      <span className="text-sm text-red-900">Till {getAccountNameById(t.toAccountId)}</span>
+                                      <span className="font-medium text-sm text-red-600">- {formatCurrency(t.amount)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Interna överföringar sektion */}
+                            {accountInternalTransfers && (accountInternalTransfers.incomingTransfers.length > 0 || accountInternalTransfers.outgoingTransfers.length > 0) && (
+                              <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <h4 className="font-semibold text-sm text-green-800 uppercase tracking-wide">
+                                    Interna Överföringar 
+                                  </h4>
+                                  {accountInternalTransfers.totalIn > 0 && (
+                                    <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100">
+                                      In: {formatCurrency(accountInternalTransfers.totalIn)}
+                                    </Badge>
+                                  )}
+                                  {accountInternalTransfers.totalOut > 0 && (
+                                    <Badge variant="destructive">
+                                      Ut: {formatCurrency(accountInternalTransfers.totalOut)}
+                                    </Badge>
+                                  )}
+                                </div>
+                                
+                                {accountInternalTransfers.incomingTransfers.length > 0 && (
+                                  <div className="mb-3">
+                                    <h5 className="text-xs font-medium text-green-700 mb-2">Inkommande:</h5>
+                                    <div className="space-y-1">
+                                      {accountInternalTransfers.incomingTransfers.map((t, index) => (
+                                        <div key={index} className="flex justify-between items-center py-2 px-3 rounded bg-white border border-green-100">
+                                          <span className="text-sm text-green-900">
+                                            {formatCurrency(t.amount)} från {t.fromAccountName}
+                                            {!t.linked && (
+                                              <Badge variant="outline" className="ml-2 text-xs text-orange-600 border-orange-200">
+                                                Ej matchad
+                                              </Badge>
+                                            )}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {accountInternalTransfers.outgoingTransfers.length > 0 && (
+                                  <div>
+                                    <h5 className="text-xs font-medium text-green-700 mb-2">Utgående:</h5>
+                                    <div className="space-y-1">
+                                      {accountInternalTransfers.outgoingTransfers.map((t, index) => (
+                                        <div key={index} className="flex justify-between items-center py-2 px-3 rounded bg-white border border-green-100">
+                                          <span className="text-sm text-green-900">
+                                            {formatCurrency(t.amount)} till {t.toAccountName}
+                                            {!t.linked && (
+                                              <Badge variant="outline" className="ml-2 text-xs text-orange-600 border-orange-200">
+                                                Ej matchad
+                                              </Badge>
+                                            )}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Action buttons */}
+                            <div className="flex gap-2 pt-2">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                className="border-blue-300 text-blue-800 hover:bg-blue-200"
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Ny Överföring
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
