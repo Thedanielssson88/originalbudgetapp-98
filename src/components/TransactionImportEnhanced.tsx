@@ -504,8 +504,19 @@ export const TransactionImportEnhanced: React.FC = () => {
       // Read file with proper encoding for Swedish characters
       const arrayBuffer = await file.arrayBuffer();
       const decoder = new TextDecoder('utf-8');
-      const csvContent = decoder.decode(arrayBuffer);
+      let csvContent = decoder.decode(arrayBuffer);
       
+      // Clean up encoding issues - remove � characters and fix common Swedish character issues
+      csvContent = csvContent
+        .replace(/�/g, '') // Remove � characters
+        .replace(/Ã¥/g, 'å') // Fix å
+        .replace(/Ã¤/g, 'ä') // Fix ä  
+        .replace(/Ã¶/g, 'ö') // Fix ö
+        .replace(/Ã…/g, 'Å') // Fix Å
+        .replace(/Ã„/g, 'Ä') // Fix Ä
+        .replace(/Ã–/g, 'Ö'); // Fix Ö
+      
+      console.log(`🚀 [IMPORT] CSV content cleaned, length: ${csvContent.length}`);
       addMobileDebugLog(`📁 File read successfully: ${csvContent.length} characters`);
       
       if (!csvContent || csvContent.trim().length === 0) {

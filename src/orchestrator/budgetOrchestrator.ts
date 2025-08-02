@@ -10,11 +10,24 @@ import { ImportedTransaction, CategoryRule } from '../types/transaction';
 
 // SMART MERGE FUNCTION - The definitive solution to duplicate and lost changes
 export function importAndReconcileFile(csvContent: string, accountId: string): void {
+  console.log(`[ORCHESTRATOR] 🚀 importAndReconcileFile called with accountId: ${accountId}`);
   console.log(`[ORCHESTRATOR] 🔥 Smart merge starting for account ${accountId}`);
   addMobileDebugLog(`🔥 IMPORT STARTED for account ${accountId}`);
   
+  // Clean up encoding issues before parsing
+  const cleanedCsvContent = csvContent
+    .replace(/�/g, '') // Remove � characters
+    .replace(/Ã¥/g, 'å') // Fix å
+    .replace(/Ã¤/g, 'ä') // Fix ä  
+    .replace(/Ã¶/g, 'ö') // Fix ö
+    .replace(/Ã…/g, 'Å') // Fix Å
+    .replace(/Ã„/g, 'Ä') // Fix Ä
+    .replace(/Ã–/g, 'Ö'); // Fix Ö
+  
+  console.log(`[ORCHESTRATOR] 🧹 CSV content cleaned from ${csvContent.length} to ${cleanedCsvContent.length} characters`);
+  
   // 1. Parse CSV content and get mapping info
-  const parseResult = parseCSVContentWithMapping(csvContent, accountId, 'imported');
+  const parseResult = parseCSVContentWithMapping(cleanedCsvContent, accountId, 'imported');
   const transactionsFromFile = parseResult.transactions;
   const csvMapping = parseResult.mapping;
   
