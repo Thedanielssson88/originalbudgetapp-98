@@ -7050,6 +7050,14 @@ const BudgetCalculator = () => {
                 )}
               </Card>
 
+              {/* Transfers Analysis */}
+              <div className="mt-6">
+                <TransfersAnalysis 
+                  budgetState={budgetState} 
+                  selectedMonth={selectedMonth} 
+                />
+              </div>
+
               {/* Budget Summary */}
               <Card className="shadow-lg border-0 bg-muted/50 backdrop-blur-sm">
                 <CardHeader>

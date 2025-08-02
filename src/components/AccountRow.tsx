@@ -56,67 +56,83 @@ export const AccountRow: React.FC<AccountRowProps> = ({
   };
 
   return (
-    <Card className="account-row-wrapper">
+    <Card className="border rounded-lg mb-2 shadow-sm">
       {/* ------ Sammanfattningsrad (alltid synlig) ------ */}
       <div 
-        className="summary-row flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50"
+        className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/30 transition-colors rounded-lg"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <span className="account-name font-medium">{account.name}</span>
-        <div className="flex items-center gap-4">
-          <span className="budgeted-amount text-sm">
-            Budgeterat: {formatCurrency(totalBudgeted)}
-          </span>
-          <span className="transferred-amount text-sm">
-            Planerat In: {formatCurrency(totalTransferredIn)}
-          </span>
-          <span className={`difference text-sm font-semibold ${difference < 0 ? 'text-destructive' : 'text-success'}`}>
-            Diff: {formatCurrency(difference)}
-          </span>
+        <span className="font-semibold text-lg text-foreground">{account.name}</span>
+        <div className="flex items-center gap-6 text-sm">
+          <div className="flex flex-col items-end">
+            <span className="text-muted-foreground text-xs">Budgeterat</span>
+            <span className="font-medium">{formatCurrency(totalBudgeted)}</span>
+          </div>
+          <div className="flex flex-col items-end">
+            <span className="text-muted-foreground text-xs">Planerat In</span>
+            <span className="font-medium">{formatCurrency(totalTransferredIn)}</span>
+          </div>
+          <div className="flex flex-col items-end">
+            <span className="text-muted-foreground text-xs">Skillnad</span>
+            <span className={`font-bold ${difference < 0 ? 'text-destructive' : 'text-green-600'}`}>
+              {formatCurrency(difference)}
+            </span>
+          </div>
           <Button 
             size="sm" 
             variant="outline"
+            className="ml-2"
             onClick={(e) => { 
               e.stopPropagation(); 
               setShowNewTransferForm(true); 
             }}
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4 mr-1" />
             Ny Överföring
           </Button>
-          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          {isExpanded ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
         </div>
       </div>
 
       {/* ------ Detaljvy (synlig när expanderad) ------ */}
       {isExpanded && (
-        <CardContent className="details-view pt-0">
-          <div className="grid gap-4 mt-4">
+        <CardContent className="pt-0 pb-4">
+          <div className="space-y-4 mt-4 border-t border-border pt-4">
             {budgetItems.length > 0 && (
-              <div>
-                <h4 className="font-medium mb-2">Budgeterade Poster ({budgetItems.length}):</h4>
-                <ul className="space-y-1">
+              <div className="bg-muted/30 rounded-lg p-3">
+                <h4 className="font-semibold mb-3 text-sm text-muted-foreground uppercase tracking-wide">
+                  Budgeterade Poster ({budgetItems.length})
+                </h4>
+                <div className="space-y-2">
                   {budgetItems.map(item => (
-                    <li key={item.id} className="text-sm flex justify-between">
-                      <span>{item.description}</span>
-                      <span>{formatCurrency(item.amount)}</span>
-                    </li>
+                    <div key={item.id} className="flex justify-between items-center py-1 px-2 rounded bg-background/50">
+                      <span className="text-sm">{item.description}</span>
+                      <span className="font-medium text-sm">{formatCurrency(item.amount)}</span>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
             )}
             
             {transfersOut.length > 0 && (
-              <div>
-                <h4 className="font-medium mb-2">Planerade Överföringar Från Detta Konto:</h4>
-                <ul className="space-y-1">
+              <div className="bg-red-50 dark:bg-red-950/30 rounded-lg p-3">
+                <h4 className="font-semibold mb-3 text-sm text-muted-foreground uppercase tracking-wide">
+                  Planerade Överföringar Ut ({transfersOut.length})
+                </h4>
+                <div className="space-y-2">
                   {transfersOut.map(t => (
-                    <li key={t.id} className="text-sm flex justify-between">
-                      <span>Till {getAccountNameById(t.toAccountId)}</span>
-                      <span className="text-destructive">- {formatCurrency(t.amount)}</span>
-                    </li>
+                    <div key={t.id} className="flex justify-between items-center py-1 px-2 rounded bg-background/50">
+                      <span className="text-sm">Till {getAccountNameById(t.toAccountId)}</span>
+                      <span className="font-medium text-sm text-destructive">- {formatCurrency(t.amount)}</span>
+                    </div>
                   ))}
-                </ul>
+                </div>
+              </div>
+            )}
+
+            {budgetItems.length === 0 && transfersOut.length === 0 && (
+              <div className="text-center py-4 text-muted-foreground text-sm">
+                Inga budgetposter eller överföringar för detta konto
               </div>
             )}
           </div>
