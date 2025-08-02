@@ -615,7 +615,8 @@ export function getProcessedBudgetDataForMonth(budgetState: any, selectedMonthKe
   });
 
   const activeAccounts = budgetState.accounts.filter((acc: any) => activeAccountIds.has(acc.id));
-  const activeCategories = budgetState.mainCategories.filter((cat: string) => activeMainCategoryIds.has(cat));
+  // FIXED: Always return all main categories for adding new items, not just ones with transactions
+  const activeCategories = budgetState.mainCategories || [];
   
   // 5. Return a single, complete object with all data the UI needs
   return {
