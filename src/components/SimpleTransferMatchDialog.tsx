@@ -28,6 +28,23 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
 }) => {
   const [selectedMatch, setSelectedMatch] = React.useState<string>('');
 
+  // Auto-select the best match when suggestions change
+  React.useEffect(() => {
+    if (suggestions.length > 0 && transaction) {
+      // Find the best match: same date and same absolute amount
+      const bestMatch = suggestions.find(s => 
+        s.date === transaction.date && 
+        Math.abs(s.amount) === Math.abs(transaction.amount)
+      );
+      
+      if (bestMatch) {
+        setSelectedMatch(bestMatch.id);
+      } else {
+        setSelectedMatch('');
+      }
+    }
+  }, [suggestions, transaction]);
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('sv-SE', {
       style: 'currency',
@@ -86,8 +103,21 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
           {suggestions.length > 0 ? (
             <RadioGroup value={selectedMatch} onValueChange={setSelectedMatch}>
               <div className="space-y-2">
-                {suggestions.map((suggestion) => (
-                  <div key={suggestion.id} className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-blue-50">
+                {suggestions.map((suggestion) => {
+                  const isSelected = selectedMatch === suggestion.id;
+                  const isBestMatch = transaction && suggestion.date === transaction.date && Math.abs(suggestion.amount) === Math.abs(transaction.amount);
+                  
+                  return (
+                  <div 
+                    key={suggestion.id} 
+                    className={`flex items-center space-x-2 p-3 border rounded-lg hover:bg-blue-50 ${
+                      isSelected && isBestMatch 
+                        ? 'border-green-500 bg-green-50 shadow-md' 
+                        : isSelected 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : ''
+                    }`}
+                  >
                     <RadioGroupItem value={suggestion.id} id={suggestion.id} />
                     <Label htmlFor={suggestion.id} className="flex-1 cursor-pointer">
                       <div className="flex justify-between items-center">
@@ -107,7 +137,8 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
                       </div>
                     </Label>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </RadioGroup>
           ) : (
