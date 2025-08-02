@@ -354,13 +354,12 @@ const BudgetCalculator = () => {
 
   }, [savingsGroups, budgetState.savingsGoals, selectedBudgetMonth, budgetState.accounts]);
 
-  // SIMPLIFIED: Replace complex useMemo with single function call
+  // CENTRALIZED LOGIC: Use single function call to replace complex logic
   const activeContent = useMemo(() => {
-    console.log('🚨🚨🚨 USING NEW CENTRALIZED LOGIC 🚨🚨🚨');
+    console.log('✅ Using centralized getProcessedBudgetDataForMonth');
     
     const processedData = getProcessedBudgetDataForMonth(budgetState, selectedMonthKey);
     
-    // Transform the returned data to match expected structure
     return {
       activeCategories: processedData.activeCategories,
       activeAccounts: processedData.activeAccounts,
@@ -368,7 +367,8 @@ const BudgetCalculator = () => {
         costItems: processedData.costItems,
         savingsItems: processedData.savingsItems
       },
-      transactionsForPeriod: processedData.transactionsForPeriod
+      transactionsForPeriod: processedData.transactionsForPeriod,
+      dateRange: processedData.dateRange
     };
 
   }, [budgetState, selectedMonthKey]);
