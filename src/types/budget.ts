@@ -87,7 +87,7 @@ export interface BudgetResults {
   totalDailyBudget: number;
   remainingDailyBudget: number;
   holidayDaysBudget: number;
-  balanceLeft: number;
+  // balanceLeft removed - calculated on-demand with calculateBalanceLeft
   susannaShare: number;
   andreasShare: number;
   susannaPercentage: number;

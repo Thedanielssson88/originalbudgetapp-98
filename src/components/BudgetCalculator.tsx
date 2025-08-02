@@ -31,7 +31,8 @@ import {
   getTransactionsForPeriod, 
   getProcessedBudgetDataForMonth,
   calculateTotalBudgetedCosts,
-  calculateTotalBudgetedSavings
+  calculateTotalBudgetedSavings,
+  calculateBalanceLeft
 } from '../services/calculationService';
 import { updateAccountBalanceForMonth, getAccountNameById } from '../orchestrator/budgetOrchestrator';
 import { useToast } from '@/hooks/use-toast';
@@ -871,6 +872,10 @@ const BudgetCalculator = () => {
       andreasShare = (andreasTotalIncome / totalSalary) * preliminaryBalance;
     }
     
+    // Calculate balanceLeft using centralized calculation
+    const currentMonthData = historicalData[selectedBudgetMonth];
+    const calculatedBalanceLeft = calculateBalanceLeft(currentMonthData, selectedBudgetMonth);
+    
     // Final balance should be 0 when individual shares are included
     const balanceLeft = preliminaryBalance - susannaShare - andreasShare;
     
@@ -977,7 +982,7 @@ const BudgetCalculator = () => {
         // Update with fresh calculated results
         // Removed totalMonthlyExpenses - now calculated on-demand
         // Removed totalCosts and totalSavings - now calculated on-demand
-        balanceLeft,
+        // Removed balanceLeft - now calculated on-demand
         susannaShare,
         andreasShare,
         susannaPercentage,
@@ -1640,7 +1645,7 @@ const BudgetCalculator = () => {
       // Include any existing calculated results if they exist
       ...(results && {
         // totalMonthlyExpenses removed - calculated on-demand
-        balanceLeft: results.balanceLeft,
+        // balanceLeft removed - calculated on-demand
         susannaShare: results.susannaShare,
         andreasShare: results.andreasShare,
         susannaPercentage: results.susannaPercentage,
@@ -2466,7 +2471,7 @@ const BudgetCalculator = () => {
         // Removed old calculated fields - now calculated on-demand
         dailyTransfer: 300,
         weekendTransfer: 540,
-        balanceLeft: 0,
+        // balanceLeft removed - calculated on-demand
         susannaShare: 0,
         andreasShare: 0,
         susannaPercentage: 0,
@@ -2515,7 +2520,7 @@ const BudgetCalculator = () => {
         // Removed old calculated fields - now calculated on-demand
         dailyTransfer,
         weekendTransfer,
-        balanceLeft: 0,
+        // balanceLeft removed - calculated on-demand
         susannaShare: 0,
         andreasShare: 0,
         susannaPercentage: 0,
@@ -7111,13 +7116,13 @@ const BudgetCalculator = () => {
                       <div className="p-4 bg-gray-50 border-2 border-gray-300 rounded-lg">
                         <div className="text-sm text-gray-600 font-medium mb-1">Slutsumma (bör vara 0)</div>
                         <div className={`text-2xl font-bold ${
-                          Math.abs(results.balanceLeft) < 0.01 
+                          Math.abs(calculateBalanceLeft(historicalData[selectedBudgetMonth], selectedBudgetMonth)) < 0.01 
                             ? 'text-green-600' 
                             : 'text-red-600'
                         }`}>
-                          {formatCurrency(results.balanceLeft)}
+                          {formatCurrency(calculateBalanceLeft(historicalData[selectedBudgetMonth], selectedBudgetMonth))}
                         </div>
-                        {Math.abs(results.balanceLeft) > 0.01 && (
+                        {Math.abs(calculateBalanceLeft(historicalData[selectedBudgetMonth], selectedBudgetMonth)) > 0.01 && (
                           <div className="text-xs text-red-500 mt-1">
                             ⚠️ Budgeten är inte balanserad
                           </div>

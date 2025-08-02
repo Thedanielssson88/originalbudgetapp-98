@@ -32,6 +32,40 @@ export function calculateTotalBudgetedSavings(savingsItems: BudgetItem[], monthK
 }
 
 /**
+ * Beräknar totala inkomster för en månad
+ */
+export function calculateTotalIncome(monthData: MonthData): number {
+  if (!monthData) return 0;
+  
+  // Summera alla relevanta inkomstfält från rådatan
+  const total = 
+    (monthData.andreasSalary || 0) +
+    (monthData.andreasförsäkringskassan || 0) +
+    (monthData.andreasbarnbidrag || 0) +
+    (monthData.susannaSalary || 0) +
+    (monthData.susannaförsäkringskassan || 0) +
+    (monthData.susannabarnbidrag || 0);
+    
+  return total;
+}
+
+/**
+ * Beräknar "Balans Kvar" - totala inkomster minus totala kostnader och sparande
+ */
+export function calculateBalanceLeft(
+  monthData: MonthData, 
+  monthKey: string
+): number {
+  if (!monthData) return 0;
+
+  const totalIncome = calculateTotalIncome(monthData);
+  const totalCosts = calculateTotalBudgetedCosts(monthData.costItems, monthKey);
+  const totalSavings = calculateTotalBudgetedSavings(monthData.savingsItems, monthKey);
+  
+  return totalIncome - totalCosts - totalSavings;
+}
+
+/**
  * Calculate account end balances from the next month's account balances
  * This replaces the stored accountEndBalances with a calculated value
  */
@@ -236,7 +270,7 @@ export function calculateBudgetResults(monthData: MonthData): BudgetResults {
     totalDailyBudget,
     remainingDailyBudget,
     holidayDaysBudget,
-    balanceLeft,
+    // balanceLeft removed - calculated on-demand with calculateBalanceLeft
     susannaShare,
     andreasShare,
     susannaPercentage,
