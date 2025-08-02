@@ -10,7 +10,8 @@ import { ImportedTransaction, CategoryRule } from '../types/transaction';
 
 // SMART MERGE FUNCTION - The definitive solution to duplicate and lost changes
 export function importAndReconcileFile(csvContent: string, accountId: string): void {
-  console.log(`[ORCHESTRATOR] 🚀 importAndReconcileFile called with accountId: ${accountId}`);
+  console.log(`🚨 ORCHESTRATOR FUNCTION CALLED - accountId: ${accountId}`);
+  addMobileDebugLog(`🚨 ORCHESTRATOR FUNCTION CALLED for ${accountId}`);
   console.log(`[ORCHESTRATOR] 🔥 Smart merge starting for account ${accountId}`);
   addMobileDebugLog(`🔥 IMPORT STARTED for account ${accountId}`);
   
