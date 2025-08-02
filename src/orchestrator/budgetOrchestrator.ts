@@ -18,6 +18,12 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
   const transactionsFromFile = parseResult.transactions;
   const csvMapping = parseResult.mapping;
   
+  console.log(`[ORCHESTRATOR] 💰 CSV parsing result:`, {
+    transactionsCount: transactionsFromFile.length,
+    mappingExists: !!csvMapping,
+    mapping: csvMapping
+  });
+  
   addMobileDebugLog(`🔥 Parsed ${transactionsFromFile.length} transactions from CSV`);
   if (transactionsFromFile.length === 0) {
     console.log(`[ORCHESTRATOR] ⚠️ No transactions found in CSV`);
@@ -295,7 +301,9 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
     const dateColumn = Object.keys(savedMapping.columnMapping).find(csvCol => savedMapping.columnMapping[csvCol] === 'date');
     const amountColumn = Object.keys(savedMapping.columnMapping).find(csvCol => savedMapping.columnMapping[csvCol] === 'amount');
     const descriptionColumn = Object.keys(savedMapping.columnMapping).find(csvCol => savedMapping.columnMapping[csvCol] === 'description');
-    const balanceColumn = Object.keys(savedMapping.columnMapping).find(csvCol => savedMapping.columnMapping[csvCol] === 'balanceAfter');
+    const balanceColumn = Object.keys(savedMapping.columnMapping).find(csvCol => 
+      savedMapping.columnMapping[csvCol] === 'balanceAfter' || savedMapping.columnMapping[csvCol] === 'saldo'
+    );
     
     // Get the indices of these columns in the headers
     dateColumnIndex = dateColumn ? headers.indexOf(dateColumn) : -1;
@@ -397,10 +405,17 @@ function updateAccountBalancesFromSaldo(allTransactions: ImportedTransaction[], 
   // Check if the current CSV mapping includes saldo/balanceAfter
   let hasSaldoMapping = false;
   
+  console.log(`[ORCHESTRATOR] 💰 Checking CSV mapping for saldo...`);
+  console.log(`[ORCHESTRATOR] 💰 csvMapping:`, csvMapping);
+  
   if (csvMapping?.columnMapping) {
-    hasSaldoMapping = Object.values(csvMapping.columnMapping).includes('balanceAfter');
+    const mappingValues = Object.values(csvMapping.columnMapping);
+    hasSaldoMapping = mappingValues.includes('balanceAfter') || mappingValues.includes('saldo');
     console.log(`[ORCHESTRATOR] 💰 CSV mapping check - columns:`, csvMapping.columnMapping);
-    console.log(`[ORCHESTRATOR] 💰 CSV mapping check - has saldo mapping:`, hasSaldoMapping);
+    console.log(`[ORCHESTRATOR] 💰 CSV mapping check - mapping values:`, mappingValues);
+    console.log(`[ORCHESTRATOR] 💰 CSV mapping check - has saldo/balanceAfter mapping:`, hasSaldoMapping);
+  } else {
+    console.log(`[ORCHESTRATOR] 💰 No csvMapping.columnMapping found`);
   }
   
   if (!hasSaldoMapping) {
