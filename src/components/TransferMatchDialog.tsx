@@ -39,7 +39,8 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
       return suggestions;
     }
     
-    return sameDateSuggestions;
+    // Hide already linked transactions from initial same-date view
+    return sameDateSuggestions.filter(s => !s.linkedTransactionId);
   }, [suggestions, transaction, showAllSuggestions]);
 
   // Auto-select the best match when suggestions change
