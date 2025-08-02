@@ -611,11 +611,8 @@ export function getProcessedBudgetDataForMonth(budgetState: any, selectedMonthKe
   
   const budgetItems = [...costItems, ...savingsItems];
   
-  // 3. Filter transactions based on the new, correct date range
-  const transactionsForPeriod = allTransactions.filter((t: any) => {
-    const transactionDate = new Date(t.date);
-    return transactionDate >= startDate && transactionDate <= endDate;
-  });
+  // 3. FIXED: Use the centralized getTransactionsForPeriod function instead of duplicating logic
+  const transactionsForPeriod = getTransactionsForPeriod(budgetState.historicalData, selectedMonthKey);
 
   // 4. MOVE THE LOGIC from activeContent (useMemo in BudgetCalculator)
   // Find active accounts and categories
