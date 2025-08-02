@@ -977,13 +977,13 @@ export function matchInternalTransfer(t1Id: string, t2Id: string): void {
   updateTransaction(t1.id, {
     type: 'InternalTransfer',
     linkedTransactionId: t2.id,
-    userDescription: `Överföring till ${account2Name}`
+    userDescription: `Överföring, ${t2.date}`
   }, currentMonthKey);
   
   updateTransaction(t2.id, {
     type: 'InternalTransfer',
     linkedTransactionId: t1.id,
-    userDescription: `Överföring från ${account1Name}`
+    userDescription: `Överföring, ${t1.date}`
   }, currentMonthKey);
   
   console.log(`✅ [Orchestrator] Matched internal transfer between ${t1Id} and ${t2Id}`);

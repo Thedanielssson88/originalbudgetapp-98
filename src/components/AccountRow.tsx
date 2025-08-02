@@ -168,14 +168,20 @@ export const AccountRow: React.FC<AccountRowProps> = ({
                     <div className="space-y-1">
                       {accountInternalTransfers.incomingTransfers.map((t, index) => (
                         <div key={index} className="flex justify-between items-center py-1 px-2 rounded bg-background/50">
-                          <span className="text-sm">
-                            {formatCurrency(t.amount)} från {t.fromAccountName}
-                            {!t.linked && (
-                              <Badge variant="outline" className="ml-2 text-xs text-orange-600 border-orange-200">
-                                Ej matchad
-                              </Badge>
-                            )}
-                          </span>
+                           <span className="text-sm">
+                             {formatCurrency(t.amount)} från {t.fromAccountName}
+                             {t.linked ? (
+                               t.transaction.userDescription && (
+                                 <span className="ml-2 text-xs text-green-600 font-medium">
+                                   ({t.transaction.userDescription})
+                                 </span>
+                               )
+                             ) : (
+                               <Badge variant="outline" className="ml-2 text-xs text-orange-600 border-orange-200">
+                                 Ej matchad
+                               </Badge>
+                             )}
+                           </span>
                         </div>
                       ))}
                     </div>
@@ -188,14 +194,20 @@ export const AccountRow: React.FC<AccountRowProps> = ({
                     <div className="space-y-1">
                       {accountInternalTransfers.outgoingTransfers.map((t, index) => (
                         <div key={index} className="flex justify-between items-center py-1 px-2 rounded bg-background/50">
-                          <span className="text-sm">
-                            {formatCurrency(t.amount)} till {t.toAccountName}
-                            {!t.linked && (
-                              <Badge variant="outline" className="ml-2 text-xs text-orange-600 border-orange-200">
-                                Ej matchad
-                              </Badge>
-                            )}
-                          </span>
+                           <span className="text-sm">
+                             {formatCurrency(t.amount)} till {t.toAccountName}
+                             {t.linked ? (
+                               t.transaction.userDescription && (
+                                 <span className="ml-2 text-xs text-green-600 font-medium">
+                                   ({t.transaction.userDescription})
+                                 </span>
+                               )
+                             ) : (
+                               <Badge variant="outline" className="ml-2 text-xs text-orange-600 border-orange-200">
+                                 Ej matchad
+                               </Badge>
+                             )}
+                           </span>
                         </div>
                       ))}
                     </div>

@@ -383,21 +383,27 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                                     <div className="space-y-1">
                                       {accountInternalTransfers.incomingTransfers.map((t, index) => (
                                         <div key={index} className="flex justify-between items-center py-2 px-3 rounded bg-white border border-green-100">
-                                          <span className="text-sm text-green-900">
-                                            {formatCurrency(t.amount)} från {t.fromAccountName}
-                                            {!t.linked && (
-                                              <Badge 
-                                                variant="outline" 
-                                                className="ml-2 text-xs text-orange-600 border-orange-200 cursor-pointer hover:bg-orange-50"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleMatchTransfer(t.transaction);
-                                                }}
-                                              >
-                                                Ej matchad
-                                              </Badge>
-                                            )}
-                                          </span>
+                                           <span className="text-sm text-green-900">
+                                             {formatCurrency(t.amount)} från {t.fromAccountName}
+                                             {t.linked ? (
+                                               t.transaction.userDescription && (
+                                                 <span className="ml-2 text-xs text-green-600 font-medium">
+                                                   ({t.transaction.userDescription})
+                                                 </span>
+                                               )
+                                             ) : (
+                                               <Badge 
+                                                 variant="outline" 
+                                                 className="ml-2 text-xs text-orange-600 border-orange-200 cursor-pointer hover:bg-orange-50"
+                                                 onClick={(e) => {
+                                                   e.stopPropagation();
+                                                   handleMatchTransfer(t.transaction);
+                                                 }}
+                                               >
+                                                 Ej matchad
+                                               </Badge>
+                                             )}
+                                           </span>
                                         </div>
                                       ))}
                                     </div>
@@ -410,21 +416,27 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                                     <div className="space-y-1">
                                       {accountInternalTransfers.outgoingTransfers.map((t, index) => (
                                         <div key={index} className="flex justify-between items-center py-2 px-3 rounded bg-white border border-green-100">
-                                          <span className="text-sm text-green-900">
-                                            {formatCurrency(t.amount)} till {t.toAccountName}
-                                            {!t.linked && (
-                                              <Badge 
-                                                variant="outline" 
-                                                className="ml-2 text-xs text-orange-600 border-orange-200 cursor-pointer hover:bg-orange-50"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleMatchTransfer(t.transaction);
-                                                }}
-                                              >
-                                                Ej matchad
-                                              </Badge>
-                                            )}
-                                          </span>
+                                           <span className="text-sm text-green-900">
+                                             {formatCurrency(t.amount)} till {t.toAccountName}
+                                             {t.linked ? (
+                                               t.transaction.userDescription && (
+                                                 <span className="ml-2 text-xs text-green-600 font-medium">
+                                                   ({t.transaction.userDescription})
+                                                 </span>
+                                               )
+                                             ) : (
+                                               <Badge 
+                                                 variant="outline" 
+                                                 className="ml-2 text-xs text-orange-600 border-orange-200 cursor-pointer hover:bg-orange-50"
+                                                 onClick={(e) => {
+                                                   e.stopPropagation();
+                                                   handleMatchTransfer(t.transaction);
+                                                 }}
+                                               >
+                                                 Ej matchad
+                                               </Badge>
+                                             )}
+                                           </span>
                                         </div>
                                       ))}
                                     </div>
