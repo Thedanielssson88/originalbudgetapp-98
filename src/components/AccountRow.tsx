@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import { BudgetState, PlannedTransfer, BudgetItem, Account } from '@/types/budget';
 import { NewTransferForm } from './NewTransferForm';
 import { createPlannedTransfer } from '../orchestrator/budgetOrchestrator';
+import { getInternalTransferSummary } from '../services/calculationService';
 
 interface AccountRowData {
   account: Account;
@@ -38,6 +40,10 @@ export const AccountRow: React.FC<AccountRowProps> = ({
 
   // Data från props
   const { account, totalBudgeted, totalTransferredIn, difference, budgetItems, transfersOut } = data;
+
+  // Hämta interna överföringar för detta konto
+  const allInternalTransfers = getInternalTransferSummary(budgetState, selectedMonth);
+  const accountInternalTransfers = allInternalTransfers.find(summary => summary.accountId === account.id);
 
   const handleCreateTransfer = (fromAccountId: string, amount: number, description?: string) => {
     createPlannedTransfer({
@@ -130,7 +136,66 @@ export const AccountRow: React.FC<AccountRowProps> = ({
               </div>
             )}
 
-            {budgetItems.length === 0 && transfersOut.length === 0 && (
+            {/* Interna överföringar sektion */}
+            {accountInternalTransfers && (accountInternalTransfers.incomingTransfers.length > 0 || accountInternalTransfers.outgoingTransfers.length > 0) && (
+              <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3">
+                <h4 className="font-semibold mb-3 text-sm text-muted-foreground uppercase tracking-wide">
+                  Interna Överföringar 
+                  {accountInternalTransfers.totalIn > 0 && (
+                    <Badge variant="secondary" className="ml-2 bg-green-100 text-green-800 border-green-200">
+                      In: {formatCurrency(accountInternalTransfers.totalIn)}
+                    </Badge>
+                  )}
+                  {accountInternalTransfers.totalOut > 0 && (
+                    <Badge variant="destructive" className="ml-2">
+                      Ut: {formatCurrency(accountInternalTransfers.totalOut)}
+                    </Badge>
+                  )}
+                </h4>
+                
+                {accountInternalTransfers.incomingTransfers.length > 0 && (
+                  <div className="mb-3">
+                    <h5 className="text-xs font-medium text-muted-foreground mb-2">Inkommande:</h5>
+                    <div className="space-y-1">
+                      {accountInternalTransfers.incomingTransfers.map((t, index) => (
+                        <div key={index} className="flex justify-between items-center py-1 px-2 rounded bg-background/50">
+                          <span className="text-sm">
+                            {formatCurrency(t.amount)} från {t.fromAccountName}
+                            {!t.linked && (
+                              <Badge variant="outline" className="ml-2 text-xs text-orange-600 border-orange-200">
+                                Ej matchad
+                              </Badge>
+                            )}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {accountInternalTransfers.outgoingTransfers.length > 0 && (
+                  <div>
+                    <h5 className="text-xs font-medium text-muted-foreground mb-2">Utgående:</h5>
+                    <div className="space-y-1">
+                      {accountInternalTransfers.outgoingTransfers.map((t, index) => (
+                        <div key={index} className="flex justify-between items-center py-1 px-2 rounded bg-background/50">
+                          <span className="text-sm">
+                            {formatCurrency(t.amount)} till {t.toAccountName}
+                            {!t.linked && (
+                              <Badge variant="outline" className="ml-2 text-xs text-orange-600 border-orange-200">
+                                Ej matchad
+                              </Badge>
+                            )}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {budgetItems.length === 0 && transfersOut.length === 0 && !accountInternalTransfers && (
               <div className="text-center py-4 text-muted-foreground text-sm">
                 Inga budgetposter eller överföringar för detta konto
               </div>

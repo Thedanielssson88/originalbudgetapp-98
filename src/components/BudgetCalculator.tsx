@@ -28,7 +28,6 @@ import { TransactionImportEnhanced } from '@/components/TransactionImportEnhance
 import { TransactionDrillDownDialog } from '@/components/TransactionDrillDownDialog';
 import { SavingsSection } from '@/components/SavingsSection';
 import { TransfersAnalysis } from '@/components/TransfersAnalysis';
-import { InternalTransfersSummary } from '@/components/InternalTransfersSummary';
 import { 
   calculateAccountEndBalances, 
   getTransactionsForPeriod, 
@@ -5342,7 +5341,6 @@ const BudgetCalculator = () => {
             <TabsTrigger value="egen-budget">Egen Budget</TabsTrigger>
             <TabsTrigger value="historia">Historia</TabsTrigger>
             <TabsTrigger value="sparmal">Sparmål</TabsTrigger>
-            <TabsTrigger value="interna-overforingar">Interna Överföringar</TabsTrigger>
             <TabsTrigger value="transaktioner">Läs in transaktioner</TabsTrigger>
             <TabsTrigger value="installningar">Inställningar</TabsTrigger>
           </TabsList>
@@ -5370,7 +5368,6 @@ const BudgetCalculator = () => {
               {activeTab === 'egen-budget' && 'Egen Budget'}
               {activeTab === 'historia' && 'Historia'}
               {activeTab === 'sparmal' && 'Sparmål'}
-              {activeTab === 'interna-overforingar' && 'Interna Överföringar'}
               {activeTab === 'transaktioner' && 'Läs in transaktioner'}
               {activeTab === 'installningar' && 'Inställningar'}
             </h1>
@@ -9788,36 +9785,6 @@ const BudgetCalculator = () => {
                   </div>
                 )}
               </div>
-            </div>
-          </TabsContent>
-
-          {/* Internal Transfers Tab */}
-          <TabsContent value="interna-overforingar" className="mt-0">
-            <div className={`relative overflow-hidden ${
-              isAnimating && previousTab === "interna-overforingar" 
-                ? swipeDirection === "left" 
-                  ? "animate-slide-out-left" 
-                  : "animate-slide-out-right"
-                : isAnimating && activeTab === "interna-overforingar"
-                  ? swipeDirection === "left"
-                    ? "animate-slide-in-right"
-                    : "animate-slide-in-left"
-                  : ""
-            }`}>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Receipt className="h-5 w-5 text-primary" />
-                    Analys av Interna Överföringar
-                  </CardTitle>
-                  <CardDescription>
-                    Översikt över pengarörelser mellan dina konton för den valda budgetperioden
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <InternalTransfersSummary />
-                </CardContent>
-              </Card>
             </div>
           </TabsContent>
 
