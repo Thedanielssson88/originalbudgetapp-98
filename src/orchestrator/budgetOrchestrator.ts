@@ -431,39 +431,30 @@ function updateAccountBalancesFromSaldo(allTransactions: ImportedTransaction[], 
   
   console.log(`[ORCHESTRATOR] 💰 Found transactions in months: ${Array.from(transactionsByMonth.keys()).join(', ')}`);
   
-  // For each month, find the last transaction on the day before payday
+  // For each month, find the latest transaction on or before the 24th (same logic as BalanceCorrectionDialog)
   transactionsByMonth.forEach((transactions, monthKey) => {
     const [year, month] = monthKey.split('-').map(Number);
     
-    // Calculate the day before payday in this calendar month
-    let dayBeforePayday: string;
-    if (payday === 1) {
-      // If payday is 1st, day before is last day of previous month
-      const prevMonth = month === 1 ? 12 : month - 1;
-      const prevYear = month === 1 ? year - 1 : year;
-      const lastDayOfPrevMonth = new Date(prevYear, prevMonth, 0).getDate();
-      dayBeforePayday = `${prevYear.toString().padStart(4, '0')}-${prevMonth.toString().padStart(2, '0')}-${lastDayOfPrevMonth.toString().padStart(2, '0')}`;
-    } else {
-      // Day before payday in the same month
-      const dayBefore = payday - 1;
-      dayBeforePayday = `${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${dayBefore.toString().padStart(2, '0')}`;
-    }
+    console.log(`[ORCHESTRATOR] 💰 Looking for transactions on or before 24th in month ${monthKey}`);
     
-    console.log(`[ORCHESTRATOR] 💰 Looking for transactions on day before payday (${dayBeforePayday}) in month ${monthKey}`);
+    // Filter to transactions on or before the 24th day of the month
+    const relevantTransactions = transactions.filter(tx => {
+      const transactionDate = new Date(tx.date);
+      const dayOfMonth = transactionDate.getDate();
+      return dayOfMonth <= 24;
+    });
     
-    // Find all transactions on the day before payday
-    const transactionsOnDayBefore = transactions.filter(tx => tx.date === dayBeforePayday);
-    
-    if (transactionsOnDayBefore.length === 0) {
-      console.log(`[ORCHESTRATOR] 💰 No transactions found on day before payday (${dayBeforePayday}) in month ${monthKey}`);
+    if (relevantTransactions.length === 0) {
+      console.log(`[ORCHESTRATOR] 💰 No transactions found on or before 24th in month ${monthKey}`);
       return;
     }
     
-    // Find the last transaction of that day (sort by any additional time info, or use last one if same date)
-    const lastTransaction = transactionsOnDayBefore[transactionsOnDayBefore.length - 1];
-    const saldoValue = lastTransaction.balanceAfter!;
+    // Sort by date to find the absolutely latest transaction before 25th
+    relevantTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const latestTransaction = relevantTransactions[0];
+    const saldoValue = latestTransaction.balanceAfter!;
     
-    console.log(`[ORCHESTRATOR] 💰 Found last transaction on ${dayBeforePayday}: ${lastTransaction.description} with saldo ${saldoValue}`);
+    console.log(`[ORCHESTRATOR] 💰 Found latest transaction on/before 24th: ${latestTransaction.date} - ${latestTransaction.description} with saldo ${saldoValue}`);
     
     // Calculate which payday-based month this balance should be applied to
     const nextPaydayMonth = getNextPaydayMonth(monthKey, payday);
