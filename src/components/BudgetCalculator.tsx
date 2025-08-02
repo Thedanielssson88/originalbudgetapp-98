@@ -27,6 +27,7 @@ import { AddBudgetItemDialog } from '@/components/AddBudgetItemDialog';
 import { TransactionImportEnhanced } from '@/components/TransactionImportEnhanced';
 import { TransactionDrillDownDialog } from '@/components/TransactionDrillDownDialog';
 import { SavingsSection } from '@/components/SavingsSection';
+import { TransfersAnalysis } from '@/components/TransfersAnalysis';
 import { 
   calculateAccountEndBalances, 
   getTransactionsForPeriod, 
@@ -7005,6 +7006,18 @@ const BudgetCalculator = () => {
                               calculateActualForTarget={calculateActualForTarget}
                               onSavingsCategoryDrillDown={openSavingsCategoryDrillDownDialog}
                               onSavingsTargetDrillDown={openSavingsTargetDrillDownDialog}
+                              onAddSavingsItem={(item) => {
+                                // Handle adding savings item
+                              }}
+                            />
+
+                            {/* Nya sektionen för planerade överföringar */}
+                            <div className="mt-6">
+                              <TransfersAnalysis
+                                budgetState={budgetState}
+                                selectedMonth={selectedBudgetMonth}
+                              />
+                            </div>
                               onAddSavingsItem={(item) => {
                                 // Handle adding savings item
                                 const newGroup = {

@@ -21,6 +21,7 @@ export const state: AppState = {
     historicalData: {},
     accounts: [], // Will be loaded from saved data or set dynamically
     savingsGoals: [], // NYTT FÄLT
+    plannedTransfers: [], // NYA PLANERADE ÖVERFÖRINGAR
     selectedMonthKey: '2025-07', // Use current month as default
     selectedHistoricalMonth: '2025-07',
     

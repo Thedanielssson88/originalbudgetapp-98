@@ -3,7 +3,7 @@
 import { state, initializeStateFromStorage, saveStateToStorage, getCurrentMonthData, updateCurrentMonthData } from '../state/budgetState';
 import { StorageKey, set } from '../services/storageService';
 import { calculateFullPrognosis, calculateBudgetResults, calculateAccountProgression, calculateMonthlyBreakdowns, calculateProjectedBalances } from '../services/calculationService';
-import { BudgetGroup, MonthData, SavingsGoal, CsvMapping } from '../types/budget';
+import { BudgetGroup, MonthData, SavingsGoal, CsvMapping, PlannedTransfer } from '../types/budget';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 import { v4 as uuidv4 } from 'uuid';
 import { ImportedTransaction, CategoryRule } from '../types/transaction';
@@ -1260,4 +1260,49 @@ export function updatePaydaySetting(newPayday: number): void {
   runCalculationsAndUpdateState();
   
   console.log(`[updatePaydaySetting] Payday updated to ${newPayday} with complete recalculation triggered`);
+}
+
+// ===== PLANNED TRANSFERS MANAGEMENT =====
+
+export function createPlannedTransfer(transfer: Omit<PlannedTransfer, 'id' | 'created'>): void {
+  console.log('🔄 [ORCHESTRATOR] Creating planned transfer:', transfer);
+  
+  const newTransfer: PlannedTransfer = {
+    ...transfer,
+    id: uuidv4(),
+    created: new Date().toISOString()
+  };
+  
+  state.budgetState.plannedTransfers.push(newTransfer);
+  saveStateToStorage();
+  triggerUIRefresh();
+  
+  console.log(`✅ [ORCHESTRATOR] Planned transfer created: ${transfer.amount} SEK from ${transfer.fromAccountId} to ${transfer.toAccountId}`);
+}
+
+export function updatePlannedTransfer(transferId: string, updates: Partial<PlannedTransfer>): void {
+  console.log('🔄 [ORCHESTRATOR] Updating planned transfer:', transferId, updates);
+  
+  const transferIndex = state.budgetState.plannedTransfers.findIndex(t => t.id === transferId);
+  if (transferIndex !== -1) {
+    state.budgetState.plannedTransfers[transferIndex] = {
+      ...state.budgetState.plannedTransfers[transferIndex],
+      ...updates
+    };
+    saveStateToStorage();
+    triggerUIRefresh();
+    console.log(`✅ [ORCHESTRATOR] Planned transfer updated successfully`);
+  } else {
+    console.error(`❌ [ORCHESTRATOR] Planned transfer not found: ${transferId}`);
+  }
+}
+
+export function deletePlannedTransfer(transferId: string): void {
+  console.log('🔄 [ORCHESTRATOR] Deleting planned transfer:', transferId);
+  
+  state.budgetState.plannedTransfers = state.budgetState.plannedTransfers.filter(t => t.id !== transferId);
+  saveStateToStorage();
+  triggerUIRefresh();
+  
+  console.log(`✅ [ORCHESTRATOR] Planned transfer deleted successfully`);
 }

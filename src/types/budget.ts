@@ -173,10 +173,21 @@ export interface CsvMapping {
 }
 
 // Ny, förenklad state-struktur - Single Source of Truth
+export interface PlannedTransfer {
+  id: string;
+  fromAccountId: string;
+  toAccountId: string;
+  amount: number;
+  month: string;
+  description?: string;
+  created: string;
+}
+
 export interface BudgetState {
   historicalData: { [monthKey: string]: MonthData };
   accounts: Account[];
   savingsGoals: SavingsGoal[]; // NYTT FÄLT
+  plannedTransfers: PlannedTransfer[]; // NYA PLANERADE ÖVERFÖRINGAR
   selectedMonthKey: string;
   selectedHistoricalMonth: string; // För historik-vyn
   
