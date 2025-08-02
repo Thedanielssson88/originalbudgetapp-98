@@ -431,30 +431,30 @@ function updateAccountBalancesFromSaldo(allTransactions: ImportedTransaction[], 
   
   console.log(`[ORCHESTRATOR] 💰 Found transactions in months: ${Array.from(transactionsByMonth.keys()).join(', ')}`);
   
-  // For each month, find the latest transaction on or before the 24th (same logic as BalanceCorrectionDialog)
+  // For each month, find the latest transaction on or before payday (same logic as BalanceCorrectionDialog)
   transactionsByMonth.forEach((transactions, monthKey) => {
     const [year, month] = monthKey.split('-').map(Number);
     
-    console.log(`[ORCHESTRATOR] 💰 Looking for transactions on or before 24th in month ${monthKey}`);
+    console.log(`[ORCHESTRATOR] 💰 Looking for transactions on or before payday (${payday}) in month ${monthKey}`);
     
-    // Filter to transactions on or before the 24th day of the month
+    // Filter to transactions on or before payday of the month
     const relevantTransactions = transactions.filter(tx => {
       const transactionDate = new Date(tx.date);
       const dayOfMonth = transactionDate.getDate();
-      return dayOfMonth <= 24;
+      return dayOfMonth <= payday;
     });
     
     if (relevantTransactions.length === 0) {
-      console.log(`[ORCHESTRATOR] 💰 No transactions found on or before 24th in month ${monthKey}`);
+      console.log(`[ORCHESTRATOR] 💰 No transactions found on or before payday (${payday}) in month ${monthKey}`);
       return;
     }
     
-    // Sort by date to find the absolutely latest transaction before 25th
+    // Sort by date to find the absolutely latest transaction before/on payday
     relevantTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     const latestTransaction = relevantTransactions[0];
     const saldoValue = latestTransaction.balanceAfter!;
     
-    console.log(`[ORCHESTRATOR] 💰 Found latest transaction on/before 24th: ${latestTransaction.date} - ${latestTransaction.description} with saldo ${saldoValue}`);
+    console.log(`[ORCHESTRATOR] 💰 Found latest transaction on/before payday: ${latestTransaction.date} - ${latestTransaction.description} with saldo ${saldoValue}`);
     
     // Calculate which payday-based month this balance should be applied to
     const nextPaydayMonth = getNextPaydayMonth(monthKey, payday);
@@ -467,6 +467,9 @@ function updateAccountBalancesFromSaldo(allTransactions: ImportedTransaction[], 
       if (account) {
         updateAccountBalanceForMonth(nextPaydayMonth, account.name, saldoValue);
         console.log(`[ORCHESTRATOR] ✅ Updated ${account.name} balance for ${nextPaydayMonth}: ${saldoValue}`);
+        
+        // Show the same toast notification as manual "Korrigera" button
+        triggerBalanceUpdateToast(account.name, saldoValue);
       } else {
         console.log(`[ORCHESTRATOR] ⚠️ Could not find account name for ID ${accountId}`);
       }
@@ -491,6 +494,19 @@ function getNextPaydayMonth(calendarMonth: string, payday: number): string | nul
     }
     return `${nextYear.toString().padStart(4, '0')}-${nextMonth.toString().padStart(2, '0')}`;
   }
+}
+
+// Helper function to trigger balance update toast (same as manual correction)
+function triggerBalanceUpdateToast(accountName: string, newBalance: number): void {
+  // Dispatch a custom event that components can listen to for showing toasts
+  const event = new CustomEvent('balanceUpdated', {
+    detail: {
+      accountName,
+      newBalance,
+      message: `Kontosaldo för ${accountName} har uppdaterats till ${newBalance.toLocaleString('sv-SE')} kr`
+    }
+  });
+  window.dispatchEvent(event);
 }
 
 // Helper functions moved from TransactionImportEnhanced

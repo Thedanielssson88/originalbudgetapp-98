@@ -451,6 +451,23 @@ export const TransactionImportEnhanced: React.FC = () => {
     setBankCSVMappings(storedMappings);
   }, []);
 
+  // Listen for automatic balance updates from saldo imports
+  useEffect(() => {
+    const handleBalanceUpdate = (event: CustomEvent) => {
+      const { accountName, newBalance, message } = event.detail;
+      toast({
+        title: "Saldo uppdaterat",
+        description: message,
+      });
+    };
+
+    window.addEventListener('balanceUpdated', handleBalanceUpdate as EventListener);
+    
+    return () => {
+      window.removeEventListener('balanceUpdated', handleBalanceUpdate as EventListener);
+    };
+  }, [toast]);
+
   const handleAddBank = (bankName: string) => {
     const newBank: Bank = {
       id: uuidv4(),
