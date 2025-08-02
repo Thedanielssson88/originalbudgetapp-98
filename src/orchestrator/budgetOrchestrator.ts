@@ -4,6 +4,7 @@ import { state, initializeStateFromStorage, saveStateToStorage, getCurrentMonthD
 import { StorageKey, set } from '../services/storageService';
 import { calculateFullPrognosis, calculateBudgetResults, calculateAccountProgression, calculateMonthlyBreakdowns, calculateProjectedBalances } from '../services/calculationService';
 import { BudgetGroup, MonthData, SavingsGoal, CsvMapping, PlannedTransfer } from '../types/budget';
+import { updateAccountBalanceFromBankData } from '../utils/bankBalanceUtils';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 import { v4 as uuidv4 } from 'uuid';
 import { ImportedTransaction, CategoryRule } from '../types/transaction';
@@ -169,8 +170,8 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
     addMobileDebugLog(`📅 Updated month ${monthKey} with ${monthTransactions.length} transactions`);
   });
   
-  // 9. Update account balances from saldo data (NEW FEATURE)
-  updateAccountBalancesFromSaldo(finalTransactionList, accountId, csvMapping);
+  // 9. Update account balances from saldo data using the SAME working logic as BudgetCalculator
+  updateAccountBalancesUsingWorkingLogic(finalTransactionList, accountId);
 
   // 10. Save and refresh UI
   saveStateToStorage();
@@ -410,146 +411,60 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
   return transactions;
 }
 
-// NEW: Function to update account balances from saldo data based on payday logic
-function updateAccountBalancesFromSaldo(allTransactions: ImportedTransaction[], accountId: string, csvMapping?: CsvMapping): void {
-  console.log(`[ORCHESTRATOR] 💰 Starting saldo-based account balance updates for account ${accountId}`);
-  console.log(`[ORCHESTRATOR] 💰 All transactions count: ${allTransactions.length}`);
-  console.log(`[ORCHESTRATOR] 💰 Available accounts in state:`, state.budgetState.accounts.map(acc => ({id: acc.id, name: acc.name})));
+// NEW: Function to update account balances using the SAME working logic as BudgetCalculator.tsx
+function updateAccountBalancesUsingWorkingLogic(allTransactions: ImportedTransaction[], accountId: string): void {
+  console.log(`[ORCHESTRATOR] 💰 Starting account balance updates using working logic for account ${accountId}`);
   
-  // Check if the current CSV mapping includes saldo/balanceAfter
-  let hasSaldoMapping = false;
-  
-  console.log(`[ORCHESTRATOR] 💰 Checking CSV mapping for saldo...`);
-  console.log(`[ORCHESTRATOR] 💰 csvMapping:`, csvMapping);
-  
-  if (csvMapping?.columnMapping) {
-    const mappingValues = Object.values(csvMapping.columnMapping);
-    hasSaldoMapping = mappingValues.includes('balanceAfter') || mappingValues.includes('saldo');
-    console.log(`[ORCHESTRATOR] 💰 CSV mapping check - columns:`, csvMapping.columnMapping);
-    console.log(`[ORCHESTRATOR] 💰 CSV mapping check - mapping values:`, mappingValues);
-    console.log(`[ORCHESTRATOR] 💰 CSV mapping check - has saldo/balanceAfter mapping:`, hasSaldoMapping);
-  } else {
-    console.log(`[ORCHESTRATOR] 💰 No csvMapping.columnMapping found`);
-  }
-  
-  if (!hasSaldoMapping) {
-    console.log(`[ORCHESTRATOR] 💰 Current CSV mapping does not include saldo/balanceAfter, skipping balance updates`);
+  // Get account name from account ID
+  const account = state.budgetState.accounts.find(acc => acc.id === accountId);
+  if (!account) {
+    console.log(`[ORCHESTRATOR] ⚠️ Could not find account name for ID ${accountId}`);
     return;
   }
   
-  console.log(`[ORCHESTRATOR] 💰 Saldo mapping found in current import, proceeding with balance updates`);
+  console.log(`[ORCHESTRATOR] 💰 Found account: ${account.name} (${accountId})`);
   
-  // Filter transactions for this specific account that have balance data
-  const accountTransactionsWithBalance = allTransactions.filter(tx => {
-    const hasBalance = tx.accountId === accountId && tx.balanceAfter !== undefined;
-    if (tx.accountId === accountId) {
-      console.log(`[ORCHESTRATOR] 💰 Transaction for account ${accountId}: date=${tx.date}, amount=${tx.amount}, balanceAfter=${tx.balanceAfter}, hasBalance=${hasBalance}`);
-    }
-    return hasBalance;
-  });
+  // Check if we have any transactions with balance data
+  const transactionsWithBalance = allTransactions.filter(tx => 
+    tx.accountId === accountId && 
+    tx.balanceAfter !== undefined && 
+    tx.balanceAfter !== null
+  );
   
-  console.log(`[ORCHESTRATOR] 💰 Found ${accountTransactionsWithBalance.length} transactions with balance data for account ${accountId}`);
+  console.log(`[ORCHESTRATOR] 💰 Found ${transactionsWithBalance.length} transactions with balance data`);
   
-  if (accountTransactionsWithBalance.length === 0) {
-    console.log(`[ORCHESTRATOR] 💰 No transactions with balance data found for account ${accountId}`);
+  if (transactionsWithBalance.length === 0) {
+    console.log(`[ORCHESTRATOR] 💰 No transactions with balance data found, skipping balance updates`);
     return;
   }
   
-  const payday = state.budgetState.settings?.payday || 25;
-  console.log(`[ORCHESTRATOR] 💰 Using payday setting: ${payday}`);
-  
-  // Group transactions by calendar month
-  const transactionsByMonth = new Map<string, ImportedTransaction[]>();
-  accountTransactionsWithBalance.forEach(tx => {
-    const monthKey = tx.date.substring(0, 7); // Extract "YYYY-MM" from "YYYY-MM-DD"
-    if (!transactionsByMonth.has(monthKey)) {
-      transactionsByMonth.set(monthKey, []);
-    }
-    transactionsByMonth.get(monthKey)!.push(tx);
+  // Group transactions by month and attempt to update balances for relevant months
+  const monthsWithTransactions = new Set<string>();
+  transactionsWithBalance.forEach(tx => {
+    const monthKey = tx.date.substring(0, 7); // Extract "YYYY-MM"
+    monthsWithTransactions.add(monthKey);
   });
   
-  console.log(`[ORCHESTRATOR] 💰 Found transactions in months: ${Array.from(transactionsByMonth.keys()).join(', ')}`);
+  console.log(`[ORCHESTRATOR] 💰 Found transactions in months: ${Array.from(monthsWithTransactions).join(', ')}`);
   
-  // For each month, find the latest transaction on or before payday (same logic as BalanceCorrectionDialog)
-  transactionsByMonth.forEach((transactions, monthKey) => {
+  // For each month, try to update the NEXT month's balance using the working logic
+  monthsWithTransactions.forEach(monthKey => {
     const [year, month] = monthKey.split('-').map(Number);
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear = month === 12 ? year + 1 : year;
+    const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
     
-    console.log(`[ORCHESTRATOR] 💰 Looking for transactions on or before payday (${payday}) in month ${monthKey}`);
+    console.log(`[ORCHESTRATOR] 💰 Attempting to update balance for ${account.name} in ${nextMonthKey} using data from ${monthKey}`);
     
-    // Filter to transactions on or before payday of the month
-    const relevantTransactions = transactions.filter(tx => {
-      const transactionDate = new Date(tx.date);
-      const dayOfMonth = transactionDate.getDate();
-      return dayOfMonth <= payday;
-    });
+    // Use the working logic from bankBalanceUtils
+    const updateSuccess = updateAccountBalanceFromBankData(allTransactions, accountId, account.name, nextMonthKey);
     
-    if (relevantTransactions.length === 0) {
-      console.log(`[ORCHESTRATOR] 💰 No transactions found on or before payday (${payday}) in month ${monthKey}`);
-      return;
-    }
-    
-    // Sort by date to find the absolutely latest transaction before/on payday
-    relevantTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    const latestTransaction = relevantTransactions[0];
-    const saldoValue = latestTransaction.balanceAfter!;
-    
-    console.log(`[ORCHESTRATOR] 💰 Found latest transaction on/before payday: ${latestTransaction.date} - ${latestTransaction.description} with saldo ${saldoValue}`);
-    
-    // Calculate which payday-based month this balance should be applied to
-    const nextPaydayMonth = getNextPaydayMonth(monthKey, payday);
-    
-    if (nextPaydayMonth) {
-      console.log(`[ORCHESTRATOR] 💰 Updating account balance for month ${nextPaydayMonth} based on saldo ${saldoValue}`);
-      
-      // Get account name from account ID
-      const account = state.budgetState.accounts.find(acc => acc.id === accountId);
-      console.log(`[ORCHESTRATOR] 💰 Account lookup: accountId=${accountId}, found account:`, account);
-      
-      if (account) {
-        console.log(`[ORCHESTRATOR] 💰 Calling updateAccountBalanceForMonth with: month=${nextPaydayMonth}, accountName=${account.name}, balance=${saldoValue}`);
-        updateAccountBalanceForMonth(nextPaydayMonth, account.name, saldoValue);
-        console.log(`[ORCHESTRATOR] ✅ Updated ${account.name} balance for ${nextPaydayMonth}: ${saldoValue}`);
-        
-        // Show the same toast notification as manual "Korrigera" button
-        triggerBalanceUpdateToast(account.name, saldoValue);
-      } else {
-        console.log(`[ORCHESTRATOR] ⚠️ Could not find account name for ID ${accountId}`);
-        console.log(`[ORCHESTRATOR] ⚠️ Available accounts:`, state.budgetState.accounts.map(acc => ({id: acc.id, name: acc.name})));
-      }
+    if (updateSuccess) {
+      console.log(`[ORCHESTRATOR] ✅ Successfully updated balance for ${account.name} in ${nextMonthKey}`);
+    } else {
+      console.log(`[ORCHESTRATOR] ℹ️ No balance update needed for ${account.name} in ${nextMonthKey}`);
     }
   });
-}
-
-// Helper function to determine the next payday-based month
-function getNextPaydayMonth(calendarMonth: string, payday: number): string | null {
-  const [year, month] = calendarMonth.split('-').map(Number);
-  
-  if (payday === 1) {
-    // If payday is 1st, the payday month is the same as calendar month
-    return calendarMonth;
-  } else {
-    // If payday is not 1st, the payday month is the next calendar month
-    let nextMonth = month + 1;
-    let nextYear = year;
-    if (nextMonth > 12) {
-      nextMonth = 1;
-      nextYear += 1;
-    }
-    return `${nextYear.toString().padStart(4, '0')}-${nextMonth.toString().padStart(2, '0')}`;
-  }
-}
-
-// Helper function to trigger balance update toast (same as manual correction)
-function triggerBalanceUpdateToast(accountName: string, newBalance: number): void {
-  // Dispatch a custom event that components can listen to for showing toasts
-  const event = new CustomEvent('balanceUpdated', {
-    detail: {
-      accountName,
-      newBalance,
-      message: `Kontosaldo för ${accountName} har uppdaterats till ${newBalance.toLocaleString('sv-SE')} kr`
-    }
-  });
-  window.dispatchEvent(event);
 }
 
 // Helper functions moved from TransactionImportEnhanced
