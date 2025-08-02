@@ -609,12 +609,23 @@ const BudgetCalculator = () => {
   };
 
   const openAccountDrillDownDialog = (accountId: string, accountName: string, budgetAmount: number, actualAmount: number) => {
+    console.log(`🔍 [DEBUG] ============= openAccountDrillDownDialog CALLED =============`);
+    console.log(`🔍 [DEBUG] accountId: "${accountId}"`);
+    console.log(`🔍 [DEBUG] accountName: "${accountName}"`);
+    console.log(`🔍 [DEBUG] budgetAmount: ${budgetAmount}`);
+    console.log(`🔍 [DEBUG] actualAmount: ${actualAmount}`);
+    
     const allTransactions = getTransactionsForAccountId(accountId);
+    console.log(`🔍 [DEBUG] allTransactions from getTransactionsForAccountId: ${allTransactions.length}`);
+    
     // Filter out positive amounts (income) from cost category drill-downs using corrected amounts
     const transactions = allTransactions.filter(t => {
       const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
       return effectiveAmount < 0;
     });
+    
+    console.log(`🔍 [DEBUG] transactions after filtering negative amounts: ${transactions.length}`);
+    console.log(`🔍 [DEBUG] ============= openAccountDrillDownDialog END =============`);
     
     setDrillDownDialog({
       isOpen: true,
