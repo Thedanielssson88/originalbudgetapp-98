@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Transaction } from '@/types/budget';
-import { matchInternalTransfer, updateTransaction } from '../orchestrator/budgetOrchestrator';
+import { matchInternalTransfer, updateTransaction, getAccountNameById } from '../orchestrator/budgetOrchestrator';
 
 interface SimpleTransferMatchDialogProps {
   isOpen: boolean;
@@ -69,7 +69,7 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
         <DialogHeader>
           <DialogTitle>Matcha överföring</DialogTitle>
           <DialogDescription>
-            Matcha denna transaktion på {formatCurrency(Math.abs(transaction.amount))} kr från {transaction.accountId}
+            Matcha denna transaktion på {formatCurrency(Math.abs(transaction.amount))} kr från {getAccountNameById(transaction.accountId)}
             med en motsvarande transaktion. Båda transaktionerna kommer att konverteras till interna överföringar och länkas.
           </DialogDescription>
         </DialogHeader>
@@ -78,7 +78,8 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
           <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
             <h4 className="font-medium text-blue-900">Transaktion att matcha:</h4>
             <div className="text-sm text-blue-700 mt-1">
-              {transaction.date}: {transaction.description} ({formatCurrency(transaction.amount)})
+              <div className="font-medium">{getAccountNameById(transaction.accountId)}</div>
+              <div>{transaction.date}: {transaction.description} ({formatCurrency(transaction.amount)})</div>
             </div>
           </div>
 
@@ -90,13 +91,16 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
                     <RadioGroupItem value={suggestion.id} id={suggestion.id} />
                     <Label htmlFor={suggestion.id} className="flex-1 cursor-pointer">
                       <div className="flex justify-between items-center">
-                        <span className="text-blue-900">{suggestion.date}: {suggestion.description}</span>
-                        <span className={`font-medium ${suggestion.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <div className="flex-1">
+                          <div className="font-medium text-blue-900">{getAccountNameById(suggestion.accountId)}</div>
+                          <div className="text-sm text-gray-700">{suggestion.date}: {suggestion.description}</div>
+                        </div>
+                        <span className={`font-medium ml-4 ${suggestion.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                           {formatCurrency(suggestion.amount)}
                         </span>
                       </div>
-                      <div className="text-xs text-blue-600">
-                        Konto: {suggestion.accountId} • Typ: {suggestion.type || 'Transaktion'}
+                      <div className="text-xs text-blue-600 mt-1">
+                        Typ: {suggestion.type || 'Transaktion'}
                         {suggestion.type !== 'InternalTransfer' && (
                           <span className="ml-2 text-orange-600">(kommer konverteras till Intern Överföring)</span>
                         )}
