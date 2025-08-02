@@ -32,8 +32,10 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
       return [];
     }
     
-    // 2. Kombinera cost och savings items från månadsdata
-    const allBudgetItems = [...(monthData.costItems || []), ...(monthData.savingsItems || [])];
+    // 2. Hämta cost och savings items från månadsdata
+    const costItems = monthData.costItems || [];
+    const savingsItems = monthData.savingsItems || [];
+    const allBudgetItems = [...costItems, ...savingsItems];
     const monthlyTransfers = budgetState.plannedTransfers?.filter(pt => pt.month === selectedMonth) || [];
     
     // 3. Skapa en lookup-map för kategorier för snabb åtkomst (för framtida användning)
@@ -48,8 +50,11 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
         return item.accountId === account.id;
       });
 
-      // Summera total budgeterad kostnad för kontot
-      const totalBudgeted = budgetedItemsForAccount.reduce((sum, item) => sum + item.amount, 0);
+      // Hitta endast kostnadsposter för kontot (för budgeterat belopp)
+      const costItemsForAccount = costItems.filter(item => item.accountId === account.id);
+
+      // Summera total budgeterad kostnad för kontot (endast kostnadsposter)
+      const totalBudgeted = costItemsForAccount.reduce((sum, item) => sum + item.amount, 0);
 
       // Summera totala planerade överföringar TILL kontot
       const totalTransferredIn = monthlyTransfers
