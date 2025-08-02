@@ -19,12 +19,12 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
     return;
   }
   
-  // 2. Define date range of the file
-  const datesInFile = transactionsFromFile.map(t => new Date(t.date).getTime());
-  const minDate = new Date(Math.min(...datesInFile));
-  const maxDate = new Date(Math.max(...datesInFile));
+  // 2. Define date range of the file (use date strings for precise comparison)
+  const datesInFile = transactionsFromFile.map(t => t.date.split('T')[0]); // Get YYYY-MM-DD format
+  const minDateStr = datesInFile.reduce((min, date) => date < min ? date : min);
+  const maxDateStr = datesInFile.reduce((max, date) => date > max ? date : max);
   
-  console.log(`[ORCHESTRATOR] 📅 File date range: ${minDate.toISOString().split('T')[0]} to ${maxDate.toISOString().split('T')[0]}`);
+  console.log(`[ORCHESTRATOR] 📅 File date range: ${minDateStr} to ${maxDateStr}`);
   
   // 3. Get ALL existing transactions from central state
   const allSavedTransactions = Object.values(state.budgetState.historicalData)
@@ -35,9 +35,17 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
     } as ImportedTransaction)));
   
   // 4. Remove old transactions for this account within the date range (CSV is truth)
-  const transactionsToKeep = allSavedTransactions.filter(t => 
-    !(t.accountId === accountId && new Date(t.date) >= minDate && new Date(t.date) <= maxDate)
-  );
+  // Use string comparison for precise date matching without timezone issues
+  const transactionsToKeep = allSavedTransactions.filter(t => {
+    if (t.accountId !== accountId) return true; // Keep transactions from other accounts
+    
+    const transactionDateStr = t.date.split('T')[0]; // Get YYYY-MM-DD format
+    const isWithinRange = transactionDateStr >= minDateStr && transactionDateStr <= maxDateStr;
+    
+    console.log(`[ORCHESTRATOR] 🔍 Transaction ${t.date} (${transactionDateStr}) - Within range ${minDateStr} to ${maxDateStr}: ${isWithinRange} - ${isWithinRange ? 'REMOVING' : 'KEEPING'}`);
+    
+    return !isWithinRange; // Keep transactions OUTSIDE the date range
+  });
   
   console.log(`[ORCHESTRATOR] 🧹 Kept ${transactionsToKeep.length} transactions, removing ${allSavedTransactions.length - transactionsToKeep.length} within date range`);
   
