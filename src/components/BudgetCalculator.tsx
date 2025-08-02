@@ -491,11 +491,19 @@ const BudgetCalculator = () => {
     console.log(`🔍 [DEBUG] ============= getTransactionsForAccountId START =============`);
     console.log(`🔍 [DEBUG] Looking for accountId: "${accountId}"`);
     console.log(`🔍 [DEBUG] Total transactions in period: ${allPeriodTransactions.length}`);
+    console.log(`🔍 [DEBUG] activeContent.transactionsForPeriod:`, allPeriodTransactions.slice(0, 5).map(t => ({ 
+      id: t.id, 
+      accountId: t.accountId, 
+      date: t.date, 
+      amount: t.amount, 
+      description: t.description 
+    })));
     
     // Direct filtering by accountId - much cleaner
     const accountTransactions = allPeriodTransactions.filter((t: Transaction) => t.accountId === accountId);
     console.log(`🔍 [DEBUG] Found ${accountTransactions.length} transactions for accountId ${accountId}:`, 
       accountTransactions.map(t => ({ id: t.id, amount: t.amount, description: t.description, date: t.date })));
+    console.log(`🔍 [DEBUG] ============= getTransactionsForAccountId END =============`);
     
     return accountTransactions;
   };
