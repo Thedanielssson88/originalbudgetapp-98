@@ -485,3 +485,82 @@ export function getTransactionsForPeriod(
   
   return allTransactions;
 }
+
+// NEW: Central date logic for payday-based months
+export function getDateRangeForMonth(monthKey: string, payday: number): { startDate: Date, endDate: Date } {
+  const [year, month] = monthKey.split('-').map(Number);
+
+  if (payday === 1) {
+    // Calendar month
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59, 999); // Last day, last millisecond
+    return { startDate, endDate };
+  } else {
+    // Payday month (e.g., 25th to 24th)
+    let prevMonth = month - 1;
+    let prevYear = year;
+    if (prevMonth === 0) {
+      prevMonth = 12;
+      prevYear -= 1;
+    }
+    
+    const startDate = new Date(prevYear, prevMonth - 1, payday);
+    const endDate = new Date(year, month - 1, payday - 1, 23, 59, 59, 999);
+    return { startDate, endDate };
+  }
+}
+
+// NEW: Central business logic function that replaces the complex useMemo in BudgetCalculator
+export function getProcessedBudgetDataForMonth(budgetState: any, selectedMonthKey: string) {
+  // 1. Get the correct date range
+  const payday = budgetState.settings?.payday || 25;
+  const { startDate, endDate } = getDateRangeForMonth(selectedMonthKey, payday);
+  
+  // 2. Get all relevant raw data
+  const allTransactions = Object.values(budgetState.historicalData).flatMap((m: any) => m.transactions || []);
+  const currentMonthData = budgetState.historicalData[selectedMonthKey] || {};
+  const costItems = currentMonthData.costItems || [];
+  const savingsItems = currentMonthData.savingsItems || [];
+  const budgetItems = [...costItems, ...savingsItems];
+  
+  // 3. Filter transactions based on the new, correct date range
+  const transactionsForPeriod = allTransactions.filter((t: any) => {
+    const transactionDate = new Date(t.date);
+    return transactionDate >= startDate && transactionDate <= endDate;
+  });
+
+  // 4. MOVE THE LOGIC from activeContent (useMemo in BudgetCalculator)
+  // Find active accounts and categories
+  const activeAccountIds = new Set<string>();
+  budgetItems.forEach((item: any) => item.accountId && activeAccountIds.add(item.accountId));
+  transactionsForPeriod.forEach((t: any) => t.accountId && activeAccountIds.add(t.accountId));
+  
+  const activeMainCategoryIds = new Set<string>();
+  // Process budget items for main categories
+  budgetItems.forEach((item: any) => {
+    if (item.mainCategoryId) {
+      activeMainCategoryIds.add(item.mainCategoryId);
+    }
+  });
+  
+  // Process transactions for main categories  
+  transactionsForPeriod.forEach((t: any) => {
+    if (t.appCategoryId) {
+      activeMainCategoryIds.add(t.appCategoryId);
+    }
+  });
+
+  const activeAccounts = budgetState.accounts.filter((acc: any) => activeAccountIds.has(acc.id));
+  const activeCategories = budgetState.mainCategories.filter((cat: string) => activeMainCategoryIds.has(cat));
+  
+  // 5. Return a single, complete object with all data the UI needs
+  return {
+    activeAccounts,
+    activeCategories,
+    transactionsForPeriod,
+    budgetItems,
+    dateRange: { startDate, endDate },
+    costItems,
+    savingsItems
+  };
+}

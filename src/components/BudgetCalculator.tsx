@@ -26,7 +26,7 @@ import { AddBudgetItemDialog } from '@/components/AddBudgetItemDialog';
 import { TransactionImportEnhanced } from '@/components/TransactionImportEnhanced';
 import { TransactionDrillDownDialog } from '@/components/TransactionDrillDownDialog';
 import { SavingsSection } from '@/components/SavingsSection';
-import { calculateAccountEndBalances, getTransactionsForPeriod } from '../services/calculationService';
+import { calculateAccountEndBalances, getTransactionsForPeriod, getProcessedBudgetDataForMonth } from '../services/calculationService';
 import { updateAccountBalanceForMonth, getAccountNameById } from '../orchestrator/budgetOrchestrator';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -65,7 +65,8 @@ import {
   setAccountEstimatedFinalBalancesSet,
   setAccountEstimatedStartBalances,
   setAccountStartBalancesSet,
-  setMonthFinalBalances
+  setMonthFinalBalances,
+  updatePaydaySetting
 } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
 import { useBudget } from '../hooks/useBudget';
@@ -353,131 +354,24 @@ const BudgetCalculator = () => {
 
   }, [savingsGroups, budgetState.savingsGoals, selectedBudgetMonth, budgetState.accounts]);
 
-  // --- NY, FILTRERAD LOGIK STARTAR HÄR ---
-  
-  // Dynamisk filtrering av kategorier och konton baserat på aktiv användning
+  // SIMPLIFIED: Replace complex useMemo with single function call
   const activeContent = useMemo(() => {
-    console.log('🚨🚨🚨 ACTIVEONTENT CALCULATION RUNNING 🚨🚨🚨');
-    console.log('🚨 FORCED DEBUG - Selected month key:', selectedMonthKey);
-    console.log('🚨 FORCED DEBUG - Available historical data months:', Object.keys(appHistoricalData));
+    console.log('🚨🚨🚨 USING NEW CENTRALIZED LOGIC 🚨🚨🚨');
     
-    // 1. Hämta alla budgetposter för den relevanta perioden
-    const costItems = (currentMonthData as any).costItems || [];
-    const savingsItems = (currentMonthData as any).savingsItems || [];
-    const budgetItems = [...costItems, ...savingsItems];
+    const processedData = getProcessedBudgetDataForMonth(budgetState, selectedMonthKey);
     
-    // 2. Hämta transaktioner för perioden (25:e föregående månad till 24:e aktuell månad)
-    console.log('🚨 FORCED DEBUG - Calling getTransactionsForPeriod...');
-    const transactionsForPeriod = getTransactionsForPeriod(appHistoricalData, selectedMonthKey);
-    console.log('🚨 FORCED DEBUG - getTransactionsForPeriod returned:', transactionsForPeriod.length, 'transactions');
-    console.log('🚨 FORCED DEBUG - Sample transactions:', transactionsForPeriod.slice(0, 3).map(t => ({ id: t.id, accountId: t.accountId, amount: t.amount })));
-    
-    // 3. Samla alla unika ID:n för kategorier som används
-    const activeMainCategoryIds = new Set<string>();
-    
-    // Från budgetposter
-    budgetItems.forEach(item => {
-      if (item.mainCategoryId) {
-        activeMainCategoryIds.add(item.mainCategoryId);
-      }
-    });
-    
-    // Från transaktioner
-    transactionsForPeriod.forEach(transaction => {
-      if (transaction.appCategoryId) {
-        activeMainCategoryIds.add(transaction.appCategoryId);
-      }
-    });
-    
-    // Från legacy costGroups och savingsGroups (för bakåtkompatibilitet)
-    [...costGroups, ...savingsGroups].forEach(group => {
-      if (group.name) {
-        activeMainCategoryIds.add(group.name);
-      }
-    });
-    
-    // 1. Hitta alla unika och aktiva KONTO-NAMN
-    const activeAccountNames = new Set<string>();
-
-    // Lägg till kontonamn från budgetposter
-    console.log('🔍 DEBUG: Starting to process budgetItems for active accounts:', budgetItems);
-    budgetItems.forEach(item => {
-      console.log('🔍 DEBUG: Processing budget item:', item);
-      if (item.account) {
-        console.log('🔍 DEBUG: Found legacy account:', item.account);
-        activeAccountNames.add(item.account);
-      }
-      // Handle new accountId structure
-      if (item.accountId) {
-        console.log('🔍 DEBUG: Found accountId:', item.accountId);
-        const account = budgetState.accounts.find(acc => acc.id === item.accountId);
-        console.log('🔍 DEBUG: Resolved account:', account);
-        if (account) {
-          console.log('🔍 DEBUG: Adding account name to active list:', account.name);
-          activeAccountNames.add(account.name);
-        }
-      }
-    });
-
-    console.log('🔍 DEBUG: Active account names after budget items:', Array.from(activeAccountNames));
-
-    // Lägg till kontonamn från transaktioner, med översättning från ID till namn
-    transactionsForPeriod.forEach(t => {
-      if (t.accountId) {
-        // Hitta det matchande kontot i master-listan
-        const account = budgetState.accounts.find(acc => acc.id === t.accountId);
-        if (account) {
-          activeAccountNames.add(account.name);
-        }
-      }
-    });
-
-    // Från legacy groups (för bakåtkompatibilitet)
-    [...costGroups, ...savingsGroups].forEach(group => {
-      if (group.account) {
-        activeAccountNames.add(group.account);
-      }
-      if (group.subCategories) {
-        group.subCategories.forEach(sub => {
-          if (sub.account) {
-            activeAccountNames.add(sub.account);
-          }
-          // Handle new accountId structure in subcategories
-          if (sub.accountId) {
-            const account = budgetState.accounts.find(acc => acc.id === sub.accountId);
-            if (account) {
-              activeAccountNames.add(account.name);
-            }
-          }
-        });
-      }
-    });
-
-    // Filtrera kategorier baserat på de aktiva ID:n
-    const activeCategories = budgetState.mainCategories.filter(category => 
-      activeMainCategoryIds.has(category)
-    );
-
-    // 2. Filtrera den centrala "master-listan" av konton
-    // baserat på de aktiva namnen.
-    const activeAccounts = budgetState.accounts.filter(account => 
-      activeAccountNames.has(account.name)
-    );
-    
-    console.log('🚨🚨🚨 FINAL RESULTS 🚨🚨🚨');
-    console.log('🚨 Active account names found:', Array.from(activeAccountNames));
-    console.log('🚨 All available accounts in budgetState:', budgetState.accounts.map(a => ({ id: a.id, name: a.name })));
-    console.log('🚨 Final filtered active accounts:', activeAccounts.map(a => ({ id: a.id, name: a.name })));
-    console.log('🚨 Does Hushållskonto exist in budget state?', budgetState.accounts.find(a => a.name === 'Hushållskonto'));
-    
-    return { 
-      activeCategories, 
-      activeAccounts, // Use the correctly filtered account list
-      budgetItems: { costItems, savingsItems },
-      transactionsForPeriod
+    // Transform the returned data to match expected structure
+    return {
+      activeCategories: processedData.activeCategories,
+      activeAccounts: processedData.activeAccounts,
+      budgetItems: {
+        costItems: processedData.costItems,
+        savingsItems: processedData.savingsItems
+      },
+      transactionsForPeriod: processedData.transactionsForPeriod
     };
 
-  }, [currentMonthData, appHistoricalData, selectedMonthKey, budgetState.accounts, budgetState.mainCategories, costGroups, savingsGroups]);
+  }, [budgetState, selectedMonthKey]);
 
   // --- SLUT PÅ NY LOGIK ---
   

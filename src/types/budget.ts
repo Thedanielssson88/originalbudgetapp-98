@@ -187,6 +187,9 @@ export interface BudgetState {
   };
   
   // Globala inställningar
+  settings: {
+    payday: number; // Dagen i månaden (1-31) - default 25
+  };
   accountCategories: string[];
   accountCategoryMapping: {[accountName: string]: string};
   budgetTemplates: {[key: string]: any};

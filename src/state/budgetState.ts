@@ -31,6 +31,9 @@ export const state: AppState = {
     },
     
     // Global settings
+    settings: {
+      payday: 25, // Default to 25th of the month
+    },
     accountCategories: [],
     accountCategoryMapping: {},
     budgetTemplates: {},

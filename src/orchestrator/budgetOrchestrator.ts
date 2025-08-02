@@ -1237,3 +1237,19 @@ export function getAllTransactionsFromDatabase(): ImportedTransaction[] {
   console.log(`🔍 [ORCHESTRATOR] Total transactions from database: ${allTransactions.length}`);
   return allTransactions;
 }
+
+// NEW: Function to update payday setting
+export function updatePaydaySetting(newPayday: number): void {
+  console.log(`[updatePaydaySetting] Setting payday to: ${newPayday}`);
+  
+  state.budgetState.settings.payday = newPayday;
+  
+  // Force recalculation since this affects how months are interpreted
+  forceRecalculation();
+  
+  // Trigger state update notifications
+  triggerUIRefresh();
+  
+  // Save to storage
+  saveStateToStorage();
+}
