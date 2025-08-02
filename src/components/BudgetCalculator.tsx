@@ -6548,21 +6548,20 @@ const BudgetCalculator = () => {
                                 (() => {
                                   console.log('🔍 [ACCOUNT VIEW] Starting correct account-first logic');
                                   console.log('🔍 [ACCOUNT VIEW] Available accounts:', activeContent.activeAccounts);
-                                  console.log('🔍 [ACCOUNT VIEW] costGroups:', costGroups);
-                                  console.log('🔍 [ACCOUNT VIEW] currentMonthData.transactions:', (currentMonthData as any).transactions || []);
+                                  console.log('🔍 [ACCOUNT VIEW] activeContent.budgetItems.costItems:', activeContent.budgetItems.costItems);
+                                  console.log('🔍 [ACCOUNT VIEW] transactionsForPeriod:', activeContent.transactionsForPeriod || []);
 
                                   return activeContent.activeAccounts.map((account) => {
                                     console.log(`🔍 [ACCOUNT VIEW] Processing account: ${account.name} (ID: ${account.id})`);
                                     
-                                     // 1. Hitta alla budgetposter (subCategories) som är kopplade till detta konto via NAMN eller ID
-                                     const costItemsForThisAccount = costGroups.flatMap(g => g.subCategories || [])
-                                       .filter(sub => {
-                                         // Check both legacy account name and new accountId
-                                         const matchesLegacy = sub.account === account.name;
-                                         const matchesNew = sub.accountId === account.id;
-                                         console.log(`🔍 [ACCOUNT VIEW] Checking subcategory ${sub.name}: legacy(${sub.account}=${account.name})=${matchesLegacy}, new(${sub.accountId}=${account.id})=${matchesNew}`);
-                                         return matchesLegacy || matchesNew;
-                                       });
+                                     // 1. FIXED: Use correctly filtered budget items according to PaydaySettings
+                                     const costItemsForThisAccount = activeContent.budgetItems.costItems.filter(sub => {
+                                       // Check both legacy account name and new accountId
+                                       const matchesLegacy = sub.account === account.name;
+                                       const matchesNew = sub.accountId === account.id;
+                                       console.log(`🔍 [ACCOUNT VIEW] Checking subcategory ${sub.name}: legacy(${sub.account}=${account.name})=${matchesLegacy}, new(${sub.accountId}=${account.id})=${matchesNew}`);
+                                       return matchesLegacy || matchesNew;
+                                     });
                                      
                                      console.log(`🔍 [ACCOUNT VIEW] Found ${costItemsForThisAccount.length} budget items for ${account.name}:`, costItemsForThisAccount);
                                     
@@ -6671,7 +6670,7 @@ const BudgetCalculator = () => {
                                           <div className="animate-accordion-down">
                                             <div className="mt-4 pl-8 space-y-3 border-l-4 border-accent/30 bg-gradient-to-r from-accent/10 to-transparent rounded-r-lg pr-4 py-3">
                                               {costItemsForThisAccount.map((sub) => {
-                                                // Hitta gruppen för redigeringsändamål
+                                                // Find parent group for editing purposes (using original costGroups structure)
                                                 const parentGroup = costGroups.find(g => g.subCategories?.some(s => s.id === sub.id));
                                                 return (
                                                <div key={sub.id}>

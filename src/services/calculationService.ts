@@ -623,7 +623,11 @@ export function getProcessedBudgetDataForMonth(budgetState: any, selectedMonthKe
     activeAccounts,
     activeCategories,
     transactionsForPeriod,
-    budgetItems,
+    budgetItems: {
+      costItems: costItems,
+      savingsItems: savingsItems,
+      all: budgetItems  // Keep the combined array for backward compatibility
+    },
     dateRange: { startDate, endDate },
     costItems,
     savingsItems
