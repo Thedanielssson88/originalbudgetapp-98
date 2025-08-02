@@ -244,7 +244,7 @@ export function calculateBudgetResults(monthData: MonthData): BudgetResults {
     daysUntil25th,
     weekdayCount,
     fridayCount,
-    totalMonthlyExpenses,
+    // totalMonthlyExpenses removed - calculated on-demand
     holidayDays,
     holidaysUntil25th,
     nextTenHolidays,

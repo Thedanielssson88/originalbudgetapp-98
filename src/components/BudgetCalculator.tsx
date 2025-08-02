@@ -975,7 +975,7 @@ const BudgetCalculator = () => {
       const updatedMonthData = {
         ...historicalData[monthKey], // Keep existing data
         // Update with fresh calculated results
-        totalMonthlyExpenses,
+        // Removed totalMonthlyExpenses - now calculated on-demand
         // Removed totalCosts and totalSavings - now calculated on-demand
         balanceLeft,
         susannaShare,
@@ -1639,7 +1639,7 @@ const BudgetCalculator = () => {
       monthFinalBalances: monthFinalBalances[monthKey] || false,
       // Include any existing calculated results if they exist
       ...(results && {
-        totalMonthlyExpenses: results.totalMonthlyExpenses,
+        // totalMonthlyExpenses removed - calculated on-demand
         balanceLeft: results.balanceLeft,
         susannaShare: results.susannaShare,
         andreasShare: results.andreasShare,
@@ -2463,9 +2463,7 @@ const BudgetCalculator = () => {
         totalSalary: 0,
         costGroups: [],
         savingsGroups: [],
-        totalMonthlyExpenses: 0,
-        totalCosts: 0,
-        totalSavings: 0,
+        // Removed old calculated fields - now calculated on-demand
         dailyTransfer: 300,
         weekendTransfer: 540,
         balanceLeft: 0,
@@ -2514,9 +2512,7 @@ const BudgetCalculator = () => {
         totalSalary: andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag,
         costGroups: JSON.parse(JSON.stringify(costGroups)),
         savingsGroups: JSON.parse(JSON.stringify(savingsGroups)),
-        totalMonthlyExpenses: 0,
-        totalCosts: 0,
-        totalSavings: 0,
+        // Removed old calculated fields - now calculated on-demand
         dailyTransfer,
         weekendTransfer,
         balanceLeft: 0,

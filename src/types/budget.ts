@@ -95,7 +95,7 @@ export interface BudgetResults {
   daysUntil25th: number;
   weekdayCount: number;
   fridayCount: number;
-  totalMonthlyExpenses: number;
+  // totalMonthlyExpenses removed - calculated on-demand with calculateTotalBudgetedCosts + calculateTotalBudgetedSavings
   holidayDays: string[];
   holidaysUntil25th: string[];
   nextTenHolidays: string[];
