@@ -13,8 +13,11 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
   console.log(`[ORCHESTRATOR] 🔥 Smart merge starting for account ${accountId}`);
   addMobileDebugLog(`🔥 IMPORT STARTED for account ${accountId}`);
   
-  // 1. Parse CSV content
-  const transactionsFromFile = parseCSVContent(csvContent, accountId, 'imported');
+  // 1. Parse CSV content and get mapping info
+  const parseResult = parseCSVContentWithMapping(csvContent, accountId, 'imported');
+  const transactionsFromFile = parseResult.transactions;
+  const csvMapping = parseResult.mapping;
+  
   addMobileDebugLog(`🔥 Parsed ${transactionsFromFile.length} transactions from CSV`);
   if (transactionsFromFile.length === 0) {
     console.log(`[ORCHESTRATOR] ⚠️ No transactions found in CSV`);
@@ -146,7 +149,10 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
     addMobileDebugLog(`📅 Updated month ${monthKey} with ${monthTransactions.length} transactions`);
   });
   
-  // 9. Save and refresh UI
+  // 9. Update account balances from saldo data (NEW FEATURE)
+  updateAccountBalancesFromSaldo(finalTransactionList, accountId, csvMapping);
+
+  // 10. Save and refresh UI
   saveStateToStorage();
   triggerUIRefresh();
   
@@ -207,6 +213,34 @@ function applyCategoryRules(transaction: ImportedTransaction, categoryRules: Cat
   }
   
   return categorizedTransaction;
+}
+
+// Enhanced CSV parsing function that returns both transactions and mapping info
+function parseCSVContentWithMapping(csvContent: string, accountId: string, fileName: string): { transactions: ImportedTransaction[], mapping: CsvMapping | undefined } {
+  const transactions = parseCSVContent(csvContent, accountId, fileName);
+  
+  // Get the mapping that was used
+  const account = state.budgetState.accounts.find(acc => acc.id === accountId);
+  let savedMapping: CsvMapping | undefined;
+  
+  if (account?.bankTemplateId) {
+    const cleanedContent = csvContent.replace(/�/g, '');
+    const lines = cleanedContent.split('\n').filter(line => line.trim());
+    const headers = lines[0].split(';').map(h => h.trim());
+    const fileFingerprint = `${headers.join('|')}_${lines.length}`;
+    
+    savedMapping = state.budgetState.csvMappings.find(mapping => 
+      mapping.fileFingerprint === fileFingerprint
+    );
+  } else {
+    const cleanedContent = csvContent.replace(/�/g, '');
+    const lines = cleanedContent.split('\n').filter(line => line.trim());
+    const headers = lines[0].split(';').map(h => h.trim());
+    const fileFingerprint = `${headers.join('|')}_${lines.length}`;
+    savedMapping = getCsvMapping(fileFingerprint);
+  }
+  
+  return { transactions, mapping: savedMapping };
 }
 
 // CSV parsing function moved from TransactionImportEnhanced
@@ -352,6 +386,120 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
   
   console.log(`[ORCHESTRATOR] 🔍 Parsed ${transactions.length} transactions, balance data found: ${transactions.filter(t => t.balanceAfter !== undefined).length}`);
   return transactions;
+}
+
+// NEW: Function to update account balances from saldo data based on payday logic
+function updateAccountBalancesFromSaldo(allTransactions: ImportedTransaction[], accountId: string, csvMapping?: CsvMapping): void {
+  console.log(`[ORCHESTRATOR] 💰 Starting saldo-based account balance updates for account ${accountId}`);
+  
+  // Check if the current CSV mapping includes saldo/balanceAfter
+  let hasSaldoMapping = false;
+  
+  if (csvMapping?.columnMapping) {
+    hasSaldoMapping = Object.values(csvMapping.columnMapping).includes('balanceAfter');
+  }
+  
+  if (!hasSaldoMapping) {
+    console.log(`[ORCHESTRATOR] 💰 Current CSV mapping does not include saldo/balanceAfter, skipping balance updates`);
+    return;
+  }
+  
+  console.log(`[ORCHESTRATOR] 💰 Saldo mapping found in current import, proceeding with balance updates`);
+  
+  // Filter transactions for this specific account that have balance data
+  const accountTransactionsWithBalance = allTransactions.filter(tx => 
+    tx.accountId === accountId && tx.balanceAfter !== undefined
+  );
+  
+  if (accountTransactionsWithBalance.length === 0) {
+    console.log(`[ORCHESTRATOR] 💰 No transactions with balance data found for account ${accountId}`);
+    return;
+  }
+  
+  const payday = state.budgetState.settings?.payday || 25;
+  console.log(`[ORCHESTRATOR] 💰 Using payday setting: ${payday}`);
+  
+  // Group transactions by calendar month
+  const transactionsByMonth = new Map<string, ImportedTransaction[]>();
+  accountTransactionsWithBalance.forEach(tx => {
+    const monthKey = tx.date.substring(0, 7); // Extract "YYYY-MM" from "YYYY-MM-DD"
+    if (!transactionsByMonth.has(monthKey)) {
+      transactionsByMonth.set(monthKey, []);
+    }
+    transactionsByMonth.get(monthKey)!.push(tx);
+  });
+  
+  console.log(`[ORCHESTRATOR] 💰 Found transactions in months: ${Array.from(transactionsByMonth.keys()).join(', ')}`);
+  
+  // For each month, find the last transaction on the day before payday
+  transactionsByMonth.forEach((transactions, monthKey) => {
+    const [year, month] = monthKey.split('-').map(Number);
+    
+    // Calculate the day before payday in this calendar month
+    let dayBeforePayday: string;
+    if (payday === 1) {
+      // If payday is 1st, day before is last day of previous month
+      const prevMonth = month === 1 ? 12 : month - 1;
+      const prevYear = month === 1 ? year - 1 : year;
+      const lastDayOfPrevMonth = new Date(prevYear, prevMonth, 0).getDate();
+      dayBeforePayday = `${prevYear.toString().padStart(4, '0')}-${prevMonth.toString().padStart(2, '0')}-${lastDayOfPrevMonth.toString().padStart(2, '0')}`;
+    } else {
+      // Day before payday in the same month
+      const dayBefore = payday - 1;
+      dayBeforePayday = `${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${dayBefore.toString().padStart(2, '0')}`;
+    }
+    
+    console.log(`[ORCHESTRATOR] 💰 Looking for transactions on day before payday (${dayBeforePayday}) in month ${monthKey}`);
+    
+    // Find all transactions on the day before payday
+    const transactionsOnDayBefore = transactions.filter(tx => tx.date === dayBeforePayday);
+    
+    if (transactionsOnDayBefore.length === 0) {
+      console.log(`[ORCHESTRATOR] 💰 No transactions found on day before payday (${dayBeforePayday}) in month ${monthKey}`);
+      return;
+    }
+    
+    // Find the last transaction of that day (sort by any additional time info, or use last one if same date)
+    const lastTransaction = transactionsOnDayBefore[transactionsOnDayBefore.length - 1];
+    const saldoValue = lastTransaction.balanceAfter!;
+    
+    console.log(`[ORCHESTRATOR] 💰 Found last transaction on ${dayBeforePayday}: ${lastTransaction.description} with saldo ${saldoValue}`);
+    
+    // Calculate which payday-based month this balance should be applied to
+    const nextPaydayMonth = getNextPaydayMonth(monthKey, payday);
+    
+    if (nextPaydayMonth) {
+      console.log(`[ORCHESTRATOR] 💰 Updating account balance for month ${nextPaydayMonth} based on saldo ${saldoValue}`);
+      
+      // Get account name from account ID
+      const account = state.budgetState.accounts.find(acc => acc.id === accountId);
+      if (account) {
+        updateAccountBalanceForMonth(nextPaydayMonth, account.name, saldoValue);
+        console.log(`[ORCHESTRATOR] ✅ Updated ${account.name} balance for ${nextPaydayMonth}: ${saldoValue}`);
+      } else {
+        console.log(`[ORCHESTRATOR] ⚠️ Could not find account name for ID ${accountId}`);
+      }
+    }
+  });
+}
+
+// Helper function to determine the next payday-based month
+function getNextPaydayMonth(calendarMonth: string, payday: number): string | null {
+  const [year, month] = calendarMonth.split('-').map(Number);
+  
+  if (payday === 1) {
+    // If payday is 1st, the payday month is the same as calendar month
+    return calendarMonth;
+  } else {
+    // If payday is not 1st, the payday month is the next calendar month
+    let nextMonth = month + 1;
+    let nextYear = year;
+    if (nextMonth > 12) {
+      nextMonth = 1;
+      nextYear += 1;
+    }
+    return `${nextYear.toString().padStart(4, '0')}-${nextMonth.toString().padStart(2, '0')}`;
+  }
 }
 
 // Helper functions moved from TransactionImportEnhanced
