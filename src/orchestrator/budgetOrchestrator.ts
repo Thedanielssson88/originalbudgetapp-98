@@ -1246,12 +1246,12 @@ export function updatePaydaySetting(newPayday: number): void {
   
   state.budgetState.settings.payday = newPayday;
   
+  // Save to storage first
+  saveStateToStorage();
+  
   // Force recalculation since this affects how months are interpreted
+  // This will also trigger UI refresh
   forceRecalculation();
   
-  // Trigger state update notifications
-  triggerUIRefresh();
-  
-  // Save to storage
-  saveStateToStorage();
+  console.log(`[updatePaydaySetting] Payday updated to ${newPayday} with UI refresh triggered`);
 }
