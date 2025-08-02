@@ -55,9 +55,10 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
       return transactionDate >= startDate && transactionDate <= endDate;
     });
 
-    // Find potential matches - ALL transactions with opposite sign within 7 days
+    // Find potential matches - ALL transactions with opposite sign within 7 days from OTHER accounts
     const potentialMatches = transactionsForPeriod.filter(t => 
       t.id !== transaction.id &&
+      t.accountId !== transaction.accountId && // Different account
       // Opposite signs (positive matches negative, negative matches positive)
       ((transaction.amount > 0 && t.amount < 0) || (transaction.amount < 0 && t.amount > 0)) &&
       Math.abs(Math.abs(t.amount) - Math.abs(transaction.amount)) < 0.01 && // Same absolute amount
