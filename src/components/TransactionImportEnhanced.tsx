@@ -360,6 +360,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   }>({ isOpen: false });
   const [refreshKey, setRefreshKey] = useState(0);
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
   const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
   
   // Bank selection state
@@ -604,6 +605,16 @@ export const TransactionImportEnhanced: React.FC = () => {
       newExpanded.add(accountId);
     }
     setExpandedAccounts(newExpanded);
+  };
+
+  const toggleDateExpansion = (dateKey: string) => {
+    const newExpanded = new Set(expandedDates);
+    if (newExpanded.has(dateKey)) {
+      newExpanded.delete(dateKey);
+    } else {
+      newExpanded.add(dateKey);
+    }
+    setExpandedDates(newExpanded);
   };
 
   const updateTransactionNote = (transactionId: string, userDescription: string) => {
@@ -1474,6 +1485,20 @@ export const TransactionImportEnhanced: React.FC = () => {
               const accountTransactions = filteredTransactions.filter(t => t.accountId === account.id);
               const isExpanded = expandedAccounts.has(account.id);
               
+              // Group transactions by date
+              const transactionsByDate = accountTransactions.reduce((acc, transaction) => {
+                const date = transaction.date;
+                if (!acc[date]) {
+                  acc[date] = [];
+                }
+                acc[date].push(transaction);
+                return acc;
+              }, {} as Record<string, typeof accountTransactions>);
+
+              const sortedDates = Object.keys(transactionsByDate).sort((a, b) => 
+                new Date(b).getTime() - new Date(a).getTime()
+              );
+              
               return (
                 <div key={account.id} className="border rounded-lg p-3 space-y-3">
                   <div className="flex items-center gap-2">
@@ -1497,25 +1522,60 @@ export const TransactionImportEnhanced: React.FC = () => {
 
                   {isExpanded && (
                     <div className="pl-6 space-y-3 border-l-2 border-muted">
-                      {accountTransactions.map(transaction => (
-                        <TransactionExpandableCard
-                          key={transaction.id}
-                          transaction={transaction}
-                          account={account}
-                          isSelected={selectedTransactions.includes(transaction.id)}
-                          onToggleSelection={toggleTransactionSelection}
-                          onUpdateCategory={updateTransactionCategory}
-                          onUpdateNote={updateTransactionNote}
-                          onUpdateStatus={updateTransactionStatus}
-                          onTransferMatch={handleTransferMatch}
-                          onSavingsLink={handleSavingsLink}
-                          onCostCoverage={handleCostCoverage}
-                          onExpenseClaim={handleExpenseClaim}
-                          onRefresh={triggerRefresh}
-                          mainCategories={mainCategories}
-                          costGroups={costGroups}
-                        />
-                      ))}
+                      {sortedDates.map(date => {
+                        const dateTransactions = transactionsByDate[date];
+                        const dateKey = `${account.id}-${date}`;
+                        const isDateExpanded = expandedDates.has(dateKey);
+                        
+                        return (
+                          <div key={dateKey} className="border rounded-lg p-2 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleDateExpansion(dateKey)}
+                                className="p-1"
+                              >
+                                {isDateExpanded ? (
+                                  <ChevronUp className="h-3 w-3" />
+                                ) : (
+                                  <ChevronDown className="h-3 w-3" />
+                                )}
+                              </Button>
+                              <span className="flex-1 text-sm font-medium">
+                                {new Date(date).toLocaleDateString('sv-SE')}
+                              </span>
+                              <div className="text-xs text-muted-foreground">
+                                {dateTransactions.length} transaktioner
+                              </div>
+                            </div>
+
+                            {isDateExpanded && (
+                              <div className="pl-4 space-y-2 border-l border-muted">
+                                {dateTransactions.map(transaction => (
+                                  <TransactionExpandableCard
+                                    key={transaction.id}
+                                    transaction={transaction}
+                                    account={account}
+                                    isSelected={selectedTransactions.includes(transaction.id)}
+                                    onToggleSelection={toggleTransactionSelection}
+                                    onUpdateCategory={updateTransactionCategory}
+                                    onUpdateNote={updateTransactionNote}
+                                    onUpdateStatus={updateTransactionStatus}
+                                    onTransferMatch={handleTransferMatch}
+                                    onSavingsLink={handleSavingsLink}
+                                    onCostCoverage={handleCostCoverage}
+                                    onExpenseClaim={handleExpenseClaim}
+                                    onRefresh={triggerRefresh}
+                                    mainCategories={mainCategories}
+                                    costGroups={costGroups}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
