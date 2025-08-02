@@ -379,13 +379,22 @@ function groupTransactionsByMonth(transactions: ImportedTransaction[]): Record<s
   transactions.forEach(transaction => {
     const date = new Date(transaction.date);
     const day = date.getDate();
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1; // getMonth() returns 0-11, we need 1-12
     
-    // Budget month logic: transactions after the 25th belong to the next month's budget
-    let budgetYear = date.getFullYear();
-    let budgetMonth = date.getMonth() + 1; // getMonth() returns 0-11, we need 1-12
+    // Budget period logic: transactions from 25th of previous month to 24th of current month
+    // belong to the current month's budget
+    let budgetYear = year;
+    let budgetMonth = month;
     
-    if (day > 25) {
-      // Transaction is after 25th, so it belongs to next month's budget
+    if (day < 25) {
+      // Transaction is before 25th, so it belongs to current month's budget
+      // (i.e., from 25th of previous month to 24th of current month)
+      budgetYear = year;
+      budgetMonth = month;
+    } else {
+      // Transaction is on/after 25th, so it belongs to NEXT month's budget  
+      // (i.e., from 25th of current month to 24th of next month)
       budgetMonth += 1;
       if (budgetMonth > 12) {
         budgetMonth = 1;
