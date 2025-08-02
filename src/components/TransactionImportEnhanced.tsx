@@ -1263,16 +1263,15 @@ export const TransactionImportEnhanced: React.FC = () => {
     );
   };
   const renderCategorizationStep = () => {
-    // Get all system transactions if checkbox is checked, otherwise use imported transactions
+    // Show all system transactions if checkbox is checked, otherwise only CSV-imported transactions
     const baseTransactions = showAllSystemTransactions 
-      ? Object.values(budgetState?.historicalData || {}).flatMap(month => 
-          (month.transactions || []).map(t => ({
-            ...t,
-            importedAt: (t as any).importedAt || new Date().toISOString(),
-            fileSource: (t as any).fileSource || 'system'
-          } as ImportedTransaction))
-        )
-      : allTransactions;
+      ? allTransactions  // Show all transactions in the system
+      : allTransactions.filter(t => 
+          t.fileSource && 
+          t.fileSource !== 'system' && 
+          t.fileSource !== 'budgetState' &&
+          t.fileSource.includes('.csv') || t.fileSource.includes('.CSV')
+        ); // Show only CSV-imported transactions
     
     const filteredTransactions = hideGreenTransactions 
       ? baseTransactions.filter(t => t.status !== 'green')
