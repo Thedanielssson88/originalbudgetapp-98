@@ -11,11 +11,14 @@ import { ImportedTransaction, CategoryRule } from '../types/transaction';
 // SMART MERGE FUNCTION - The definitive solution to duplicate and lost changes
 export function importAndReconcileFile(csvContent: string, accountId: string): void {
   console.log(`[ORCHESTRATOR] 🔥 Smart merge starting for account ${accountId}`);
+  addMobileDebugLog(`🔥 IMPORT STARTED for account ${accountId}`);
   
   // 1. Parse CSV content
   const transactionsFromFile = parseCSVContent(csvContent, accountId, 'imported');
+  addMobileDebugLog(`🔥 Parsed ${transactionsFromFile.length} transactions from CSV`);
   if (transactionsFromFile.length === 0) {
     console.log(`[ORCHESTRATOR] ⚠️ No transactions found in CSV`);
+    addMobileDebugLog(`⚠️ No transactions found in CSV`);
     return;
   }
   
