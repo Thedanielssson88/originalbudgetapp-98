@@ -960,33 +960,58 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
 }
 
 export function matchInternalTransfer(t1Id: string, t2Id: string): void {
-  const currentMonthKey = state.budgetState.selectedMonthKey;
-  const currentMonth = state.budgetState.historicalData[currentMonthKey];
+  console.log(`🔄 [ORCHESTRATOR] Matching internal transfers: ${t1Id} <-> ${t2Id}`);
   
-  if (!currentMonth?.transactions) return;
+  // Search for transactions across ALL months, not just the selected one
+  let t1: any = null;
+  let t2: any = null;
+  let t1MonthKey = '';
+  let t2MonthKey = '';
   
-  const t1 = currentMonth.transactions.find(t => t.id === t1Id);
-  const t2 = currentMonth.transactions.find(t => t.id === t2Id);
+  // Find the transactions in any month
+  Object.keys(state.budgetState.historicalData).forEach(monthKey => {
+    const monthData = state.budgetState.historicalData[monthKey];
+    if (monthData?.transactions) {
+      const foundT1 = monthData.transactions.find(t => t.id === t1Id);
+      const foundT2 = monthData.transactions.find(t => t.id === t2Id);
+      
+      if (foundT1) {
+        t1 = foundT1;
+        t1MonthKey = monthKey;
+      }
+      if (foundT2) {
+        t2 = foundT2;
+        t2MonthKey = monthKey;
+      }
+    }
+  });
   
-  if (!t1 || !t2) return;
+  if (!t1 || !t2) {
+    console.error(`❌ [ORCHESTRATOR] Could not find transactions: t1=${!!t1} t2=${!!t2}`);
+    return;
+  }
+  
+  console.log(`✅ [ORCHESTRATOR] Found transactions in months: t1=${t1MonthKey}, t2=${t2MonthKey}`);
   
   const account1Name = state.budgetState.accounts.find(a => a.id === t1.accountId)?.name || t1.accountId;
   const account2Name = state.budgetState.accounts.find(a => a.id === t2.accountId)?.name || t2.accountId;
   
-  // Update both transactions
+  // Update both transactions with link and description
   updateTransaction(t1.id, {
     type: 'InternalTransfer',
     linkedTransactionId: t2.id,
-    userDescription: `Överföring, ${t2.date}`
-  }, currentMonthKey);
+    userDescription: `Överföring, ${t2.date}`,
+    isManuallyChanged: true
+  }, t1MonthKey);
   
   updateTransaction(t2.id, {
     type: 'InternalTransfer',
     linkedTransactionId: t1.id,
-    userDescription: `Överföring, ${t1.date}`
-  }, currentMonthKey);
+    userDescription: `Överföring, ${t1.date}`,
+    isManuallyChanged: true
+  }, t2MonthKey);
   
-  console.log(`✅ [Orchestrator] Matched internal transfer between ${t1Id} and ${t2Id}`);
+  console.log(`✅ [ORCHESTRATOR] Matched internal transfer between ${t1Id} and ${t2Id}`);
 }
 
 export function linkSavingsTransaction(transactionId: string, savingsTargetId: string, mainCategoryId: string, monthKey?: string): void {
