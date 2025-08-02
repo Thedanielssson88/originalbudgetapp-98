@@ -22,8 +22,19 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
     return;
   }
   
+  
   // 2. Define date range of the file using string dates (YYYY-MM-DD format)
-  const fileDates = transactionsFromFile.map(t => t.date.split('T')[0]); // Normalize to YYYY-MM-DD
+  console.log(`[ORCHESTRATOR] 📊 Raw transactions from file:`, transactionsFromFile.map(t => ({ date: t.date, desc: t.description.substring(0, 30) })));
+  addMobileDebugLog(`📊 Raw transactions: ${transactionsFromFile.length} found`);
+  
+  const fileDates = transactionsFromFile.map(t => {
+    const dateStr = t.date.split('T')[0];
+    console.log(`[ORCHESTRATOR] 📊 Processing date: "${t.date}" -> "${dateStr}"`);
+    return dateStr;
+  });
+  
+  addMobileDebugLog(`📊 Processed dates: ${fileDates.sort().join(', ')}`);
+  
   const minDateStr = fileDates.reduce((min, date) => date < min ? date : min);
   const maxDateStr = fileDates.reduce((max, date) => date > max ? date : max);
   
