@@ -123,6 +123,7 @@ const BudgetCalculator = () => {
   // Use the original useBudget hook - fix hook ordering instead
   const { isLoading, budgetState, calculated } = useBudget();
   const { toast } = useToast();
+  console.log('🔍 [DEBUG] BudgetCalculator component rendering - start');
   
   // Utility function to check if a SubCategory belongs to a specific account
   const subCategoryBelongsToAccount = (sub: SubCategory, accountName: string): boolean => {
