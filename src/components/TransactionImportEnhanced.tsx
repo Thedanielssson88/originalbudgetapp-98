@@ -359,6 +359,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     accountName?: string;
   }>({ isOpen: false });
   const [refreshKey, setRefreshKey] = useState(0);
+  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
   const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
   
   // Bank selection state
@@ -593,6 +594,16 @@ export const TransactionImportEnhanced: React.FC = () => {
   // Create a refresh function to be passed to components
   const triggerRefresh = () => {
     setRefreshKey(prev => prev + 1);
+  };
+
+  const toggleAccountExpansion = (accountId: string) => {
+    const newExpanded = new Set(expandedAccounts);
+    if (newExpanded.has(accountId)) {
+      newExpanded.delete(accountId);
+    } else {
+      newExpanded.add(accountId);
+    }
+    setExpandedAccounts(newExpanded);
   };
 
   const updateTransactionNote = (transactionId: string, userDescription: string) => {
@@ -1461,17 +1472,31 @@ export const TransactionImportEnhanced: React.FC = () => {
           <TabsContent value="account" className="space-y-4">
             {accounts.map(account => {
               const accountTransactions = filteredTransactions.filter(t => t.accountId === account.id);
+              const isExpanded = expandedAccounts.has(account.id);
               
               return (
-                <Card key={account.id}>
-                  <CardHeader>
-                    <CardTitle>{account.name}</CardTitle>
-                    <CardDescription>
+                <div key={account.id} className="border rounded-lg p-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleAccountExpansion(account.id)}
+                      className="p-1"
+                    >
+                      {isExpanded ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <span className="flex-1 font-medium">{account.name}</span>
+                    <div className="text-sm text-muted-foreground">
                       {accountTransactions.length} transaktioner
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="pl-6 space-y-3 border-l-2 border-muted">
                       {accountTransactions.map(transaction => (
                         <TransactionExpandableCard
                           key={transaction.id}
@@ -1492,8 +1517,8 @@ export const TransactionImportEnhanced: React.FC = () => {
                         />
                       ))}
                     </div>
-                  </CardContent>
-                </Card>
+                  )}
+                </div>
               );
             })}
           </TabsContent>
