@@ -378,34 +378,11 @@ function groupTransactionsByMonth(transactions: ImportedTransaction[]): Record<s
   
   transactions.forEach(transaction => {
     const date = new Date(transaction.date);
-    const day = date.getDate();
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1; // getMonth() returns 0-11, we need 1-12
+    // Simple calendar month grouping - no budget logic here
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     
-    // Budget period logic: transactions from 25th of previous month to 24th of current month
-    // belong to the current month's budget
-    let budgetYear = year;
-    let budgetMonth = month;
-    
-    if (day < 25) {
-      // Transaction is before 25th, so it belongs to current month's budget
-      // (i.e., from 25th of previous month to 24th of current month)
-      budgetYear = year;
-      budgetMonth = month;
-    } else {
-      // Transaction is on/after 25th, so it belongs to NEXT month's budget  
-      // (i.e., from 25th of current month to 24th of next month)
-      budgetMonth += 1;
-      if (budgetMonth > 12) {
-        budgetMonth = 1;
-        budgetYear += 1;
-      }
-    }
-    
-    const monthKey = `${budgetYear}-${String(budgetMonth).padStart(2, '0')}`;
-    
-    console.log(`[ORCHESTRATOR] 📅 Transaction ${transaction.date} (day ${day}) -> budget month ${monthKey}`);
-    addMobileDebugLog(`📅 TX ${transaction.date} -> budget month ${monthKey}`);
+    console.log(`[ORCHESTRATOR] 📅 Transaction ${transaction.date} -> calendar month ${monthKey}`);
+    addMobileDebugLog(`📅 TX ${transaction.date} -> calendar month ${monthKey}`);
     
     if (!groups[monthKey]) {
       groups[monthKey] = [];
