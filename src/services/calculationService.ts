@@ -3,6 +3,16 @@ import { RawDataState, CalculatedState, BudgetResults, MonthData, Account, Budge
 import { calculateMonthlyAmountForDailyTransfer } from '../utils/dailyTransferUtils';
 
 /**
+ * Parsar en datumsträng (YYYY-MM-DD) på ett säkert sätt till ett Date-objekt
+ * i den lokala tidszonen, för att undvika UTC-tolkningsproblem.
+ */
+function parseLocalDate(dateString: string): Date {
+  const [year, month, day] = dateString.split('-').map(Number);
+  // Skapa datumet med explicita delar för att tvinga lokal tidszon.
+  return new Date(year, month - 1, day);
+}
+
+/**
  * Beräknar totala budgeterade kostnader för en given månad
  */
 export function calculateTotalBudgetedCosts(costItems: BudgetItem[], monthKey: string): number {
@@ -527,7 +537,7 @@ export function getTransactionsForPeriod(
     if (monthData.transactions) {
       console.log(`[getTransactionsForPeriod] Found ${monthData.transactions.length} transactions in month ${monthKey}`);
       monthData.transactions.forEach((transaction, index) => {
-        const transactionDate = new Date(transaction.date);
+        const transactionDate = parseLocalDate(transaction.date);
         const inPeriod = transactionDate >= periodStart && transactionDate <= periodEnd;
         console.log(`[getTransactionsForPeriod] Transaction ${index}: ${transaction.date} -> ${transactionDate.toLocaleDateString('sv-SE')} (accountId: ${transaction.accountId}) - in period: ${inPeriod}`);
         console.log(`[getTransactionsForPeriod] Transaction ${index} comparison: ${transactionDate.getTime()} >= ${periodStart.getTime()} && ${transactionDate.getTime()} <= ${periodEnd.getTime()}`);
@@ -690,7 +700,7 @@ export function getInternalTransferSummary(
   
   // 2. Filtrera ut alla interna överföringar inom den korrekta perioden
   const transfersForPeriod = allTransactions.filter(t => {
-    const transactionDate = new Date(t.date);
+    const transactionDate = parseLocalDate(t.date);
     return t.type === 'InternalTransfer' && transactionDate >= startDate && transactionDate <= endDate;
   });
 
