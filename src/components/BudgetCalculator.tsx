@@ -8051,7 +8051,7 @@ const BudgetCalculator = () => {
                                      {/* Costs breakdown */}
                                      {costGroups.map(group => 
                                        group.subCategories
-                                         ?.filter(sub => sub.account === account)
+                                          ?.filter(sub => subCategoryBelongsToAccount(sub, account))
                                          .map(sub => (
                                            <div key={`cost-${sub.id}`} className="flex justify-between text-sm">
                                              <span className="text-gray-600">{sub.name} (Kostnad)</span>
@@ -8165,7 +8165,7 @@ const BudgetCalculator = () => {
                               // Calculate costs for this account
                               const accountCosts = costGroups.reduce((sum, group) => {
                                 const groupCosts = group.subCategories
-                                  ?.filter(sub => sub.account === account)
+                                   ?.filter(sub => subCategoryBelongsToAccount(sub, account))
                                   .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
                                 return sum + groupCosts;
                               }, 0);
@@ -8220,7 +8220,7 @@ const BudgetCalculator = () => {
                                       {/* Costs breakdown - shown as positive additions */}
                                       {costGroups.map(group => 
                                         group.subCategories
-                                          ?.filter(sub => sub.account === account)
+                                           ?.filter(sub => subCategoryBelongsToAccount(sub, account))
                                           .map(sub => (
                                             <div key={`final-cost-${sub.id}`} className="flex justify-between text-sm">
                                               <span className="text-gray-600">{sub.name} (Kostnad)</span>
@@ -8297,7 +8297,7 @@ const BudgetCalculator = () => {
                                 }
                                 // Check subcategories for this account
                                 const subCategoriesAmount = group.subCategories
-                                  ?.filter(sub => sub.account === account)
+                                   ?.filter(sub => subCategoryBelongsToAccount(sub, account))
                                   .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
                                 return sum + subCategoriesAmount;
                               }, 0);
@@ -8330,7 +8330,7 @@ const BudgetCalculator = () => {
                               
                               const costsAmount = costGroups.reduce((sum, group) => {
                                 const groupCosts = group.subCategories
-                                  ?.filter(sub => sub.account === account)
+                                   ?.filter(sub => subCategoryBelongsToAccount(sub, account))
                                   .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
                                 return sum + groupCosts;
                               }, 0);
@@ -8341,7 +8341,7 @@ const BudgetCalculator = () => {
                                 // Get all cost subcategories for this account that are "Löpande kostnad"
                                 const accountCostItems = costGroups.reduce((items, group) => {
                                   const groupCosts = group.subCategories?.filter(sub => 
-                                    sub.account === account && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom)
+                                    subCategoryBelongsToAccount(sub, account) && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom)
                                   ) || [];
                                   return items.concat(groupCosts);
                                 }, []);
@@ -8352,7 +8352,7 @@ const BudgetCalculator = () => {
                                  // Calculate final balance as sum of ALL entries shown in the table:
                                  // original balance + savings deposits + cost budget deposits - all costs
                                  const allCostItems = costGroups.reduce((items, group) => {
-                                   const groupCosts = group.subCategories?.filter(sub => sub.account === account) || [];
+                                    const groupCosts = group.subCategories?.filter(sub => subCategoryBelongsToAccount(sub, account)) || [];
                                    return items.concat(groupCosts);
                                  }, []);
                                  const totalAllCosts = allCostItems.reduce((sum, item) => sum + item.amount, 0);
@@ -8415,10 +8415,10 @@ const BudgetCalculator = () => {
                                       
                                       {/* Individual savings subcategories assigned to this account */}
                                       {allSavingsItems
-                                        .filter(group => group.subCategories && group.subCategories.some(sub => sub.account === account))
-                                        .map(group => 
-                                          group.subCategories
-                                            ?.filter(sub => sub.account === account)
+                                         .filter(group => group.subCategories && group.subCategories.some(sub => subCategoryBelongsToAccount(sub, account)))
+                                         .map(group => 
+                                           group.subCategories
+                                             ?.filter(sub => subCategoryBelongsToAccount(sub, account))
                                             .map(sub => (
                                               <div key={`costbudget-savings-sub-${sub.id}`} className="flex justify-between text-sm">
                                                 <span className="text-gray-600">{sub.name}</span>
