@@ -25,7 +25,9 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
   const maxDateStr = fileDates.reduce((max, date) => date > max ? date : max);
   
   console.log(`[ORCHESTRATOR] 📅 File date range: ${minDateStr} to ${maxDateStr}`);
+  addMobileDebugLog(`📅 File date range: ${minDateStr} to ${maxDateStr}`);
   console.log(`[ORCHESTRATOR] 📅 File contains ${transactionsFromFile.length} transactions`);
+  addMobileDebugLog(`📅 File contains ${transactionsFromFile.length} transactions`);
   
   // 3. Get ALL existing transactions from central state
   const allSavedTransactions = Object.values(state.budgetState.historicalData)
@@ -36,9 +38,11 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
     } as ImportedTransaction)));
   
   console.log(`[ORCHESTRATOR] 📅 Found ${allSavedTransactions.length} existing transactions total`);
-  console.log(`[ORCHESTRATOR] 📅 Existing transactions for account ${accountId}:`, 
-    allSavedTransactions.filter(t => t.accountId === accountId).map(t => t.date.split('T')[0]).sort()
-  );
+  addMobileDebugLog(`📅 Found ${allSavedTransactions.length} existing transactions total`);
+  
+  const existingForAccount = allSavedTransactions.filter(t => t.accountId === accountId).map(t => t.date.split('T')[0]).sort();
+  console.log(`[ORCHESTRATOR] 📅 Existing transactions for account ${accountId}:`, existingForAccount);
+  addMobileDebugLog(`📅 Existing transactions for account ${accountId}: ${existingForAccount.join(', ')}`);
   
   // 4. Remove ONLY transactions within the exact date range for this account
   const transactionsToKeep = allSavedTransactions.filter(t => {
@@ -55,6 +59,8 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
     console.log(`[ORCHESTRATOR] 🔍   - <= ${maxDateStr}: ${existingDateStr <= maxDateStr}`);
     console.log(`[ORCHESTRATOR] 🔍   - isInFileRange: ${isInFileRange}`);
     console.log(`[ORCHESTRATOR] 🔍   - Decision: ${isInFileRange ? 'REMOVE (in range)' : 'KEEP (outside range)'}`);
+    
+    addMobileDebugLog(`🔍 Transaction ${existingDateStr}: ${isInFileRange ? 'REMOVE (in range)' : 'KEEP (outside range)'}`);
     
     return !isInFileRange; // Keep transactions OUTSIDE the file's date range
   });
