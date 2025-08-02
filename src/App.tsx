@@ -26,8 +26,8 @@ const App = () => (
           </Routes>
         </AppLayout>
       </BrowserRouter>
-      <MobileDebugPanel />
     </TooltipProvider>
+    <MobileDebugPanel />
   </QueryClientProvider>
 );
 
