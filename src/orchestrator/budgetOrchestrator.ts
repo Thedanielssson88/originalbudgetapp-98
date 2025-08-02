@@ -391,12 +391,16 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
 // NEW: Function to update account balances from saldo data based on payday logic
 function updateAccountBalancesFromSaldo(allTransactions: ImportedTransaction[], accountId: string, csvMapping?: CsvMapping): void {
   console.log(`[ORCHESTRATOR] 💰 Starting saldo-based account balance updates for account ${accountId}`);
+  console.log(`[ORCHESTRATOR] 💰 All transactions count: ${allTransactions.length}`);
+  console.log(`[ORCHESTRATOR] 💰 Available accounts in state:`, state.budgetState.accounts.map(acc => ({id: acc.id, name: acc.name})));
   
   // Check if the current CSV mapping includes saldo/balanceAfter
   let hasSaldoMapping = false;
   
   if (csvMapping?.columnMapping) {
     hasSaldoMapping = Object.values(csvMapping.columnMapping).includes('balanceAfter');
+    console.log(`[ORCHESTRATOR] 💰 CSV mapping check - columns:`, csvMapping.columnMapping);
+    console.log(`[ORCHESTRATOR] 💰 CSV mapping check - has saldo mapping:`, hasSaldoMapping);
   }
   
   if (!hasSaldoMapping) {
@@ -407,9 +411,15 @@ function updateAccountBalancesFromSaldo(allTransactions: ImportedTransaction[], 
   console.log(`[ORCHESTRATOR] 💰 Saldo mapping found in current import, proceeding with balance updates`);
   
   // Filter transactions for this specific account that have balance data
-  const accountTransactionsWithBalance = allTransactions.filter(tx => 
-    tx.accountId === accountId && tx.balanceAfter !== undefined
-  );
+  const accountTransactionsWithBalance = allTransactions.filter(tx => {
+    const hasBalance = tx.accountId === accountId && tx.balanceAfter !== undefined;
+    if (tx.accountId === accountId) {
+      console.log(`[ORCHESTRATOR] 💰 Transaction for account ${accountId}: date=${tx.date}, amount=${tx.amount}, balanceAfter=${tx.balanceAfter}, hasBalance=${hasBalance}`);
+    }
+    return hasBalance;
+  });
+  
+  console.log(`[ORCHESTRATOR] 💰 Found ${accountTransactionsWithBalance.length} transactions with balance data for account ${accountId}`);
   
   if (accountTransactionsWithBalance.length === 0) {
     console.log(`[ORCHESTRATOR] 💰 No transactions with balance data found for account ${accountId}`);
@@ -464,7 +474,10 @@ function updateAccountBalancesFromSaldo(allTransactions: ImportedTransaction[], 
       
       // Get account name from account ID
       const account = state.budgetState.accounts.find(acc => acc.id === accountId);
+      console.log(`[ORCHESTRATOR] 💰 Account lookup: accountId=${accountId}, found account:`, account);
+      
       if (account) {
+        console.log(`[ORCHESTRATOR] 💰 Calling updateAccountBalanceForMonth with: month=${nextPaydayMonth}, accountName=${account.name}, balance=${saldoValue}`);
         updateAccountBalanceForMonth(nextPaydayMonth, account.name, saldoValue);
         console.log(`[ORCHESTRATOR] ✅ Updated ${account.name} balance for ${nextPaydayMonth}: ${saldoValue}`);
         
@@ -472,6 +485,7 @@ function updateAccountBalancesFromSaldo(allTransactions: ImportedTransaction[], 
         triggerBalanceUpdateToast(account.name, saldoValue);
       } else {
         console.log(`[ORCHESTRATOR] ⚠️ Could not find account name for ID ${accountId}`);
+        console.log(`[ORCHESTRATOR] ⚠️ Available accounts:`, state.budgetState.accounts.map(acc => ({id: acc.id, name: acc.name})));
       }
     }
   });
