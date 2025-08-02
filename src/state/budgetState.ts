@@ -50,8 +50,8 @@ export const state: AppState = {
       showEstimatedBudgetAmounts: false
     },
     
-    // Main categories for all groups (costs, savings, transactions)
-    mainCategories: ['Hushåll', 'Mat & Kläder', 'Transport'],
+    // Main categories for all groups (costs, savings, transactions) - loaded from storage, no defaults
+    mainCategories: [],
     
     // Transaction import state
     transactionImport: {
@@ -155,9 +155,9 @@ export function initializeStateFromStorage(): void {
           state.budgetState.chartSettings.showEstimatedBudgetAmounts = oldRawData.showEstimatedBudgetAmounts || false;
         }
         
-        // Load main categories from storage or use defaults
+        // ALWAYS load main categories from storage - no defaults
         const savedMainCategories = get<string[]>(StorageKey.MAIN_CATEGORIES);
-        if (savedMainCategories) {
+        if (savedMainCategories && savedMainCategories.length > 0) {
           state.budgetState.mainCategories = savedMainCategories;
         }
         
@@ -228,12 +228,10 @@ export function initializeStateFromStorage(): void {
           selectedMonthKey: loadedBudgetState.selectedMonthKey || state.budgetState.selectedMonthKey
         };
         
-        // Load main categories from storage or use defaults if not present in budgetState
-        if (!state.budgetState.mainCategories) {
-          const savedMainCategories = get<string[]>(StorageKey.MAIN_CATEGORIES);
-          if (savedMainCategories) {
-            state.budgetState.mainCategories = savedMainCategories;
-          }
+        // ALWAYS load main categories from storage - no defaults
+        const savedMainCategories = get<string[]>(StorageKey.MAIN_CATEGORIES);
+        if (savedMainCategories && savedMainCategories.length > 0) {
+          state.budgetState.mainCategories = savedMainCategories;
         }
         
         addMobileDebugLog(`[INIT] ✅ State merged successfully`);
