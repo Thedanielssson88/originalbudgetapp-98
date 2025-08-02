@@ -12,7 +12,7 @@ interface AccountRowData {
   account: Account;
   totalBudgeted: number;
   totalTransferredIn: number;
-  difference: number;
+  actualTransferredIn: number;
   budgetItems: BudgetItem[];
   transfersOut: PlannedTransfer[];
 }
@@ -39,7 +39,7 @@ export const AccountRow: React.FC<AccountRowProps> = ({
   const [showNewTransferForm, setShowNewTransferForm] = useState(false);
 
   // Data från props
-  const { account, totalBudgeted, totalTransferredIn, difference, budgetItems, transfersOut } = data;
+  const { account, totalBudgeted, totalTransferredIn, actualTransferredIn, budgetItems, transfersOut } = data;
 
   // Hämta interna överföringar för detta konto
   const allInternalTransfers = getInternalTransferSummary(budgetState, selectedMonth);
@@ -90,10 +90,8 @@ export const AccountRow: React.FC<AccountRowProps> = ({
             <span className="font-medium">{formatCurrency(totalTransferredIn)}</span>
           </div>
           <div className="flex flex-col items-end">
-            <span className="text-muted-foreground text-xs">Skillnad</span>
-            <span className={`font-bold ${difference < 0 ? 'text-destructive' : 'text-green-600'}`}>
-              {formatCurrency(difference)}
-            </span>
+            <span className="text-muted-foreground text-xs">Faktiskt Överfört</span>
+            <span className="font-bold text-green-600">{formatCurrency(actualTransferredIn)}</span>
           </div>
           <Button 
             size="sm" 

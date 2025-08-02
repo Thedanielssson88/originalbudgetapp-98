@@ -13,7 +13,7 @@ interface AccountAnalysisData {
   account: Account;
   totalBudgeted: number;
   totalTransferredIn: number;
-  difference: number;
+  actualTransferredIn: number;
   budgetItems: BudgetItem[];
   transfersOut: PlannedTransfer[];
 }
@@ -32,6 +32,14 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
       console.log('🔄 [TRANSFERS] No month data found for:', selectedMonth);
       return [];
     }
+
+    // 1.5. Hämta alla transaktioner för beräkning av faktiska överföringar
+    const { startDate, endDate } = require('../services/calculationService').getDateRangeForMonth(selectedMonth, budgetState.settings?.payday || 25);
+    const allTransactions = Object.values(budgetState.historicalData).flatMap(m => m.transactions || []);
+    const transactionsForPeriod = allTransactions.filter(t => {
+      const transactionDate = new Date(t.date);
+      return transactionDate >= startDate && transactionDate <= endDate;
+    });
     
     // 2. Extrahera cost items från costGroups struktur
     const costItems: BudgetItem[] = [];
@@ -138,11 +146,16 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
       // Hitta alla överföringar FRÅN kontot (för detaljvyn)
       const transfersOut = monthlyTransfers.filter(t => t.fromAccountId === account.id);
 
+      // Beräkna faktiska inkommande överföringar från transaktioner
+      const actualTransferredIn = transactionsForPeriod
+        .filter(t => t.accountId === account.id && t.amount > 0 && (t.type === 'InternalTransfer' || t.appCategoryId === 'Överföring'))
+        .reduce((sum, t) => sum + t.amount, 0);
+
       return {
         account,
         totalBudgeted,
         totalTransferredIn,
-        difference: totalTransferredIn - totalBudgeted,
+        actualTransferredIn,
         budgetItems: budgetedItemsForAccount,
         transfersOut,
       };
