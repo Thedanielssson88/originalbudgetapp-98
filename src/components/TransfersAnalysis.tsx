@@ -3,9 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ChevronDown, ChevronUp, ArrowLeftRight, Plus } from 'lucide-react';
-import { BudgetState, PlannedTransfer, BudgetItem, Account, MonthData } from '@/types/budget';
+import { BudgetState, PlannedTransfer, BudgetItem, Account, MonthData, Transaction } from '@/types/budget';
 import { getAccountNameById } from '../orchestrator/budgetOrchestrator';
 import { getDateRangeForMonth, getInternalTransferSummary } from '../services/calculationService';
+import { SimpleTransferMatchDialog } from './SimpleTransferMatchDialog';
 
 interface TransfersAnalysisProps {
   budgetState: BudgetState;
@@ -27,6 +28,11 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
+  const [transferMatchDialog, setTransferMatchDialog] = useState<{
+    isOpen: boolean;
+    transaction?: Transaction;
+    suggestions?: Transaction[];
+  }>({ isOpen: false });
 
   // Toggle account expansion
   const toggleAccount = (accountId: string) => {
@@ -37,6 +43,31 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
       newExpanded.add(accountId);
     }
     setExpandedAccounts(newExpanded);
+  };
+
+  // Handle clicking on "Ej matchad" badge to match transfers
+  const handleMatchTransfer = (transaction: Transaction) => {
+    // Get all transactions for the period
+    const { startDate, endDate } = getDateRangeForMonth(selectedMonth, budgetState.settings?.payday || 25);
+    const allTransactions = Object.values(budgetState.historicalData).flatMap(m => m.transactions || []);
+    const transactionsForPeriod = allTransactions.filter(t => {
+      const transactionDate = new Date(t.date);
+      return transactionDate >= startDate && transactionDate <= endDate;
+    });
+
+    // Find potential matches - opposite sign and similar amount
+    const potentialMatches = transactionsForPeriod.filter(t => 
+      t.id !== transaction.id &&
+      t.type === 'InternalTransfer' &&
+      Math.abs(t.amount + transaction.amount) < 0.01 && // Opposite amounts
+      Math.abs(new Date(t.date).getTime() - new Date(transaction.date).getTime()) <= 7 * 24 * 60 * 60 * 1000 // Within 7 days
+    );
+
+    setTransferMatchDialog({
+      isOpen: true,
+      transaction,
+      suggestions: potentialMatches,
+    });
   };
 
   // Utility function för att formatera valuta
@@ -291,11 +322,11 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                         <div className="border-t border-blue-200 bg-blue-25/25">
                           <div className="p-4 space-y-4">
                             
-                            {/* Budgeterade poster */}
+                            {/* Budgeterade överföringar */}
                             {data.budgetItems.length > 0 && (
                               <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
                                 <h4 className="font-semibold mb-3 text-sm text-blue-800 uppercase tracking-wide">
-                                  Budgeterade Poster ({data.budgetItems.length})
+                                  Budgeterade Överföringar ({data.budgetItems.length})
                                 </h4>
                                 <div className="space-y-2">
                                   {data.budgetItems.map(item => (
@@ -325,12 +356,12 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                               </div>
                             )}
 
-                            {/* Interna överföringar sektion */}
+                            {/* Faktiska överföringar sektion */}
                             {accountInternalTransfers && (accountInternalTransfers.incomingTransfers.length > 0 || accountInternalTransfers.outgoingTransfers.length > 0) && (
                               <div className="bg-green-50 rounded-lg p-3 border border-green-200">
                                 <div className="flex items-center gap-2 mb-3">
                                   <h4 className="font-semibold text-sm text-green-800 uppercase tracking-wide">
-                                    Interna Överföringar 
+                                    Faktiska Överföringar
                                   </h4>
                                   {accountInternalTransfers.totalIn > 0 && (
                                     <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100">
@@ -353,7 +384,14 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                                           <span className="text-sm text-green-900">
                                             {formatCurrency(t.amount)} från {t.fromAccountName}
                                             {!t.linked && (
-                                              <Badge variant="outline" className="ml-2 text-xs text-orange-600 border-orange-200">
+                                              <Badge 
+                                                variant="outline" 
+                                                className="ml-2 text-xs text-orange-600 border-orange-200 cursor-pointer hover:bg-orange-50"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleMatchTransfer(t.transaction);
+                                                }}
+                                              >
                                                 Ej matchad
                                               </Badge>
                                             )}
@@ -373,7 +411,14 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                                           <span className="text-sm text-green-900">
                                             {formatCurrency(t.amount)} till {t.toAccountName}
                                             {!t.linked && (
-                                              <Badge variant="outline" className="ml-2 text-xs text-orange-600 border-orange-200">
+                                              <Badge 
+                                                variant="outline" 
+                                                className="ml-2 text-xs text-orange-600 border-orange-200 cursor-pointer hover:bg-orange-50"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleMatchTransfer(t.transaction);
+                                                }}
+                                              >
                                                 Ej matchad
                                               </Badge>
                                             )}
@@ -408,6 +453,14 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
           </div>
         </CardContent>
       )}
+
+      {/* Transfer Match Dialog */}
+      <SimpleTransferMatchDialog
+        isOpen={transferMatchDialog.isOpen}
+        onClose={() => setTransferMatchDialog({ isOpen: false })}
+        transaction={transferMatchDialog.transaction}
+        suggestions={transferMatchDialog.suggestions || []}
+      />
     </Card>
   );
 };
