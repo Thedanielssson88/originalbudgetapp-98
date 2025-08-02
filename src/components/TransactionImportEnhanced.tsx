@@ -498,6 +498,7 @@ export const TransactionImportEnhanced: React.FC = () => {
 
   // File upload handler - uses the new Smart Merge function
   const handleFileUpload = useCallback(async (file: File, accountId: string, accountName: string) => {
+    console.log(`🚀 [IMPORT] handleFileUpload called with:`, { fileName: file.name, accountId, accountName });
     addMobileDebugLog(`📁 FILE UPLOAD STARTED: ${file.name} for account ${accountId}`);
     try {
       // Read file with proper encoding for Swedish characters
@@ -532,7 +533,9 @@ export const TransactionImportEnhanced: React.FC = () => {
       addMobileDebugLog(`🔄 About to import for account: ${accountId}`);
       addMobileDebugLog(`🔄 CSV preview: ${csvContent.substring(0, 100)}...`);
       
+      console.log(`🚀 [IMPORT] About to call importAndReconcileFile...`);
       importAndReconcileFile(csvContent, accountId);
+      console.log(`🚀 [IMPORT] importAndReconcileFile call completed`);
       
       console.log('🔄 [DEBUG] After importAndReconcileFile - checking budgetState...');
       
