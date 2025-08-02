@@ -484,6 +484,22 @@ const BudgetCalculator = () => {
     return filtered;
   };
 
+  // MODERN: Function that uses accountId directly (more reliable)
+  const getTransactionsForAccountId = (accountId: string): Transaction[] => {
+    const allPeriodTransactions = activeContent.transactionsForPeriod || [];
+    console.log(`🔍 [DEBUG] ============= getTransactionsForAccountId START =============`);
+    console.log(`🔍 [DEBUG] Looking for accountId: "${accountId}"`);
+    console.log(`🔍 [DEBUG] Total transactions in period: ${allPeriodTransactions.length}`);
+    
+    // Direct filtering by accountId - much cleaner
+    const accountTransactions = allPeriodTransactions.filter((t: Transaction) => t.accountId === accountId);
+    console.log(`🔍 [DEBUG] Found ${accountTransactions.length} transactions for accountId ${accountId}:`, 
+      accountTransactions.map(t => ({ id: t.id, amount: t.amount, description: t.description, date: t.date })));
+    
+    return accountTransactions;
+  };
+
+  // LEGACY: Function that uses accountName (kept for backward compatibility)
   const getTransactionsForAccount = (accountName: string): Transaction[] => {
     // FIXED: Use correctly filtered transactions according to PaydaySettings
     const allPeriodTransactions = activeContent.transactionsForPeriod || [];
@@ -574,8 +590,8 @@ const BudgetCalculator = () => {
     });
   };
 
-  const openAccountDrillDownDialog = (accountName: string, budgetAmount: number, actualAmount: number) => {
-    const allTransactions = getTransactionsForAccount(accountName);
+  const openAccountDrillDownDialog = (accountId: string, accountName: string, budgetAmount: number, actualAmount: number) => {
+    const allTransactions = getTransactionsForAccountId(accountId);
     // Filter out positive amounts (income) from cost category drill-downs using corrected amounts
     const transactions = allTransactions.filter(t => {
       const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
@@ -6545,11 +6561,13 @@ const BudgetCalculator = () => {
                              })()
                                ) : (
                                 // Korrekt "Visa per konto" - börjar med konton först
-                                (() => {
-                                  console.log('🔍 [ACCOUNT VIEW] Starting correct account-first logic');
-                                  console.log('🔍 [ACCOUNT VIEW] Available accounts:', activeContent.activeAccounts);
-                                  console.log('🔍 [ACCOUNT VIEW] activeContent.budgetItems.costItems:', activeContent.budgetItems.costItems);
-                                  console.log('🔍 [ACCOUNT VIEW] transactionsForPeriod:', activeContent.transactionsForPeriod || []);
+                                 (() => {
+                                   console.log('🔍 [ACCOUNT VIEW] Starting account-first logic');
+                                   console.log('🔍 [ACCOUNT VIEW] DEBUG - Current month:', selectedBudgetMonth);
+                                   console.log('🔍 [ACCOUNT VIEW] Available accounts:', activeContent.activeAccounts);
+                                   console.log('🔍 [ACCOUNT VIEW] activeContent.budgetItems.costItems:', activeContent.budgetItems.costItems);
+                                   console.log('🔍 [ACCOUNT VIEW] transactionsForPeriod:', activeContent.transactionsForPeriod || []);
+                                   console.log('🔍 [ACCOUNT VIEW] PaydaySettings date range:', activeContent.dateRange);
 
                                   return activeContent.activeAccounts.map((account) => {
                                     console.log(`🔍 [ACCOUNT VIEW] Processing account: ${account.name} (ID: ${account.id})`);
@@ -6576,10 +6594,10 @@ const BudgetCalculator = () => {
                                     
                                     console.log(`🔍 [ACCOUNT VIEW] Total budget for ${account.name}: ${totalBudget}`);
                                     
-                                      // 3. Använd samma logik som getTransactionsForAccount för konsistens
-                                      const transactionsForThisAccount = getTransactionsForAccount(account.name);
+                                       // 3. FIXED: Use accountId directly instead of account name
+                                       const transactionsForThisAccount = getTransactionsForAccountId(account.id);
                                      
-                                     console.log(`🔍 [ACCOUNT VIEW] Found ${transactionsForThisAccount.length} transactions for ${account.name}:`, transactionsForThisAccount);
+                                     console.log(`🔍 [ACCOUNT VIEW] Found ${transactionsForThisAccount.length} transactions for ${account.name} (ID: ${account.id}):`, transactionsForThisAccount);
                                      
                                         // 4. Beräkna det FAKTISKA beloppet genom enkel summering
                                         // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
@@ -6651,7 +6669,7 @@ const BudgetCalculator = () => {
                                                 Faktiskt: 
                                                 <button
                                                   className="ml-1 font-bold text-orange-800 dark:text-orange-200 hover:text-orange-600 dark:hover:text-orange-400 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200"
-                                                  onClick={() => openAccountDrillDownDialog(account.name, totalBudget, actualAmount)}
+                                                  onClick={() => openAccountDrillDownDialog(account.id, account.name, totalBudget, actualAmount)}
                                                 >
                                                   {formatCurrency(actualAmount)}
                                                 </button>
