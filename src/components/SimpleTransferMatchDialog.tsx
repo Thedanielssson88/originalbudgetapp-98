@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Transaction } from '@/types/budget';
-import { matchInternalTransfer } from '../orchestrator/budgetOrchestrator';
+import { matchInternalTransfer, updateTransaction } from '../orchestrator/budgetOrchestrator';
 
 interface SimpleTransferMatchDialogProps {
   isOpen: boolean;
@@ -39,7 +39,24 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
 
   const handleMatch = () => {
     if (transaction && selectedMatch) {
-      matchInternalTransfer(transaction.id, selectedMatch);
+      const selectedTransaction = suggestions.find(s => s.id === selectedMatch);
+      
+      if (selectedTransaction) {
+        // Get month key from transaction date
+        const monthKey = transaction.date.substring(0, 7);
+        
+        // Convert both transactions to InternalTransfer if they aren't already
+        if (transaction.type !== 'InternalTransfer') {
+          updateTransaction(transaction.id, { type: 'InternalTransfer', isManuallyChanged: true }, monthKey);
+        }
+        if (selectedTransaction.type !== 'InternalTransfer') {
+          updateTransaction(selectedTransaction.id, { type: 'InternalTransfer', isManuallyChanged: true }, monthKey);
+        }
+        
+        // Match the transactions
+        matchInternalTransfer(transaction.id, selectedMatch);
+      }
+      
       onClose();
     }
   };
@@ -52,8 +69,8 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
         <DialogHeader>
           <DialogTitle>Matcha överföring</DialogTitle>
           <DialogDescription>
-            Matcha denna överföring på {formatCurrency(Math.abs(transaction.amount))} kr från {transaction.accountId}
-            med en motsvarande överföring.
+            Matcha denna transaktion på {formatCurrency(Math.abs(transaction.amount))} kr från {transaction.accountId}
+            med en motsvarande transaktion. Båda transaktionerna kommer att konverteras till interna överföringar och länkas.
           </DialogDescription>
         </DialogHeader>
 
@@ -79,7 +96,10 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
                         </span>
                       </div>
                       <div className="text-xs text-blue-600">
-                        Konto: {suggestion.accountId}
+                        Konto: {suggestion.accountId} • Typ: {suggestion.type || 'Transaktion'}
+                        {suggestion.type !== 'InternalTransfer' && (
+                          <span className="ml-2 text-orange-600">(kommer konverteras till Intern Överföring)</span>
+                        )}
                       </div>
                     </Label>
                   </div>
@@ -88,8 +108,8 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
             </RadioGroup>
           ) : (
             <div className="text-center py-8 text-blue-600">
-              <div className="text-blue-800 font-medium mb-2">Inga matchande överföringar hittades</div>
-              <div className="text-sm">Kontrollera att den motsvarande överföringen finns i samma period.</div>
+              <div className="text-blue-800 font-medium mb-2">Inga matchande transaktioner hittades</div>
+              <div className="text-sm">Kontrollera att den motsvarande transaktionen finns inom 7 dagar och har motsatt belopp.</div>
             </div>
           )}
         </div>
@@ -104,7 +124,7 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
               disabled={!selectedMatch}
               className="bg-blue-600 hover:bg-blue-700"
             >
-              Matcha överföringar
+              Matcha transaktioner
             </Button>
           )}
         </DialogFooter>
