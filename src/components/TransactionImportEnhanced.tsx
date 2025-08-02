@@ -22,6 +22,7 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { ImportedTransaction, FileStructure, CategoryRule, ColumnMapping, ImportedFile } from '@/types/transaction';
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Dialog,
@@ -41,7 +42,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, CheckCircle, FileText, Settings, AlertCircle, Circle, CheckSquare, AlertTriangle, ChevronDown, ChevronUp, Trash2, Plus, Edit, Save, X } from 'lucide-react';
-import { ImportedTransaction, CategoryRule, FileStructure, ColumnMapping } from '@/types/transaction';
+
 import { Bank, BankCSVMapping } from '@/types/bank';
 import { Account as BudgetAccount } from '@/types/budget';
 import { AddBankDialog } from './AddBankDialog';
