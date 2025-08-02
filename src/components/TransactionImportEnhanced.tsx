@@ -549,7 +549,9 @@ export const TransactionImportEnhanced: React.FC = () => {
     addMobileDebugLog(`🔄 TRIGGER FILE UPLOAD clicked for account: ${accountId}`);
     const input = fileInputRefs.current[accountId];
     if (input) {
-      addMobileDebugLog(`🔄 File input found, triggering click`);
+      addMobileDebugLog(`🔄 File input found, clearing value and triggering click`);
+      // CRITICAL: Clear the input value to ensure fresh file processing
+      input.value = '';
       input.click();
     } else {
       addMobileDebugLog(`❌ No file input found for account: ${accountId}`);
