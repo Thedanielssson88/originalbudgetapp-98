@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AccountRow } from './AccountRow';
 import { BudgetState, PlannedTransfer, BudgetItem, Account, MonthData } from '@/types/budget';
 import { getAccountNameById } from '../orchestrator/budgetOrchestrator';
+import { getDateRangeForMonth } from '../services/calculationService';
 
 interface TransfersAnalysisProps {
   budgetState: BudgetState;
@@ -34,7 +35,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
     }
 
     // 1.5. Hämta alla transaktioner för beräkning av faktiska överföringar
-    const { startDate, endDate } = require('../services/calculationService').getDateRangeForMonth(selectedMonth, budgetState.settings?.payday || 25);
+    const { startDate, endDate } = getDateRangeForMonth(selectedMonth, budgetState.settings?.payday || 25);
     const allTransactions = Object.values(budgetState.historicalData).flatMap(m => m.transactions || []);
     const transactionsForPeriod = allTransactions.filter(t => {
       const transactionDate = new Date(t.date);
