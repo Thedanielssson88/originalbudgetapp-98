@@ -1,5 +1,5 @@
 // Innehåller all ren beräkningslogik.
-import { RawDataState, CalculatedState, BudgetResults, MonthData, Account, BudgetItem } from '../types/budget';
+import { RawDataState, CalculatedState, BudgetResults, MonthData, Account, BudgetItem, BudgetState, Transaction } from '../types/budget';
 import { calculateMonthlyAmountForDailyTransfer } from '../utils/dailyTransferUtils';
 
 /**
@@ -651,4 +651,74 @@ export function getProcessedBudgetDataForMonth(budgetState: any, selectedMonthKe
     costItems,
     savingsItems
   };
+}
+
+// ============= INTERNAL TRANSFERS ANALYSIS =============
+
+export interface TransferSummary {
+  accountId: string;
+  accountName: string;
+  totalIn: number;
+  totalOut: number;
+  incomingTransfers: { fromAccountName: string; amount: number; linked: boolean; transaction: Transaction }[];
+  outgoingTransfers: { toAccountName: string; amount: number; linked: boolean; transaction: Transaction }[];
+}
+
+export function getInternalTransferSummary(
+  budgetState: BudgetState, 
+  selectedMonthKey: string
+): TransferSummary[] {
+
+  // 1. Hämta det korrekta datumintervallet baserat på payday-inställningen
+  const { startDate, endDate } = getDateRangeForMonth(selectedMonthKey, budgetState.settings?.payday || 25);
+  const allTransactions = Object.values(budgetState.historicalData).flatMap(m => m.transactions || []);
+  
+  // 2. Filtrera ut alla interna överföringar inom den korrekta perioden
+  const transfersForPeriod = allTransactions.filter(t => {
+    const transactionDate = new Date(t.date);
+    return t.type === 'InternalTransfer' && transactionDate >= startDate && transactionDate <= endDate;
+  });
+
+  const allAccounts = budgetState.accounts;
+
+  // 3. Gå igenom varje konto och bygg upp en sammanställning
+  return allAccounts.map(account => {
+    const summary: TransferSummary = {
+      accountId: account.id,
+      accountName: account.name,
+      totalIn: 0,
+      totalOut: 0,
+      incomingTransfers: [],
+      outgoingTransfers: []
+    };
+
+    // Hitta alla överföringar som rör detta konto
+    transfersForPeriod.forEach(t => {
+      // Om det är en inkommande överföring TILL detta konto
+      if (t.accountId === account.id && t.amount > 0) {
+        summary.totalIn += t.amount;
+        const linkedTx = t.linkedTransactionId ? transfersForPeriod.find(tx => tx.id === t.linkedTransactionId) : undefined;
+        const fromAccount = linkedTx ? allAccounts.find(acc => acc.id === linkedTx.accountId) : undefined;
+        summary.incomingTransfers.push({
+          fromAccountName: fromAccount?.name || 'Okänt konto',
+          amount: t.amount,
+          linked: !!t.linkedTransactionId,
+          transaction: t
+        });
+      }
+      // Om det är en utgående överföring FRÅN detta konto
+      else if (t.accountId === account.id && t.amount < 0) {
+        summary.totalOut += Math.abs(t.amount);
+        const linkedTx = t.linkedTransactionId ? transfersForPeriod.find(tx => tx.id === t.linkedTransactionId) : undefined;
+        const toAccount = linkedTx ? allAccounts.find(acc => acc.id === linkedTx.accountId) : undefined;
+        summary.outgoingTransfers.push({
+          toAccountName: toAccount?.name || 'Okänt konto',
+          amount: Math.abs(t.amount),
+          linked: !!t.linkedTransactionId,
+          transaction: t
+        });
+      }
+    });
+    return summary;
+  }).filter(s => s.totalIn > 0 || s.totalOut > 0); // Visa bara konton med överföringar
 }
