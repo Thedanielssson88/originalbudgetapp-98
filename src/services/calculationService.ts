@@ -668,10 +668,23 @@ export function getInternalTransferSummary(
   budgetState: BudgetState, 
   selectedMonthKey: string
 ): TransferSummary[] {
+  console.log('🔍 [INTERNAL TRANSFERS CALCULATION] Starting calculation', {
+    selectedMonthKey,
+    paydaySetting: budgetState.settings?.payday || 25,
+    accountsCount: budgetState.accounts.length,
+    historicalDataKeys: Object.keys(budgetState.historicalData)
+  });
 
   // 1. Hämta det korrekta datumintervallet baserat på payday-inställningen
   const { startDate, endDate } = getDateRangeForMonth(selectedMonthKey, budgetState.settings?.payday || 25);
   const allTransactions = Object.values(budgetState.historicalData).flatMap(m => m.transactions || []);
+  
+  console.log('🔍 [INTERNAL TRANSFERS CALCULATION] Date range and transactions', {
+    startDate: startDate.toISOString(),
+    endDate: endDate.toISOString(),
+    totalTransactions: allTransactions.length,
+    internalTransferTransactions: allTransactions.filter(t => t.type === 'InternalTransfer').length
+  });
   
   // 2. Filtrera ut alla interna överföringar inom den korrekta perioden
   const transfersForPeriod = allTransactions.filter(t => {
@@ -679,10 +692,15 @@ export function getInternalTransferSummary(
     return t.type === 'InternalTransfer' && transactionDate >= startDate && transactionDate <= endDate;
   });
 
+  console.log('🔍 [INTERNAL TRANSFERS CALCULATION] Filtered transfers', {
+    transfersForPeriod: transfersForPeriod.length,
+    transfers: transfersForPeriod
+  });
+
   const allAccounts = budgetState.accounts;
 
   // 3. Gå igenom varje konto och bygg upp en sammanställning
-  return allAccounts.map(account => {
+  const result = allAccounts.map(account => {
     const summary: TransferSummary = {
       accountId: account.id,
       accountName: account.name,
@@ -721,4 +739,11 @@ export function getInternalTransferSummary(
     });
     return summary;
   }).filter(s => s.totalIn > 0 || s.totalOut > 0); // Visa bara konton med överföringar
+  
+  console.log('🔍 [INTERNAL TRANSFERS CALCULATION] Final result', {
+    summariesWithTransfers: result.length,
+    result
+  });
+  
+  return result;
 }

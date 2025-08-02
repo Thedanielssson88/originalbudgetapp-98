@@ -44,6 +44,17 @@ export const AccountRow: React.FC<AccountRowProps> = ({
   // Hämta interna överföringar för detta konto
   const allInternalTransfers = getInternalTransferSummary(budgetState, selectedMonth);
   const accountInternalTransfers = allInternalTransfers.find(summary => summary.accountId === account.id);
+  
+  // Debug loggar
+  console.log('🔍 [INTERNAL TRANSFERS DEBUG]', {
+    selectedMonth,
+    accountId: account.id,
+    accountName: account.name,
+    allInternalTransfers,
+    accountInternalTransfers,
+    hasIncomingTransfers: accountInternalTransfers?.incomingTransfers?.length || 0,
+    hasOutgoingTransfers: accountInternalTransfers?.outgoingTransfers?.length || 0
+  });
 
   const handleCreateTransfer = (fromAccountId: string, amount: number, description?: string) => {
     createPlannedTransfer({
