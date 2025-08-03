@@ -819,7 +819,7 @@ export function applyCategorizationRules(
  * Determines transaction status based on category assignment
  * Red: Missing main category OR subcategory
  * Yellow: Has both main category AND subcategory  
- * Green: User approved (unchanged)
+ * Green: User approved OR auto-approved internal transfers with links
  */
 export function determineTransactionStatus(transaction: any): 'red' | 'yellow' | 'green' {
   // If already green (user approved), keep it green
@@ -830,6 +830,14 @@ export function determineTransactionStatus(transaction: any): 'red' | 'yellow' |
   // Check if both main category and subcategory are present
   const hasMainCategory = transaction.appCategoryId;
   const hasSubCategory = transaction.appSubCategoryId;
+  
+  // Auto-approve internal transfers with categories and links
+  if (transaction.type === 'InternalTransfer' && 
+      hasMainCategory && 
+      hasSubCategory && 
+      transaction.linkedTransactionId) {
+    return 'green';
+  }
   
   return (hasMainCategory && hasSubCategory) ? 'yellow' : 'red';
 }
