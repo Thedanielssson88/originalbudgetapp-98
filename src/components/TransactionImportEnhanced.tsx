@@ -56,6 +56,7 @@ import { ExpenseClaimDialog } from './ExpenseClaimDialog';
 import { BalanceCorrectionDialog } from './BalanceCorrectionDialog';
 import { CategoryRuleManagerAdvanced } from './CategoryRuleManagerAdvanced';
 import { UncategorizedBankCategories } from './UncategorizedBankCategories';
+import { CategorySelectionDialog } from './CategorySelectionDialog';
 import { useBudget } from '@/hooks/useBudget';
 import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping, getAllTransactionsFromDatabase, linkAccountToBankTemplate } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState, setMainCategories } from '../orchestrator/budgetOrchestrator';
@@ -338,6 +339,11 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [hideGreenTransactions, setHideGreenTransactions] = useState<boolean>(false);
   const [showAllSystemTransactions, setShowAllSystemTransactions] = useState<boolean>(false);
   const [selectedAccountForView, setSelectedAccountForView] = useState<string>('');
+  
+  // State for category selection dialog
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [selectedBankCategory, setSelectedBankCategory] = useState('');
+  const [selectedBankSubCategory, setSelectedBankSubCategory] = useState<string | undefined>(undefined);
   const [transferMatchDialog, setTransferMatchDialog] = useState<{
     isOpen: boolean;
     transaction?: ImportedTransaction;
@@ -1439,19 +1445,9 @@ export const TransactionImportEnhanced: React.FC = () => {
                   transactions={allTransactions}
                   categoryRules={categoryRules}
                   onCreateRule={(bankCategory, bankSubCategory) => {
-                    const newRule = {
-                      id: uuidv4(),
-                      bankCategory,
-                      bankSubCategory: bankSubCategory || '',
-                      appCategoryId: mainCategories[0] || '',
-                      appSubCategoryId: '',
-                      transactionType: 'Transaction' as const,
-                      description: '',
-                      priority: 100,
-                      isActive: true
-                    };
-                    addCategoryRule(newRule);
-                    triggerRefresh();
+                    setSelectedBankCategory(bankCategory);
+                    setSelectedBankSubCategory(bankSubCategory);
+                    setCategoryDialogOpen(true);
                   }}
                 />
               </CardContent>
@@ -1914,6 +1910,34 @@ export const TransactionImportEnhanced: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Category Selection Dialog */}
+      <CategorySelectionDialog
+        isOpen={categoryDialogOpen}
+        onClose={() => setCategoryDialogOpen(false)}
+        onConfirm={(mainCategory, subCategory) => {
+          const newRule = {
+            id: uuidv4(),
+            priority: 100,
+            condition: { 
+              type: 'categoryMatch' as const,
+              bankCategory: selectedBankCategory,
+              bankSubCategory: selectedBankSubCategory
+            },
+            action: {
+              appMainCategoryId: mainCategory,
+              appSubCategoryId: subCategory,
+              transactionType: 'Transaction' as const
+            },
+            isActive: true
+          };
+          addCategoryRule(newRule);
+          triggerRefresh();
+        }}
+        bankCategory={selectedBankCategory}
+        bankSubCategory={selectedBankSubCategory}
+        mainCategories={mainCategories}
+      />
     </div>
   );
 };

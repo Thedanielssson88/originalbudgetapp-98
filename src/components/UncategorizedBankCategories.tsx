@@ -60,29 +60,31 @@ export const UncategorizedBankCategories: React.FC<UncategorizedBankCategoriesPr
   return (
     <div className="space-y-3">
       {uncategorizedCategories.map(({ bankCategory, count, subCategories }) => (
-        <Card key={bankCategory} className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <h4 className="font-medium">{bankCategory}</h4>
-                <Badge variant="secondary">{count} transaktioner</Badge>
-              </div>
-              
-              {subCategories.length > 0 && (
-                <div className="text-sm text-muted-foreground">
-                  Underkategorier: {subCategories.join(', ')}
+        <Card key={bankCategory} className="p-3">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <h4 className="font-medium text-sm">{bankCategory}</h4>
+                  <Badge variant="secondary" className="text-xs">{count} st</Badge>
                 </div>
-              )}
+                
+                {subCategories.length > 0 && (
+                  <div className="text-xs text-muted-foreground">
+                    {subCategories.join(', ')}
+                  </div>
+                )}
+              </div>
             </div>
             
-            <div className="flex flex-col gap-2">
+            <div className="space-y-2">
               <Button
                 size="sm"
                 onClick={() => onCreateRule(bankCategory)}
-                className="text-xs"
+                className="w-full text-xs h-8"
               >
                 <Plus className="w-3 h-3 mr-1" />
-                Skapa regel
+                Skapa regel för "{bankCategory}"
               </Button>
               
               {subCategories.map(subCategory => (
@@ -91,10 +93,10 @@ export const UncategorizedBankCategories: React.FC<UncategorizedBankCategoriesPr
                   size="sm"
                   variant="outline"
                   onClick={() => onCreateRule(bankCategory, subCategory)}
-                  className="text-xs"
+                  className="w-full text-xs h-8"
                 >
                   <Plus className="w-3 h-3 mr-1" />
-                  {subCategory}
+                  Regel för "{subCategory}"
                 </Button>
               ))}
             </div>

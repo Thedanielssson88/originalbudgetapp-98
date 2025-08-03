@@ -95,28 +95,27 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Avancerad Regelmotor för Kategorisering</CardTitle>
-        <CardDescription>
-          Skapa regler för att automatiskt kategorisera transaktioner baserat på text eller bankens kategorier.
-          Textbaserade regler har högre prioritet än kategoriregler.
+        <CardTitle className="text-base">Regelmotor för Kategorisering</CardTitle>
+        <CardDescription className="text-sm">
+          Skapa regler för automatisk kategorisering av transaktioner.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-4">
         {/* Add Rule Button */}
         <div className="flex justify-between items-center">
-          <h3 className="text-lg font-medium">Kategoriseringsregler</h3>
-          <Button onClick={() => setIsAddingRule(true)} disabled={isAddingRule}>
-            <Plus className="h-4 w-4 mr-2" />
-            Lägg till regel
+          <h3 className="text-sm font-medium">Aktiva regler</h3>
+          <Button size="sm" onClick={() => setIsAddingRule(true)} disabled={isAddingRule}>
+            <Plus className="h-3 w-3 mr-1" />
+            Ny regel
           </Button>
         </div>
 
-        {/* Add Rule Form */}
+        {/* Add Rule Form - Mobile Optimized */}
         {isAddingRule && (
-          <Card className="p-4 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <Card className="p-3 space-y-3 border-dashed">
+            <div className="space-y-3">
               <div>
-                <Label>Regeltyp</Label>
+                <Label className="text-xs">Regeltyp</Label>
                 <Select
                   value={newRule.condition?.type || 'textContains'}
                   onValueChange={(value) => setNewRule({
@@ -124,7 +123,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                     condition: { type: value as any, value: '' }
                   })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-8">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -136,37 +135,24 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
               </div>
               
               <div>
-                <Label>Prioritet (lägre nummer = högre prioritet)</Label>
+                <Label className="text-xs">Villkor</Label>
                 <Input
-                  type="number"
-                  value={newRule.priority || 100}
+                  placeholder={
+                    newRule.condition?.type === 'textContains' ? 'Text som ska sökas efter' :
+                    newRule.condition?.type === 'textStartsWith' ? 'Text som transaktionen börjar med' :
+                    'Bankens kategorinamn'
+                  }
+                  value={(newRule.condition as any)?.value || ''}
                   onChange={(e) => setNewRule({
                     ...newRule,
-                    priority: parseInt(e.target.value) || 100
+                    condition: { ...newRule.condition!, value: e.target.value } as RuleCondition
                   })}
+                  className="h-8"
                 />
               </div>
-            </div>
 
-            <div>
-              <Label>Villkor</Label>
-              <Input
-                placeholder={
-                  newRule.condition?.type === 'textContains' ? 'Text som ska sökas efter' :
-                  newRule.condition?.type === 'textStartsWith' ? 'Text som transaktionen börjar med' :
-                  'Bankens kategorinamn'
-                }
-                value={(newRule.condition as any)?.value || ''}
-                onChange={(e) => setNewRule({
-                  ...newRule,
-                  condition: { ...newRule.condition!, value: e.target.value } as RuleCondition
-                })}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Huvudkategori</Label>
+                <Label className="text-xs">Huvudkategori</Label>
                 <Select
                   value={newRule.action?.appMainCategoryId || ''}
                   onValueChange={(value) => setNewRule({
@@ -174,7 +160,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                     action: { ...newRule.action!, appMainCategoryId: value, appSubCategoryId: '' }
                   })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-8">
                     <SelectValue placeholder="Välj huvudkategori" />
                   </SelectTrigger>
                   <SelectContent>
@@ -188,7 +174,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
               </div>
 
               <div>
-                <Label>Underkategori</Label>
+                <Label className="text-xs">Underkategori</Label>
                 <Select
                   value={newRule.action?.appSubCategoryId || ''}
                   onValueChange={(value) => setNewRule({
@@ -197,7 +183,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                   })}
                   disabled={!newRule.action?.appMainCategoryId}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-8">
                     <SelectValue placeholder="Välj underkategori" />
                   </SelectTrigger>
                   <SelectContent>
@@ -209,98 +195,109 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">Prioritet</Label>
+                  <Input
+                    type="number"
+                    value={newRule.priority || 100}
+                    onChange={(e) => setNewRule({
+                      ...newRule,
+                      priority: parseInt(e.target.value) || 100
+                    })}
+                    className="h-8"
+                  />
+                </div>
+                
+                <div>
+                  <Label className="text-xs">Typ</Label>
+                  <Select
+                    value={newRule.action?.transactionType || 'Transaction'}
+                    onValueChange={(value) => setNewRule({
+                      ...newRule,
+                      action: { ...newRule.action!, transactionType: value as any }
+                    })}
+                  >
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Transaction">Transaktion</SelectItem>
+                      <SelectItem value="Transfer">Överföring</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
 
-            <div>
-              <Label>Transaktionstyp</Label>
-              <Select
-                value={newRule.action?.transactionType || 'Transaction'}
-                onValueChange={(value) => setNewRule({
-                  ...newRule,
-                  action: { ...newRule.action!, transactionType: value as any }
-                })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Transaction">Transaktion</SelectItem>
-                  <SelectItem value="Transfer">Överföring</SelectItem>
-                  <SelectItem value="ExpenseClaim">Utläggsrekvisition</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex gap-2">
-              <Button onClick={handleAddRule}>Lägg till regel</Button>
-              <Button variant="outline" onClick={() => setIsAddingRule(false)}>
+            <div className="flex gap-2 pt-2">
+              <Button size="sm" onClick={handleAddRule} className="flex-1">
+                Skapa regel
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setIsAddingRule(false)} className="flex-1">
                 Avbryt
               </Button>
             </div>
           </Card>
         )}
 
-        {/* Rules Table */}
+        {/* Rules List - Mobile Optimized */}
         {rules.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Aktiv</TableHead>
-                <TableHead>Prioritet</TableHead>
-                <TableHead>Typ</TableHead>
-                <TableHead>Villkor</TableHead>
-                <TableHead>Huvudkategori</TableHead>
-                <TableHead>Underkategori</TableHead>
-                <TableHead>Typ</TableHead>
-                <TableHead>Åtgärder</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rules.sort((a, b) => a.priority - b.priority).map((rule) => (
-                <TableRow key={rule.id}>
-                  <TableCell>
-                    <Switch
-                      checked={rule.isActive}
-                      onCheckedChange={() => handleToggleRule(rule.id)}
-                    />
-                  </TableCell>
-                  <TableCell>{rule.priority}</TableCell>
-                  <TableCell>
-                    <Badge variant={rule.condition.type === 'categoryMatch' ? 'secondary' : 'default'}>
-                      {rule.condition.type === 'textContains' ? 'Text innehåller' :
-                       rule.condition.type === 'textStartsWith' ? 'Text börjar med' :
-                       'Bankens kategori'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <code className="text-sm">
-                      {(rule.condition as any).value || (rule.condition as any).bankCategory}
-                    </code>
-                  </TableCell>
-                  <TableCell>{rule.action.appMainCategoryId}</TableCell>
-                  <TableCell>{rule.action.appSubCategoryId}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {rule.action.transactionType === 'Transaction' ? 'Transaktion' : 
-                       rule.action.transactionType === 'Transfer' ? 'Överföring' : 'Utläggsrekvisition'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
+          <div className="space-y-2">
+            {rules.sort((a, b) => a.priority - b.priority).map((rule) => (
+              <Card key={rule.id} className="p-3">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={rule.isActive}
+                        onCheckedChange={() => handleToggleRule(rule.id)}
+                      />
+                      <Badge variant="outline" className="text-xs">
+                        {rule.priority}
+                      </Badge>
+                    </div>
                     <Button
                       size="sm"
-                      variant="destructive"
+                      variant="ghost"
                       onClick={() => handleDeleteRule(rule.id)}
+                      className="h-6 w-6 p-0"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3 w-3" />
                     </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={rule.condition.type === 'categoryMatch' ? 'secondary' : 'default'} className="text-xs">
+                        {rule.condition.type === 'textContains' ? 'Text innehåller' :
+                         rule.condition.type === 'textStartsWith' ? 'Text börjar med' :
+                         'Bankens kategori'}
+                      </Badge>
+                      <code className="text-xs bg-muted px-1 py-0.5 rounded">
+                        {(rule.condition as any).value || (rule.condition as any).bankCategory}
+                      </code>
+                    </div>
+                    
+                    <div className="text-xs text-muted-foreground">
+                      <span className="font-medium">{rule.action.appMainCategoryId}</span>
+                      {rule.action.appSubCategoryId && (
+                        <span> → {rule.action.appSubCategoryId}</span>
+                      )}
+                    </div>
+                    
+                    <Badge variant="outline" className="text-xs">
+                      {rule.action.transactionType === 'Transaction' ? 'Transaktion' : 'Överföring'}
+                    </Badge>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
         ) : (
-          <div className="text-center py-8 text-muted-foreground">
-            Inga regler har konfigurerats ännu.
+          <div className="text-center py-6 text-muted-foreground text-sm">
+            Inga regler har skapats ännu.
           </div>
         )}
       </CardContent>
