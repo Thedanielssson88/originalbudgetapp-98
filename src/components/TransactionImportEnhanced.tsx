@@ -1399,6 +1399,7 @@ export const TransactionImportEnhanced: React.FC = () => {
           
           <TabsContent value="rules" className="space-y-4">
             <CategoryRuleManagerAdvanced
+              key={refreshKey}
               rules={categoryRules.map(rule => {
                 // Handle both new format (with condition/action) and old format (with bankCategory/appCategoryId)
                 if (rule.condition && rule.action) {
