@@ -227,7 +227,14 @@ export function addCategoryRule(rule: any): void {
     ...rule
   };
   
+  console.log('🔍 [DEBUG] Adding category rule:', newRule);
+  console.log('🔍 [DEBUG] Before adding - total rules:', state.budgetState.categoryRules.length);
+  
   state.budgetState.categoryRules = [...state.budgetState.categoryRules, newRule];
+  
+  console.log('🔍 [DEBUG] After adding - total rules:', state.budgetState.categoryRules.length);
+  console.log('🔍 [DEBUG] All rules:', state.budgetState.categoryRules);
+  
   saveStateToStorage();
   triggerUIRefresh();
 }
