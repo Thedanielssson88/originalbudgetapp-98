@@ -45,6 +45,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Upload, CheckCircle, FileText, Settings, AlertCircle, Circle, CheckSquare, AlertTriangle, ChevronDown, ChevronUp, Trash2, Plus, Edit, Save, X } from 'lucide-react';
 
 import { Bank, BankCSVMapping } from '@/types/bank';
+import { determineTransactionStatus } from '@/services/calculationService';
 import { Account as BudgetAccount } from '@/types/budget';
 import { AddBankDialog } from './AddBankDialog';
 import { TransactionExpandableCard } from './TransactionExpandableCard';
@@ -804,22 +805,15 @@ export const TransactionImportEnhanced: React.FC = () => {
     // Find the current transaction to check its current status
     const currentTransaction = allTransactions.find(t => t.id === transactionId);
     
-    // Calculate new status based on category assignment
-    // Red: Missing main category OR subcategory
-    // Yellow: Has both main category AND subcategory  
-    // Green: Keep green if already approved
-    let newStatus: 'red' | 'yellow' | 'green' = 'red';
+    // Create updated transaction object for status determination
+    const updatedTransaction = {
+      ...currentTransaction,
+      appCategoryId: categoryId,
+      appSubCategoryId: subCategoryId
+    };
     
-    if (currentTransaction?.status === 'green') {
-      // Keep green status if user has already approved
-      newStatus = 'green';
-    } else if (categoryId && subCategoryId) {
-      // Both main and sub category assigned = yellow
-      newStatus = 'yellow';
-    } else {
-      // Missing category or subcategory = red
-      newStatus = 'red';
-    }
+    // Use centralized status determination that includes auto-approval logic
+    const newStatus = determineTransactionStatus(updatedTransaction);
     
     handleTransactionUpdate(transactionId, { 
       appCategoryId: categoryId,
