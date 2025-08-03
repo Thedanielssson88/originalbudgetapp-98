@@ -1398,6 +1398,13 @@ export const TransactionImportEnhanced: React.FC = () => {
           
           
           <TabsContent value="rules" className="space-y-4">
+            {(() => {
+              addMobileDebugLog(`🔍 [RULES TAB] Rendering with ${categoryRules.length} rules`);
+              categoryRules.forEach((rule, index) => {
+                addMobileDebugLog(`🔍 [RULE ${index}] ${rule.id}: ${JSON.stringify(rule.condition)} -> ${rule.action?.appMainCategoryId || rule.appCategoryId}`);
+              });
+              return null;
+            })()}
             <CategoryRuleManagerAdvanced
               key={refreshKey}
               rules={categoryRules.map(rule => {

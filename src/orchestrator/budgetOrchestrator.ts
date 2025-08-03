@@ -235,6 +235,12 @@ export function addCategoryRule(rule: any): void {
   console.log('🔍 [DEBUG] After adding - total rules:', state.budgetState.categoryRules.length);
   console.log('🔍 [DEBUG] All rules:', state.budgetState.categoryRules);
   
+  // Add mobile debug logging too
+  import('../utils/mobileDebugLogger').then(({ addMobileDebugLog }) => {
+    addMobileDebugLog(`🔍 [ORCHESTRATOR] Rule added. Total rules now: ${state.budgetState.categoryRules.length}`);
+    addMobileDebugLog(`🔍 [ORCHESTRATOR] Latest rule ID: ${newRule.id}`);
+  });
+  
   saveStateToStorage();
   triggerUIRefresh();
 }
