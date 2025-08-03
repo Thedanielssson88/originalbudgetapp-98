@@ -46,6 +46,11 @@ export const UncategorizedBankCategories: React.FC<UncategorizedBankCategoriesPr
   // Filter out categories that already have rules
   const uncategorizedCategories = bankCategories.filter(({ bankCategory }) => {
     return !categoryRules.some(rule => {
+      // Add null checking for rule and rule.condition
+      if (!rule || !rule.condition) {
+        return false;
+      }
+      
       if (rule.condition.type === 'categoryMatch') {
         return (rule.condition as any).bankCategory === bankCategory;
       }
