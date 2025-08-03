@@ -418,11 +418,40 @@ function createEmptyMonthData(): MonthData {
   };
 }
 
+// CRITICAL FIX: New function that preserves existing transactions when creating month data
+function createEmptyMonthDataWithTransactionPreservation(monthKey: string): MonthData {
+  console.log(`[BUDGETSTATE] 🔍 Creating month data for ${monthKey} with transaction preservation`);
+  
+  // Check if there are any existing transactions for this month across all stored months
+  const allTransactions = Object.values(state.budgetState.historicalData)
+    .flatMap(month => (month.transactions || []) as any[]);
+  
+  const existingTransactionsForMonth = allTransactions.filter(tx => {
+    const txMonth = tx.date.substring(0, 7); // Get YYYY-MM format
+    return txMonth === monthKey;
+  });
+  
+  console.log(`[BUDGETSTATE] 🔍 Found ${existingTransactionsForMonth.length} existing transactions for month ${monthKey}`);
+  
+  // Create empty month data but preserve any existing transactions
+  const emptyMonth = createEmptyMonthData();
+  emptyMonth.transactions = existingTransactionsForMonth.map(tx => ({
+    ...tx,
+    userDescription: tx.userDescription || '',
+    bankCategory: tx.bankCategory || '',
+    bankSubCategory: tx.bankSubCategory || '',
+    balanceAfter: tx.balanceAfter || 0
+  }));
+  
+  console.log(`[BUDGETSTATE] ✅ Created month ${monthKey} with ${existingTransactionsForMonth.length} preserved transactions`);
+  return emptyMonth;
+}
+
 // Helper function to get current month data
 export function getCurrentMonthData(): MonthData {
   const currentMonth = state.budgetState.selectedMonthKey;
   if (!state.budgetState.historicalData[currentMonth]) {
-    state.budgetState.historicalData[currentMonth] = createEmptyMonthData();
+    state.budgetState.historicalData[currentMonth] = createEmptyMonthDataWithTransactionPreservation(currentMonth);
   }
   return state.budgetState.historicalData[currentMonth];
 }
@@ -431,7 +460,7 @@ export function getCurrentMonthData(): MonthData {
 export function updateCurrentMonthData(updates: Partial<MonthData>): void {
   const currentMonth = state.budgetState.selectedMonthKey;
   if (!state.budgetState.historicalData[currentMonth]) {
-    state.budgetState.historicalData[currentMonth] = createEmptyMonthData();
+    state.budgetState.historicalData[currentMonth] = createEmptyMonthDataWithTransactionPreservation(currentMonth);
   }
   
   state.budgetState.historicalData[currentMonth] = {

@@ -872,9 +872,9 @@ export function updateAccountBalance(accountName: string, balance: number): void
 }
 
 export function updateAccountBalanceForMonth(monthKey: string, accountName: string, balance: number): void {
-  // Ensure the month exists
+  // Ensure the month exists - CRITICAL FIX: Use preservation logic
   if (!state.budgetState.historicalData[monthKey]) {
-    state.budgetState.historicalData[monthKey] = createEmptyMonthData();
+    state.budgetState.historicalData[monthKey] = createEmptyMonthDataWithTransactionPreservation(monthKey);
   }
   
   const monthData = state.budgetState.historicalData[monthKey];
@@ -1042,6 +1042,35 @@ function createEmptyMonthData(): MonthData {
     transactions: [], // NYTT FÄLT
     createdAt: new Date().toISOString()
   };
+}
+
+// CRITICAL FIX: New function that preserves existing transactions when creating month data
+function createEmptyMonthDataWithTransactionPreservation(monthKey: string): MonthData {
+  console.log(`[ORCHESTRATOR] 🔍 Creating month data for ${monthKey} with transaction preservation`);
+  
+  // Check if there are any existing transactions for this month across all stored months
+  const allTransactions = Object.values(state.budgetState.historicalData)
+    .flatMap(month => (month.transactions || []) as any[]);
+  
+  const existingTransactionsForMonth = allTransactions.filter(tx => {
+    const txMonth = tx.date.substring(0, 7); // Get YYYY-MM format
+    return txMonth === monthKey;
+  });
+  
+  console.log(`[ORCHESTRATOR] 🔍 Found ${existingTransactionsForMonth.length} existing transactions for month ${monthKey}`);
+  
+  // Create empty month data but preserve any existing transactions
+  const emptyMonth = createEmptyMonthData();
+  emptyMonth.transactions = existingTransactionsForMonth.map(tx => ({
+    ...tx,
+    userDescription: tx.userDescription || '',
+    bankCategory: tx.bankCategory || '',
+    bankSubCategory: tx.bankSubCategory || '',
+    balanceAfter: tx.balanceAfter || 0
+  }));
+  
+  console.log(`[ORCHESTRATOR] ✅ Created month ${monthKey} with ${existingTransactionsForMonth.length} preserved transactions`);
+  return emptyMonth;
 }
 
 // Legacy compatibility functions (to be removed after component refactoring)
@@ -1461,9 +1490,9 @@ export function setTransactionsForCurrentMonth(transactions: ImportedTransaction
     return;
   }
 
-  // Ensure the month data exists
+  // Ensure the month data exists - CRITICAL FIX: Use preservation logic
   if (!state.budgetState.historicalData[currentMonthKey]) {
-    state.budgetState.historicalData[currentMonthKey] = createEmptyMonthData();
+    state.budgetState.historicalData[currentMonthKey] = createEmptyMonthDataWithTransactionPreservation(currentMonthKey);
   }
 
   // Use the new flexible function
