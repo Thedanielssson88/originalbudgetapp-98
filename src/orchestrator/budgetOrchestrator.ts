@@ -2,7 +2,7 @@
 
 import { state, initializeStateFromStorage, saveStateToStorage, getCurrentMonthData, updateCurrentMonthData } from '../state/budgetState';
 import { StorageKey, set } from '../services/storageService';
-import { calculateFullPrognosis, calculateBudgetResults, calculateAccountProgression, calculateMonthlyBreakdowns, calculateProjectedBalances, applyCategorizationRules } from '../services/calculationService';
+import { calculateFullPrognosis, calculateBudgetResults, calculateAccountProgression, calculateMonthlyBreakdowns, calculateProjectedBalances, applyCategorizationRules, determineTransactionStatus } from '../services/calculationService';
 import { BudgetGroup, MonthData, SavingsGoal, CsvMapping, PlannedTransfer } from '../types/budget';
 import { updateAccountBalanceFromBankData } from '../utils/bankBalanceUtils';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
@@ -162,7 +162,7 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
       bankSubCategory: tx.bankSubCategory || '',
       userDescription: tx.userDescription || '',
       balanceAfter: tx.balanceAfter || 0,
-      status: tx.status || 'red' as const
+      status: tx.status === 'green' ? 'green' : determineTransactionStatus(tx) // Recalculate status except for user-approved green
     }));
     
     state.budgetState.historicalData[monthKey].transactions = monthTransactions;

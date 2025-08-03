@@ -801,9 +801,30 @@ export const TransactionImportEnhanced: React.FC = () => {
     const costGroup = costGroups.find(g => g.name === categoryName);
     const categoryId = costGroup ? costGroup.id : categoryName;
     
+    // Find the current transaction to check its current status
+    const currentTransaction = allTransactions.find(t => t.id === transactionId);
+    
+    // Calculate new status based on category assignment
+    // Red: Missing main category OR subcategory
+    // Yellow: Has both main category AND subcategory  
+    // Green: Keep green if already approved
+    let newStatus: 'red' | 'yellow' | 'green' = 'red';
+    
+    if (currentTransaction?.status === 'green') {
+      // Keep green status if user has already approved
+      newStatus = 'green';
+    } else if (categoryId && subCategoryId) {
+      // Both main and sub category assigned = yellow
+      newStatus = 'yellow';
+    } else {
+      // Missing category or subcategory = red
+      newStatus = 'red';
+    }
+    
     handleTransactionUpdate(transactionId, { 
       appCategoryId: categoryId,
-      appSubCategoryId: subCategoryId 
+      appSubCategoryId: subCategoryId,
+      status: newStatus
     });
   };
 
