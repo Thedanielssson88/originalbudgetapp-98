@@ -796,16 +796,40 @@ export function applyCategorizationRules(
         ? rule.action.positiveTransactionType 
         : rule.action.negativeTransactionType;
       
+      // Bestäm status baserat på om både huvudkategori och underkategori finns
+      const hasMainCategory = rule.action.appMainCategoryId;
+      const hasSubCategory = rule.action.appSubCategoryId;
+      const status = (hasMainCategory && hasSubCategory) ? 'yellow' : 'red';
+      
       return {
         ...transaction,
         appCategoryId: rule.action.appMainCategoryId,
         appSubCategoryId: rule.action.appSubCategoryId,
         type: transactionType,
-        status: 'yellow', // Markera som automatiskt kategoriserad
+        status: status,
       };
     }
   }
 
   // Om ingen regel matchar, returnera transaktionen som den är
   return transaction;
+}
+
+/**
+ * Determines transaction status based on category assignment
+ * Red: Missing main category OR subcategory
+ * Yellow: Has both main category AND subcategory  
+ * Green: User approved (unchanged)
+ */
+export function determineTransactionStatus(transaction: any): 'red' | 'yellow' | 'green' {
+  // If already green (user approved), keep it green
+  if (transaction.status === 'green') {
+    return 'green';
+  }
+  
+  // Check if both main category and subcategory are present
+  const hasMainCategory = transaction.appCategoryId;
+  const hasSubCategory = transaction.appSubCategoryId;
+  
+  return (hasMainCategory && hasSubCategory) ? 'yellow' : 'red';
 }
