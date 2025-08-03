@@ -784,11 +784,17 @@ export function applyCategorizationRules(
     // Om en match hittas, applicera regeln och avbryt
     if (isMatch) {
       console.log(`Regel ${rule.id} matchade transaktion ${transaction.id}.`);
+      
+      // Välj rätt transaktionstyp baserat på beloppets tecken
+      const transactionType = transaction.amount >= 0 
+        ? rule.action.positiveTransactionType 
+        : rule.action.negativeTransactionType;
+      
       return {
         ...transaction,
         appCategoryId: rule.action.appMainCategoryId,
         appSubCategoryId: rule.action.appSubCategoryId,
-        type: rule.action.transactionType,
+        type: transactionType,
         status: 'yellow', // Markera som automatiskt kategoriserad
       };
     }
