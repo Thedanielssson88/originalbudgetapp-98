@@ -759,6 +759,12 @@ export function applyCategorizationRules(
   for (const rule of sortedRules) {
     if (!rule.isActive) continue;
     
+    // Skip rules without proper condition structure
+    if (!rule.condition || !rule.condition.type) {
+      console.warn('Skipping rule without proper condition:', rule);
+      continue;
+    }
+    
     let isMatch = false;
     
     // Kontrollera om transaktionen matchar regelns villkor
