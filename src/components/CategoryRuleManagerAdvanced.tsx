@@ -171,6 +171,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                   <SelectContent>
                     <SelectItem value="Transaction">Transaktion</SelectItem>
                     <SelectItem value="Transfer">Överföring</SelectItem>
+                    <SelectItem value="ExpenseClaim">Utläggsrekvisition</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -224,7 +225,8 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                   <TableCell>{rule.action.appMainCategoryId}</TableCell>
                   <TableCell>
                     <Badge variant="outline">
-                      {rule.action.transactionType === 'Transaction' ? 'Transaktion' : 'Överföring'}
+                      {rule.action.transactionType === 'Transaction' ? 'Transaktion' : 
+                       rule.action.transactionType === 'Transfer' ? 'Överföring' : 'Utläggsrekvisition'}
                     </Badge>
                   </TableCell>
                   <TableCell>

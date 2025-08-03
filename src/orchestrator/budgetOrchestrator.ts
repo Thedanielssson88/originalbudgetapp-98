@@ -317,6 +317,8 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
   let amountColumnIndex: number; 
   let descriptionColumnIndex: number;
   let balanceColumnIndex: number = -1;
+  let bankCategoryIndex: number = -1;
+  let bankSubCategoryIndex: number = -1;
   
   if (savedMapping && savedMapping.columnMapping) {
     // Use saved mappings - find which CSV columns map to our app fields

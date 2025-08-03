@@ -54,6 +54,8 @@ import { SavingsLinkDialog } from './SavingsLinkDialog';
 import { CostCoverageDialog } from './CostCoverageDialog';
 import { ExpenseClaimDialog } from './ExpenseClaimDialog';
 import { BalanceCorrectionDialog } from './BalanceCorrectionDialog';
+import { CategoryRuleManagerAdvanced } from './CategoryRuleManagerAdvanced';
+import { UncategorizedBankCategories } from './UncategorizedBankCategories';
 import { useBudget } from '@/hooks/useBudget';
 import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping, getAllTransactionsFromDatabase, linkAccountToBankTemplate } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState, setMainCategories } from '../orchestrator/budgetOrchestrator';
@@ -875,7 +877,7 @@ export const TransactionImportEnhanced: React.FC = () => {
 
   const handleUpdateRule = () => {
     if (editingRule) {
-      updateCategoryRule(editingRule);
+      updateCategoryRule(editingRule.id, editingRule);
       setEditingRule(null);
       
       toast({
@@ -1381,200 +1383,95 @@ export const TransactionImportEnhanced: React.FC = () => {
           
           
           <TabsContent value="rules" className="space-y-4">
+            <CategoryRuleManagerAdvanced
+              rules={categoryRules.map(rule => ({
+                id: rule.id,
+                priority: rule.priority,
+                condition: rule.description 
+                  ? { type: 'textContains' as const, value: rule.description }
+                  : { type: 'categoryMatch' as const, bankCategory: rule.bankCategory, bankSubCategory: rule.bankSubCategory },
+                action: {
+                  appMainCategoryId: rule.appCategoryId,
+                  appSubCategoryId: rule.appSubCategoryId,
+                  transactionType: rule.transactionType === 'InternalTransfer' ? 'Transfer' as const : 'Transaction' as const
+                },
+                isActive: rule.isActive
+              }))}
+              onRulesChange={(newRules) => {
+                // Convert the advanced rules back to storage format
+                const formattedRules = newRules.map(rule => ({
+                  id: rule.id,
+                  bankCategory: rule.condition.type === 'categoryMatch' ? (rule.condition as any).bankCategory : '',
+                  bankSubCategory: rule.condition.type === 'categoryMatch' ? (rule.condition as any).bankSubCategory || '' : '',
+                  appCategoryId: rule.action.appMainCategoryId,
+                  appSubCategoryId: rule.action.appSubCategoryId || '',
+                  transactionType: rule.action.transactionType === 'Transfer' ? 'InternalTransfer' as const : 'Transaction' as const,
+                  description: rule.condition.type === 'textContains' || rule.condition.type === 'textStartsWith' 
+                    ? (rule.condition as any).value : '',
+                  priority: rule.priority,
+                  isActive: rule.isActive
+                }));
+                
+                // Clear existing rules and add new ones
+                categoryRules.forEach(oldRule => {
+                  deleteCategoryRule(oldRule.id);
+                });
+                
+                formattedRules.forEach(rule => {
+                  addCategoryRule(rule);
+                });
+                
+                triggerRefresh();
+              }}
+              mainCategories={mainCategories}
+            />
+            
+            {/* Uncategorized Bank Categories */}
             <Card>
               <CardHeader>
-                <CardTitle>Kategoriseringsregler</CardTitle>
+                <CardTitle>Okategoriserade Bankkategorier</CardTitle>
                 <CardDescription>
-                  Skapa regler för automatisk kategorisering av transaktioner baserat på bankens kategorier eller beskrivningar.
+                  Bankkategorier som inte har någon regel än. Klicka för att skapa en regel automatiskt.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Add new rule form */}
-                <div className="p-4 border rounded-lg space-y-4">
-                  <h4 className="font-medium">Lägg till ny regel</h4>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <Label htmlFor="bankCategory">Bankens kategori</Label>
-                      <Input
-                        id="bankCategory"
-                        value={newRule.bankCategory || ''}
-                        onChange={(e) => setNewRule({ ...newRule, bankCategory: e.target.value })}
-                        placeholder="t.ex. 'Livsmedel'"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="bankSubCategory">Bankens underkategori (valfritt)</Label>
-                      <Input
-                        id="bankSubCategory"
-                        value={newRule.bankSubCategory || ''}
-                        onChange={(e) => setNewRule({ ...newRule, bankSubCategory: e.target.value })}
-                        placeholder="t.ex. 'Dagligvaror'"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="description">Beskrivningsmatch (valfritt)</Label>
-                      <Input
-                        id="description"
-                        value={newRule.description || ''}
-                        onChange={(e) => setNewRule({ ...newRule, description: e.target.value })}
-                        placeholder="t.ex. 'ICA'"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="transactionType">Transaktionstyp</Label>
-                      <Select
-                        value={newRule.transactionType || ''}
-                        onValueChange={(value) => setNewRule({ ...newRule, transactionType: value as 'Transaction' | 'InternalTransfer' })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Välj typ" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Transaction">Transaktion</SelectItem>
-                          <SelectItem value="InternalTransfer">Intern överföring</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="appCategory">App-kategori</Label>
-                      <Select
-                        value={newRule.appCategoryId || ''}
-                        onValueChange={(value) => setNewRule({ ...newRule, appCategoryId: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Välj kategori" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {mainCategories.map(category => (
-                            <SelectItem key={category} value={category}>
-                              {category}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="priority">Prioritet</Label>
-                      <Input
-                        id="priority"
-                        type="number"
-                        value={newRule.priority || 1}
-                        onChange={(e) => setNewRule({ ...newRule, priority: parseInt(e.target.value) })}
-                        min="1"
-                        max="10"
-                      />
-                    </div>
-                  </div>
-                  <Button onClick={handleAddRule} className="w-full">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Lägg till regel
-                  </Button>
-                </div>
+              <CardContent>
+                <UncategorizedBankCategories 
+                  transactions={allTransactions}
+                  categoryRules={categoryRules}
+                  onCreateRule={(bankCategory, bankSubCategory) => {
+                    const newRule = {
+                      id: uuidv4(),
+                      bankCategory,
+                      bankSubCategory: bankSubCategory || '',
+                      appCategoryId: mainCategories[0] || '',
+                      appSubCategoryId: '',
+                      transactionType: 'Transaction' as const,
+                      description: '',
+                      priority: 100,
+                      isActive: true
+                    };
+                    addCategoryRule(newRule);
+                    triggerRefresh();
+                  }}
+                />
+              </CardContent>
+            </Card>
 
-                {/* Existing rules */}
-                <div className="space-y-3">
-                  <h4 className="font-medium">Befintliga regler ({categoryRules.length})</h4>
-                  {categoryRules.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      Inga regler skapade än. Lägg till din första regel ovan.
-                    </div>
-                  ) : (
-                    categoryRules.map((rule) => (
-                      <Card key={rule.id}>
-                        <CardContent className="p-4">
-                          {editingRule?.id === rule.id ? (
-                            // Edit mode
-                            <div className="space-y-4">
-                              <div className="grid gap-4 sm:grid-cols-2">
-                                <div>
-                                  <Label>Bankens kategori</Label>
-                                  <Input
-                                    value={editingRule.bankCategory}
-                                    onChange={(e) => setEditingRule({ ...editingRule, bankCategory: e.target.value })}
-                                  />
-                                </div>
-                                <div>
-                                  <Label>Bankens underkategori</Label>
-                                  <Input
-                                    value={editingRule.bankSubCategory || ''}
-                                    onChange={(e) => setEditingRule({ ...editingRule, bankSubCategory: e.target.value })}
-                                  />
-                                </div>
-                                <div>
-                                  <Label>Beskrivning</Label>
-                                  <Input
-                                    value={editingRule.description || ''}
-                                    onChange={(e) => setEditingRule({ ...editingRule, description: e.target.value })}
-                                  />
-                                </div>
-                                <div>
-                                  <Label>App-kategori</Label>
-                                  <Select
-                                    value={editingRule.appCategoryId}
-                                    onValueChange={(value) => setEditingRule({ ...editingRule, appCategoryId: value })}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {mainCategories.map(category => (
-                                        <SelectItem key={category} value={category}>
-                                          {category}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </div>
-                              <div className="flex gap-2">
-                                <Button onClick={handleUpdateRule} size="sm">
-                                  <Save className="w-4 h-4 mr-1" />
-                                  Spara
-                                </Button>
-                                <Button onClick={() => setEditingRule(null)} variant="outline" size="sm">
-                                  Avbryt
-                                </Button>
-                              </div>
-                            </div>
-                          ) : (
-                            // View mode
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-1">
-                                <div className="font-medium">
-                                  {rule.bankCategory}
-                                  {rule.bankSubCategory && ` → ${rule.bankSubCategory}`}
-                                  {rule.description && ` (innehåller "${rule.description}")`}
-                                </div>
-                                <div className="text-sm text-muted-foreground">
-                                  Blir: {rule.appCategoryId} • Typ: {rule.transactionType} • Prioritet: {rule.priority}
-                                </div>
-                              </div>
-                              <div className="flex gap-2">
-                                <Button onClick={() => handleEditRule(rule)} variant="outline" size="sm">
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                                <Button onClick={() => handleDeleteRule(rule.id)} variant="destructive" size="sm">
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))
-                  )}
-                </div>
-
-                {/* Category management */}
-                <div className="border-t pt-6">
-                  <CategoryManagementSection 
-                    costGroups={costGroups} 
-                    onCategoriesChange={() => {
-                      // Trigger a refresh of categories
-                      window.location.reload();
-                    }}
-                  />
-                </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Kategorihantering</CardTitle>
+                <CardDescription>
+                  Hantera huvudkategorier och kostnadskategorier för dina transaktioner.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <CategoryManagementSection 
+                  costGroups={costGroups} 
+                  onCategoriesChange={() => {
+                    // Trigger a refresh of categories
+                    window.location.reload();
+                  }}
+                />
               </CardContent>
             </Card>
           </TabsContent>
