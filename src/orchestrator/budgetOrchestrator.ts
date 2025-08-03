@@ -409,9 +409,9 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
         }
       }
 
-      // NEW: Parse bank categories (simplified for now)
-      const bankCategory = undefined; // Will be enhanced in future iterations
-      const bankSubCategory = undefined;
+      // Parse bank categories from CSV columns
+      const bankCategory = bankCategoryIndex >= 0 ? fields[bankCategoryIndex].trim() : '';
+      const bankSubCategory = bankSubCategoryIndex >= 0 ? fields[bankSubCategoryIndex].trim() : '';
 
       const description = descriptionColumnIndex >= 0 ? fields[descriptionColumnIndex].trim() : '';
       console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: Description: "${description}"`);
