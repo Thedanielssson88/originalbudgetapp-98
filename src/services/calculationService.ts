@@ -742,3 +742,58 @@ export function getInternalTransferSummary(
   
   return result;
 }
+
+// ============= REGEL MOTOR FÖR KATEGORISERING =============
+
+/**
+ * Applicerar kategoriseringsregler på en transaktion
+ * Textbaserade regler har högre prioritet än kategoriregler
+ */
+export function applyCategorizationRules(
+  transaction: any, 
+  rules: any[]
+): any {
+  // Sortera reglerna så att textregler (högre prioritet) körs först
+  const sortedRules = [...rules].sort((a, b) => a.priority - b.priority);
+
+  for (const rule of sortedRules) {
+    if (!rule.isActive) continue;
+    
+    let isMatch = false;
+    
+    // Kontrollera om transaktionen matchar regelns villkor
+    switch (rule.condition.type) {
+      case 'textContains':
+        if (transaction.description?.toLowerCase().includes(rule.condition.value.toLowerCase())) {
+          isMatch = true;
+        }
+        break;
+      case 'textStartsWith':
+        if (transaction.description?.toLowerCase().startsWith(rule.condition.value.toLowerCase())) {
+          isMatch = true;
+        }
+        break;
+      case 'categoryMatch':
+        if (transaction.bankCategory === rule.condition.bankCategory && 
+            (!rule.condition.bankSubCategory || transaction.bankSubCategory === rule.condition.bankSubCategory)) {
+          isMatch = true;
+        }
+        break;
+    }
+
+    // Om en match hittas, applicera regeln och avbryt
+    if (isMatch) {
+      console.log(`Regel ${rule.id} matchade transaktion ${transaction.id}.`);
+      return {
+        ...transaction,
+        appCategoryId: rule.action.appMainCategoryId,
+        appSubCategoryId: rule.action.appSubCategoryId,
+        type: rule.action.transactionType,
+        status: 'yellow', // Markera som automatiskt kategoriserad
+      };
+    }
+  }
+
+  // Om ingen regel matchar, returnera transaktionen som den är
+  return transaction;
+}

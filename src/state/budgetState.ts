@@ -54,6 +54,9 @@ export const state: AppState = {
     // Main categories for all groups (costs, savings, transactions) - loaded from storage, no defaults
     mainCategories: [],
     
+    // Nya regelmotor för kategorisering
+    categoryRules: [],
+    
     // Transaction import state
     transactionImport: {
       categoryRules: [],

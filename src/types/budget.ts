@@ -4,8 +4,8 @@ export interface Transaction {
   id: string; // Ett unikt ID, t.ex. från bankens referens + datum
   accountId: string; // Vilket av våra konton den tillhör
   date: string;
-  bankCategory: string; // Bankens ursprungliga kategori
-  bankSubCategory: string;
+  bankCategory?: string; // Bankens ursprungliga kategori (OPTIONAL för bakåtkompatibilitet)
+  bankSubCategory?: string; // Bankens underkategori (OPTIONAL för bakåtkompatibilitet)
   description: string; // Bankens text
   userDescription: string; // Användarens egna text/notering
   amount: number; // Originalbelopp från banken, ändras aldrig
@@ -18,6 +18,24 @@ export interface Transaction {
   correctedAmount?: number; // För "Täck en kostnad"-logiken
   savingsTargetId?: string; // ID för kopplat sparmål eller sparkategori
   isManuallyChanged?: boolean; // Håller reda på om användaren gjort en ändring
+}
+
+// Nya reglerdefinitioner för kategorisering
+export type RuleCondition = 
+  | { type: 'textContains'; value: string }
+  | { type: 'textStartsWith'; value: string }
+  | { type: 'categoryMatch'; bankCategory: string; bankSubCategory?: string };
+
+export interface CategoryRule {
+  id: string; // UUID
+  priority: number; // För att kunna sortera (textregler får högre prioritet)
+  condition: RuleCondition;
+  action: {
+    appMainCategoryId: string;
+    appSubCategoryId?: string;
+    transactionType: 'Transaction' | 'Transfer';
+  };
+  isActive: boolean; // Om regeln är aktiv eller inte
 }
 
 // Detta representerar nu en enskild budgetpost (både kostnad och sparande)
@@ -220,7 +238,10 @@ export interface BudgetState {
   // Main categories for all groups (costs, savings, transactions)
   mainCategories: string[];
   
-  // Transaction import state
+  // Nya regelmotor för kategorisering
+  categoryRules: CategoryRule[];
+  
+  // Transaction import state (behålls för bakåtkompatibilitet)
   transactionImport: {
     categoryRules: any[];
     fileStructures: any[];

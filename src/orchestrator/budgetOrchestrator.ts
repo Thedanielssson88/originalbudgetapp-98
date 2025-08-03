@@ -2,7 +2,7 @@
 
 import { state, initializeStateFromStorage, saveStateToStorage, getCurrentMonthData, updateCurrentMonthData } from '../state/budgetState';
 import { StorageKey, set } from '../services/storageService';
-import { calculateFullPrognosis, calculateBudgetResults, calculateAccountProgression, calculateMonthlyBreakdowns, calculateProjectedBalances } from '../services/calculationService';
+import { calculateFullPrognosis, calculateBudgetResults, calculateAccountProgression, calculateMonthlyBreakdowns, calculateProjectedBalances, applyCategorizationRules } from '../services/calculationService';
 import { BudgetGroup, MonthData, SavingsGoal, CsvMapping, PlannedTransfer } from '../types/budget';
 import { updateAccountBalanceFromBankData } from '../utils/bankBalanceUtils';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
@@ -130,8 +130,8 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
       };
     }
     
-    // New transaction or unchanged - apply category rules
-    return applyCategoryRules(fileTx, state.budgetState.transactionImport?.categoryRules || []);
+    // New transaction or unchanged - apply category rules using the new advanced rule engine
+    return applyCategorizationRules(fileTx, state.budgetState.categoryRules || []);
   });
   
   // 7. Combine cleaned list with new merged transactions
@@ -218,22 +218,32 @@ function createEmptyMonthDataForImport() {
   };
 }
 
-// Apply category rules to a transaction
-function applyCategoryRules(transaction: ImportedTransaction, categoryRules: CategoryRule[]): ImportedTransaction {
-  let categorizedTransaction = { ...transaction };
+// ============= REGELHANTERING =============
+
+export function addCategoryRule(rule: any): void {
+  const newRule = {
+    id: uuidv4(),
+    isActive: true,
+    ...rule
+  };
   
-  for (const rule of categoryRules) {
-    if (rule.isActive && rule.description && 
-        transaction.description.toLowerCase().includes(rule.description.toLowerCase())) {
-      categorizedTransaction.type = rule.transactionType;
-      categorizedTransaction.appCategoryId = rule.appCategoryId;
-      categorizedTransaction.appSubCategoryId = rule.appSubCategoryId;
-      categorizedTransaction.status = 'yellow'; // Auto-categorized
-      break;
-    }
-  }
-  
-  return categorizedTransaction;
+  state.budgetState.categoryRules = [...state.budgetState.categoryRules, newRule];
+  saveStateToStorage();
+  triggerUIRefresh();
+}
+
+export function updateCategoryRule(ruleId: string, updates: Partial<any>): void {
+  state.budgetState.categoryRules = state.budgetState.categoryRules.map(rule =>
+    rule.id === ruleId ? { ...rule, ...updates } : rule
+  );
+  saveStateToStorage();
+  triggerUIRefresh();
+}
+
+export function deleteCategoryRule(ruleId: string): void {
+  state.budgetState.categoryRules = state.budgetState.categoryRules.filter(rule => rule.id !== ruleId);
+  saveStateToStorage();
+  triggerUIRefresh();
 }
 
 // Enhanced CSV parsing function that returns both transactions and mapping info
@@ -319,12 +329,20 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
     const balanceColumn = Object.keys(savedMapping.columnMapping).find(csvCol => 
       savedMapping.columnMapping[csvCol] === 'balanceAfter' || savedMapping.columnMapping[csvCol] === 'saldo'
     );
+    const bankCategoryColumn = Object.keys(savedMapping.columnMapping).find(csvCol => 
+      savedMapping.columnMapping[csvCol] === 'bankCategory'
+    );
+    const bankSubCategoryColumn = Object.keys(savedMapping.columnMapping).find(csvCol => 
+      savedMapping.columnMapping[csvCol] === 'bankSubCategory'
+    );
     
     // Get the indices of these columns in the headers
     dateColumnIndex = dateColumn ? headers.indexOf(dateColumn) : -1;
     amountColumnIndex = amountColumn ? headers.indexOf(amountColumn) : -1;
     descriptionColumnIndex = descriptionColumn ? headers.indexOf(descriptionColumn) : -1;
     balanceColumnIndex = balanceColumn ? headers.indexOf(balanceColumn) : -1;
+    bankCategoryIndex = bankCategoryColumn ? headers.indexOf(bankCategoryColumn) : -1;
+    bankSubCategoryIndex = bankSubCategoryColumn ? headers.indexOf(bankSubCategoryColumn) : -1;
     
     console.log(`[ORCHESTRATOR] 🔍 Dynamic column mapping - Date: ${dateColumn}(${dateColumnIndex}), Amount: ${amountColumn}(${amountColumnIndex}), Description: ${descriptionColumn}(${descriptionColumnIndex}), Balance: ${balanceColumn}(${balanceColumnIndex})`);
   } else {
@@ -341,6 +359,12 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
     );
     balanceColumnIndex = headers.findIndex(h => 
       h.toLowerCase().includes('saldo') || h.toLowerCase().includes('balance')
+    );
+    bankCategoryIndex = headers.findIndex(h => 
+      h.toLowerCase().includes('kategori') || h.toLowerCase().includes('category')
+    );
+    bankSubCategoryIndex = headers.findIndex(h => 
+      h.toLowerCase().includes('underkategori') || h.toLowerCase().includes('subcategory')
     );
   }
   
@@ -380,9 +404,12 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
         const parsedBalance = parseFloat(cleanedBalanceField);
         if (!isNaN(parsedBalance)) {
           balanceAfter = parsedBalance;
-          console.log(`[ORCHESTRATOR] 🔍 Parsed balance for transaction ${i}: ${balanceAfter}`);
         }
       }
+
+      // NEW: Parse bank categories (simplified for now)
+      const bankCategory = undefined; // Will be enhanced in future iterations
+      const bankSubCategory = undefined;
 
       const description = descriptionColumnIndex >= 0 ? fields[descriptionColumnIndex].trim() : '';
       console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: Description: "${description}"`);
@@ -392,7 +419,9 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
         date: parsedDate, // Already in YYYY-MM-DD string format
         description: description,
         amount: parsedAmount,
-        balanceAfter: balanceAfter, // NEW: Include balance after transaction
+        balanceAfter: balanceAfter || 0,
+        bankCategory: bankCategory,
+        bankSubCategory: bankSubCategory,
         accountId: accountId,
         type: 'Transaction',
         status: 'red',
@@ -1365,29 +1394,6 @@ export function setTransactionsForCurrentMonth(transactions: ImportedTransaction
   updateTransactionsForMonth(currentMonthKey, transactions);
 }
 
-// ===== CATEGORY RULES MANAGEMENT =====
-
-export function addCategoryRule(newRule: Omit<CategoryRule, 'id'>): void {
-  const ruleWithId = { ...newRule, id: uuidv4() };
-  state.budgetState.transactionImport.categoryRules.push(ruleWithId);
-  saveStateToStorage();
-  triggerUIRefresh();
-}
-
-export function updateCategoryRule(updatedRule: CategoryRule): void {
-  const ruleIndex = state.budgetState.transactionImport.categoryRules.findIndex(r => r.id === updatedRule.id);
-  if (ruleIndex !== -1) {
-    state.budgetState.transactionImport.categoryRules[ruleIndex] = updatedRule;
-    saveStateToStorage();
-    triggerUIRefresh();
-  }
-}
-
-export function deleteCategoryRule(ruleId: string): void {
-  state.budgetState.transactionImport.categoryRules = state.budgetState.transactionImport.categoryRules.filter(r => r.id !== ruleId);
-  saveStateToStorage();
-  triggerUIRefresh();
-}
 
 // ===== CSV MAPPING MANAGEMENT =====
 
