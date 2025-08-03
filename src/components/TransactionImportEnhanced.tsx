@@ -338,8 +338,9 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
   const [activeTransactionTab, setActiveTransactionTab] = useState<'all' | 'account' | 'rules'>('all');
   const [hideGreenTransactions, setHideGreenTransactions] = useState<boolean>(false);
-  const [showAllSystemTransactions, setShowAllSystemTransactions] = useState<boolean>(false);
   const [selectedAccountForView, setSelectedAccountForView] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'red' | 'yellow' | 'green'>('all');
+  const [monthFilter, setMonthFilter] = useState<string>('current'); // 'all' or 'YYYY-MM' or 'current'
   
   // State for category selection dialog
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
@@ -1268,15 +1269,29 @@ export const TransactionImportEnhanced: React.FC = () => {
     );
   };
   const renderCategorizationStep = () => {
-    // Show all system transactions if checkbox is checked, otherwise only CSV-imported transactions
-    const baseTransactions = showAllSystemTransactions 
-      ? allTransactions  // Show all transactions in the system
-      : allTransactions.filter(t => 
-          t.fileSource && 
-          t.fileSource !== 'system' && 
-          t.fileSource !== 'budgetState' &&
-          t.fileSource.includes('.csv') || t.fileSource.includes('.CSV')
-        ); // Show only CSV-imported transactions
+    // Always show all transactions in the system
+    let baseTransactions = allTransactions;
+    
+    // Filter by month if not 'all' or 'current'
+    if (monthFilter !== 'all' && monthFilter !== 'current') {
+      const [year, month] = monthFilter.split('-').map(Number);
+      baseTransactions = baseTransactions.filter(t => {
+        const transactionDate = new Date(t.date);
+        return transactionDate.getFullYear() === year && transactionDate.getMonth() + 1 === month;
+      });
+    } else if (monthFilter === 'current') {
+      // Filter by current selected month from budget state
+      const [year, month] = budgetState.selectedMonthKey.split('-').map(Number);
+      baseTransactions = baseTransactions.filter(t => {
+        const transactionDate = new Date(t.date);
+        return transactionDate.getFullYear() === year && transactionDate.getMonth() + 1 === month;
+      });
+    }
+    
+    // Filter by status
+    if (statusFilter !== 'all') {
+      baseTransactions = baseTransactions.filter(t => t.status === statusFilter);
+    }
     
     const filteredTransactions = hideGreenTransactions 
       ? baseTransactions.filter(t => t.status !== 'green')
@@ -1294,12 +1309,37 @@ export const TransactionImportEnhanced: React.FC = () => {
         {/* Mobile-optimized controls */}
         <div className="space-y-3 sm:space-y-0 sm:flex sm:items-center sm:gap-4 p-3 sm:p-4 bg-muted/30 rounded-lg">
           <div className="flex items-center space-x-2">
-            <Checkbox
-              id="showAllSystem"
-              checked={showAllSystemTransactions}
-              onCheckedChange={(checked) => setShowAllSystemTransactions(checked === true)}
-            />
-            <Label htmlFor="showAllSystem" className="text-sm">Visa alla transaktioner i systemet</Label>
+            <Label htmlFor="statusFilter" className="text-sm">Visa bara status:</Label>
+            <Select value={statusFilter} onValueChange={(value: 'all' | 'red' | 'yellow' | 'green') => setStatusFilter(value)}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alla</SelectItem>
+                <SelectItem value="red">Röd</SelectItem>
+                <SelectItem value="yellow">Gul</SelectItem>
+                <SelectItem value="green">Grön</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <Label htmlFor="monthFilter" className="text-sm">Månad:</Label>
+            <Select value={monthFilter} onValueChange={setMonthFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Visa alla</SelectItem>
+                <SelectItem value="current">Aktuell månad</SelectItem>
+                {/* Generate available months from historical data */}
+                {Object.keys(budgetState?.historicalData || {}).sort().reverse().map(monthKey => (
+                  <SelectItem key={monthKey} value={monthKey}>
+                    {new Date(monthKey + '-01').toLocaleDateString('sv-SE', { year: 'numeric', month: 'long' })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           
           <div className="flex items-center space-x-2">
@@ -1312,8 +1352,7 @@ export const TransactionImportEnhanced: React.FC = () => {
           </div>
           
           <div className="text-xs sm:text-sm text-muted-foreground">
-            Visar {filteredTransactions.length} av {baseTransactions.length} transaktioner
-            {showAllSystemTransactions && ' (alla systemtransaktioner)'}
+            Visar {filteredTransactions.length} av {allTransactions.length} transaktioner
           </div>
           
           <div className="flex flex-col sm:flex-row sm:ml-auto gap-2">
@@ -1413,7 +1452,6 @@ export const TransactionImportEnhanced: React.FC = () => {
                 <CardTitle>Alla transaktioner</CardTitle>
                 <CardDescription>
                   {filteredTransactions.length} transaktioner totalt
-                  {showAllSystemTransactions && ' (från hela systemet)'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
