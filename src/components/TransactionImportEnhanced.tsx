@@ -652,6 +652,54 @@ export const TransactionImportEnhanced: React.FC = () => {
     );
   };
 
+  // Select all filtered transactions
+  const selectAllFilteredTransactions = (filteredTransactions: ImportedTransaction[]) => {
+    const filteredIds = filteredTransactions.map(t => t.id);
+    setSelectedTransactions(prev => {
+      const currentlySelected = prev.filter(id => filteredIds.includes(id));
+      if (currentlySelected.length === filteredIds.length) {
+        // All are selected, unselect all
+        return prev.filter(id => !filteredIds.includes(id));
+      } else {
+        // Not all are selected, select all
+        const newSelection = [...prev.filter(id => !filteredIds.includes(id)), ...filteredIds];
+        return newSelection;
+      }
+    });
+  };
+
+  // Select all transactions for a specific account
+  const selectAllAccountTransactions = (accountTransactions: ImportedTransaction[]) => {
+    const accountIds = accountTransactions.map(t => t.id);
+    setSelectedTransactions(prev => {
+      const currentlySelected = prev.filter(id => accountIds.includes(id));
+      if (currentlySelected.length === accountIds.length) {
+        // All are selected, unselect all
+        return prev.filter(id => !accountIds.includes(id));
+      } else {
+        // Not all are selected, select all
+        const newSelection = [...prev.filter(id => !accountIds.includes(id)), ...accountIds];
+        return newSelection;
+      }
+    });
+  };
+
+  // Select all transactions for a specific date
+  const selectAllDateTransactions = (dateTransactions: ImportedTransaction[]) => {
+    const dateIds = dateTransactions.map(t => t.id);
+    setSelectedTransactions(prev => {
+      const currentlySelected = prev.filter(id => dateIds.includes(id));
+      if (currentlySelected.length === dateIds.length) {
+        // All are selected, unselect all
+        return prev.filter(id => !dateIds.includes(id));
+      } else {
+        // Not all are selected, select all
+        const newSelection = [...prev.filter(id => !dateIds.includes(id)), ...dateIds];
+        return newSelection;
+      }
+    });
+  };
+
   // UNIFIED UPDATE FUNCTION - This connects the UI back to the central state
   const handleTransactionUpdate = (transactionId: string, updates: Partial<ImportedTransaction>) => {
     console.log(`🔄 [TransactionImportEnhanced] Updating transaction ${transactionId} with updates:`, updates);
@@ -1447,12 +1495,26 @@ export const TransactionImportEnhanced: React.FC = () => {
           </TabsContent>
           
           <TabsContent value="all" className="space-y-4">
-             <Card>
-              <CardHeader>
-                <CardTitle>Alla transaktioner</CardTitle>
-                <CardDescription>
-                  {filteredTransactions.length} transaktioner totalt
-                </CardDescription>
+              <Card>
+               <CardHeader>
+                 <CardTitle className="flex items-center justify-between">
+                   <span>Alla transaktioner</span>
+                   <Button
+                     onClick={() => selectAllFilteredTransactions(filteredTransactions)}
+                     size="sm"
+                     variant="outline"
+                     className="text-xs"
+                   >
+                     {(() => {
+                       const filteredIds = filteredTransactions.map(t => t.id);
+                       const currentlySelected = selectedTransactions.filter(id => filteredIds.includes(id));
+                       return currentlySelected.length === filteredIds.length ? 'Avmarkera alla' : 'Markera alla';
+                     })()}
+                   </Button>
+                 </CardTitle>
+                 <CardDescription>
+                   {filteredTransactions.length} transaktioner totalt
+                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -1518,6 +1580,18 @@ export const TransactionImportEnhanced: React.FC = () => {
                     <div className="text-sm text-muted-foreground">
                       {accountTransactions.length} transaktioner
                     </div>
+                    <Button
+                      onClick={() => selectAllAccountTransactions(accountTransactions)}
+                      size="sm"
+                      variant="outline"
+                      className="text-xs"
+                    >
+                      {(() => {
+                        const accountIds = accountTransactions.map(t => t.id);
+                        const currentlySelected = selectedTransactions.filter(id => accountIds.includes(id));
+                        return currentlySelected.length === accountIds.length ? 'Avmarkera' : 'Markera alla';
+                      })()}
+                    </Button>
                   </div>
 
                   {isExpanded && (
@@ -1529,26 +1603,38 @@ export const TransactionImportEnhanced: React.FC = () => {
                         
                         return (
                           <div key={dateKey} className="border rounded-lg p-2 space-y-2">
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => toggleDateExpansion(dateKey)}
-                                className="p-1"
-                              >
-                                {isDateExpanded ? (
-                                  <ChevronUp className="h-3 w-3" />
-                                ) : (
-                                  <ChevronDown className="h-3 w-3" />
-                                )}
-                              </Button>
-                              <span className="flex-1 text-sm font-medium">
-                                {new Date(date).toLocaleDateString('sv-SE')}
-                              </span>
-                              <div className="text-xs text-muted-foreground">
-                                {dateTransactions.length} transaktioner
-                              </div>
-                            </div>
+                             <div className="flex items-center gap-2">
+                               <Button
+                                 variant="ghost"
+                                 size="sm"
+                                 onClick={() => toggleDateExpansion(dateKey)}
+                                 className="p-1"
+                               >
+                                 {isDateExpanded ? (
+                                   <ChevronUp className="h-3 w-3" />
+                                 ) : (
+                                   <ChevronDown className="h-3 w-3" />
+                                 )}
+                               </Button>
+                               <span className="flex-1 text-sm font-medium">
+                                 {new Date(date).toLocaleDateString('sv-SE')}
+                               </span>
+                               <div className="text-xs text-muted-foreground">
+                                 {dateTransactions.length} transaktioner
+                               </div>
+                               <Button
+                                 onClick={() => selectAllDateTransactions(dateTransactions)}
+                                 size="sm"
+                                 variant="outline"
+                                 className="text-xs"
+                               >
+                                 {(() => {
+                                   const dateIds = dateTransactions.map(t => t.id);
+                                   const currentlySelected = selectedTransactions.filter(id => dateIds.includes(id));
+                                   return currentlySelected.length === dateIds.length ? 'Avmarkera' : 'Markera alla';
+                                 })()}
+                               </Button>
+                             </div>
 
                             {isDateExpanded && (
                               <div className="pl-4 space-y-2 border-l border-muted">
