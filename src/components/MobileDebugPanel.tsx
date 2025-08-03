@@ -43,7 +43,7 @@ export const MobileDebugPanel: React.FC = () => {
 
   if (!isOpen) {
     return (
-      <div className="fixed bottom-4 right-4 z-50">
+      <div className="fixed top-4 right-4 z-50">
         <Button 
           onClick={() => setIsOpen(true)}
           variant="outline"
@@ -62,7 +62,7 @@ export const MobileDebugPanel: React.FC = () => {
   }
 
   return (
-    <div className={`fixed bottom-4 right-4 z-50 w-80 bg-white border rounded-lg shadow-lg ${isMinimized ? 'h-12' : 'h-96'}`}>
+    <div className={`fixed top-4 right-4 z-50 w-80 bg-white border rounded-lg shadow-lg ${isMinimized ? 'h-12' : 'h-96'}`}>
       <div className="flex items-center justify-between p-3 border-b bg-gray-50 rounded-t-lg">
         <div className="flex items-center gap-2">
           <h3 className="font-semibold text-sm">Debug Logs</h3>
