@@ -144,19 +144,21 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
   const finalGroupedByMonth = groupTransactionsByMonth(finalTransactionList);
   
   // Clear existing months and update with new data
-  // IMPORTANT: Iterate over ALL months that have transactions (existing + new)
-  const allMonthKeys = new Set([
-    ...Object.keys(state.budgetState.historicalData),
-    ...Object.keys(finalGroupedByMonth)
-  ]);
+  // CRITICAL FIX: Only update months that actually have new transaction data
+  console.log(`[ORCHESTRATOR] 🔍 finalGroupedByMonth keys:`, Object.keys(finalGroupedByMonth));
+  console.log(`[ORCHESTRATOR] 🔍 existing historicalData keys:`, Object.keys(state.budgetState.historicalData));
   
-  allMonthKeys.forEach(monthKey => {
+  // ONLY iterate over months that have new transaction data
+  Object.keys(finalGroupedByMonth).forEach(monthKey => {
+    console.log(`[ORCHESTRATOR] 📅 Processing month ${monthKey} with ${finalGroupedByMonth[monthKey].length} transactions`);
+    
     if (!state.budgetState.historicalData[monthKey]) {
+      console.log(`[ORCHESTRATOR] 🆕 Creating new month data for ${monthKey}`);
       state.budgetState.historicalData[monthKey] = createEmptyMonthDataForImport();
     }
     
     // Convert ImportedTransaction to Transaction format for storage
-    const monthTransactions = (finalGroupedByMonth[monthKey] || []).map(tx => ({
+    const monthTransactions = finalGroupedByMonth[monthKey].map(tx => ({
       ...tx,
       bankCategory: tx.bankCategory || '',
       bankSubCategory: tx.bankSubCategory || '',
@@ -165,10 +167,11 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
       status: tx.status === 'green' ? 'green' : determineTransactionStatus(tx) // Recalculate status except for user-approved green
     }));
     
+    // CRITICAL: Only update months that have actual transaction data
     state.budgetState.historicalData[monthKey].transactions = monthTransactions;
     
-    console.log(`[ORCHESTRATOR] 📅 Updated month ${monthKey} with ${monthTransactions.length} transactions`);
-    addMobileDebugLog(`📅 Updated month ${monthKey} with ${monthTransactions.length} transactions`);
+    console.log(`[ORCHESTRATOR] ✅ Updated month ${monthKey} with ${monthTransactions.length} transactions`);
+    addMobileDebugLog(`✅ Updated month ${monthKey} with ${monthTransactions.length} transactions`);
   });
   
   // 9. Update account balances from saldo data using the SAME working logic as BudgetCalculator
