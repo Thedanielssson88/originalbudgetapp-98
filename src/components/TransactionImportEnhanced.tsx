@@ -1389,11 +1389,6 @@ export const TransactionImportEnhanced: React.FC = () => {
           
           
           <TabsContent value="rules" className="space-y-4">
-            {(() => {
-              addMobileDebugLog('🔍 [DEBUG] All categoryRules: ' + JSON.stringify(categoryRules, null, 2));
-              addMobileDebugLog('🔍 [DEBUG] Number of rules: ' + categoryRules.length);
-              return null;
-            })()}
             <CategoryRuleManagerAdvanced
               rules={categoryRules.map(rule => {
                 // Handle both new format (with condition/action) and old format (with bankCategory/appCategoryId)
