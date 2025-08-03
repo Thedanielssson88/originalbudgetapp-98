@@ -51,9 +51,22 @@ export const UncategorizedBankCategories: React.FC<UncategorizedBankCategoriesPr
         return false;
       }
       
+      // Check for exact category match
       if (rule.condition.type === 'categoryMatch') {
         return (rule.condition as any).bankCategory === bankCategory;
       }
+      
+      // Check for text-based rules that could match this bank category
+      if (rule.condition.type === 'textContains') {
+        const ruleValue = (rule.condition as any).value?.toLowerCase() || '';
+        return bankCategory.toLowerCase().includes(ruleValue) && ruleValue.length > 0;
+      }
+      
+      if (rule.condition.type === 'textStartsWith') {
+        const ruleValue = (rule.condition as any).value?.toLowerCase() || '';
+        return bankCategory.toLowerCase().startsWith(ruleValue) && ruleValue.length > 0;
+      }
+      
       return false;
     });
   });
