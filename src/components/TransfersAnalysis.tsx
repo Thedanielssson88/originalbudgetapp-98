@@ -120,6 +120,16 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
       return t.date >= startDate && t.date <= endDate;
     });
 
+    console.log('🔄 [TRANSFERS] Date filtering details:', {
+      selectedMonth,
+      payday: budgetState.settings?.payday || 25,
+      startDate,
+      endDate,
+      totalTransactions: allTransactions.length,
+      filteredTransactions: transactionsForPeriod.length,
+      exampleFilteredDates: transactionsForPeriod.slice(0, 5).map(t => ({ date: t.date, amount: t.amount, account: t.accountId }))
+    });
+
     // Internal transfers already calculated outside useMemo
     
     // 2. Extrahera cost items från costGroups struktur
