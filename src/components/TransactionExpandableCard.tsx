@@ -107,7 +107,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                 </div>
 
                 {/* Main content */}
-                <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
+                <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-4 gap-2 sm:gap-4">
                   {/* Account */}
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">Konto</p>
@@ -123,6 +123,26 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                       )}
                       {!hasUserDescription && displayDescription}
                     </p>
+                  </div>
+                  
+                  {/* Bank Category */}
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Bankkategori</p>
+                    <div className="space-y-0.5">
+                      {transaction.bankCategory && (
+                        <p className="text-sm truncate" title={transaction.bankCategory}>
+                          {transaction.bankCategory}
+                        </p>
+                      )}
+                      {transaction.bankSubCategory && (
+                        <p className="text-xs text-muted-foreground truncate" title={transaction.bankSubCategory}>
+                          {transaction.bankSubCategory}
+                        </p>
+                      )}
+                      {!transaction.bankCategory && !transaction.bankSubCategory && (
+                        <p className="text-sm text-muted-foreground">-</p>
+                      )}
+                    </div>
                   </div>
                   
                    {/* Amount */}
