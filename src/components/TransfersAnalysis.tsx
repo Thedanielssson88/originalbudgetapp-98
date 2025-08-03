@@ -169,29 +169,17 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
     // 3. Skapa en lookup-map för kategorier för snabb åtkomst (för framtida användning)
     const categoryMap = new Map(budgetState.mainCategories?.map(c => [c, c]) || []);
 
-    // 4. För varje unikt accountId som används i cost items, skapa en Account representation  
-    const usedAccountIds = new Set<string>();
-    costItems.forEach(item => {
-      if (item.accountId) {
-        usedAccountIds.add(item.accountId);
-      }
-    });
-    savingsItems.forEach(item => {
-      if (item.accountId) {
-        usedAccountIds.add(item.accountId);
-      }
-    });
+    // 4. Use ALL accounts from settings, not just those with budget items
+    console.log('🔄 [TRANSFERS] All available accounts:', budgetState.accounts);
 
-    console.log('🔄 [TRANSFERS] Used account IDs:', Array.from(usedAccountIds));
-
-    // Skapa Account objects för alla konton som används i budget items
-    const relevantAccounts: Account[] = Array.from(usedAccountIds).map(accountId => ({
-      id: accountId,
-      name: getAccountNameById(accountId),
-      startBalance: 0
+    // Create Account objects for ALL accounts from settings
+    const relevantAccounts: Account[] = budgetState.accounts.map(account => ({
+      id: account.id,
+      name: account.name,
+      startBalance: account.startBalance || 0
     }));
 
-    console.log('🔄 [TRANSFERS] Relevant accounts:', relevantAccounts);
+    console.log('🔄 [TRANSFERS] Showing all accounts:', relevantAccounts);
 
     // 5. Loopa igenom varje relevant konto och aggregera data
     return relevantAccounts.map(account => {
