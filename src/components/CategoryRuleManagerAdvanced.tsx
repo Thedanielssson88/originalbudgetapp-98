@@ -16,16 +16,19 @@ interface CategoryRuleManagerAdvancedProps {
   rules: CategoryRule[];
   onRulesChange: (rules: CategoryRule[]) => void;
   mainCategories: string[];
+  accounts: { id: string; name: string }[];
 }
 
 export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedProps> = ({
   rules,
   onRulesChange,
-  mainCategories
+  mainCategories,
+  accounts
 }) => {
   const [isAddingRule, setIsAddingRule] = useState(false);
   const [subcategories, setSubcategories] = useState<Record<string, string[]>>({});
   const [availableSubcategories, setAvailableSubcategories] = useState<string[]>([]);
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [newRule, setNewRule] = useState<Partial<CategoryRule>>({
     condition: { type: 'textContains', value: '' },
     action: { 
@@ -78,6 +81,9 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
       };
       
       onRulesChange([...rules, rule]);
+      
+      // Reset form
+      setSelectedAccountIds([]);
       setNewRule({
         condition: { type: 'textContains', value: '' },
         action: { 
@@ -262,6 +268,60 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                     <SelectItem value="ExpenseClaim">Utlägg</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              
+              {/* Account Selection */}
+              <div>
+                <Label className="text-xs">Konton som regeln gäller för</Label>
+                <div className="space-y-2 mt-2">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="all-accounts"
+                      checked={selectedAccountIds.length === 0}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedAccountIds([]);
+                          setNewRule({
+                            ...newRule,
+                            action: { ...newRule.action!, applicableAccountIds: [] }
+                          });
+                        }
+                      }}
+                      className="rounded"
+                    />
+                    <label htmlFor="all-accounts" className="text-xs text-muted-foreground">
+                      Alla konton
+                    </label>
+                  </div>
+                  
+                  {accounts.map(account => (
+                    <div key={account.id} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`account-${account.id}`}
+                        checked={selectedAccountIds.includes(account.id)}
+                        onChange={(e) => {
+                          let updatedAccountIds;
+                          if (e.target.checked) {
+                            updatedAccountIds = [...selectedAccountIds, account.id];
+                          } else {
+                            updatedAccountIds = selectedAccountIds.filter(id => id !== account.id);
+                          }
+                          setSelectedAccountIds(updatedAccountIds);
+                          setNewRule({
+                            ...newRule,
+                            action: { ...newRule.action!, applicableAccountIds: updatedAccountIds }
+                          });
+                        }}
+                        className="rounded"
+                      />
+                      <label htmlFor={`account-${account.id}`} className="text-xs">
+                        {account.name}
+                      </label>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 

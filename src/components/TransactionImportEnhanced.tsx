@@ -1364,6 +1364,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                 triggerRefresh();
               }}
               mainCategories={mainCategories}
+              accounts={accounts}
             />
             
             {/* Uncategorized Bank Categories */}
