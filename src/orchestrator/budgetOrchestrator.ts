@@ -878,11 +878,43 @@ export function unsetAccountBalance(accountName: string): void {
 // ===== MONTH MANAGEMENT =====
 
 export function setSelectedBudgetMonth(monthKey: string): void {
+  console.log(`[ORCHESTRATOR] 🔄 Switching to month: ${monthKey}`);
+  console.log(`[ORCHESTRATOR] 🔄 Current historicalData keys:`, Object.keys(state.budgetState.historicalData));
+  
   state.budgetState.selectedMonthKey = monthKey;
   
-  // Ensure the month exists
+  // CRITICAL FIX: Only create empty month data if it truly doesn't exist
+  // AND preserve any existing transaction data from previous imports
   if (!state.budgetState.historicalData[monthKey]) {
-    state.budgetState.historicalData[monthKey] = createEmptyMonthData();
+    console.log(`[ORCHESTRATOR] 🆕 Creating new month data for ${monthKey} - preserving transactions`);
+    
+    // Check if there are any existing transactions for this month across the system
+    const allTransactions = Object.values(state.budgetState.historicalData)
+      .flatMap(month => (month.transactions || []) as ImportedTransaction[]);
+    
+    const existingTransactionsForMonth = allTransactions.filter(tx => {
+      const txMonth = tx.date.substring(0, 7); // Get YYYY-MM format
+      return txMonth === monthKey;
+    });
+    
+    console.log(`[ORCHESTRATOR] 🔍 Found ${existingTransactionsForMonth.length} existing transactions for month ${monthKey}`);
+    
+    // Create empty month data but preserve any existing transactions
+    const emptyMonth = createEmptyMonthData();
+    // Convert ImportedTransaction to Transaction format
+    emptyMonth.transactions = existingTransactionsForMonth.map(tx => ({
+      ...tx,
+      userDescription: tx.userDescription || '',
+      bankCategory: tx.bankCategory || '',
+      bankSubCategory: tx.bankSubCategory || '',
+      balanceAfter: tx.balanceAfter || 0
+    }));
+    
+    state.budgetState.historicalData[monthKey] = emptyMonth;
+    
+    console.log(`[ORCHESTRATOR] ✅ Created month ${monthKey} with ${existingTransactionsForMonth.length} preserved transactions`);
+  } else {
+    console.log(`[ORCHESTRATOR] ✅ Month ${monthKey} already exists with ${(state.budgetState.historicalData[monthKey].transactions || []).length} transactions`);
   }
   
   saveStateToStorage();
