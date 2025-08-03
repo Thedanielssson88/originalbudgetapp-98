@@ -37,17 +37,6 @@ export interface ImportedTransaction {
   fileSource: string; // Which CSV file this came from
 }
 
-export interface CategoryRule {
-  id: string;
-  bankCategory: string;
-  bankSubCategory?: string;
-  appCategoryId: string;
-  appSubCategoryId?: string;
-  transactionType: 'Transaction' | 'InternalTransfer' | 'ExpenseClaim';
-  description?: string; // Optional description pattern matching
-  priority: number; // Higher number = higher priority
-  isActive: boolean;
-}
 
 export interface FileStructure {
   id: string;
@@ -89,7 +78,6 @@ export interface ImportedFile {
 // State for the transaction import system
 export interface TransactionImportState {
   currentSession?: ImportSession;
-  categoryRules: CategoryRule[];
   fileStructures: FileStructure[];
   importHistory: ImportSession[];
 }

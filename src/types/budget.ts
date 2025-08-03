@@ -245,7 +245,6 @@ export interface BudgetState {
   
   // Transaction import state (behålls för bakåtkompatibilitet)
   transactionImport: {
-    categoryRules: any[];
     fileStructures: any[];
     importHistory: any[];
     transactions: any[];

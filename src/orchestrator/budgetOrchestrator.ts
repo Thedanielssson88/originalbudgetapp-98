@@ -7,7 +7,8 @@ import { BudgetGroup, MonthData, SavingsGoal, CsvMapping, PlannedTransfer } from
 import { updateAccountBalanceFromBankData } from '../utils/bankBalanceUtils';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 import { v4 as uuidv4 } from 'uuid';
-import { ImportedTransaction, CategoryRule } from '../types/transaction';
+import { ImportedTransaction } from '../types/transaction';
+import { CategoryRule } from '../types/budget';
 
 // SMART MERGE FUNCTION - The definitive solution to duplicate and lost changes
 export function importAndReconcileFile(csvContent: string, accountId: string): void {
@@ -585,18 +586,8 @@ function reconcileTransactions(
         coveredCostId: existingTransaction.coveredCostId
       });
     } else {
-      // Apply categorization rules to new transaction
-      let categorizedTransaction = { ...fileTx };
-      
-      for (const rule of categoryRules) {
-        if (rule.description && fileTx.description.toLowerCase().includes(rule.description.toLowerCase())) {
-          categorizedTransaction.type = rule.transactionType;
-          categorizedTransaction.appCategoryId = rule.appCategoryId;
-          categorizedTransaction.appSubCategoryId = rule.appSubCategoryId;
-          break;
-        }
-      }
-      
+      // Apply categorization rules to new transaction using the modern rule engine
+      const categorizedTransaction = applyCategorizationRules(fileTx, categoryRules);
       reconciledTransactions.push(categorizedTransaction);
     }
   });

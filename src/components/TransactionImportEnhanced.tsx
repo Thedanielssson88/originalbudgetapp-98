@@ -22,7 +22,8 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { ImportedTransaction, FileStructure, CategoryRule, ColumnMapping, ImportedFile } from '@/types/transaction';
+import { ImportedTransaction, FileStructure, ColumnMapping, ImportedFile } from '@/types/transaction';
+import { CategoryRule } from '@/types/budget';
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Dialog,
@@ -424,8 +425,6 @@ export const TransactionImportEnhanced: React.FC = () => {
   
   // Read category rules directly from central state (no local state)
   const categoryRules = categoryRulesFromState;
-  const [newRule, setNewRule] = useState<Partial<CategoryRule>>({});
-  const [editingRule, setEditingRule] = useState<CategoryRule | null>(null);
 
   // Check if CSV contains transactions on/after 24th for balance correction
   const hasTransactionsOnOrAfter24th = useMemo(() => {
@@ -861,55 +860,6 @@ export const TransactionImportEnhanced: React.FC = () => {
     });
   };
 
-  // Category rule management functions
-  const handleAddRule = () => {
-    if (newRule.bankCategory && newRule.appCategoryId && newRule.transactionType) {
-      const rule: CategoryRule = {
-        id: uuidv4(),
-        bankCategory: newRule.bankCategory,
-        bankSubCategory: newRule.bankSubCategory || '',
-        appCategoryId: newRule.appCategoryId,
-        appSubCategoryId: newRule.appSubCategoryId,
-        transactionType: newRule.transactionType,
-        description: newRule.description || '',
-        priority: newRule.priority || 1,
-        isActive: true
-      };
-      
-      addCategoryRule(rule);
-      setNewRule({});
-      
-      toast({
-        title: "Regel tillagd",
-        description: "Kategoriseringsregeln har skapats.",
-      });
-    }
-  };
-
-  const handleEditRule = (rule: CategoryRule) => {
-    setEditingRule(rule);
-  };
-
-  const handleUpdateRule = () => {
-    if (editingRule) {
-      updateCategoryRule(editingRule.id, editingRule);
-      setEditingRule(null);
-      
-      toast({
-        title: "Regel uppdaterad",
-        description: "Kategoriseringsregeln har uppdaterats.",
-      });
-    }
-  };
-
-  const handleDeleteRule = (ruleId: string) => {
-    deleteCategoryRule(ruleId);
-    
-    toast({
-      title: "Regel borttagen",
-      description: "Kategoriseringsregeln har tagits bort.",
-    });
-  };
 
   // Bulk approve transactions
   const handleApproveSelected = () => {

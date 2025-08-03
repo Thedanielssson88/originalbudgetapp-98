@@ -59,7 +59,6 @@ export const state: AppState = {
     
     // Transaction import state
     transactionImport: {
-      categoryRules: [],
       fileStructures: [],
       importHistory: [],
       transactions: [],
