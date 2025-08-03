@@ -279,7 +279,10 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
         {/* Rules List - Mobile Optimized */}
         {rules.length > 0 ? (
           <div className="space-y-2">
-            {rules.sort((a, b) => a.priority - b.priority).map((rule) => (
+            {rules
+              .filter(rule => rule && rule.condition && rule.action) // Filter out malformed rules
+              .sort((a, b) => a.priority - b.priority)
+              .map((rule) => (
               <Card key={rule.id} className="p-3">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
