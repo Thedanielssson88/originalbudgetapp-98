@@ -453,11 +453,14 @@ export const TransactionImportEnhanced: React.FC = () => {
 
   // State to collect balance updates during import
   const [balanceUpdates, setBalanceUpdates] = useState<{accountName: string, newBalance: number, monthKey: string}[]>([]);
+  const [isWaitingForBalanceUpdates, setIsWaitingForBalanceUpdates] = useState(false);
+  const [pendingToast, setPendingToast] = useState<{fileName: string} | null>(null);
 
   // Listen for automatic balance updates from saldo imports
   useEffect(() => {
     const handleBalanceUpdate = (event: CustomEvent) => {
       const { accountName, newBalance, monthKey } = event.detail;
+      console.log('🔄 [BALANCE UPDATE] Received balance update event:', { accountName, newBalance, monthKey });
       setBalanceUpdates(prev => [...prev, { accountName, newBalance, monthKey }]);
     };
 
@@ -467,6 +470,33 @@ export const TransactionImportEnhanced: React.FC = () => {
       window.removeEventListener('balanceUpdated', handleBalanceUpdate as EventListener);
     };
   }, []);
+
+  // Show combined toast when balance updates are complete
+  useEffect(() => {
+    if (pendingToast && !isWaitingForBalanceUpdates) {
+      console.log('🔄 [TOAST] Showing combined toast with balance updates:', balanceUpdates);
+      
+      let toastDescription = `Transaktioner från ${pendingToast.fileName} har bearbetats och sparats till budgeten.`;
+      
+      // Add balance updates if any occurred during import
+      if (balanceUpdates.length > 0) {
+        const balanceText = balanceUpdates.map(update => 
+          `${update.accountName}: ${update.newBalance.toLocaleString('sv-SE')} kr - ${update.monthKey}`
+        ).join('. ');
+        
+        toastDescription += `\n\nSaldo uppdaterat\nFaktiskt saldo har uppdaterats för månaderna: ${balanceText}`;
+      }
+
+      toast({
+        title: "Fil uppladdad",
+        description: toastDescription,
+      });
+      
+      // Clear states
+      setPendingToast(null);
+      setBalanceUpdates([]);
+    }
+  }, [pendingToast, isWaitingForBalanceUpdates, balanceUpdates, toast]);
 
   const handleAddBank = (bankName: string) => {
     const newBank: Bank = {
@@ -500,6 +530,12 @@ export const TransactionImportEnhanced: React.FC = () => {
   const handleFileUpload = useCallback(async (file: File, accountId: string, accountName: string) => {
     console.log(`🚀 [IMPORT] handleFileUpload called with:`, { fileName: file.name, accountId, accountName });
     addMobileDebugLog(`📁 FILE UPLOAD STARTED: ${file.name} for account ${accountId}`);
+    
+    // Clear any previous balance updates and prepare for new import
+    setBalanceUpdates([]);
+    setIsWaitingForBalanceUpdates(true);
+    setPendingToast({ fileName: file.name });
+    
     try {
       // Read file with proper encoding for Swedish characters
       const arrayBuffer = await file.arrayBuffer();
@@ -520,6 +556,8 @@ export const TransactionImportEnhanced: React.FC = () => {
       addMobileDebugLog(`📁 File read successfully: ${csvContent.length} characters`);
       
       if (!csvContent || csvContent.trim().length === 0) {
+        setIsWaitingForBalanceUpdates(false);
+        setPendingToast(null);
         toast({
           title: "Fel vid filläsning",
           description: "Kunde inte läsa filinnehållet.",
@@ -550,7 +588,7 @@ export const TransactionImportEnhanced: React.FC = () => {
       
       console.log('🔄 [DEBUG] After importAndReconcileFile - checking budgetState...');
       
-      // Force immediate UI refresh after import
+      // Wait for processing and balance updates, then allow toast to show
       setTimeout(() => {
         const currentState = getCurrentState();
         console.log('🔄 [DEBUG] Post-import budgetState:', currentState.budgetState);
@@ -559,30 +597,15 @@ export const TransactionImportEnhanced: React.FC = () => {
         // Trigger component re-render by updating refresh key
         setRefreshKey(prev => prev + 1);
         console.log('🔄 [DEBUG] Triggered UI refresh after file import');
-      }, 200);
         
-      // Prepare the notification content
-      let toastDescription = `Transaktioner från ${file.name} har bearbetats och sparats till budgeten.`;
-      
-      // Add balance updates if any occurred during import
-      if (balanceUpdates.length > 0) {
-        const balanceText = balanceUpdates.map(update => 
-          `${update.accountName}: ${update.newBalance.toLocaleString('sv-SE')} kr - ${update.monthKey}`
-        ).join('. ');
+        // Allow toast to show (balance updates should be complete by now)
+        setIsWaitingForBalanceUpdates(false);
+      }, 500); // Increased delay to ensure balance updates are processed
         
-        toastDescription += `\n\nSaldo uppdaterat\nFaktiskt saldo har uppdaterats för månaderna: ${balanceText}`;
-        
-        // Clear the balance updates after showing them
-        setBalanceUpdates([]);
-      }
-
-      toast({
-        title: "Fil uppladdad",
-        description: toastDescription,
-      });
-      
     } catch (error) {
       console.error('Error uploading file:', error);
+      setIsWaitingForBalanceUpdates(false);
+      setPendingToast(null);
       toast({
         title: "Fel vid uppladdning",
         description: "Ett fel uppstod vid bearbetning av filen.",
