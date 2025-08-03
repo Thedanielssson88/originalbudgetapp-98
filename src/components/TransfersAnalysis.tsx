@@ -99,6 +99,9 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
     }).format(amount);
   };
 
+  // Hämta interna överföringar för varje konto (outside useMemo so it can be used in render)
+  const allInternalTransfers = getInternalTransferSummary(budgetState, selectedMonth);
+
   // Använd useMemo för prestanda! Dessa beräkningar kan vara tunga.
   const analysisData = useMemo(() => {
     console.log('🔄 [TRANSFERS] Computing analysis data for month:', selectedMonth);
@@ -116,6 +119,8 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
     const transactionsForPeriod = allTransactions.filter(t => {
       return t.date >= startDate && t.date <= endDate;
     });
+
+    // Internal transfers already calculated outside useMemo
     
     // 2. Extrahera cost items från costGroups struktur
     const costItems: BudgetItem[] = [];
@@ -210,10 +215,9 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
       // Hitta alla överföringar FRÅN kontot (för detaljvyn)
       const transfersOut = monthlyTransfers.filter(t => t.fromAccountId === account.id);
 
-      // Beräkna faktiska inkommande överföringar från transaktioner
-      const actualTransferredIn = transactionsForPeriod
-        .filter(t => t.accountId === account.id && t.amount > 0 && (t.type === 'InternalTransfer' || t.appCategoryId === 'Överföring'))
-        .reduce((sum, t) => sum + t.amount, 0);
+      // Beräkna faktiska överföringar från transaktioner (net transfer för kontot)
+      const accountTransfers = allInternalTransfers.find(t => t.accountId === account.id);
+      const actualTransferredIn = accountTransfers ? accountTransfers.totalIn - accountTransfers.totalOut : 0;
 
       return {
         account,
@@ -224,14 +228,12 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
         transfersOut,
       };
     });
-  }, [budgetState.accounts, budgetState.mainCategories, budgetState.historicalData, budgetState.plannedTransfers, selectedMonth]);
+  }, [budgetState.accounts, budgetState.mainCategories, budgetState.historicalData, budgetState.plannedTransfers, selectedMonth, allInternalTransfers]);
 
   // Beräkna totala överföringar för CardDescription
   const totalTransfers = analysisData.reduce((sum, data) => sum + data.totalTransferredIn, 0);
   const totalActualTransfers = analysisData.reduce((sum, data) => sum + data.actualTransferredIn, 0);
 
-  // Hämta interna överföringar för varje konto
-  const allInternalTransfers = getInternalTransferSummary(budgetState, selectedMonth);
 
   return (
     <Card className="shadow-lg border-0 bg-blue-50/50 backdrop-blur-sm">
