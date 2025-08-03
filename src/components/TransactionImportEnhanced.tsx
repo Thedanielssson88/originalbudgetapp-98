@@ -390,7 +390,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   console.log('🔍 [DEBUG] Full budgetState:', budgetState);
   console.log('🔍 [DEBUG] budgetState keys:', Object.keys(budgetState || {}));
   const costGroups = budgetState?.historicalData?.[budgetState.selectedMonthKey]?.costGroups || [];
-  const categoryRulesFromState = budgetState?.transactionImport?.categoryRules || [];
+  const categoryRulesFromState = budgetState?.categoryRules || [];
   
   // Read transactions directly from central state - this is now the ONLY source of truth
   const allTransactions = useMemo(() => {
@@ -1400,59 +1400,14 @@ export const TransactionImportEnhanced: React.FC = () => {
           <TabsContent value="rules" className="space-y-4">
             <CategoryRuleManagerAdvanced
               key={refreshKey}
-              rules={categoryRules.map(rule => {
-                // Handle both new format (with condition/action) and old format (with bankCategory/appCategoryId)
-                if (rule.condition && rule.action) {
-                  // New format - use as is
-                  return {
-                    id: rule.id,
-                    priority: rule.priority,
-                    condition: rule.condition,
-                    action: rule.action,
-                    isActive: rule.isActive
-                  };
-                } else {
-                  // Old format - convert to new format
-                  return {
-                    id: rule.id,
-                    priority: rule.priority,
-                    condition: rule.description 
-                      ? { type: 'textContains' as const, value: rule.description }
-                      : { type: 'categoryMatch' as const, bankCategory: rule.bankCategory, bankSubCategory: rule.bankSubCategory },
-                    action: {
-                      appMainCategoryId: rule.appCategoryId,
-                      appSubCategoryId: rule.appSubCategoryId,
-                      // Convert old transactionType to new format with defaults
-                      positiveTransactionType: rule.transactionType === 'InternalTransfer' ? 'InternalTransfer' as const : 'Transaction' as const,
-                      negativeTransactionType: rule.transactionType === 'InternalTransfer' ? 'InternalTransfer' as const : 'Transaction' as const,
-                      applicableAccountIds: []
-                    },
-                    isActive: rule.isActive
-                  };
-                }
-              })}
+              rules={categoryRules}
               onRulesChange={(newRules) => {
-                // Convert the advanced rules back to storage format
-                const formattedRules = newRules.map(rule => ({
-                  id: rule.id,
-                  bankCategory: rule.condition.type === 'categoryMatch' ? (rule.condition as any).bankCategory : '',
-                  bankSubCategory: rule.condition.type === 'categoryMatch' ? (rule.condition as any).bankSubCategory || '' : '',
-                  appCategoryId: rule.action.appMainCategoryId,
-                  appSubCategoryId: rule.action.appSubCategoryId || '',
-                  // Use negativeTransactionType as default for backward compatibility
-                  transactionType: rule.action.negativeTransactionType === 'InternalTransfer' ? 'InternalTransfer' as const : 'Transaction' as const,
-                  description: rule.condition.type === 'textContains' || rule.condition.type === 'textStartsWith' 
-                    ? (rule.condition as any).value : '',
-                  priority: rule.priority,
-                  isActive: rule.isActive
-                }));
-                
-                // Clear existing rules and add new ones
+                // Clear existing rules and add new ones (using modern format)
                 categoryRules.forEach(oldRule => {
                   deleteCategoryRule(oldRule.id);
                 });
                 
-                formattedRules.forEach(rule => {
+                newRules.forEach(rule => {
                   addCategoryRule(rule);
                 });
                 
