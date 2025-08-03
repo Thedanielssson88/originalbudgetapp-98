@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Trash2, Plus, Edit } from 'lucide-react';
 import { CategoryRule, RuleCondition } from '@/types/budget';
 import { v4 as uuidv4 } from 'uuid';
+import { get, StorageKey } from '@/services/storageService';
 
 interface CategoryRuleManagerAdvancedProps {
   rules: CategoryRule[];
@@ -23,15 +24,45 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
   mainCategories
 }) => {
   const [isAddingRule, setIsAddingRule] = useState(false);
+  const [subcategories, setSubcategories] = useState<Record<string, string[]>>({});
+  const [availableSubcategories, setAvailableSubcategories] = useState<string[]>([]);
   const [newRule, setNewRule] = useState<Partial<CategoryRule>>({
     condition: { type: 'textContains', value: '' },
-    action: { appMainCategoryId: '', transactionType: 'Transaction' },
+    action: { appMainCategoryId: '', appSubCategoryId: '', transactionType: 'Transaction' },
     priority: 100,
     isActive: true
   });
 
+  // Load subcategories from storage
+  useEffect(() => {
+    const loadedSubcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
+    setSubcategories(loadedSubcategories);
+  }, []);
+
+  // Update available subcategories when main category changes
+  useEffect(() => {
+    if (newRule.action?.appMainCategoryId) {
+      setAvailableSubcategories(subcategories[newRule.action.appMainCategoryId] || []);
+      // Reset subcategory when main category changes
+      setNewRule(prev => ({
+        ...prev,
+        action: { ...prev.action!, appSubCategoryId: '' }
+      }));
+    } else {
+      setAvailableSubcategories([]);
+    }
+  }, [newRule.action?.appMainCategoryId, subcategories]);
+
   const handleAddRule = () => {
-    if (newRule.condition && newRule.action) {
+    // Validate required fields
+    const hasConditionValue = newRule.condition?.type === 'categoryMatch' ? 
+      !!(newRule.condition as any).bankCategory : 
+      !!(newRule.condition as any).value;
+    
+    const hasMainCategory = !!newRule.action?.appMainCategoryId;
+    const hasSubCategory = !!newRule.action?.appSubCategoryId;
+    
+    if (newRule.condition && newRule.action && hasConditionValue && hasMainCategory && hasSubCategory) {
       const rule: CategoryRule = {
         id: uuidv4(),
         priority: newRule.priority || 100,
@@ -43,7 +74,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
       onRulesChange([...rules, rule]);
       setNewRule({
         condition: { type: 'textContains', value: '' },
-        action: { appMainCategoryId: '', transactionType: 'Transaction' },
+        action: { appMainCategoryId: '', appSubCategoryId: '', transactionType: 'Transaction' },
         priority: 100,
         isActive: true
       });
@@ -140,11 +171,11 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                   value={newRule.action?.appMainCategoryId || ''}
                   onValueChange={(value) => setNewRule({
                     ...newRule,
-                    action: { ...newRule.action!, appMainCategoryId: value }
+                    action: { ...newRule.action!, appMainCategoryId: value, appSubCategoryId: '' }
                   })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Välj kategori" />
+                    <SelectValue placeholder="Välj huvudkategori" />
                   </SelectTrigger>
                   <SelectContent>
                     {mainCategories.map(category => (
@@ -157,24 +188,47 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
               </div>
 
               <div>
-                <Label>Transaktionstyp</Label>
+                <Label>Underkategori</Label>
                 <Select
-                  value={newRule.action?.transactionType || 'Transaction'}
+                  value={newRule.action?.appSubCategoryId || ''}
                   onValueChange={(value) => setNewRule({
                     ...newRule,
-                    action: { ...newRule.action!, transactionType: value as any }
+                    action: { ...newRule.action!, appSubCategoryId: value }
                   })}
+                  disabled={!newRule.action?.appMainCategoryId}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Välj underkategori" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Transaction">Transaktion</SelectItem>
-                    <SelectItem value="Transfer">Överföring</SelectItem>
-                    <SelectItem value="ExpenseClaim">Utläggsrekvisition</SelectItem>
+                    {availableSubcategories.map(subcategory => (
+                      <SelectItem key={subcategory} value={subcategory}>
+                        {subcategory}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div>
+              <Label>Transaktionstyp</Label>
+              <Select
+                value={newRule.action?.transactionType || 'Transaction'}
+                onValueChange={(value) => setNewRule({
+                  ...newRule,
+                  action: { ...newRule.action!, transactionType: value as any }
+                })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Transaction">Transaktion</SelectItem>
+                  <SelectItem value="Transfer">Överföring</SelectItem>
+                  <SelectItem value="ExpenseClaim">Utläggsrekvisition</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex gap-2">
@@ -195,7 +249,8 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                 <TableHead>Prioritet</TableHead>
                 <TableHead>Typ</TableHead>
                 <TableHead>Villkor</TableHead>
-                <TableHead>Kategori</TableHead>
+                <TableHead>Huvudkategori</TableHead>
+                <TableHead>Underkategori</TableHead>
                 <TableHead>Typ</TableHead>
                 <TableHead>Åtgärder</TableHead>
               </TableRow>
@@ -223,6 +278,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                     </code>
                   </TableCell>
                   <TableCell>{rule.action.appMainCategoryId}</TableCell>
+                  <TableCell>{rule.action.appSubCategoryId}</TableCell>
                   <TableCell>
                     <Badge variant="outline">
                       {rule.action.transactionType === 'Transaction' ? 'Transaktion' : 
