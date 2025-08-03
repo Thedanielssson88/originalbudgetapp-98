@@ -1399,7 +1399,10 @@ export const TransactionImportEnhanced: React.FC = () => {
                 action: {
                   appMainCategoryId: rule.appCategoryId,
                   appSubCategoryId: rule.appSubCategoryId,
-                  transactionType: rule.transactionType === 'InternalTransfer' ? 'Transfer' as const : 'Transaction' as const
+                  // Convert old transactionType to new format with defaults
+                  positiveTransactionType: rule.transactionType === 'InternalTransfer' ? 'InternalTransfer' as const : 'Transaction' as const,
+                  negativeTransactionType: rule.transactionType === 'InternalTransfer' ? 'InternalTransfer' as const : 'Transaction' as const,
+                  applicableAccountIds: []
                 },
                 isActive: rule.isActive
               }))}
@@ -1411,7 +1414,8 @@ export const TransactionImportEnhanced: React.FC = () => {
                   bankSubCategory: rule.condition.type === 'categoryMatch' ? (rule.condition as any).bankSubCategory || '' : '',
                   appCategoryId: rule.action.appMainCategoryId,
                   appSubCategoryId: rule.action.appSubCategoryId || '',
-                  transactionType: rule.action.transactionType === 'Transfer' ? 'InternalTransfer' as const : 'Transaction' as const,
+                  // Use negativeTransactionType as default for backward compatibility
+                  transactionType: rule.action.negativeTransactionType === 'InternalTransfer' ? 'InternalTransfer' as const : 'Transaction' as const,
                   description: rule.condition.type === 'textContains' || rule.condition.type === 'textStartsWith' 
                     ? (rule.condition as any).value : '',
                   priority: rule.priority,
@@ -1915,7 +1919,7 @@ export const TransactionImportEnhanced: React.FC = () => {
       <CategorySelectionDialog
         isOpen={categoryDialogOpen}
         onClose={() => setCategoryDialogOpen(false)}
-        onConfirm={(mainCategory, subCategory, transactionType) => {
+        onConfirm={(mainCategory, subCategory, positiveTransactionType, negativeTransactionType, applicableAccountIds) => {
           const newRule = {
             id: uuidv4(),
             priority: 100,
@@ -1927,7 +1931,9 @@ export const TransactionImportEnhanced: React.FC = () => {
             action: {
               appMainCategoryId: mainCategory,
               appSubCategoryId: subCategory,
-              transactionType: transactionType === 'positive' ? 'Transfer' as const : 'Transaction' as const
+              positiveTransactionType: positiveTransactionType as any,
+              negativeTransactionType: negativeTransactionType as any,
+              applicableAccountIds: applicableAccountIds
             },
             isActive: true
           };
@@ -1937,6 +1943,7 @@ export const TransactionImportEnhanced: React.FC = () => {
         bankCategory={selectedBankCategory}
         bankSubCategory={selectedBankSubCategory}
         mainCategories={mainCategories}
+        accounts={budgetState.accounts}
       />
     </div>
   );

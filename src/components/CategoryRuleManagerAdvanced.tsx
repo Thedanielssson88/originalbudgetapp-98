@@ -28,7 +28,13 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
   const [availableSubcategories, setAvailableSubcategories] = useState<string[]>([]);
   const [newRule, setNewRule] = useState<Partial<CategoryRule>>({
     condition: { type: 'textContains', value: '' },
-    action: { appMainCategoryId: '', appSubCategoryId: '', transactionType: 'Transaction' },
+    action: { 
+      appMainCategoryId: '', 
+      appSubCategoryId: '', 
+      positiveTransactionType: 'Transaction',
+      negativeTransactionType: 'Transaction',
+      applicableAccountIds: []
+    },
     priority: 100,
     isActive: true
   });
@@ -74,7 +80,13 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
       onRulesChange([...rules, rule]);
       setNewRule({
         condition: { type: 'textContains', value: '' },
-        action: { appMainCategoryId: '', appSubCategoryId: '', transactionType: 'Transaction' },
+        action: { 
+          appMainCategoryId: '', 
+          appSubCategoryId: '', 
+          positiveTransactionType: 'Transaction',
+          negativeTransactionType: 'Transaction',
+          applicableAccountIds: []
+        },
         priority: 100,
         isActive: true
       });
@@ -211,12 +223,12 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                 </div>
                 
                 <div>
-                  <Label className="text-xs">Typ</Label>
+                  <Label className="text-xs">Pos. belopp typ</Label>
                   <Select
-                    value={newRule.action?.transactionType || 'Transaction'}
+                    value={newRule.action?.positiveTransactionType || 'Transaction'}
                     onValueChange={(value) => setNewRule({
                       ...newRule,
-                      action: { ...newRule.action!, transactionType: value as any }
+                      action: { ...newRule.action!, positiveTransactionType: value as any }
                     })}
                   >
                     <SelectTrigger className="h-8">
@@ -224,10 +236,32 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Transaction">Transaktion</SelectItem>
-                      <SelectItem value="Transfer">Överföring</SelectItem>
+                      <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
+                      <SelectItem value="Savings">Sparande</SelectItem>
+                      <SelectItem value="CostCoverage">Täck en kostnad</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              <div>
+                <Label className="text-xs">Neg. belopp typ</Label>
+                <Select
+                  value={newRule.action?.negativeTransactionType || 'Transaction'}
+                  onValueChange={(value) => setNewRule({
+                    ...newRule,
+                    action: { ...newRule.action!, negativeTransactionType: value as any }
+                  })}
+                >
+                  <SelectTrigger className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Transaction">Transaktion</SelectItem>
+                    <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
+                    <SelectItem value="ExpenseClaim">Utlägg</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -287,9 +321,21 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                       )}
                     </div>
                     
-                    <Badge variant="outline" className="text-xs">
-                      {rule.action.transactionType === 'Transaction' ? 'Transaktion' : 'Överföring'}
-                    </Badge>
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <div>
+                        <span className="font-medium">Pos: </span>
+                        <span>{rule.action.positiveTransactionType}</span>
+                        <span className="mx-2">|</span>
+                        <span className="font-medium">Neg: </span>
+                        <span>{rule.action.negativeTransactionType}</span>
+                      </div>
+                      {rule.action.applicableAccountIds && rule.action.applicableAccountIds.length > 0 && (
+                        <div>
+                          <span className="font-medium">Konton: </span>
+                          <span>{rule.action.applicableAccountIds.length} valda</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </Card>

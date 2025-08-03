@@ -33,7 +33,9 @@ export interface CategoryRule {
   action: {
     appMainCategoryId: string;
     appSubCategoryId?: string;
-    transactionType: 'Transaction' | 'Transfer';
+    positiveTransactionType: 'Transaction' | 'InternalTransfer' | 'Savings' | 'CostCoverage'; // För positiva belopp
+    negativeTransactionType: 'Transaction' | 'InternalTransfer' | 'ExpenseClaim'; // För negativa belopp
+    applicableAccountIds?: string[]; // Vilka konton regeln gäller för (tom array = alla konton)
   };
   isActive: boolean; // Om regeln är aktiv eller inte
 }

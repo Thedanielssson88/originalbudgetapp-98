@@ -8,10 +8,17 @@ import { get, StorageKey } from '@/services/storageService';
 interface CategorySelectionDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (mainCategory: string, subCategory: string, transactionType: 'positive' | 'negative') => void;
+  onConfirm: (
+    mainCategory: string, 
+    subCategory: string, 
+    positiveTransactionType: string,
+    negativeTransactionType: string,
+    applicableAccountIds: string[]
+  ) => void;
   bankCategory: string;
   bankSubCategory?: string;
   mainCategories: string[];
+  accounts: { id: string; name: string }[];
 }
 
 export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = ({
@@ -20,11 +27,14 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
   onConfirm,
   bankCategory,
   bankSubCategory,
-  mainCategories
+  mainCategories,
+  accounts
 }) => {
   const [selectedMainCategory, setSelectedMainCategory] = useState('');
   const [selectedSubCategory, setSelectedSubCategory] = useState('');
-  const [selectedTransactionType, setSelectedTransactionType] = useState<'positive' | 'negative'>('negative');
+  const [positiveTransactionType, setPositiveTransactionType] = useState('Transaction');
+  const [negativeTransactionType, setNegativeTransactionType] = useState('Transaction');
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [subcategories, setSubcategories] = useState<Record<string, string[]>>({});
   const [availableSubcategories, setAvailableSubcategories] = useState<string[]>([]);
 
@@ -49,13 +59,21 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
     if (isOpen) {
       setSelectedMainCategory('');
       setSelectedSubCategory('');
-      setSelectedTransactionType('negative'); // Default to negative (expenses)
+      setPositiveTransactionType('Transaction');
+      setNegativeTransactionType('Transaction');
+      setSelectedAccountIds([]);
     }
   }, [isOpen]);
 
   const handleConfirm = () => {
     if (selectedMainCategory && selectedSubCategory) {
-      onConfirm(selectedMainCategory, selectedSubCategory, selectedTransactionType);
+      onConfirm(
+        selectedMainCategory, 
+        selectedSubCategory, 
+        positiveTransactionType,
+        negativeTransactionType,
+        selectedAccountIds
+      );
       onClose();
     }
   };
@@ -63,7 +81,9 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
   const handleCancel = () => {
     setSelectedMainCategory('');
     setSelectedSubCategory('');
-    setSelectedTransactionType('negative');
+    setPositiveTransactionType('Transaction');
+    setNegativeTransactionType('Transaction');
+    setSelectedAccountIds([]);
     onClose();
   };
 
@@ -96,16 +116,66 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
           </div>
 
           <div>
-            <Label htmlFor="transaction-type">Transaktionstyp</Label>
-            <Select value={selectedTransactionType} onValueChange={(value: 'positive' | 'negative') => setSelectedTransactionType(value)}>
+            <Label htmlFor="positive-transaction-type">Transaktionstyp (Positiva belopp)</Label>
+            <Select value={positiveTransactionType} onValueChange={setPositiveTransactionType}>
               <SelectTrigger>
-                <SelectValue placeholder="Välj transaktionstyp" />
+                <SelectValue placeholder="Välj typ för positiva belopp" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="negative">Negativa belopp (utgifter)</SelectItem>
-                <SelectItem value="positive">Positiva belopp (inkomster)</SelectItem>
+                <SelectItem value="Transaction">Transaktion</SelectItem>
+                <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
+                <SelectItem value="Savings">Sparande</SelectItem>
+                <SelectItem value="CostCoverage">Täck en kostnad</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="negative-transaction-type">Transaktionstyp (Negativa belopp)</Label>
+            <Select value={negativeTransactionType} onValueChange={setNegativeTransactionType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Välj typ för negativa belopp" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Transaction">Transaktion</SelectItem>
+                <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
+                <SelectItem value="ExpenseClaim">Utlägg</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="accounts">Konton som regeln gäller för</Label>
+            <div className="space-y-2 max-h-32 overflow-y-auto border rounded-md p-2">
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={selectedAccountIds.length === 0}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedAccountIds([]);
+                    }
+                  }}
+                />
+                <span className="text-sm">Alla konton</span>
+              </label>
+              {accounts.map(account => (
+                <label key={account.id} className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedAccountIds.includes(account.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedAccountIds([...selectedAccountIds, account.id]);
+                      } else {
+                        setSelectedAccountIds(selectedAccountIds.filter(id => id !== account.id));
+                      }
+                    }}
+                  />
+                  <span className="text-sm">{account.name}</span>
+                </label>
+              ))}
+            </div>
           </div>
 
           <div>
