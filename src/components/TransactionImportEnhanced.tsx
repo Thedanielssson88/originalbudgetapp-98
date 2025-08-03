@@ -451,14 +451,14 @@ export const TransactionImportEnhanced: React.FC = () => {
     setBankCSVMappings(storedMappings);
   }, []);
 
+  // State to collect balance updates during import
+  const [balanceUpdates, setBalanceUpdates] = useState<{accountName: string, newBalance: number, monthKey: string}[]>([]);
+
   // Listen for automatic balance updates from saldo imports
   useEffect(() => {
     const handleBalanceUpdate = (event: CustomEvent) => {
-      const { accountName, newBalance, message } = event.detail;
-      toast({
-        title: "Saldo uppdaterat",
-        description: message,
-      });
+      const { accountName, newBalance, monthKey } = event.detail;
+      setBalanceUpdates(prev => [...prev, { accountName, newBalance, monthKey }]);
     };
 
     window.addEventListener('balanceUpdated', handleBalanceUpdate as EventListener);
@@ -466,7 +466,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     return () => {
       window.removeEventListener('balanceUpdated', handleBalanceUpdate as EventListener);
     };
-  }, [toast]);
+  }, []);
 
   const handleAddBank = (bankName: string) => {
     const newBank: Bank = {
@@ -561,9 +561,24 @@ export const TransactionImportEnhanced: React.FC = () => {
         console.log('🔄 [DEBUG] Triggered UI refresh after file import');
       }, 200);
         
+      // Prepare the notification content
+      let toastDescription = `Transaktioner från ${file.name} har bearbetats och sparats till budgeten.`;
+      
+      // Add balance updates if any occurred during import
+      if (balanceUpdates.length > 0) {
+        const balanceText = balanceUpdates.map(update => 
+          `${update.accountName}: ${update.newBalance.toLocaleString('sv-SE')} kr - ${update.monthKey}`
+        ).join('. ');
+        
+        toastDescription += `\n\nSaldo uppdaterat\nFaktiskt saldo har uppdaterats för månaderna: ${balanceText}`;
+        
+        // Clear the balance updates after showing them
+        setBalanceUpdates([]);
+      }
+
       toast({
         title: "Fil uppladdad",
-        description: `Transaktioner från ${file.name} har bearbetats och sparats till budgeten.`,
+        description: toastDescription,
       });
       
     } catch (error) {

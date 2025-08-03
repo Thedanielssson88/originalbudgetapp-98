@@ -101,6 +101,16 @@ export function updateAccountBalanceFromBankData(
   // Use the existing function to update the account balance
   updateAccountBalanceForMonth(monthKey, accountName, bankBalance);
   
-  console.log(`✅ [BANK BALANCE] Successfully updated balance for ${accountName}`);
+  // Dispatch event to notify UI about the balance update
+  const balanceUpdateEvent = new CustomEvent('balanceUpdated', {
+    detail: {
+      accountName,
+      newBalance: bankBalance,
+      monthKey
+    }
+  });
+  window.dispatchEvent(balanceUpdateEvent);
+  
+  console.log(`✅ [BANK BALANCE] Successfully updated balance for ${accountName} and dispatched event`);
   return true;
 }
