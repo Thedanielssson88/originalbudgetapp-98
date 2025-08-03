@@ -3,7 +3,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus } from 'lucide-react';
-import { ImportedTransaction, CategoryRule } from '@/types/transaction';
+import { ImportedTransaction } from '@/types/transaction';
+import { CategoryRule } from '@/types/budget';
 
 interface UncategorizedBankCategoriesProps {
   transactions: ImportedTransaction[];
@@ -44,9 +45,12 @@ export const UncategorizedBankCategories: React.FC<UncategorizedBankCategoriesPr
 
   // Filter out categories that already have rules
   const uncategorizedCategories = bankCategories.filter(({ bankCategory }) => {
-    return !categoryRules.some(rule => 
-      rule.bankCategory === bankCategory
-    );
+    return !categoryRules.some(rule => {
+      if (rule.condition.type === 'categoryMatch') {
+        return (rule.condition as any).bankCategory === bankCategory;
+      }
+      return false;
+    });
   });
 
   if (uncategorizedCategories.length === 0) {

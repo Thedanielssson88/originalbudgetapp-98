@@ -8,7 +8,7 @@ import { get, StorageKey } from '@/services/storageService';
 interface CategorySelectionDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (mainCategory: string, subCategory: string) => void;
+  onConfirm: (mainCategory: string, subCategory: string, transactionType: 'positive' | 'negative') => void;
   bankCategory: string;
   bankSubCategory?: string;
   mainCategories: string[];
@@ -24,6 +24,7 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
 }) => {
   const [selectedMainCategory, setSelectedMainCategory] = useState('');
   const [selectedSubCategory, setSelectedSubCategory] = useState('');
+  const [selectedTransactionType, setSelectedTransactionType] = useState<'positive' | 'negative'>('negative');
   const [subcategories, setSubcategories] = useState<Record<string, string[]>>({});
   const [availableSubcategories, setAvailableSubcategories] = useState<string[]>([]);
 
@@ -48,12 +49,13 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
     if (isOpen) {
       setSelectedMainCategory('');
       setSelectedSubCategory('');
+      setSelectedTransactionType('negative'); // Default to negative (expenses)
     }
   }, [isOpen]);
 
   const handleConfirm = () => {
     if (selectedMainCategory && selectedSubCategory) {
-      onConfirm(selectedMainCategory, selectedSubCategory);
+      onConfirm(selectedMainCategory, selectedSubCategory, selectedTransactionType);
       onClose();
     }
   };
@@ -61,6 +63,7 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
   const handleCancel = () => {
     setSelectedMainCategory('');
     setSelectedSubCategory('');
+    setSelectedTransactionType('negative');
     onClose();
   };
 
@@ -88,6 +91,19 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
                     {category}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="transaction-type">Transaktionstyp</Label>
+            <Select value={selectedTransactionType} onValueChange={(value: 'positive' | 'negative') => setSelectedTransactionType(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Välj transaktionstyp" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="negative">Negativa belopp (utgifter)</SelectItem>
+                <SelectItem value="positive">Positiva belopp (inkomster)</SelectItem>
               </SelectContent>
             </Select>
           </div>

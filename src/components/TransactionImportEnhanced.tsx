@@ -1915,7 +1915,7 @@ export const TransactionImportEnhanced: React.FC = () => {
       <CategorySelectionDialog
         isOpen={categoryDialogOpen}
         onClose={() => setCategoryDialogOpen(false)}
-        onConfirm={(mainCategory, subCategory) => {
+        onConfirm={(mainCategory, subCategory, transactionType) => {
           const newRule = {
             id: uuidv4(),
             priority: 100,
@@ -1927,7 +1927,7 @@ export const TransactionImportEnhanced: React.FC = () => {
             action: {
               appMainCategoryId: mainCategory,
               appSubCategoryId: subCategory,
-              transactionType: 'Transaction' as const
+              transactionType: transactionType === 'positive' ? 'Transfer' as const : 'Transaction' as const
             },
             isActive: true
           };
