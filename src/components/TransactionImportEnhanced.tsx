@@ -1390,22 +1390,37 @@ export const TransactionImportEnhanced: React.FC = () => {
           
           <TabsContent value="rules" className="space-y-4">
             <CategoryRuleManagerAdvanced
-              rules={categoryRules.map(rule => ({
-                id: rule.id,
-                priority: rule.priority,
-                condition: rule.description 
-                  ? { type: 'textContains' as const, value: rule.description }
-                  : { type: 'categoryMatch' as const, bankCategory: rule.bankCategory, bankSubCategory: rule.bankSubCategory },
-                action: {
-                  appMainCategoryId: rule.appCategoryId,
-                  appSubCategoryId: rule.appSubCategoryId,
-                  // Convert old transactionType to new format with defaults
-                  positiveTransactionType: rule.transactionType === 'InternalTransfer' ? 'InternalTransfer' as const : 'Transaction' as const,
-                  negativeTransactionType: rule.transactionType === 'InternalTransfer' ? 'InternalTransfer' as const : 'Transaction' as const,
-                  applicableAccountIds: []
-                },
-                isActive: rule.isActive
-              }))}
+              rules={categoryRules.map(rule => {
+                // Handle both new format (with condition/action) and old format (with bankCategory/appCategoryId)
+                if (rule.condition && rule.action) {
+                  // New format - use as is
+                  return {
+                    id: rule.id,
+                    priority: rule.priority,
+                    condition: rule.condition,
+                    action: rule.action,
+                    isActive: rule.isActive
+                  };
+                } else {
+                  // Old format - convert to new format
+                  return {
+                    id: rule.id,
+                    priority: rule.priority,
+                    condition: rule.description 
+                      ? { type: 'textContains' as const, value: rule.description }
+                      : { type: 'categoryMatch' as const, bankCategory: rule.bankCategory, bankSubCategory: rule.bankSubCategory },
+                    action: {
+                      appMainCategoryId: rule.appCategoryId,
+                      appSubCategoryId: rule.appSubCategoryId,
+                      // Convert old transactionType to new format with defaults
+                      positiveTransactionType: rule.transactionType === 'InternalTransfer' ? 'InternalTransfer' as const : 'Transaction' as const,
+                      negativeTransactionType: rule.transactionType === 'InternalTransfer' ? 'InternalTransfer' as const : 'Transaction' as const,
+                      applicableAccountIds: []
+                    },
+                    isActive: rule.isActive
+                  };
+                }
+              })}
               onRulesChange={(newRules) => {
                 // Convert the advanced rules back to storage format
                 const formattedRules = newRules.map(rule => ({
