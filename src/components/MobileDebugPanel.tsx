@@ -30,6 +30,22 @@ export const MobileDebugPanel: React.FC = () => {
     mobileDebugLogger.clearLogs();
   };
 
+  const handleCopyLogs = () => {
+    const allLogs = logs.map(log => `${log.timestamp}: ${log.message}`).join('\n');
+    navigator.clipboard.writeText(allLogs).then(() => {
+      alert('Debug-loggar kopierade till urklipp!');
+    }).catch(() => {
+      // Fallback för äldre webbläsare
+      const textArea = document.createElement('textarea');
+      textArea.value = allLogs;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      alert('Debug-loggar kopierade till urklipp!');
+    });
+  };
+
   const formatLogMessage = (message: string) => {
     // Color-code different types of messages
     if (message.includes('📅')) return 'text-blue-600';
@@ -73,6 +89,16 @@ export const MobileDebugPanel: React.FC = () => {
           )}
         </div>
         <div className="flex items-center gap-1">
+          <Button
+            onClick={handleCopyLogs}
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0"
+            disabled={logs.length === 0}
+            title="Kopiera alla loggar"
+          >
+            📋
+          </Button>
           <Button
             onClick={() => setIsMinimized(!isMinimized)}
             variant="ghost"

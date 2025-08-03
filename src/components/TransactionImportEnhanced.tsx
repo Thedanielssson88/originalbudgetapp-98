@@ -1390,8 +1390,8 @@ export const TransactionImportEnhanced: React.FC = () => {
           
           <TabsContent value="rules" className="space-y-4">
             {(() => {
-              console.log('🔍 [DEBUG] All categoryRules:', categoryRules);
-              console.log('🔍 [DEBUG] Number of rules:', categoryRules.length);
+              addMobileDebugLog('🔍 [DEBUG] All categoryRules: ' + JSON.stringify(categoryRules, null, 2));
+              addMobileDebugLog('🔍 [DEBUG] Number of rules: ' + categoryRules.length);
               return null;
             })()}
             <CategoryRuleManagerAdvanced
@@ -1957,7 +1957,7 @@ export const TransactionImportEnhanced: React.FC = () => {
             },
             isActive: true
           };
-          console.log('🔍 [DEBUG] Creating rule for Semester:', newRule);
+          addMobileDebugLog('🔍 [DEBUG] Creating rule for Semester: ' + JSON.stringify(newRule, null, 2));
           addCategoryRule(newRule);
           triggerRefresh();
         }}

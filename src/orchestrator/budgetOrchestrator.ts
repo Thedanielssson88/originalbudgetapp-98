@@ -227,13 +227,18 @@ export function addCategoryRule(rule: any): void {
     ...rule
   };
   
-  console.log('🔍 [DEBUG] Adding category rule:', newRule);
-  console.log('🔍 [DEBUG] Before adding - total rules:', state.budgetState.categoryRules.length);
+  // Import the logger here to avoid circular dependencies
+  import('../utils/mobileDebugLogger').then(({ addMobileDebugLog }) => {
+    addMobileDebugLog('🔍 [DEBUG] Adding category rule: ' + JSON.stringify(newRule, null, 2));
+    addMobileDebugLog('🔍 [DEBUG] Before adding - total rules: ' + state.budgetState.categoryRules.length);
+  });
   
   state.budgetState.categoryRules = [...state.budgetState.categoryRules, newRule];
   
-  console.log('🔍 [DEBUG] After adding - total rules:', state.budgetState.categoryRules.length);
-  console.log('🔍 [DEBUG] All rules:', state.budgetState.categoryRules);
+  import('../utils/mobileDebugLogger').then(({ addMobileDebugLog }) => {
+    addMobileDebugLog('🔍 [DEBUG] After adding - total rules: ' + state.budgetState.categoryRules.length);
+    addMobileDebugLog('🔍 [DEBUG] All rules: ' + JSON.stringify(state.budgetState.categoryRules, null, 2));
+  });
   
   saveStateToStorage();
   triggerUIRefresh();

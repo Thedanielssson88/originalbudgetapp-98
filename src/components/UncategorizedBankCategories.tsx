@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus } from 'lucide-react';
 import { ImportedTransaction } from '@/types/transaction';
 import { CategoryRule } from '@/types/budget';
+import { addMobileDebugLog } from '@/utils/mobileDebugLogger';
 
 interface UncategorizedBankCategoriesProps {
   transactions: ImportedTransaction[];
@@ -45,7 +46,7 @@ export const UncategorizedBankCategories: React.FC<UncategorizedBankCategoriesPr
 
   // Filter out categories that already have rules
   const uncategorizedCategories = bankCategories.filter(({ bankCategory }) => {
-    console.log('🔍 [DEBUG] Checking if', bankCategory, 'has rules. Total rules:', categoryRules.length);
+    addMobileDebugLog('🔍 [DEBUG] Checking if ' + bankCategory + ' has rules. Total rules: ' + categoryRules.length);
     return !categoryRules.some(rule => {
       // Add null checking for rule and rule.condition
       if (!rule || !rule.condition) {
