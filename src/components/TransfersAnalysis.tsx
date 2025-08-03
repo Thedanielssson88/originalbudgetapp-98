@@ -7,6 +7,7 @@ import { BudgetState, PlannedTransfer, BudgetItem, Account, MonthData, Transacti
 import { getAccountNameById } from '../orchestrator/budgetOrchestrator';
 import { getDateRangeForMonth, getInternalTransferSummary } from '../services/calculationService';
 import { SimpleTransferMatchDialog } from './SimpleTransferMatchDialog';
+import { NewTransferForm } from './NewTransferForm';
 
 interface TransfersAnalysisProps {
   budgetState: BudgetState;
@@ -33,6 +34,9 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
     transaction?: Transaction;
     suggestions?: Transaction[];
   }>({ isOpen: false });
+  
+  const [showNewTransferForm, setShowNewTransferForm] = useState(false);
+  const [selectedTargetAccountId, setSelectedTargetAccountId] = useState<string>('');
 
   // Toggle account expansion
   const toggleAccount = (accountId: string) => {
@@ -43,6 +47,20 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
       newExpanded.add(accountId);
     }
     setExpandedAccounts(newExpanded);
+  };
+
+  // Handle new transfer form
+  const openNewTransferForm = (targetAccountId?: string) => {
+    setSelectedTargetAccountId(targetAccountId || '');
+    setShowNewTransferForm(true);
+  };
+
+  const handleCreateTransfer = (fromAccountId: string, amount: number, description?: string) => {
+    // For now, just close the form since we don't have the budget context here
+    // In the future, this should call a function to add a planned transfer
+    console.log('Creating transfer:', { fromAccountId, toAccountId: selectedTargetAccountId, amount, description });
+    setShowNewTransferForm(false);
+    setSelectedTargetAccountId('');
   };
 
   // Handle clicking on "Ej matchad" badge to match transfers
@@ -255,6 +273,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                 size="sm" 
                 variant="outline"
                 className="border-blue-300 text-blue-800 hover:bg-blue-200"
+                onClick={() => openNewTransferForm()}
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Ny Överföring
@@ -449,6 +468,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                                 size="sm" 
                                 variant="outline"
                                 className="border-blue-300 text-blue-800 hover:bg-blue-200"
+                                onClick={() => openNewTransferForm(data.account.id)}
                               >
                                 <Plus className="h-4 w-4 mr-2" />
                                 Ny Överföring
@@ -473,6 +493,23 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
         transaction={transferMatchDialog.transaction}
         suggestions={transferMatchDialog.suggestions || []}
       />
+
+      {/* New Transfer Form Modal */}
+      {showNewTransferForm && (
+        <NewTransferForm
+          targetAccountId={selectedTargetAccountId}
+          targetAccountName={selectedTargetAccountId ? 
+            budgetState.accounts.find(acc => acc.id === selectedTargetAccountId)?.name || 'Välj konto' : 
+            'Välj konto'
+          }
+          availableAccounts={budgetState.accounts.filter(acc => acc.id !== selectedTargetAccountId)}
+          onSubmit={handleCreateTransfer}
+          onCancel={() => {
+            setShowNewTransferForm(false);
+            setSelectedTargetAccountId('');
+          }}
+        />
+      )}
     </Card>
   );
 };
