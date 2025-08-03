@@ -140,38 +140,73 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
   
   console.log(`[ORCHESTRATOR] ✅ Final transaction count: ${finalTransactionList.length}`);
   
-  // 8. Save back to central state grouped by month
+  // 8. Apply changes surgically - only update specific dates/accounts that were imported
+  console.log(`[ORCHESTRATOR] 🔍 CSV date range: ${minDateStr} to ${maxDateStr} for account: ${accountId}`);
+  console.log(`[ORCHESTRATOR] 🔍 Final transaction list has ${finalTransactionList.length} transactions`);
+  
+  // Group final transactions by month for organized storage
   const finalGroupedByMonth = groupTransactionsByMonth(finalTransactionList);
-  
-  // Clear existing months and update with new data
-  // CRITICAL FIX: Only update months that actually have new transaction data
   console.log(`[ORCHESTRATOR] 🔍 finalGroupedByMonth keys:`, Object.keys(finalGroupedByMonth));
-  console.log(`[ORCHESTRATOR] 🔍 existing historicalData keys:`, Object.keys(state.budgetState.historicalData));
   
-  // ONLY iterate over months that have new transaction data
+  // For each month that has transactions in our final list
   Object.keys(finalGroupedByMonth).forEach(monthKey => {
-    console.log(`[ORCHESTRATOR] 📅 Processing month ${monthKey} with ${finalGroupedByMonth[monthKey].length} transactions`);
+    const monthTransactions = finalGroupedByMonth[monthKey];
+    console.log(`[ORCHESTRATOR] 📅 Processing month ${monthKey} with ${monthTransactions.length} transactions`);
     
+    // Ensure month exists in historical data
     if (!state.budgetState.historicalData[monthKey]) {
       console.log(`[ORCHESTRATOR] 🆕 Creating new month data for ${monthKey}`);
       state.budgetState.historicalData[monthKey] = createEmptyMonthDataForImport();
     }
     
-    // Convert ImportedTransaction to Transaction format for storage
-    const monthTransactions = finalGroupedByMonth[monthKey].map(tx => ({
+    // Get existing transactions for this month
+    const existingMonthTransactions = (state.budgetState.historicalData[monthKey].transactions || []) as ImportedTransaction[];
+    console.log(`[ORCHESTRATOR] 🔍 Month ${monthKey} had ${existingMonthTransactions.length} existing transactions`);
+    
+    // SURGICAL UPDATE: Keep existing transactions that are NOT in the imported date range for this account
+    const transactionsToKeepInMonth = existingMonthTransactions.filter(tx => {
+      if (tx.accountId !== accountId) {
+        console.log(`[ORCHESTRATOR] 🔍 Keeping transaction for different account: ${tx.accountId}`);
+        return true; // Keep transactions from other accounts
+      }
+      
+      const txDateStr = tx.date.split('T')[0];
+      const isInImportedDateRange = txDateStr >= minDateStr && txDateStr <= maxDateStr;
+      
+      if (isInImportedDateRange) {
+        console.log(`[ORCHESTRATOR] 🔍 Removing existing transaction in date range: ${txDateStr} for account ${accountId}`);
+        return false; // Remove - will be replaced by imported data
+      } else {
+        console.log(`[ORCHESTRATOR] 🔍 Keeping existing transaction outside date range: ${txDateStr} for account ${accountId}`);
+        return true; // Keep - outside imported date range
+      }
+    });
+    
+    // Convert new transactions to proper format
+    const newTransactionsForMonth = monthTransactions.map(tx => ({
       ...tx,
       bankCategory: tx.bankCategory || '',
       bankSubCategory: tx.bankSubCategory || '',
       userDescription: tx.userDescription || '',
       balanceAfter: tx.balanceAfter || 0,
-      status: tx.status === 'green' ? 'green' : determineTransactionStatus(tx) // Recalculate status except for user-approved green
+      status: tx.status === 'green' ? 'green' : determineTransactionStatus(tx)
     }));
     
-    // CRITICAL: Only update months that have actual transaction data
-    state.budgetState.historicalData[monthKey].transactions = monthTransactions;
+    // Combine kept transactions with new transactions (convert existing ones to proper format)
+    const convertedKeptTransactions = transactionsToKeepInMonth.map(tx => ({
+      ...tx,
+      bankCategory: tx.bankCategory || '',
+      bankSubCategory: tx.bankSubCategory || '',
+      userDescription: tx.userDescription || '',
+      balanceAfter: tx.balanceAfter || 0
+    }));
+    const finalMonthTransactions = [...convertedKeptTransactions, ...newTransactionsForMonth];
     
-    console.log(`[ORCHESTRATOR] ✅ Updated month ${monthKey} with ${monthTransactions.length} transactions`);
-    addMobileDebugLog(`✅ Updated month ${monthKey} with ${monthTransactions.length} transactions`);
+    // Update the month with the combined transaction list
+    state.budgetState.historicalData[monthKey].transactions = finalMonthTransactions;
+    
+    console.log(`[ORCHESTRATOR] ✅ Month ${monthKey}: kept ${transactionsToKeepInMonth.length} existing + added ${newTransactionsForMonth.length} new = ${finalMonthTransactions.length} total`);
+    addMobileDebugLog(`✅ Month ${monthKey}: ${transactionsToKeepInMonth.length} kept + ${newTransactionsForMonth.length} new = ${finalMonthTransactions.length} total`);
   });
   
   // 9. Update account balances from saldo data using the SAME working logic as BudgetCalculator
