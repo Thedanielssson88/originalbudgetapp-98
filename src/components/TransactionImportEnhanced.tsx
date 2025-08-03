@@ -612,11 +612,13 @@ export const TransactionImportEnhanced: React.FC = () => {
         
     } catch (error) {
       console.error('Error uploading file:', error);
+      addMobileDebugLog(`❌ FILE UPLOAD ERROR: ${error instanceof Error ? error.message : String(error)}`);
+      addMobileDebugLog(`❌ Error stack: ${error instanceof Error ? error.stack : 'No stack trace'}`);
       setIsWaitingForBalanceUpdates(false);
       setPendingToast(null);
       toast({
         title: "Fel vid uppladdning",
-        description: "Ett fel uppstod vid bearbetning av filen.",
+        description: `Ett fel uppstod vid bearbetning av filen: ${error instanceof Error ? error.message : String(error)}`,
         variant: "destructive"
       });
     }
@@ -627,11 +629,18 @@ export const TransactionImportEnhanced: React.FC = () => {
     const input = fileInputRefs.current[accountId];
     if (input) {
       addMobileDebugLog(`🔄 File input found, clearing value and triggering click`);
+      addMobileDebugLog(`🔄 File input disabled: ${input.disabled}, type: ${input.type}, accept: ${input.accept}`);
       // CRITICAL: Clear the input value to ensure fresh file processing
       input.value = '';
-      input.click();
+      try {
+        input.click();
+        addMobileDebugLog(`🔄 File input click() executed successfully`);
+      } catch (error) {
+        addMobileDebugLog(`❌ Error clicking file input: ${error}`);
+      }
     } else {
       addMobileDebugLog(`❌ No file input found for account: ${accountId}`);
+      addMobileDebugLog(`❌ Available file inputs: ${Object.keys(fileInputRefs.current).join(', ')}`);
     }
   }, []);
 
