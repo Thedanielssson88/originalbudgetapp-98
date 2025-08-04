@@ -446,18 +446,34 @@ export const TransactionImportEnhanced: React.FC = () => {
   const costGroups = budgetState?.historicalData?.[budgetState.selectedMonthKey]?.costGroups || [];
   const categoryRulesFromState = budgetState?.categoryRules || [];
   
-  // Read transactions directly from central state - this is now the ONLY source of truth
+  // CRITICAL: Read transactions from centralized storage - single source of truth
   const allTransactions = useMemo(() => {
-    const transactions = Object.values(budgetState?.historicalData || {}).flatMap(month => {
-      return (month.transactions || []).map(t => ({
-        ...t,
-        importedAt: (t as any).importedAt || new Date().toISOString(),
-        fileSource: (t as any).fileSource || 'budgetState'
-      } as ImportedTransaction))
-    });
+    console.log('[TX IMPORT] 🔄 Reading from centralized transaction storage');
+    console.log('[TX IMPORT] 📊 Total transactions in centralized storage:', budgetState?.allTransactions?.length || 0);
     
+    // Convert Transaction[] to ImportedTransaction[] format
+    const transactions = (budgetState?.allTransactions || []).map(t => ({
+      id: t.id,
+      accountId: t.accountId,
+      date: t.date,
+      amount: t.amount,
+      balanceAfter: t.balanceAfter,
+      description: t.description,
+      userDescription: t.userDescription,
+      type: t.type as ImportedTransaction['type'],
+      status: t.status as ImportedTransaction['status'],
+      linkedTransactionId: t.linkedTransactionId,
+      correctedAmount: t.correctedAmount,
+      isManuallyChanged: t.isManuallyChanged,
+      appCategoryId: t.appCategoryId,
+      appSubCategoryId: t.appSubCategoryId,
+      importedAt: (t as any).importedAt || new Date().toISOString(),
+      fileSource: (t as any).fileSource || 'budgetState'
+    } as ImportedTransaction));
+    
+    console.log('[TX IMPORT] 📊 Converted transactions:', transactions.length);
     return transactions;
-  }, [budgetState?.historicalData, refreshKey]);
+  }, [budgetState?.allTransactions, refreshKey]);
 
   // Use actual accounts from budget state
   const accounts: Account[] = budgetState?.accounts || [];

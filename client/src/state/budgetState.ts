@@ -1,7 +1,7 @@
 // Single Source of Truth state - Simplified architecture
 
 import { get, set, StorageKey } from '../services/storageService';
-import { BudgetState, MonthData, Account } from '../types/budget';
+import { BudgetState, MonthData, Account, Transaction } from '../types/budget';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -24,6 +24,9 @@ export const state: AppState = {
     plannedTransfers: [], // NYA PLANERADE ÖVERFÖRINGAR
     selectedMonthKey: '2025-07', // Use current month as default
     selectedHistoricalMonth: '2025-07',
+    
+    // CRITICAL: Central transaction storage - single source of truth
+    allTransactions: [], // All transactions across all months
     
     // UI state
     uiState: {
@@ -348,6 +351,45 @@ export function initializeStateFromStorage(): void {
       // Mark migration as complete to prevent it from running again
       state.budgetState.migrationVersion = 2;  // Set a version number
       console.log('[MIGRATION] ✅ Migration completed successfully!');
+      
+      // Save immediately to persist the migrated data
+      saveStateToStorage();
+    }
+    
+    // STEP 5: MIGRATION - Move transactions to centralized storage (Migration version 3)
+    if (!state.budgetState.migrationVersion || state.budgetState.migrationVersion < 3) {
+      console.log('[MIGRATION v3] 🔄 Migrating transactions to centralized storage...');
+      
+      // Initialize allTransactions if it doesn't exist
+      if (!state.budgetState.allTransactions) {
+        state.budgetState.allTransactions = [];
+      }
+      
+      // Collect all transactions from monthly storage
+      const allTransactions: Transaction[] = [];
+      Object.entries(state.budgetState.historicalData).forEach(([monthKey, monthData]) => {
+        if (monthData.transactions && monthData.transactions.length > 0) {
+          console.log(`[MIGRATION v3] 📊 Found ${monthData.transactions.length} transactions in month ${monthKey}`);
+          allTransactions.push(...monthData.transactions);
+        }
+      });
+      
+      // Remove duplicates based on transaction ID
+      const uniqueTransactions = Array.from(
+        new Map(allTransactions.map(tx => [tx.id, tx])).values()
+      );
+      
+      console.log(`[MIGRATION v3] 📊 Total unique transactions: ${uniqueTransactions.length}`);
+      state.budgetState.allTransactions = uniqueTransactions;
+      
+      // Clear transactions from monthly data (they're now in centralized storage)
+      Object.values(state.budgetState.historicalData).forEach((monthData) => {
+        delete (monthData as any).transactions;
+      });
+      
+      // Update migration version
+      state.budgetState.migrationVersion = 3;
+      console.log('[MIGRATION v3] ✅ Transaction migration completed successfully!');
       
       // Save immediately to persist the migrated data
       saveStateToStorage();

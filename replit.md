@@ -2,6 +2,10 @@
 
 This is a comprehensive budget management application built with React and TypeScript on the frontend and Express.js on the backend. The application allows users to import bank transactions, categorize expenses, create budgets, track savings goals, and analyze financial data across multiple accounts and time periods. It features sophisticated transaction matching, automated categorization rules, and detailed financial reporting capabilities.
 
+## Recent Critical Changes (January 2025)
+
+- **Centralized Transaction Storage**: Implemented a single source of truth for all transactions in `budgetState.allTransactions` to fix critical data loss issues when switching between months. Transactions are no longer stored separately per month but in a central array, with filtering applied as needed for display.
+
 # User Preferences
 
 Preferred communication style: Simple, everyday language.

@@ -211,6 +211,9 @@ export interface BudgetState {
   selectedMonthKey: string;
   selectedHistoricalMonth: string; // För historik-vyn
   
+  // CRITICAL: Central transaction storage - single source of truth
+  allTransactions: Transaction[]; // All transactions across all months
+  
   // UI state som inte är månadsspecifik
   uiState: {
     expandedSections: { [key: string]: boolean };

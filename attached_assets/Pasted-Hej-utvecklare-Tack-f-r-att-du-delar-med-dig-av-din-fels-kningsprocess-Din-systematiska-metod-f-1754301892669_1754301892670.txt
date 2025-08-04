@@ -1,0 +1,71 @@
+Hej utvecklare,
+
+Tack för att du delar med dig av din felsökningsprocess. Din systematiska metod för att spåra denna kritiska databug är imponerande. Här är en analys av ditt meddelande och några tips som kan hjälpa dig att snabbt hitta den exakta orsaken till problemet.
+
+-----
+
+### Analys av din felsökningsprocess
+
+Du gör helt rätt i att fokusera på hur transaktioner hanteras vid månadsbyte. Din misstanke om att data antingen raderas, inte sparas korrekt, eller skrivs över är spot on. Loggningen du har lagt till i `budgetOrchestrator.ts` och `budgetState.ts` är ett utmärkt första steg för att visualisera dataflödet.
+
+**Nyckelinsikt:**
+Din sökning efter `updateSelectedBudgetMonth` tog dig till kärnan av problemet. Denna funktion, och hur den interagerar med appens "state" (tillstånd), är där felet ligger.
+
+Problemet är **inte** att datan försvinner från `localStorage`. Datan från CSV-importen finns kvar. Problemet är att applikationen **inte hämtar** den datan när du byter tillbaka till en månad. Istället laddar den en tom mall eller en ofullständig "historisk" version av månaden, vilket gör att det *ser ut som* att datan är borta.
+
+-----
+
+### Tips och rekommendationer
+
+Här är några konkreta tips för att lösa problemet permanent:
+
+#### **1. Centralisera transaktionshanteringen 📌**
+
+Istället för att varje månad i `historicalData` har sin egen separata lista med transaktioner, bör du ha **en enda, global lista** med alla transaktioner från alla månader.
+
+  * **Varför?** Detta säkerställer att det finns en "enda källa till sanning" (`single source of truth`). Då kan ingen data försvinna bara för att du byter vy.
+  * **Hur:**
+    1.  Flytta `transactions`-arrayen från varje enskilt månadsobjekt i `historicalData` till en rot-nivå i ditt `budgetState`. Till exempel: `budgetState.allTransactions`.
+    2.  När du importerar en CSV, lägg till transaktionerna i denna globala lista istället för i den specifika månadens data.
+
+#### **2. Ändra logiken i `loadMonth` (eller `updateSelectedBudgetMonth`) ⚙️**
+
+När en användare byter månad ska funktionen inte längre ladda en hel "månads-snapshot" från `historicalData`. Istället ska den göra följande:
+
+1.  Hämta budgetdata (inkomster, utgifter etc.) för den valda månaden från `historicalData`.
+2.  Gå till den nya, globala transaktionslistan (`allTransactions`).
+3.  **Filtrera** listan för att bara få fram de transaktioner som matchar den valda månaden (och året).
+4.  Visa denna filtrerade lista för användaren.
+
+**Exempel på logik (pseudokod):**
+
+```javascript
+function updateSelectedBudgetMonth(year, month) {
+  // 1. Hämta budgetdata (men INTE transaktioner) från historiken
+  const monthBudgetData = budgetState.historicalData.find(m => m.year === year && m.month === month);
+  
+  // 2. Filtrera den globala transaktionslistan
+  const transactionsForMonth = budgetState.allTransactions.filter(t => 
+    isSameMonth(t.date, new Date(year, month))
+  );
+
+  // 3. Uppdatera appens aktiva tillstånd
+  setActiveBudget(monthBudgetData);
+  setActiveTransactions(transactionsForMonth);
+}
+```
+
+#### **3. Ta bort onödig kod för att bevara transaktioner**
+
+Den tillfälliga lösningen du implementerade, `createEmptyMonthDataWithTransactionPreservation`, blir onödig med den nya strukturen. Genom att separera budgetdata från transaktionsdata behöver du inte längre oroa dig för att transaktioner ska skrivas över när du skapar eller laddar en ny månad. Detta förenklar koden och minskar risken för framtida buggar.
+
+-----
+
+### Sammanfattning för dig som utvecklare
+
+Du är på helt rätt spår\! Problemet är inte lagringen, utan **logiken för att hämta och visa data** när användaren navigerar.
+
+**Ditt nästa steg bör vara:**
+Refaktorera state-hanteringen så att du har en **central lista med alla transaktioner**, och uppdatera sedan funktionen för månadsbyte till att **filtrera från denna lista** istället för att ladda separata, ofullständiga datamängder.
+
+Lycka till med fixen\! Du är väldigt nära en permanent lösning. 👍
