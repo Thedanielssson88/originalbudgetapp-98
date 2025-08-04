@@ -68,7 +68,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
   const handleMatchTransfer = (transaction: Transaction) => {
     // Get all transactions for the period
     const { startDate, endDate } = getDateRangeForMonth(selectedMonth, budgetState.settings?.payday || 25);
-    const allTransactions = Object.values(budgetState.historicalData).flatMap(m => m.transactions || []);
+    const allTransactions = budgetState.allTransactions || [];
     const transactionsForPeriod = allTransactions.filter(t => {
       return t.date >= startDate && t.date <= endDate;
     });
@@ -118,7 +118,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
 
     // 1.5. Hämta alla transaktioner för beräkning av faktiska överföringar
     const { startDate, endDate } = getDateRangeForMonth(selectedMonth, budgetState.settings?.payday || 25);
-    const allTransactions = Object.values(budgetState.historicalData).flatMap(m => m.transactions || []);
+    const allTransactions = budgetState.allTransactions || [];
     const transactionsForPeriod = allTransactions.filter(t => {
       return t.date >= startDate && t.date <= endDate;
     });

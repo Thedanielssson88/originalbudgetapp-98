@@ -519,10 +519,10 @@ export function getTransactionsForPeriod(
   
   // Hämta start- och slutdatum som STRÄNGAR
   const { startDate, endDate } = getDateRangeForMonth(selectedMonthKey, budgetState.settings?.payday || 25);
-  const allTransactions = Object.values(budgetState.historicalData).flatMap(m => m.transactions || []);
+  const allTransactions = budgetState.allTransactions || [];
   
   console.log(`[getTransactionsForPeriod] Period: ${startDate} to ${endDate} (pure strings)`);
-  console.log(`[getTransactionsForPeriod] Available months with data:`, Object.keys(budgetState.historicalData));
+  console.log(`[getTransactionsForPeriod] Available transactions:`, allTransactions.length);
   console.log(`[getTransactionsForPeriod] Total transactions to check: ${allTransactions.length}`);
   
   // Filtrera med ren strängjämförelse
@@ -580,7 +580,7 @@ export function getProcessedBudgetDataForMonth(budgetState: any, selectedMonthKe
   const { startDate, endDate } = getDateRangeForMonth(selectedMonthKey, payday);
   
   // 2. Get all relevant raw data
-  const allTransactions = Object.values(budgetState.historicalData).flatMap((m: any) => m.transactions || []);
+  const allTransactions = budgetState.allTransactions || [];
   const currentMonthData = budgetState.historicalData[selectedMonthKey] || {};
   
   // FIXED: Convert costGroups to flat costItems array

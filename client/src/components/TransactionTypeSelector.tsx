@@ -27,16 +27,13 @@ export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = (
       
       // Search for the linked transaction across all months
       console.log(`🔍 [TransactionTypeSelector] Searching for linked transaction ${transaction.linkedTransactionId} across all months`);
-      Object.entries(state.budgetState.historicalData || {}).forEach(([monthKey, monthData]) => {
-        const transactions = (monthData as any)?.transactions || [];
-        console.log(`🔍 [TransactionTypeSelector] Checking month ${monthKey} with ${transactions.length} transactions`);
-        const found = transactions.find((t: any) => t.id === transaction.linkedTransactionId);
-        if (found) {
-          linkedTransaction = found;
-          linkedMonthKey = monthKey;
-          console.log(`✅ [TransactionTypeSelector] Found linked transaction in month ${linkedMonthKey}:`, found);
-        }
-      });
+      const allTransactions = state.budgetState.allTransactions || [];
+      console.log(`🔍 [TransactionTypeSelector] Checking ${allTransactions.length} transactions`);
+      linkedTransaction = allTransactions.find((t: any) => t.id === transaction.linkedTransactionId);
+      if (linkedTransaction) {
+        linkedMonthKey = linkedTransaction.date.substring(0, 7); // Extract YYYY-MM from date
+        console.log(`✅ [TransactionTypeSelector] Found linked transaction:`, linkedTransaction);
+      }
       
       if (linkedTransaction && linkedMonthKey) {
         console.log(`🔗 [TransactionTypeSelector] Resetting linked transaction fields for ${transaction.linkedTransactionId} in month ${linkedMonthKey}`);

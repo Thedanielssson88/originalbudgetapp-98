@@ -30,21 +30,18 @@ export const ExpenseClaimDialog: React.FC<ExpenseClaimDialogProps> = ({
   const potentialPayments = useMemo(() => {
     if (!transaction) return [];
 
-    const currentMonthKey = transaction.date.substring(0, 7); // Get YYYY-MM from date
-    const monthData = budgetState.historicalData[currentMonthKey];
-    if (!monthData) return [];
-
-    const allMonthTransactions = monthData.transactions || [];
+    // Use centralized transaction storage
+    const allTransactions = budgetState.allTransactions || [];
 
     // Find POSITIVE transactions on SAME account that are uncategorized
-    return allMonthTransactions.filter(t =>
+    return allTransactions.filter(t =>
       t.id !== transaction.id &&                  // Not the same transaction
       t.accountId === transaction.accountId &&    // Must be on SAME account
       t.amount > 0 &&                             // Must be a positive transaction
       (t.type === 'Transaction' || t.type === 'InternalTransfer') && // Uncategorized
       !t.linkedTransactionId                      // Not already linked to another transaction
     );
-  }, [transaction, budgetState.historicalData]);
+  }, [transaction, budgetState.allTransactions]);
 
   const filteredPayments = useMemo(() => {
     if (!searchTerm) return potentialPayments;
