@@ -7021,19 +7021,25 @@ const BudgetCalculator = () => {
               </Card>
 
               {/* Calculate and Show Summary Button */}
-              <Button onClick={() => {
-                setActiveTab("sammanstallning");
-                setTimeout(() => {
-                  // Find the main title element for the current tab
-                  const mainTitle = document.querySelector('h1.text-3xl.font-bold.text-center');
-                  if (mainTitle) {
-                    mainTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }
-                }, 100);
-              }} className="w-full bg-green-600 hover:bg-green-700" size="lg">
-                <Calculator className="mr-2 h-4 w-4" />
-                Beräkna och visa sammanställningen
-              </Button>
+              <div className="space-y-3">
+                <Button onClick={() => {
+                  setActiveTab("sammanstallning");
+                  setTimeout(() => {
+                    // Find the main title element for the current tab
+                    const mainTitle = document.querySelector('h1.text-3xl.font-bold.text-center');
+                    if (mainTitle) {
+                      mainTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                  }, 100);
+                }} className="w-full bg-green-600 hover:bg-green-700" size="lg">
+                  <Calculator className="mr-2 h-4 w-4" />
+                  Beräkna och visa sammanställningen
+                </Button>
+                
+                <p className="text-sm text-muted-foreground text-center">
+                  💡 Tips: Gå till <strong>Sammanställning</strong> för att se detaljerad överföringsanalys mellan konton
+                </p>
+              </div>
               </div>
             </div>
           </TabsContent>
