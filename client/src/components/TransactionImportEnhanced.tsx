@@ -695,6 +695,7 @@ export const TransactionImportEnhanced: React.FC = () => {
       
       console.log(`🚀 [IMPORT] About to call importAndReconcileFile...`);
       console.log(`🚀 [IMPORT] XLSX import targeting account: ${accountName} (${accountId})`);
+      console.log(`🚀 [IMPORT] CSV content has ${csvContent.split('\n').length} lines (including header)`);
       importAndReconcileFile(csvContent, accountId);
       console.log(`🚀 [IMPORT] importAndReconcileFile call completed for account: ${accountName}`);
       
