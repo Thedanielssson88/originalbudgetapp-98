@@ -1,5 +1,5 @@
 import { Calculator } from "lucide-react";
-import { NavLink, useLocation } from "react-router-dom";
+import { Link, useLocation } from "wouter";
 
 import {
   Sidebar,
@@ -17,12 +17,9 @@ const items = [
 ];
 
 export function AppSidebar() {
-  const location = useLocation();
-  const currentPath = location.pathname;
+  const [location] = useLocation();
 
-  const isActive = (path: string) => currentPath === path;
-  const getNavCls = ({ isActive }: { isActive: boolean }) =>
-    isActive ? "bg-accent text-accent-foreground font-medium" : "hover:bg-accent/50";
+  const isActive = (path: string) => location === path;
 
   return (
     <Sidebar collapsible="icon">
@@ -34,10 +31,13 @@ export function AppSidebar() {
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink to={item.url} end className={getNavCls}>
+                    <Link 
+                      href={item.url} 
+                      className={isActive(item.url) ? "bg-accent text-accent-foreground font-medium" : "hover:bg-accent/50"}
+                    >
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
-                    </NavLink>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
