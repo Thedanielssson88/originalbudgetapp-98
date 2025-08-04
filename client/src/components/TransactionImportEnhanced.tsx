@@ -614,7 +614,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     const worksheet = workbook.Sheets[worksheetName];
     
     // Convert to CSV format with semicolon delimiter to match existing CSV parsing
-    const csvData = XLSX.utils.sheet_to_csv(worksheet, { FS: ';' });
+    let csvData = XLSX.utils.sheet_to_csv(worksheet, { FS: ';' });
     
     console.log(`🚀 [IMPORT] XLSX converted to CSV format, length: ${csvData.length}`);
     
@@ -624,18 +624,37 @@ export const TransactionImportEnhanced: React.FC = () => {
     console.log(`🔍 [XLSX] Total lines in converted CSV: ${lines.length}`);
     console.log(`🔍 [XLSX] April 2025 lines found: ${aprilLines.length}`);
     
-    // Debug headers - first line should contain headers
-    if (lines.length > 0) {
-      console.log(`🔍 [XLSX] Headers from converted CSV: "${lines[0]}"`);
-      const headers = lines[0].split(';');
+    // Debug headers - check first few lines
+    console.log(`🔍 [XLSX] First 5 lines from XLSX conversion:`);
+    lines.slice(0, 5).forEach((line, index) => {
+      console.log(`🔍 [XLSX] Line ${index + 1}: "${line}"`);
+    });
+    
+    // Fix XLSX header structure - remove title/empty rows and keep only data
+    const filteredLines = lines.filter((line, index) => {
+      // Skip empty lines and title lines
+      if (!line.trim()) return false;
+      if (line.startsWith('Transaktioner')) return false;
+      if (line.match(/^;+$/)) return false; // Skip lines with only semicolons
+      return true;
+    });
+    
+    console.log(`🔍 [XLSX] After filtering: ${filteredLines.length} lines (removed ${lines.length - filteredLines.length} header/empty lines)`);
+    
+    if (filteredLines.length > 0) {
+      console.log(`🔍 [XLSX] New first line (headers): "${filteredLines[0]}"`);
+      const headers = filteredLines[0].split(';');
       console.log(`🔍 [XLSX] Parsed headers:`, headers);
       addMobileDebugLog(`🔍 XLSX Headers: ${headers.join(', ')}`);
     }
     
+    // Reconstruct CSV data
+    csvData = filteredLines.join('\n');
+    
     aprilLines.slice(0, 5).forEach((line, index) => {
       console.log(`🔍 [XLSX] April line ${index + 1}: ${line}`);
     });
-    addMobileDebugLog(`🔍 XLSX: ${lines.length} total lines, ${aprilLines.length} April lines`);
+    addMobileDebugLog(`🔍 XLSX: ${lines.length} total lines, ${aprilLines.length} April lines, ${filteredLines.length} after cleanup`);
     
     return csvData;
   }, []);
