@@ -9,6 +9,7 @@ import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 import { v4 as uuidv4 } from 'uuid';
 import { ImportedTransaction } from '../types/transaction';
 import { CategoryRule } from '../types/budget';
+import { googleDriveService } from '../services/googleDriveService';
 
 // SMART MERGE FUNCTION - The definitive solution to duplicate and lost changes
 export function importAndReconcileFile(csvContent: string, accountId: string): void {
@@ -712,7 +713,38 @@ function triggerUIRefresh() {
   setTimeout(() => {
     console.log('🎯 [ORCHESTRATOR] Dispatching delayed APP_STATE_UPDATED event...');
     eventEmitter.dispatchEvent(new Event(APP_STATE_UPDATED));
+    
+    // Trigger automatic Google Drive backup if enabled and signed in
+    triggerAutoBackup();
   }, 0);
+}
+
+// Automatic Google Drive backup after data changes
+async function triggerAutoBackup() {
+  try {
+    // Check if auto backup is enabled
+    const savedData = localStorage.getItem('budgetCalculatorData');
+    if (!savedData) return;
+    
+    const settings = JSON.parse(savedData);
+    if (!settings.autoBackupEnabled) return;
+    
+    // Check if Google Drive is available and user is signed in
+    const status = googleDriveService.getSignInStatus();
+    if (!status.isSignedIn) return;
+    
+    console.log('[ORCHESTRATOR] 🔄 Triggering automatic Google Drive backup...');
+    
+    // Create backup in the background without blocking UI
+    const success = await googleDriveService.createBackup();
+    if (success) {
+      console.log('[ORCHESTRATOR] ✅ Automatic backup completed successfully');
+    } else {
+      console.warn('[ORCHESTRATOR] ⚠️ Automatic backup failed');
+    }
+  } catch (error) {
+    console.error('[ORCHESTRATOR] ❌ Auto backup error:', error);
+  }
 }
 
 // Track initialization to prevent multiple calls

@@ -8,11 +8,13 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { MainCategoriesSettings } from "@/components/MainCategoriesSettings";
 import { PaydaySettings } from "@/components/PaydaySettings";
 import { useBudget } from "@/hooks/useBudget";
 import { getCurrentState, addAccount, removeAccount, updateSelectedBudgetMonth } from "@/orchestrator/budgetOrchestrator";
-import { Calendar, User, Shield, Database, Settings, DollarSign, FolderOpen, ChevronLeft, ChevronRight } from "lucide-react";
+import { googleDriveService } from "@/services/googleDriveService";
+import { Calendar, User, Shield, Database, Settings, DollarSign, FolderOpen, ChevronLeft, ChevronRight, Cloud, CloudOff } from "lucide-react";
 
 const SettingsPage = () => {
   const { budgetState } = useBudget();
@@ -55,6 +57,15 @@ const SettingsPage = () => {
   
   // Backup states
   const [hasBackup, setHasBackup] = useState(false);
+  
+  // Google Drive states
+  const [isGoogleDriveInitialized, setIsGoogleDriveInitialized] = useState(false);
+  const [isSignedInToGoogle, setIsSignedInToGoogle] = useState(false);
+  const [googleUserEmail, setGoogleUserEmail] = useState('');
+  const [googleBackupExists, setGoogleBackupExists] = useState(false);
+  const [googleBackupLastModified, setGoogleBackupLastModified] = useState('');
+  const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
+  const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
 
   useEffect(() => {
     // Load settings from localStorage
@@ -67,6 +78,7 @@ const SettingsPage = () => {
         setTempUserName1(parsed.userName1 || 'Andreas');
         setTempUserName2(parsed.userName2 || 'Susanna');
         setBudgetTemplates(parsed.budgetTemplates || {});
+        setAutoBackupEnabled(parsed.autoBackupEnabled || false);
       } catch (error) {
         console.error('Error loading settings:', error);
       }
@@ -75,7 +87,123 @@ const SettingsPage = () => {
     // Check if backup exists
     const backup = localStorage.getItem('budgetCalculatorBackup');
     setHasBackup(!!backup);
+    
+    // Initialize Google Drive
+    initializeGoogleDrive();
   }, []);
+
+  const initializeGoogleDrive = async () => {
+    try {
+      const initialized = await googleDriveService.initialize();
+      setIsGoogleDriveInitialized(initialized);
+      
+      if (initialized) {
+        const status = googleDriveService.getSignInStatus();
+        setIsSignedInToGoogle(status.isSignedIn);
+        setGoogleUserEmail(status.userEmail);
+        
+        if (status.isSignedIn) {
+          await updateGoogleBackupInfo();
+        }
+      }
+    } catch (error) {
+      console.error('Failed to initialize Google Drive:', error);
+    }
+  };
+
+  const updateGoogleBackupInfo = async () => {
+    try {
+      const backupInfo = await googleDriveService.getBackupInfo();
+      if (backupInfo) {
+        setGoogleBackupExists(backupInfo.exists);
+        if (backupInfo.lastModified) {
+          setGoogleBackupLastModified(backupInfo.lastModified);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to get Google backup info:', error);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsLoadingGoogle(true);
+    try {
+      const success = await googleDriveService.signIn();
+      if (success) {
+        const status = googleDriveService.getSignInStatus();
+        setIsSignedInToGoogle(status.isSignedIn);
+        setGoogleUserEmail(status.userEmail);
+        await updateGoogleBackupInfo();
+      }
+    } catch (error) {
+      console.error('Google sign in failed:', error);
+      alert('Inloggning till Google Drive misslyckades. Kontrollera att API-nycklar är konfigurerade.');
+    } finally {
+      setIsLoadingGoogle(false);
+    }
+  };
+
+  const handleGoogleSignOut = () => {
+    googleDriveService.signOut();
+    setIsSignedInToGoogle(false);
+    setGoogleUserEmail('');
+    setGoogleBackupExists(false);
+    setGoogleBackupLastModified('');
+  };
+
+  const handleGoogleBackup = async () => {
+    setIsLoadingGoogle(true);
+    try {
+      const success = await googleDriveService.createBackup();
+      if (success) {
+        await updateGoogleBackupInfo();
+        alert('Backup sparad till Google Drive!');
+      } else {
+        alert('Backup till Google Drive misslyckades.');
+      }
+    } catch (error) {
+      console.error('Google backup failed:', error);
+      alert('Backup till Google Drive misslyckades.');
+    } finally {
+      setIsLoadingGoogle(false);
+    }
+  };
+
+  const handleGoogleRestore = async () => {
+    if (!confirm('Detta kommer att ersätta all nuvarande data med data från Google Drive. Vill du fortsätta?')) {
+      return;
+    }
+
+    setIsLoadingGoogle(true);
+    try {
+      const success = await googleDriveService.restoreBackup();
+      if (success) {
+        alert('Data återställd från Google Drive! Sidan laddas om.');
+        window.location.reload();
+      } else {
+        alert('Återställning från Google Drive misslyckades.');
+      }
+    } catch (error) {
+      console.error('Google restore failed:', error);
+      alert('Återställning från Google Drive misslyckades.');
+    } finally {
+      setIsLoadingGoogle(false);
+    }
+  };
+
+  const toggleAutoBackup = () => {
+    const newValue = !autoBackupEnabled;
+    setAutoBackupEnabled(newValue);
+    
+    // Save to localStorage
+    const savedData = localStorage.getItem('budgetCalculatorData');
+    const currentData = savedData ? JSON.parse(savedData) : {};
+    const updatedData = {
+      ...currentData,
+      autoBackupEnabled: newValue
+    };
+    localStorage.setItem('budgetCalculatorData', JSON.stringify(updatedData));
+  };
 
   const handlePaydayChange = (newPayday: number) => {
     setCurrentPayday(newPayday);
@@ -320,7 +448,7 @@ const SettingsPage = () => {
         </div>
 
         <Tabs defaultValue="payday" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7">
+          <TabsList className="grid w-full grid-cols-5 lg:grid-cols-8">
             <TabsTrigger value="payday" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               <span className="hidden sm:inline">Lönedatum</span>
@@ -336,6 +464,10 @@ const SettingsPage = () => {
             <TabsTrigger value="backup" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
               <span className="hidden sm:inline">Backup</span>
+            </TabsTrigger>
+            <TabsTrigger value="googledrive" className="flex items-center gap-2">
+              <Cloud className="h-4 w-4" />
+              <span className="hidden sm:inline">Google Drive</span>
             </TabsTrigger>
             <TabsTrigger value="advanced" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
@@ -499,6 +631,167 @@ const SettingsPage = () => {
                       </div>
                     </AlertDescription>
                   </Alert>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="googledrive" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Cloud className="h-5 w-5" />
+                  Google Drive Molnsynkronisering
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {!isGoogleDriveInitialized ? (
+                  <Alert>
+                    <AlertDescription>
+                      <div className="space-y-2">
+                        <p><strong>Google Drive API inte konfigurerat</strong></p>
+                        <p>För att använda automatisk molnsynkronisering behöver följande miljövariabler vara satta:</p>
+                        <ul className="list-disc list-inside mt-2 space-y-1">
+                          <li><code>VITE_GOOGLE_CLIENT_ID</code> - Google OAuth 2.0 Client ID</li>
+                          <li><code>VITE_GOOGLE_API_KEY</code> - Google API Key</li>
+                        </ul>
+                        <p className="mt-2">Kontakta administratören för att konfigurera dessa nycklar.</p>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Google Account Status */}
+                    <div>
+                      <h3 className="text-lg font-semibold mb-3">Google-konto</h3>
+                      {isSignedInToGoogle ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="bg-green-100 text-green-800">
+                              Inloggad
+                            </Badge>
+                            <span>{googleUserEmail}</span>
+                          </div>
+                          <Button 
+                            onClick={handleGoogleSignOut}
+                            variant="outline"
+                            size="sm"
+                          >
+                            Logga ut från Google Drive
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">Inte inloggad</Badge>
+                          </div>
+                          <Button 
+                            onClick={handleGoogleSignIn}
+                            disabled={isLoadingGoogle}
+                            className="w-full sm:w-auto"
+                          >
+                            {isLoadingGoogle ? 'Loggar in...' : 'Logga in till Google Drive'}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator />
+
+                    {/* Backup Status */}
+                    {isSignedInToGoogle && (
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3">Backup-status</h3>
+                        <div className="space-y-3">
+                          {googleBackupExists ? (
+                            <Alert>
+                              <AlertDescription>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                                    Backup finns
+                                  </Badge>
+                                  <span>
+                                    Senast uppdaterad: {new Date(googleBackupLastModified).toLocaleString('sv-SE')}
+                                  </span>
+                                </div>
+                              </AlertDescription>
+                            </Alert>
+                          ) : (
+                            <Alert>
+                              <AlertDescription>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline">Ingen backup</Badge>
+                                  <span>Ingen backup hittades i Google Drive</span>
+                                </div>
+                              </AlertDescription>
+                            </Alert>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <Separator />
+
+                    {/* Auto Backup Settings */}
+                    {isSignedInToGoogle && (
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3">Automatisk backup</h3>
+                        <div className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="space-y-1">
+                            <Label className="text-sm font-medium">
+                              Automatisk molnsynkronisering
+                            </Label>
+                            <p className="text-sm text-muted-foreground">
+                              Sparar automatiskt alla ändringar till Google Drive
+                            </p>
+                          </div>
+                          <Switch
+                            checked={autoBackupEnabled}
+                            onCheckedChange={toggleAutoBackup}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <Separator />
+
+                    {/* Manual Backup Controls */}
+                    {isSignedInToGoogle && (
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3">Manuell backup</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Button 
+                            onClick={handleGoogleBackup}
+                            disabled={isLoadingGoogle}
+                            className="w-full"
+                          >
+                            {isLoadingGoogle ? 'Sparar...' : 'Spara backup till Google Drive'}
+                          </Button>
+                          <Button 
+                            onClick={handleGoogleRestore}
+                            disabled={isLoadingGoogle || !googleBackupExists}
+                            variant="outline"
+                            className="w-full"
+                          >
+                            {isLoadingGoogle ? 'Återställer...' : 'Återställ från Google Drive'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    <Separator />
+
+                    {/* Instructions */}
+                    <Alert>
+                      <AlertDescription>
+                        <strong>Så fungerar Google Drive-synkronisering:</strong><br/>
+                        1. Logga in till ditt Google-konto<br/>
+                        2. All budgetdata sparas automatiskt i en fil på Google Drive<br/>
+                        3. Data synkroniseras mellan alla enheter där du är inloggad<br/>
+                        4. Du kan när som helst återställa data från molnet
+                      </AlertDescription>
+                    </Alert>
+                  </div>
                 )}
               </CardContent>
             </Card>
