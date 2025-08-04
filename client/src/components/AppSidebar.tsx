@@ -1,4 +1,4 @@
-import { Calculator } from "lucide-react";
+import { Calculator, Target, Receipt, Settings } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 import {
@@ -14,6 +14,9 @@ import {
 
 const items = [
   { title: "Budget", url: "/", icon: Calculator },
+  { title: "Sparmål", url: "/sparmal", icon: Target },
+  { title: "Transaktioner", url: "/transaktioner", icon: Receipt },
+  { title: "Inställningar", url: "/installningar", icon: Settings },
 ];
 
 export function AppSidebar() {
