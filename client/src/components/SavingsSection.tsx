@@ -332,16 +332,8 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
   };
 
   const renderAccountView = () => {
-    // Get all transactions for the period and filter for savings-related ones
-    const savingsTransactions = transactionsForPeriod.filter(t => 
-      t.type === 'savings' || 
-      t.mainCategory === 'Sparande' || 
-      (t.description && (
-        t.description.toLowerCase().includes('spar') ||
-        t.description.toLowerCase().includes('fond') ||
-        t.description.toLowerCase().includes('pension')
-      ))
-    );
+    // Get only transactions with type 'savings' (Typ: Sparande)
+    const savingsTransactions = transactionsForPeriod.filter(t => t.type === 'savings');
     
     return (
       <div className="space-y-4">
@@ -603,7 +595,7 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
                       </div>
                     ) : (
                       <div className="text-center text-muted-foreground py-4">
-                        <p className="text-sm">Inga sparandetransaktioner för denna period</p>
+                        <p className="text-sm">Inga transaktioner med typ "Sparande" för denna period</p>
                       </div>
                     )}
                   </div>
