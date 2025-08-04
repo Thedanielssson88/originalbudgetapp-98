@@ -436,7 +436,10 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
 
     try {
       const rawAmountField = amountColumnIndex >= 0 ? fields[amountColumnIndex] : '0';
-      const cleanedAmountField = rawAmountField.trim().replace(',', '.').replace(/\s/g, '');
+      // Handle Swedish number format: remove all spaces, replace comma with dot for decimal
+      const cleanedAmountField = rawAmountField.trim()
+        .replace(/\s/g, '') // Remove all spaces (thousand separators)
+        .replace(',', '.'); // Replace comma with dot (decimal separator)
       const parsedAmount = parseFloat(cleanedAmountField);
 
       console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: Raw line: "${lines[i]}"`);
@@ -460,7 +463,10 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
       let balanceAfter: number | undefined;
       if (balanceColumnIndex >= 0) {
         const rawBalanceField = fields[balanceColumnIndex];
-        const cleanedBalanceField = rawBalanceField.trim().replace(',', '.').replace(/\s/g, '');
+        // Handle Swedish number format: remove all spaces, replace comma with dot for decimal
+        const cleanedBalanceField = rawBalanceField.trim()
+          .replace(/\s/g, '') // Remove all spaces (thousand separators)
+          .replace(',', '.'); // Replace comma with dot (decimal separator)
         const parsedBalance = parseFloat(cleanedBalanceField);
         if (!isNaN(parsedBalance)) {
           balanceAfter = parsedBalance;
