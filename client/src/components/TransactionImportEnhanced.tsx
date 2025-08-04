@@ -2770,18 +2770,19 @@ export const TransactionImportEnhanced: React.FC = () => {
                         </TableHead>
                       ))
                     ) : (
-                      // Fallback to processed transaction headers
+                      // Fallback to processed transaction headers - Updated for four-column separation
                       <>
                         <TableHead className="min-w-[100px]">Datum</TableHead>
-                        <TableHead className="min-w-[120px]">Bankkategori</TableHead>
-                        <TableHead className="min-w-[120px]">Underkategori</TableHead>
+                        <TableHead className="min-w-[120px] bg-blue-50 dark:bg-blue-950">Bankkategori</TableHead>
+                        <TableHead className="min-w-[120px] bg-blue-50 dark:bg-blue-950">Bankunderkategori</TableHead>
                         <TableHead className="min-w-[200px]">Beskrivning</TableHead>
                         <TableHead className="min-w-[150px]">Användarbeskrivning</TableHead>
+                        <TableHead className="min-w-[120px]">Huvudkategori (App)</TableHead>
+                        <TableHead className="min-w-[120px]">Underkategori (App)</TableHead>
                         <TableHead className="min-w-[100px] text-right">Belopp</TableHead>
                         <TableHead className="min-w-[100px] text-right">Saldo</TableHead>
                         <TableHead className="min-w-[80px]">Status</TableHead>
                         <TableHead className="min-w-[100px]">Typ</TableHead>
-                        <TableHead className="min-w-[120px]">App-kategori</TableHead>
                         <TableHead className="min-w-[120px]">Åtgärder</TableHead>
                       </>
                     )}
@@ -2813,13 +2814,27 @@ export const TransactionImportEnhanced: React.FC = () => {
                           <TableCell className="font-mono text-sm">
                             {new Date(transaction.date).toLocaleDateString('sv-SE')}
                           </TableCell>
-                          <TableCell className="text-sm">{transaction.bankCategory || '-'}</TableCell>
-                          <TableCell className="text-sm">{transaction.bankSubCategory || '-'}</TableCell>
+                          <TableCell className="text-sm bg-blue-50 dark:bg-blue-950 text-blue-800 dark:text-blue-200">
+                            <span className="px-2 py-1 rounded bg-blue-100 dark:bg-blue-900">
+                              {transaction.bankCategory || 'Tom från banken'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-sm bg-blue-50 dark:bg-blue-950 text-blue-800 dark:text-blue-200">
+                            <span className="px-2 py-1 rounded bg-blue-100 dark:bg-blue-900">
+                              {transaction.bankSubCategory || 'Tom från banken'}
+                            </span>
+                          </TableCell>
                           <TableCell className="text-sm max-w-[200px] truncate" title={transaction.description}>
                             {transaction.description}
                           </TableCell>
                           <TableCell className="text-sm max-w-[150px] truncate" title={transaction.userDescription || ''}>
                             {transaction.userDescription || '-'}
+                          </TableCell>
+                          <TableCell className="text-sm max-w-[120px] truncate" title={transaction.appCategoryId || ''}>
+                            {transaction.appCategoryId || '-'}
+                          </TableCell>
+                          <TableCell className="text-sm max-w-[120px] truncate" title={transaction.appSubCategoryId || ''}>
+                            {transaction.appSubCategoryId || '-'}
                           </TableCell>
                           <TableCell className="text-right font-mono text-sm">
                             <span className={transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}>
