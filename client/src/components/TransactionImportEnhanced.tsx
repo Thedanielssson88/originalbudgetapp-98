@@ -1041,30 +1041,32 @@ export const TransactionImportEnhanced: React.FC = () => {
   
   // Helper function to automatically find and match internal transfers
   const findAndMatchTransfer = (transaction: ImportedTransaction) => {
-    // Find opposite amount transactions on different accounts with same date
-    const oppositeAmount = -transaction.amount;
-    
-    // Look for matches with same date and opposite amount on different accounts
+    // Find potential matches using the same logic as manual "Ej matchad" functionality
+    // Look for transactions with opposite signs within 7 days from OTHER accounts
     const potentialMatches = allTransactions.filter(t => 
       t.id !== transaction.id &&
-      t.accountId !== transaction.accountId &&
-      t.date === transaction.date &&
-      Math.abs(t.amount) === Math.abs(transaction.amount) &&
-      t.amount === oppositeAmount &&
+      t.accountId !== transaction.accountId && // Different account
+      // Opposite signs (positive matches negative, negative matches positive)
+      ((transaction.amount > 0 && t.amount < 0) || (transaction.amount < 0 && t.amount > 0)) &&
+      Math.abs(Math.abs(t.amount) - Math.abs(transaction.amount)) < 0.01 && // Same absolute amount
+      Math.abs(new Date(t.date).getTime() - new Date(transaction.date).getTime()) <= 7 * 24 * 60 * 60 * 1000 && // Within 7 days
       !t.linkedTransactionId // Not already linked
     );
     
     // If exactly one match found, auto-link them
     if (potentialMatches.length === 1) {
       const matchedTransaction = potentialMatches[0];
-      console.log(`🔄 [AUTO TRANSFER MATCH] Found exact match: ${transaction.id} <-> ${matchedTransaction.id}`);
+      console.log(`🔄 [AUTO TRANSFER MATCH] Found exact match within 7 days: ${transaction.id} (${transaction.amount} kr, ${transaction.date}) <-> ${matchedTransaction.id} (${matchedTransaction.amount} kr, ${matchedTransaction.date})`);
       
       // Use the matchInternalTransfer function from imports
-      
       // Match the transactions
       matchInternalTransfer(transaction.id, matchedTransaction.id);
       
       return true; // Indicates a match was found and linked
+    }
+    
+    if (potentialMatches.length > 1) {
+      console.log(`🔄 [AUTO TRANSFER MATCH] Multiple potential matches found for ${transaction.id}, skipping auto-match. Matches: ${potentialMatches.length}`);
     }
     
     return false; // No unique match found
@@ -1205,13 +1207,31 @@ export const TransactionImportEnhanced: React.FC = () => {
       }
     });
     
-    if (updatedCount > 0) {
-      let description = `${updatedCount} transaktioner har uppdaterats enligt reglerna.`;
+    // After applying rules, also try to auto-match any unmatched InternalTransfer transactions
+    // This includes existing InternalTransfer transactions that weren't covered by rules
+    const unmatchedTransfers = filteredTransactions.filter(t => 
+      t.type === 'InternalTransfer' && !t.linkedTransactionId
+    );
+    
+    unmatchedTransfers.forEach(transfer => {
+      const wasMatched = findAndMatchTransfer(transfer);
+      if (wasMatched) {
+        autoMatchedCount++;
+      }
+    });
+    
+    if (updatedCount > 0 || autoMatchedCount > 0) {
+      let description = '';
+      if (updatedCount > 0) {
+        description += `${updatedCount} transaktioner uppdaterades enligt reglerna.`;
+      }
       if (autoMatchedCount > 0) {
-        description += ` ${autoMatchedCount} interna överföringar matchades automatiskt.`;
+        if (description) description += ' ';
+        description += `${autoMatchedCount} interna överföringar matchades automatiskt.`;
       }
       if (autoApprovedCount > 0) {
-        description += ` ${autoApprovedCount} transaktioner godkändes automatiskt.`;
+        if (description) description += ' ';
+        description += `${autoApprovedCount} transaktioner godkändes automatiskt.`;
       }
       
       toast({
