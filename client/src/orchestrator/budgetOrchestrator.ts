@@ -152,6 +152,19 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
       console.log(`[ORCHESTRATOR] 🔄 OLD bankSubCategory: "${existingTx.bankSubCategory || 'EMPTY'}" -> NEW: "${fileTx.bankSubCategory || 'EMPTY'}"`);
       console.log(`[ORCHESTRATOR] 🔄 isManuallyChanged: ${existingTx.isManuallyChanged || false}`);
       
+      // DIAGNOSTIC: Log exactly what we're working with
+      console.log(`[ORCHESTRATOR] 🔬 DIAGNOSTIC - existingTx fields:`, {
+        bankCategory: existingTx.bankCategory,
+        bankSubCategory: existingTx.bankSubCategory,
+        appCategoryId: existingTx.appCategoryId,
+        isManuallyChanged: existingTx.isManuallyChanged
+      });
+      console.log(`[ORCHESTRATOR] 🔬 DIAGNOSTIC - fileTx fields:`, {
+        bankCategory: fileTx.bankCategory,
+        bankSubCategory: fileTx.bankSubCategory,
+        description: fileTx.description
+      });
+      
       // Create base updated transaction with ALL bank data from file
       const baseUpdatedTx = {
         ...existingTx,
@@ -167,8 +180,15 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
         description: fileTx.description,
       };
       
+      console.log(`[ORCHESTRATOR] 🔬 DIAGNOSTIC - baseUpdatedTx after creation:`, {
+        bankCategory: baseUpdatedTx.bankCategory,
+        bankSubCategory: baseUpdatedTx.bankSubCategory,
+        appCategoryId: baseUpdatedTx.appCategoryId
+      });
+      
       if (existingTx.isManuallyChanged) {
         console.log(`[ORCHESTRATOR] 💾 MANUAL transaction - preserving user changes, updating bank data only`);
+        console.log(`[ORCHESTRATOR] 🔬 FINAL MANUAL - bankCategory: "${baseUpdatedTx.bankCategory}", bankSubCategory: "${baseUpdatedTx.bankSubCategory}"`);
         // For manually changed transactions: keep user categorization, update bank data
         return baseUpdatedTx; // This preserves all manual changes while updating bank data
       } else {
@@ -176,6 +196,7 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
         // For non-manual transactions: apply categorization rules
         const processedTransaction = applyCategorizationRules(baseUpdatedTx, state.budgetState.categoryRules || []);
         console.log(`[ORCHESTRATOR] ✅ After rules - bankCategory: "${processedTransaction.bankCategory || 'EMPTY'}", type: ${processedTransaction.type}`);
+        console.log(`[ORCHESTRATOR] 🔬 FINAL PROCESSED - bankCategory: "${processedTransaction.bankCategory}", bankSubCategory: "${processedTransaction.bankSubCategory}"`);
         return processedTransaction;
       }
     }
