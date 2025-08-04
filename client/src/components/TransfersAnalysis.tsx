@@ -403,11 +403,10 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                                            <span className="text-sm text-green-900">
                                              {formatCurrency(t.amount)} från {t.fromAccountName}
                                              {t.linked ? (
-                                               t.transaction.userDescription && (
-                                                 <span className="ml-2 text-xs text-green-600 font-medium">
-                                                   ({t.transaction.userDescription})
-                                                 </span>
-                                               )
+                                               <span className="ml-2 text-xs text-green-600 font-medium">
+                                                 ({t.fromAccountName}, {t.transaction.date})
+                                                 {t.transaction.userDescription && ` - ${t.transaction.userDescription}`}
+                                               </span>
                                              ) : (
                                                <Badge 
                                                  variant="outline" 
@@ -436,11 +435,10 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                                            <span className="text-sm text-green-900">
                                              {formatCurrency(t.amount)} till {t.toAccountName}
                                              {t.linked ? (
-                                               t.transaction.userDescription && (
-                                                 <span className="ml-2 text-xs text-green-600 font-medium">
-                                                   ({t.transaction.userDescription})
-                                                 </span>
-                                               )
+                                               <span className="ml-2 text-xs text-green-600 font-medium">
+                                                 ({t.toAccountName}, {t.transaction.date})
+                                                 {t.transaction.userDescription && ` - ${t.transaction.userDescription}`}
+                                               </span>
                                              ) : (
                                                <Badge 
                                                  variant="outline" 
