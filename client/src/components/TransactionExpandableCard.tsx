@@ -180,9 +180,9 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                     </Select>
                   </div>
 
-                  {/* Subcategory with dropdown */}
+                  {/* App Subcategory with dropdown */}
                   <div className="min-w-0" onClick={(e) => e.stopPropagation()}>
-                    <p className="text-xs text-muted-foreground">Underkategori</p>
+                    <p className="text-xs text-muted-foreground">Underkategori (App)</p>
                     {(() => {
                       const selectedCategoryName = (() => {
                         if (transaction.appCategoryId) {
@@ -275,6 +275,35 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                          {transaction.amount >= 0 ? '+' : ''}{Math.abs(transaction.amount).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kr
                        </p>
                      )}
+                   </div>
+                   
+                   {/* Actions - Quick Access Buttons */}
+                   <div className="min-w-0" onClick={(e) => e.stopPropagation()}>
+                     <p className="text-xs text-muted-foreground">Åtgärder</p>
+                     <div className="flex gap-1">
+                       {transaction.amount < 0 && transaction.type !== 'InternalTransfer' && (
+                         <Button 
+                           variant="outline" 
+                           size="sm" 
+                           className="h-6 px-2 text-xs"
+                           onClick={() => onTransferMatch?.(transaction)}
+                           title="Matcha överföring"
+                         >
+                           Ö
+                         </Button>
+                       )}
+                       {transaction.amount > 0 && (
+                         <Button 
+                           variant="outline" 
+                           size="sm" 
+                           className="h-6 px-2 text-xs"
+                           onClick={() => onSavingsLink?.(transaction)}
+                           title="Länka sparande"
+                         >
+                           S
+                         </Button>
+                       )}
+                     </div>
                    </div>
                 </div>
               </div>
