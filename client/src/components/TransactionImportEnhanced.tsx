@@ -45,7 +45,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Upload, CheckCircle, FileText, Settings, AlertCircle, Circle, CheckSquare, AlertTriangle, ChevronDown, ChevronUp, Trash2, Plus, Edit, Save, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { Bank, BankCSVMapping } from '@/types/bank';
-import { determineTransactionStatus } from '@/services/calculationService';
+import { determineTransactionStatus, getDateRangeForMonth } from '@/services/calculationService';
 import { Account as BudgetAccount } from '@/types/budget';
 import { AddBankDialog } from './AddBankDialog';
 import { TransactionExpandableCard } from './TransactionExpandableCard';
@@ -1386,17 +1386,22 @@ export const TransactionImportEnhanced: React.FC = () => {
     
     // Filter by month if not 'all' or 'current'
     if (monthFilter !== 'all' && monthFilter !== 'current') {
-      const [year, month] = monthFilter.split('-').map(Number);
+      // Use payday-based filtering for specific months too
+      const payday = budgetState?.settings?.payday || 25;
+      const { startDate, endDate } = getDateRangeForMonth(monthFilter, payday);
+      
       baseTransactions = baseTransactions.filter(t => {
-        const transactionDate = new Date(t.date);
-        return transactionDate.getFullYear() === year && transactionDate.getMonth() + 1 === month;
+        const transactionDate = t.date; // Already in YYYY-MM-DD format
+        return transactionDate >= startDate && transactionDate <= endDate;
       });
     } else if (monthFilter === 'current') {
-      // Filter by current selected month from budget state
-      const [year, month] = budgetState.selectedMonthKey.split('-').map(Number);
+      // Filter by current selected month from budget state using payday-based filtering
+      const payday = budgetState?.settings?.payday || 25;
+      const { startDate, endDate } = getDateRangeForMonth(budgetState.selectedMonthKey, payday);
+      
       baseTransactions = baseTransactions.filter(t => {
-        const transactionDate = new Date(t.date);
-        return transactionDate.getFullYear() === year && transactionDate.getMonth() + 1 === month;
+        const transactionDate = t.date; // Already in YYYY-MM-DD format
+        return transactionDate >= startDate && transactionDate <= endDate;
       });
     }
     
@@ -1987,7 +1992,7 @@ export const TransactionImportEnhanced: React.FC = () => {
       <ExpenseClaimDialog
         isOpen={expenseClaimDialog.isOpen}
         onClose={() => setExpenseClaimDialog({ isOpen: false })}
-        transaction={expenseClaimDialog.expense}
+        transaction={expenseClaimDialog.expense || null}
         onRefresh={triggerRefresh}
       />
 
@@ -2091,7 +2096,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                             </span>
                           </TableCell>
                           <TableCell className="text-right font-mono text-sm">
-                            {transaction.balanceAfter.toLocaleString('sv-SE', { minimumFractionDigits: 2 })} kr
+                            {(transaction.balanceAfter || 0).toLocaleString('sv-SE', { minimumFractionDigits: 2 })} kr
                           </TableCell>
                           <TableCell>
                             <Badge 
