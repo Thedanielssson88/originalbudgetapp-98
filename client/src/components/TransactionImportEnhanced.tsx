@@ -1067,8 +1067,20 @@ export const TransactionImportEnhanced: React.FC = () => {
             continue;
           }
           
-          // Apply the rule
+          // Apply the rule - update category
           updateTransactionCategory(transaction.id, rule.action.appMainCategoryId, rule.action.appSubCategoryId);
+          
+          // Apply the rule - update transaction type based on amount
+          const isPositive = transaction.amount >= 0;
+          const newTransactionType = isPositive ? 
+            rule.action.positiveTransactionType : 
+            rule.action.negativeTransactionType;
+          
+          // Update transaction type using handleTransactionUpdate
+          handleTransactionUpdate(transaction.id, { 
+            transactionType: newTransactionType as 'Transaction' | 'InternalTransfer' | 'Savings' | 'CostCoverage' | 'ExpenseClaim'
+          });
+          
           updatedCount++;
           break; // Stop checking other rules for this transaction
         }
