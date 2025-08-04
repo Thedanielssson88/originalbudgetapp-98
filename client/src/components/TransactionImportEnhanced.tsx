@@ -1282,7 +1282,8 @@ export const TransactionImportEnhanced: React.FC = () => {
         setTimeout(() => {
           toast({
             title: "Automatisk matchningsdetaljer",
-            description: matchingResults.slice(0, 3).join('\n') + (matchingResults.length > 3 ? `\n...och ${matchingResults.length - 3} till` : ''),
+            description: matchingResults.slice(0, 2).join(' | ') + (matchingResults.length > 2 ? ` | ...och ${matchingResults.length - 2} till` : ''),
+            duration: 8000, // Show longer to read the details
           });
         }, 1500);
       }
