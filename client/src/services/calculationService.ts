@@ -832,6 +832,9 @@ export function applyCategorizationRules(
       
       return {
         ...transaction,
+        // CRITICAL: Explicitly preserve bank category data from file
+        bankCategory: transaction.bankCategory,
+        bankSubCategory: transaction.bankSubCategory,
         appCategoryId: rule.action.appMainCategoryId,
         appSubCategoryId: rule.action.appSubCategoryId,
         type: transactionType,
@@ -840,8 +843,13 @@ export function applyCategorizationRules(
     }
   }
 
-  // Om ingen regel matchar, returnera transaktionen som den är
-  return transaction;
+  // Om ingen regel matchar, returnera transaktionen som den är och bevara bank categories
+  return {
+    ...transaction,
+    // CRITICAL: Explicitly preserve bank category data from file even when no rules match
+    bankCategory: transaction.bankCategory,
+    bankSubCategory: transaction.bankSubCategory,
+  };
 }
 
 /**

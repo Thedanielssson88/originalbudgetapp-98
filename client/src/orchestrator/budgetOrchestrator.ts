@@ -146,11 +146,11 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
     const existingTx = savedTransactionsMap.get(fingerprint);
 
     if (existingTx && existingTx.isManuallyChanged) {
-      // PRESERVE user changes but update bank fields
-      console.log(`[ORCHESTRATOR] 💾 Preserving manual changes for transaction: ${fileTx.description}`);
+      // PRESERVE user changes but ALWAYS update bank fields from file
+      console.log(`[ORCHESTRATOR] 💾 Preserving manual changes for transaction: ${fileTx.description}, updating bankCategory: ${fileTx.bankCategory} / ${fileTx.bankSubCategory}`);
       return {
         ...existingTx,
-        // Update bank data from file
+        // ALWAYS update bank data from file - this is the authoritative source
         bankCategory: fileTx.bankCategory,
         bankSubCategory: fileTx.bankSubCategory,
         bankStatus: fileTx.bankStatus,
@@ -160,7 +160,10 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
     }
     
     // New transaction or unchanged - apply category rules using the new advanced rule engine
-    return applyCategorizationRules(fileTx, state.budgetState.categoryRules || []);
+    console.log(`[ORCHESTRATOR] 🔄 Processing transaction: ${fileTx.description}, bankCategory: ${fileTx.bankCategory} / ${fileTx.bankSubCategory}`);
+    const processedTransaction = applyCategorizationRules(fileTx, state.budgetState.categoryRules || []);
+    console.log(`[ORCHESTRATOR] ✅ After processing: ${processedTransaction.description}, bankCategory: ${processedTransaction.bankCategory} / ${processedTransaction.bankSubCategory}`);
+    return processedTransaction;
   });
   
   // 7. Combine cleaned list with new merged transactions

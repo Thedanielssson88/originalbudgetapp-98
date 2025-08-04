@@ -1,0 +1,44 @@
+Det verkar som att problemet med att "Bankkategorier" och "Bank underkategorier" inte läses in från din XLSX-fil beror på hur CSV-datan mappas och hur befintliga transaktioner uppdateras. Här är en analys av vad som händer i koden och hur du kan åtgärda det:
+
+### Analys av problemet
+
+1.  **Mappning av kolumner:** I filen `TransactionImportEnhanced.tsx`, när en CSV-fil laddas upp, försöker funktionen `parseCSVContent` att automatiskt identifiera kolumner baserat på vanliga namn som "datum", "belopp", och "kategori". Om dina kolumnrubriker i XLSX-filen inte exakt matchar de förväntade namnen, eller om det finns tvetydigheter, kan "Bankkategorier" och "Bank underkategorier" ignoreras eller mappas felaktigt.
+
+2.  **Uppdatering av befintliga transaktioner:** När du importerar en fil som innehåller transaktioner som redan finns i systemet, försöker `importAndReconcileFile`-funktionen i `budgetOrchestrator.ts` att slå samman den nya informationen med den befintliga. Processen är utformad för att bevara manuella ändringar som du har gjort i appen. Om en transaktion har flaggan `isManuallyChanged`, kommer vissa fält från den nya filen (som `bankCategory` och `bankSubCategory`) att uppdateras, men andra, som appens interna kategori (`appCategoryId`), kommer att bevaras. Om logiken för att identifiera och slå samman transaktioner inte korrekt prioriterar datan från XLSX-filen, kommer de befintliga transaktionerna inte att uppdateras som förväntat.
+
+3.  **Datastruktur:** I `transaction.ts` definieras `ImportedTransaction` med fälten `bankCategory` och `bankSubCategory`. Om dessa fält inte fylls i korrekt under parsningen av filen, kommer informationen aldrig att nå transaktionslistan.
+
+### Lösning
+
+För att säkerställa att "Bankkategorier" och "Bank underkategorier" läses in korrekt och uppdaterar befintliga transaktioner, bör du fokusera på att förbättra mappnings- och sammanfogningslogiken:
+
+1.  **Förbättra kolumnmappningen:** Gå till `TransactionImportEnhanced.tsx` och se till att mappningslogiken i `parseCSVContentWithMapping` och `parseCSVContent` är robust nog att hantera olika rubriker för "Bankkategorier" och "Bank underkategorier". Du kan lägga till fler alternativa rubriker i `findIndex`-anropen, till exempel:
+
+    ```typescript
+    const bankCategoryIndex = headers.findIndex(h => 
+      h.toLowerCase().includes('kategori') || h.toLowerCase().includes('category') || h.toLowerCase().includes('bankkategori')
+    );
+    const bankSubCategoryIndex = headers.findIndex(h => 
+      h.toLowerCase().includes('underkategori') || h.toLowerCase().includes('subcategory') || h.toLowerCase().includes('bank underkategori')
+    );
+    ```
+
+2.  **Justera sammanfogningslogiken:** I `importAndReconcileFile` i `budgetOrchestrator.ts`, se över logiken som slår samman transaktioner. Se till att `bankCategory` och `bankSubCategory` från den importerade filen *alltid* skriver över befintlig data för dessa fält, även om en transaktion har blivit manuellt ändrad. Du kan göra detta genom att säkerställa att dessa fält alltid uppdateras när en matchande transaktion hittas:
+
+    ```typescript
+    // Inom importAndReconcileFile-funktionen
+    if (existingTx && existingTx.isManuallyChanged) {
+      return {
+        ...existingTx,
+        // Uppdatera alltid bankens data från filen
+        bankCategory: fileTx.bankCategory,
+        bankSubCategory: fileTx.bankSubCategory,
+        balanceAfter: fileTx.balanceAfter,
+        fileSource: fileTx.fileSource
+      };
+    }
+    ```
+
+3.  **Säkerställ att transaktioner uppdateras korrekt:** Efter att du har justerat mappningen och sammanfogningen, se till att `updateTransaction` anropas med den nya informationen. Detta kommer att säkerställa att ändringarna sparas korrekt och att gränssnittet uppdateras.
+
+Genom att implementera dessa ändringar bör du kunna säkerställa att "Bankkategorier" och "Bank underkategorier" läses in korrekt från din XLSX-fil och att befintliga transaktioner uppdateras som förväntat.
