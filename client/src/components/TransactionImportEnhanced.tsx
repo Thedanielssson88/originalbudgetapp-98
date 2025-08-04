@@ -1028,12 +1028,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     let updatedCount = 0;
     
     filteredTransactions.forEach(transaction => {
-      // Skip already categorized transactions unless they're red
-      if (transaction.status === 'green' || transaction.status === 'yellow') {
-        return;
-      }
-      
-      // Check each rule
+      // Check each rule for ALL filtered transactions (no status check)
       for (const rule of categoryRules) {
         if (!rule.isActive) continue;
         
@@ -1083,14 +1078,14 @@ export const TransactionImportEnhanced: React.FC = () => {
     if (updatedCount > 0) {
       toast({
         title: "Regler tillämpade",
-        description: `${updatedCount} transaktioner har kategoriserats enligt reglerna.`
+        description: `${updatedCount} transaktioner har uppdaterats enligt reglerna.`
       });
       // Force refresh after applying rules
       setRefreshKey(prev => prev + 1);
     } else {
       toast({
         title: "Inga ändringar",
-        description: "Inga transaktioner matchade reglerna eller alla var redan kategoriserade."
+        description: "Inga transaktioner matchade reglerna."
       });
     }
   };
