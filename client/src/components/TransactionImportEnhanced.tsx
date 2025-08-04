@@ -1041,6 +1041,8 @@ export const TransactionImportEnhanced: React.FC = () => {
   
   // Helper function to automatically find and match internal transfers
   const findAndMatchTransfer = (transaction: ImportedTransaction) => {
+    console.log(`🔄 [AUTO TRANSFER MATCH] Attempting to match transaction ${transaction.id}: ${transaction.description} (${transaction.amount} kr, ${transaction.date}, account: ${transaction.accountId})`);
+    
     // Find potential matches on the same date with opposite signs on different accounts
     const potentialMatches = allTransactions.filter(t => 
       t.id !== transaction.id &&
@@ -1051,6 +1053,11 @@ export const TransactionImportEnhanced: React.FC = () => {
       Math.abs(Math.abs(t.amount) - Math.abs(transaction.amount)) < 0.01 && // Same absolute amount
       !t.linkedTransactionId // Not already linked
     );
+    
+    console.log(`🔄 [AUTO TRANSFER MATCH] Found ${potentialMatches.length} potential matches for transaction ${transaction.id}:`);
+    potentialMatches.forEach(match => {
+      console.log(`  - ${match.id}: ${match.description} (${match.amount} kr, ${match.date}, account: ${match.accountId})`);
+    });
     
     // If exactly one match found, auto-link them
     if (potentialMatches.length === 1) {
@@ -1066,6 +1073,8 @@ export const TransactionImportEnhanced: React.FC = () => {
     
     if (potentialMatches.length > 1) {
       console.log(`🔄 [AUTO TRANSFER MATCH] Multiple potential matches found for ${transaction.id}, skipping auto-match. Matches: ${potentialMatches.length}`);
+    } else if (potentialMatches.length === 0) {
+      console.log(`🔄 [AUTO TRANSFER MATCH] No potential matches found for ${transaction.id}`);
     }
     
     return false; // No unique match found
@@ -1211,6 +1220,11 @@ export const TransactionImportEnhanced: React.FC = () => {
     const unmatchedTransfers = filteredTransactions.filter(t => 
       t.type === 'InternalTransfer' && !t.linkedTransactionId
     );
+    
+    console.log(`🔄 [AUTO TRANSFER MATCH] Found ${unmatchedTransfers.length} unmatched InternalTransfer transactions to process:`);
+    unmatchedTransfers.forEach((transfer, index) => {
+      console.log(`  ${index + 1}. ${transfer.id}: ${transfer.description} (${transfer.amount} kr, ${transfer.date}, account: ${transfer.accountId})`);
+    });
     
     unmatchedTransfers.forEach(transfer => {
       const wasMatched = findAndMatchTransfer(transfer);
