@@ -145,52 +145,83 @@ const SettingsPage = () => {
   return (
     <div className="container mx-auto p-6">
       <div className="max-w-6xl mx-auto">
-        {/* Month Navigation */}
-        <div className="flex items-center justify-center gap-4 mb-6">
-          <Button
-            variant="ghost"
-            size="lg"
-            onClick={() => {
-              const [year, month] = budgetState.selectedMonthKey.split('-').map(Number);
-              const prevMonth = month === 1 ? 12 : month - 1;
-              const prevYear = month === 1 ? year - 1 : year;
-              const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
-              // Navigate to previous month logic would go here
-            }}
-            className="p-3 h-12 w-12 text-primary hover:text-primary/80"
-          >
-            <ChevronLeft className="h-6 w-6" />
-          </Button>
-
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Aktuell månad:</span>
-            <span className="text-lg font-semibold">
-              {new Date(budgetState.selectedMonthKey + '-01').toLocaleDateString('sv-SE', { 
-                year: 'numeric', 
-                month: 'long' 
-              })}
-            </span>
-          </div>
-
-          <Button
-            variant="ghost"
-            size="lg"
-            onClick={() => {
-              const [year, month] = budgetState.selectedMonthKey.split('-').map(Number);
-              const nextMonth = month === 12 ? 1 : month + 1;
-              const nextYear = month === 12 ? year + 1 : year;
-              const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
-              // Navigate to next month logic would go here
-            }}
-            className="p-3 h-12 w-12 text-primary hover:text-primary/80"
-          >
-            <ChevronRight className="h-6 w-6" />
-          </Button>
-        </div>
-
+        {/* Header - Same as main budget page */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            Inställningar
+            Familjens Budgetkalkylator
+          </h1>
+          <p className="text-muted-foreground text-lg">
+            Beräkna era gemensamma utgifter och individuella bidrag
+          </p>
+        </div>
+
+        {/* Month Selector - Same as main budget page */}
+        <Card className="mb-6">
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl text-foreground">
+              Aktuell månad
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center gap-4">
+              <Button
+                variant="ghost"
+                size="lg"
+                onClick={() => {
+                  const [year, month] = budgetState.selectedMonthKey.split('-').map(Number);
+                  const prevMonth = month === 1 ? 12 : month - 1;
+                  const prevYear = month === 1 ? year - 1 : year;
+                  const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+                  // Navigate to previous month logic would go here
+                }}
+                className="p-3 h-12 w-12 text-primary hover:text-primary/80"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </Button>
+              
+              <div className="w-auto min-w-[200px] text-xl font-semibold text-primary text-center">
+                {(() => {
+                  const monthNames = [
+                    'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
+                    'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
+                  ];
+                  
+                  const [year, month] = budgetState.selectedMonthKey.split('-');
+                  const monthIndex = parseInt(month) - 1;
+                  return `${monthNames[monthIndex]} ${year}`;
+                })()}
+              </div>
+
+              <Button
+                variant="ghost"
+                size="lg"
+                onClick={() => {
+                  const [year, month] = budgetState.selectedMonthKey.split('-').map(Number);
+                  const nextMonth = month === 12 ? 1 : month + 1;
+                  const nextYear = month === 12 ? year + 1 : year;
+                  const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+                  // Navigate to next month logic would go here
+                }}
+                className="p-3 h-12 w-12 text-primary hover:text-primary/80"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Page-specific content starts here */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            Inställningar - {(() => {
+              const monthNames = [
+                'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
+                'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
+              ];
+              const [year, month] = budgetState.selectedMonthKey.split('-');
+              const monthIndex = parseInt(month) - 1;
+              return `${monthNames[monthIndex]} ${year}`;
+            })()}
           </h1>
           <p className="text-muted-foreground text-lg">
             Konfigurera alla aspekter av budgetkalkylatorn
