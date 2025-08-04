@@ -14,7 +14,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight, Target, Receipt } from 'lucide-react';
+import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight, Target, Receipt, ArrowRightLeft } from 'lucide-react';
 import { CostItemEditDialog } from './CostItemEditDialog';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useSwipeGestures } from '@/hooks/useSwipeGestures';
@@ -244,8 +244,12 @@ const BudgetCalculator = () => {
     individualSharesDistribution: false,
     dailyTransferDetails: false,
     accountBalances: false,
-    finalAccountSummary: false
+    finalAccountSummary: false,
+    plannedTransfers: false
   });
+
+  // State for individual planned transfer expansion
+  const [expandedPlannedTransfers, setExpandedPlannedTransfers] = useState<{[key: string]: boolean}>({});
 
   // Budget category expandable states
   const [expandedBudgetCategories, setExpandedBudgetCategories] = useState<{[key: string]: boolean}>({});
@@ -7005,6 +7009,197 @@ const BudgetCalculator = () => {
                 budgetState={budgetState} 
                 selectedMonth={selectedBudgetMonth} 
               />
+
+              {/* Budgeterade Överföringar Section */}
+              <Card className="shadow-lg border-0 bg-muted/50 backdrop-blur-sm">
+                <CardHeader>
+                  <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('plannedTransfers')}>
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <ArrowRightLeft className="h-5 w-5 text-primary" />
+                        Budgeterade Överföringar
+                      </CardTitle>
+                      <CardDescription>
+                        {budgetState.plannedTransfers?.filter(t => t.month === selectedBudgetMonth).length || 0} planerade överföringar
+                      </CardDescription>
+                    </div>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.plannedTransfers ? 'rotate-180' : ''}`} />
+                  </div>
+                </CardHeader>
+                {expandedSections.plannedTransfers && (
+                  <CardContent className="space-y-4">
+                    {(() => {
+                      const plannedTransfersForMonth = budgetState.plannedTransfers?.filter(t => t.month === selectedBudgetMonth) || [];
+                      
+                      if (plannedTransfersForMonth.length === 0) {
+                        return (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <ArrowRightLeft className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                            <p>Inga planerade överföringar för denna månad</p>
+                          </div>
+                        );
+                      }
+                      
+                      return plannedTransfersForMonth.map(transfer => {
+                        const fromAccount = budgetState.accounts.find(a => a.id === transfer.fromAccountId);
+                        const toAccount = budgetState.accounts.find(a => a.id === transfer.toAccountId);
+                        const isExpanded = expandedPlannedTransfers[transfer.id];
+                        
+                        // Calculate remaining days and amounts for daily transfers
+                        const calculateRemainingTransfer = () => {
+                          if (transfer.transferType !== 'daily' || !transfer.dailyAmount || !transfer.transferDays) {
+                            return { remainingDays: 0, remainingAmount: 0, totalDays: 0, totalAmount: transfer.amount };
+                          }
+                          
+                          const today = new Date();
+                          const [year, month] = selectedBudgetMonth.split('-').map(Number);
+                          const payday = budgetState.settings?.payday || 25;
+                          
+                          // Calculate payday cycle dates (25th to 24th)
+                          const startDate = new Date(year, month - 1, payday);
+                          const endDate = new Date(year, month, payday - 1);
+                          
+                          let totalDays = 0;
+                          let remainingDays = 0;
+                          const currentDate = new Date(startDate);
+                          
+                          while (currentDate <= endDate) {
+                            const dayOfWeek = currentDate.getDay();
+                            if (transfer.transferDays.includes(dayOfWeek)) {
+                              totalDays++;
+                              if (currentDate > today) {
+                                remainingDays++;
+                              }
+                            }
+                            currentDate.setDate(currentDate.getDate() + 1);
+                          }
+                          
+                          return {
+                            totalDays,
+                            remainingDays,
+                            totalAmount: transfer.dailyAmount * totalDays,
+                            remainingAmount: transfer.dailyAmount * remainingDays
+                          };
+                        };
+                        
+                        const transferStats = calculateRemainingTransfer();
+                        
+                        return (
+                          <div key={transfer.id} className="group relative bg-gradient-to-r from-background to-muted/30 border-2 border-border/50 rounded-xl p-4 space-y-3 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.01] animate-fade-in">
+                            {/* Transfer Header */}
+                            <div className="flex items-center gap-3">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setExpandedPlannedTransfers(prev => ({
+                                  ...prev,
+                                  [transfer.id]: !prev[transfer.id]
+                                }))}
+                                className="p-2 h-10 w-10 rounded-full bg-primary/10 hover:bg-primary/20 transition-all duration-200 group-hover:scale-110"
+                              >
+                                {isExpanded ? (
+                                  <ChevronUp className="h-5 w-5 text-primary transition-transform duration-200" />
+                                ) : (
+                                  <ChevronDown className="h-5 w-5 text-primary transition-transform duration-200" />
+                                )}
+                              </Button>
+                              
+                              <div className="flex-1 min-w-0">
+                                <div className="font-bold text-lg text-foreground group-hover:text-primary transition-colors duration-200">
+                                  {fromAccount?.name || 'Okänt konto'} → {toAccount?.name || 'Okänt konto'}
+                                </div>
+                                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                                  <span className="inline-flex items-center gap-1">
+                                    <div className="w-2 h-2 rounded-full bg-primary/60"></div>
+                                    {transfer.transferType === 'daily' ? 'Daglig Överföring' : 'Fast Månadsöverföring'}
+                                  </span>
+                                  {transfer.description && (
+                                    <span className="text-xs text-muted-foreground/70">• {transfer.description}</span>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {/* Transfer Amount Display */}
+                              <div className="text-right space-y-2">
+                                <div className="bg-gradient-to-r from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 rounded-lg p-3 border border-green-200 dark:border-green-800">
+                                  <div className="text-sm font-medium text-green-700 dark:text-green-300">
+                                    Total: <span className="font-bold text-green-900 dark:text-green-100">{formatCurrency(transferStats.totalAmount)}</span>
+                                  </div>
+                                  {transfer.transferType === 'daily' && (
+                                    <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                      {transferStats.totalDays} dagar × {formatCurrency(transfer.dailyAmount || 0)}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Expandable Content with Animation */}
+                            {isExpanded && (
+                              <div className="animate-accordion-down">
+                                <div className="mt-4 pl-8 space-y-3 border-l-4 border-primary/30 bg-gradient-to-r from-muted/20 to-transparent rounded-r-lg pr-4 py-3">
+                                  {transfer.transferType === 'daily' ? (
+                                    <>
+                                      <div className="space-y-3">
+                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                          <div>
+                                            <span className="text-muted-foreground">Belopp per dag:</span>
+                                            <div className="font-medium">{formatCurrency(transfer.dailyAmount || 0)}</div>
+                                          </div>
+                                          <div>
+                                            <span className="text-muted-foreground">Överföringsdagar:</span>
+                                            <div className="font-medium">
+                                              {transfer.transferDays?.map(day => {
+                                                const dayNames = ['Sön', 'Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör'];
+                                                return dayNames[day];
+                                              }).join(', ') || 'Inga dagar valda'}
+                                            </div>
+                                          </div>
+                                        </div>
+                                        
+                                        <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3 space-y-2">
+                                          <div>
+                                            <span className="text-sm text-muted-foreground">Total planerad överföring:</span>
+                                            <div className="font-medium text-blue-600">
+                                              {transferStats.totalDays} dagar × {formatCurrency(transfer.dailyAmount || 0)} = {formatCurrency(transferStats.totalAmount)}
+                                            </div>
+                                          </div>
+                                          
+                                          <div>
+                                            <span className="text-sm text-muted-foreground">Total överföring kvar:</span>
+                                            <div className="font-medium text-green-600">
+                                              {transferStats.remainingDays} dagar × {formatCurrency(transfer.dailyAmount || 0)} = {formatCurrency(transferStats.remainingAmount)}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3">
+                                      <div className="text-sm">
+                                        <span className="text-muted-foreground">Fast månadsöverföring:</span>
+                                        <div className="font-bold text-green-700 dark:text-green-300 text-lg">
+                                          {formatCurrency(transfer.amount)}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  {transfer.description && (
+                                    <div className="text-sm text-muted-foreground bg-muted/50 rounded p-2">
+                                      <strong>Beskrivning:</strong> {transfer.description}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      });
+                    })()}
+                  </CardContent>
+                )}
+              </Card>
 
               {/* Budget Summary */}
               <Card className="shadow-lg border-0 bg-muted/50 backdrop-blur-sm">

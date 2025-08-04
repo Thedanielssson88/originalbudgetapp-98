@@ -192,7 +192,7 @@ export interface CsvMapping {
   columnMapping: { [key: string]: string }; // Ex: { 'Datum': 'date', 'Belopp': 'amount' }
 }
 
-// Ny, förenklad state-struktur - Single Source of Truth
+// Enhanced PlannedTransfer with support for different transfer types
 export interface PlannedTransfer {
   id: string;
   fromAccountId: string;
@@ -201,6 +201,10 @@ export interface PlannedTransfer {
   month: string;
   description?: string;
   created: string;
+  transferType: 'monthly' | 'daily'; // Fast månadsöverföring vs Daglig överföring
+  // Daily transfer specific fields
+  dailyAmount?: number; // Amount per day for daily transfers
+  transferDays?: number[]; // Days of week (0=Sunday, 1=Monday, etc.) for daily transfers
 }
 
 export interface BudgetState {

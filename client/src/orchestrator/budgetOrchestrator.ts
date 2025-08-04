@@ -2115,8 +2115,20 @@ export function updatePaydaySetting(newPayday: number): void {
 export function createPlannedTransfer(transfer: Omit<PlannedTransfer, 'id' | 'created'>): void {
   console.log('🔄 [ORCHESTRATOR] Creating planned transfer:', transfer);
   
+  // Calculate total amount for daily transfers
+  let totalAmount = transfer.amount;
+  if (transfer.transferType === 'daily' && transfer.dailyAmount && transfer.transferDays) {
+    // Calculate days in current month based on payday cycle (25th-24th)
+    const currentDate = new Date();
+    const currentMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    const daysInPayCycle = calculateDaysInTransferDays(transfer.transferDays, currentMonth);
+    totalAmount = transfer.dailyAmount * daysInPayCycle;
+    console.log(`💰 [ORCHESTRATOR] Daily transfer calculated: ${transfer.dailyAmount} × ${daysInPayCycle} days = ${totalAmount} SEK`);
+  }
+  
   const newTransfer: PlannedTransfer = {
     ...transfer,
+    amount: totalAmount,
     id: uuidv4(),
     created: new Date().toISOString()
   };
@@ -2125,7 +2137,31 @@ export function createPlannedTransfer(transfer: Omit<PlannedTransfer, 'id' | 'cr
   saveStateToStorage();
   triggerUIRefresh();
   
-  console.log(`✅ [ORCHESTRATOR] Planned transfer created: ${transfer.amount} SEK from ${transfer.fromAccountId} to ${transfer.toAccountId}`);
+  const transferTypeText = transfer.transferType === 'daily' ? 'Daglig överföring' : 'Fast månadsöverföring';
+  console.log(`✅ [ORCHESTRATOR] ${transferTypeText} created: ${totalAmount} SEK from ${transfer.fromAccountId} to ${transfer.toAccountId}`);
+}
+
+// Helper function to calculate days in transfer cycle
+function calculateDaysInTransferDays(transferDays: number[], monthKey: string): number {
+  const [year, month] = monthKey.split('-').map(Number);
+  const payday = state.budgetState.settings?.payday || 25;
+  
+  // Calculate payday cycle dates (25th to 24th)
+  const startDate = new Date(year, month - 1, payday);
+  const endDate = new Date(year, month, payday - 1);
+  
+  let totalDays = 0;
+  const currentDate = new Date(startDate);
+  
+  while (currentDate <= endDate) {
+    const dayOfWeek = currentDate.getDay();
+    if (transferDays.includes(dayOfWeek)) {
+      totalDays++;
+    }
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  
+  return totalDays;
 }
 
 export function updatePlannedTransfer(transferId: string, updates: Partial<PlannedTransfer>): void {

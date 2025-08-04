@@ -56,13 +56,24 @@ export const AccountRow: React.FC<AccountRowProps> = ({
     hasOutgoingTransfers: accountInternalTransfers?.outgoingTransfers?.length || 0
   });
 
-  const handleCreateTransfer = (fromAccountId: string, amount: number, description?: string) => {
+  const handleCreateTransfer = (transfer: {
+    fromAccountId: string;
+    toAccountId: string;
+    amount: number;
+    description?: string;
+    transferType: 'monthly' | 'daily';
+    dailyAmount?: number;
+    transferDays?: number[];
+  }) => {
     createPlannedTransfer({
-      fromAccountId,
-      toAccountId: account.id,
-      amount,
+      fromAccountId: transfer.fromAccountId,
+      toAccountId: transfer.toAccountId,
+      amount: transfer.amount,
       month: selectedMonth,
-      description
+      description: transfer.description,
+      transferType: transfer.transferType,
+      dailyAmount: transfer.dailyAmount,
+      transferDays: transfer.transferDays
     });
     setShowNewTransferForm(false);
   };
