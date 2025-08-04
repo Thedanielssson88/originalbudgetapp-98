@@ -42,8 +42,16 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
   
   addMobileDebugLog(`🔥 Parsed ${transactionsFromFile.length} transactions from CSV`);
   if (transactionsFromFile.length === 0) {
-    console.log(`[ORCHESTRATOR] ⚠️ No transactions found in CSV`);
-    addMobileDebugLog(`⚠️ No transactions found in CSV`);
+    console.log(`[ORCHESTRATOR] ⚠️ No transactions found in CSV - but storing raw data for column mapping`);
+    addMobileDebugLog(`⚠️ No transactions found in CSV - raw data stored for mapping`);
+    
+    // Store raw CSV data for column mapping interface even if parsing failed
+    const lines = cleanedCsvContent.split('\n').filter(line => line.trim());
+    const headers = lines[0]?.split(';').map(h => h.trim()) || [];
+    addMobileDebugLog(`📋 Available CSV columns: ${headers.join(', ')}`);
+    
+    // Still trigger UI refresh so user can access column mapping
+    triggerUIRefresh();
     return;
   }
   
@@ -423,6 +431,17 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
   }
   
   console.log(`[ORCHESTRATOR] 🔍 Column indices - Date: ${dateColumnIndex}, Amount: ${amountColumnIndex}, Description: ${descriptionColumnIndex}, Balance: ${balanceColumnIndex}`);
+  
+  // Check if essential columns were found
+  if (dateColumnIndex === -1 || amountColumnIndex === -1 || descriptionColumnIndex === -1) {
+    console.log(`[ORCHESTRATOR] ❌ Required columns not found - Date: ${dateColumnIndex}, Amount: ${amountColumnIndex}, Description: ${descriptionColumnIndex}`);
+    console.log(`[ORCHESTRATOR] ❌ Available headers:`, headers);
+    addMobileDebugLog(`❌ Required columns not found in CSV. Headers: ${headers.join(', ')}`);
+    
+    // Still return empty array but log the headers so user can see them in debug
+    addMobileDebugLog(`📋 CSV Headers found: ${headers.map((h, i) => `${i}: ${h}`).join(', ')}`);
+    return [];
+  }
 
   for (let i = 1; i < lines.length; i++) {
     const fields = lines[i].split(';');
@@ -491,6 +510,7 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
   }
   
   console.log(`[ORCHESTRATOR] 🔍 Parsed ${transactions.length} transactions, balance data found: ${transactions.filter(t => t.balanceAfter !== undefined).length}`);
+  addMobileDebugLog(`🔍 Successfully parsed ${transactions.length} transactions from CSV`);
   return transactions;
 }
 
@@ -675,6 +695,9 @@ export function initializeApp(): void {
   addMobileDebugLog('[ORCHESTRATOR] ✅ Setting initialization flag and starting...');
   
   initializeStateFromStorage();
+  
+  // Ensure the Överföring account exists
+  ensureOverforingAccount();
   
   addMobileDebugLog(`[ORCHESTRATOR] After storage init - available months: ${Object.keys(state.budgetState.historicalData).join(', ')}`);
   addMobileDebugLog(`[ORCHESTRATOR] Selected month: ${state.budgetState.selectedMonthKey}`);
@@ -1001,6 +1024,21 @@ export function addAccount(account: { name: string; startBalance: number }): voi
   triggerUIRefresh();
   
   console.log('✅ [ORCHESTRATOR] Account added successfully:', newAccount);
+}
+
+// Helper function to add the Överföring account if it doesn't exist
+export function ensureOverforingAccount(): void {
+  const overforingExists = state.budgetState.accounts.some(acc => acc.name === "Överföring");
+  if (!overforingExists) {
+    const overforingAccount = {
+      id: "aa9d996d-1baf-4c34-91bb-02f82b51aab6",
+      name: "Överföring",
+      startBalance: 0
+    };
+    state.budgetState.accounts = [...state.budgetState.accounts, overforingAccount];
+    console.log('✅ [ORCHESTRATOR] Added missing Överföring account:', overforingAccount);
+    saveStateToStorage();
+  }
 }
 
 export function removeAccount(accountId: string): void {

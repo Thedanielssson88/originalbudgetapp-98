@@ -1007,6 +1007,29 @@ export const TransactionImportEnhanced: React.FC = () => {
                         <Upload className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                         {hasTransactions ? "Ändra fil" : "Ladda upp"}
                       </Button>
+                      {rawCsvData[account.id]?.headers && (
+                        <Button
+                          onClick={() => {
+                            // Create temporary bank if account doesn't have one
+                            if (!account.bankTemplateId && !selectedBanks[account.id]) {
+                              const tempBank: Bank = {
+                                id: `temp_${account.id}`,
+                                name: `${account.name} Bank`,
+                                createdAt: new Date().toISOString()
+                              };
+                              setBanks(prev => [...prev, tempBank]);
+                              handleBankSelection(account.id, tempBank.id);
+                            }
+                            setCurrentStep('mapping');
+                          }}
+                          size="sm"
+                          variant="secondary"
+                          className="text-xs"
+                        >
+                          <Settings className="w-3 h-3 mr-1" />
+                          Kolumnmappning
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
@@ -1115,12 +1138,12 @@ export const TransactionImportEnhanced: React.FC = () => {
       { value: 'ignore', label: 'Ignorera' }
     ];
 
-    // Get unique banks that have uploaded files/transactions based on account.bankTemplateId
+    // Get unique banks that have uploaded files/transactions OR raw CSV data
     const banksWithTransactions = banks.filter(bank => {
-      // Check if any account has this bank as template AND has transactions
+      // Check if any account has this bank as template AND has transactions OR raw CSV data
       return accounts.some(account => 
         account.bankTemplateId === bank.id && 
-        allTransactions.some(t => t.accountId === account.id)
+        (allTransactions.some(t => t.accountId === account.id) || rawCsvData[account.id]?.headers)
       );
     });
 
@@ -1149,19 +1172,21 @@ export const TransactionImportEnhanced: React.FC = () => {
           </div>
         ) : (
           banksWithTransactions.map((bank) => {
-            // Get accounts using this bank that have transactions
+            // Get accounts using this bank that have transactions OR raw CSV data
             const accountsUsingThisBank = accounts.filter(account => 
               account.bankTemplateId === bank.id && 
-              allTransactions.some(t => t.accountId === account.id)
+              (allTransactions.some(t => t.accountId === account.id) || rawCsvData[account.id]?.headers)
             );
             
             // Get sample transactions from the first account using this bank
             const sampleAccount = accountsUsingThisBank[0];
             const sampleTransactions = sampleAccount ? allTransactions.filter(t => t.accountId === sampleAccount.id).slice(0, 3) : [];
             
-            // Get actual CSV headers from imported transactions' file source
-            // För nu använder vi exempel-headers, men senare kan vi spara verkliga headers
-            const actualCSVHeaders = ['Datum', 'Kategori', 'Underkategori', 'Text', 'Belopp', 'Saldo'];
+            // Get actual CSV headers from raw CSV data or fallback to transaction data
+            const firstAccountWithData = accountsUsingThisBank[0];
+            const actualCSVHeaders = firstAccountWithData && rawCsvData[firstAccountWithData.id]?.headers 
+              ? rawCsvData[firstAccountWithData.id].headers 
+              : ['Datum', 'Kategori', 'Underkategori', 'Text', 'Belopp', 'Saldo'];
             
             console.log('🔍 [DEBUG] Rendering bank:', bank.name, 'with accounts:', accountsUsingThisBank.map(a => a.name));
             console.log('🔍 [DEBUG] CSV headers for bank:', actualCSVHeaders);
@@ -1185,15 +1210,18 @@ export const TransactionImportEnhanced: React.FC = () => {
                       {/* Mobile-first responsive layout */}
                       <div className="space-y-4 md:hidden">
                         {actualCSVHeaders.map((header, colIndex) => {
-                          const exampleData = sampleTransactions.map(t => {
-                            // Show actual transaction data based on what we can guess from header name
-                            if (header.toLowerCase().includes('datum') || header.toLowerCase().includes('date')) return t.date;
-                            if (header.toLowerCase().includes('belopp') || header.toLowerCase().includes('amount')) return t.amount.toString();
-                            if (header.toLowerCase().includes('text') || header.toLowerCase().includes('beskrivning') || header.toLowerCase().includes('description')) return t.description;
-                            if (header.toLowerCase().includes('kategori') || header.toLowerCase().includes('category')) return t.bankCategory || '';
-                            if (header.toLowerCase().includes('saldo') || header.toLowerCase().includes('balance')) return t.balanceAfter?.toString() || '';
-                            return 'Exempel data';
-                          });
+                          // Use raw CSV data if available, otherwise use transaction data
+                          const exampleData = firstAccountWithData && rawCsvData[firstAccountWithData.id]?.rows 
+                            ? rawCsvData[firstAccountWithData.id].rows.slice(0, 3).map(row => row[colIndex] || '')
+                            : sampleTransactions.map(t => {
+                                // Show actual transaction data based on what we can guess from header name
+                                if (header.toLowerCase().includes('datum') || header.toLowerCase().includes('date')) return t.date;
+                                if (header.toLowerCase().includes('belopp') || header.toLowerCase().includes('amount')) return t.amount.toString();
+                                if (header.toLowerCase().includes('text') || header.toLowerCase().includes('beskrivning') || header.toLowerCase().includes('description')) return t.description;
+                                if (header.toLowerCase().includes('kategori') || header.toLowerCase().includes('category')) return t.bankCategory || '';
+                                if (header.toLowerCase().includes('saldo') || header.toLowerCase().includes('balance')) return t.balanceAfter?.toString() || '';
+                                return 'Exempel data';
+                              });
 
                         return (
                           <Card key={colIndex} className="p-3">
