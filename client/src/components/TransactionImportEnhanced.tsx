@@ -617,6 +617,17 @@ export const TransactionImportEnhanced: React.FC = () => {
     const csvData = XLSX.utils.sheet_to_csv(worksheet, { FS: ';' });
     
     console.log(`🚀 [IMPORT] XLSX converted to CSV format, length: ${csvData.length}`);
+    
+    // Debug: Check for April data in XLSX conversion
+    const lines = csvData.split('\n');
+    const aprilLines = lines.filter(line => line.includes('2025-04'));
+    console.log(`🔍 [XLSX] Total lines in converted CSV: ${lines.length}`);
+    console.log(`🔍 [XLSX] April 2025 lines found: ${aprilLines.length}`);
+    aprilLines.slice(0, 5).forEach((line, index) => {
+      console.log(`🔍 [XLSX] April line ${index + 1}: ${line}`);
+    });
+    addMobileDebugLog(`🔍 XLSX: ${lines.length} total lines, ${aprilLines.length} April lines`);
+    
     return csvData;
   }, []);
 
