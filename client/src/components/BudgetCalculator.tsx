@@ -688,23 +688,15 @@ const BudgetCalculator = () => {
   };
 
   const getSavingsTransactions = () => {
-    console.log('🔍 [DEBUG] getSavingsTransactions called - looking across ALL months');
-    const allTransactions: any[] = [];
+    console.log('🔍 [DEBUG] getSavingsTransactions called - using centralized storage');
     
-    // Look across all historical data, not just current month
-    Object.entries(budgetState.historicalData).forEach(([monthKey, monthData]) => {
-      if (monthData.transactions && monthData.transactions.length > 0) {
-        console.log(`🔍 [DEBUG] Found ${monthData.transactions.length} transactions in month ${monthKey}`);
-        monthData.transactions.forEach(t => {
-          allTransactions.push(t);
-        });
-      }
-    });
+    // Use centralized transaction storage instead of month-specific data
+    const allTransactions = budgetState.allTransactions || [];
     
-    console.log('🔍 [DEBUG] Total transactions across all months:', allTransactions.length);
+    console.log('🔍 [DEBUG] Total transactions from centralized storage:', allTransactions.length);
     
-    // Log all transactions with savings targets or type 'Savings'
-    const savingsRelated = allTransactions.filter(t => t.type === 'Savings' || t.savingsTargetId);
+    // Log all transactions with savings targets or type 'Sparande'/'Savings'
+    const savingsRelated = allTransactions.filter(t => t.type === 'Sparande' || t.type === 'Savings' || t.savingsTargetId);
     console.log(`🔍 [DEBUG] Found ${savingsRelated.length} transactions with savings type or target`);
     
     savingsRelated.forEach((t: any, index: number) => {
@@ -718,20 +710,20 @@ const BudgetCalculator = () => {
         effectiveAmount,
         appCategoryId: t.appCategoryId,
         savingsTargetId: t.savingsTargetId,
-        willBeIncluded: t.type === 'Savings' && effectiveAmount > 0
+        willBeIncluded: (t.type === 'Sparande' || t.type === 'Savings') && effectiveAmount > 0
       });
     });
     
-    // Filter for savings transactions - include all transactions with type 'Savings' or savingsTargetId
+    // Filter for savings transactions - include all transactions with type 'Sparande'/'Savings' or savingsTargetId
     const filtered = allTransactions.filter((t: any) => {
       const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
-      // Include transactions that are marked as Savings type OR have a savingsTargetId
-      const isSavings = t.type === 'Savings' || t.savingsTargetId;
+      // Include transactions that are marked as Sparande/Savings type OR have a savingsTargetId
+      const isSavings = t.type === 'Sparande' || t.type === 'Savings' || t.savingsTargetId;
       return isSavings;
     });
     
     console.log('🔍 [DEBUG] getSavingsTransactions - filtered result:', filtered.length);
-    console.log('🔍 [DEBUG] CORRECTED: Filter condition is (t.type === "Savings" || t.savingsTargetId)');
+    console.log('🔍 [DEBUG] CORRECTED: Filter condition is (t.type === "Sparande" || t.type === "Savings" || t.savingsTargetId)');
     console.log('🔍 [DEBUG] This includes ALL savings transactions regardless of amount');
     return filtered;
   };

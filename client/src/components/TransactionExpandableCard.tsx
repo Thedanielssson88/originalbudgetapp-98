@@ -348,7 +348,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                         Matcha överföring
                       </Button>
                     )}
-                    {transaction.type === 'Savings' && onSavingsLink && (
+                    {(transaction.type === 'Savings' || transaction.type === 'Sparande') && onSavingsLink && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -608,7 +608,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                   )}
 
                   {/* Linked savings information */}
-                  {transaction.savingsTargetId && (transaction.type === 'Savings' || transaction.type === 'Transaction') && (
+                  {transaction.savingsTargetId && (transaction.type === 'Savings' || transaction.type === 'Sparande' || transaction.type === 'Transaction') && (
                     <div>
                       <label className="text-xs font-medium text-muted-foreground">
                         Kopplad till sparande
