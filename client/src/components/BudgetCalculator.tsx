@@ -52,7 +52,7 @@ import {
   setSusannaSalary,
   setSusannaförsäkringskassan,
   setSusannabarnbidrag,
-  
+  addSavingsItem,
   setSavingsGroups,
   setDailyTransfer,
   setWeekendTransfer,
@@ -6888,10 +6888,8 @@ const BudgetCalculator = () => {
                               onSavingsCategoryDrillDown={openSavingsCategoryDrillDownDialog}
                               onSavingsTargetDrillDown={openSavingsTargetDrillDownDialog}
                               onAddSavingsItem={(item) => {
-                                // Handle saving the new savings item
                                 console.log('Adding savings item:', item);
-                                // TODO: Implement actual savings item addition logic
-                                setShowAddBudgetDialog({ isOpen: true, type: 'savings' });
+                                addSavingsItem(item);
                               }}
                               onEditSavingsGroup={(group) => {
                                 // Handle editing savings group
