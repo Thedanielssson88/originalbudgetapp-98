@@ -64,6 +64,7 @@ import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryR
 import { getCurrentState, setMainCategories, updateSelectedBudgetMonth } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
+import { clearExpansionState } from '@/hooks/useTransactionExpansion';
 
 // Category Management Component
 interface CategoryManagementSectionProps {
@@ -399,7 +400,10 @@ export const TransactionImportEnhanced: React.FC = () => {
     const prevMonth = month === 1 ? 12 : month - 1;
     const prevYear = month === 1 ? year - 1 : year;
     const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+    // Clear expansion state when changing months
+    clearExpansionState();
     updateSelectedBudgetMonth(prevMonthKey);
+    triggerRefresh();
   };
 
   const navigateToNextMonth = () => {
@@ -407,11 +411,17 @@ export const TransactionImportEnhanced: React.FC = () => {
     const nextMonth = month === 12 ? 1 : month + 1;
     const nextYear = month === 12 ? year + 1 : year;
     const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+    // Clear expansion state when changing months
+    clearExpansionState();
     updateSelectedBudgetMonth(nextMonthKey);
+    triggerRefresh();
   };
 
   const handleBudgetMonthChange = (value: string) => {
+    // Clear expansion state when changing months
+    clearExpansionState();
     updateSelectedBudgetMonth(value);
+    triggerRefresh();
   };
   const costGroups = budgetState?.historicalData?.[budgetState.selectedMonthKey]?.costGroups || [];
   const categoryRulesFromState = budgetState?.categoryRules || [];

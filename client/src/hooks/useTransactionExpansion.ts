@@ -3,6 +3,11 @@ import { useState, useCallback } from 'react';
 // Global state to persist expansion across re-renders
 const globalExpansionState = new Set<string>();
 
+// Function to clear expansion state (useful when month changes)
+export const clearExpansionState = () => {
+  globalExpansionState.clear();
+};
+
 export const useTransactionExpansion = (transactionId: string) => {
   const [isExpanded, setIsExpandedState] = useState(() => 
     globalExpansionState.has(transactionId)
