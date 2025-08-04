@@ -78,13 +78,25 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
   console.log(`[ORCHESTRATOR] 📅 File contains ${transactionsFromFile.length} transactions`);
   addMobileDebugLog(`📅 File contains ${transactionsFromFile.length} transactions`);
   
-  // 3. Get ALL existing transactions from central state
-  const allSavedTransactions = Object.values(state.budgetState.historicalData)
-    .flatMap(month => (month.transactions || []).map(t => ({
-      ...t,
-      importedAt: (t as any).importedAt || new Date().toISOString(),
-      fileSource: (t as any).fileSource || 'budgetState'
-    } as ImportedTransaction)));
+  // 3. Get ALL existing transactions from centralized storage
+  const allSavedTransactions = state.budgetState.allTransactions.map(t => ({
+    id: t.id,
+    accountId: t.accountId,
+    date: t.date,
+    amount: t.amount,
+    balanceAfter: t.balanceAfter,
+    description: t.description,
+    userDescription: t.userDescription,
+    type: t.type as ImportedTransaction['type'],
+    status: t.status as ImportedTransaction['status'],
+    linkedTransactionId: t.linkedTransactionId,
+    correctedAmount: t.correctedAmount,
+    isManuallyChanged: t.isManuallyChanged,
+    appCategoryId: t.appCategoryId,
+    appSubCategoryId: t.appSubCategoryId,
+    importedAt: (t as any).importedAt || new Date().toISOString(),
+    fileSource: (t as any).fileSource || 'budgetState'
+  } as ImportedTransaction));
   
   console.log(`[ORCHESTRATOR] 📅 Found ${allSavedTransactions.length} existing transactions total`);
   addMobileDebugLog(`📅 Found ${allSavedTransactions.length} existing transactions total`);
@@ -148,74 +160,31 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
   
   console.log(`[ORCHESTRATOR] ✅ Final transaction count: ${finalTransactionList.length}`);
   
-  // 8. Apply changes surgically - only update specific dates/accounts that were imported
+  // 8. CRITICAL: Update centralized transaction storage
   console.log(`[ORCHESTRATOR] 🔍 CSV date range: ${minDateStr} to ${maxDateStr} for account: ${accountId}`);
-  console.log(`[ORCHESTRATOR] 🔍 Final transaction list has ${finalTransactionList.length} transactions`);
+  console.log(`[ORCHESTRATOR] 🔍 Updating centralized storage with ${finalTransactionList.length} transactions`);
   
-  // Group final transactions by month for organized storage
-  const finalGroupedByMonth = groupTransactionsByMonth(finalTransactionList);
-  console.log(`[ORCHESTRATOR] 🔍 finalGroupedByMonth keys:`, Object.keys(finalGroupedByMonth));
+  // Convert ImportedTransaction[] to Transaction[] for centralized storage
+  const transactionsForCentralStorage = finalTransactionList.map(tx => ({
+    id: tx.id,
+    accountId: tx.accountId,
+    date: tx.date,
+    amount: tx.amount,
+    balanceAfter: tx.balanceAfter,
+    description: tx.description,
+    userDescription: tx.userDescription,
+    type: tx.type,
+    status: tx.status === 'green' ? 'green' : determineTransactionStatus(tx),
+    linkedTransactionId: tx.linkedTransactionId,
+    correctedAmount: tx.correctedAmount,
+    isManuallyChanged: tx.isManuallyChanged,
+    appCategoryId: tx.appCategoryId,
+    appSubCategoryId: tx.appSubCategoryId
+  } as Transaction));
   
-  // For each month that has transactions in our final list
-  Object.keys(finalGroupedByMonth).forEach(monthKey => {
-    const monthTransactions = finalGroupedByMonth[monthKey];
-    console.log(`[ORCHESTRATOR] 📅 Processing month ${monthKey} with ${monthTransactions.length} transactions`);
-    
-    // Ensure month exists in historical data
-    if (!state.budgetState.historicalData[monthKey]) {
-      console.log(`[ORCHESTRATOR] 🆕 Creating new month data for ${monthKey}`);
-      state.budgetState.historicalData[monthKey] = createEmptyMonthDataForImport();
-    }
-    
-    // Get existing transactions for this month
-    const existingMonthTransactions = (state.budgetState.historicalData[monthKey].transactions || []) as ImportedTransaction[];
-    console.log(`[ORCHESTRATOR] 🔍 Month ${monthKey} had ${existingMonthTransactions.length} existing transactions`);
-    
-    // SURGICAL UPDATE: Keep existing transactions that are NOT in the imported date range for this account
-    const transactionsToKeepInMonth = existingMonthTransactions.filter(tx => {
-      if (tx.accountId !== accountId) {
-        console.log(`[ORCHESTRATOR] 🔍 Keeping transaction for different account: ${tx.accountId}`);
-        return true; // Keep transactions from other accounts
-      }
-      
-      const txDateStr = tx.date.split('T')[0];
-      const isInImportedDateRange = txDateStr >= minDateStr && txDateStr <= maxDateStr;
-      
-      if (isInImportedDateRange) {
-        console.log(`[ORCHESTRATOR] 🔍 Removing existing transaction in date range: ${txDateStr} for account ${accountId}`);
-        return false; // Remove - will be replaced by imported data
-      } else {
-        console.log(`[ORCHESTRATOR] 🔍 Keeping existing transaction outside date range: ${txDateStr} for account ${accountId}`);
-        return true; // Keep - outside imported date range
-      }
-    });
-    
-    // Convert new transactions to proper format
-    const newTransactionsForMonth = monthTransactions.map(tx => ({
-      ...tx,
-      bankCategory: tx.bankCategory || '',
-      bankSubCategory: tx.bankSubCategory || '',
-      userDescription: tx.userDescription || '',
-      balanceAfter: tx.balanceAfter || 0,
-      status: tx.status === 'green' ? 'green' : determineTransactionStatus(tx)
-    }));
-    
-    // Combine kept transactions with new transactions (convert existing ones to proper format)
-    const convertedKeptTransactions = transactionsToKeepInMonth.map(tx => ({
-      ...tx,
-      bankCategory: tx.bankCategory || '',
-      bankSubCategory: tx.bankSubCategory || '',
-      userDescription: tx.userDescription || '',
-      balanceAfter: tx.balanceAfter || 0
-    }));
-    const finalMonthTransactions = [...convertedKeptTransactions, ...newTransactionsForMonth];
-    
-    // Update the month with the combined transaction list
-    state.budgetState.historicalData[monthKey].transactions = finalMonthTransactions;
-    
-    console.log(`[ORCHESTRATOR] ✅ Month ${monthKey}: kept ${transactionsToKeepInMonth.length} existing + added ${newTransactionsForMonth.length} new = ${finalMonthTransactions.length} total`);
-    addMobileDebugLog(`✅ Month ${monthKey}: ${transactionsToKeepInMonth.length} kept + ${newTransactionsForMonth.length} new = ${finalMonthTransactions.length} total`);
-  });
+  // Update centralized storage
+  state.budgetState.allTransactions = transactionsForCentralStorage;
+  console.log(`[ORCHESTRATOR] ✅ Updated centralized storage with ${state.budgetState.allTransactions.length} transactions`);
   
   // 9. Update account balances from saldo data using the SAME working logic as BudgetCalculator
   updateAccountBalancesUsingWorkingLogic(finalTransactionList, accountId);
@@ -1436,12 +1405,8 @@ export function linkSavingsTransaction(transactionId: string, savingsTargetId: s
 
 // Helper function to find transaction by ID across all months
 function findTransactionById(transactionId: string): any {
-  for (const [monthKey, monthData] of Object.entries(state.budgetState.historicalData || {})) {
-    const transactions = (monthData as any)?.transactions || [];
-    const found = transactions.find((t: any) => t.id === transactionId);
-    if (found) return found;
-  }
-  return null;
+  // CRITICAL: Use centralized transaction storage
+  return state.budgetState.allTransactions.find(t => t.id === transactionId) || null;
 }
 
 // Helper function to find month key for a transaction
@@ -1538,11 +1503,6 @@ export function applyExpenseClaim(expenseId: string, paymentId: string): void {
 
 // New flexible function that can update transactions for any month
 export function updateTransactionsForMonth(monthKey: string, transactions: ImportedTransaction[]): void {
-  if (!state.budgetState.historicalData[monthKey]) {
-    console.error(`[Orchestrator] Månad ${monthKey} finns inte.`);
-    return;
-  }
-  
   console.log(`[ORCHESTRATOR] 🔄 CENTRALIZED STORAGE - Updating transactions for month ${monthKey}`);
   console.log(`[ORCHESTRATOR] 📊 New transactions to add: ${transactions.length}`);
   
@@ -1576,7 +1536,9 @@ export function updateTransactionsForMonth(monthKey: string, transactions: Impor
     type: tx.type || 'Transaction',
     status: tx.status || 'red', // Use status from ImportedTransaction
     isManuallyChanged: tx.isManuallyChanged || false,
-    userDescription: tx.userDescription || ''
+    userDescription: tx.userDescription || '',
+    appCategoryId: tx.appCategoryId,
+    appSubCategoryId: tx.appSubCategoryId
   }));
   
   state.budgetState.allTransactions = [...otherTransactions, ...transactionsAsBaseType];
@@ -1650,26 +1612,29 @@ export function getAccountNameById(accountId: string): string {
 // ===== TRANSACTION RETRIEVAL =====
 
 export function getAllTransactionsFromDatabase(): ImportedTransaction[] {
-  console.log('🔍 [ORCHESTRATOR] Getting all transactions from database...');
+  console.log('🔍 [ORCHESTRATOR] Getting all transactions from centralized storage...');
   
-  const allTransactions: ImportedTransaction[] = [];
+  // CRITICAL: Use centralized transaction storage
+  const allTransactions: ImportedTransaction[] = state.budgetState.allTransactions.map(tx => ({
+    id: tx.id,
+    accountId: tx.accountId,
+    date: tx.date,
+    amount: tx.amount,
+    balanceAfter: tx.balanceAfter,
+    description: tx.description,
+    userDescription: tx.userDescription,
+    type: tx.type as ImportedTransaction['type'],
+    status: tx.status as ImportedTransaction['status'],
+    linkedTransactionId: tx.linkedTransactionId,
+    correctedAmount: tx.correctedAmount,
+    isManuallyChanged: tx.isManuallyChanged,
+    appCategoryId: tx.appCategoryId,
+    appSubCategoryId: tx.appSubCategoryId,
+    importedAt: (tx as any).importedAt || new Date().toISOString(),
+    fileSource: (tx as any).fileSource || 'database'
+  } as ImportedTransaction));
   
-  // Iterate through all historical data and collect transactions
-  Object.entries(state.budgetState.historicalData || {}).forEach(([monthKey, monthData]) => {
-    const transactions = (monthData as any)?.transactions || [];
-    console.log(`🔍 [ORCHESTRATOR] Found ${transactions.length} transactions in month ${monthKey}`);
-    
-    transactions.forEach((transaction: any) => {
-      // Convert to ImportedTransaction format
-      allTransactions.push({
-        ...transaction,
-        importedAt: transaction.importedAt || new Date().toISOString(),
-        fileSource: transaction.fileSource || 'database'
-      } as ImportedTransaction);
-    });
-  });
-  
-  console.log(`🔍 [ORCHESTRATOR] Total transactions from database: ${allTransactions.length}`);
+  console.log(`🔍 [ORCHESTRATOR] Total transactions from centralized storage: ${allTransactions.length}`);
   return allTransactions;
 }
 

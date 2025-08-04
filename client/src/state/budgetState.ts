@@ -356,9 +356,15 @@ export function initializeStateFromStorage(): void {
       saveStateToStorage();
     }
     
-    // STEP 5: MIGRATION - Move transactions to centralized storage (Migration version 3)
-    if (!state.budgetState.migrationVersion || state.budgetState.migrationVersion < 3) {
-      console.log('[MIGRATION v3] 🔄 Migrating transactions to centralized storage...');
+    // STEP 5: MIGRATION - Move transactions to centralized storage (Migration version 4)
+    // Force re-migration if allTransactions is empty but we have transactions in monthly data
+    const hasTransactionsInMonthlyData = Object.values(state.budgetState.historicalData).some(
+      (monthData) => (monthData as any).transactions && (monthData as any).transactions.length > 0
+    );
+    
+    if (!state.budgetState.migrationVersion || state.budgetState.migrationVersion < 4 || 
+        (!state.budgetState.allTransactions || state.budgetState.allTransactions.length === 0) && hasTransactionsInMonthlyData) {
+      console.log('[MIGRATION v4] 🔄 Migrating transactions to centralized storage...');
       
       // Initialize allTransactions if it doesn't exist
       if (!state.budgetState.allTransactions) {
@@ -368,9 +374,9 @@ export function initializeStateFromStorage(): void {
       // Collect all transactions from monthly storage
       const allTransactions: Transaction[] = [];
       Object.entries(state.budgetState.historicalData).forEach(([monthKey, monthData]) => {
-        if (monthData.transactions && monthData.transactions.length > 0) {
-          console.log(`[MIGRATION v3] 📊 Found ${monthData.transactions.length} transactions in month ${monthKey}`);
-          allTransactions.push(...monthData.transactions);
+        if ((monthData as any).transactions && (monthData as any).transactions.length > 0) {
+          console.log(`[MIGRATION v4] 📊 Found ${(monthData as any).transactions.length} transactions in month ${monthKey}`);
+          allTransactions.push(...(monthData as any).transactions);
         }
       });
       
@@ -379,7 +385,7 @@ export function initializeStateFromStorage(): void {
         new Map(allTransactions.map(tx => [tx.id, tx])).values()
       );
       
-      console.log(`[MIGRATION v3] 📊 Total unique transactions: ${uniqueTransactions.length}`);
+      console.log(`[MIGRATION v4] 📊 Total unique transactions: ${uniqueTransactions.length}`);
       state.budgetState.allTransactions = uniqueTransactions;
       
       // Clear transactions from monthly data (they're now in centralized storage)
@@ -388,8 +394,8 @@ export function initializeStateFromStorage(): void {
       });
       
       // Update migration version
-      state.budgetState.migrationVersion = 3;
-      console.log('[MIGRATION v3] ✅ Transaction migration completed successfully!');
+      state.budgetState.migrationVersion = 4;
+      console.log('[MIGRATION v4] ✅ Transaction migration completed successfully!');
       
       // Save immediately to persist the migrated data
       saveStateToStorage();

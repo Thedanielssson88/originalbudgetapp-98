@@ -802,7 +802,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     console.log(`🔄 [TransactionImportEnhanced] Called updateTransaction, checking state in 100ms...`);
     setTimeout(() => {
       const currentState = getCurrentState();
-      const updatedTransaction = currentState.budgetState.historicalData[monthKey]?.transactions?.find((t: any) => t.id === transactionId);
+      const updatedTransaction = currentState.budgetState.allTransactions.find((t: any) => t.id === transactionId);
       console.log(`🔄 [TransactionImportEnhanced] Transaction after update:`, updatedTransaction ? {
         id: updatedTransaction.id,
         status: updatedTransaction.status,
