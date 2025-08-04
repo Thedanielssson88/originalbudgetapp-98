@@ -755,6 +755,12 @@ export function runCalculationsAndUpdateState(): void {
         // Direct state modification - no function calls to avoid infinite loops
         state.budgetState.historicalData[monthKey].accountEstimatedStartBalances = estimatedStartBalancesByMonth[monthKey];
         state.budgetState.historicalData[monthKey].accountEstimatedFinalBalances = estimatedFinalBalancesByMonth[monthKey];
+        
+        // CRITICAL: Log transaction count to ensure they're not being lost here
+        const txCount = (state.budgetState.historicalData[monthKey].transactions || []).length;
+        if (txCount > 0) {
+          console.log(`[ORCHESTRATOR] 📊 Month ${monthKey} still has ${txCount} transactions after balance update`);
+        }
       }
     });
     
@@ -942,6 +948,14 @@ export function setSelectedBudgetMonth(monthKey: string): void {
   console.log(`[ORCHESTRATOR] 🔄 Switching to month: ${monthKey}`);
   console.log(`[ORCHESTRATOR] 🔄 Current historicalData keys:`, Object.keys(state.budgetState.historicalData));
   
+  // CRITICAL: Log transaction counts BEFORE switching
+  Object.entries(state.budgetState.historicalData).forEach(([month, data]) => {
+    const txCount = (data.transactions || []).length;
+    if (txCount > 0) {
+      console.log(`[ORCHESTRATOR] 📊 Month ${month} has ${txCount} transactions BEFORE switch`);
+    }
+  });
+  
   state.budgetState.selectedMonthKey = monthKey;
   
   // CRITICAL FIX: Only create empty month data if it truly doesn't exist
@@ -977,6 +991,13 @@ export function setSelectedBudgetMonth(monthKey: string): void {
   } else {
     console.log(`[ORCHESTRATOR] ✅ Month ${monthKey} already exists with ${(state.budgetState.historicalData[monthKey].transactions || []).length} transactions`);
   }
+  
+  // CRITICAL: Log transaction counts AFTER switching
+  console.log(`[ORCHESTRATOR] 📊 AFTER SWITCH - Transaction counts:`);
+  Object.entries(state.budgetState.historicalData).forEach(([month, data]) => {
+    const txCount = (data.transactions || []).length;
+    console.log(`[ORCHESTRATOR] 📊 Month ${month}: ${txCount} transactions`);
+  });
   
   saveStateToStorage();
   triggerUIRefresh();
@@ -1537,10 +1558,15 @@ export function updateTransactionsForMonth(monthKey: string, transactions: Impor
     return;
   }
   
+  // CRITICAL: Preserve existing transactions that should not be replaced
+  const existingTransactions = (state.budgetState.historicalData[monthKey] as any).transactions || [];
+  console.log(`[ORCHESTRATOR] 🔍 BEFORE UPDATE - Month ${monthKey} has ${existingTransactions.length} existing transactions`);
+  
   // Update the transaction list for the specific month
   (state.budgetState.historicalData[monthKey] as any).transactions = transactions;
 
   console.log(`[Orchestrator] Sparade ${transactions.length} transaktioner till månad ${monthKey}.`);
+  console.log(`[ORCHESTRATOR] 🔍 AFTER UPDATE - Month ${monthKey} now has ${transactions.length} transactions`);
 
   // Save the updated state permanently and re-run calculations
   saveStateToStorage();

@@ -215,10 +215,32 @@ export function initializeStateFromStorage(): void {
         
         // CRITICAL DEBUG: Check what's in the loaded historical data
         console.log(`[INIT] 🔍 CRITICAL DEBUG - loadedBudgetState.historicalData:`, loadedBudgetState.historicalData);
+        
+        // CRITICAL: Log transaction counts when LOADING
+        console.log('[INIT] 🔍 LOAD DEBUG - Transaction counts from loaded data:');
+        if (loadedBudgetState.historicalData) {
+          Object.entries(loadedBudgetState.historicalData).forEach(([month, data]: [string, any]) => {
+            const txCount = (data.transactions || []).length;
+            if (txCount > 0) {
+              console.log(`[INIT] 📊 Month ${month}: ${txCount} transactions LOADED`);
+              // Log sample transaction
+              if (data.transactions && data.transactions.length > 0) {
+                console.log(`[INIT] 📝 Sample tx from ${month}:`, {
+                  id: data.transactions[0].id,
+                  date: data.transactions[0].date,
+                  description: data.transactions[0].description,
+                  linkedTransactionId: data.transactions[0].linkedTransactionId
+                });
+              }
+            }
+          });
+        }
+        
         const selectedMonth = loadedBudgetState.selectedMonthKey || state.budgetState.selectedMonthKey;
         if (loadedBudgetState.historicalData && loadedBudgetState.historicalData[selectedMonth]) {
           console.log(`[INIT] 🔍 CRITICAL DEBUG - month ${selectedMonth} data:`, loadedBudgetState.historicalData[selectedMonth]);
           console.log(`[INIT] 🔍 CRITICAL DEBUG - accountBalances in loaded data:`, loadedBudgetState.historicalData[selectedMonth].accountBalances);
+          console.log(`[INIT] 🔍 CRITICAL DEBUG - transactions count for ${selectedMonth}:`, (loadedBudgetState.historicalData[selectedMonth].transactions || []).length);
         }
         
         // Merge, but preserve essential properties
@@ -359,21 +381,40 @@ export const isAppLoading = (): boolean => state.isLoading;
 
 export function saveStateToStorage(): void {
   try {
+    // CRITICAL: Log transaction counts before saving
+    console.log('[BudgetState] 🔍 SAVE DEBUG - Transaction counts BEFORE save:');
+    Object.entries(state.budgetState.historicalData).forEach(([month, data]) => {
+      const txCount = (data.transactions || []).length;
+      if (txCount > 0) {
+        console.log(`[BudgetState] 📊 Month ${month}: ${txCount} transactions`);
+        // Log sample transaction data
+        if (data.transactions && data.transactions.length > 0) {
+          console.log(`[BudgetState] 📝 Sample tx from ${month}:`, {
+            id: data.transactions[0].id,
+            date: data.transactions[0].date,
+            description: data.transactions[0].description,
+            linkedTransactionId: data.transactions[0].linkedTransactionId
+          });
+        }
+      }
+    });
+    
     const dataToSave = {
       budgetState: state.budgetState,
       calculated: state.calculated
     };
     set(StorageKey.BUDGET_CALCULATOR_DATA, dataToSave);
-    console.log('[BudgetState] State saved to storage');
+    console.log('[BudgetState] ✅ State saved to storage');
     console.log('[BudgetState] SAVE DEBUG - selectedMonthKey:', state.budgetState.selectedMonthKey);
     const saveCurrentMonth = state.budgetState.selectedMonthKey;
     const saveCurrentData = state.budgetState.historicalData[saveCurrentMonth];
     if (saveCurrentData) {
       console.log('[BudgetState] SAVE DEBUG - accountBalances being saved:', saveCurrentData.accountBalances);
       console.log('[BudgetState] SAVE DEBUG - accountBalancesSet being saved:', saveCurrentData.accountBalancesSet);
+      console.log(`[BudgetState] SAVE DEBUG - transactions count for ${saveCurrentMonth}:`, (saveCurrentData.transactions || []).length);
     }
   } catch (error) {
-    console.error('[BudgetState] Error saving to storage:', error);
+    console.error('[BudgetState] ❌ Error saving to storage:', error);
   }
 }
 

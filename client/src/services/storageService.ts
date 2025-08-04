@@ -35,9 +35,37 @@ export function get<T>(key: StorageKey): T | null {
 export function set<T>(key: StorageKey, value: T): void {
   try {
     const data = JSON.stringify(value);
+    
+    // CRITICAL: Log data size to detect potential localStorage issues
+    const sizeInBytes = new Blob([data]).size;
+    const sizeInKB = (sizeInBytes / 1024).toFixed(2);
+    console.log(`[StorageService] 💾 Saving ${key}: ${sizeInKB} KB (${sizeInBytes} bytes)`);
+    
+    // Check if we're approaching localStorage limits (typically 5-10 MB)
+    if (sizeInBytes > 4 * 1024 * 1024) { // 4 MB warning threshold
+      console.warn(`[StorageService] ⚠️ WARNING: Large data size for ${key}: ${sizeInKB} KB`);
+    }
+    
     localStorage.setItem(key, data);
+    
+    // CRITICAL: Verify the data was actually saved
+    const savedData = localStorage.getItem(key);
+    if (!savedData) {
+      console.error(`[StorageService] ❌ CRITICAL: Failed to save ${key} - data not found after save!`);
+    } else if (savedData !== data) {
+      console.error(`[StorageService] ❌ CRITICAL: Data corruption detected for ${key} - saved data doesn't match!`);
+    } else {
+      console.log(`[StorageService] ✅ Successfully saved ${key}`);
+    }
   } catch (error) {
-    console.error(`[StorageService] Fel vid skrivning (key: ${key}):`, error);
+    console.error(`[StorageService] ❌ Fel vid skrivning (key: ${key}):`, error);
+    // Log specific error details
+    if (error instanceof Error) {
+      if (error.name === 'QuotaExceededError') {
+        console.error(`[StorageService] ❌ localStorage quota exceeded! Cannot save ${key}`);
+      }
+      console.error(`[StorageService] Error details:`, error.message);
+    }
   }
 }
 
