@@ -686,6 +686,9 @@ export function initializeApp(): void {
   // Ensure the Överföring account exists
   ensureOverforingAccount();
   
+  // Clean up any invalid links to unknown accounts
+  cleanupInvalidTransferLinks();
+  
   addMobileDebugLog(`[ORCHESTRATOR] After storage init - available months: ${Object.keys(state.budgetState.historicalData).join(', ')}`);
   addMobileDebugLog(`[ORCHESTRATOR] Selected month: ${state.budgetState.selectedMonthKey}`);
   
@@ -1542,9 +1545,60 @@ export function recalculateAllTransactionStatuses(): void {
   }
 }
 
+// Function to clean up invalid transfer links to unknown accounts
+function cleanupInvalidTransferLinks(): void {
+  console.log('🔄 [ORCHESTRATOR] Cleaning up invalid transfer links to unknown accounts...');
+  
+  let cleanedCount = 0;
+  
+  // Find all linked transactions where either transaction points to a non-existent account
+  state.budgetState.allTransactions.forEach(transaction => {
+    if (transaction.linkedTransactionId) {
+      const linkedTx = state.budgetState.allTransactions.find(t => t.id === transaction.linkedTransactionId);
+      
+      // Check if either account doesn't exist
+      const transactionAccount = state.budgetState.accounts.find(acc => acc.id === transaction.accountId);
+      const linkedAccount = linkedTx ? state.budgetState.accounts.find(acc => acc.id === linkedTx.accountId) : null;
+      
+      if (!transactionAccount || !linkedAccount || !linkedTx) {
+        console.log(`[ORCHESTRATOR] Removing invalid link: transaction ${transaction.id} (account ${transaction.accountId}) -> ${transaction.linkedTransactionId}`);
+        
+        // Remove the link from current transaction
+        const transactionIndex = state.budgetState.allTransactions.findIndex(t => t.id === transaction.id);
+        if (transactionIndex !== -1) {
+          state.budgetState.allTransactions[transactionIndex] = {
+            ...state.budgetState.allTransactions[transactionIndex],
+            linkedTransactionId: undefined,
+            type: 'Expense' // Reset to default type
+          };
+        }
+        
+        // Remove the reverse link if it exists
+        if (linkedTx) {
+          const linkedIndex = state.budgetState.allTransactions.findIndex(t => t.id === linkedTx.id);
+          if (linkedIndex !== -1) {
+            state.budgetState.allTransactions[linkedIndex] = {
+              ...state.budgetState.allTransactions[linkedIndex],
+              linkedTransactionId: undefined,
+              type: 'Expense' // Reset to default type
+            };
+          }
+        }
+        
+        cleanedCount++;
+      }
+    }
+  });
+  
+  console.log(`✅ [ORCHESTRATOR] Cleaned up ${cleanedCount} invalid transfer links`);
+}
+
 // Function to perform automatic transfer matching for InternalTransfer transactions
 function performAutomaticTransferMatching(): void {
   console.log('🔄 [ORCHESTRATOR] Performing automatic transfer matching...');
+  
+  // First clean up any existing invalid links
+  cleanupInvalidTransferLinks();
   
   let matchedCount = 0;
   
@@ -1556,16 +1610,29 @@ function performAutomaticTransferMatching(): void {
   console.log(`[ORCHESTRATOR] Found ${unmatchedTransfers.length} unmatched internal transfers`);
   
   unmatchedTransfers.forEach(transaction => {
+    // Skip transactions from accounts that don't exist (would show as "Okänt konto")
+    const transactionAccount = state.budgetState.accounts.find(acc => acc.id === transaction.accountId);
+    if (!transactionAccount) {
+      console.log(`[ORCHESTRATOR] Skipping transaction ${transaction.id} - account ${transaction.accountId} not found`);
+      return;
+    }
+    
     // Find potential matches on the same date with opposite signs on different accounts
-    const potentialMatches = state.budgetState.allTransactions.filter(t => 
-      t.id !== transaction.id &&
-      t.accountId !== transaction.accountId && // Different account
-      t.date === transaction.date && // Same date only
-      // Opposite signs (positive matches negative, negative matches positive)
-      ((transaction.amount > 0 && t.amount < 0) || (transaction.amount < 0 && t.amount > 0)) &&
-      Math.abs(Math.abs(t.amount) - Math.abs(transaction.amount)) < 0.01 && // Same absolute amount
-      !t.linkedTransactionId // Not already linked
-    );
+    const potentialMatches = state.budgetState.allTransactions.filter(t => {
+      // Skip transactions from accounts that don't exist
+      const targetAccount = state.budgetState.accounts.find(acc => acc.id === t.accountId);
+      if (!targetAccount) {
+        return false;
+      }
+      
+      return t.id !== transaction.id &&
+        t.accountId !== transaction.accountId && // Different account
+        t.date === transaction.date && // Same date only
+        // Opposite signs (positive matches negative, negative matches positive)
+        ((transaction.amount > 0 && t.amount < 0) || (transaction.amount < 0 && t.amount > 0)) &&
+        Math.abs(Math.abs(t.amount) - Math.abs(transaction.amount)) < 0.01 && // Same absolute amount
+        !t.linkedTransactionId; // Not already linked
+    });
     
     console.log(`[ORCHESTRATOR] Found ${potentialMatches.length} potential matches for transaction ${transaction.id}`);
     
