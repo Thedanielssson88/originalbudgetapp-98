@@ -531,10 +531,10 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
               </div>
 
               {/* Linked transaction and savings information */}
-              {(transaction.linkedTransactionId || transaction.savingsTargetId) && (
+              {(transaction.linkedTransactionId || transaction.savingsTargetId || transaction.type === 'InternalTransfer') && (
                 <div className="mt-4 space-y-3">
                   {/* Linked transaction information */}
-                  {transaction.linkedTransactionId && (
+                  {(transaction.linkedTransactionId || transaction.type === 'InternalTransfer') && (
                     <div>
                       <label className="text-xs font-medium text-muted-foreground">
                         {transaction.type === 'CostCoverage' ? 'Täcker kostnad' : 
@@ -551,6 +551,15 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                             );
                           }
                           const linkedTransaction = allTransactions.find((t: any) => t.id === transaction.linkedTransactionId);
+                          
+                          // Handle internal transfers without linked transactions
+                          if (transaction.type === 'InternalTransfer' && !transaction.linkedTransactionId) {
+                            return (
+                              <p className="text-sm text-orange-700">
+                                Ingen länkad transaktion
+                              </p>
+                            );
+                          }
                           
                           if (!linkedTransaction) {
                             return (
@@ -583,6 +592,20 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                               <div className="space-y-1">
                                 <p className="text-sm text-blue-700 font-medium">
                                   Utlägg på {claimedAmount.toLocaleString('sv-SE')} kr täcks av:
+                                </p>
+                                <p className="text-sm text-blue-600">
+                                  {linkedTransaction.date}: {linkedTransaction.description}
+                                </p>
+                                <p className="text-xs text-blue-500">
+                                  Konto: {account?.name || linkedTransaction.accountId}
+                                </p>
+                              </div>
+                            );
+                          } else if (transaction.type === 'InternalTransfer') {
+                            return (
+                              <div className="space-y-1">
+                                <p className="text-sm text-blue-700 font-medium">
+                                  Länkad transaktion:
                                 </p>
                                 <p className="text-sm text-blue-600">
                                   {linkedTransaction.date}: {linkedTransaction.description}
