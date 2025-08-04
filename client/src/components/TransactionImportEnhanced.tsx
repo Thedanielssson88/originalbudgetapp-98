@@ -716,7 +716,8 @@ export const TransactionImportEnhanced: React.FC = () => {
       const fileExtension = file.name.toLowerCase().split('.').pop();
       
       if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-        console.log(`🚀 [IMPORT] Processing XLSX file: ${file.name}`);
+        console.log(`🚀🚀🚀 XLSX IMPORT STARTING: ${file.name} 🚀🚀🚀`);
+        console.clear(); // Clear console to see XLSX logs clearly
         addMobileDebugLog(`📁 Processing XLSX file: ${file.name}`);
         csvContent = await parseXLSXFile(file);
       } else {
