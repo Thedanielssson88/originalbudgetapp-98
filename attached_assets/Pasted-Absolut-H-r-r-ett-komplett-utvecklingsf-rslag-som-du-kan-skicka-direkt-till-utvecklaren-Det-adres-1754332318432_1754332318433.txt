@@ -1,0 +1,87 @@
+Absolut. Här är ett komplett utvecklingsförslag som du kan skicka direkt till utvecklaren. Det adresserar både grundorsaken till problemet och uppdateringen av vyn, precis som du beskrev.
+
+-----
+
+### Utvecklingsförslag: Slutgiltig lösning för import av bankkategorier
+
+Hej,
+
+Tack för allt arbete med att felsöka importproblemet. Efter en djupgående analys har vi nu ringat in exakt varför `Bankkategori` och `Bankunderkategori` inte uppdateras korrekt, och vi har ett konkret förslag på hur vi löser det permanent och samtidigt förbättrar gränssnittet för att undvika framtida förvirring.
+
+**Problemet i två delar:**
+
+1.  **Kärnproblemet:** Datan från importfilen skrivs över och raderas under sammanfogningen med befintliga transaktioner.
+2.  **Gränssnittsproblemet:** Vyn för importerade transaktioner är tvetydig och visar inte en tydlig skillnad mellan bankens rådata och appens interna kategorisering.
+
+-----
+
+### Del 1: Korrigering av sammanfogningslogiken (The Fix)
+
+**Grundorsak:**
+I `budgetOrchestrator.ts`, när en importerad transaktion (`fileTx`) matchas mot en befintlig (`existingTx`), är sammanfogningslogiken felvänd. Den prioriterar den befintliga transaktionens (ofta tomma) `bankCategory` och `bankSubCategory` över de korrekta värdena från filen. Detta raderar i praktiken den nya datan.
+
+**Lösning:**
+Vi måste säkerställa att `bankCategory` och `bankSubCategory` från filen **alltid** skrivs över till den uppdaterade transaktionen. Användarens manuellt satta *app-kategorier* ska givetvis bevaras enligt tidigare logik, men bankens rådata måste alltid komma från den senaste filen.
+
+**Föreslagen kodjustering i `budgetOrchestrator.ts`:**
+
+```typescript
+// Inom importAndReconcileFile, när en existingTx har hittats...
+
+// 1. Skapa en bas för den uppdaterade transaktionen från den befintliga.
+const baseUpdatedTx = { ...existingTx };
+
+// 2. Tvinga en överskrivning av bankens rådata från filen.
+//    Detta är det kritiska steget som saknas idag.
+baseUpdatedTx.bankCategory = fileTx.bankCategory;
+baseUpdatedTx.bankSubCategory = fileTx.bankSubCategory;
+baseUpdatedTx.balanceAfter = fileTx.balanceAfter; // Och andra relevanta bankfält
+
+// 3. Hantera app-specifika fält baserat på om den är manuellt ändrad.
+if (baseUpdatedTx.isManuallyChanged) {
+  // Transaktionen är manuellt ändrad.
+  // BEHÅLL användarens app-kategorier, men bankens data är nu uppdaterad.
+  return baseUpdatedTx; 
+} else {
+  // Transaktionen är inte manuellt ändrad.
+  // Applicera kategoriseringsregler på den nu fullständiga datan.
+  return applyCategorizationRules(baseUpdatedTx);
+}
+```
+
+Denna logik garanterar att den färskaste datan från bankfilen alltid sparas, samtidigt som den respekterar användarens manuella ändringar i appens egna kategorifält.
+
+-----
+
+### Del 2: Uppdatering av transaktionsvyn (The UI)
+
+**Grundorsak:**
+Den nuvarande vyn skapar förvirring. Kolumnerna "Bankkategori" och "Underkategori" visar "-", vilket inte bara är felaktigt på grund av buggen, men det är också oklart vad som är bankens data och vad som är appens.
+
+**Lösning:**
+Vi behöver göra vyn otvetydig genom att separera dessa begrepp. Vi föreslår att vyn uppdateras för att inkludera fyra distinkta kolumner:
+
+1.  **Bankkategori:** Visar `transaction.bankCategory`. Detta är den råa, oförändrade kategorin direkt från importfilen.
+2.  **Bankunderkategori:** Visar `transaction.bankSubCategory`. Samma som ovan, för underkategorin.
+3.  **Huvudkategori (App):** Visar namnet för `transaction.appCategoryId`. Detta är appens redigerbara huvudkategori.
+4.  **Underkategori (App):** Visar namnet för `transaction.appSubCategoryId`. Detta är appens redigerbara underkategori.
+
+**Visuellt mål:**
+
+| Datum      | **Bankkategori** | **Bankunderkategori** | Beskrivning         | **Huvudkategori (App)** | **Underkategori (App)** | Belopp      |
+|------------|---------------------|-----------------------|---------------------|-------------------------|-------------------------|-------------|
+| 2025-08-04 | Nöje & fritid       | Semester              | Tatto Havsbad       | Nöjen                   | Semester & Resor        | -101,00 kr  |
+| 2025-08-04 | Mat & dryck         | Livsmedelsaffär       | Stora Coop Bromma   | Mat                     | Livsmedel               | -630,60 kr  |
+| 2025-08-04 | *Tom från banken* | *Tom från banken* | Ica Nara Annedal    | Mat                     | Livsmedel               | -289,07 kr  |
+
+Denna uppdatering kommer omedelbart att klargöra för användaren vad som kommer från filen och vad som har satts i appen, vilket eliminerar all tvetydighet och gör systemet mycket mer transparent.
+
+-----
+
+Genom att implementera dessa två förslag kommer vi att lösa grundorsaken till buggen och samtidigt skapa ett mycket tydligare och mer användarvänligt gränssnitt.
+
+Vyn vi pratar om är den som kommer upp nr man trycker på "535 transaktioner" och ser den behandlade transaktionsdatan.
+
+Alla transaktioner - Hushållskonto
+535 transaktioner
+För att se rå CSV-data, ladda upp filen igen efter att ha öppnat denna vy.
