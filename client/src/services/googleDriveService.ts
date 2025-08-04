@@ -1,20 +1,5 @@
-// Google Drive integration för automatisk datasynkronisering
+// Förenklad Google Drive integration med direkt inloggning
 import { StorageKey } from './storageService';
-
-// Konfiguration - dessa behöver sättas av användaren
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
-const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || '';
-const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
-const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-
-// Filnamn för backup i Google Drive
-const BACKUP_FILENAME = 'budget-calculator-backup.json';
-
-interface GoogleDriveFile {
-  id: string;
-  name: string;
-  modifiedTime: string;
-}
 
 interface BackupData {
   budgetCalculatorData: string | null;
@@ -27,27 +12,17 @@ interface BackupData {
 }
 
 class GoogleDriveService {
-  private tokenClient: any = null;
-  private gapiInited = false;
-  private gisInited = false;
   private isSignedIn = false;
   private userEmail = '';
+  private accessToken = '';
+  private driveApiLoaded = false;
 
   async initialize(): Promise<boolean> {
     try {
-      if (!CLIENT_ID || !API_KEY) {
-        console.warn('[GoogleDrive] API credentials not configured');
-        return false;
-      }
-
-      // Load Google APIs
-      await this.loadGoogleAPIs();
+      console.log('[GoogleDrive] 🚀 Initializing simplified Google Drive service...');
       
-      // Initialize GAPI
-      await this.initializeGapi();
-      
-      // Initialize Google Identity Services
-      this.initializeGis();
+      // Ladda Google API:er
+      await this.loadGoogleAPI();
       
       console.log('[GoogleDrive] ✅ Service initialized successfully');
       return true;

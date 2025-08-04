@@ -13,7 +13,7 @@ import { MainCategoriesSettings } from "@/components/MainCategoriesSettings";
 import { PaydaySettings } from "@/components/PaydaySettings";
 import { useBudget } from "@/hooks/useBudget";
 import { getCurrentState, addAccount, removeAccount, updateSelectedBudgetMonth } from "@/orchestrator/budgetOrchestrator";
-import { googleDriveService } from "@/services/googleDriveService";
+import { simpleGoogleDriveService } from "@/services/simpleGoogleDriveService";
 import { Calendar, User, Shield, Database, Settings, DollarSign, FolderOpen, ChevronLeft, ChevronRight, Cloud, CloudOff } from "lucide-react";
 
 const SettingsPage = () => {
@@ -94,11 +94,11 @@ const SettingsPage = () => {
 
   const initializeGoogleDrive = async () => {
     try {
-      const initialized = await googleDriveService.initialize();
+      const initialized = await simpleGoogleDriveService.initialize();
       setIsGoogleDriveInitialized(initialized);
       
       if (initialized) {
-        const status = googleDriveService.getSignInStatus();
+        const status = simpleGoogleDriveService.getSignInStatus();
         setIsSignedInToGoogle(status.isSignedIn);
         setGoogleUserEmail(status.userEmail);
         
@@ -113,13 +113,8 @@ const SettingsPage = () => {
 
   const updateGoogleBackupInfo = async () => {
     try {
-      const backupInfo = await googleDriveService.getBackupInfo();
-      if (backupInfo) {
-        setGoogleBackupExists(backupInfo.exists);
-        if (backupInfo.lastModified) {
-          setGoogleBackupLastModified(backupInfo.lastModified);
-        }
-      }
+      const backupExists = await simpleGoogleDriveService.checkBackupExists();
+      setGoogleBackupExists(backupExists);
     } catch (error) {
       console.error('Failed to get Google backup info:', error);
     }
@@ -128,23 +123,23 @@ const SettingsPage = () => {
   const handleGoogleSignIn = async () => {
     setIsLoadingGoogle(true);
     try {
-      const success = await googleDriveService.signIn();
+      const success = await simpleGoogleDriveService.signIn();
       if (success) {
-        const status = googleDriveService.getSignInStatus();
+        const status = simpleGoogleDriveService.getSignInStatus();
         setIsSignedInToGoogle(status.isSignedIn);
         setGoogleUserEmail(status.userEmail);
         await updateGoogleBackupInfo();
       }
     } catch (error) {
       console.error('Google sign in failed:', error);
-      alert('Inloggning till Google Drive misslyckades. Kontrollera att API-nycklar är konfigurerade.');
+      alert('Inloggning till Google Drive misslyckades. Försök igen eller kontakta support.');
     } finally {
       setIsLoadingGoogle(false);
     }
   };
 
   const handleGoogleSignOut = () => {
-    googleDriveService.signOut();
+    simpleGoogleDriveService.signOut();
     setIsSignedInToGoogle(false);
     setGoogleUserEmail('');
     setGoogleBackupExists(false);
@@ -154,7 +149,7 @@ const SettingsPage = () => {
   const handleGoogleBackup = async () => {
     setIsLoadingGoogle(true);
     try {
-      const success = await googleDriveService.createBackup();
+      const success = await simpleGoogleDriveService.createBackup();
       if (success) {
         await updateGoogleBackupInfo();
         alert('Backup sparad till Google Drive!');
@@ -176,7 +171,7 @@ const SettingsPage = () => {
 
     setIsLoadingGoogle(true);
     try {
-      const success = await googleDriveService.restoreBackup();
+      const success = await simpleGoogleDriveService.restoreBackup();
       if (success) {
         alert('Data återställd från Google Drive! Sidan laddas om.');
         window.location.reload();
@@ -191,18 +186,20 @@ const SettingsPage = () => {
     }
   };
 
-  const toggleAutoBackup = () => {
-    const newValue = !autoBackupEnabled;
-    setAutoBackupEnabled(newValue);
+  const toggleAutoBackup = (enabled: boolean) => {
+    setAutoBackupEnabled(enabled);
     
     // Save to localStorage
     const savedData = localStorage.getItem('budgetCalculatorData');
-    const currentData = savedData ? JSON.parse(savedData) : {};
-    const updatedData = {
-      ...currentData,
-      autoBackupEnabled: newValue
-    };
-    localStorage.setItem('budgetCalculatorData', JSON.stringify(updatedData));
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        parsed.autoBackupEnabled = enabled;
+        localStorage.setItem('budgetCalculatorData', JSON.stringify(parsed));
+      } catch (error) {
+        console.error('Failed to save auto backup setting:', error);
+      }
+    }
   };
 
   const handlePaydayChange = (newPayday: number) => {
