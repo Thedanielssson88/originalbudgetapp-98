@@ -343,7 +343,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [activeTransactionTab, setActiveTransactionTab] = useState<'all' | 'account' | 'rules'>('all');
   const [hideGreenTransactions, setHideGreenTransactions] = useState<boolean>(false);
   const [selectedAccountForView, setSelectedAccountForView] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'red' | 'yellow' | 'green'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'red' | 'yellow' | 'green' | 'red-yellow'>('all');
   const [monthFilter, setMonthFilter] = useState<string>('current'); // 'all' or 'YYYY-MM' or 'current'
   const [accountFilter, setAccountFilter] = useState<string>('all'); // 'all' or account ID
   const [currentPage, setCurrentPage] = useState(1);
@@ -2045,7 +2045,11 @@ export const TransactionImportEnhanced: React.FC = () => {
     
     // Filter by status
     if (statusFilter !== 'all') {
-      baseTransactions = baseTransactions.filter(t => t.status === statusFilter);
+      if (statusFilter === 'red-yellow') {
+        baseTransactions = baseTransactions.filter(t => t.status === 'red' || t.status === 'yellow');
+      } else {
+        baseTransactions = baseTransactions.filter(t => t.status === statusFilter);
+      }
     }
     
     // Filter by account
@@ -2073,8 +2077,8 @@ export const TransactionImportEnhanced: React.FC = () => {
         <div className="space-y-3 sm:space-y-0 sm:flex sm:items-center sm:gap-4 p-3 sm:p-4 bg-muted/30 rounded-lg">
           <div className="flex items-center space-x-2">
             <Label htmlFor="statusFilter" className="text-sm">Visa bara status:</Label>
-            <Select value={statusFilter} onValueChange={(value: 'all' | 'red' | 'yellow' | 'green') => setStatusFilter(value)}>
-              <SelectTrigger className="w-32">
+            <Select value={statusFilter} onValueChange={(value: 'all' | 'red' | 'yellow' | 'green' | 'red-yellow') => setStatusFilter(value)}>
+              <SelectTrigger className="w-36">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -2082,6 +2086,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                 <SelectItem value="red">Röd</SelectItem>
                 <SelectItem value="yellow">Gul</SelectItem>
                 <SelectItem value="green">Grön</SelectItem>
+                <SelectItem value="red-yellow">Röd + Gul</SelectItem>
               </SelectContent>
             </Select>
           </div>
