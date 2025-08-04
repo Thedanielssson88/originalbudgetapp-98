@@ -290,8 +290,12 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
     });
   }, [budgetState.accounts, budgetState.mainCategories, budgetState.historicalData, budgetState.plannedTransfers, selectedMonth, allInternalTransfers]);
 
-  // Beräkna totala överföringar för CardDescription
-  const totalTransfers = analysisData.reduce((sum, data) => sum + data.totalTransferredIn, 0);
+  // Beräkna totala överföringar för CardDescription (netto - in minus out)
+  const totalTransfersIn = analysisData.reduce((sum, data) => sum + data.totalTransferredIn, 0);
+  const totalTransfersOut = analysisData.reduce((sum, data) => {
+    return sum + data.transfersOut.reduce((outSum, transfer) => outSum + transfer.amount, 0);
+  }, 0);
+  const totalTransfers = totalTransfersIn - totalTransfersOut; // Net amount
   const totalActualTransfers = analysisData.reduce((sum, data) => sum + data.actualTransferredIn, 0);
 
   return (
@@ -366,7 +370,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                                 <div className="font-semibold text-blue-900">{formatCurrency(data.totalTransferredIn)}</div>
                               </div>
                               <div className="text-center">
-                                <div className="text-blue-700 font-medium">Faktiskt</div>
+                                <div className="text-green-600 font-medium">Faktiskt</div>
                                 <div className="font-semibold text-green-600">{formatCurrency(data.actualTransferredIn)}</div>
                               </div>
                             </div>
