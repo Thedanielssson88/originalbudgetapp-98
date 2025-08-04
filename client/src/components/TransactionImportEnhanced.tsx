@@ -1044,6 +1044,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     console.log(`🔄 [AUTO TRANSFER MATCH] Attempting to match transaction ${transaction.id}: ${transaction.description} (${transaction.amount} kr, ${transaction.date}, account: ${transaction.accountId})`);
     
     // Find potential matches on the same date with opposite signs on different accounts
+    // Include any transaction type, not just InternalTransfer, since regular transactions can be converted
     const potentialMatches = allTransactions.filter(t => 
       t.id !== transaction.id &&
       t.accountId !== transaction.accountId && // Different account
@@ -1217,13 +1218,14 @@ export const TransactionImportEnhanced: React.FC = () => {
     
     // After applying rules, also try to auto-match any unmatched InternalTransfer transactions
     // This includes existing InternalTransfer transactions that weren't covered by rules
+    // Also check any Transaction that could potentially be a transfer (to catch cases like the user's example)
     const unmatchedTransfers = filteredTransactions.filter(t => 
-      t.type === 'InternalTransfer' && !t.linkedTransactionId
+      (t.type === 'InternalTransfer' || t.type === 'Transaction') && !t.linkedTransactionId
     );
     
-    console.log(`🔄 [AUTO TRANSFER MATCH] Found ${unmatchedTransfers.length} unmatched InternalTransfer transactions to process:`);
+    console.log(`🔄 [AUTO TRANSFER MATCH] Found ${unmatchedTransfers.length} unmatched transactions to process for transfer matching:`);
     unmatchedTransfers.forEach((transfer, index) => {
-      console.log(`  ${index + 1}. ${transfer.id}: ${transfer.description} (${transfer.amount} kr, ${transfer.date}, account: ${transfer.accountId})`);
+      console.log(`  ${index + 1}. ${transfer.id}: ${transfer.description} (${transfer.amount} kr, ${transfer.date}, type: ${transfer.type}, account: ${transfer.accountId})`);
     });
     
     unmatchedTransfers.forEach(transfer => {
