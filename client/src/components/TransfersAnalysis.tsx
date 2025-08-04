@@ -37,7 +37,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
   }>({ isOpen: false });
   
   const [showNewTransferForm, setShowNewTransferForm] = useState(false);
-  const [selectedTargetAccountId, setSelectedTargetAccountId] = useState<string>('');
+  const [selectedFromAccountId, setSelectedFromAccountId] = useState<string>('');
 
   // Toggle account expansion
   const toggleAccount = (accountId: string) => {
@@ -51,17 +51,37 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
   };
 
   // Handle new transfer form
-  const openNewTransferForm = (targetAccountId?: string) => {
-    setSelectedTargetAccountId(targetAccountId || '');
+  const openNewTransferForm = (fromAccountId?: string) => {
+    setSelectedFromAccountId(fromAccountId || '');
     setShowNewTransferForm(true);
   };
 
-  const handleCreateTransfer = (fromAccountId: string, amount: number, description?: string) => {
-    // For now, just close the form since we don't have the budget context here
-    // In the future, this should call a function to add a planned transfer
-    console.log('Creating transfer:', { fromAccountId, toAccountId: selectedTargetAccountId, amount, description });
+  const handleCreateTransfer = (transfer: {
+    fromAccountId: string;
+    toAccountId: string;
+    amount: number;
+    description?: string;
+    transferType: 'monthly' | 'daily';
+    dailyAmount?: number;
+    transferDays?: number[];
+  }) => {
+    // Import the orchestrator function to create planned transfers
+    import('../orchestrator/budgetOrchestrator').then(({ createPlannedTransfer }) => {
+      createPlannedTransfer({
+        fromAccountId: transfer.fromAccountId,
+        toAccountId: transfer.toAccountId,
+        amount: transfer.amount,
+        month: selectedMonth,
+        description: transfer.description,
+        transferType: transfer.transferType,
+        dailyAmount: transfer.dailyAmount,
+        transferDays: transfer.transferDays
+      });
+    });
+    
+    console.log('Creating planned transfer:', transfer);
     setShowNewTransferForm(false);
-    setSelectedTargetAccountId('');
+    setSelectedFromAccountId('');
   };
 
   // Handle clicking on "Ej matchad" badge to match transfers
@@ -492,16 +512,16 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
       {/* New Transfer Form Modal */}
       {showNewTransferForm && (
         <NewTransferForm
-          targetAccountId={selectedTargetAccountId}
-          targetAccountName={selectedTargetAccountId ? 
-            budgetState.accounts.find(acc => acc.id === selectedTargetAccountId)?.name || 'Välj konto' : 
+          preselectedFromAccountId={selectedFromAccountId}
+          preselectedFromAccountName={selectedFromAccountId ? 
+            budgetState.accounts.find(acc => acc.id === selectedFromAccountId)?.name || 'Välj konto' : 
             'Välj konto'
           }
-          availableAccounts={budgetState.accounts.filter(acc => acc.id !== selectedTargetAccountId)}
+          availableAccounts={budgetState.accounts}
           onSubmit={handleCreateTransfer}
           onCancel={() => {
             setShowNewTransferForm(false);
-            setSelectedTargetAccountId('');
+            setSelectedFromAccountId('');
           }}
         />
       )}

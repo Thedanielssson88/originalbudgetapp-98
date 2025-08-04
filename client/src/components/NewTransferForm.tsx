@@ -9,8 +9,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Account } from '@/types/budget';
 
 interface NewTransferFormProps {
-  targetAccountId: string;
-  targetAccountName: string;
+  targetAccountId?: string;
+  targetAccountName?: string;
+  preselectedFromAccountId?: string;
+  preselectedFromAccountName?: string;
   availableAccounts: Account[];
   onSubmit: (transfer: {
     fromAccountId: string;
@@ -27,12 +29,14 @@ interface NewTransferFormProps {
 export const NewTransferForm: React.FC<NewTransferFormProps> = ({
   targetAccountId,
   targetAccountName,
+  preselectedFromAccountId,
+  preselectedFromAccountName,
   availableAccounts,
   onSubmit,
   onCancel
 }) => {
-  const [fromAccountId, setFromAccountId] = useState<string>('');
-  const [toAccountId, setToAccountId] = useState<string>(targetAccountId);
+  const [fromAccountId, setFromAccountId] = useState<string>(preselectedFromAccountId || '');
+  const [toAccountId, setToAccountId] = useState<string>(targetAccountId || '');
   const [amount, setAmount] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [transferType, setTransferType] = useState<'monthly' | 'daily'>('monthly');
@@ -108,7 +112,14 @@ export const NewTransferForm: React.FC<NewTransferFormProps> = ({
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="from-account">Från konto</Label>
+            <Label htmlFor="from-account">
+              Från konto
+              {preselectedFromAccountId && preselectedFromAccountName && (
+                <span className="text-sm text-muted-foreground ml-2">
+                  (Förvalt: {preselectedFromAccountName})
+                </span>
+              )}
+            </Label>
             <Select value={fromAccountId} onValueChange={setFromAccountId}>
               <SelectTrigger>
                 <SelectValue placeholder="Välj konto att överföra från" />
