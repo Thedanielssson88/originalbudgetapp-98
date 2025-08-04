@@ -29,6 +29,7 @@ import { TransactionImportEnhanced } from '@/components/TransactionImportEnhance
 import { TransactionDrillDownDialog } from '@/components/TransactionDrillDownDialog';
 import { SavingsSection } from '@/components/SavingsSection';
 import { TransfersAnalysis } from '@/components/TransfersAnalysis';
+import { EnhancedCostDisplay } from '@/components/EnhancedCostDisplay';
 import { 
   calculateAccountEndBalances, 
   getTransactionsForPeriod, 
@@ -7076,18 +7077,18 @@ const BudgetCalculator = () => {
                       </div>
                     </div>
 
-                    {/* Cost items - Red boxes */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <div className="text-sm text-red-700 font-medium">Totala kostnader</div>
-                        <div className="text-xl font-bold text-red-800">
-                          -{formatCurrency(costGroups.reduce((sum, group) => {
-                            const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                            return sum + subCategoriesTotal;
-                          }, 0))}
-                        </div>
-                      </div>
-                    </div>
+                    {/* Enhanced Cost Display - Replace simple red box with detailed view */}
+                    <EnhancedCostDisplay
+                      budgetItems={activeContent.budgetItems.all}
+                      transactions={activeContent.transactionsForPeriod}
+                      mainCategories={budgetState.mainCategories || []}
+                      accounts={budgetState.accounts}
+                      onAddBudgetItem={(item) => {
+                        console.log('Adding budget item from enhanced display:', item);
+                        // Use the existing budget item handler
+                        handleAddBudgetItem(item);
+                      }}
+                    />
 
                     {/* Individual shares - Purple boxes */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
