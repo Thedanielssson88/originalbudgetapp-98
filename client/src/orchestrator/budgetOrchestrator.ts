@@ -146,37 +146,36 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
     const existingTx = savedTransactionsMap.get(fingerprint);
 
     if (existingTx) {
-      // CRITICAL FIX: ALWAYS update bank fields from file, regardless of manual changes
-      console.log(`[ORCHESTRATOR] 🔄 Updating existing transaction: ${fileTx.description}`);
-      console.log(`[ORCHESTRATOR] 🔄 Old bankCategory: "${existingTx.bankCategory}" -> New: "${fileTx.bankCategory}"`);
-      console.log(`[ORCHESTRATOR] 🔄 Old bankSubCategory: "${existingTx.bankSubCategory}" -> New: "${fileTx.bankSubCategory}"`);
+      // CRITICAL FIX: ALWAYS update bank fields from file for ALL existing transactions
+      console.log(`[ORCHESTRATOR] 🔄 Found existing transaction: ${fileTx.description}`);
+      console.log(`[ORCHESTRATOR] 🔄 OLD bankCategory: "${existingTx.bankCategory || 'EMPTY'}" -> NEW: "${fileTx.bankCategory || 'EMPTY'}"`);
+      console.log(`[ORCHESTRATOR] 🔄 OLD bankSubCategory: "${existingTx.bankSubCategory || 'EMPTY'}" -> NEW: "${fileTx.bankSubCategory || 'EMPTY'}"`);
+      console.log(`[ORCHESTRATOR] 🔄 isManuallyChanged: ${existingTx.isManuallyChanged || false}`);
+      
+      // Create base updated transaction with ALL bank data from file
+      const baseUpdatedTx = {
+        ...existingTx,
+        // ALWAYS update these fields from file data for ALL transactions
+        bankCategory: fileTx.bankCategory,
+        bankSubCategory: fileTx.bankSubCategory,
+        bankStatus: fileTx.bankStatus,
+        balanceAfter: fileTx.balanceAfter,
+        fileSource: fileTx.fileSource,
+        // Preserve basic transaction data from file
+        date: fileTx.date,
+        amount: fileTx.amount,
+        description: fileTx.description,
+      };
       
       if (existingTx.isManuallyChanged) {
-        // PRESERVE manual user changes: type, appCategoryId, appSubCategoryId, etc.
-        // ONLY update bank data and basic transaction info from file
-        console.log(`[ORCHESTRATOR] 💾 Preserving manual changes while updating bank categories only`);
-        return {
-          ...existingTx,
-          // Update ONLY bank data and basic info from file - preserve all manual categorization
-          bankCategory: fileTx.bankCategory,
-          bankSubCategory: fileTx.bankSubCategory,
-          bankStatus: fileTx.bankStatus,
-          balanceAfter: fileTx.balanceAfter,
-          fileSource: fileTx.fileSource,
-          // Keep all manual changes: type, appCategoryId, appSubCategoryId, linkedTransactionId, etc.
-        };
+        console.log(`[ORCHESTRATOR] 💾 MANUAL transaction - preserving user changes, updating bank data only`);
+        // For manually changed transactions: keep user categorization, update bank data
+        return baseUpdatedTx; // This preserves all manual changes while updating bank data
       } else {
-        // Non-manually changed transaction - apply categorization rules to new file data
-        console.log(`[ORCHESTRATOR] 🔄 Updating non-manual transaction and applying rules`);
-        const updatedTx = {
-          ...fileTx,
-          // Preserve technical fields from existing transaction
-          id: existingTx.id,
-        };
-        
-        // Apply categorization rules to the updated transaction
-        const processedTransaction = applyCategorizationRules(updatedTx, state.budgetState.categoryRules || []);
-        console.log(`[ORCHESTRATOR] ✅ Applied rules to existing transaction: type=${processedTransaction.type}, appCategory=${processedTransaction.appCategoryId}`);
+        console.log(`[ORCHESTRATOR] 🔄 NON-MANUAL transaction - applying rules to updated data`);
+        // For non-manual transactions: apply categorization rules
+        const processedTransaction = applyCategorizationRules(baseUpdatedTx, state.budgetState.categoryRules || []);
+        console.log(`[ORCHESTRATOR] ✅ After rules - bankCategory: "${processedTransaction.bankCategory || 'EMPTY'}", type: ${processedTransaction.type}`);
         return processedTransaction;
       }
     }
