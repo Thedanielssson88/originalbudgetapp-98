@@ -47,6 +47,7 @@ import { Upload, CheckCircle, FileText, Settings, AlertCircle, Circle, CheckSqua
 import { Bank, BankCSVMapping } from '@/types/bank';
 import { determineTransactionStatus, getDateRangeForMonth } from '@/services/calculationService';
 import { Account as BudgetAccount } from '@/types/budget';
+import { recalculateAllTransactionStatuses } from '@/orchestrator/budgetOrchestrator';
 import { AddBankDialog } from './AddBankDialog';
 import { TransactionExpandableCard } from './TransactionExpandableCard';
 import { TransactionGroupByDate } from './TransactionGroupByDate';
@@ -1289,6 +1290,9 @@ export const TransactionImportEnhanced: React.FC = () => {
       }
       // Force refresh after applying rules
       setRefreshKey(prev => prev + 1);
+      
+      // Recalculate all transaction statuses to apply new business rules
+      recalculateAllTransactionStatuses();
     } else {
       toast({
         title: "Inga ändringar",
