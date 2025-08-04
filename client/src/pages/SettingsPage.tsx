@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MainCategoriesSettings } from "@/components/MainCategoriesSettings";
 import { PaydaySettings } from "@/components/PaydaySettings";
 import { useBudget } from "@/hooks/useBudget";
