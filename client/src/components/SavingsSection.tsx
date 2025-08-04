@@ -332,8 +332,16 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
   };
 
   const renderAccountView = () => {
-    // Get savings transactions
-    const savingsTransactions = transactionsForPeriod.filter(t => t.type === 'savings');
+    // Get all transactions for the period and filter for savings-related ones
+    const savingsTransactions = transactionsForPeriod.filter(t => 
+      t.type === 'savings' || 
+      t.mainCategory === 'Sparande' || 
+      (t.description && (
+        t.description.toLowerCase().includes('spar') ||
+        t.description.toLowerCase().includes('fond') ||
+        t.description.toLowerCase().includes('pension')
+      ))
+    );
     
     return (
       <div className="space-y-4">
@@ -390,10 +398,7 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
           // Get savings transactions for this account
           const transactionsForAccount = savingsTransactions.filter(t => t.accountId === account.id);
           
-          // Skip if no savings data for this account
-          if (savingsItemsForAccount.length === 0 && goalsForAccount.length === 0 && transactionsForAccount.length === 0) {
-            return null;
-          }
+          // Always show the account, even if no savings data exists yet
           
           // Calculate totals
           const budgetedAmount = savingsItemsForAccount.reduce((sum, item) => sum + item.amount, 0);
@@ -571,9 +576,9 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
                 )}
                   
                   {/* Savings transactions for this account */}
-                  {transactionsForAccount.length > 0 && (
-                    <div className="space-y-3">
-                      <h5 className="font-medium text-sm text-green-700">Sparandetransaktioner</h5>
+                  <div className="space-y-3">
+                    <h5 className="font-medium text-sm text-green-700">Sparandetransaktioner</h5>
+                    {transactionsForAccount.length > 0 ? (
                       <div className="space-y-2">
                         {transactionsForAccount.map((transaction) => {
                           const effectiveAmount = transaction.correctedAmount !== undefined ? transaction.correctedAmount : transaction.amount;
@@ -596,8 +601,12 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
                           );
                         })}
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="text-center text-muted-foreground py-4">
+                        <p className="text-sm">Inga sparandetransaktioner för denna period</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
