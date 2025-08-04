@@ -64,6 +64,13 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
     const dateStr = t.date.split('T')[0];
     console.log(`[ORCHESTRATOR] 📊 Transaction ${index}: "${t.date}" -> "${dateStr}" (Amount: ${t.amount}, Description: "${t.description}")`);
     addMobileDebugLog(`📊 TX ${index}: ${dateStr} - ${t.amount} - "${t.description?.substring(0, 30)}"`);
+    
+    // Special logging for April transactions
+    if (dateStr.startsWith('2025-04')) {
+      console.log(`[ORCHESTRATOR] 🔍 APRIL TRANSACTION FOUND: ${dateStr} - ${t.amount} - "${t.description}"`);
+      addMobileDebugLog(`🔍 APRIL TX: ${dateStr} - ${t.amount} - "${t.description?.substring(0, 30)}"`);
+    }
+    
     return dateStr;
   });
   
@@ -157,6 +164,14 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
   
   // 7. Combine cleaned list with new merged transactions
   const finalTransactionList = [...transactionsToKeep, ...mergedTransactions];
+  
+  // Debug: Count April transactions in final list
+  const aprilTransactions = finalTransactionList.filter(t => t.date.startsWith('2025-04'));
+  console.log(`[ORCHESTRATOR] 🔍 APRIL DEBUG: Found ${aprilTransactions.length} April transactions in final list`);
+  aprilTransactions.forEach(t => {
+    console.log(`[ORCHESTRATOR] 🔍 APRIL: ${t.date} - ${t.amount} - "${t.description}"`);
+  });
+  addMobileDebugLog(`🔍 APRIL: ${aprilTransactions.length} transactions in final list`);
   
   console.log(`[ORCHESTRATOR] ✅ Final transaction count: ${finalTransactionList.length}`);
   
