@@ -14,7 +14,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight, Target, Receipt, ArrowRightLeft } from 'lucide-react';
+import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight, Target, Receipt } from 'lucide-react';
 import { CostItemEditDialog } from './CostItemEditDialog';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useSwipeGestures } from '@/hooks/useSwipeGestures';
@@ -52,7 +52,7 @@ import {
   setSusannaSalary,
   setSusannaförsäkringskassan,
   setSusannabarnbidrag,
-  addSavingsItem,
+  
   setSavingsGroups,
   setDailyTransfer,
   setWeekendTransfer,
@@ -221,7 +221,6 @@ const BudgetCalculator = () => {
   const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({
     costCategories: false,
     savingsCategories: false,
-    transfersCategories: false,
     budgetTransfers: false,
     redDays: false,
     editMonths: false,
@@ -689,15 +688,23 @@ const BudgetCalculator = () => {
   };
 
   const getSavingsTransactions = () => {
-    console.log('🔍 [DEBUG] getSavingsTransactions called - using centralized storage');
+    console.log('🔍 [DEBUG] getSavingsTransactions called - looking across ALL months');
+    const allTransactions: any[] = [];
     
-    // Use centralized transaction storage instead of month-specific data
-    const allTransactions = budgetState.allTransactions || [];
+    // Look across all historical data, not just current month
+    Object.entries(budgetState.historicalData).forEach(([monthKey, monthData]) => {
+      if (monthData.transactions && monthData.transactions.length > 0) {
+        console.log(`🔍 [DEBUG] Found ${monthData.transactions.length} transactions in month ${monthKey}`);
+        monthData.transactions.forEach(t => {
+          allTransactions.push(t);
+        });
+      }
+    });
     
-    console.log('🔍 [DEBUG] Total transactions from centralized storage:', allTransactions.length);
+    console.log('🔍 [DEBUG] Total transactions across all months:', allTransactions.length);
     
-    // Log all transactions with savings targets or type 'Sparande'/'Savings'
-    const savingsRelated = allTransactions.filter(t => t.type === 'Sparande' || t.type === 'Savings' || t.savingsTargetId);
+    // Log all transactions with savings targets or type 'Savings'
+    const savingsRelated = allTransactions.filter(t => t.type === 'Savings' || t.savingsTargetId);
     console.log(`🔍 [DEBUG] Found ${savingsRelated.length} transactions with savings type or target`);
     
     savingsRelated.forEach((t: any, index: number) => {
@@ -711,20 +718,20 @@ const BudgetCalculator = () => {
         effectiveAmount,
         appCategoryId: t.appCategoryId,
         savingsTargetId: t.savingsTargetId,
-        willBeIncluded: (t.type === 'Sparande' || t.type === 'Savings') && effectiveAmount > 0
+        willBeIncluded: t.type === 'Savings' && effectiveAmount > 0
       });
     });
     
-    // Filter for savings transactions - include all transactions with type 'Sparande'/'Savings' or savingsTargetId
+    // Filter for savings transactions - include all transactions with type 'Savings' or savingsTargetId
     const filtered = allTransactions.filter((t: any) => {
       const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
-      // Include transactions that are marked as Sparande/Savings type OR have a savingsTargetId
-      const isSavings = t.type === 'Sparande' || t.type === 'Savings' || t.savingsTargetId;
+      // Include transactions that are marked as Savings type OR have a savingsTargetId
+      const isSavings = t.type === 'Savings' || t.savingsTargetId;
       return isSavings;
     });
     
     console.log('🔍 [DEBUG] getSavingsTransactions - filtered result:', filtered.length);
-    console.log('🔍 [DEBUG] CORRECTED: Filter condition is (t.type === "Sparande" || t.type === "Savings" || t.savingsTargetId)');
+    console.log('🔍 [DEBUG] CORRECTED: Filter condition is (t.type === "Savings" || t.savingsTargetId)');
     console.log('🔍 [DEBUG] This includes ALL savings transactions regardless of amount');
     return filtered;
   };
@@ -5824,8 +5831,8 @@ const BudgetCalculator = () => {
                 </CardHeader>
                 {expandedSections.budgetCategories && (
                   <CardContent className="space-y-6">
-                        {/* Budget Templates Section */}
-                        {Object.keys(budgetTemplates).length > 0 && (
+                    {/* Budget Templates Section */}
+                    {Object.keys(budgetTemplates).length > 0 && (
                       <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
                         <div className="flex items-center justify-between mb-4">
                           <div>
@@ -6830,109 +6837,89 @@ const BudgetCalculator = () => {
                        )}
                      </div>
 
-                    
-                    {/* Total Savings with Dropdown */}
-                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('savingsCategories')}>
-                        <div>
-                          <div className="text-sm text-muted-foreground text-green-800">Totalt sparande</div>
-                          <div className="text-3xl font-bold text-green-600">
-                            {formatCurrency((() => {
-                              const savingsCategoriesTotal = allSavingsItems.reduce((sum, group) => {
-                                const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                return sum + group.amount + subCategoriesTotal;
-                              }, 0);
-                              
-                              const savingsGoalsMonthlyTotal = budgetState.savingsGoals.reduce((sum, goal) => {
-                                const start = new Date(goal.startDate + '-01');
-                                const end = new Date(goal.endDate + '-01');
-                                const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
-                                                   (end.getMonth() - start.getMonth()) + 1;
-                                const monthlyAmount = goal.targetAmount / monthsDiff;
+                      {/* Total Savings with Dropdown */}
+                      <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('savingsCategories')}>
+                          <div>
+                            <div className="text-sm text-muted-foreground text-green-800">Totalt sparande</div>
+                            <div className="text-3xl font-bold text-green-600">
+                              {formatCurrency((() => {
+                                const savingsCategoriesTotal = allSavingsItems.reduce((sum, group) => {
+                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                  return sum + group.amount + subCategoriesTotal;
+                                }, 0);
                                 
-                                const currentMonthDate = new Date(selectedBudgetMonth + '-01');
-                                if (currentMonthDate >= start && currentMonthDate <= end) {
-                                  return sum + monthlyAmount;
-                                }
-                                return sum;
-                              }, 0);
-                              
-                              return savingsCategoriesTotal + savingsGoalsMonthlyTotal;
-                            })())}
+                                const savingsGoalsMonthlyTotal = budgetState.savingsGoals.reduce((sum, goal) => {
+                                  const start = new Date(goal.startDate + '-01');
+                                  const end = new Date(goal.endDate + '-01');
+                                  const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
+                                                     (end.getMonth() - start.getMonth()) + 1;
+                                  const monthlyAmount = goal.targetAmount / monthsDiff;
+                                  
+                                  const currentMonthDate = new Date(selectedBudgetMonth + '-01');
+                                  if (currentMonthDate >= start && currentMonthDate <= end) {
+                                    return sum + monthlyAmount;
+                                  }
+                                  return sum;
+                                }, 0);
+                                
+                                return savingsCategoriesTotal + savingsGoalsMonthlyTotal;
+                              })())}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                              <span className="text-2xl">💰</span>
+                            </div>
+                            {expandedSections.savingsCategories ? <ChevronUp className="h-5 w-5 text-green-600" /> : <ChevronDown className="h-5 w-5 text-green-600" />}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                            <span className="text-2xl">💰</span>
-                          </div>
-                          {expandedSections.savingsCategories ? <ChevronUp className="h-5 w-5 text-green-600" /> : <ChevronDown className="h-5 w-5 text-green-600" />}
-                        </div>
-                      </div>
-                      
-                      {expandedSections.savingsCategories && (
-                        <div className="mt-4">
-                          <SavingsSection
-                            savingsGroups={allSavingsItems}
-                            savingsGoals={budgetState.savingsGoals}
-                            accounts={budgetState.accounts}
-                            mainCategories={budgetState.mainCategories || []}
-                            transactionsForPeriod={activeContent.transactionsForPeriod}
-                            calculateSavingsActualForCategory={calculateSavingsActualForCategory}
-                            calculateActualForTarget={calculateActualForTarget}
-                            onSavingsCategoryDrillDown={openSavingsCategoryDrillDownDialog}
-                            onSavingsTargetDrillDown={openSavingsTargetDrillDownDialog}
-                            onAddSavingsItem={(item) => {
-                              console.log('Adding savings item:', item);
-                              addSavingsItem(item);
-                            }}
-                            onEditSavingsGroup={(group) => {
-                              // Handle editing savings group
-                              console.log('Edit savings group:', group);
-                            }}
-                            onDeleteSavingsGroup={(id) => {
-                              // Handle deleting savings group
-                              console.log('Delete savings group:', id);
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
+                        
+                        {expandedSections.savingsCategories && (
+                          <div className="mt-4">
+                            <SavingsSection
+                              savingsGroups={allSavingsItems}
+                              savingsGoals={budgetState.savingsGoals}
+                              accounts={budgetState.accounts}
+                              mainCategories={budgetState.mainCategories || []}
+                              calculateSavingsActualForCategory={calculateSavingsActualForCategory}
+                              calculateActualForTarget={calculateActualForTarget}
+                              onSavingsCategoryDrillDown={openSavingsCategoryDrillDownDialog}
+                              onSavingsTargetDrillDown={openSavingsTargetDrillDownDialog}
+                              onAddSavingsItem={(item) => {
+                                // Handle adding savings item
+                              }}
+                              onEditSavingsGroup={(group) => {
+                                // Handle editing savings group
+                                console.log('Edit savings group:', group);
+                              }}
+                              onDeleteSavingsGroup={(id) => {
+                                // Handle deleting savings group
+                                console.log('Delete savings group:', id);
+                              }}
+                            />
 
-                    {/* Överföringar Section - Original standalone section */}
-                    <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('transfersCategories')}>
-                        <div>
-                          <div className="text-sm text-muted-foreground text-indigo-800">Överföringar</div>
-                          <div className="text-2xl font-bold text-indigo-600">Kontoöverföringar och budget</div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-                            <ArrowRightLeft className="h-6 w-6 text-indigo-600" />
+                            {/* Nya sektionen för planerade överföringar */}
+                            <div className="mt-6">
+                              <TransfersAnalysis
+                                budgetState={budgetState}
+                                selectedMonth={selectedMonthKey}
+                              />
+                            </div>
                           </div>
-                          {expandedSections.transfersCategories ? <ChevronUp className="h-5 w-5 text-indigo-600" /> : <ChevronDown className="h-5 w-5 text-indigo-600" />}
-                        </div>
+                        )}
                       </div>
-                      
-                      {expandedSections.transfersCategories && (
-                        <div className="mt-4 space-y-4">
-                          <div className="text-sm text-indigo-700">
-                            Hantera överföringar till olika konton och daglig budget. Fullständig funktionalitet finns under huvudfliken "Överföring".
-                          </div>
-                          
-                          <Button 
-                            onClick={() => setActiveTab("overforing")} 
-                            className="w-full bg-indigo-600 hover:bg-indigo-700"
-                          >
-                            Gå till fullständig överföringshantering
-                          </Button>
-                        </div>
-                      )}
-                    </div>
                   </CardContent>
                 )}
               </Card>
 
-
+              {/* Transfers Analysis */}
+              <div className="mt-6">
+                <TransfersAnalysis 
+                  budgetState={budgetState} 
+                  selectedMonth={selectedMonthKey} 
+                />
+              </div>
 
               {/* Budget Summary */}
               <Card className="shadow-lg border-0 bg-muted/50 backdrop-blur-sm">
