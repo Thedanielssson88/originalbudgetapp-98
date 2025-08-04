@@ -30,7 +30,7 @@ interface TransactionExpandableCardProps {
   onRefresh?: () => void; // Add refresh callback
 }
 
-export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps> = ({
+export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps> = React.memo(({
   transaction,
   account,
   isSelected,
@@ -139,7 +139,17 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                         }
                         return '';
                       })()}
-                      onValueChange={(value) => onUpdateCategory(transaction.id, value)}
+                      onValueChange={(value) => {
+                        try {
+                          onUpdateCategory(transaction.id, value);
+                          // Trigger refresh after category update
+                          if (onRefresh) {
+                            setTimeout(() => onRefresh(), 100);
+                          }
+                        } catch (error) {
+                          console.error('Error updating main category:', error);
+                        }
+                      }}
                     >
                       <SelectTrigger className="w-full h-8 text-sm">
                         <SelectValue placeholder="Välj kategori" />
@@ -188,14 +198,22 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                               return '';
                             })()}
                             onValueChange={(subCategoryName) => {
-                              if (selectedCategoryName === 'Transport') {
-                                const transportGroup = costGroups.find(group => group.name === 'Transport');
-                                const subcategory = transportGroup?.subCategories?.find(sub => sub.name === subCategoryName);
-                                if (subcategory) {
-                                  onUpdateCategory(transaction.id, selectedCategoryName, subcategory.id);
+                              try {
+                                if (selectedCategoryName === 'Transport') {
+                                  const transportGroup = costGroups.find(group => group.name === 'Transport');
+                                  const subcategory = transportGroup?.subCategories?.find(sub => sub.name === subCategoryName);
+                                  if (subcategory) {
+                                    onUpdateCategory(transaction.id, selectedCategoryName, subcategory.id);
+                                  }
+                                } else {
+                                  onUpdateCategory(transaction.id, selectedCategoryName, subCategoryName);
                                 }
-                              } else {
-                                onUpdateCategory(transaction.id, selectedCategoryName, subCategoryName);
+                                // Trigger refresh after category update
+                                if (onRefresh) {
+                                  setTimeout(() => onRefresh(), 100);
+                                }
+                              } catch (error) {
+                                console.error('Error updating subcategory:', error);
                               }
                             }}
                           >
@@ -687,4 +705,4 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
       </Collapsible>
     </Card>
   );
-};
+});

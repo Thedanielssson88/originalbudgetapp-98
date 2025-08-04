@@ -391,8 +391,15 @@ export const TransactionImportEnhanced: React.FC = () => {
   
   // Get budget data from central state (SINGLE SOURCE OF TRUTH)
   const { budgetState } = useBudget();
-  console.log('🔍 [DEBUG] Full budgetState:', budgetState);
-  console.log('🔍 [DEBUG] budgetState keys:', Object.keys(budgetState || {}));
+  
+  // Reset filters when month changes to ensure consistency
+  useEffect(() => {
+    setMonthFilter('current');
+    setStatusFilter('all');
+    setHideGreenTransactions(false);
+    // Clear expansion state as well
+    clearExpansionState();
+  }, [budgetState.selectedMonthKey]);
 
   // Month navigation functions
   const navigateToPreviousMonth = () => {
@@ -428,13 +435,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   
   // Read transactions directly from central state - this is now the ONLY source of truth
   const allTransactions = useMemo(() => {
-    console.log('🔍 [DEBUG] budgetState.historicalData:', budgetState?.historicalData);
-    console.log('🔍 [DEBUG] Available months:', Object.keys(budgetState?.historicalData || {}));
-    console.log('🔍 [DEBUG] useMemo re-calculating allTransactions... refreshKey:', refreshKey);
-    
     const transactions = Object.values(budgetState?.historicalData || {}).flatMap(month => {
-      console.log('🔍 [DEBUG] Month data:', month);
-      console.log('🔍 [DEBUG] Month transactions count:', month.transactions?.length || 0);
       return (month.transactions || []).map(t => ({
         ...t,
         importedAt: (t as any).importedAt || new Date().toISOString(),
@@ -442,10 +443,8 @@ export const TransactionImportEnhanced: React.FC = () => {
       } as ImportedTransaction))
     });
     
-    console.log('🔍 [DEBUG] Total allTransactions count:', transactions.length);
-    console.log('🔍 [DEBUG] Sample transactions:', transactions.slice(0, 3));
     return transactions;
-  }, [budgetState?.historicalData, budgetState?.selectedMonthKey, refreshKey]);
+  }, [budgetState?.historicalData, refreshKey]);
 
   // Use actual accounts from budget state
   const accounts: Account[] = budgetState?.accounts || [];
@@ -1390,7 +1389,8 @@ export const TransactionImportEnhanced: React.FC = () => {
       </div>
     );
   };
-  const renderCategorizationStep = () => {
+  // Memoize filtered transactions for performance optimization
+  const filteredTransactions = useMemo(() => {
     // Always show all transactions in the system
     let baseTransactions = allTransactions;
     
@@ -1420,9 +1420,12 @@ export const TransactionImportEnhanced: React.FC = () => {
       baseTransactions = baseTransactions.filter(t => t.status === statusFilter);
     }
     
-    const filteredTransactions = hideGreenTransactions 
+    return hideGreenTransactions 
       ? baseTransactions.filter(t => t.status !== 'green')
       : baseTransactions;
+  }, [allTransactions, monthFilter, statusFilter, hideGreenTransactions, budgetState?.settings?.payday, budgetState.selectedMonthKey]);
+
+  const renderCategorizationStep = () => {
 
     return (
       <div className="space-y-4 sm:space-y-6">
