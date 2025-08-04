@@ -392,10 +392,20 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                         <span className="font-medium">Neg: </span>
                         <span>{rule.action.negativeTransactionType}</span>
                       </div>
-                      {rule.action.applicableAccountIds && rule.action.applicableAccountIds.length > 0 && (
+                      {rule.action.applicableAccountIds && rule.action.applicableAccountIds.length > 0 ? (
                         <div>
                           <span className="font-medium">Konton: </span>
-                          <span>{rule.action.applicableAccountIds.length} valda</span>
+                          <span>
+                            {rule.action.applicableAccountIds
+                              .map(id => accounts.find(acc => acc.id === id)?.name || id)
+                              .join(', ')
+                            }
+                          </span>
+                        </div>
+                      ) : (
+                        <div>
+                          <span className="font-medium">Konton: </span>
+                          <span>Alla konton</span>
                         </div>
                       )}
                     </div>
