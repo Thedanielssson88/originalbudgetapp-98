@@ -373,7 +373,16 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                          'Bankens kategori'}
                       </Badge>
                       <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                        {(rule.condition as any).value || (rule.condition as any).bankCategory}
+                        {rule.condition.type === 'categoryMatch' ? (
+                          <>
+                            {(rule.condition as any).bankCategory}
+                            {(rule.condition as any).bankSubCategory && (
+                              <span className="text-blue-600 dark:text-blue-400"> → {(rule.condition as any).bankSubCategory}</span>
+                            )}
+                          </>
+                        ) : (
+                          (rule.condition as any).value
+                        )}
                       </code>
                     </div>
                     
