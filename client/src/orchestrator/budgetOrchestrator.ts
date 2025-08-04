@@ -1355,6 +1355,11 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
     updatedTransaction.appSubCategoryId = updates.appSubCategoryId || originalTransaction.appSubCategoryId;
   }
   
+  // Always recalculate status unless explicitly overridden
+  if (!updates.hasOwnProperty('status')) {
+    updatedTransaction.status = determineTransactionStatus(updatedTransaction);
+  }
+  
   state.budgetState.allTransactions[originalTransactionIndex] = updatedTransaction;
   
   console.log(`🔄 [ORCHESTRATOR] Updated transaction ${transactionId} in centralized storage:`, { 
@@ -1488,6 +1493,35 @@ function updateMultipleTransactions(updates: { transactionId: string, monthKey: 
   updates.forEach(({ transactionId, monthKey, updates: transactionUpdates }) => {
     updateTransaction(transactionId, transactionUpdates, monthKey);
   });
+}
+
+// Function to recalculate all transaction statuses using the current logic
+export function recalculateAllTransactionStatuses(): void {
+  console.log('🔄 [ORCHESTRATOR] Recalculating all transaction statuses...');
+  
+  let updatedCount = 0;
+  
+  // Update all transactions in centralized storage
+  state.budgetState.allTransactions.forEach((transaction, index) => {
+    const currentStatus = transaction.status;
+    const newStatus = determineTransactionStatus(transaction);
+    
+    if (currentStatus !== newStatus) {
+      state.budgetState.allTransactions[index] = {
+        ...transaction,
+        status: newStatus
+      };
+      updatedCount++;
+      console.log(`🔄 [ORCHESTRATOR] Updated status for transaction ${transaction.id}: ${currentStatus} -> ${newStatus}`);
+    }
+  });
+  
+  console.log(`✅ [ORCHESTRATOR] Recalculated statuses for ${updatedCount} transactions`);
+  
+  if (updatedCount > 0) {
+    saveStateToStorage();
+    runCalculationsAndUpdateState();
+  }
 }
 
 // NEW UNIFIED FUNCTION - replaces both applyExpenseClaim and coverCost
