@@ -5,6 +5,8 @@ This is a comprehensive budget management application built with React and TypeS
 ## Recent Critical Changes (January 2025)
 
 - **Centralized Transaction Storage**: Implemented a single source of truth for all transactions in `budgetState.allTransactions` to fix critical data loss issues when switching between months. Transactions are no longer stored separately per month but in a central array, with filtering applied as needed for display.
+- **Account Display Fix**: Fixed account dropdown to preserve full account objects with IDs instead of just names, ensuring proper display of account names throughout the application.
+- **Savings by Account Section**: Added a new "Sparande per konto" (Savings by Account) section in the summary view that shows all accounts with their associated savings transactions, similar to how "Totala kostnader" works but for savings. This replaces the misplaced "Överföringar" tab that was incorrectly nested under "Totalt sparande".
 
 # User Preferences
 
