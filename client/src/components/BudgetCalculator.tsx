@@ -14,7 +14,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight, Target, Receipt } from 'lucide-react';
+import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight, Target, Receipt, ArrowRightLeft } from 'lucide-react';
 import { CostItemEditDialog } from './CostItemEditDialog';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useSwipeGestures } from '@/hooks/useSwipeGestures';
@@ -221,6 +221,7 @@ const BudgetCalculator = () => {
   const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({
     costCategories: false,
     savingsCategories: false,
+    transfersCategories: false,
     budgetTransfers: false,
     redDays: false,
     editMonths: false,
@@ -5823,15 +5824,6 @@ const BudgetCalculator = () => {
                 </CardHeader>
                 {expandedSections.budgetCategories && (
                   <CardContent className="space-y-6">
-                    {/* Nested tabs within Budgetkategorier */}
-                    <Tabs defaultValue="kostnader" className="w-full">
-                      <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="kostnader">Kostnader</TabsTrigger>
-                        <TabsTrigger value="sparande">Sparande</TabsTrigger>
-                        <TabsTrigger value="overforingar">Överföringar</TabsTrigger>
-                      </TabsList>
-                      
-                      <TabsContent value="kostnader" className="space-y-6 mt-6">
                         {/* Budget Templates Section */}
                         {Object.keys(budgetTemplates).length > 0 && (
                       <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
@@ -6838,100 +6830,104 @@ const BudgetCalculator = () => {
                        )}
                      </div>
 
-                      </TabsContent>
-                      
-                      <TabsContent value="sparande" className="space-y-6 mt-6">
-                        {/* Total Savings with Dropdown */}
-                        <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                          <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('savingsCategories')}>
-                            <div>
-                              <div className="text-sm text-muted-foreground text-green-800">Totalt sparande</div>
-                              <div className="text-3xl font-bold text-green-600">
-                                {formatCurrency((() => {
-                                  const savingsCategoriesTotal = allSavingsItems.reduce((sum, group) => {
-                                    const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                    return sum + group.amount + subCategoriesTotal;
-                                  }, 0);
-                                  
-                                  const savingsGoalsMonthlyTotal = budgetState.savingsGoals.reduce((sum, goal) => {
-                                    const start = new Date(goal.startDate + '-01');
-                                    const end = new Date(goal.endDate + '-01');
-                                    const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
-                                                       (end.getMonth() - start.getMonth()) + 1;
-                                    const monthlyAmount = goal.targetAmount / monthsDiff;
-                                    
-                                    const currentMonthDate = new Date(selectedBudgetMonth + '-01');
-                                    if (currentMonthDate >= start && currentMonthDate <= end) {
-                                      return sum + monthlyAmount;
-                                    }
-                                    return sum;
-                                  }, 0);
-                                  
-                                  return savingsCategoriesTotal + savingsGoalsMonthlyTotal;
-                                })())}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                                <span className="text-2xl">💰</span>
-                              </div>
-                              {expandedSections.savingsCategories ? <ChevronUp className="h-5 w-5 text-green-600" /> : <ChevronDown className="h-5 w-5 text-green-600" />}
-                            </div>
-                          </div>
-                          
-                          {expandedSections.savingsCategories && (
-                            <div className="mt-4">
-                              <SavingsSection
-                                savingsGroups={allSavingsItems}
-                                savingsGoals={budgetState.savingsGoals}
-                                accounts={budgetState.accounts}
-                                mainCategories={budgetState.mainCategories || []}
-                                transactionsForPeriod={activeContent.transactionsForPeriod}
-                                calculateSavingsActualForCategory={calculateSavingsActualForCategory}
-                                calculateActualForTarget={calculateActualForTarget}
-                                onSavingsCategoryDrillDown={openSavingsCategoryDrillDownDialog}
-                                onSavingsTargetDrillDown={openSavingsTargetDrillDownDialog}
-                                onAddSavingsItem={(item) => {
-                                  console.log('Adding savings item:', item);
-                                  addSavingsItem(item);
-                                }}
-                                onEditSavingsGroup={(group) => {
-                                  // Handle editing savings group
-                                  console.log('Edit savings group:', group);
-                                }}
-                                onDeleteSavingsGroup={(id) => {
-                                  // Handle deleting savings group
-                                  console.log('Delete savings group:', id);
-                                }}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </TabsContent>
-                      
-                      <TabsContent value="overforingar" className="space-y-6 mt-6">
-                        {/* Överföringar content similar to the main överforing tab */}
-                        <div className="p-4 bg-indigo-50 rounded-lg">
-                          <h3 className="text-lg font-semibold text-indigo-800 mb-4">Överföringar till konton</h3>
-                          <p className="text-indigo-700 mb-4">Hantera överföringar till olika konton och daglig budget.</p>
-                          
-                          <div className="space-y-4">
-                            <div className="text-sm text-muted-foreground">
-                              Detta är en förhandsvisning av överföringshantering. Använd huvudfliken "Överföring" för fullständig funktionalitet.
-                            </div>
-                            
-                            <Button 
-                              onClick={() => setActiveTab("overforing")} 
-                              className="w-full"
-                              variant="outline"
-                            >
-                              Gå till fullständig överföringshantering
-                            </Button>
+                    
+                    {/* Total Savings with Dropdown */}
+                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('savingsCategories')}>
+                        <div>
+                          <div className="text-sm text-muted-foreground text-green-800">Totalt sparande</div>
+                          <div className="text-3xl font-bold text-green-600">
+                            {formatCurrency((() => {
+                              const savingsCategoriesTotal = allSavingsItems.reduce((sum, group) => {
+                                const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
+                                return sum + group.amount + subCategoriesTotal;
+                              }, 0);
+                              
+                              const savingsGoalsMonthlyTotal = budgetState.savingsGoals.reduce((sum, goal) => {
+                                const start = new Date(goal.startDate + '-01');
+                                const end = new Date(goal.endDate + '-01');
+                                const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
+                                                   (end.getMonth() - start.getMonth()) + 1;
+                                const monthlyAmount = goal.targetAmount / monthsDiff;
+                                
+                                const currentMonthDate = new Date(selectedBudgetMonth + '-01');
+                                if (currentMonthDate >= start && currentMonthDate <= end) {
+                                  return sum + monthlyAmount;
+                                }
+                                return sum;
+                              }, 0);
+                              
+                              return savingsCategoriesTotal + savingsGoalsMonthlyTotal;
+                            })())}
                           </div>
                         </div>
-                      </TabsContent>
+                        <div className="flex items-center gap-2">
+                          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                            <span className="text-2xl">💰</span>
+                          </div>
+                          {expandedSections.savingsCategories ? <ChevronUp className="h-5 w-5 text-green-600" /> : <ChevronDown className="h-5 w-5 text-green-600" />}
+                        </div>
+                      </div>
                       
-                    </Tabs>
+                      {expandedSections.savingsCategories && (
+                        <div className="mt-4">
+                          <SavingsSection
+                            savingsGroups={allSavingsItems}
+                            savingsGoals={budgetState.savingsGoals}
+                            accounts={budgetState.accounts}
+                            mainCategories={budgetState.mainCategories || []}
+                            transactionsForPeriod={activeContent.transactionsForPeriod}
+                            calculateSavingsActualForCategory={calculateSavingsActualForCategory}
+                            calculateActualForTarget={calculateActualForTarget}
+                            onSavingsCategoryDrillDown={openSavingsCategoryDrillDownDialog}
+                            onSavingsTargetDrillDown={openSavingsTargetDrillDownDialog}
+                            onAddSavingsItem={(item) => {
+                              console.log('Adding savings item:', item);
+                              addSavingsItem(item);
+                            }}
+                            onEditSavingsGroup={(group) => {
+                              // Handle editing savings group
+                              console.log('Edit savings group:', group);
+                            }}
+                            onDeleteSavingsGroup={(id) => {
+                              // Handle deleting savings group
+                              console.log('Delete savings group:', id);
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Överföringar Section - Original standalone section */}
+                    <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('transfersCategories')}>
+                        <div>
+                          <div className="text-sm text-muted-foreground text-indigo-800">Överföringar</div>
+                          <div className="text-2xl font-bold text-indigo-600">Kontoöverföringar och budget</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
+                            <ArrowRightLeft className="h-6 w-6 text-indigo-600" />
+                          </div>
+                          {expandedSections.transfersCategories ? <ChevronUp className="h-5 w-5 text-indigo-600" /> : <ChevronDown className="h-5 w-5 text-indigo-600" />}
+                        </div>
+                      </div>
+                      
+                      {expandedSections.transfersCategories && (
+                        <div className="mt-4 space-y-4">
+                          <div className="text-sm text-indigo-700">
+                            Hantera överföringar till olika konton och daglig budget. Fullständig funktionalitet finns under huvudfliken "Överföring".
+                          </div>
+                          
+                          <Button 
+                            onClick={() => setActiveTab("overforing")} 
+                            className="w-full bg-indigo-600 hover:bg-indigo-700"
+                          >
+                            Gå till fullständig överföringshantering
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 )}
               </Card>
