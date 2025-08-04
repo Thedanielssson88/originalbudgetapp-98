@@ -43,6 +43,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, CheckCircle, FileText, Settings, AlertCircle, Circle, CheckSquare, AlertTriangle, ChevronDown, ChevronUp, Trash2, Plus, Edit, Save, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 import { Bank, BankCSVMapping } from '@/types/bank';
 import { determineTransactionStatus, getDateRangeForMonth } from '@/services/calculationService';
@@ -595,6 +596,22 @@ export const TransactionImportEnhanced: React.FC = () => {
     }
   };
 
+  // Helper function to parse XLSX files and convert to CSV format
+  const parseXLSXFile = useCallback(async (file: File): Promise<string> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    
+    // Get the first worksheet
+    const worksheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[worksheetName];
+    
+    // Convert to CSV format with semicolon delimiter to match existing CSV parsing
+    const csvData = XLSX.utils.sheet_to_csv(worksheet, { FS: ';' });
+    
+    console.log(`🚀 [IMPORT] XLSX converted to CSV format, length: ${csvData.length}`);
+    return csvData;
+  }, []);
+
   // File upload handler - uses the new Smart Merge function
   const handleFileUpload = useCallback(async (file: File, accountId: string, accountName: string) => {
     console.log(`🚀 [IMPORT] handleFileUpload called with:`, { fileName: file.name, accountId, accountName });
@@ -606,10 +623,24 @@ export const TransactionImportEnhanced: React.FC = () => {
     setPendingToast({ fileName: file.name });
     
     try {
-      // Read file with proper encoding for Swedish characters
-      const arrayBuffer = await file.arrayBuffer();
-      const decoder = new TextDecoder('utf-8');
-      let csvContent = decoder.decode(arrayBuffer);
+      let csvContent: string;
+      
+      // Check file type and parse accordingly
+      const fileExtension = file.name.toLowerCase().split('.').pop();
+      
+      if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+        console.log(`🚀 [IMPORT] Processing XLSX file: ${file.name}`);
+        addMobileDebugLog(`📁 Processing XLSX file: ${file.name}`);
+        csvContent = await parseXLSXFile(file);
+      } else {
+        console.log(`🚀 [IMPORT] Processing CSV file: ${file.name}`);
+        addMobileDebugLog(`📁 Processing CSV file: ${file.name}`);
+        
+        // Read file with proper encoding for Swedish characters
+        const arrayBuffer = await file.arrayBuffer();
+        const decoder = new TextDecoder('utf-8');
+        csvContent = decoder.decode(arrayBuffer);
+      }
       
       // Clean up encoding issues - remove � characters and fix common Swedish character issues
       csvContent = csvContent
@@ -621,7 +652,7 @@ export const TransactionImportEnhanced: React.FC = () => {
         .replace(/Ã„/g, 'Ä') // Fix Ä
         .replace(/Ã–/g, 'Ö'); // Fix Ö
       
-      console.log(`🚀 [IMPORT] CSV content cleaned, length: ${csvContent.length}`);
+      console.log(`🚀 [IMPORT] File content cleaned, length: ${csvContent.length}`);
       addMobileDebugLog(`📁 File read successfully: ${csvContent.length} characters`);
       
       if (!csvContent || csvContent.trim().length === 0) {
@@ -683,7 +714,7 @@ export const TransactionImportEnhanced: React.FC = () => {
         variant: "destructive"
       });
     }
-  }, [toast]);
+  }, [toast, parseXLSXFile]);
 
   const triggerFileUpload = useCallback((accountId: string) => {
     addMobileDebugLog(`🔄 TRIGGER FILE UPLOAD clicked for account: ${accountId}`);
@@ -1349,7 +1380,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                         disabled={!account.bankTemplateId && !selectedBanks[account.id]}
                       >
                         <Upload className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                        {hasTransactions ? "Ändra fil" : "Ladda upp"}
+                        {hasTransactions ? "Ändra fil" : "Ladda upp CSV/XLSX"}
                       </Button>
                       {rawCsvData[account.id]?.headers && (
                         <Button
@@ -1413,7 +1444,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                 
                 <input
                   type="file"
-                  accept=".csv"
+                  accept=".csv,.xlsx,.xls"
                   ref={(el) => fileInputRefs.current[account.id] = el}
                   style={{ display: 'none' }}
                   onChange={(e) => {
