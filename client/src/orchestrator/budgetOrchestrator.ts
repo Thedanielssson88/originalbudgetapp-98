@@ -186,6 +186,9 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
   state.budgetState.allTransactions = transactionsForCentralStorage;
   console.log(`[ORCHESTRATOR] ✅ Updated centralized storage with ${state.budgetState.allTransactions.length} transactions`);
   
+  // 8.5. Automatic transfer matching for InternalTransfer transactions
+  performAutomaticTransferMatching();
+  
   // 9. Update account balances from saldo data using the SAME working logic as BudgetCalculator
   updateAccountBalancesUsingWorkingLogic(finalTransactionList, accountId);
 
@@ -1522,6 +1525,66 @@ export function recalculateAllTransactionStatuses(): void {
     saveStateToStorage();
     runCalculationsAndUpdateState();
   }
+}
+
+// Function to perform automatic transfer matching for InternalTransfer transactions
+function performAutomaticTransferMatching(): void {
+  console.log('🔄 [ORCHESTRATOR] Performing automatic transfer matching...');
+  
+  let matchedCount = 0;
+  
+  // Find all InternalTransfer transactions that don't have linked transactions
+  const unmatchedTransfers = state.budgetState.allTransactions.filter(tx => 
+    tx.type === 'InternalTransfer' && !tx.linkedTransactionId
+  );
+  
+  console.log(`[ORCHESTRATOR] Found ${unmatchedTransfers.length} unmatched internal transfers`);
+  
+  unmatchedTransfers.forEach(transaction => {
+    // Find potential matches on the same date with opposite signs on different accounts
+    const potentialMatches = state.budgetState.allTransactions.filter(t => 
+      t.id !== transaction.id &&
+      t.accountId !== transaction.accountId && // Different account
+      t.date === transaction.date && // Same date only
+      // Opposite signs (positive matches negative, negative matches positive)
+      ((transaction.amount > 0 && t.amount < 0) || (transaction.amount < 0 && t.amount > 0)) &&
+      Math.abs(Math.abs(t.amount) - Math.abs(transaction.amount)) < 0.01 && // Same absolute amount
+      !t.linkedTransactionId // Not already linked
+    );
+    
+    console.log(`[ORCHESTRATOR] Found ${potentialMatches.length} potential matches for transaction ${transaction.id}`);
+    
+    // If exactly one match found, auto-link them
+    if (potentialMatches.length === 1) {
+      const matchedTransaction = potentialMatches[0];
+      console.log(`[ORCHESTRATOR] Auto-matching ${transaction.id} with ${matchedTransaction.id}`);
+      
+      // Update both transactions to be InternalTransfer and link them
+      const transactionIndex = state.budgetState.allTransactions.findIndex(t => t.id === transaction.id);
+      const matchedIndex = state.budgetState.allTransactions.findIndex(t => t.id === matchedTransaction.id);
+      
+      if (transactionIndex !== -1 && matchedIndex !== -1) {
+        state.budgetState.allTransactions[transactionIndex] = {
+          ...state.budgetState.allTransactions[transactionIndex],
+          type: 'InternalTransfer',
+          linkedTransactionId: matchedTransaction.id,
+          isManuallyChanged: true
+        };
+        
+        state.budgetState.allTransactions[matchedIndex] = {
+          ...state.budgetState.allTransactions[matchedIndex],
+          type: 'InternalTransfer',
+          linkedTransactionId: transaction.id,
+          isManuallyChanged: true
+        };
+        
+        matchedCount++;
+        console.log(`[ORCHESTRATOR] Successfully matched internal transfer between ${transaction.id} and ${matchedTransaction.id}`);
+      }
+    }
+  });
+  
+  console.log(`✅ [ORCHESTRATOR] Automatically matched ${matchedCount} internal transfers`);
 }
 
 // NEW UNIFIED FUNCTION - replaces both applyExpenseClaim and coverCost
