@@ -383,6 +383,7 @@ const BudgetCalculator = () => {
   
   // Account management states  
   const accounts = budgetState.accounts.map(acc => acc.name);
+  const accountsWithIds = budgetState.accounts; // Keep full account objects with IDs
   
   // Create unified savings items list that combines savingsGroups with active savings goals
   const allSavingsItems = useMemo(() => {
