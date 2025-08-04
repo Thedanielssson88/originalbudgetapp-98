@@ -463,6 +463,8 @@ export const TransactionImportEnhanced: React.FC = () => {
       balanceAfter: t.balanceAfter,
       description: t.description,
       userDescription: t.userDescription,
+      bankCategory: t.bankCategory,  // CRITICAL FIX: Include bank category from centralized storage
+      bankSubCategory: t.bankSubCategory,  // CRITICAL FIX: Include bank subcategory from centralized storage
       type: t.type as ImportedTransaction['type'],
       status: t.status as ImportedTransaction['status'],
       linkedTransactionId: t.linkedTransactionId,
@@ -482,6 +484,13 @@ export const TransactionImportEnhanced: React.FC = () => {
       return acc;
     }, {} as Record<string, number>);
     console.log('[TX IMPORT] 📊 Transactions per account:', accountCounts);
+    
+    // CRITICAL DEBUG: Check if bank categories are now included
+    const withBankCategories = transactions.filter(t => t.bankCategory);
+    console.log(`[TX IMPORT] 🔍 BANK CATEGORY DEBUG: ${withBankCategories.length}/${transactions.length} transactions have bankCategory`);
+    if (withBankCategories.length > 0) {
+      console.log(`[TX IMPORT] 🔍 Sample transaction with bankCategory: "${withBankCategories[0].description}" - bankCategory: "${withBankCategories[0].bankCategory}" - bankSubCategory: "${withBankCategories[0].bankSubCategory}"`);
+    }
     
     return transactions;
   }, [budgetState?.allTransactions, refreshKey]);
