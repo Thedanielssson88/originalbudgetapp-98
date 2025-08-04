@@ -21,6 +21,7 @@ interface AccountAnalysisData {
   actualTransferredIn: number;
   budgetItems: BudgetItem[];
   transfersOut: PlannedTransfer[];
+  transfersIn: PlannedTransfer[];
 }
 
 export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({ 
@@ -38,6 +39,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
   
   const [showNewTransferForm, setShowNewTransferForm] = useState(false);
   const [selectedFromAccountId, setSelectedFromAccountId] = useState<string>('');
+  const [expandedDailyTransfers, setExpandedDailyTransfers] = useState<Set<string>>(new Set());
 
   // Toggle account expansion
   const toggleAccount = (accountId: string) => {
@@ -48,6 +50,33 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
       newExpanded.add(accountId);
     }
     setExpandedAccounts(newExpanded);
+  };
+
+  // Toggle daily transfer expansion
+  const toggleDailyTransfer = (transferId: string) => {
+    const newExpanded = new Set(expandedDailyTransfers);
+    if (newExpanded.has(transferId)) {
+      newExpanded.delete(transferId);
+    } else {
+      newExpanded.add(transferId);
+    }
+    setExpandedDailyTransfers(newExpanded);
+  };
+
+  // Format currency helper
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('sv-SE', { 
+      style: 'currency', 
+      currency: 'SEK',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+
+  // Get day names in Swedish
+  const getDayNames = (days: number[]) => {
+    const dayNames = ['Söndag', 'Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag'];
+    return days.map(d => dayNames[d]).join(', ');
   };
 
   // Handle new transfer form
@@ -110,15 +139,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
     });
   };
 
-  // Utility function för att formatera valuta
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('sv-SE', {
-      style: 'currency',
-      currency: 'SEK',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
+
 
   // Hämta interna överföringar för varje konto (outside useMemo so it can be used in render)
   console.log('🔄 [TRANSFERS COMPONENT] Calling getInternalTransferSummary for month:', selectedMonth);
@@ -243,6 +264,9 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
 
       // Hitta alla överföringar FRÅN kontot (för detaljvyn)
       const transfersOut = monthlyTransfers.filter(t => t.fromAccountId === account.id);
+      
+      // Hitta alla överföringar TILL kontot (för detaljvyn)
+      const transfersIn = monthlyTransfers.filter(t => t.toAccountId === account.id);
 
       // Beräkna faktiska överföringar från transaktioner (net transfer för kontot)
       const accountTransfers = allInternalTransfers.find(t => t.accountId === account.id);
@@ -255,6 +279,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
         actualTransferredIn,
         budgetItems: budgetedItemsForAccount,
         transfersOut,
+        transfersIn,
       };
     });
   }, [budgetState.accounts, budgetState.mainCategories, budgetState.historicalData, budgetState.plannedTransfers, selectedMonth, allInternalTransfers]);
@@ -377,20 +402,146 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                               </div>
                             )}
                             
-                            {/* Planerade överföringar ut */}
-                            {data.transfersOut.length > 0 && (
-                              <div className="bg-red-50 rounded-lg p-3 border border-red-200">
-                                <h4 className="font-semibold mb-3 text-sm text-red-800 uppercase tracking-wide">
-                                  Planerade Överföringar Ut ({data.transfersOut.length})
-                                </h4>
-                                <div className="space-y-2">
-                                  {data.transfersOut.map(t => (
-                                    <div key={t.id} className="flex justify-between items-center py-2 px-3 rounded bg-white border border-red-100">
-                                      <span className="text-sm text-red-900">Till {getAccountNameById(t.toAccountId)}</span>
-                                      <span className="font-medium text-sm text-red-600">- {formatCurrency(t.amount)}</span>
-                                    </div>
-                                  ))}
+                            {/* Planerade överföringar sektion */}
+                            {(data.transfersIn.length > 0 || data.transfersOut.length > 0) && (
+                              <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <h4 className="font-semibold text-sm text-purple-800 uppercase tracking-wide">
+                                    Planerade Överföringar
+                                  </h4>
+                                  {data.transfersIn.length > 0 && (
+                                    <Badge className="bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-100">
+                                      In: {data.transfersIn.length}
+                                    </Badge>
+                                  )}
+                                  {data.transfersOut.length > 0 && (
+                                    <Badge variant="outline" className="border-purple-300 text-purple-800">
+                                      Ut: {data.transfersOut.length}
+                                    </Badge>
+                                  )}
                                 </div>
+                                
+                                {data.transfersIn.length > 0 && (
+                                  <div className="mb-3">
+                                    <h5 className="text-xs font-medium text-purple-700 mb-2">Inkommande:</h5>
+                                    <div className="space-y-1">
+                                      {data.transfersIn.map((t) => (
+                                        <div key={t.id}>
+                                          <div className="flex justify-between items-center py-2 px-3 rounded bg-white border border-purple-100">
+                                            <span className="text-sm text-purple-900">
+                                              {formatCurrency(t.amount)} från {getAccountNameById(t.fromAccountId)}
+                                              {t.transferType === 'daily' && t.transferDays && (
+                                                <span className="ml-2 text-xs text-purple-600">
+                                                  ({t.transferDays.length} dagar/vecka)
+                                                </span>
+                                              )}
+                                              {t.description && (
+                                                <span className="ml-2 text-xs text-purple-600">
+                                                  - {t.description}
+                                                </span>
+                                              )}
+                                            </span>
+                                            <div className="flex items-center gap-2">
+                                              <span className="font-medium text-sm text-purple-600">
+                                                + {formatCurrency(t.amount)}
+                                              </span>
+                                              {t.transferType === 'daily' && (
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  className="h-6 w-6 p-0 text-purple-600 hover:bg-purple-100"
+                                                  onClick={() => toggleDailyTransfer(t.id)}
+                                                >
+                                                  {expandedDailyTransfers.has(t.id) ? 
+                                                    <ChevronUp className="h-4 w-4" /> : 
+                                                    <ChevronDown className="h-4 w-4" />
+                                                  }
+                                                </Button>
+                                              )}
+                                            </div>
+                                          </div>
+                                          {/* Expandable daily transfer details for incoming */}
+                                          {t.transferType === 'daily' && expandedDailyTransfers.has(t.id) && (
+                                            <div className="mt-2 pl-4 border-l-2 border-purple-200">
+                                              <div className="text-xs text-purple-700 mb-1">
+                                                <strong>Detaljer för daglig överföring:</strong>
+                                              </div>
+                                              <div className="text-xs text-purple-600 space-y-1">
+                                                <div>Belopp per dag: <strong>{formatCurrency(t.dailyAmount || 0)}</strong></div>
+                                                <div>Dagar: <strong>{getDayNames(t.transferDays || [])}</strong></div>
+                                                <div>Totalt per månad: <strong>{formatCurrency(t.amount)}</strong></div>
+                                                {t.description && (
+                                                  <div>Beskrivning: <strong>{t.description}</strong></div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {data.transfersOut.length > 0 && (
+                                  <div>
+                                    <h5 className="text-xs font-medium text-purple-700 mb-2">Utgående:</h5>
+                                    <div className="space-y-1">
+                                      {data.transfersOut.map((t) => (
+                                        <div key={t.id}>
+                                          <div className="flex justify-between items-center py-2 px-3 rounded bg-white border border-purple-100">
+                                            <span className="text-sm text-purple-900">
+                                              {formatCurrency(t.amount)} till {getAccountNameById(t.toAccountId)}
+                                              {t.transferType === 'daily' && t.transferDays && (
+                                                <span className="ml-2 text-xs text-purple-600">
+                                                  ({t.transferDays.length} dagar/vecka)
+                                                </span>
+                                              )}
+                                              {t.description && (
+                                                <span className="ml-2 text-xs text-purple-600">
+                                                  - {t.description}
+                                                </span>
+                                              )}
+                                            </span>
+                                            <div className="flex items-center gap-2">
+                                              <span className="font-medium text-sm text-purple-600">
+                                                - {formatCurrency(t.amount)}
+                                              </span>
+                                              {t.transferType === 'daily' && (
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  className="h-6 w-6 p-0 text-purple-600 hover:bg-purple-100"
+                                                  onClick={() => toggleDailyTransfer(t.id)}
+                                                >
+                                                  {expandedDailyTransfers.has(t.id) ? 
+                                                    <ChevronUp className="h-4 w-4" /> : 
+                                                    <ChevronDown className="h-4 w-4" />
+                                                  }
+                                                </Button>
+                                              )}
+                                            </div>
+                                          </div>
+                                          {/* Expandable daily transfer details for outgoing */}
+                                          {t.transferType === 'daily' && expandedDailyTransfers.has(t.id) && (
+                                            <div className="mt-2 pl-4 border-l-2 border-purple-200">
+                                              <div className="text-xs text-purple-700 mb-1">
+                                                <strong>Detaljer för daglig överföring:</strong>
+                                              </div>
+                                              <div className="text-xs text-purple-600 space-y-1">
+                                                <div>Belopp per dag: <strong>{formatCurrency(t.dailyAmount || 0)}</strong></div>
+                                                <div>Dagar: <strong>{getDayNames(t.transferDays || [])}</strong></div>
+                                                <div>Totalt per månad: <strong>{formatCurrency(t.amount)}</strong></div>
+                                                {t.description && (
+                                                  <div>Beskrivning: <strong>{t.description}</strong></div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
 
