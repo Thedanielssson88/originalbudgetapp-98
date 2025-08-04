@@ -1,0 +1,143 @@
+Absolut\! Att förbättra kolumnmappningsvyn är ett utmärkt sätt att göra applikationen mer användarvänlig och robust. Här är ett förslag på hur ni kan uppdatera vyn för att tillåta fullständig manuell kontroll, samtidigt som ni behåller och förbättrar den automatiska mappningen.
+
+Förslaget är uppdelat i två delar: först hur den automatiska mappningen kan förbättras, och sedan hur själva vyn för manuell mappning kan byggas.
+
+### 1\. Förbättrad automatisk mappning vid första inläsning
+
+Målet är att applikationen gör en så bra gissning som möjligt direkt, vilket användaren sedan kan justera. Den nuvarande logiken i `TransactionImportEnhanced.tsx` kan göras mer flexibel.
+
+**Var:** `TransactionImportEnhanced.tsx`
+
+Skapa en mer omfattande mappningsordlista som kan känna igen fler varianter av kolumnrubriker. Detta gör den initiala mappningen mer träffsäker.
+
+```typescript
+// transactionImportEnhanced.tsx
+
+// Definiera vilka fält i er transaktionsdata som användaren ska kunna mappa till.
+const MAPPABLE_FIELDS = [
+  { key: 'date', displayName: 'Datum' },
+  { key: 'description', displayName: 'Beskrivning' },
+  { key: 'amount', displayName: 'Belopp' },
+  { key: 'bankCategory', displayName: 'Bankkategori' },
+  { key: 'bankSubCategory', displayName: 'Bank underkategori' },
+  { key: 'balanceAfter', displayName: 'Saldo' },
+];
+
+// En mappning från vanliga rubriker i filer till era interna fält.
+const autoMappingDictionary: { [header: string]: string } = {
+  'datum': 'date',
+  'transaktionsdatum': 'date',
+  'date': 'date',
+  'beskrivning': 'description',
+  'text': 'description',
+  'description': 'description',
+  'belopp': 'amount',
+  'summa': 'amount',
+  'amount': 'amount',
+  'kategori': 'bankCategory',
+  'bankkategori': 'bankCategory',
+  'category': 'bankCategory',
+  'underkategori': 'bankSubCategory',
+  'bank underkategori': 'bankSubCategory',
+  'subcategory': 'bankSubCategory',
+  'saldo': 'balanceAfter',
+  'balans': 'balanceAfter',
+  'balance': 'balanceAfter'
+};
+
+// Funktion för att automatiskt mappa kolumner baserat på rubriker
+const autoMapColumns = (headers: string[]): { [header: string]: string } => {
+  const mapping: { [header: string]: string } = {};
+  headers.forEach(header => {
+    const normalizedHeader = header.toLowerCase().trim();
+    const mappedField = autoMappingDictionary[normalizedHeader];
+    if (mappedField) {
+      // Undvik att mappa samma fält två gånger
+      if (!Object.values(mapping).includes(mappedField)) {
+        mapping[header] = mappedField;
+      }
+    }
+  });
+  return mapping;
+};
+```
+
+När filen läses in kan ni anropa `autoMapColumns` för att få en första mappning som ni sedan kan visa i gränssnittet.
+
+### 2\. Uppdatera vyn för manuell kolumnmappning
+
+Själva vyn bör ge användaren full kontroll. För varje kolumn i den inlästa filen ska användaren kunna välja vilket datafält den motsvarar.
+
+**Var:** `TransactionImportEnhanced.tsx`
+
+Implementera en komponent som renderar en lista av alla kolumnrubriker från filen. Bredvid varje rubrik finns en dropdown-meny.
+
+```typescript
+// transactionImportEnhanced.tsx
+
+// Inom er React-komponent...
+
+// State för att hålla den aktuella mappningen
+const [columnMapping, setColumnMapping] = useState<{ [header: string]: string }>({});
+
+// När filen har lästs in och ni har `headers`...
+useEffect(() => {
+  if (headers.length > 0) {
+    // Sätt den initiala automatiska mappningen
+    const initialMapping = autoMapColumns(headers);
+    setColumnMapping(initialMapping);
+  }
+}, [headers]);
+
+// Funktion för att hantera när användaren ändrar en mappning
+const handleMappingChange = (header: string, selectedField: string) => {
+  setColumnMapping(prevMapping => ({
+    ...prevMapping,
+    [header]: selectedField,
+  }));
+};
+
+// JSX för att rendera mappningsvyn
+return (
+  <div>
+    <h4>Mappa dina kolumner</h4>
+    <p>Välj vilket datafält varje kolumn från din fil motsvarar.</p>
+    
+    {headers.map(header => (
+      <div key={header} style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '0.5rem' }}>
+        <strong>{header}</strong>
+        <span>→</span>
+        <select
+          value={columnMapping[header] || ''}
+          onChange={(e) => handleMappingChange(header, e.target.value)}
+        >
+          {/* Lägg till ett tomt alternativ för att kunna "ignorera" en kolumn */}
+          <option value="">Ignorera denna kolumn</option>
+          {MAPPABLE_FIELDS.map(field => (
+            <option key={field.key} value={field.key}>
+              {field.displayName}
+            </option>
+          ))}
+        </select>
+      </div>
+    ))}
+    
+    <button onClick={() => {
+      // Använd `columnMapping` för att processa filen
+      // parseCSVContentWithMapping(fileContent, columnMapping);
+    }}>
+      Importera transaktioner
+    </button>
+  </div>
+);
+```
+
+### Hur det fungerar tillsammans:
+
+1.  **Inläsning:** Användaren laddar upp sin XLSX/CSV-fil.
+2.  **Automatisk mappning:** `autoMapColumns` anropas med rubrikerna från filen. Resultatet sparas i `columnMapping`-state.
+3.  **Rendering:** Mappningsvyn renderas. Dropdown-menyerna förväljs baserat på resultatet från den automatiska mappningen. Om en kolumn inte kunde mappas automatiskt, visas "Ignorera denna kolumn".
+4.  **Manuell justering:** Användaren kan nu gå igenom listan och ändra i mappningarna via dropdown-menyerna. De kan korrigera felaktiga gissningar, mappa kolumner som inte kändes igen, och välja att ignorera de som är irrelevanta.
+5.  **Import:** När användaren klickar på "Importera", skickas det slutgiltiga `columnMapping`-objektet till er parsningsfunktion (`parseCSVContentWithMapping`). Denna funktion behöver justeras för att ta emot och använda detta mappningsobjekt istället för att själv försöka hitta index för varje kolumn.
+
+Denna lösning ger en smidig upplevelse där systemet gör sitt bästa för att hjälpa till, men användaren har alltid sista ordet, vilket löser grundproblemet med att "Bankkategorier" och "Bank underkategorier" inte läses in korrekt.

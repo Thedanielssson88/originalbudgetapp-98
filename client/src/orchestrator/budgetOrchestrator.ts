@@ -415,15 +415,39 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
     balanceColumnIndex = headers.findIndex(h => 
       h.toLowerCase().includes('saldo') || h.toLowerCase().includes('balance')
     );
-    bankCategoryIndex = headers.findIndex(h => 
-      h.toLowerCase().includes('kategori') || h.toLowerCase().includes('category')
-    );
-    bankSubCategoryIndex = headers.findIndex(h => 
-      h.toLowerCase().includes('underkategori') || h.toLowerCase().includes('subcategory')
-    );
+    bankCategoryIndex = headers.findIndex(h => {
+      const normalized = h.toLowerCase().trim();
+      return normalized === 'kategori' || 
+             normalized === 'category' || 
+             normalized === 'bankkategori' ||
+             normalized.includes('kategori') || 
+             normalized.includes('category');
+    });
+    bankSubCategoryIndex = headers.findIndex(h => {
+      const normalized = h.toLowerCase().trim();
+      return normalized === 'underkategori' || 
+             normalized === 'subcategory' || 
+             normalized === 'bank underkategori' ||
+             normalized.includes('underkategori') || 
+             normalized.includes('subcategory');
+    });
   }
   
   console.log(`[ORCHESTRATOR] 🔍 Column indices - Date: ${dateColumnIndex}, Amount: ${amountColumnIndex}, Description: ${descriptionColumnIndex}, Balance: ${balanceColumnIndex}, BankCategory: ${bankCategoryIndex}, BankSubCategory: ${bankSubCategoryIndex}`);
+  
+  // CRITICAL DEBUG: Log exact headers and auto-detection results
+  console.log(`[ORCHESTRATOR] 🔍 DEBUGGING CATEGORY MAPPING:`);
+  console.log(`[ORCHESTRATOR] 🔍 Headers array:`, headers);
+  headers.forEach((h, i) => {
+    console.log(`[ORCHESTRATOR] 🔍 Header ${i}: "${h}" (lower: "${h.toLowerCase()}")`);
+    if (h.toLowerCase().includes('kategori')) {
+      console.log(`[ORCHESTRATOR] 🚨 FOUND CATEGORY HEADER AT INDEX ${i}: "${h}"`);
+    }
+    if (h.toLowerCase().includes('underkategori')) {
+      console.log(`[ORCHESTRATOR] 🚨 FOUND SUBCATEGORY HEADER AT INDEX ${i}: "${h}"`);
+    }
+  });
+  console.log(`[ORCHESTRATOR] 🔍 Final bankCategoryIndex: ${bankCategoryIndex}, bankSubCategoryIndex: ${bankSubCategoryIndex}`);
   
   // Check if essential columns were found
   if (dateColumnIndex === -1 || amountColumnIndex === -1 || descriptionColumnIndex === -1) {
@@ -519,6 +543,7 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
 
       const description = descriptionColumnIndex >= 0 ? fields[descriptionColumnIndex].trim() : '';
       console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: Description: "${description}"`);
+      console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: Raw fields[${bankCategoryIndex}] = "${fields[bankCategoryIndex] || 'UNDEFINED'}", Raw fields[${bankSubCategoryIndex}] = "${fields[bankSubCategoryIndex] || 'UNDEFINED'}"`);
       console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: BankCategory: "${bankCategory}" (index ${bankCategoryIndex}), BankSubCategory: "${bankSubCategory}" (index ${bankSubCategoryIndex})`);
 
       // Determine transaction type - detect internal transfers

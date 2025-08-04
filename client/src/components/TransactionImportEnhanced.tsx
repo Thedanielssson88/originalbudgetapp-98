@@ -621,6 +621,10 @@ export const TransactionImportEnhanced: React.FC = () => {
       raw: false  // Format values as strings
     });
     
+    // CRITICAL DEBUG: Log the exact XLSX data structure
+    console.log(`🔍 [XLSX] Raw sheet data (first 5 rows):`, sheetData.slice(0, 5));
+    console.log(`🔍 [XLSX] Total rows from XLSX:`, sheetData.length);
+    
     // Convert back to CSV with semicolon separator, preserving all columns
     let csvData = sheetData.map((row: any[]) => {
       // Ensure we have at least 8 columns for all expected fields
@@ -670,10 +674,17 @@ export const TransactionImportEnhanced: React.FC = () => {
       const headers = filteredLines[0].split(';').map(h => h.trim());
       console.log(`🔍 [XLSX] Parsed headers:`, headers);
       
-      // Debug: Show position of category columns
+      // Debug: Show position of category columns and sample data
       headers.forEach((header, index) => {
+        console.log(`🔍 [XLSX] Header ${index}: "${header}"`);
         if (header.toLowerCase().includes('kategori')) {
-          console.log(`🔍 [XLSX] Category column "${header}" at position ${index + 1}`);
+          console.log(`🚨 [XLSX] Found category column at index ${index}: "${header}"`);
+          // Show sample data from this column
+          const sampleData = filteredLines.slice(1, 6).map(line => {
+            const fields = line.split(';');
+            return fields[index] || '[EMPTY]';
+          });
+          console.log(`🚨 [XLSX] Sample data for "${header}":`, sampleData);
         }
       });
       
