@@ -436,14 +436,31 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
 
     try {
       const rawAmountField = amountColumnIndex >= 0 ? fields[amountColumnIndex] : '0';
-      // Handle Swedish number format: remove all spaces, replace comma with dot for decimal
-      const cleanedAmountField = rawAmountField.trim()
-        .replace(/\s/g, '') // Remove all spaces (thousand separators)
-        .replace(',', '.'); // Replace comma with dot (decimal separator)
+      // Handle both Swedish and international number formats
+      let cleanedAmountField = rawAmountField.trim().replace(/\s/g, ''); // Remove all spaces
+      
+      // Check if comma is decimal separator (Swedish) or thousand separator (international)
+      if (cleanedAmountField.includes(',') && cleanedAmountField.includes('.')) {
+        // Format like "1,234.56" - comma is thousand separator, dot is decimal
+        cleanedAmountField = cleanedAmountField.replace(/,/g, ''); // Remove commas
+      } else if (cleanedAmountField.includes(',')) {
+        // Check if comma is likely decimal separator (Swedish) vs thousand separator
+        const commaIndex = cleanedAmountField.lastIndexOf(',');
+        const afterComma = cleanedAmountField.substring(commaIndex + 1);
+        
+        if (afterComma.length <= 2 && /^\d+$/.test(afterComma)) {
+          // Likely decimal separator: "1234,56" or "4,00"
+          cleanedAmountField = cleanedAmountField.replace(',', '.');
+        } else {
+          // Likely thousand separator: "4,000" 
+          cleanedAmountField = cleanedAmountField.replace(/,/g, '');
+        }
+      }
+      
       const parsedAmount = parseFloat(cleanedAmountField);
 
       console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: Raw line: "${lines[i]}"`);
-      console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: Amount field: "${rawAmountField}" -> ${parsedAmount}`);
+      console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: Amount field: "${rawAmountField}" -> cleaned: "${cleanedAmountField}" -> ${parsedAmount}`);
 
       if (isNaN(parsedAmount)) {
         console.log(`[ORCHESTRATOR] ⚠️ Skipping line ${i}: Invalid amount`);
@@ -463,10 +480,27 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
       let balanceAfter: number | undefined;
       if (balanceColumnIndex >= 0) {
         const rawBalanceField = fields[balanceColumnIndex];
-        // Handle Swedish number format: remove all spaces, replace comma with dot for decimal
-        const cleanedBalanceField = rawBalanceField.trim()
-          .replace(/\s/g, '') // Remove all spaces (thousand separators)
-          .replace(',', '.'); // Replace comma with dot (decimal separator)
+        // Handle both Swedish and international number formats
+        let cleanedBalanceField = rawBalanceField.trim().replace(/\s/g, ''); // Remove all spaces
+        
+        // Check if comma is decimal separator (Swedish) or thousand separator (international)
+        if (cleanedBalanceField.includes(',') && cleanedBalanceField.includes('.')) {
+          // Format like "1,234.56" - comma is thousand separator, dot is decimal
+          cleanedBalanceField = cleanedBalanceField.replace(/,/g, ''); // Remove commas
+        } else if (cleanedBalanceField.includes(',')) {
+          // Check if comma is likely decimal separator (Swedish) vs thousand separator
+          const commaIndex = cleanedBalanceField.lastIndexOf(',');
+          const afterComma = cleanedBalanceField.substring(commaIndex + 1);
+          
+          if (afterComma.length <= 2 && /^\d+$/.test(afterComma)) {
+            // Likely decimal separator: "1234,56" or "4,00"
+            cleanedBalanceField = cleanedBalanceField.replace(',', '.');
+          } else {
+            // Likely thousand separator: "4,000" 
+            cleanedBalanceField = cleanedBalanceField.replace(/,/g, '');
+          }
+        }
+        
         const parsedBalance = parseFloat(cleanedBalanceField);
         if (!isNaN(parsedBalance)) {
           balanceAfter = parsedBalance;
