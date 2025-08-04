@@ -151,17 +151,65 @@ const SettingsPage = () => {
   };
 
   const exportData = () => {
-    const savedData = localStorage.getItem('budgetCalculatorData');
-    if (savedData) {
-      const dataStr = JSON.stringify(JSON.parse(savedData), null, 2);
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(dataBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `budget-data-${new Date().toISOString().split('T')[0]}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
-    }
+    // Export all budget data including all localStorage keys
+    const allData = {
+      budgetCalculatorData: localStorage.getItem('budgetCalculatorData'),
+      main_categories: localStorage.getItem('main_categories'),
+      subcategories: localStorage.getItem('subcategories'),
+      banks: localStorage.getItem('banks'),
+      bank_csv_mappings: localStorage.getItem('bank_csv_mappings'),
+      exportDate: new Date().toISOString(),
+      version: '2.0'
+    };
+    
+    const dataStr = JSON.stringify(allData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `budget-data-komplett-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target?.result as string);
+        
+        // Import all data
+        if (data.budgetCalculatorData) {
+          localStorage.setItem('budgetCalculatorData', data.budgetCalculatorData);
+        }
+        if (data.main_categories) {
+          localStorage.setItem('main_categories', data.main_categories);
+        }
+        if (data.subcategories) {
+          localStorage.setItem('subcategories', data.subcategories);
+        }
+        if (data.banks) {
+          localStorage.setItem('banks', data.banks);
+        }
+        if (data.bank_csv_mappings) {
+          localStorage.setItem('bank_csv_mappings', data.bank_csv_mappings);
+        }
+        
+        // Reload page to apply changes
+        alert('Data importerad! Sidan laddas om för att tillämpa ändringarna.');
+        window.location.reload();
+      } catch (error) {
+        alert('Fel vid import av data. Kontrollera att filen är korrekt.');
+        console.error('Import error:', error);
+      }
+    };
+    reader.readAsText(file);
+    
+    // Reset file input
+    event.target.value = '';
   };
 
   return (
@@ -407,10 +455,39 @@ const SettingsPage = () => {
                 <Separator />
 
                 <div>
-                  <h3 className="text-lg font-semibold mb-3">Export/Import</h3>
-                  <Button onClick={exportData} variant="secondary" className="w-full">
-                    Exportera data till fil
-                  </Button>
+                  <h3 className="text-lg font-semibold mb-3">Datasynkronisering</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Synkronisera data mellan mobil och dator. Exportera från en enhet och importera på en annan.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Button onClick={exportData} variant="secondary" className="w-full">
+                      Exportera all data
+                    </Button>
+                    <div>
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={importData}
+                        style={{ display: 'none' }}
+                        id="import-file"
+                      />
+                      <Button 
+                        onClick={() => document.getElementById('import-file')?.click()}
+                        variant="outline" 
+                        className="w-full"
+                      >
+                        Importera data
+                      </Button>
+                    </div>
+                  </div>
+                  <Alert className="mt-4">
+                    <AlertDescription>
+                      <strong>För att synkronisera data mellan enheter:</strong><br/>
+                      1. På enheten med data: Klicka "Exportera all data"<br/>
+                      2. På den andra enheten: Klicka "Importera data" och välj filen<br/>
+                      3. Sidan laddas om automatiskt med den importerade datan
+                    </AlertDescription>
+                  </Alert>
                 </div>
 
                 {hasBackup && (
