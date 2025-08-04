@@ -184,24 +184,43 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
   console.log(`[ORCHESTRATOR] 🔍 Updating centralized storage with ${finalTransactionList.length} transactions`);
   
   // Convert ImportedTransaction[] to Transaction[] for centralized storage
-  const transactionsForCentralStorage = finalTransactionList.map(tx => ({
-    id: tx.id,
-    accountId: tx.accountId,
-    date: tx.date,
-    amount: tx.amount,
-    balanceAfter: tx.balanceAfter,
-    description: tx.description,
-    userDescription: tx.userDescription,
-    bankCategory: tx.bankCategory,  // CRITICAL FIX: Include bank categories!
-    bankSubCategory: tx.bankSubCategory,  // CRITICAL FIX: Include bank subcategories!
-    type: tx.type,
-    status: tx.status === 'green' ? 'green' : determineTransactionStatus(tx),
-    linkedTransactionId: tx.linkedTransactionId,
-    correctedAmount: tx.correctedAmount,
-    isManuallyChanged: tx.isManuallyChanged,
-    appCategoryId: tx.appCategoryId,
-    appSubCategoryId: tx.appSubCategoryId
-  } as Transaction));
+  const transactionsForCentralStorage = finalTransactionList.map((tx, index) => {
+    const finalTransaction = {
+      id: tx.id,
+      accountId: tx.accountId,
+      date: tx.date,
+      amount: tx.amount,
+      balanceAfter: tx.balanceAfter,
+      description: tx.description,
+      userDescription: tx.userDescription,
+      bankCategory: tx.bankCategory,  // CRITICAL FIX: Include bank categories!
+      bankSubCategory: tx.bankSubCategory,  // CRITICAL FIX: Include bank subcategories!
+      type: tx.type,
+      status: tx.status === 'green' ? 'green' : determineTransactionStatus(tx),
+      linkedTransactionId: tx.linkedTransactionId,
+      correctedAmount: tx.correctedAmount,
+      isManuallyChanged: tx.isManuallyChanged,
+      appCategoryId: tx.appCategoryId,
+      appSubCategoryId: tx.appSubCategoryId
+    } as Transaction;
+
+    // CRITICAL DEBUG: Log the conversion from ImportedTransaction to Transaction
+    if (index <= 3) {
+      console.log(`[ORCHESTRATOR] 🔍 CONVERSION DEBUG ${index}:`);
+      console.log(`[ORCHESTRATOR] 🔍 ImportedTx bankCategory: "${tx.bankCategory}"`);
+      console.log(`[ORCHESTRATOR] 🔍 ImportedTx bankSubCategory: "${tx.bankSubCategory}"`);
+      console.log(`[ORCHESTRATOR] 🔍 FinalTx bankCategory: "${finalTransaction.bankCategory}"`);
+      console.log(`[ORCHESTRATOR] 🔍 FinalTx bankSubCategory: "${finalTransaction.bankSubCategory}"`);
+      
+      if (finalTransaction.bankCategory && finalTransaction.bankSubCategory) {
+        console.log(`[ORCHESTRATOR] ✅ Transaction ${index} HAS CATEGORIES IN FINAL TX`);
+      } else {
+        console.log(`[ORCHESTRATOR] ❌ Transaction ${index} MISSING CATEGORIES IN FINAL TX`);
+      }
+    }
+
+    return finalTransaction;
+  });
   
   // Update centralized storage
   state.budgetState.allTransactions = transactionsForCentralStorage;
@@ -538,13 +557,28 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
       }
 
       // Parse bank categories from CSV columns
-      const bankCategory = bankCategoryIndex >= 0 ? fields[bankCategoryIndex].trim() : '';
-      const bankSubCategory = bankSubCategoryIndex >= 0 ? fields[bankSubCategoryIndex].trim() : '';
+      const bankCategory = bankCategoryIndex >= 0 ? fields[bankCategoryIndex]?.trim() || '' : '';
+      const bankSubCategory = bankSubCategoryIndex >= 0 ? fields[bankSubCategoryIndex]?.trim() || '' : '';
 
-      const description = descriptionColumnIndex >= 0 ? fields[descriptionColumnIndex].trim() : '';
-      console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: Description: "${description}"`);
-      console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: Raw fields[${bankCategoryIndex}] = "${fields[bankCategoryIndex] || 'UNDEFINED'}", Raw fields[${bankSubCategoryIndex}] = "${fields[bankSubCategoryIndex] || 'UNDEFINED'}"`);
-      console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: BankCategory: "${bankCategory}" (index ${bankCategoryIndex}), BankSubCategory: "${bankSubCategory}" (index ${bankSubCategoryIndex})`);
+      const description = descriptionColumnIndex >= 0 ? fields[descriptionColumnIndex]?.trim() || '' : '';
+      
+      // CRITICAL DEBUG: Log the full row data and mappings
+      if (i <= 5) { // Only log first 5 transactions to avoid spam
+        console.log(`[ORCHESTRATOR] 🔍 LINE ${i} FULL DEBUG:`);
+        console.log(`[ORCHESTRATOR] 🔍 Full fields array:`, fields);
+        console.log(`[ORCHESTRATOR] 🔍 Description: "${description}" (index ${descriptionColumnIndex})`);
+        console.log(`[ORCHESTRATOR] 🔍 Raw bankCategory field[${bankCategoryIndex}]: "${fields[bankCategoryIndex] || 'UNDEFINED'}"`);
+        console.log(`[ORCHESTRATOR] 🔍 Raw bankSubCategory field[${bankSubCategoryIndex}]: "${fields[bankSubCategoryIndex] || 'UNDEFINED'}"`);
+        console.log(`[ORCHESTRATOR] 🔍 Final bankCategory: "${bankCategory}"`);
+        console.log(`[ORCHESTRATOR] 🔍 Final bankSubCategory: "${bankSubCategory}"`);
+        
+        // Show if this transaction will have categories
+        if (bankCategory && bankSubCategory) {
+          console.log(`[ORCHESTRATOR] ✅ Transaction ${i} WILL HAVE CATEGORIES: "${bankCategory}" / "${bankSubCategory}"`);
+        } else {
+          console.log(`[ORCHESTRATOR] ❌ Transaction ${i} MISSING CATEGORIES: bankCategory="${bankCategory}", bankSubCategory="${bankSubCategory}"`);
+        }
+      }
 
       // Determine transaction type - detect internal transfers
       let transactionType: 'Transaction' | 'InternalTransfer' = 'Transaction';
