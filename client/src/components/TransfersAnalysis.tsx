@@ -267,6 +267,14 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
       const totalTransferredIn = monthlyTransfers
         .filter(t => t.toAccountId === account.id)
         .reduce((sum, t) => sum + t.amount, 0);
+      
+      // Summera totala planerade överföringar FRÅN kontot
+      const totalTransferredOut = monthlyTransfers
+        .filter(t => t.fromAccountId === account.id)
+        .reduce((sum, t) => sum + t.amount, 0);
+      
+      // Netto planerat: in minus out
+      const netPlannedTransfers = totalTransferredIn - totalTransferredOut;
 
       // Hitta alla överföringar FRÅN kontot (för detaljvyn)
       const transfersOut = monthlyTransfers.filter(t => t.fromAccountId === account.id);
@@ -281,7 +289,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
       return {
         account,
         totalBudgeted,
-        totalTransferredIn,
+        totalTransferredIn: netPlannedTransfers, // Use net amount instead of just incoming
         actualTransferredIn,
         budgetItems: budgetedItemsForAccount,
         transfersOut,
@@ -290,12 +298,8 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
     });
   }, [budgetState.accounts, budgetState.mainCategories, budgetState.historicalData, budgetState.plannedTransfers, selectedMonth, allInternalTransfers]);
 
-  // Beräkna totala överföringar för CardDescription (netto - in minus out)
-  const totalTransfersIn = analysisData.reduce((sum, data) => sum + data.totalTransferredIn, 0);
-  const totalTransfersOut = analysisData.reduce((sum, data) => {
-    return sum + data.transfersOut.reduce((outSum, transfer) => outSum + transfer.amount, 0);
-  }, 0);
-  const totalTransfers = totalTransfersIn - totalTransfersOut; // Net amount
+  // Beräkna totala överföringar för CardDescription (nu använder vi redan netto per konto)
+  const totalTransfers = analysisData.reduce((sum, data) => sum + data.totalTransferredIn, 0);
   const totalActualTransfers = analysisData.reduce((sum, data) => sum + data.actualTransferredIn, 0);
 
   return (
