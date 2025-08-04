@@ -1022,6 +1022,78 @@ export const TransactionImportEnhanced: React.FC = () => {
       description: `${selectedTransactions.length} transaktioner har godkänts.`,
     });
   };
+  
+  // Apply all rules to filtered transactions
+  const applyRulesToFilteredTransactions = () => {
+    let updatedCount = 0;
+    
+    filteredTransactions.forEach(transaction => {
+      // Skip already categorized transactions unless they're red
+      if (transaction.status === 'green' || transaction.status === 'yellow') {
+        return;
+      }
+      
+      // Check each rule
+      for (const rule of categoryRules) {
+        if (!rule.isActive) continue;
+        
+        let matchFound = false;
+        
+        // Check based on condition type
+        if (rule.condition.type === 'categoryMatch') {
+          // Check bank category match
+          if (transaction.bankCategory === rule.condition.bankCategory) {
+            // If no bank subcategory specified in rule, or it matches
+            if (!rule.condition.bankSubCategory || transaction.bankSubCategory === rule.condition.bankSubCategory) {
+              matchFound = true;
+            }
+          }
+        } else if (rule.condition.type === 'textContains') {
+          const searchLower = rule.condition.value.toLowerCase();
+          const descriptionLower = (transaction.description || '').toLowerCase();
+          
+          if (descriptionLower.includes(searchLower)) {
+            matchFound = true;
+          }
+        } else if (rule.condition.type === 'textStartsWith') {
+          const searchLower = rule.condition.value.toLowerCase();
+          const descriptionLower = (transaction.description || '').toLowerCase();
+          
+          if (descriptionLower.startsWith(searchLower)) {
+            matchFound = true;
+          }
+        }
+        
+        if (matchFound) {
+          // Check if rule applies to this account
+          if (rule.action.applicableAccountIds && 
+              rule.action.applicableAccountIds.length > 0 && 
+              !rule.action.applicableAccountIds.includes(transaction.accountId)) {
+            continue;
+          }
+          
+          // Apply the rule
+          updateTransactionCategory(transaction.id, rule.action.appMainCategoryId, rule.action.appSubCategoryId);
+          updatedCount++;
+          break; // Stop checking other rules for this transaction
+        }
+      }
+    });
+    
+    if (updatedCount > 0) {
+      toast({
+        title: "Regler tillämpade",
+        description: `${updatedCount} transaktioner har kategoriserats enligt reglerna.`
+      });
+      // Force refresh after applying rules
+      setRefreshKey(prev => prev + 1);
+    } else {
+      toast({
+        title: "Inga ändringar",
+        description: "Inga transaktioner matchade reglerna eller alla var redan kategoriserade."
+      });
+    }
+  };
 
   // Main upload step - shows accounts and upload status
   const renderUploadStep = () => {
@@ -1541,6 +1613,16 @@ export const TransactionImportEnhanced: React.FC = () => {
             >
               Rensa urval
             </Button>
+            <Button
+              onClick={applyRulesToFilteredTransactions}
+              disabled={categoryRules.length === 0 || filteredTransactions.length === 0}
+              size="sm"
+              variant="secondary"
+              className="text-xs sm:text-sm"
+            >
+              <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+              Applicera regler på filtrerade transaktioner
+            </Button>
           </div>
         </div>
 
@@ -1690,6 +1772,21 @@ export const TransactionImportEnhanced: React.FC = () => {
                     </Button>
                   </div>
                 )}
+                
+                {/* Apply rules button for all transactions tab */}
+                {filteredTransactions.length > 0 && (
+                  <div className="flex justify-center mt-6">
+                    <Button
+                      onClick={applyRulesToFilteredTransactions}
+                      disabled={categoryRules.length === 0 || filteredTransactions.length === 0}
+                      variant="secondary"
+                      className="text-sm"
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Applicera regler på filtrerade transaktioner
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -1835,6 +1932,22 @@ export const TransactionImportEnhanced: React.FC = () => {
                 </div>
               );
             })}
+            
+            {/* Apply rules button for account tab */}
+            {filteredTransactions.length > 0 && (
+              <div className="flex justify-center mt-4">
+                <Button
+                  onClick={applyRulesToFilteredTransactions}
+                  disabled={categoryRules.length === 0 || filteredTransactions.length === 0}
+                  size="sm"
+                  variant="secondary"
+                  className="text-xs sm:text-sm"
+                >
+                  <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                  Applicera regler på filtrerade transaktioner
+                </Button>
+              </div>
+            )}
           </TabsContent>
 
           {/* Date Range Dialog */}
