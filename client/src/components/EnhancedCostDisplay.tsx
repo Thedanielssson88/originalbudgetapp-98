@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { BudgetItem, Transaction } from '@/types/budget';
 import { AddBudgetItemDialog } from './AddBudgetItemDialog';
 
@@ -48,22 +48,11 @@ export const EnhancedCostDisplay: React.FC<EnhancedCostDisplayProps> = ({
   onEditBudgetItem,
   onDeleteBudgetItem
 }) => {
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [showAddDialog, setShowAddDialog] = useState<{
     isOpen: boolean;
     preselectedMainCategory?: string;
     preselectedSubCategory?: string;
   }>({ isOpen: false });
-
-  const toggleCategory = (categoryId: string) => {
-    const newExpanded = new Set(expandedCategories);
-    if (newExpanded.has(categoryId)) {
-      newExpanded.delete(categoryId);
-    } else {
-      newExpanded.add(categoryId);
-    }
-    setExpandedCategories(newExpanded);
-  };
 
   // Filter cost items only
   const costItems = budgetItems.filter(item => {
@@ -87,7 +76,7 @@ export const EnhancedCostDisplay: React.FC<EnhancedCostDisplayProps> = ({
   const categorizedData = mainCategories
     .filter(mainCat => mainCat.type === 'cost')
     .map(mainCategory => {
-      // Get all subcategories for this main category
+      // Get all subcategories for this main category - ALWAYS show all subcategories
       const subCategories = mainCategory.subCategories || [];
       
       // Get all budget items for this main category
@@ -98,7 +87,7 @@ export const EnhancedCostDisplay: React.FC<EnhancedCostDisplayProps> = ({
       const totalActual = calculateActualForCategory(mainCategory.id);
       const totalDifference = totalActual - totalBudget;
 
-      // Group items by subcategory
+      // Group items by subcategory - ALWAYS show all subcategories with data
       const subCategoryData = subCategories.map(subCategory => {
         const subCategoryItems = mainCategoryItems.filter(item => item.subCategoryId === subCategory.id);
         const subBudget = subCategoryItems.reduce((sum, item) => sum + item.amount, 0);
@@ -123,7 +112,7 @@ export const EnhancedCostDisplay: React.FC<EnhancedCostDisplayProps> = ({
         hasSubCategories: subCategories.length > 0
       };
     })
-    .filter(data => data.totalBudget > 0 || data.totalActual > 0); // Only show categories with data
+    .filter(data => data.hasSubCategories || data.totalBudget > 0 || data.totalActual > 0); // Show categories with subcategories OR data
 
   const handleAddCostPost = (mainCategoryId?: string, subCategoryId?: string) => {
     setShowAddDialog({
@@ -170,88 +159,108 @@ export const EnhancedCostDisplay: React.FC<EnhancedCostDisplayProps> = ({
           categorizedData.map(({ mainCategory, subCategoryData, totalBudget, totalActual, totalDifference, hasSubCategories }) => (
             <div key={mainCategory.id} className="border border-red-200 rounded-lg bg-white">
               {/* Main Category Header */}
-              <div 
-                className="flex items-center justify-between p-3 cursor-pointer hover:bg-red-50"
-                onClick={() => hasSubCategories && toggleCategory(mainCategory.id)}
-              >
+              <div className="flex items-center justify-between p-3 bg-red-50/80">
                 <div className="flex items-center gap-2 flex-1">
-                  <span className="font-medium text-red-900">{mainCategory.name}</span>
+                  <span className="font-semibold text-red-900 text-lg">{mainCategory.name}</span>
                   {hasSubCategories && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 w-6 p-0 text-red-600"
-                    >
-                      {expandedCategories.has(mainCategory.id) ? 
-                        <ChevronUp className="h-4 w-4" /> : 
-                        <ChevronDown className="h-4 w-4" />
-                      }
-                    </Button>
+                    <span className="text-xs text-red-600 bg-red-200 px-2 py-1 rounded-full">
+                      {subCategoryData.length} {subCategoryData.length === 1 ? 'underkategori' : 'underkategorier'}
+                    </span>
                   )}
                 </div>
                 
                 <div className="flex items-center gap-4 text-sm">
-                  <div className="text-center min-w-[80px]">
-                    <div className="text-red-700 font-medium">Budget</div>
-                    <div className="font-semibold text-red-800">{formatCurrency(totalBudget)}</div>
+                  <div className="text-center min-w-[90px]">
+                    <div className="text-red-700 font-medium">Totalt Budget</div>
+                    <div className="font-bold text-red-800 text-lg">{formatCurrency(totalBudget)}</div>
                   </div>
-                  <div className="text-center min-w-[80px]">
-                    <div className="text-green-600 font-medium">Faktiskt</div>
-                    <div className="font-semibold text-green-600">{formatCurrency(totalActual)}</div>
+                  <div className="text-center min-w-[90px]">
+                    <div className="text-green-600 font-medium">Totalt Faktiskt</div>
+                    <div className="font-bold text-green-600 text-lg">{formatCurrency(totalActual)}</div>
                   </div>
-                  <div className="text-center min-w-[80px]">
-                    <div className="text-gray-700 font-medium">Skillnad</div>
-                    <div className={`font-semibold ${totalDifference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <div className="text-center min-w-[90px]">
+                    <div className="text-gray-700 font-medium">Total Skillnad</div>
+                    <div className={`font-bold text-lg ${totalDifference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {totalDifference >= 0 ? '+' : ''}{formatCurrency(totalDifference)}
                     </div>
                   </div>
                   
                   <Button
                     size="sm"
-                    variant="ghost"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAddCostPost(mainCategory.id);
-                    }}
-                    className="h-6 w-6 p-0 text-red-600 hover:bg-red-100"
+                    variant="outline"
+                    onClick={() => handleAddCostPost(mainCategory.id)}
+                    className="text-red-600 border-red-300 hover:bg-red-100"
+                    title={`Lägg till kostnad i ${mainCategory.name}`}
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-4 w-4 mr-1" />
+                    Lägg till
                   </Button>
                 </div>
               </div>
 
-              {/* Subcategories (expanded) */}
-              {hasSubCategories && expandedCategories.has(mainCategory.id) && (
+              {/* Subcategories - ALWAYS shown if there are subcategories */}
+              {hasSubCategories && (
                 <div className="border-t border-red-100 bg-red-25">
                   {subCategoryData.map(({ subCategory, items, budget, actual, difference }) => (
-                    <div key={subCategory.id} className="flex items-center justify-between p-3 pl-8 hover:bg-red-50/50">
-                      <div className="flex items-center gap-2 flex-1">
-                        <span className="text-red-800">{subCategory.name}</span>
-                        <span className="text-xs text-red-600">({items.length} poster)</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-4 text-sm">
-                        <div className="text-center min-w-[80px]">
-                          <div className="font-semibold text-red-800">{formatCurrency(budget)}</div>
-                        </div>
-                        <div className="text-center min-w-[80px]">
-                          <div className="font-semibold text-green-600">{formatCurrency(actual)}</div>
-                        </div>
-                        <div className="text-center min-w-[80px]">
-                          <div className={`font-semibold ${difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {difference >= 0 ? '+' : ''}{formatCurrency(difference)}
-                          </div>
+                    <div key={subCategory.id} className="border-b border-red-50 last:border-b-0">
+                      {/* Subcategory Header with Budget/Faktiskt/Difference */}
+                      <div className="flex items-center justify-between p-3 pl-6 bg-red-25 hover:bg-red-50/50">
+                        <div className="flex items-center gap-2 flex-1">
+                          <span className="font-medium text-red-900">{subCategory.name}</span>
+                          <span className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded">
+                            {items.length} {items.length === 1 ? 'post' : 'poster'}
+                          </span>
                         </div>
                         
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleAddCostPost(mainCategory.id, subCategory.id)}
-                          className="h-6 w-6 p-0 text-red-600 hover:bg-red-100"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="text-center min-w-[80px]">
+                            <div className="text-red-700 font-medium text-xs">Budget</div>
+                            <div className="font-semibold text-red-800">{formatCurrency(budget)}</div>
+                          </div>
+                          <div className="text-center min-w-[80px]">
+                            <div className="text-green-600 font-medium text-xs">Faktiskt</div>
+                            <div className="font-semibold text-green-600">{formatCurrency(actual)}</div>
+                          </div>
+                          <div className="text-center min-w-[80px]">
+                            <div className="text-gray-700 font-medium text-xs">Skillnad</div>
+                            <div className={`font-semibold ${difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {difference >= 0 ? '+' : ''}{formatCurrency(difference)}
+                            </div>
+                          </div>
+                          
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleAddCostPost(mainCategory.id, subCategory.id)}
+                            className="h-6 w-6 p-0 text-red-600 hover:bg-red-100"
+                            title={`Lägg till kostnad i ${subCategory.name}`}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
+
+                      {/* Individual Cost Posts under this subcategory */}
+                      {items.length > 0 && (
+                        <div className="pl-10 bg-red-25/50">
+                          {items.map((item, index) => (
+                            <div key={item.id} className="flex justify-between items-center py-2 px-3 text-sm border-l-2 border-red-200">
+                              <div className="flex items-center gap-2">
+                                <span className="w-1 h-1 bg-red-400 rounded-full"></span>
+                                <span className="text-red-800">{item.description}</span>
+                                {item.accountId && (
+                                  <span className="text-xs text-gray-500 bg-gray-100 px-1 py-0.5 rounded">
+                                    {accounts.find(acc => acc.id === item.accountId)?.name || 'Okänt konto'}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-red-700 font-medium">
+                                {formatCurrency(item.amount)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -273,6 +282,8 @@ export const EnhancedCostDisplay: React.FC<EnhancedCostDisplayProps> = ({
           mainCategories={mainCategories.map(cat => cat.name)}
           accounts={accounts}
           type="cost"
+          preselectedMainCategory={showAddDialog.preselectedMainCategory}
+          preselectedSubCategory={showAddDialog.preselectedSubCategory}
         />
       )}
     </Card>

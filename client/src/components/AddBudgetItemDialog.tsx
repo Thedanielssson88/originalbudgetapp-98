@@ -17,6 +17,8 @@ interface AddBudgetItemDialogProps {
   mainCategories: string[];
   accounts: Account[];
   type: 'cost' | 'savings';
+  preselectedMainCategory?: string;
+  preselectedSubCategory?: string;
 }
 
 export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({ 
@@ -25,7 +27,9 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
   onSave, 
   mainCategories, 
   accounts,
-  type 
+  type,
+  preselectedMainCategory,
+  preselectedSubCategory
 }) => {
   const [formData, setFormData] = useState({
     mainCategoryId: '',
@@ -55,10 +59,10 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
       console.log('AddBudgetItemDialog: Reloading subcategories on dialog open:', loadedSubcategories);
       setSubcategories(loadedSubcategories);
       
-      // Reset form when dialog opens
+      // Reset form when dialog opens, but respect preselected values
       setFormData({
-        mainCategoryId: '',
-        subCategoryId: '',
+        mainCategoryId: preselectedMainCategory || '',
+        subCategoryId: preselectedSubCategory || '',
         description: '',
         amount: 0,
         accountId: 'none',
@@ -68,7 +72,7 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
         transferDays: []
       });
     }
-  }, [isOpen]);
+  }, [isOpen, preselectedMainCategory, preselectedSubCategory]);
 
   useEffect(() => {
     if (formData.mainCategoryId) {
