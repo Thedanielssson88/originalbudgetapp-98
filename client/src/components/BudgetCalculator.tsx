@@ -6901,7 +6901,11 @@ const BudgetCalculator = () => {
                 )}
               </Card>
 
-
+              {/* Transfers Analysis Section */}
+              <TransfersAnalysis 
+                budgetState={budgetState} 
+                selectedMonth={selectedBudgetMonth} 
+              />
 
               {/* Budget Summary */}
               <Card className="shadow-lg border-0 bg-muted/50 backdrop-blur-sm">
@@ -7205,12 +7209,6 @@ const BudgetCalculator = () => {
                        })()}
                      </CardContent>
                    </Card>
-
-                   {/* Transfers Analysis Section */}
-                   <TransfersAnalysis 
-                     budgetState={budgetState} 
-                     selectedMonth={selectedBudgetMonth} 
-                   />
 
                     {/* Expandable Budget Sections */}
                    <div className="space-y-4">
