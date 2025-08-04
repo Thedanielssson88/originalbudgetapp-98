@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus } from 'lucide-react';
+import { Plus, Eye, EyeOff } from 'lucide-react';
 import { ImportedTransaction } from '@/types/transaction';
 import { CategoryRule } from '@/types/budget';
 import { addMobileDebugLog } from '@/utils/mobileDebugLogger';
@@ -18,6 +18,8 @@ export const UncategorizedBankCategories: React.FC<UncategorizedBankCategoriesPr
   categoryRules,
   onCreateRule
 }) => {
+  const [showHiddenSubcategories, setShowHiddenSubcategories] = React.useState(false);
+  
   // Extract unique bank categories from transactions
   const bankCategories = React.useMemo(() => {
     const categoryMap = new Map<string, { count: number; subCategories: Set<string> }>();
@@ -44,20 +46,19 @@ export const UncategorizedBankCategories: React.FC<UncategorizedBankCategoriesPr
     }));
   }, [transactions]);
 
-  // Filter out categories that already have rules
-  const uncategorizedCategories = bankCategories.filter(({ bankCategory }) => {
-    return !categoryRules.some(rule => {
-      // Add null checking for rule and rule.condition
-      if (!rule || !rule.condition) {
-        return false;
-      }
+  // Helper function to check if a specific combination has a rule
+  const hasRuleForCombination = (bankCategory: string, bankSubCategory?: string) => {
+    return categoryRules.some(rule => {
+      if (!rule || !rule.condition) return false;
       
-      // Check for exact category match
       if (rule.condition.type === 'categoryMatch') {
-        return (rule.condition as any).bankCategory === bankCategory;
+        const ruleCondition = rule.condition as any;
+        // Exact match for both category and subcategory
+        return ruleCondition.bankCategory === bankCategory && 
+               (bankSubCategory ? ruleCondition.bankSubCategory === bankSubCategory : !ruleCondition.bankSubCategory);
       }
       
-      // Check for text-based rules that could match this bank category
+      // Text-based rules that could match this category
       if (rule.condition.type === 'textContains') {
         const ruleValue = (rule.condition as any).value?.toLowerCase() || '';
         return bankCategory.toLowerCase().includes(ruleValue) && ruleValue.length > 0;
@@ -70,6 +71,31 @@ export const UncategorizedBankCategories: React.FC<UncategorizedBankCategoriesPr
       
       return false;
     });
+  };
+
+  // Process categories to show available subcategories
+  const processedCategories = bankCategories.map(({ bankCategory, count, subCategories }) => {
+    // Filter subcategories - hide those with rules unless showHidden is true
+    const availableSubcategories = subCategories.filter(subCategory => {
+      const hasRule = hasRuleForCombination(bankCategory, subCategory);
+      return showHiddenSubcategories || !hasRule;
+    });
+    
+    // Check if main category (without subcategory) has a rule
+    const mainCategoryHasRule = hasRuleForCombination(bankCategory);
+    
+    return {
+      bankCategory,
+      count,
+      subCategories: availableSubcategories,
+      mainCategoryHasRule,
+      showMainCategoryButton: showHiddenSubcategories || !mainCategoryHasRule
+    };
+  });
+
+  // Only filter out categories that have no available options at all
+  const uncategorizedCategories = processedCategories.filter(({ subCategories, showMainCategoryButton }) => {
+    return showMainCategoryButton || subCategories.length > 0;
   });
 
   if (uncategorizedCategories.length === 0) {
@@ -82,7 +108,23 @@ export const UncategorizedBankCategories: React.FC<UncategorizedBankCategoriesPr
 
   return (
     <div className="space-y-3">
-      {uncategorizedCategories.map(({ bankCategory, count, subCategories }) => (
+      {/* Toggle button for showing hidden subcategories */}
+      <div className="flex justify-between items-center">
+        <span className="text-sm text-muted-foreground">
+          {uncategorizedCategories.length} kategorier
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowHiddenSubcategories(!showHiddenSubcategories)}
+          className="text-xs"
+        >
+          {showHiddenSubcategories ? <EyeOff className="w-3 h-3 mr-1" /> : <Eye className="w-3 h-3 mr-1" />}
+          {showHiddenSubcategories ? 'Dölj befintliga regler' : 'Visa dolda underkategorier'}
+        </Button>
+      </div>
+
+      {uncategorizedCategories.map(({ bankCategory, count, subCategories, showMainCategoryButton }) => (
         <Card key={bankCategory} className="p-3">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -101,14 +143,16 @@ export const UncategorizedBankCategories: React.FC<UncategorizedBankCategoriesPr
             </div>
             
             <div className="space-y-2">
-              <Button
-                size="sm"
-                onClick={() => onCreateRule(bankCategory)}
-                className="w-full text-xs h-8"
-              >
-                <Plus className="w-3 h-3 mr-1" />
-                Skapa regel för "{bankCategory}"
-              </Button>
+              {showMainCategoryButton && (
+                <Button
+                  size="sm"
+                  onClick={() => onCreateRule(bankCategory)}
+                  className="w-full text-xs h-8"
+                >
+                  <Plus className="w-3 h-3 mr-1" />
+                  Skapa regel för "{bankCategory}"
+                </Button>
+              )}
               
               {subCategories.map(subCategory => (
                 <Button
