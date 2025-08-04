@@ -1654,7 +1654,7 @@ function cleanupInvalidTransferLinks(): void {
           state.budgetState.allTransactions[transactionIndex] = {
             ...state.budgetState.allTransactions[transactionIndex],
             linkedTransactionId: undefined,
-            type: 'Expense' // Reset to default type
+            type: 'Transaction' // Reset to default type
           };
         }
         
@@ -1665,7 +1665,7 @@ function cleanupInvalidTransferLinks(): void {
             state.budgetState.allTransactions[linkedIndex] = {
               ...state.budgetState.allTransactions[linkedIndex],
               linkedTransactionId: undefined,
-              type: 'Expense' // Reset to default type
+              type: 'Transaction' // Reset to default type
             };
           }
         }

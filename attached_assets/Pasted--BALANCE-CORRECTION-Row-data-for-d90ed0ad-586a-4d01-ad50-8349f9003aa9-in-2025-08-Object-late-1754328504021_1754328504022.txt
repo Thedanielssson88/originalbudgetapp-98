@@ -1,0 +1,22 @@
+🔍 [BALANCE CORRECTION] Row data for d90ed0ad-586a-4d01-ad50-8349f9003aa9 in 2025-08: 
+Object {latestTransactionDate: "2025-08-04", bankBalance: 0, systemBalance: 0, nextMonthKey: "2025-09", nextMonthName: "september 2025"}
+🔍 [BALANCE CORRECTION] Processing group: 2025-07_d90ed0ad-586a-4d01-ad50-8349f9003aa9 with 174 transactions
+🔍 [BALANCE CORRECTION] Relevant transactions (≤24th) for 2025-07_d90ed0ad-586a-4d01-ad50-8349f9003aa9: 117
+🔍 [BALANCE CORRECTION] Row data for d90ed0ad-586a-4d01-ad50-8349f9003aa9 in 2025-07: 
+Object {latestTransactionDate: "2025-07-24", bankBalance: 2451.67, systemBalance: 2451.67, nextMonthKey: "2025-08", nextMonthName: "augusti 2025"}
+🔍 [BALANCE CORRECTION] Processing group: 2025-06_d90ed0ad-586a-4d01-ad50-8349f9003aa9 with 106 transactions
+🔍 [BALANCE CORRECTION] Relevant transactions (≤24th) for 2025-06_d90ed0ad-586a-4d01-ad50-8349f9003aa9: 83
+🔍 [BALANCE CORRECTION] Row data for d90ed0ad-586a-4d01-ad50-8349f9003aa9 in 2025-06: 
+Object {latestTransactionDate: "2025-06-24", bankBalance: 1665.81, systemBalance: 1665.81, nextMonthKey: "2025-07", nextMonthName: "juli 2025"}
+🔍 [BALANCE CORRECTION] Processing group: 2025-05_d90ed0ad-586a-4d01-ad50-8349f9003aa9 with 112 transactions
+🔍 [BALANCE CORRECTION] Relevant transactions (≤24th) for 2025-05_d90ed0ad-586a-4d01-ad50-8349f9003aa9: 76
+🔍 [BALANCE CORRECTION] Row data for d90ed0ad-586a-4d01-ad50-8349f9003aa9 in 2025-05: 
+Object {latestTransactionDate: "2025-05-23", bankBalance: 1883.64, systemBalance: 1883.64, nextMonthKey: "2025-06", nextMonthName: "juni 2025"}
+🔍 [BALANCE CORRECTION] Processing group: 2025-04_d90ed0ad-586a-4d01-ad50-8349f9003aa9 with 111 transactions
+🔍 [BALANCE CORRECTION] Relevant transactions (≤24th) for 2025-04_d90ed0ad-586a-4d01-ad50-8349f9003aa9: 92
+🔍 [BALANCE CORRECTION] Row data for d90ed0ad-586a-4d01-ad50-8349f9003aa9 in 2025-04: 
+Object {latestTransactionDate: "2025-04-24", bankBalance: 1923.8, systemBalance: 1923.8, nextMonthKey: "2025-05", nextMonthName: "maj 2025"}
+🔍 [BALANCE CORRECTION] Processing group: 2025-03_d90ed0ad-586a-4d01-ad50-8349f9003aa9 with 15 transactions
+🔍 [BALANCE CORRECTION] Relevant transactions (≤24th) for 2025-03_d90ed0ad-586a-4d01-ad50-8349f9003aa9: 0
+🔍 [BALANCE CORRECTION] Final processed data: 
+(10) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
