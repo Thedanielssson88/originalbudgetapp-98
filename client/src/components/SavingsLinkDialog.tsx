@@ -103,7 +103,7 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
     
     // Update transaction with correct linking via prop function
     const updates: Partial<ImportedTransaction> = {
-      type: 'Savings',
+      type: 'Sparande',
       appCategoryId: target.mainCategoryId, // Link to main category
       savingsTargetId: target.id // Link to specific savings post/goal
     };

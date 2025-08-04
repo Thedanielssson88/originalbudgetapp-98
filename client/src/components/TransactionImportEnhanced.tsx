@@ -60,7 +60,7 @@ import { CategoryRuleManagerAdvanced } from './CategoryRuleManagerAdvanced';
 import { UncategorizedBankCategories } from './UncategorizedBankCategories';
 import { CategorySelectionDialog } from './CategorySelectionDialog';
 import { useBudget } from '@/hooks/useBudget';
-import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping, getAllTransactionsFromDatabase, linkAccountToBankTemplate } from '../orchestrator/budgetOrchestrator';
+import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping, getAllTransactionsFromDatabase, linkAccountToBankTemplate, matchInternalTransfer } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState, setMainCategories, updateSelectedBudgetMonth } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
@@ -1039,9 +1039,42 @@ export const TransactionImportEnhanced: React.FC = () => {
     });
   };
   
+  // Helper function to automatically find and match internal transfers
+  const findAndMatchTransfer = (transaction: ImportedTransaction) => {
+    // Find opposite amount transactions on different accounts with same date
+    const oppositeAmount = -transaction.amount;
+    
+    // Look for matches with same date and opposite amount on different accounts
+    const potentialMatches = allTransactions.filter(t => 
+      t.id !== transaction.id &&
+      t.accountId !== transaction.accountId &&
+      t.date === transaction.date &&
+      Math.abs(t.amount) === Math.abs(transaction.amount) &&
+      t.amount === oppositeAmount &&
+      !t.linkedTransactionId // Not already linked
+    );
+    
+    // If exactly one match found, auto-link them
+    if (potentialMatches.length === 1) {
+      const matchedTransaction = potentialMatches[0];
+      console.log(`🔄 [AUTO TRANSFER MATCH] Found exact match: ${transaction.id} <-> ${matchedTransaction.id}`);
+      
+      // Use the matchInternalTransfer function from imports
+      
+      // Match the transactions
+      matchInternalTransfer(transaction.id, matchedTransaction.id);
+      
+      return true; // Indicates a match was found and linked
+    }
+    
+    return false; // No unique match found
+  };
+
   // Apply all rules to filtered transactions
   const applyRulesToFilteredTransactions = () => {
     let updatedCount = 0;
+    let autoMatchedCount = 0;
+    let autoApprovedCount = 0;
     
     filteredTransactions.forEach(transaction => {
       // Check each rule for ALL filtered transactions (no status check)
@@ -1097,6 +1130,75 @@ export const TransactionImportEnhanced: React.FC = () => {
             type: newTransactionType as 'Transaction' | 'InternalTransfer' | 'Savings' | 'CostCoverage' | 'ExpenseClaim'
           });
           
+          // If the rule sets transaction type to InternalTransfer, try to auto-match
+          if (newTransactionType === 'InternalTransfer') {
+            const wasMatched = findAndMatchTransfer(transaction);
+            if (wasMatched) {
+              autoMatchedCount++;
+              
+              // Check if the matched transaction should also be auto-approved
+              // Find the matched transaction ID from the linking
+              const updatedTransaction = allTransactions.find(t => t.id === transaction.id);
+              if (updatedTransaction?.linkedTransactionId) {
+                const linkedTransaction = allTransactions.find(t => t.id === updatedTransaction.linkedTransactionId);
+                if (linkedTransaction) {
+                  // Check if the linked transaction also has a rule that applies
+                  for (const linkedRule of categoryRules) {
+                    if (!linkedRule.isActive) continue;
+                    
+                    let linkedMatchFound = false;
+                    
+                    // Check the same rule conditions for the linked transaction
+                    if (linkedRule.condition.type === 'categoryMatch') {
+                      if (linkedTransaction.bankCategory === linkedRule.condition.bankCategory) {
+                        if (!linkedRule.condition.bankSubCategory || linkedTransaction.bankSubCategory === linkedRule.condition.bankSubCategory) {
+                          linkedMatchFound = true;
+                        }
+                      }
+                    } else if (linkedRule.condition.type === 'textContains') {
+                      const searchLower = linkedRule.condition.value.toLowerCase();
+                      const descriptionLower = (linkedTransaction.description || '').toLowerCase();
+                      if (descriptionLower.includes(searchLower)) {
+                        linkedMatchFound = true;
+                      }
+                    } else if (linkedRule.condition.type === 'textStartsWith') {
+                      const searchLower = linkedRule.condition.value.toLowerCase();
+                      const descriptionLower = (linkedTransaction.description || '').toLowerCase();
+                      if (descriptionLower.startsWith(searchLower)) {
+                        linkedMatchFound = true;
+                      }
+                    }
+                    
+                    if (linkedMatchFound) {
+                      // Check if rule applies to the linked transaction's account
+                      if (linkedRule.action.applicableAccountIds && 
+                          linkedRule.action.applicableAccountIds.length > 0 && 
+                          !linkedRule.action.applicableAccountIds.includes(linkedTransaction.accountId)) {
+                        continue;
+                      }
+                      
+                      // Apply rule to linked transaction if it matches
+                      updateTransactionCategory(linkedTransaction.id, linkedRule.action.appMainCategoryId, linkedRule.action.appSubCategoryId);
+                      
+                      // Auto-approve linked transaction if it has both categories
+                      if (linkedRule.action.appMainCategoryId && linkedRule.action.appSubCategoryId) {
+                        handleTransactionUpdate(linkedTransaction.id, { status: 'green' as const });
+                        autoApprovedCount++;
+                      }
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+          }
+          
+          // If both category and subcategory are set, auto-approve the transaction
+          if (rule.action.appMainCategoryId && rule.action.appSubCategoryId) {
+            handleTransactionUpdate(transaction.id, { status: 'green' as const });
+            autoApprovedCount++;
+          }
+          
           updatedCount++;
           break; // Stop checking other rules for this transaction
         }
@@ -1104,9 +1206,17 @@ export const TransactionImportEnhanced: React.FC = () => {
     });
     
     if (updatedCount > 0) {
+      let description = `${updatedCount} transaktioner har uppdaterats enligt reglerna.`;
+      if (autoMatchedCount > 0) {
+        description += ` ${autoMatchedCount} interna överföringar matchades automatiskt.`;
+      }
+      if (autoApprovedCount > 0) {
+        description += ` ${autoApprovedCount} transaktioner godkändes automatiskt.`;
+      }
+      
       toast({
         title: "Regler tillämpade",
-        description: `${updatedCount} transaktioner har uppdaterats enligt reglerna.`
+        description: description
       });
       // Force refresh after applying rules
       setRefreshKey(prev => prev + 1);

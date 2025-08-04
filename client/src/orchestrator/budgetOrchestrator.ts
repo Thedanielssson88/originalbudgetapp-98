@@ -817,6 +817,55 @@ export function setSavingsGroups(value: BudgetGroup[]): void {
   updateAndRecalculate({ savingsGroups: value });
 }
 
+export function addSavingsItem(item: {
+  mainCategory: string;
+  subcategory: string;
+  name: string;
+  amount: number;
+  account: string;
+}): void {
+  const currentMonthData = getCurrentMonthData();
+  let savingsGroups = [...(currentMonthData.savingsGroups || [])];
+  
+  // Find or create the main category group
+  let categoryGroup = savingsGroups.find(g => g.name === item.mainCategory);
+  
+  if (!categoryGroup) {
+    // Create new category group
+    categoryGroup = {
+      id: uuidv4(),
+      name: item.mainCategory,
+      amount: 0,
+      type: 'savings',
+      subCategories: []
+    };
+    savingsGroups.push(categoryGroup);
+  }
+  
+  // Find the account ID from the account name
+  const accountId = state.budgetState.accounts.find(acc => acc.name === item.account)?.id || '';
+  
+  // Add the subcategory
+  if (!categoryGroup.subCategories) {
+    categoryGroup.subCategories = [];
+  }
+  
+  categoryGroup.subCategories.push({
+    id: uuidv4(),
+    name: item.name,
+    amount: item.amount,
+    accountId: accountId
+  });
+  
+  // Update the total amount for the category
+  categoryGroup.amount = (categoryGroup.subCategories || []).reduce((sum, sub) => sum + sub.amount, 0);
+  
+  console.log('🔍 [ORCHESTRATOR] Adding savings item:', item);
+  console.log('🔍 [ORCHESTRATOR] Updated savings groups:', savingsGroups);
+  
+  setSavingsGroups(savingsGroups);
+}
+
 export function setDailyTransfer(value: number): void {
   updateAndRecalculate({ dailyTransfer: value });
 }
