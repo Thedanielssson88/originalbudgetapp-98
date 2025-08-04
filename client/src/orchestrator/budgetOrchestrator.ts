@@ -152,32 +152,32 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
       console.log(`[ORCHESTRATOR] 🔄 Old bankSubCategory: "${existingTx.bankSubCategory}" -> New: "${fileTx.bankSubCategory}"`);
       
       if (existingTx.isManuallyChanged) {
-        // PRESERVE user changes but ALWAYS update bank fields from file
-        console.log(`[ORCHESTRATOR] 💾 Preserving manual changes while updating bank categories`);
+        // PRESERVE manual user changes: type, appCategoryId, appSubCategoryId, etc.
+        // ONLY update bank data and basic transaction info from file
+        console.log(`[ORCHESTRATOR] 💾 Preserving manual changes while updating bank categories only`);
         return {
           ...existingTx,
-          // ALWAYS update bank data from file - this is the authoritative source
+          // Update ONLY bank data and basic info from file - preserve all manual categorization
           bankCategory: fileTx.bankCategory,
           bankSubCategory: fileTx.bankSubCategory,
           bankStatus: fileTx.bankStatus,
           balanceAfter: fileTx.balanceAfter,
-          fileSource: fileTx.fileSource
+          fileSource: fileTx.fileSource,
+          // Keep all manual changes: type, appCategoryId, appSubCategoryId, linkedTransactionId, etc.
         };
       } else {
-        // Non-manually changed transaction - update everything from file
-        console.log(`[ORCHESTRATOR] 🔄 Updating non-manual transaction with all file data`);
-        return {
+        // Non-manually changed transaction - apply categorization rules to new file data
+        console.log(`[ORCHESTRATOR] 🔄 Updating non-manual transaction and applying rules`);
+        const updatedTx = {
           ...fileTx,
-          // Preserve some fields from existing transaction
+          // Preserve technical fields from existing transaction
           id: existingTx.id,
-          type: existingTx.type,
-          status: existingTx.status,
-          appCategoryId: existingTx.appCategoryId,
-          appSubCategoryId: existingTx.appSubCategoryId,
-          linkedTransactionId: existingTx.linkedTransactionId,
-          savingsTargetId: existingTx.savingsTargetId,
-          coveredCostId: existingTx.coveredCostId
         };
+        
+        // Apply categorization rules to the updated transaction
+        const processedTransaction = applyCategorizationRules(updatedTx, state.budgetState.categoryRules || []);
+        console.log(`[ORCHESTRATOR] ✅ Applied rules to existing transaction: type=${processedTransaction.type}, appCategory=${processedTransaction.appCategoryId}`);
+        return processedTransaction;
       }
     }
     
