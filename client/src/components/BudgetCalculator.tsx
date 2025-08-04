@@ -6595,11 +6595,8 @@ const BudgetCalculator = () => {
                                              size="sm"
                                              variant="outline"
                                              onClick={() => {
-                                               // Find or create group for this category
-                                               let targetGroup = costGroups.find(group => group.name === categoryName);
-                                               if (targetGroup) {
-                                                 addSubCategory(targetGroup.id);
-                                               }
+                                               // Open the proper dialog with huvudkategori/underkategori selection
+                                               setShowAddBudgetDialog({ isOpen: true, type: 'cost' });
                                              }}
                                              className="w-full bg-gradient-to-r from-primary/5 to-primary/10 hover:from-primary/10 hover:to-primary/20 transition-all duration-200"
                                            >
