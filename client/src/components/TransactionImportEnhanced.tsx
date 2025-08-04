@@ -605,6 +605,101 @@ export const TransactionImportEnhanced: React.FC = () => {
     }
   };
 
+  // Intelligent file parser that handles messy XLSX exports and various CSV formats
+  const smartParse = useCallback((fileContent: string) => {
+    const lines = fileContent.split('\n');
+    console.log(`🔍 [SMART PARSE] Starting with ${lines.length} lines`);
+    
+    // 1. Detect delimiter automatically
+    let delimiter = ',';
+    if (lines.length > 5) {
+      const sampleLines = lines.slice(0, 10).join('\n');
+      const commaCount = (sampleLines.match(/,/g) || []).length;
+      const semicolonCount = (sampleLines.match(/;/g) || []).length;
+      if (semicolonCount > commaCount) {
+        delimiter = ';';
+      }
+      console.log(`🔍 [SMART PARSE] Delimiter detection: comma=${commaCount}, semicolon=${semicolonCount}, using: "${delimiter}"`);
+    }
+
+    // Enhanced mapping dictionary for Swedish bank exports
+    const mappingKeywords: { [key: string]: string[] } = {
+      'date': ['datum', 'transaktionsdatum', 'date'],
+      'description': ['beskrivning', 'text', 'description', 'meddelande'],
+      'amount': ['belopp', 'summa', 'amount'],
+      'bankCategory': ['kategori', 'bankkategori', 'category'],
+      'bankSubCategory': ['underkategori', 'bank underkategori', 'subcategory'],
+      'balance': ['saldo', 'balans', 'balance']
+    };
+
+    // 2. Find header row by matching against known keywords
+    let headerRowIndex = -1;
+    let headers: string[] = [];
+    let bestMatchScore = 0;
+    
+    for (let i = 0; i < Math.min(lines.length, 15); i++) {
+      const potentialHeaders = lines[i].split(delimiter).map(h => h.trim().replace(/"/g, '').toLowerCase());
+      let matchScore = 0;
+      
+      // Count matches against our mapping keywords
+      for (const header of potentialHeaders) {
+        for (const [field, keywords] of Object.entries(mappingKeywords)) {
+          if (keywords.some(keyword => header.includes(keyword))) {
+            matchScore++;
+            break;
+          }
+        }
+      }
+      
+      console.log(`🔍 [SMART PARSE] Line ${i}: "${lines[i].substring(0, 50)}..." - Match score: ${matchScore}/${potentialHeaders.length}`);
+      
+      // Header row should have at least 3 recognizable columns
+      if (matchScore >= 3 && matchScore > bestMatchScore) {
+        headerRowIndex = i;
+        headers = lines[i].split(delimiter).map(h => h.trim().replace(/"/g, ''));
+        bestMatchScore = matchScore;
+        console.log(`🚨 [SMART PARSE] New best header candidate at line ${i}: ${headers.join(', ')}`);
+      }
+    }
+
+    if (headerRowIndex === -1) {
+      throw new Error("Kunde inte hitta en rubrikrad med kända kolumner (Datum, Kategori, Belopp, etc.)");
+    }
+
+    console.log(`🎯 [SMART PARSE] Final header row at index ${headerRowIndex}: ${headers.join(', ')}`);
+
+    // 3. Extract clean data rows
+    const dataRows = lines
+      .slice(headerRowIndex + 1)
+      .filter(line => line.trim() !== '' && !line.match(/^[,;]+$/)) // Skip empty and separator-only lines
+      .map(line => line.split(delimiter).map(cell => cell.trim().replace(/"/g, '')));
+
+    console.log(`🔍 [SMART PARSE] Extracted ${dataRows.length} data rows`);
+    
+    // Debug: Show sample of extracted data
+    if (dataRows.length > 0) {
+      console.log(`🔍 [SMART PARSE] Sample data rows:`, dataRows.slice(0, 3));
+      
+      // Show category data specifically
+      const kategoriIndex = headers.findIndex(h => h.toLowerCase().includes('kategori') && !h.toLowerCase().includes('under'));
+      const underkategoriIndex = headers.findIndex(h => h.toLowerCase().includes('underkategori'));
+      
+      if (kategoriIndex >= 0) {
+        const categoryData = dataRows.slice(0, 5).map(row => row[kategoriIndex] || '[EMPTY]');
+        console.log(`🚨 [SMART PARSE] Kategori column (${kategoriIndex}): ${categoryData.join(', ')}`);
+      }
+      
+      if (underkategoriIndex >= 0) {
+        const subcategoryData = dataRows.slice(0, 5).map(row => row[underkategoriIndex] || '[EMPTY]');
+        console.log(`🚨 [SMART PARSE] Underkategori column (${underkategoriIndex}): ${subcategoryData.join(', ')}`);
+      }
+    }
+
+    // Reconstruct clean CSV with the found delimiter
+    const cleanCsv = [headers.join(delimiter), ...dataRows.map(row => row.join(delimiter))].join('\n');
+    return { headers, dataRows, delimiter, cleanCsv };
+  }, []);
+
   // Helper function to parse XLSX files and convert to CSV format
   const parseXLSXFile = useCallback(async (file: File): Promise<string> => {
     const arrayBuffer = await file.arrayBuffer();
@@ -711,15 +806,21 @@ export const TransactionImportEnhanced: React.FC = () => {
       });
     }
     
-    // Reconstruct CSV data
-    csvData = filteredLines.join('\n');
-    
-    aprilLines.slice(0, 5).forEach((line, index) => {
-      console.log(`🔍 [XLSX] April line ${index + 1}: ${line}`);
-    });
-    addMobileDebugLog(`🔍 XLSX: ${lines.length} total lines, ${aprilLines.length} April lines, ${filteredLines.length} after cleanup`);
-    
-    return csvData;
+    // Use smart parser to clean up the data
+    try {
+      const parseResult = smartParse(filteredLines.join('\n'));
+      console.log(`🎯 [XLSX] Smart parser found ${parseResult.headers.length} headers and ${parseResult.dataRows.length} data rows`);
+      
+      addMobileDebugLog(`🎯 SMART PARSE SUCCESS: ${parseResult.headers.length} headers, ${parseResult.dataRows.length} rows`);
+      addMobileDebugLog(`🎯 Headers: ${parseResult.headers.join(', ')}`);
+      
+      return parseResult.cleanCsv;
+    } catch (error) {
+      console.warn(`🔍 [XLSX] Smart parser failed, falling back to original method:`, error);
+      // Fallback to original method
+      csvData = filteredLines.join('\n');
+      return csvData;
+    }
   }, []);
 
   // File upload handler - uses the new Smart Merge function
@@ -808,9 +909,30 @@ export const TransactionImportEnhanced: React.FC = () => {
       addMobileDebugLog(`🔄 Headers: ${csvHeaders.join(', ')}`);
       
       console.log(`🚀 [IMPORT] About to call importAndReconcileFile...`);
-      console.log(`🚀 [IMPORT] XLSX import targeting account: ${accountName} (${accountId})`);
-      console.log(`🚀 [IMPORT] CSV content has ${csvContent.split('\n').length} lines (including header)`);
-      importAndReconcileFile(csvContent, accountId);
+      console.log(`🚀 [IMPORT] File import targeting account: ${accountName} (${accountId})`);
+      
+      // Use smart parser for both CSV and XLSX files to ensure consistent processing
+      try {
+        const parseResult = smartParse(csvContent);
+        console.log(`🎯 [IMPORT] Smart parser found ${parseResult.headers.length} headers and ${parseResult.dataRows.length} data rows`);
+        addMobileDebugLog(`🎯 FINAL PARSE: ${parseResult.headers.length} headers, ${parseResult.dataRows.length} rows`);
+        
+        // Debug category data one more time
+        const kategoriIndex = parseResult.headers.findIndex(h => h.toLowerCase().includes('kategori') && !h.toLowerCase().includes('under'));
+        const underkategoriIndex = parseResult.headers.findIndex(h => h.toLowerCase().includes('underkategori'));
+        
+        if (kategoriIndex >= 0 && parseResult.dataRows.length > 0) {
+          const sampleCategories = parseResult.dataRows.slice(0, 3).map(row => row[kategoriIndex] || '[EMPTY]');
+          console.log(`🎯 [FINAL CHECK] Kategori data: ${sampleCategories.join(', ')}`);
+          addMobileDebugLog(`🎯 Categories found: ${sampleCategories.join(', ')}`);
+        }
+        
+        importAndReconcileFile(parseResult.cleanCsv, accountId);
+      } catch (error) {
+        console.warn(`🔍 [IMPORT] Smart parser failed, using original CSV:`, error);
+        addMobileDebugLog(`⚠️ Smart parser failed: ${error}`);
+        importAndReconcileFile(csvContent, accountId);
+      }
       console.log(`🚀 [IMPORT] importAndReconcileFile call completed for account: ${accountName}`);
       
       console.log('🔄 [DEBUG] After importAndReconcileFile - checking budgetState...');

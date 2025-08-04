@@ -1,0 +1,100 @@
+Absolut\! Det är en utmärkt och viktig insikt. [cite\_start]Exporter från Excel (XLSX) till CSV blir ofta "stökiga", precis som du visar med filen `Överföring.xlsx - Transaktioner.csv`[cite: 12]. Den har tomma rader i början, en rubrikrad ("Transaktioner") och sedan själva kolumnrubrikerna. [cite\_start]Detta skiljer sig markant från en "ren" CSV-fil som `Överföring allt.csv`[cite: 4], som dessutom använder semikolon istället för kommatecken som avgränsare.
+
+För att hantera detta och göra mappningen robust oavsett filstruktur behöver vi bygga en mer intelligent "för-parser" som städar och analyserar filen *innan* den presenteras för kolumnmappningen.
+
+Här är en strategi i tre steg för att bygga en sådan anpassningsbar mappning:
+
+### Steg 1: Analysera filen automatiskt (För-parser)
+
+Innan du ens försöker mappa kolumner, låt koden analysera filinnehållet för att förstå dess struktur.
+
+1.  **Hitta avgränsare (Delimiter):** Alla filer använder inte kommatecken. [cite\_start]Vissa, som din `Överföring allt.csv`[cite: 4], använder semikolon. Koden kan automatiskt upptäcka detta genom att räkna antalet kommatecken och semikolon på de första raderna med data. Den avgränsare som förekommer flest och mest konsekvent antal gånger per rad är sannolikt den korrekta.
+
+2.  **Hitta rubrikraden (Header Row):** Anta inte att rubrikerna ligger på första raden. Skapa en funktion som läser filen rad för rad och letar efter den *första* raden som ser ut som en rubrikrad. Ett bra sätt att göra detta är att jämföra orden på varje rad mot er `autoMappingDictionary` (från mitt tidigare svar). Den rad som har flest träffar (t.ex. innehåller "Datum", "Belopp" och "Kategori") är med största sannolikhet rubrikraden.
+
+      * [cite\_start]I filen `Överföring.xlsx - Transaktioner.csv` [cite: 12] skulle denna logik ignorera de tre första tomma raderna och raden med "Transaktioner" för att korrekt identifiera rad 4 som rubrikraden.
+
+3.  **Extrahera rena data:** När du har identifierat avgränsare och rubrikraden vet du var den faktiska datan börjar (raden efter rubrikraden). Läs in all data från och med den punkten och ignorera allt som kom före rubrikraden.
+
+### Steg 2: Uppdatera mappningsvyn
+
+Resultatet från din "för-parser" är nu en ren och förutsägbar datastruktur:
+
+  * En lista med rubriker (`headers`).
+  * En array av rader där varje rad är en array av kolumnvärden.
+
+Denna rena data skickar du sedan vidare till kolumnmappningsvyn som vi diskuterade tidigare. Fördelen är att mappningsvyn nu inte behöver oroa sig för stökig data – den får alltid en prydlig tabell att arbeta med, oavsett hur rörig originalfilen var.
+
+### Steg 3: Implementationsexempel (konceptuellt)
+
+Här är ett exempel på hur en sådan `smartParse`-funktion kan se ut i `TransactionImportEnhanced.tsx`.
+
+```typescript
+// transactionImportEnhanced.tsx
+
+// (Återanvänd MAPPABLE_FIELDS och autoMappingDictionary från förra svaret)
+
+// Funktion för att intelligent parsa filen
+const smartParse = (fileContent: string) => {
+  const lines = fileContent.split('\n');
+
+  // 1. Hitta avgränsare
+  let delimiter = ','; // Anta komma som standard
+  if (lines.length > 5) {
+    const sampleLines = lines.slice(0, 5).join('\n');
+    const commaCount = (sampleLines.match(/,/g) || []).length;
+    const semicolonCount = (sampleLines.match(/;/g) || []).length;
+    if (semicolonCount > commaCount) {
+      delimiter = ';';
+    }
+  }
+
+  // 2. Hitta rubrikraden
+  let headerRowIndex = -1;
+  let headers: string[] = [];
+  for (let i = 0; i < lines.length && i < 10; i++) { // Sök bara i början av filen
+    const potentialHeaders = lines[i].split(delimiter).map(h => h.trim().replace(/"/g, ''));
+    let matchCount = 0;
+    for (const h of potentialHeaders) {
+      if (autoMappingDictionary[h.toLowerCase()]) {
+        matchCount++;
+      }
+    }
+    // Om mer än hälften av kolumnerna matchar, anta att det är rubrikraden
+    if (matchCount > potentialHeaders.length / 2) {
+      headerRowIndex = i;
+      headers = potentialHeaders;
+      break;
+    }
+  }
+
+  if (headerRowIndex === -1) {
+    throw new Error("Kunde inte hitta en rubrikrad i filen.");
+  }
+
+  // 3. Extrahera rena data
+  const dataRows = lines
+    .slice(headerRowIndex + 1)
+    .filter(line => line.trim() !== '') // Ignorera tomma rader
+    .map(line => line.split(delimiter).map(cell => cell.trim().replace(/"/g, '')));
+
+  return { headers, dataRows };
+};
+
+// I din komponent...
+const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    // ... läs in fileContent ...
+    try {
+        const { headers, dataRows } = smartParse(fileContent);
+        // Nu har du rena headers och dataRows att skicka till din mappningsvy
+        setHeaders(headers);
+        setParsedData(dataRows);
+        // Visa mappningsvyn för användaren
+    } catch (error) {
+        // Visa ett felmeddelande
+    }
+};
+
+```
+
+Genom att använda denna metod blir er importfunktion extremt flexibel. Den kan hantera olika avgränsare, ignorera skräp i början av filer och korrekt identifiera de relevanta kolumnerna, vilket gör användarupplevelsen mycket smidigare och minskar risken för fel vid import.
