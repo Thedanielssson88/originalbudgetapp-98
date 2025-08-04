@@ -252,11 +252,11 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                      <p className="text-xs text-muted-foreground">Belopp</p>
                      {transaction.correctedAmount !== undefined ? (
                        <p className={`font-semibold text-sm ${transaction.correctedAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                         {transaction.correctedAmount >= 0 ? '+' : ''}{Math.abs(transaction.correctedAmount).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
+                         {transaction.correctedAmount >= 0 ? '+' : ''}{Math.abs(transaction.correctedAmount).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kr
                        </p>
                      ) : (
                        <p className={`font-semibold text-sm ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                         {transaction.amount >= 0 ? '+' : ''}{Math.abs(transaction.amount).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
+                         {transaction.amount >= 0 ? '+' : ''}{Math.abs(transaction.amount).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kr
                        </p>
                      )}
                    </div>
@@ -710,7 +710,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                        <div>
                          <label className="text-xs font-medium text-muted-foreground">Saldo efter transaktion</label>
                          <p className="text-sm font-medium">
-                           {transaction.balanceAfter.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
+                           {transaction.balanceAfter.toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kr
                          </p>
                        </div>
                      )}
@@ -721,7 +721,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                        <div>
                          <label className="text-xs font-medium text-muted-foreground">Estimerat saldo efter transaktion</label>
                          <p className="text-sm font-medium text-muted-foreground">
-                           {transaction.estimatedBalanceAfter.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
+                           {transaction.estimatedBalanceAfter.toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kr
                          </p>
                        </div>
                      )}
