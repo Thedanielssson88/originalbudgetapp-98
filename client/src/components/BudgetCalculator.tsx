@@ -184,6 +184,34 @@ const BudgetCalculator = () => {
       window.removeEventListener('setActiveTab', handleSetActiveTab as EventListener);
     };
   }, []);
+
+  // Tab navigation functions for swipe gestures
+  const tabs = ["inkomster", "sammanstallning", "overforing", "egen-budget", "historia"];
+  
+  const goToPreviousTab = () => {
+    const currentIndex = tabs.indexOf(activeTab);
+    if (currentIndex > 0) {
+      const newTab = tabs[currentIndex - 1];
+      console.log('🔄 [SWIPE] Switching to previous tab:', newTab);
+      setActiveTab(newTab);
+    }
+  };
+
+  const goToNextTab = () => {
+    const currentIndex = tabs.indexOf(activeTab);
+    if (currentIndex < tabs.length - 1) {
+      const newTab = tabs[currentIndex + 1];
+      console.log('🔄 [SWIPE] Switching to next tab:', newTab);
+      setActiveTab(newTab);
+    }
+  };
+
+  // Initialize swipe gestures
+  useSwipeGestures({
+    onSwipeLeft: goToNextTab,
+    onSwipeRight: goToPreviousTab,
+    threshold: 50
+  });
   
   // Tab and expandable sections state
   const [activeTab, setActiveTab] = useState<string>("inkomster");
