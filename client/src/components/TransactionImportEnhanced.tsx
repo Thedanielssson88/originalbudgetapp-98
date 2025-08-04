@@ -631,22 +631,61 @@ export const TransactionImportEnhanced: React.FC = () => {
       console.log(`🔍 [XLSX] Line ${index + 1}: "${line}"`);
     });
     
-    // Fix XLSX header structure - remove title/empty rows and keep only data
-    const filteredLines = lines.filter((line, index) => {
-      // Skip empty lines and title lines
-      if (!line.trim()) return false;
-      if (line.startsWith('Transaktioner')) return false;
-      if (line.match(/^;+$/)) return false; // Skip lines with only semicolons
-      return true;
-    });
+    // Fix XLSX header structure - find the real header row and remove title/empty rows
+    let headerRowIndex = -1;
+    let filteredLines: string[] = [];
     
-    console.log(`🔍 [XLSX] After filtering: ${filteredLines.length} lines (removed ${lines.length - filteredLines.length} header/empty lines)`);
+    // Find the real header row (contains "Datum", "Kategori", "Text", etc.)
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.includes('Datum') && line.includes('Kategori') && line.includes('Underkategori') && line.includes('Text')) {
+        headerRowIndex = i;
+        console.log(`🔍 [XLSX] Found header row at index: ${i}`);
+        break;
+      }
+    }
     
-    if (filteredLines.length > 0) {
-      console.log(`🔍 [XLSX] New first line (headers): "${filteredLines[0]}"`);
-      const headers = filteredLines[0].split(';');
+    if (headerRowIndex >= 0) {
+      // Include header row and all following data rows (skip title and empty rows before header)
+      filteredLines = lines.slice(headerRowIndex).filter(line => {
+        // Keep header and all non-empty data rows
+        return line.trim() && !line.match(/^;+$/);
+      });
+      
+      console.log(`🔍 [XLSX] After filtering: ${filteredLines.length} lines (header + data)`);
+      console.log(`🔍 [XLSX] Header line: "${filteredLines[0]}"`);
+      
+      const headers = filteredLines[0].split(';').map(h => h.trim());
       console.log(`🔍 [XLSX] Parsed headers:`, headers);
+      
+      // Debug: Show position of category columns
+      headers.forEach((header, index) => {
+        if (header.toLowerCase().includes('kategori')) {
+          console.log(`🔍 [XLSX] Category column "${header}" at position ${index + 1}`);
+        }
+      });
+      
       addMobileDebugLog(`🔍 XLSX Headers: ${headers.join(', ')}`);
+      addMobileDebugLog(`🔍 XLSX Category columns: Kategori at pos ${headers.indexOf('Kategori') + 1}, Underkategori at pos ${headers.indexOf('Underkategori') + 1}`);
+      
+      // Show sample data to verify category columns have values
+      if (filteredLines.length > 1) {
+        const sampleRow = filteredLines[1].split(';');
+        console.log(`🔍 [XLSX] Sample data row:`, sampleRow);
+        const kategoriIndex = headers.indexOf('Kategori');
+        const underkategoriIndex = headers.indexOf('Underkategori');
+        console.log(`🔍 [XLSX] Sample Kategori: "${sampleRow[kategoriIndex] || 'MISSING'}" at index ${kategoriIndex}`);
+        console.log(`🔍 [XLSX] Sample Underkategori: "${sampleRow[underkategoriIndex] || 'MISSING'}" at index ${underkategoriIndex}`);
+      }
+    } else {
+      console.warn(`🔍 [XLSX] Could not find header row with expected columns`);
+      // Fallback to original filtering
+      filteredLines = lines.filter((line, index) => {
+        if (!line.trim()) return false;
+        if (line.startsWith('Transaktioner')) return false;
+        if (line.match(/^;+$/)) return false;
+        return true;
+      });
     }
     
     // Reconstruct CSV data

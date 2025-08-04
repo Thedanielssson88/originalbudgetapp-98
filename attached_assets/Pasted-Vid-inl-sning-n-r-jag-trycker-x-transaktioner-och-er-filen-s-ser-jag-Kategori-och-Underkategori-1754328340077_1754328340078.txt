@@ -1,0 +1,38 @@
+Vid inläsning, när jag trycker å x transaktioner och er filen, så ser jag Kategori och Underkategori.
+
+Datum	Kategori	Underkategori	Text	Belopp	Saldo	Status	Avstämt
+2025-08-04	Övriga utgifter	Övriga kontoöverföringar	Till kort	-300.00	29,542.00	Utförd	Nej
+2025-08-01	Övriga utgifter	Övriga kontoöverföringar	Till kort	-300.00	29,842.00	Utförd	Nej
+2025-08-01	Övriga utgifter	Övriga kontoöverföringar	Helgöverföring	-540.00	30,142.00	Utförd	Nej
+2025-07-31	Lön & pension	Lön	LÖN	30,150.00	30,682.00	Utförd	Nej
+2025-07-31	Övriga utgifter	Övriga kontoöverföringar	Till kort	-300.00	532.00	Utförd	Nej
+2025-07-30	Övriga utgifter	Övriga kontoöverföringar	Till kort	-300.00	832.00	Utförd	Nej
+2025-07-29	Övriga utgifter	Överföringar egna konton	Till Hushåll - Semester	-4,000.00	1,132.00	Utförd	Nej
+2025-07-29	Övriga utgifter	Övriga kontoöverföringar	Till kort	-300.00	5,132.00	Utförd	Nej
+2025-07-28	Ej kategoriserat	Ej kategoriserat	Bildäck	-300.00	5,432.00	Utförd	Nej
+
+När jag byter vy, så ser jag itne Bankkategori och Underkategori. De blir inte inlästa. 
+
+Datum	Bankkategori	Underkategori	Beskrivning	Användarbeskrivning	Belopp	Saldo	Status	Typ	App-kategori	Åtgärder
+2025-08-04	-	-	Till kort	Överföring till Hushållskonto, 2025-08-04	−300,00 kr	29 542,00 kr	Klar	Intern transfer	
+Hushåll
+Allmänt
+Matchad
+2025-08-01	-	-	Till kort	Överföring till Hushållskonto, 2025-08-01	−300,00 kr	29 842,00 kr	Klar	Intern transfer	
+Hushåll
+Allmänt
+Matchad
+2025-08-01	-	-	Helgöverföring	Överföring till Hushållskonto, 2025-08-01	−540,00 kr	30 142,00 kr	Klar	Intern transfer	
+Hushåll
+Allmänt
+Matchad
+2025-07-31	-	-	LÖN	-	30 150,00 kr	30 682,00 kr	Fel	Transaktion	-	-
+2025-07-31	-	-	Till kort	Överföring till Hushållskonto, 2025-07-31	−300,00 kr	532,00 kr	Klar	Intern transfer	
+Hushåll
+Allmänt
+Matchad
+2025-07-30	-	-	Till kort	Överföring till Hushållskonto, 2025-07-30	−300,00 kr	832,00 kr	Klar	Intern transfer	
+Hushåll
+Allmänt
+Matchad
+2025-07-29	-	-	Till Hushåll - Semester	-	−4 000,00 kr	1 132,00 kr	Granskas	Intern transfer	-	Matchad
