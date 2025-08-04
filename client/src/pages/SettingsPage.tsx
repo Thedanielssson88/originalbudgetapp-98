@@ -13,7 +13,7 @@ import { MainCategoriesSettings } from "@/components/MainCategoriesSettings";
 import { PaydaySettings } from "@/components/PaydaySettings";
 import { useBudget } from "@/hooks/useBudget";
 import { getCurrentState, addAccount, removeAccount, updateSelectedBudgetMonth } from "@/orchestrator/budgetOrchestrator";
-import { simpleGoogleDriveService } from "@/services/simpleGoogleDriveService";
+import { webGoogleDriveService } from "@/services/webGoogleDriveService";
 import { Calendar, User, Shield, Database, Settings, DollarSign, FolderOpen, ChevronLeft, ChevronRight, Cloud, CloudOff } from "lucide-react";
 
 const SettingsPage = () => {
@@ -94,11 +94,18 @@ const SettingsPage = () => {
 
   const initializeGoogleDrive = async () => {
     try {
-      const initialized = await simpleGoogleDriveService.initialize();
+      const initialized = await webGoogleDriveService.initialize();
       setIsGoogleDriveInitialized(initialized);
       
       if (initialized) {
-        const status = simpleGoogleDriveService.getSignInStatus();
+        // Kontrollera om användaren redan är ansluten
+        const savedEmail = localStorage.getItem('googleDriveUserEmail');
+        if (savedEmail) {
+          setIsSignedInToGoogle(true);
+          setGoogleUserEmail(savedEmail);
+        }
+        
+        const status = webGoogleDriveService.getSignInStatus();
         setIsSignedInToGoogle(status.isSignedIn);
         setGoogleUserEmail(status.userEmail);
         
@@ -113,7 +120,7 @@ const SettingsPage = () => {
 
   const updateGoogleBackupInfo = async () => {
     try {
-      const backupExists = await simpleGoogleDriveService.checkBackupExists();
+      const backupExists = await webGoogleDriveService.checkBackupExists();
       setGoogleBackupExists(backupExists);
     } catch (error) {
       console.error('Failed to get Google backup info:', error);
@@ -123,23 +130,23 @@ const SettingsPage = () => {
   const handleGoogleSignIn = async () => {
     setIsLoadingGoogle(true);
     try {
-      const success = await simpleGoogleDriveService.signIn();
+      const success = await webGoogleDriveService.signInWithGoogleDrive();
       if (success) {
-        const status = simpleGoogleDriveService.getSignInStatus();
+        const status = webGoogleDriveService.getSignInStatus();
         setIsSignedInToGoogle(status.isSignedIn);
         setGoogleUserEmail(status.userEmail);
         await updateGoogleBackupInfo();
       }
     } catch (error) {
       console.error('Google sign in failed:', error);
-      alert('Inloggning till Google Drive misslyckades. Försök igen eller kontakta support.');
+      alert('Anslutning till molnsynkronisering misslyckades. Försök igen.');
     } finally {
       setIsLoadingGoogle(false);
     }
   };
 
   const handleGoogleSignOut = () => {
-    simpleGoogleDriveService.signOut();
+    webGoogleDriveService.signOut();
     setIsSignedInToGoogle(false);
     setGoogleUserEmail('');
     setGoogleBackupExists(false);
@@ -149,38 +156,38 @@ const SettingsPage = () => {
   const handleGoogleBackup = async () => {
     setIsLoadingGoogle(true);
     try {
-      const success = await simpleGoogleDriveService.createBackup();
+      const success = await webGoogleDriveService.createBackup();
       if (success) {
         await updateGoogleBackupInfo();
-        alert('Backup sparad till Google Drive!');
+        alert('Backup sparad till molnet!');
       } else {
-        alert('Backup till Google Drive misslyckades.');
+        alert('Backup till molnet misslyckades.');
       }
     } catch (error) {
       console.error('Google backup failed:', error);
-      alert('Backup till Google Drive misslyckades.');
+      alert('Backup till molnet misslyckades.');
     } finally {
       setIsLoadingGoogle(false);
     }
   };
 
   const handleGoogleRestore = async () => {
-    if (!confirm('Detta kommer att ersätta all nuvarande data med data från Google Drive. Vill du fortsätta?')) {
+    if (!confirm('Detta kommer att ersätta all nuvarande data med data från molnet. Vill du fortsätta?')) {
       return;
     }
 
     setIsLoadingGoogle(true);
     try {
-      const success = await simpleGoogleDriveService.restoreBackup();
+      const success = await webGoogleDriveService.restoreBackup();
       if (success) {
-        alert('Data återställd från Google Drive! Sidan laddas om.');
+        alert('Data återställd från molnet! Sidan laddas om.');
         window.location.reload();
       } else {
-        alert('Återställning från Google Drive misslyckades.');
+        alert('Återställning från molnet misslyckades.');
       }
     } catch (error) {
       console.error('Google restore failed:', error);
-      alert('Återställning från Google Drive misslyckades.');
+      alert('Återställning från molnet misslyckades.');
     } finally {
       setIsLoadingGoogle(false);
     }
@@ -638,7 +645,7 @@ const SettingsPage = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Cloud className="h-5 w-5" />
-                  Google Drive Molnsynkronisering
+                  Molnsynkronisering
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -665,29 +672,29 @@ const SettingsPage = () => {
                         <div className="space-y-3">
                           <div className="flex items-center gap-2">
                             <Badge variant="secondary" className="bg-green-100 text-green-800">
-                              Inloggad
+                              Ansluten
                             </Badge>
-                            <span>{googleUserEmail}</span>
+                            <span>Molnsynkronisering aktiv</span>
                           </div>
                           <Button 
                             onClick={handleGoogleSignOut}
                             variant="outline"
                             size="sm"
                           >
-                            Logga ut från Google Drive
+                            Koppla från molnsynkronisering
                           </Button>
                         </div>
                       ) : (
                         <div className="space-y-3">
                           <div className="flex items-center gap-2">
-                            <Badge variant="outline">Inte inloggad</Badge>
+                            <Badge variant="outline">Inte ansluten</Badge>
                           </div>
                           <Button 
                             onClick={handleGoogleSignIn}
                             disabled={isLoadingGoogle}
                             className="w-full sm:w-auto"
                           >
-                            {isLoadingGoogle ? 'Loggar in...' : 'Logga in till Google Drive'}
+                            {isLoadingGoogle ? 'Ansluter...' : 'Anslut molnsynkronisering'}
                           </Button>
                         </div>
                       )}
@@ -718,7 +725,7 @@ const SettingsPage = () => {
                               <AlertDescription>
                                 <div className="flex items-center gap-2">
                                   <Badge variant="outline">Ingen backup</Badge>
-                                  <span>Ingen backup hittades i Google Drive</span>
+                                  <span>Ingen backup hittades i molnet</span>
                                 </div>
                               </AlertDescription>
                             </Alert>
@@ -739,7 +746,7 @@ const SettingsPage = () => {
                               Automatisk molnsynkronisering
                             </Label>
                             <p className="text-sm text-muted-foreground">
-                              Sparar automatiskt alla ändringar till Google Drive
+                              Sparar automatiskt alla ändringar till molnet
                             </p>
                           </div>
                           <Switch
@@ -762,7 +769,7 @@ const SettingsPage = () => {
                             disabled={isLoadingGoogle}
                             className="w-full"
                           >
-                            {isLoadingGoogle ? 'Sparar...' : 'Spara backup till Google Drive'}
+                            {isLoadingGoogle ? 'Sparar...' : 'Spara backup till molnet'}
                           </Button>
                           <Button 
                             onClick={handleGoogleRestore}
@@ -770,7 +777,7 @@ const SettingsPage = () => {
                             variant="outline"
                             className="w-full"
                           >
-                            {isLoadingGoogle ? 'Återställer...' : 'Återställ från Google Drive'}
+                            {isLoadingGoogle ? 'Återställer...' : 'Återställ från molnet'}
                           </Button>
                         </div>
                       </div>

@@ -9,7 +9,7 @@ import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 import { v4 as uuidv4 } from 'uuid';
 import { ImportedTransaction } from '../types/transaction';
 import { CategoryRule } from '../types/budget';
-import { simpleGoogleDriveService } from '../services/simpleGoogleDriveService';
+import { webGoogleDriveService } from '../services/webGoogleDriveService';
 
 // SMART MERGE FUNCTION - The definitive solution to duplicate and lost changes
 export function importAndReconcileFile(csvContent: string, accountId: string): void {
@@ -730,13 +730,13 @@ async function triggerAutoBackup() {
     if (!settings.autoBackupEnabled) return;
     
     // Check if Google Drive is available and user is signed in
-    const status = simpleGoogleDriveService.getSignInStatus();
+    const status = webGoogleDriveService.getSignInStatus();
     if (!status.isSignedIn) return;
     
     console.log('[ORCHESTRATOR] 🔄 Triggering automatic Google Drive backup...');
     
     // Create backup in the background without blocking UI
-    const success = await simpleGoogleDriveService.createBackup();
+    const success = await webGoogleDriveService.createBackup();
     if (success) {
       console.log('[ORCHESTRATOR] ✅ Automatic backup completed successfully');
     } else {
