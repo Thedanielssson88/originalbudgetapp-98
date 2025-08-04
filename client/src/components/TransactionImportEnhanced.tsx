@@ -1228,10 +1228,33 @@ export const TransactionImportEnhanced: React.FC = () => {
       console.log(`  ${index + 1}. ${transfer.id}: ${transfer.description} (${transfer.amount} kr, ${transfer.date}, type: ${transfer.type}, account: ${transfer.accountId})`);
     });
     
+    // Store matching results for detailed feedback
+    const matchingResults: string[] = [];
+    
     unmatchedTransfers.forEach(transfer => {
       const wasMatched = findAndMatchTransfer(transfer);
       if (wasMatched) {
         autoMatchedCount++;
+        matchingResults.push(`✓ ${transfer.description} (${transfer.amount} kr, ${transfer.date})`);
+      } else {
+        // Find potential matches to explain why it didn't work
+        const potentialMatches = allTransactions.filter(t => 
+          t.id !== transfer.id &&
+          t.accountId !== transfer.accountId &&
+          t.date === transfer.date &&
+          ((transfer.amount > 0 && t.amount < 0) || (transfer.amount < 0 && t.amount > 0)) &&
+          Math.abs(Math.abs(t.amount) - Math.abs(transfer.amount)) < 0.01 &&
+          !t.linkedTransactionId
+        );
+        
+        if (potentialMatches.length === 0) {
+          matchingResults.push(`✗ ${transfer.description} (${transfer.amount} kr, ${transfer.date}) - Ingen matchning hittad`);
+        } else if (potentialMatches.length > 1) {
+          matchingResults.push(`✗ ${transfer.description} (${transfer.amount} kr, ${transfer.date}) - ${potentialMatches.length} möjliga matchningar (tvetydig)`);
+        } else {
+          const match = potentialMatches[0];
+          matchingResults.push(`✗ ${transfer.description} (${transfer.amount} kr, ${transfer.date}) - Hittade match: ${match.description} men kunde inte länka`);
+        }
       }
     });
     
@@ -1253,6 +1276,16 @@ export const TransactionImportEnhanced: React.FC = () => {
         title: "Regler tillämpade",
         description: description
       });
+      
+      // Show detailed matching results if there were any transfer attempts
+      if (matchingResults.length > 0) {
+        setTimeout(() => {
+          toast({
+            title: "Automatisk matchningsdetaljer",
+            description: matchingResults.slice(0, 3).join('\n') + (matchingResults.length > 3 ? `\n...och ${matchingResults.length - 3} till` : ''),
+          });
+        }, 1500);
+      }
       // Force refresh after applying rules
       setRefreshKey(prev => prev + 1);
     } else {
