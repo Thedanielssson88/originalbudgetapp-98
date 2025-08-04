@@ -474,6 +474,14 @@ export const TransactionImportEnhanced: React.FC = () => {
     } as ImportedTransaction));
     
     console.log('[TX IMPORT] 📊 Converted transactions:', transactions.length);
+    
+    // Debug: Show transactions per account
+    const accountCounts = transactions.reduce((acc, t) => {
+      acc[t.accountId] = (acc[t.accountId] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    console.log('[TX IMPORT] 📊 Transactions per account:', accountCounts);
+    
     return transactions;
   }, [budgetState?.allTransactions, refreshKey]);
 
@@ -678,13 +686,17 @@ export const TransactionImportEnhanced: React.FC = () => {
 
       // Use the new Smart Merge function - eliminates duplicates and preserves manual changes
       console.log('🔄 [DEBUG] About to import file with accountId:', accountId);
+      console.log('🔄 [DEBUG] Account name:', accountName);
+      console.log('🔄 [DEBUG] File type:', fileExtension);
       console.log('🔄 [DEBUG] CSV content preview:', csvContent.substring(0, 200));
+      console.log('🔄 [DEBUG] CSV lines count:', csvContent.split('\n').length);
       addMobileDebugLog(`🔄 About to import for account: ${accountId}`);
       addMobileDebugLog(`🔄 CSV preview: ${csvContent.substring(0, 100)}...`);
       
       console.log(`🚀 [IMPORT] About to call importAndReconcileFile...`);
+      console.log(`🚀 [IMPORT] XLSX import targeting account: ${accountName} (${accountId})`);
       importAndReconcileFile(csvContent, accountId);
-      console.log(`🚀 [IMPORT] importAndReconcileFile call completed`);
+      console.log(`🚀 [IMPORT] importAndReconcileFile call completed for account: ${accountName}`);
       
       console.log('🔄 [DEBUG] After importAndReconcileFile - checking budgetState...');
       
@@ -1324,6 +1336,11 @@ export const TransactionImportEnhanced: React.FC = () => {
       
       // Recalculate all transaction statuses to apply new business rules
       recalculateAllTransactionStatuses();
+      
+      // Additional force refresh for UI consistency 
+      setTimeout(() => {
+        setRefreshKey(prev => prev + 1);
+      }, 100);
     } else {
       toast({
         title: "Inga ändringar",
@@ -1345,8 +1362,14 @@ export const TransactionImportEnhanced: React.FC = () => {
 
         <div className="grid gap-4">
           {accounts.map((account) => {
+            // Force fresh calculation of transactions for this account
             const accountTransactions = allTransactions.filter(t => t.accountId === account.id);
             const hasTransactions = accountTransactions.length > 0;
+            
+            // Additional debug for specific account issues
+            if (account.name === "Överföring" || accountTransactions.length > 0) {
+              console.log(`[ACCOUNT DEBUG] ${account.name} (${account.id}): ${accountTransactions.length} transactions`);
+            }
             
             return (
               <Card key={account.id} className="relative">
