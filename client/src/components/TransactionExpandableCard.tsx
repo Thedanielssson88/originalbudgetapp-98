@@ -106,12 +106,28 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                   />
                 </div>
 
-                {/* Main content - 6 columns for the new layout */}
-                <div className="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
+                {/* Main content - 8 columns for the new layout: Account, Bank Category, Bank Subcategory, Description, App Main Category, App Subcategory, Amount, Actions */}
+                <div className="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3">
                   {/* Account */}
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">Konto</p>
                     <p className="font-medium text-sm truncate">{account?.name || transaction.accountId}</p>
+                  </div>
+                  
+                  {/* Bank Category (Raw from file) */}
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Bankkategori</p>
+                    <p className="text-sm truncate bg-blue-50 dark:bg-blue-950 px-2 py-1 rounded text-blue-800 dark:text-blue-200" title={transaction.bankCategory || 'Tom från banken'}>
+                      {transaction.bankCategory || 'Tom från banken'}
+                    </p>
+                  </div>
+                  
+                  {/* Bank Subcategory (Raw from file) */}
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Bankunderkategori</p>
+                    <p className="text-sm truncate bg-blue-50 dark:bg-blue-950 px-2 py-1 rounded text-blue-800 dark:text-blue-200" title={transaction.bankSubCategory || 'Tom från banken'}>
+                      {transaction.bankSubCategory || 'Tom från banken'}
+                    </p>
                   </div>
                   
                   {/* Description */}
@@ -125,9 +141,9 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                     </p>
                   </div>
                   
-                  {/* Main Category with dropdown */}
+                  {/* App Main Category with dropdown */}
                   <div className="min-w-0" onClick={(e) => e.stopPropagation()}>
-                    <p className="text-xs text-muted-foreground">Huvudkategori</p>
+                    <p className="text-xs text-muted-foreground">Huvudkategori (App)</p>
                     <Select
                       value={(() => {
                         if (transaction.appCategoryId) {
