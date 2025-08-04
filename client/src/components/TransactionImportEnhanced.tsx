@@ -614,10 +614,22 @@ export const TransactionImportEnhanced: React.FC = () => {
     const worksheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[worksheetName];
     
-    // Convert to CSV format with semicolon delimiter to match existing CSV parsing
-    let csvData = XLSX.utils.sheet_to_csv(worksheet, { FS: ';' });
+    // Convert to CSV format - Use array method to preserve empty cells
+    const sheetData = XLSX.utils.sheet_to_json(worksheet, { 
+      header: 1, 
+      defval: '', // Keep empty cells as empty strings
+      raw: false  // Format values as strings
+    });
     
-    console.log(`🚀 [IMPORT] XLSX converted to CSV format, length: ${csvData.length}`);
+    // Convert back to CSV with semicolon separator, preserving all columns
+    let csvData = sheetData.map(row => {
+      // Ensure we have at least 8 columns for all expected fields
+      const paddedRow = [...row];
+      while (paddedRow.length < 8) paddedRow.push('');
+      return paddedRow.join(';');
+    }).join('\n');
+    
+    console.log(`🚀 [IMPORT] XLSX converted with preserved cells, length: ${csvData.length}`);
     
     // Debug: Check for April data in XLSX conversion
     const lines = csvData.split('\n');
