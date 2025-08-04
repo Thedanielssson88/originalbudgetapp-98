@@ -61,7 +61,7 @@ import { UncategorizedBankCategories } from './UncategorizedBankCategories';
 import { CategorySelectionDialog } from './CategorySelectionDialog';
 import { useBudget } from '@/hooks/useBudget';
 import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping, getAllTransactionsFromDatabase, linkAccountToBankTemplate } from '../orchestrator/budgetOrchestrator';
-import { getCurrentState, setMainCategories } from '../orchestrator/budgetOrchestrator';
+import { getCurrentState, setMainCategories, updateSelectedBudgetMonth } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 
@@ -392,6 +392,27 @@ export const TransactionImportEnhanced: React.FC = () => {
   const { budgetState } = useBudget();
   console.log('🔍 [DEBUG] Full budgetState:', budgetState);
   console.log('🔍 [DEBUG] budgetState keys:', Object.keys(budgetState || {}));
+
+  // Month navigation functions
+  const navigateToPreviousMonth = () => {
+    const [year, month] = budgetState.selectedMonthKey.split('-').map(Number);
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
+    const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+    updateSelectedBudgetMonth(prevMonthKey);
+  };
+
+  const navigateToNextMonth = () => {
+    const [year, month] = budgetState.selectedMonthKey.split('-').map(Number);
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear = month === 12 ? year + 1 : year;
+    const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+    updateSelectedBudgetMonth(nextMonthKey);
+  };
+
+  const handleBudgetMonthChange = (value: string) => {
+    updateSelectedBudgetMonth(value);
+  };
   const costGroups = budgetState?.historicalData?.[budgetState.selectedMonthKey]?.costGroups || [];
   const categoryRulesFromState = budgetState?.categoryRules || [];
   
@@ -1825,41 +1846,62 @@ export const TransactionImportEnhanced: React.FC = () => {
             <Button
               variant="ghost"
               size="lg"
-              onClick={() => {
-                const [year, month] = budgetState.selectedMonthKey.split('-').map(Number);
-                const prevMonth = month === 1 ? 12 : month - 1;
-                const prevYear = month === 1 ? year - 1 : year;
-                const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
-                // Navigate to previous month logic would go here
-              }}
+              onClick={() => navigateToPreviousMonth()}
               className="p-3 h-12 w-12 text-primary hover:text-primary/80"
             >
               <ChevronLeft className="h-6 w-6" />
             </Button>
             
-            <div className="w-auto min-w-[200px] text-xl font-semibold text-primary text-center">
-              {(() => {
-                const monthNames = [
-                  'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
-                  'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
-                ];
-                
-                const [year, month] = budgetState.selectedMonthKey.split('-');
-                const monthIndex = parseInt(month) - 1;
-                return `${monthNames[monthIndex]} ${year}`;
-              })()}
-            </div>
+            <Select 
+              value={budgetState.selectedMonthKey} 
+              onValueChange={(value) => handleBudgetMonthChange(value)}
+            >
+              <SelectTrigger className="w-auto min-w-[200px] border-none bg-transparent text-xl font-semibold text-primary hover:bg-muted/50 transition-colors text-center justify-center">
+                <SelectValue>
+                  {(() => {
+                    const monthNames = [
+                      'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
+                      'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
+                    ];
+                    
+                    const [year, month] = budgetState.selectedMonthKey.split('-');
+                    const monthIndex = parseInt(month) - 1;
+                    return `${monthNames[monthIndex]} ${year}`;
+                  })()}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {(() => {
+                  const monthNames = [
+                    'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
+                    'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
+                  ];
+                  
+                  const availableMonths = Object.keys(budgetState.historicalData || {});
+                  const currentDate = new Date();
+                  const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                  
+                  const allMonths = new Set([currentMonthKey, ...availableMonths]);
+                  
+                  return Array.from(allMonths).sort().reverse().map(monthKey => {
+                    const [year, month] = monthKey.split('-');
+                    const monthIndex = parseInt(month) - 1;
+                    const displayName = `${monthNames[monthIndex]} ${year}`;
+                    
+                    return (
+                      <SelectItem key={monthKey} value={monthKey}>
+                        {displayName}
+                      </SelectItem>
+                    );
+                  });
+                })()}
+              </SelectContent>
+            </Select>
 
             <Button
               variant="ghost"
               size="lg"
-              onClick={() => {
-                const [year, month] = budgetState.selectedMonthKey.split('-').map(Number);
-                const nextMonth = month === 12 ? 1 : month + 1;
-                const nextYear = month === 12 ? year + 1 : year;
-                const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
-                // Navigate to next month logic would go here
-              }}
+              onClick={() => navigateToNextMonth()}
               className="p-3 h-12 w-12 text-primary hover:text-primary/80"
             >
               <ChevronRight className="h-6 w-6" />
