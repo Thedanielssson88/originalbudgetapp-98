@@ -668,7 +668,8 @@ export function getInternalTransferSummary(
     selectedMonthKey,
     paydaySetting: budgetState.settings?.payday || 25,
     accountsCount: budgetState.accounts.length,
-    historicalDataKeys: Object.keys(budgetState.historicalData)
+    historicalDataKeys: Object.keys(budgetState.historicalData),
+    plannedTransfersCount: budgetState.plannedTransfers?.length || 0
   });
 
   // 1. Hämta det korrekta datumintervallet baserat på payday-inställningen
@@ -711,9 +712,17 @@ export function getInternalTransferSummary(
     transfers: transfersForPeriod
   });
 
+  // 3. Get planned transfers for this month
+  const plannedTransfersForMonth = budgetState.plannedTransfers?.filter(pt => pt.month === selectedMonthKey) || [];
+  
+  console.log('🔍 [INTERNAL TRANSFERS CALCULATION] Planned transfers for month', {
+    plannedTransfersForMonth: plannedTransfersForMonth.length,
+    transfers: plannedTransfersForMonth
+  });
+
   const allAccounts = budgetState.accounts;
 
-  // 3. Gå igenom varje konto och bygg upp en sammanställning
+  // 4. Gå igenom varje konto och bygg upp en sammanställning (faktiska + planerade)
   const result = allAccounts.map(account => {
     const summary: TransferSummary = {
       accountId: account.id,
@@ -724,7 +733,7 @@ export function getInternalTransferSummary(
       outgoingTransfers: []
     };
 
-    // Hitta alla överföringar som rör detta konto
+    // 4a. Lägg till faktiska överföringar från transaktioner
     transfersForPeriod.forEach(t => {
       // Om det är en inkommande överföring TILL detta konto
       if (t.accountId === account.id && t.amount > 0) {
@@ -751,10 +760,55 @@ export function getInternalTransferSummary(
         });
       }
     });
+
+    // 4b. Lägg till planerade överföringar
+    plannedTransfersForMonth.forEach(pt => {
+      const fromAccount = allAccounts.find(acc => acc.id === pt.fromAccountId);
+      const toAccount = allAccounts.find(acc => acc.id === pt.toAccountId);
+      
+      // Planerad inkommande överföring TILL detta konto
+      if (pt.toAccountId === account.id) {
+        summary.totalIn += pt.amount;
+        summary.incomingTransfers.push({
+          fromAccountName: fromAccount?.name || 'Okänt konto',
+          amount: pt.amount,
+          linked: true, // Planned transfers are considered "linked"
+          transaction: {
+            id: `planned-${pt.id}`,
+            type: 'PlannedTransfer',
+            description: pt.description || 'Planerad överföring',
+            amount: pt.amount,
+            date: selectedMonthKey, // Use month as identifier
+            accountId: pt.toAccountId,
+            linkedTransactionId: `planned-from-${pt.id}`
+          } as any
+        });
+      }
+      
+      // Planerad utgående överföring FRÅN detta konto
+      if (pt.fromAccountId === account.id) {
+        summary.totalOut += pt.amount;
+        summary.outgoingTransfers.push({
+          toAccountName: toAccount?.name || 'Okänt konto',
+          amount: pt.amount,
+          linked: true, // Planned transfers are considered "linked"
+          transaction: {
+            id: `planned-${pt.id}`,
+            type: 'PlannedTransfer',
+            description: pt.description || 'Planerad överföring',
+            amount: -pt.amount, // Negative for outgoing
+            date: selectedMonthKey, // Use month as identifier
+            accountId: pt.fromAccountId,
+            linkedTransactionId: `planned-to-${pt.id}`
+          } as any
+        });
+      }
+    });
+
     return summary;
   }).filter(s => s.totalIn > 0 || s.totalOut > 0); // Visa bara konton med överföringar
   
-  console.log('🔍 [INTERNAL TRANSFERS CALCULATION] Final result', {
+  console.log('🔍 [INTERNAL TRANSFERS CALCULATION] Final result (with planned transfers)', {
     summariesWithTransfers: result.length,
     result
   });

@@ -7,4 +7,8 @@ export interface PlannedTransfer {
   month: string;       // Format 'YYYY-MM', ex: '2025-08'
   description?: string; // Optional beskrivning av överföringen
   created: string;     // ISO timestamp när överföringen skapades
+  transferType: 'monthly' | 'daily'; // Fast månadsöverföring vs Daglig överföring
+  // Daily transfer specific fields
+  dailyAmount?: number; // Amount per day for daily transfers
+  transferDays?: number[]; // Days of week (0=Sunday, 1=Monday, etc.) for daily transfers
 }
