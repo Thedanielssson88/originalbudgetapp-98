@@ -238,11 +238,12 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">Transaktionstyp</p>
                     <p className="text-sm truncate">
-                      {transaction.type === 'Transaction' && 'Transaktion'}
-                      {transaction.type === 'InternalTransfer' && 'Intern överföring'}
-                      {transaction.type === 'Savings' && 'Sparande'}
-                      {transaction.type === 'CostCoverage' && 'Kostnadstäckning'}
-                      {transaction.type === 'ExpenseClaim' && 'Utlägg'}
+                      {transaction.savingsTargetId && 'Länkad Transaktion'}
+                      {!transaction.savingsTargetId && transaction.type === 'Transaction' && 'Transaktion'}
+                      {!transaction.savingsTargetId && transaction.type === 'InternalTransfer' && 'Intern överföring'}
+                      {!transaction.savingsTargetId && (transaction.type === 'Savings' || transaction.type === 'Sparande') && 'Sparande'}
+                      {!transaction.savingsTargetId && transaction.type === 'CostCoverage' && 'Kostnadstäckning'}
+                      {!transaction.savingsTargetId && transaction.type === 'ExpenseClaim' && 'Utlägg'}
                     </p>
                   </div>
                   
