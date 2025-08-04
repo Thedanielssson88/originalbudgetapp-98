@@ -623,6 +623,15 @@ export const TransactionImportEnhanced: React.FC = () => {
     const aprilLines = lines.filter(line => line.includes('2025-04'));
     console.log(`🔍 [XLSX] Total lines in converted CSV: ${lines.length}`);
     console.log(`🔍 [XLSX] April 2025 lines found: ${aprilLines.length}`);
+    
+    // Debug headers - first line should contain headers
+    if (lines.length > 0) {
+      console.log(`🔍 [XLSX] Headers from converted CSV: "${lines[0]}"`);
+      const headers = lines[0].split(';');
+      console.log(`🔍 [XLSX] Parsed headers:`, headers);
+      addMobileDebugLog(`🔍 XLSX Headers: ${headers.join(', ')}`);
+    }
+    
     aprilLines.slice(0, 5).forEach((line, index) => {
       console.log(`🔍 [XLSX] April line ${index + 1}: ${line}`);
     });
@@ -701,8 +710,19 @@ export const TransactionImportEnhanced: React.FC = () => {
       console.log('🔄 [DEBUG] File type:', fileExtension);
       console.log('🔄 [DEBUG] CSV content preview:', csvContent.substring(0, 200));
       console.log('🔄 [DEBUG] CSV lines count:', csvContent.split('\n').length);
+      
+      // Debug: Check headers and sample data
+      const csvLines = csvContent.split('\n');
+      const csvHeaders = csvLines[0]?.split(';') || [];
+      console.log('🔍 [DEBUG] Headers from CSV content:', csvHeaders);
+      console.log('🔍 [DEBUG] Sample CSV lines:');
+      csvLines.slice(0, 5).forEach((line, index) => {
+        console.log(`🔍 [DEBUG] Line ${index}: ${line}`);
+      });
+      
       addMobileDebugLog(`🔄 About to import for account: ${accountId}`);
       addMobileDebugLog(`🔄 CSV preview: ${csvContent.substring(0, 100)}...`);
+      addMobileDebugLog(`🔄 Headers: ${csvHeaders.join(', ')}`);
       
       console.log(`🚀 [IMPORT] About to call importAndReconcileFile...`);
       console.log(`🚀 [IMPORT] XLSX import targeting account: ${accountName} (${accountId})`);
