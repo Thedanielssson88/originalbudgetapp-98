@@ -6837,137 +6837,6 @@ const BudgetCalculator = () => {
                        )}
                      </div>
 
-                      {/* Savings by Account */}
-                      <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
-                        <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('savingsByAccount')}>
-                          <div>
-                            <div className="text-sm text-muted-foreground text-emerald-800">Sparande per konto</div>
-                            <div className="text-2xl font-bold text-emerald-600">
-                              {formatCurrency((() => {
-                                // Calculate total savings across all accounts
-                                const savingsTotal = activeContent.budgetItems.savingsItems
-                                  .reduce((sum, item) => sum + item.amount, 0);
-                                return savingsTotal;
-                              })())}
-                            </div>
-                          </div>
-                          {expandedSections.savingsByAccount ? <ChevronUp className="h-5 w-5 text-emerald-600" /> : <ChevronDown className="h-5 w-5 text-emerald-600" />}
-                        </div>
-                        
-                        {expandedSections.savingsByAccount && (
-                          <div className="mt-4 space-y-3">
-                            {/* Add button for new savings item */}
-                            <div className="flex justify-between items-center mb-3">
-                              <h4 className="font-semibold text-emerald-800">Konton med sparande</h4>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setShowAddBudgetDialog({ isOpen: true, type: 'savings' })}
-                                className="bg-gradient-to-r from-emerald-500/10 to-emerald-600/20 hover:from-emerald-500/20 hover:to-emerald-600/30"
-                              >
-                                <Plus className="w-4 h-4 mr-1" />
-                                Lägg till sparpost
-                              </Button>
-                            </div>
-                            
-                            {/* Display accounts with savings */}
-                            {activeContent.activeAccounts.map((account) => {
-                              // Get savings items for this account
-                              const savingsItemsForAccount = activeContent.budgetItems.savingsItems.filter(item => 
-                                item.accountId === account.id || item.account === account.name
-                              );
-                              
-                              // Get savings transactions for this account
-                              const savingsTransactionsForAccount = activeContent.transactionsForPeriod
-                                .filter(t => t.accountId === account.id && t.type === 'savings');
-                              
-                              // Skip if no savings items or transactions
-                              if (savingsItemsForAccount.length === 0 && savingsTransactionsForAccount.length === 0) {
-                                return null;
-                              }
-                              
-                              // Calculate totals
-                              const budgetedAmount = savingsItemsForAccount.reduce((sum, item) => sum + item.amount, 0);
-                              const actualAmount = savingsTransactionsForAccount.reduce((sum, t) => {
-                                const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
-                                return sum + Math.abs(effectiveAmount);
-                              }, 0);
-                              
-                              return (
-                                <div key={account.id} className="bg-white/80 rounded-lg p-3 border border-emerald-200">
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <h5 className="font-medium text-emerald-800">{account.name}</h5>
-                                      <div className="text-sm text-emerald-600 mt-1">
-                                        Budget: {formatCurrency(budgetedAmount)}
-                                      </div>
-                                      <div className="text-sm text-emerald-700 mt-1">
-                                        Faktiskt: <button
-                                          className="font-bold hover:text-emerald-600 underline"
-                                          onClick={() => {
-                                            // Open drill down for account savings
-                                            const transactions = savingsTransactionsForAccount;
-                                            setDrillDownDialog({
-                                              isOpen: true,
-                                              transactions,
-                                              categoryName: `Sparande - ${account.name}`,
-                                              budgetAmount: budgetedAmount,
-                                              actualAmount: actualAmount
-                                            });
-                                          }}
-                                        >
-                                          {formatCurrency(actualAmount)}
-                                        </button>
-                                      </div>
-                                    </div>
-                                    <div className={`text-sm font-medium ${
-                                      actualAmount >= budgetedAmount ? 'text-green-600' : 'text-red-600'
-                                    }`}>
-                                      {actualAmount >= budgetedAmount ? '+' : ''}{formatCurrency(actualAmount - budgetedAmount)}
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Show savings items for this account */}
-                                  {savingsItemsForAccount.length > 0 && (
-                                    <div className="mt-2 pt-2 border-t border-emerald-100">
-                                      <div className="text-xs text-emerald-600 font-medium mb-1">Sparandeposter:</div>
-                                      {savingsItemsForAccount.map((item, idx) => (
-                                        <div key={idx} className="text-xs text-emerald-700 ml-2">
-                                          • {item.description || item.name}: {formatCurrency(item.amount)}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                            
-                            {/* Show message if no accounts have savings */}
-                            {activeContent.activeAccounts.every(account => {
-                              const savingsItemsForAccount = activeContent.budgetItems.savingsItems.filter(item => 
-                                item.accountId === account.id || item.account === account.name
-                              );
-                              const savingsTransactionsForAccount = activeContent.transactionsForPeriod
-                                .filter(t => t.accountId === account.id && t.type === 'savings');
-                              return savingsItemsForAccount.length === 0 && savingsTransactionsForAccount.length === 0;
-                            }) && (
-                              <div className="text-center py-4 text-emerald-600">
-                                <p className="text-sm">Inga sparandeposter eller transaktioner hittades för denna månad.</p>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => setShowAddBudgetDialog({ isOpen: true, type: 'savings' })}
-                                  className="mt-2"
-                                >
-                                  <Plus className="w-4 h-4 mr-1" />
-                                  Lägg till första sparposten
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
                       {/* Total Savings with Dropdown */}
                       <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                         <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('savingsCategories')}>
@@ -7013,12 +6882,13 @@ const BudgetCalculator = () => {
                               savingsGoals={budgetState.savingsGoals}
                               accounts={budgetState.accounts}
                               mainCategories={budgetState.mainCategories || []}
+                              transactionsForPeriod={activeContent.transactionsForPeriod}
                               calculateSavingsActualForCategory={calculateSavingsActualForCategory}
                               calculateActualForTarget={calculateActualForTarget}
                               onSavingsCategoryDrillDown={openSavingsCategoryDrillDownDialog}
                               onSavingsTargetDrillDown={openSavingsTargetDrillDownDialog}
-                              onAddSavingsItem={(item) => {
-                                // Handle adding savings item
+                              onAddSavingsItem={() => {
+                                setShowAddBudgetDialog({ isOpen: true, type: 'savings' });
                               }}
                               onEditSavingsGroup={(group) => {
                                 // Handle editing savings group
