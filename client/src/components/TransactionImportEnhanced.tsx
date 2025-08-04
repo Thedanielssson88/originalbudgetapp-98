@@ -343,6 +343,8 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [selectedAccountForView, setSelectedAccountForView] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'red' | 'yellow' | 'green'>('all');
   const [monthFilter, setMonthFilter] = useState<string>('current'); // 'all' or 'YYYY-MM' or 'current'
+  const [currentPage, setCurrentPage] = useState(1);
+  const transactionsPerPage = 50; // Show 50 transactions per page for better performance
   
   // State for category selection dialog
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
@@ -392,14 +394,25 @@ export const TransactionImportEnhanced: React.FC = () => {
   // Get budget data from central state (SINGLE SOURCE OF TRUTH)
   const { budgetState } = useBudget();
   
-  // Reset filters when month changes to ensure consistency
+  // Reset filters and states when month changes to ensure consistency
   useEffect(() => {
+    console.log('🔄 Month changed, resetting filters and states');
     setMonthFilter('current');
     setStatusFilter('all');
     setHideGreenTransactions(false);
+    setSelectedTransactions([]);
+    setExpandedAccounts(new Set());
+    setCurrentPage(1);
     // Clear expansion state as well
     clearExpansionState();
+    // Force refresh to ensure UI updates
+    setRefreshKey(prev => prev + 1);
   }, [budgetState.selectedMonthKey]);
+  
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [monthFilter, statusFilter, hideGreenTransactions]);
 
   // Month navigation functions
   const navigateToPreviousMonth = () => {
@@ -736,9 +749,19 @@ export const TransactionImportEnhanced: React.FC = () => {
     console.log(`🔄 [TransactionImportEnhanced] Updating transaction ${transactionId} with updates:`, updates);
     
     // Find the transaction to get its date and derive monthKey
-    const transaction = allTransactions.find(t => t.id === transactionId);
+    // First try filteredTransactions (current view), then allTransactions
+    let transaction = filteredTransactions.find(t => t.id === transactionId);
     if (!transaction) {
-      console.error(`Transaction ${transactionId} not found`);
+      transaction = allTransactions.find(t => t.id === transactionId);
+    }
+    
+    if (!transaction) {
+      console.error(`Transaction ${transactionId} not found in filtered or all transactions`);
+      toast({
+        title: "Fel",
+        description: "Kunde inte hitta transaktionen. Försök ladda om sidan.",
+        variant: "destructive"
+      });
       return;
     }
 
@@ -832,8 +855,21 @@ export const TransactionImportEnhanced: React.FC = () => {
     const costGroup = costGroups.find(g => g.name === categoryName);
     const categoryId = costGroup ? costGroup.id : categoryName;
     
-    // Find the current transaction to check its current status
-    const currentTransaction = allTransactions.find(t => t.id === transactionId);
+    // Find the current transaction - first try filtered, then all
+    let currentTransaction = filteredTransactions.find(t => t.id === transactionId);
+    if (!currentTransaction) {
+      currentTransaction = allTransactions.find(t => t.id === transactionId);
+    }
+    
+    if (!currentTransaction) {
+      console.error(`Transaction ${transactionId} not found for category update`);
+      toast({
+        title: "Fel",
+        description: "Kunde inte hitta transaktionen för att uppdatera kategori.",
+        variant: "destructive"
+      });
+      return;
+    }
     
     // Create updated transaction object for status determination
     const updatedTransaction = {
@@ -1596,30 +1632,64 @@ export const TransactionImportEnhanced: React.FC = () => {
                  </CardTitle>
                  <CardDescription>
                    {filteredTransactions.length} transaktioner totalt
+                   {filteredTransactions.length > transactionsPerPage && 
+                     ` - Visar ${((currentPage - 1) * transactionsPerPage) + 1}-${Math.min(currentPage * transactionsPerPage, filteredTransactions.length)}`
+                   }
                  </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {filteredTransactions.map(transaction => (
-                    <TransactionExpandableCard
-                      key={transaction.id}
-                      transaction={transaction}
-                      account={accounts.find(acc => acc.id === transaction.accountId)}
-                      isSelected={selectedTransactions.includes(transaction.id)}
-                      onToggleSelection={toggleTransactionSelection}
-                      onUpdateCategory={updateTransactionCategory}
-                      onUpdateNote={updateTransactionNote}
-                      onUpdateStatus={updateTransactionStatus}
-                      onTransferMatch={handleTransferMatch}
-                      onSavingsLink={handleSavingsLink}
-                      onCostCoverage={handleCostCoverage}
-                      onExpenseClaim={handleExpenseClaim}
-                      onRefresh={triggerRefresh}
-                      mainCategories={mainCategories}
-                      costGroups={costGroups}
-                    />
-                  ))}
+                  {(() => {
+                    const startIndex = (currentPage - 1) * transactionsPerPage;
+                    const endIndex = startIndex + transactionsPerPage;
+                    const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
+                    
+                    return paginatedTransactions.map(transaction => (
+                      <TransactionExpandableCard
+                        key={transaction.id}
+                        transaction={transaction}
+                        account={accounts.find(acc => acc.id === transaction.accountId)}
+                        isSelected={selectedTransactions.includes(transaction.id)}
+                        onToggleSelection={toggleTransactionSelection}
+                        onUpdateCategory={updateTransactionCategory}
+                        onUpdateNote={updateTransactionNote}
+                        onUpdateStatus={updateTransactionStatus}
+                        onTransferMatch={handleTransferMatch}
+                        onSavingsLink={handleSavingsLink}
+                        onCostCoverage={handleCostCoverage}
+                        onExpenseClaim={handleExpenseClaim}
+                        onRefresh={triggerRefresh}
+                        mainCategories={mainCategories}
+                        costGroups={costGroups}
+                      />
+                    ));
+                  })()}
                 </div>
+                
+                {/* Pagination controls */}
+                {filteredTransactions.length > transactionsPerPage && (
+                  <div className="flex items-center justify-center gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Föregående
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Sida {currentPage} av {Math.ceil(filteredTransactions.length / transactionsPerPage)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredTransactions.length / transactionsPerPage), prev + 1))}
+                      disabled={currentPage === Math.ceil(filteredTransactions.length / transactionsPerPage)}
+                    >
+                      Nästa
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
