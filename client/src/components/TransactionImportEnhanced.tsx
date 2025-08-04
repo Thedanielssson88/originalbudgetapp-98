@@ -622,7 +622,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     });
     
     // Convert back to CSV with semicolon separator, preserving all columns
-    let csvData = sheetData.map(row => {
+    let csvData = sheetData.map((row: any[]) => {
       // Ensure we have at least 8 columns for all expected fields
       const paddedRow = [...row];
       while (paddedRow.length < 8) paddedRow.push('');

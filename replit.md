@@ -4,6 +4,7 @@ This is a comprehensive budget management application built with React and TypeS
 
 ## Recent Critical Changes (January 2025)
 
+- **FIXED - XLSX Category Import Issue (August 2025)**: Successfully resolved critical issue where XLSX files showed "-" for bankCategory and bankSubCategory while CSV files worked correctly. Improved XLSX parsing to preserve all cell data using array-based conversion method with `defval: ''` and proper column padding. XLSX files now correctly import and display bank categories just like CSV files.
 - **Google Drive Integration (August 2025)**: Implemented comprehensive cloud backup system with automatic synchronization. Users can now connect their Google Drive account for seamless data syncing between mobile and desktop devices. Features include manual backup/restore, automatic backup after data changes, and clear setup instructions for Google Drive API configuration.
 - **CRITICAL FIX - Complete Export/Import System (August 2025)**: Fixed major data transfer issue where export/import didn't work properly between devices. New system exports ALL localStorage data (every key, every setting, all transactions) with mobile-optimized download methods and comprehensive logging. Users can now truly transfer complete app state between mobile and desktop with detailed verification messages.
 - **Enhanced Data Export/Import**: Improved export functionality to include all localStorage data (categories, bank mappings, etc.) and added import functionality for complete data synchronization between devices.
