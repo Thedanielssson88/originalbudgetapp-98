@@ -332,8 +332,12 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
   };
 
   const renderAccountView = () => {
-    // Get only transactions with type 'savings' (Typ: Sparande)
-    const savingsTransactions = transactionsForPeriod.filter(t => t.type === 'savings');
+    // Get only transactions with type 'Savings' (Typ: Sparande)
+    const savingsTransactions = transactionsForPeriod.filter(t => t.type === 'Savings');
+    
+    // Debug: Log savings transactions and accounts
+    console.log('🔍 Savings transactions:', savingsTransactions);
+    console.log('🔍 Available accounts:', accounts);
     
     return (
       <div className="space-y-4">
@@ -380,7 +384,7 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
           // Get savings items for this account
           const savingsItemsForAccount = savingsGroups.flatMap(group => 
             (group.subCategories || [])
-              .filter(sub => sub.accountId === account.id || sub.account === account.name)
+              .filter(sub => sub.accountId === account.id)
               .map(sub => ({ ...sub, groupName: group.name, groupId: group.id }))
           );
           
@@ -388,7 +392,9 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
           const goalsForAccount = savingsGoals.filter(goal => goal.accountId === account.id);
           
           // Get savings transactions for this account
-          const transactionsForAccount = savingsTransactions.filter(t => t.accountId === account.id);
+          const transactionsForAccount = savingsTransactions.filter(t => 
+            t.accountId === account.id
+          );
           
           // Always show the account, even if no savings data exists yet
           
@@ -581,8 +587,8 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
                                   <div className="text-sm font-medium">{transaction.description}</div>
                                   <div className="text-xs text-muted-foreground">
                                     {new Date(transaction.date).toLocaleDateString('sv-SE')}
-                                    {transaction.mainCategory && ` • ${transaction.mainCategory}`}
-                                    {transaction.subcategory && ` / ${transaction.subcategory}`}
+                                    {transaction.bankCategory && ` • ${transaction.bankCategory}`}
+                                    {transaction.bankSubCategory && ` / ${transaction.bankSubCategory}`}
                                   </div>
                                 </div>
                                 <div className="text-sm font-medium text-green-600">
