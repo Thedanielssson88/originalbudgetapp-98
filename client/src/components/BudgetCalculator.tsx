@@ -337,6 +337,8 @@ const BudgetCalculator = () => {
   const [balanceType, setBalanceType] = useState<'starting' | 'closing'>('closing');
   const [monthFinalBalances, setMonthFinalBalances] = useState<{[key: string]: boolean}>({});
   const [costViewType, setCostViewType] = useState<'category' | 'account'>('category');
+  const [savingsViewType, setSavingsViewType] = useState<'category' | 'account'>('category');
+  const [isEditingSavings, setIsEditingSavings] = useState(false);
   
   // Mobile hook
   const isMobile = useIsMobile();
@@ -6114,14 +6116,70 @@ const BudgetCalculator = () => {
                           </div>
                           
                             {costViewType === 'category' ? (
-                             // Enhanced expandable category view
+                             // Enhanced expandable category view - Show ALL categories, not just those with budget posts
                               (() => {
                                 console.log('🔍 [DEBUG] Rendering cost categories with costGroups:', costGroups);
                                 console.log('🔍 [DEBUG] costGroups length:', costGroups.length);
+                                console.log('🔍 [DEBUG] budgetState.mainCategories:', budgetState.mainCategories);
+                                console.log('🔍 [DEBUG] budgetState.subCategories:', budgetState.subCategories);
                                 
-                                // Group subcategories by main category
+                                // Group subcategories by main category - SHOW ALL CATEGORIES, not just those with budget posts
                                 const categoryGroups: { [key: string]: { total: number; subcategories: ExtendedSubCategory[] } } = {};
                                 
+                                // First, initialize ALL main categories from budgetState
+                                if (budgetState.mainCategories) {
+                                  budgetState.mainCategories.forEach(mainCategory => {
+                                    if (!categoryGroups[mainCategory]) {
+                                      categoryGroups[mainCategory] = { total: 0, subcategories: [] };
+                                    }
+                                  });
+                                }
+                                
+                                // Then add all subcategories from budgetState
+                                if (budgetState.subCategories) {
+                                  budgetState.subCategories.forEach(subCategory => {
+                                    const mainCategory = subCategory.mainCategory;
+                                    if (!categoryGroups[mainCategory]) {
+                                      categoryGroups[mainCategory] = { total: 0, subcategories: [] };
+                                    }
+                                    
+                                    // Find if this subcategory has a budget post
+                                    let budgetAmount = 0;
+                                    let groupId = '';
+                                    let accountId = '';
+                                    
+                                    costGroups.forEach((group) => {
+                                      if (group.name === mainCategory) {
+                                        group.subCategories?.forEach((sub) => {
+                                          if (sub.name === subCategory.name) {
+                                            // ANVÄND DEN NYA BERÄKNINGSLOGIKEN HÄR
+                                            if (sub.transferType === 'daily') {
+                                              // Om det är en daglig överföring, anropa den nya funktionen
+                                              budgetAmount = calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth);
+                                            } else {
+                                              // Annars, använd det vanliga fasta beloppet
+                                              budgetAmount = sub.amount;
+                                            }
+                                            groupId = group.id;
+                                            accountId = sub.accountId || '';
+                                          }
+                                        });
+                                      }
+                                    });
+                                    
+                                    categoryGroups[mainCategory].subcategories.push({
+                                      id: subCategory.id || `sub_${subCategory.name}`,
+                                      name: subCategory.name,
+                                      amount: budgetAmount,
+                                      accountId: accountId,
+                                      groupId: groupId || `main_${mainCategory}`
+                                    } as SubCategory & { groupId: string });
+                                    
+                                    categoryGroups[mainCategory].total += budgetAmount;
+                                  });
+                                }
+                                
+                                // Finally, add any additional budget posts that might not be in the standard categories
                                 costGroups.forEach((group) => {
                                   console.log('🔍 [DEBUG] Processing group:', group.name, 'with subcategories:', group.subCategories);
                                   if (!categoryGroups[group.name]) {
@@ -6129,21 +6187,28 @@ const BudgetCalculator = () => {
                                   }
                                   
                                   group.subCategories?.forEach((sub) => {
-                                    categoryGroups[group.name].subcategories.push({
-                                      ...sub,
-                                      groupId: group.id
-                                    } as SubCategory & { groupId: string });
-                                   
-                                   // ANVÄND DEN NYA BERÄKNINGSLOGIKEN HÄR
-                                   if (sub.transferType === 'daily') {
-                                     // Om det är en daglig överföring, anropa den nya funktionen
-                                     categoryGroups[group.name].total += calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth);
-                                   } else {
-                                     // Annars, använd det vanliga fasta beloppet
-                                     categoryGroups[group.name].total += sub.amount;
-                                   }
-                                 });
-                               });
+                                    // Check if this subcategory is already added from budgetState
+                                    const existingSubcategory = categoryGroups[group.name].subcategories.find(existing => existing.name === sub.name);
+                                    if (!existingSubcategory) {
+                                      let amount = 0;
+                                      // ANVÄND DEN NYA BERÄKNINGSLOGIKEN HÄR
+                                      if (sub.transferType === 'daily') {
+                                        // Om det är en daglig överföring, anropa den nya funktionen
+                                        amount = calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth);
+                                      } else {
+                                        // Annars, använd det vanliga fasta beloppet
+                                        amount = sub.amount;
+                                      }
+                                      
+                                      categoryGroups[group.name].subcategories.push({
+                                        ...sub,
+                                        groupId: group.id
+                                      } as SubCategory & { groupId: string });
+                                      
+                                      categoryGroups[group.name].total += amount;
+                                    }
+                                  });
+                                });
                                
                                 return Object.entries(categoryGroups).map(([categoryName, data]) => {
                                   // Calculate actual amount for this category - use category ID, not name
@@ -6829,12 +6894,12 @@ const BudgetCalculator = () => {
                        )}
                      </div>
 
-                      {/* Total Savings with Dropdown */}
-                      <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                      {/* Total Savings with Dropdown - Same nice design as Totala kostnader */}
+                      <div className="p-4 bg-green-50/80 rounded-lg">
                         <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('savingsCategories')}>
                           <div>
-                            <div className="text-sm text-muted-foreground text-green-800">Totalt sparande</div>
-                            <div className="text-3xl font-bold text-green-600">
+                            <div className="text-sm text-muted-foreground">Totalt sparande</div>
+                            <div className="text-2xl font-bold text-green-600">
                               {formatCurrency((() => {
                                 const savingsCategoriesTotal = allSavingsItems.reduce((sum, group) => {
                                   const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
@@ -6860,15 +6925,51 @@ const BudgetCalculator = () => {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                              <span className="text-2xl">💰</span>
+                            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                              <DollarSign className="h-5 w-5 text-green-600" />
                             </div>
-                            {expandedSections.savingsCategories ? <ChevronUp className="h-5 w-5 text-green-600" /> : <ChevronDown className="h-5 w-5 text-green-600" />}
+                            {expandedSections.savingsCategories ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                           </div>
                         </div>
                         
                         {expandedSections.savingsCategories && (
-                          <div className="mt-4">
+                          <div className="mt-4 space-y-4">
+                            {/* Savings View Type Option - Same as cost categories */}
+                            <div className="bg-muted/50 p-4 rounded-lg">
+                              <h4 className="font-medium mb-3">Visa sparandebelopp för:</h4>
+                              <ToggleGroup 
+                                type="single" 
+                                value={savingsViewType} 
+                                onValueChange={(value) => value && setSavingsViewType(value as 'category' | 'account')}
+                                className="grid grid-cols-2 w-full max-w-md"
+                              >
+                                <ToggleGroupItem 
+                                  value="category" 
+                                  className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                                >
+                                  Kategori
+                                </ToggleGroupItem>
+                                <ToggleGroupItem 
+                                  value="account" 
+                                  className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                                >
+                                  Konto
+                                </ToggleGroupItem>
+                              </ToggleGroup>
+                            </div>
+                            
+                            <div className="flex justify-between items-center">
+                              <h4 className="font-semibold">Sparandekategorier</h4>
+                              <div className="space-x-2">
+                                <Button size="sm" onClick={() => setShowAddBudgetDialog({ isOpen: true, type: 'savings' })}>
+                                  <Plus className="w-4 h-4" />
+                                </Button>
+                                <Button size="sm" onClick={() => setIsEditingSavings(!isEditingSavings)}>
+                                  {isEditingSavings ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
+                                </Button>
+                              </div>
+                            </div>
+                            
                             <SavingsSection
                               savingsGroups={allSavingsItems}
                               savingsGoals={budgetState.savingsGoals}
@@ -6892,8 +6993,6 @@ const BudgetCalculator = () => {
                                 console.log('Delete savings group:', id);
                               }}
                             />
-
-
                           </div>
                         )}
                       </div>
