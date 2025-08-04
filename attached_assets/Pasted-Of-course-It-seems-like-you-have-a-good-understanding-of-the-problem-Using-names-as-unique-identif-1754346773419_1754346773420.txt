@@ -1,0 +1,160 @@
+Of course. It seems like you have a good understanding of the problem. Using names as unique identifiers is a common issue that can lead to fragile systems. As you've pointed out, a much more robust solution is to use a unique, immutable identifier, like a UUID (Universally Unique Identifier), for your `Huvudkategori` and `Underkategori`.
+
+Here is a detailed analysis of the problem and a step-by-step guide for a developer to refactor the system.
+
+### The Core Problem
+
+The root of the issue is that the *name* of a `Huvudkategori` or `Underkategori` is being used as a "primary key" in relationships with other parts of the system, like transactions and rules. When you rename a category, the old name is gone, and any transaction or rule that was linked to that name now points to something that doesn't exist. This breaks the data integrity of your application.
+
+### The Solution: UUIDs as Stable Identifiers
+
+The solution, as you've correctly identified, is to introduce a non-changing, unique ID for each `Huvudkategori` and `Underkategori`. This ID will be the single source of truth for identifying a category. The name will become just a user-friendly label that can be changed at any time without affecting the underlying data relationships.
+
+### Impacted Areas of the System
+
+Based on your description, here are the areas of the system that will likely need to be changed:
+
+1.  **Database Schema:** The tables for `Huvudkategori` and `Underkategori` will need a new column for the UUID.
+2.  **Data Models:** The `Huvudkategori` and `Underkategori` models in your code will need to be updated to include the new UUID field.
+3.  **Category Management:** The code for creating, reading, updating, and deleting (CRUD) categories will need to be modified.
+4.  **Transaction Mapping:** The logic that links a transaction to a `Huvudkategori` and `Underkategori` will need to be changed to use the new UUIDs.
+5.  **Rules Engine:** Any rules that use categories will need to be updated to reference the category UUIDs instead of the names.
+6.  **User Interface (UI):** The UI will need to be updated to handle the new IDs, especially in dropdowns and forms for managing categories and rules.
+7.  **Data Migration:** You will need to write a script to generate UUIDs for all existing `Huvudkategori` and `Underkategori` records and update all related tables (transactions, rules, etc.).
+
+### Step-by-Step Instructions for the Developer
+
+Here are the exact instructions to solve the problem.
+
+#### Phase 1: Database and Data Model Changes
+
+1.  **Add UUID Columns:**
+
+      * In your database, add a new column to the `Huvudkategori` table. Call it something like `huvudkategori_id`. The data type should be `UUID` or `VARCHAR(36)` if your database doesn't have a native UUID type. Make it the primary key.
+      * Do the same for the `Underkategori` table. Add a `underkategori_id` column and make it the primary key.
+      * Add a foreign key relationship from `Underkategori` to `Huvudkategori` using the new `huvudkategori_id`.
+
+2.  **Update Data Models:**
+
+      * In your application code, update the `Huvudkategori` and `Underkategori` models to include the new ID fields.
+
+    <!-- end list -->
+
+    ```csharp
+    // Example in C#
+    public class Huvudkategori
+    {
+        public Guid HuvudkategoriId { get; set; } // New UUID
+        public string Name { get; set; }
+        // ... other properties
+    }
+
+    public class Underkategori
+    {
+        public Guid UnderkategoriId { get; set; } // New UUID
+        public string Name { get; set; }
+        public Guid HuvudkategoriId { get; set; } // Foreign key
+        public Huvudkategori Huvudkategori { get; set; }
+        // ... other properties
+    }
+    ```
+
+#### Phase 2: Data Migration
+
+This is a critical step. You need to create a one-time migration script to update your existing data.
+
+1.  **Generate UUIDs for Existing Categories:**
+
+      * Write a script that iterates through all existing `Huvudkategori` and `Underkategori` records.
+      * For each record, generate a new UUID and save it to the new `huvudkategori_id` or `underkategori_id` column.
+
+2.  **Update Related Tables:**
+
+      * Identify all tables that have a relationship with `Huvudkategori` and `Underkategori` (e.g., `Transactions`, `Rules`).
+      * These tables are currently using the category *names* as foreign keys. You need to add new columns to these tables to store the category UUIDs.
+      * Write a script to look up the new UUID for each category name and populate the new foreign key columns.
+
+    <!-- end list -->
+
+    ```sql
+    -- Example SQL for migrating transactions
+    ALTER TABLE Transactions ADD COLUMN huvudkategori_id UUID;
+    ALTER TABLE Transactions ADD COLUMN underkategori_id UUID;
+
+    UPDATE Transactions t
+    SET huvudkategori_id = (SELECT h.huvudkategori_id FROM Huvudkategori h WHERE h.Name = t.huvudkategori_name);
+
+    UPDATE Transactions t
+    SET underkategori_id = (SELECT u.underkategori_id FROM Underkategori u WHERE u.Name = t.underkategori_name);
+    ```
+
+3.  **Drop Old Name-Based Foreign Keys:**
+
+      * Once you have verified that the new UUID-based relationships are working, you can drop the old columns that stored the category names (e.g., `huvudkategori_name`, `underkategori_name` from the `Transactions` table).
+
+#### Phase 3: Code Refactoring
+
+Now you need to update your application code to use the new UUIDs.
+
+1.  **Category Management (CRUD):**
+
+      * **Create:** When a new category is created, generate a new UUID for it.
+      * **Read:** When fetching a category, use its UUID.
+      * **Update:** When updating a category (e.g., renaming it), you will look it up by its UUID and then change its `Name` property. The UUID itself will not change.
+      * **Delete:** When deleting a category, use its UUID to find and delete it.
+
+2.  **Transaction Mapping:**
+
+      * When a transaction is assigned to a category, you should now store the `huvudkategori_id` and `underkategori_id` in the `Transactions` table.
+      * The UI for selecting a category should show the category names but submit the corresponding UUIDs.
+
+3.  **Rules Engine:**
+
+      * Update your rules engine to use `huvudkategori_id` and `underkategori_id` instead of category names.
+      * If a rule is, for example, "If transaction description contains 'ICA', assign to 'Mat'", the rule should now store the UUID of the 'Mat' category.
+
+    <!-- end list -->
+
+    ```csharp
+    // Example of a rule before refactoring
+    public class Rule
+    {
+        public string Condition { get; set; }
+        public string HuvudkategoriName { get; set; } // Problematic
+        public string UnderkategoriName { get; set; } // Problematic
+    }
+
+    // Example of a rule after refactoring
+    public class Rule
+    {
+        public string Condition { get; set; }
+        public Guid HuvudkategoriId { get; set; } // Good
+        public Guid UnderkategoriId { get; set; } // Good
+    }
+    ```
+
+#### Phase 4: User Interface (UI)
+
+1.  **Dropdowns and Selections:**
+
+      * When you have a dropdown to select a category, the text of the option should be the category name, but the *value* of the option should be the category's UUID.
+
+    <!-- end list -->
+
+    ```html
+    <select name="huvudkategori_id">
+      <option value="a1b2c3d4-e5f6-7890-1234-567890abcdef">Mat</option>
+      <option value="b2c3d4e5-f6a7-8901-2345-67890abcdef0">Transport</option>
+    </select>
+    ```
+
+### How Renaming Will Work After the Changes
+
+Once this refactoring is complete, renaming a category will be a simple and safe operation:
+
+1.  A user wants to rename "Mat" to "Livsmedel".
+2.  The application will find the `Huvudkategori` record by its `huvudkategori_id`.
+3.  It will update the `Name` property from "Mat" to "Livsmedel".
+4.  That's it. All transactions and rules that were linked to this category's UUID are still correctly linked. Nothing breaks.
+
+By following these instructions, you will create a much more robust and maintainable system. Let me know if you have any other questions.
