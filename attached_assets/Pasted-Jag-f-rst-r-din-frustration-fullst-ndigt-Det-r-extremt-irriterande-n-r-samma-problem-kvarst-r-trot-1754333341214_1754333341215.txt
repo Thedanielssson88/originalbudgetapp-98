@@ -1,0 +1,93 @@
+Jag förstår din frustration fullständigt. Det är extremt irriterande när samma problem kvarstår trots upprepade försök att fixa det. Du har helt rätt, och din analys av "Före" och "Efter" är klockren. Felet ligger inte hos dig, utan i en fundamental bugg i hur applikationen hanterar och slår samman data.
+
+Här är en djupanalys av exakt vad som pågår och ett oerhört tydligt förslag till utvecklaren.
+
+### Djupanalys: Varför det Fortfarande Blir Fel
+
+Problemet är inte längre relaterat till mappning eller XLSX-parsing. [cite\_start]Den delen verkar nu fungera, eftersom din "Före"-data visar att kategorierna läses in korrekt från filen. [cite: 102]
+
+Felet är **destruktiv datasammanslagning** och inträffar i filen `budgetOrchestrator.ts`.
+
+Här är exakt vad som händer:
+
+1.  **Inläsning lyckas:** Din fil läses in och appen skapar en temporär lista med transaktioner. I detta skede finns `bankCategory: "Nöje & fritid"` och `bankSubCategory: "Semester"` korrekt i minnet för transaktionen "Tatto Havsbad".
+2.  **Matchning sker:** Systemet går igenom de nya transaktionerna och för "Tatto Havsbad", hittar den en motsvarande transaktion som redan finns sparad i appen.
+3.  **Data raderas:** Detta är det kritiska ögonblicket. Koden som ska slå ihop den *nya* informationen med den *gamla* är felaktigt skriven. Den gör i praktiken följande: "Ta den gamla, sparade transaktionen (där `bankCategory` är `"-"`) och skriv över den nya, korrekta informationen från filen med den gamla, tomma informationen."
+
+Resultatet är att din nya, korrekta data från filen omedelbart raderas och ersätts av den gamla, tomma datan från databasen. [cite\_start]Det är därför dina "Efter"-bilder konsekvent visar "-". [cite: 103] Utvecklarens tidigare fixar har missat denna grundläggande brist i logiken.
+
+-----
+
+### Förslag till utvecklaren: "Fixa datasammanslagningen och uppdatera vyn"
+
+Här är ett förslag du kan skicka. Det är direkt, tekniskt och lämnar inget utrymme för missförstånd.
+
+**Ämne: KRITISKT: Bankkategorier raderas vid import – slutgiltig lösning krävs nu.**
+
+Hej,
+
+Vi måste lösa problemet med att bankkategorier inte sparas från XLSX-filer en gång för alla. Trots flera försök kvarstår grundproblemet, och det är dags för en slutgiltig, robust lösning.
+
+**Analys av grundorsaken:**
+
+Felet ligger **inte** i fil-inläsningen eller mappningen. Loggarna och "rå-importen" visar att kategoridata som "Nöje & fritid" läses in korrekt.
+
+Felet är i sammanfogningslogiken i **`budgetOrchestrator.ts`**. När en importerad transaktion matchas mot en befintlig transaktion, **skriver den befintliga (gamla) transaktionens tomma kategorifält felaktigt över den nya och korrekta datan från filen.** Datan raderas alltså innan den ens sparas.
+
+**Kravspecifikation (icke-förhandlingsbar):**
+
+1.  **Bankens data har alltid företräde:** Vid en import ska fälten `bankCategory` och `bankSubCategory` från filen **ALLTID** skrivas över till den sparade transaktionen. Undantagslöst.
+2.  **Manuella app-ändringar ska bevaras:** Användarens manuellt satta *app-kategorier* (`appCategoryId`, `appSubCategoryId`) ska bevaras om en transaktion är flaggad som `isManuallyChanged`. Denna logik får inte störa punkt 1.
+3.  **Vyn måste vara otvetydig:** Transaktionslistan måste tydligt separera bankens rådata från appens redigerbara data.
+
+**Teknisk implementation – Förslag:**
+
+**1. Korrigera sammanfogningslogiken i `budgetOrchestrator.ts`:**
+
+Den nuvarande logiken måste ersättas med en som explicit garanterar att bankdatan bevaras.
+
+```typescript
+// Konceptuell lösning för `importAndReconcileFile`
+
+//...för varje matchad transaktion...
+if (existingTx) {
+    // STEG 1: Uppdatera ALLTID bankens rådata från filen.
+    // Detta måste ske FÖRST och ovillkorligen.
+    const updatedTx = {
+        ...existingTx, // Börja med den gamla transaktionen
+        bankCategory: fileTx.bankCategory, // Skriv över med ny data
+        bankSubCategory: fileTx.bankSubCategory, // Skriv över med ny data
+        balanceAfter: fileTx.balanceAfter,
+        description: fileTx.description,
+        status: fileTx.status 
+    };
+
+    // STEG 2: Behandla baserat på om användaren gjort manuella ändringar i APPEN.
+    if (updatedTx.isManuallyChanged) {
+        // Behåll användarens app-kategorier, inga regler ska appliceras.
+        return updatedTx;
+    } else {
+        // Kör kategoriseringsregler på den nu kompletta och korrekta transaktionen.
+        return applyCategorizationRules(updatedTx);
+    }
+}
+```
+
+**2. Uppdatera vyn "Alla transaktioner":**
+
+Implementera den tidigare diskuterade fyrkolumns-layouten för att slutgiltigt eliminera all förvirring.
+
+  * **Kolumn 1: `Bankkategori`**
+      * **Data:** `transaction.bankCategory`
+      * **Visar:** Rådata från filen. Om tomt, visa "Tom från banken".
+  * **Kolumn 2: `Bankunderkategori`**
+      * **Data:** `transaction.bankSubCategory`
+      * **Visar:** Rådata från filen. Om tomt, visa "Tom från banken".
+  * **Kolumn 3: `Huvudkategori (App)`**
+      * **Data:** Namnet för `transaction.appCategoryId`
+      * **Visar:** Appens redigerbara huvudkategori.
+  * **Kolumn 4: `Underkategori (App)`**
+      * **Data:** Namnet för `transaction.appSubCategoryId`
+      * **Visar:** Appens redigerbara underkategori.
+
+Detta är inte längre ett förslag, utan ett krav för att lösa denna långdragna bugg. Implementera exakt enligt ovanstående specifikation. Vi behöver se att detta fungerar i nästa version.
