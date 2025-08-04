@@ -2025,7 +2025,7 @@ export function getAccountNameById(accountId: string): string {
 export function getAllTransactionsFromDatabase(): ImportedTransaction[] {
   console.log('🔍 [ORCHESTRATOR] Getting all transactions from centralized storage...');
   
-  // CRITICAL: Use centralized transaction storage
+  // CRITICAL: Use centralized transaction storage INCLUDING bank categories
   const allTransactions: ImportedTransaction[] = state.budgetState.allTransactions.map(tx => ({
     id: tx.id,
     accountId: tx.accountId,
@@ -2041,11 +2041,22 @@ export function getAllTransactionsFromDatabase(): ImportedTransaction[] {
     isManuallyChanged: tx.isManuallyChanged,
     appCategoryId: tx.appCategoryId,
     appSubCategoryId: tx.appSubCategoryId,
+    bankCategory: tx.bankCategory,  // CRITICAL: Include bank category from file (now properly typed)
+    bankSubCategory: tx.bankSubCategory,  // CRITICAL: Include bank subcategory from file (now properly typed)
     importedAt: (tx as any).importedAt || new Date().toISOString(),
     fileSource: (tx as any).fileSource || 'database'
   } as ImportedTransaction));
   
   console.log(`🔍 [ORCHESTRATOR] Total transactions from centralized storage: ${allTransactions.length}`);
+  
+  // DEBUG: Check if bank categories are present
+  const transactionsWithBankCategories = allTransactions.filter(tx => tx.bankCategory);
+  console.log(`🔍 [ORCHESTRATOR DEBUG] Transactions with bankCategory: ${transactionsWithBankCategories.length}/${allTransactions.length}`);
+  if (transactionsWithBankCategories.length > 0) {
+    console.log(`🔍 [ORCHESTRATOR DEBUG] Sample bankCategory: "${transactionsWithBankCategories[0].bankCategory}"`);
+    console.log(`🔍 [ORCHESTRATOR DEBUG] Sample bankSubCategory: "${transactionsWithBankCategories[0].bankSubCategory}"`);
+  }
+  
   return allTransactions;
 }
 
