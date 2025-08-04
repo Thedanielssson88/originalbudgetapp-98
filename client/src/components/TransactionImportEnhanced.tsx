@@ -345,6 +345,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [selectedAccountForView, setSelectedAccountForView] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'red' | 'yellow' | 'green'>('all');
   const [monthFilter, setMonthFilter] = useState<string>('current'); // 'all' or 'YYYY-MM' or 'current'
+  const [accountFilter, setAccountFilter] = useState<string>('all'); // 'all' or account ID
   const [currentPage, setCurrentPage] = useState(1);
   const transactionsPerPage = 50; // Show 50 transactions per page for better performance
   
@@ -414,7 +415,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [monthFilter, statusFilter, hideGreenTransactions]);
+  }, [monthFilter, statusFilter, accountFilter, hideGreenTransactions]);
 
   // Month navigation functions
   const navigateToPreviousMonth = () => {
@@ -1853,10 +1854,15 @@ export const TransactionImportEnhanced: React.FC = () => {
       baseTransactions = baseTransactions.filter(t => t.status === statusFilter);
     }
     
+    // Filter by account
+    if (accountFilter !== 'all') {
+      baseTransactions = baseTransactions.filter(t => t.accountId === accountFilter);
+    }
+    
     return hideGreenTransactions 
       ? baseTransactions.filter(t => t.status !== 'green')
       : baseTransactions;
-  }, [allTransactions, monthFilter, statusFilter, hideGreenTransactions, budgetState?.settings?.payday, budgetState.selectedMonthKey]);
+  }, [allTransactions, monthFilter, statusFilter, accountFilter, hideGreenTransactions, budgetState?.settings?.payday, budgetState.selectedMonthKey]);
 
   const renderCategorizationStep = () => {
 
@@ -1882,6 +1888,23 @@ export const TransactionImportEnhanced: React.FC = () => {
                 <SelectItem value="red">Röd</SelectItem>
                 <SelectItem value="yellow">Gul</SelectItem>
                 <SelectItem value="green">Grön</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <Label htmlFor="accountFilter" className="text-sm">Konto:</Label>
+            <Select value={accountFilter} onValueChange={setAccountFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alla</SelectItem>
+                {budgetState.accounts.map(account => (
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
