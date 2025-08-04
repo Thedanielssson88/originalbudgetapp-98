@@ -542,9 +542,14 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                       </label>
                       <div className="mt-1 p-2 bg-blue-50 border border-blue-200 rounded-md">
                         {(() => {
-                          const allTransactions = Object.values(budgetState?.historicalData || {}).flatMap(month => 
-                            (month as any)?.transactions || []
-                          );
+                          // First check centralized allTransactions array, then fallback to historical data
+                          let allTransactions = budgetState?.allTransactions || [];
+                          if (allTransactions.length === 0) {
+                            // Fallback to historical data if centralized array is empty
+                            allTransactions = Object.values(budgetState?.historicalData || {}).flatMap(month => 
+                              (month as any)?.transactions || []
+                            );
+                          }
                           const linkedTransaction = allTransactions.find((t: any) => t.id === transaction.linkedTransactionId);
                           
                           if (!linkedTransaction) {

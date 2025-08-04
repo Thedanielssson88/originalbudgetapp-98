@@ -2450,6 +2450,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                         <TableHead className="min-w-[80px]">Status</TableHead>
                         <TableHead className="min-w-[100px]">Typ</TableHead>
                         <TableHead className="min-w-[120px]">App-kategori</TableHead>
+                        <TableHead className="min-w-[120px]">Åtgärder</TableHead>
                       </>
                     )}
                   </TableRow>
@@ -2527,6 +2528,22 @@ export const TransactionImportEnhanced: React.FC = () => {
                                 )}
                               </div>
                             ) : '-'}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {transaction.type === 'InternalTransfer' && !transaction.linkedTransactionId ? (
+                              <Button
+                                onClick={() => handleTransferMatch(transaction)}
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-6 px-2"
+                              >
+                                Matcha överföring
+                              </Button>
+                            ) : transaction.linkedTransactionId ? (
+                              <span className="text-xs text-muted-foreground">Matchad</span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))
