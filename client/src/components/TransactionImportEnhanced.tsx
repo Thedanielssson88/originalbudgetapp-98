@@ -1369,7 +1369,11 @@ export const TransactionImportEnhanced: React.FC = () => {
                             accountName: account.name
                           })}
                         >
-                          {allTransactions.filter(t => t.accountId === account.id).length} transaktioner
+                          {(() => {
+                            const count = allTransactions.filter(t => t.accountId === account.id).length;
+                            console.log(`[TX COUNT] Account ${account.name} (${account.id}): ${count} transactions out of ${allTransactions.length} total`);
+                            return count;
+                          })()} transaktioner
                         </Badge>
                       )}
                       <Button
