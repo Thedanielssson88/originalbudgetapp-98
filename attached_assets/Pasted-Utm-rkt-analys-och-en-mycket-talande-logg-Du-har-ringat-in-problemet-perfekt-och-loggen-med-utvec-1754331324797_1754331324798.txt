@@ -1,0 +1,58 @@
+Utmärkt analys och en mycket talande logg\! Du har ringat in problemet perfekt, och loggen med utvecklaren visar en felsökningsprocess som till slut landar precis vid kärnan av problemet.
+
+Här är en analys av varför bankkategorierna fortfarande inte uppdateras för alla transaktioner, baserat på koden och den sista konversationen i loggen.
+
+### Grundproblemet: Skydd av manuella ändringar går för långt
+
+Felet ligger, precis som du och utvecklaren till slut kom fram till, i funktionen `importAndReconcileFile` i filen **`budgetOrchestrator.ts`**.
+
+[cite\_start]Utvecklarens sista ändring var ett försök att implementera en specifik regel som du efterfrågade[cite: 89, 90, 91]:
+
+  * **Manuellt ändrade transaktioner:** Ska få sina *bankkategorier* uppdaterade från filen, men behålla sina manuellt satta *app-kategorier*.
+  * **Icke manuellt ändrade transaktioner:** Ska genomgå hela processen där regler appliceras etc.
+
+Problemet är att implementeringen av detta blev fel. Koden skyddar nu **alla** befintliga transaktioner från att få sina bankkategorier uppdaterade, istället för att bara skydda de app-specifika fälten på manuellt ändrade transaktioner.
+
+### Teknisk analys av felet
+
+I `budgetOrchestrator.ts` finns en sammanslagningslogik (`reconcile-processen`) som ser ut ungefär så här:
+
+1.  En transaktion från XLSX-filen läses in (låt oss kalla den `fileTx`). `fileTx` innehåller korrekta `bankCategory` och `bankSubCategory`. [cite\_start]Detta bekräftas av "råa" importvyn[cite: 76].
+2.  Systemet letar efter en matchande transaktion som redan finns i appens databas (låt oss kalla den `existingTx`).
+3.  **Här sker felet:** När en matchning hittas, skapar koden en ny, uppdaterad transaktion. I den här processen **utelämnas `bankCategory` och `bankSubCategory` från `fileTx`**. Koden återanvänder istället de gamla, tomma kategorierna från `existingTx`.
+
+[cite\_start]Den sista ändringen från utvecklaren [cite: 93] var menad att justera detta, men den lyckades bara för ett specialfall (manuellt ändrade transaktioner) och missade troligen det generella fallet. Logiken som slår samman datan ser till `isManuallyChanged`-flaggan men misslyckas med att applicera bankkategorin på *alla* befintliga transaktioner, oavsett flaggans status.
+
+### Lösningen
+
+För att detta ska fungera måste logiken i `importAndReconcileFile` ändras så att den **alltid** prioriterar `bankCategory` och `bankSubCategory` från den inlästa filen (`fileTx`) när den uppdaterar en befintlig transaktion (`existingTx`).
+
+Den korrekta logiken bör se ut så här konceptuellt:
+
+```typescript
+// I budgetOrchestrator.ts, inom importAndReconcileFile...
+
+// Hitta en befintlig transaktion (existingTx) som matchar fil-transaktionen (fileTx)
+
+if (existingTx) {
+  // En matchning hittades. Skapa en uppdaterad version.
+  const updatedTransaction = {
+    ...existingTx, // Börja med den befintliga transaktionens alla värden
+
+    // Skriv ALLTID över bankens data med den nya datan från filen.
+    // Det är detta steg som för närvarande misslyckas.
+    bankCategory: fileTx.bankCategory,
+    bankSubCategory: fileTx.bankSubCategory,
+    balanceAfter: fileTx.balanceAfter,
+    // ... och andra fält från banken som kan ändras, t.ex. status.
+
+    // Behåll appens manuella kategorisering om transaktionen är manuellt ändrad.
+    // Denna del verkar utvecklaren ha fokuserat på, men glömt det grundläggande ovan.
+    appCategoryId: existingTx.isManuallyChanged ? existingTx.appCategoryId : fileTx.appCategoryId, 
+    // ...och så vidare för andra manuellt satta fält.
+  };
+  return updatedTransaction;
+}
+```
+
+**Sammanfattningsvis:** Utvecklaren har i sin iver att skydda dina manuella ändringar skapat en logik som oavsiktligt ignorerar bankens kategoridata för *alla* befintliga transaktioner vid en ny import. Rättningen är att se till att bankens kategorier från filen alltid skrivs över, samtidigt som appens egna, manuellt satta kategorier, bevaras enligt din specifikation.
