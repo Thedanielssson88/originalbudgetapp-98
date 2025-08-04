@@ -49,16 +49,17 @@ export function SavingsGoalsPage() {
   const calculateActualSaved = (goal: SavingsGoal): number => {
     let totalSaved = 0;
     
-    // Använd centraliserad transaction storage
-    if (budgetState.allTransactions) {
-      budgetState.allTransactions.forEach(transaction => {
-        if (transaction.type === 'Sparande' && 
+    // Gå igenom alla månader i historicalData
+    Object.values(budgetState.historicalData).forEach(monthData => {
+      // Hitta transaktioner som är kopplade till detta sparmål
+      monthData.transactions.forEach(transaction => {
+        if (transaction.type === 'Savings' && 
             transaction.accountId === goal.accountId &&
             transaction.savingsTargetId === goal.id) {
           totalSaved += Math.abs(transaction.amount);
         }
       });
-    }
+    });
     
     return totalSaved;
   };

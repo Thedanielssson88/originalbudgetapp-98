@@ -52,7 +52,7 @@ import {
   setSusannaSalary,
   setSusannaförsäkringskassan,
   setSusannabarnbidrag,
-  addSavingsItem,
+  
   setSavingsGroups,
   setDailyTransfer,
   setWeekendTransfer,
@@ -688,15 +688,23 @@ const BudgetCalculator = () => {
   };
 
   const getSavingsTransactions = () => {
-    console.log('🔍 [DEBUG] getSavingsTransactions called - using centralized storage');
+    console.log('🔍 [DEBUG] getSavingsTransactions called - looking across ALL months');
+    const allTransactions: any[] = [];
     
-    // Use centralized transaction storage instead of month-specific data
-    const allTransactions = budgetState.allTransactions || [];
+    // Look across all historical data, not just current month
+    Object.entries(budgetState.historicalData).forEach(([monthKey, monthData]) => {
+      if (monthData.transactions && monthData.transactions.length > 0) {
+        console.log(`🔍 [DEBUG] Found ${monthData.transactions.length} transactions in month ${monthKey}`);
+        monthData.transactions.forEach(t => {
+          allTransactions.push(t);
+        });
+      }
+    });
     
-    console.log('🔍 [DEBUG] Total transactions from centralized storage:', allTransactions.length);
+    console.log('🔍 [DEBUG] Total transactions across all months:', allTransactions.length);
     
-    // Log all transactions with savings targets or type 'Sparande'/'Savings'
-    const savingsRelated = allTransactions.filter(t => t.type === 'Sparande' || t.type === 'Savings' || t.savingsTargetId);
+    // Log all transactions with savings targets or type 'Savings'
+    const savingsRelated = allTransactions.filter(t => t.type === 'Savings' || t.savingsTargetId);
     console.log(`🔍 [DEBUG] Found ${savingsRelated.length} transactions with savings type or target`);
     
     savingsRelated.forEach((t: any, index: number) => {
@@ -710,20 +718,20 @@ const BudgetCalculator = () => {
         effectiveAmount,
         appCategoryId: t.appCategoryId,
         savingsTargetId: t.savingsTargetId,
-        willBeIncluded: (t.type === 'Sparande' || t.type === 'Savings') && effectiveAmount > 0
+        willBeIncluded: t.type === 'Savings' && effectiveAmount > 0
       });
     });
     
-    // Filter for savings transactions - include all transactions with type 'Sparande'/'Savings' or savingsTargetId
+    // Filter for savings transactions - include all transactions with type 'Savings' or savingsTargetId
     const filtered = allTransactions.filter((t: any) => {
       const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
-      // Include transactions that are marked as Sparande/Savings type OR have a savingsTargetId
-      const isSavings = t.type === 'Sparande' || t.type === 'Savings' || t.savingsTargetId;
+      // Include transactions that are marked as Savings type OR have a savingsTargetId
+      const isSavings = t.type === 'Savings' || t.savingsTargetId;
       return isSavings;
     });
     
     console.log('🔍 [DEBUG] getSavingsTransactions - filtered result:', filtered.length);
-    console.log('🔍 [DEBUG] CORRECTED: Filter condition is (t.type === "Sparande" || t.type === "Savings" || t.savingsTargetId)');
+    console.log('🔍 [DEBUG] CORRECTED: Filter condition is (t.type === "Savings" || t.savingsTargetId)');
     console.log('🔍 [DEBUG] This includes ALL savings transactions regardless of amount');
     return filtered;
   };
@@ -6874,14 +6882,12 @@ const BudgetCalculator = () => {
                               savingsGoals={budgetState.savingsGoals}
                               accounts={budgetState.accounts}
                               mainCategories={budgetState.mainCategories || []}
-                              transactionsForPeriod={activeContent.transactionsForPeriod}
                               calculateSavingsActualForCategory={calculateSavingsActualForCategory}
                               calculateActualForTarget={calculateActualForTarget}
                               onSavingsCategoryDrillDown={openSavingsCategoryDrillDownDialog}
                               onSavingsTargetDrillDown={openSavingsTargetDrillDownDialog}
                               onAddSavingsItem={(item) => {
-                                console.log('Adding savings item:', item);
-                                addSavingsItem(item);
+                                // Handle adding savings item
                               }}
                               onEditSavingsGroup={(group) => {
                                 // Handle editing savings group
@@ -6893,7 +6899,13 @@ const BudgetCalculator = () => {
                               }}
                             />
 
-
+                            {/* Nya sektionen för planerade överföringar */}
+                            <div className="mt-6">
+                              <TransfersAnalysis
+                                budgetState={budgetState}
+                                selectedMonth={selectedMonthKey}
+                              />
+                            </div>
                           </div>
                         )}
                       </div>
@@ -6901,7 +6913,13 @@ const BudgetCalculator = () => {
                 )}
               </Card>
 
-
+              {/* Transfers Analysis */}
+              <div className="mt-6">
+                <TransfersAnalysis 
+                  budgetState={budgetState} 
+                  selectedMonth={selectedMonthKey} 
+                />
+              </div>
 
               {/* Budget Summary */}
               <Card className="shadow-lg border-0 bg-muted/50 backdrop-blur-sm">

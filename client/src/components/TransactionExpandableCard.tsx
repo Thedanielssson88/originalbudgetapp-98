@@ -238,12 +238,11 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">Transaktionstyp</p>
                     <p className="text-sm truncate">
-                      {transaction.savingsTargetId && 'Länkad Transaktion'}
-                      {!transaction.savingsTargetId && transaction.type === 'Transaction' && 'Transaktion'}
-                      {!transaction.savingsTargetId && transaction.type === 'InternalTransfer' && 'Intern överföring'}
-                      {!transaction.savingsTargetId && (transaction.type === 'Savings' || transaction.type === 'Sparande') && 'Sparande'}
-                      {!transaction.savingsTargetId && transaction.type === 'CostCoverage' && 'Kostnadstäckning'}
-                      {!transaction.savingsTargetId && transaction.type === 'ExpenseClaim' && 'Utlägg'}
+                      {transaction.type === 'Transaction' && 'Transaktion'}
+                      {transaction.type === 'InternalTransfer' && 'Intern överföring'}
+                      {transaction.type === 'Savings' && 'Sparande'}
+                      {transaction.type === 'CostCoverage' && 'Kostnadstäckning'}
+                      {transaction.type === 'ExpenseClaim' && 'Utlägg'}
                     </p>
                   </div>
                   
@@ -349,7 +348,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                         Matcha överföring
                       </Button>
                     )}
-                    {(transaction.type === 'Savings' || transaction.type === 'Sparande') && onSavingsLink && (
+                    {transaction.type === 'Savings' && onSavingsLink && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -609,7 +608,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                   )}
 
                   {/* Linked savings information */}
-                  {transaction.savingsTargetId && (transaction.type === 'Savings' || transaction.type === 'Sparande' || transaction.type === 'Transaction') && (
+                  {transaction.savingsTargetId && (transaction.type === 'Savings' || transaction.type === 'Transaction') && (
                     <div>
                       <label className="text-xs font-medium text-muted-foreground">
                         Kopplad till sparande
