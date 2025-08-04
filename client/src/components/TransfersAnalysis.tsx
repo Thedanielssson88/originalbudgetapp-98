@@ -186,19 +186,15 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
     
     // 3. Skapa en lookup-map för kategorier för snabb åtkomst (för framtida användning)
     const categoryMap = new Map(budgetState.mainCategories?.map(c => [c, c]) || []);
-
     // 4. Use ALL accounts from settings, not just those with budget items
     console.log('🔄 [TRANSFERS] All available accounts:', budgetState.accounts);
-
     // Create Account objects for ALL accounts from settings
     const relevantAccounts: Account[] = budgetState.accounts.map(account => ({
       id: account.id,
       name: account.name,
       startBalance: account.startBalance || 0
     }));
-
     console.log('🔄 [TRANSFERS] Showing all accounts:', relevantAccounts);
-
     // 5. Loopa igenom varje relevant konto och aggregera data
     return relevantAccounts.map(account => {
       // Hitta alla budgetposter som hör till detta konto
@@ -247,7 +243,6 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
   const totalTransfers = analysisData.reduce((sum, data) => sum + data.totalTransferredIn, 0);
   const totalActualTransfers = analysisData.reduce((sum, data) => sum + data.actualTransferredIn, 0);
 
-
   return (
     <Card className="shadow-lg border-0 bg-blue-50/50 backdrop-blur-sm">
       <CardHeader>
@@ -264,6 +259,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
           <ChevronDown className={`h-4 w-4 transition-transform text-blue-800 ${isExpanded ? 'rotate-180' : ''}`} />
         </div>
       </CardHeader>
+
       {isExpanded && (
         <CardContent className="space-y-4">
           <div className="p-4 bg-blue-100/50 rounded-lg border border-blue-200">

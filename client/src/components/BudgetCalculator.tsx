@@ -7200,6 +7200,12 @@ const BudgetCalculator = () => {
                      </CardContent>
                    </Card>
 
+                   {/* Transfers Analysis Section */}
+                   <TransfersAnalysis 
+                     budgetState={budgetState} 
+                     selectedMonth={selectedBudgetMonth} 
+                   />
+
                     {/* Expandable Budget Sections */}
                    <div className="space-y-4">
                      {/* Intäkter Section */}
