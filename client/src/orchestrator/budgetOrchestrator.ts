@@ -418,7 +418,7 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
     );
   }
   
-  console.log(`[ORCHESTRATOR] 🔍 Column indices - Date: ${dateColumnIndex}, Amount: ${amountColumnIndex}, Description: ${descriptionColumnIndex}, Balance: ${balanceColumnIndex}`);
+  console.log(`[ORCHESTRATOR] 🔍 Column indices - Date: ${dateColumnIndex}, Amount: ${amountColumnIndex}, Description: ${descriptionColumnIndex}, Balance: ${balanceColumnIndex}, BankCategory: ${bankCategoryIndex}, BankSubCategory: ${bankSubCategoryIndex}`);
   
   // Check if essential columns were found
   if (dateColumnIndex === -1 || amountColumnIndex === -1 || descriptionColumnIndex === -1) {
@@ -514,6 +514,7 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
 
       const description = descriptionColumnIndex >= 0 ? fields[descriptionColumnIndex].trim() : '';
       console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: Description: "${description}"`);
+      console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: BankCategory: "${bankCategory}" (index ${bankCategoryIndex}), BankSubCategory: "${bankSubCategory}" (index ${bankSubCategoryIndex})`);
 
       // Determine transaction type - detect internal transfers
       let transactionType: 'Transaction' | 'InternalTransfer' = 'Transaction';
@@ -542,7 +543,7 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
         fileSource: fileName
       };
 
-      console.log(`[ORCHESTRATOR] ✅ Created transaction for line ${i}:`, transaction);
+      console.log(`[ORCHESTRATOR] ✅ Created transaction for line ${i}: id=${transaction.id}, desc="${transaction.description}", bankCat="${transaction.bankCategory}", bankSubCat="${transaction.bankSubCategory}"`);
       transactions.push(transaction);
     } catch (error) {
       console.warn(`Failed to parse transaction at line ${i + 1}:`, error);
