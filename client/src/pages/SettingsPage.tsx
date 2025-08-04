@@ -276,61 +276,136 @@ const SettingsPage = () => {
   };
 
   const exportData = () => {
-    // Export all budget data including all localStorage keys
-    const allData = {
-      budgetCalculatorData: localStorage.getItem('budgetCalculatorData'),
-      main_categories: localStorage.getItem('main_categories'),
-      subcategories: localStorage.getItem('subcategories'),
-      banks: localStorage.getItem('banks'),
-      bank_csv_mappings: localStorage.getItem('bank_csv_mappings'),
+    console.log('🚀 [EXPORT] Starting comprehensive data export...');
+    
+    // Get ALL localStorage keys and their data
+    const allKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      allKeys.push(localStorage.key(i));
+    }
+    
+    console.log('📦 [EXPORT] Found localStorage keys:', allKeys);
+    
+    // Export ALL localStorage data (comprehensive backup)
+    const allData: Record<string, any> = {
       exportDate: new Date().toISOString(),
-      version: '2.0'
+      version: '3.0',
+      deviceInfo: {
+        userAgent: navigator.userAgent,
+        language: navigator.language,
+        timestamp: Date.now()
+      }
     };
+    
+    // Add all localStorage data
+    allKeys.forEach(key => {
+      if (key) {
+        const value = localStorage.getItem(key);
+        allData[key] = value;
+        console.log(`📦 [EXPORT] Adding key: ${key}, size: ${value ? value.length : 0} chars`);
+      }
+    });
+    
+    // Log what we're actually exporting
+    console.log('📦 [EXPORT] Complete export data:', {
+      totalKeys: Object.keys(allData).length,
+      hasMainData: !!allData.budgetCalculatorData,
+      mainDataSize: allData.budgetCalculatorData ? allData.budgetCalculatorData.length : 0,
+      allKeys: Object.keys(allData)
+    });
     
     const dataStr = JSON.stringify(allData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `budget-data-komplett-${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
+    link.download = `budget-data-KOMPLETT-${new Date().toISOString().split('T')[0]}.json`;
+    
+    // For mobile compatibility, try different download methods
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      // Mobile device - try alternative download method
+      console.log('📱 [EXPORT] Mobile device detected, using alternative download method');
+      try {
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (error) {
+        console.error('📱 [EXPORT] Mobile download failed:', error);
+        // Fallback: show data in a new window/tab
+        const newWindow = window.open();
+        if (newWindow) {
+          newWindow.document.write(`<pre>${dataStr}</pre>`);
+          alert('Export data visas i nytt fönster. Kopiera texten och spara som .json fil.');
+        }
+      }
+    } else {
+      // Desktop - normal download
+      link.click();
+    }
+    
     URL.revokeObjectURL(url);
+    console.log('✅ [EXPORT] Export completed');
+    alert(`Export slutförd! Alla data (${Object.keys(allData).length} nycklar) har exporterats.`);
   };
 
   const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    console.log('🔄 [IMPORT] Starting data import from file:', file.name);
+
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target?.result as string);
+        console.log('🔄 [IMPORT] Parsed import data:', {
+          version: data.version,
+          exportDate: data.exportDate,
+          totalKeys: Object.keys(data).length,
+          hasMainData: !!data.budgetCalculatorData,
+          allKeys: Object.keys(data).filter(k => !['exportDate', 'version', 'deviceInfo'].includes(k))
+        });
         
-        // Import all data
-        if (data.budgetCalculatorData) {
-          localStorage.setItem('budgetCalculatorData', data.budgetCalculatorData);
-        }
-        if (data.main_categories) {
-          localStorage.setItem('main_categories', data.main_categories);
-        }
-        if (data.subcategories) {
-          localStorage.setItem('subcategories', data.subcategories);
-        }
-        if (data.banks) {
-          localStorage.setItem('banks', data.banks);
-        }
-        if (data.bank_csv_mappings) {
-          localStorage.setItem('bank_csv_mappings', data.bank_csv_mappings);
-        }
+        let importedCount = 0;
         
-        // Reload page to apply changes
-        alert('Data importerad! Sidan laddas om för att tillämpa ändringarna.');
+        // Import ALL data (except metadata)
+        Object.keys(data).forEach(key => {
+          if (!['exportDate', 'version', 'deviceInfo'].includes(key)) {
+            const value = data[key];
+            if (value !== null && value !== undefined) {
+              localStorage.setItem(key, value);
+              importedCount++;
+              console.log(`✅ [IMPORT] Imported key: ${key}, size: ${value.length} chars`);
+            }
+          }
+        });
+        
+        console.log(`✅ [IMPORT] Successfully imported ${importedCount} keys`);
+        
+        // Show detailed success message
+        alert(`Data importerad framgångsrikt! 
+${importedCount} datanycklar har importerats.
+Exporterad: ${data.exportDate ? new Date(data.exportDate).toLocaleString('sv-SE') : 'Okänt datum'}
+Version: ${data.version || 'Okänd'}
+
+Sidan laddas om för att tillämpa alla ändringar.`);
+        
+        // Reload page to apply all changes
         window.location.reload();
       } catch (error) {
-        alert('Fel vid import av data. Kontrollera att filen är korrekt.');
-        console.error('Import error:', error);
+        console.error('❌ [IMPORT] Import error:', error);
+        alert(`Fel vid import av data: ${error instanceof Error ? error.message : 'Okänt fel'}
+        
+Kontrollera att filen är en giltig JSON-fil som exporterats från denna app.`);
       }
     };
+    
+    reader.onerror = (error) => {
+      console.error('❌ [IMPORT] File read error:', error);
+      alert('Fel vid läsning av fil. Försök igen.');
+    };
+    
     reader.readAsText(file);
     
     // Reset file input
