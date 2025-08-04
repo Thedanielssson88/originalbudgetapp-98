@@ -5823,8 +5823,17 @@ const BudgetCalculator = () => {
                 </CardHeader>
                 {expandedSections.budgetCategories && (
                   <CardContent className="space-y-6">
-                    {/* Budget Templates Section */}
-                    {Object.keys(budgetTemplates).length > 0 && (
+                    {/* Nested tabs within Budgetkategorier */}
+                    <Tabs defaultValue="kostnader" className="w-full">
+                      <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="kostnader">Kostnader</TabsTrigger>
+                        <TabsTrigger value="sparande">Sparande</TabsTrigger>
+                        <TabsTrigger value="overforingar">Överföringar</TabsTrigger>
+                      </TabsList>
+                      
+                      <TabsContent value="kostnader" className="space-y-6 mt-6">
+                        {/* Budget Templates Section */}
+                        {Object.keys(budgetTemplates).length > 0 && (
                       <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
                         <div className="flex items-center justify-between mb-4">
                           <div>
