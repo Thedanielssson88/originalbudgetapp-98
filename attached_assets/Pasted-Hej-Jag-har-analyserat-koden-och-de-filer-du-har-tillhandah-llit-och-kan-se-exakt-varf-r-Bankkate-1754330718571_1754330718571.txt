@@ -1,0 +1,62 @@
+Hej\! Jag har analyserat koden och de filer du har tillhandahållit och kan se exakt varför `Bankkategori` och `Underkategori` försvinner efter importen.
+
+Det är ett klassiskt problem där data tappas bort under ett mellansteg – i det här fallet när de importerade transaktionerna ska slås samman med de som redan finns i appen.
+
+### Grundorsaken: Sammanfogningen tappar bort kategorierna
+
+[cite\_start]Felet ligger i filen **`budgetOrchestrator.ts`**[cite: 1, 2, 3, 4, 5, 6, 7, 8], specifikt i funktionen `importAndReconcileFile`. Så här går det till:
+
+1.  **Inläsningen fungerar korrekt:** Din "råa" importvy visar att filen läses in helt rätt. Appen har vid det här laget korrekt identifierat "Kategori" och "Underkategori" från filen och de finns i minnet.
+
+2.  **Matchning mot befintliga transaktioner:** Därefter går `importAndReconcileFile` igenom varje rad från filen och försöker hitta en motsvarande transaktion som redan finns i appen (baserat på datum, belopp och beskrivning).
+
+3.  **Felet uppstår här:**
+
+      * **För helt nya transaktioner** skapas ett nytt transaktionsobjekt, och `bankCategory` och `bankSubCategory` från filen följer med korrekt.
+      * **För transaktioner som redan finns** (vilket är fallet när du importerar över befintlig data), återanvänder koden det *gamla* transaktionsobjektet. Den uppdaterar vissa fält som saldo, men **den glömmer att kopiera över `bankCategory` och `bankSubCategory` från den nya filen.**
+
+Resultatet blir att de kategorier du ser i den råa importvyn kastas bort när appen uppdaterar den befintliga transaktionen, eftersom den gamla transaktionens (tomma) kategorifält behålls.
+
+### Teknisk förklaring
+
+I koden för `budgetOrchestrator.ts` finns en logik som ser ut ungefär så här:
+
+```typescript
+// Konceptuellt exempel från budgetOrchestrator.ts
+
+if (en befintlig transaktion hittades) {
+  // Återanvänd den gamla transaktionen...
+  const updatedTransaction = {
+    ...existingTx, // ...kopiera ALLA gamla värden...
+    
+    // ...uppdatera ENDAST ett fåtal fält från filen.
+    balanceAfter: fileTx.balanceAfter 
+    // OBS: bankCategory och bankSubCategory från fileTx kopieras inte över!
+  };
+  return updatedTransaction;
+}
+```
+
+### Lösningen
+
+[cite\_start]För att åtgärda detta måste koden i **`budgetOrchestrator.ts`** [cite: 1, 2, 3, 4, 5, 6, 7, 8] ändras så att den *alltid* skriver över `bankCategory` och `bankSubCategory` med värdena från filen om en befintlig transaktion hittas.
+
+Ändringen skulle se ut så här:
+
+```typescript
+// Korrigering i budgetOrchestrator.ts
+
+if (en befintlig transaktion hittades) {
+  const updatedTransaction = {
+    ...existingTx,
+    balanceAfter: fileTx.balanceAfter,
+    
+    // LÄGG TILL DETTA: Skriv över bankkategorierna med den nya informationen
+    bankCategory: fileTx.bankCategory,
+    bankSubCategory: fileTx.bankSubCategory
+  };
+  return updatedTransaction;
+}
+```
+
+Med denna justering kommer kategorierna från din importfil att korrekt skrivas över de befintliga transaktionerna, och informationen kommer att visas korrekt i hela applikationen.
