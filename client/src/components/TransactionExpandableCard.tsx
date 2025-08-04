@@ -389,7 +389,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Bankkategori</label>
                   <div className="space-y-1">
-                    {transaction.bankCategory ? (
+                    {transaction.bankCategory && transaction.bankCategory !== '-' && transaction.bankCategory.trim() !== '' ? (
                       <p className="text-sm">{transaction.bankCategory}</p>
                     ) : (
                       <p className="text-sm text-muted-foreground">-</p>
@@ -401,7 +401,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Bank Underkategori</label>
                   <div className="space-y-1">
-                    {transaction.bankSubCategory ? (
+                    {transaction.bankSubCategory && transaction.bankSubCategory !== '-' && transaction.bankSubCategory.trim() !== '' ? (
                       <p className="text-sm text-muted-foreground">{transaction.bankSubCategory}</p>
                     ) : (
                       <p className="text-sm text-muted-foreground">-</p>

@@ -189,6 +189,8 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
     balanceAfter: tx.balanceAfter,
     description: tx.description,
     userDescription: tx.userDescription,
+    bankCategory: tx.bankCategory,  // CRITICAL FIX: Include bank categories!
+    bankSubCategory: tx.bankSubCategory,  // CRITICAL FIX: Include bank subcategories!
     type: tx.type,
     status: tx.status === 'green' ? 'green' : determineTransactionStatus(tx),
     linkedTransactionId: tx.linkedTransactionId,
