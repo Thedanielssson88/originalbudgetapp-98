@@ -404,8 +404,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                                              {formatCurrency(t.amount)} från {t.fromAccountName}
                                              {t.linked ? (
                                                <span className="ml-2 text-xs text-green-600 font-medium">
-                                                 ({t.fromAccountName}, {t.transaction.date})
-                                                 {t.transaction.userDescription && ` - ${t.transaction.userDescription}`}
+                                                 ({t.fromAccountName}, {t.transaction.date}) - {t.transaction.description || 'Överföring'}, {t.transaction.date}
                                                </span>
                                              ) : (
                                                <Badge 
@@ -436,8 +435,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                                              {formatCurrency(t.amount)} till {t.toAccountName}
                                              {t.linked ? (
                                                <span className="ml-2 text-xs text-green-600 font-medium">
-                                                 ({t.toAccountName}, {t.transaction.date})
-                                                 {t.transaction.userDescription && ` - ${t.transaction.userDescription}`}
+                                                 ({t.toAccountName}, {t.transaction.date}) - {t.transaction.description || 'Överföring'}, {t.transaction.date}
                                                </span>
                                              ) : (
                                                <Badge 
