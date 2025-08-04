@@ -10,6 +10,7 @@ import BudgetPage from "./pages/BudgetPage";
 import { SavingsGoalsPage } from "./pages/SavingsGoalsPage";
 import TransactionsPage from "./pages/TransactionsPage";
 import SettingsPage from "./pages/SettingsPage";
+import CategoryManagement from "./pages/CategoryManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/historia" component={BudgetPage} />
             <Route path="/sparmal" component={SavingsGoalsPage} />
             <Route path="/transaktioner" component={TransactionsPage} />
+            <Route path="/kategorier" component={CategoryManagement} />
             <Route path="/installningar" component={SettingsPage} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route component={NotFound} />

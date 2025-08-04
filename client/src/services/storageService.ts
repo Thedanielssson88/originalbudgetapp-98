@@ -19,7 +19,9 @@ export enum StorageKey {
   MAIN_CATEGORIES = 'main_categories',
   SUBCATEGORIES = 'subcategories',
   BANKS = 'banks',
-  BANK_CSV_MAPPINGS = 'bank_csv_mappings'
+  BANK_CSV_MAPPINGS = 'bank_csv_mappings',
+  CATEGORY_MIGRATION_MAPPING = 'category_migration_mapping',
+  CATEGORY_MIGRATION_COMPLETED = 'category_migration_completed'
 }
 
 export function get<T>(key: StorageKey): T | null {

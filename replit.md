@@ -4,6 +4,16 @@ This is a comprehensive budget management application built with React and TypeS
 
 ## Recent Critical Changes (January 2025)
 
+- **NEW - UUID-Based Category System (August 2025)**: Implemented comprehensive UUID-based category system replacing string-based category identifiers. This major refactoring includes:
+  - Complete database schema with `huvudkategorier` and `underkategorier` tables using UUID primary keys
+  - Category migration service to convert existing localStorage categories to UUID system
+  - New category management UI with hierarchical category display and CRUD operations
+  - React hooks for category management with TanStack Query integration
+  - Migration dialog to guide users through the upgrade process
+  - Backward compatibility during transition period
+  - Enhanced data integrity and eliminates naming conflicts
+  - Categories are now database-persisted with proper foreign key relationships
+  - Route `/kategorier` added for category management interface
 - **FIXED - XLSX Category Import Issue (August 2025)**: Successfully resolved critical issue where XLSX files showed "-" for bankCategory and bankSubCategory while CSV files worked correctly. Implemented comprehensive fix including:
   - Corrected sammanfogningslogik in `budgetOrchestrator.ts` to always preserve bankCategory/bankSubCategory from import files for ALL existing transactions
   - Enhanced UI with four distinct columns: Bankkategori (file data), Bankunderkategori (file data), Huvudkategori (App), Underkategori (App) 
@@ -13,6 +23,7 @@ This is a comprehensive budget management application built with React and TypeS
 - **Google Drive Integration (August 2025)**: Implemented comprehensive cloud backup system with automatic synchronization. Users can now connect their Google Drive account for seamless data syncing between mobile and desktop devices. Features include manual backup/restore, automatic backup after data changes, and clear setup instructions for Google Drive API configuration.
 - **CRITICAL FIX - Complete Export/Import System (August 2025)**: Fixed major data transfer issue where export/import didn't work properly between devices. New system exports ALL localStorage data (every key, every setting, all transactions) with mobile-optimized download methods and comprehensive logging. Users can now truly transfer complete app state between mobile and desktop with detailed verification messages.
 - **Enhanced Data Export/Import**: Improved export functionality to include all localStorage data (categories, bank mappings, etc.) and added import functionality for complete data synchronization between devices.
+- **UUID Category Architecture**: Migrated from string-based to UUID-based category system with database persistence, providing better data integrity and safe category renaming capabilities.
 - **Centralized Transaction Storage**: Implemented a single source of truth for all transactions in `budgetState.allTransactions` to fix critical data loss issues when switching between months. Transactions are no longer stored separately per month but in a central array, with filtering applied as needed for display.
 - **Account Display Fix**: Fixed account dropdown to preserve full account objects with IDs instead of just names, ensuring proper display of account names throughout the application.
 - **Savings by Account Section**: Added a new "Sparande per konto" (Savings by Account) section in the summary view that shows all accounts with their associated savings transactions, similar to how "Totala kostnader" works but for savings. This replaces the misplaced "Överföringar" tab that was incorrectly nested under "Totalt sparande".
