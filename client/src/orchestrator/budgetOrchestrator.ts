@@ -474,6 +474,18 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
       const description = descriptionColumnIndex >= 0 ? fields[descriptionColumnIndex].trim() : '';
       console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: Description: "${description}"`);
 
+      // Determine transaction type - detect internal transfers
+      let transactionType: 'Transaction' | 'InternalTransfer' = 'Transaction';
+      const isInternalTransfer = bankCategory === 'Intern Överföring' || 
+                                bankCategory.includes('Överföring') ||
+                                bankSubCategory === 'Intern Överföring' ||
+                                bankSubCategory.includes('Överföring');
+      
+      if (isInternalTransfer) {
+        transactionType = 'InternalTransfer';
+        console.log(`[ORCHESTRATOR] 🔄 Detected internal transfer: ${description} (category: ${bankCategory})`);
+      }
+
       const transaction: ImportedTransaction = {
         id: uuidv4(),
         date: parsedDate, // Already in YYYY-MM-DD string format
@@ -483,7 +495,7 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
         bankCategory: bankCategory,
         bankSubCategory: bankSubCategory,
         accountId: accountId,
-        type: 'Transaction',
+        type: transactionType,
         status: 'red',
         importedAt: new Date().toISOString(),
         fileSource: fileName

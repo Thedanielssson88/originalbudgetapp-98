@@ -811,9 +811,19 @@ export function applyCategorizationRules(
       console.log(`Regel ${rule.id} matchade transaktion ${transaction.id}.`);
       
       // Välj rätt transaktionstyp baserat på beloppets tecken
-      const transactionType = transaction.amount >= 0 
+      let transactionType = transaction.amount >= 0 
         ? rule.action.positiveTransactionType 
         : rule.action.negativeTransactionType;
+      
+      // Preserve existing InternalTransfer type and set it for "Intern Överföring" transactions
+      const isInternalTransfer = transaction.type === 'InternalTransfer' || 
+                                transaction.category === 'Intern Överföring' ||
+                                (transaction.category && transaction.category.includes('Överföring'));
+      
+      if (isInternalTransfer) {
+        transactionType = 'InternalTransfer';
+        console.log(`Preserving InternalTransfer type for transaction ${transaction.id} (category: ${transaction.category})`);
+      }
       
       // Bestäm status baserat på om både huvudkategori och underkategori finns
       const hasMainCategory = rule.action.appMainCategoryId;

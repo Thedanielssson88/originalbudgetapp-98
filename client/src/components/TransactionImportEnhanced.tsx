@@ -1225,11 +1225,21 @@ export const TransactionImportEnhanced: React.FC = () => {
           // Apply the rule - update category
           updateTransactionCategory(transaction.id, rule.action.appMainCategoryId, rule.action.appSubCategoryId);
           
-          // Apply the rule - update transaction type based on amount
+          // Apply the rule - update transaction type based on amount, but preserve InternalTransfer
           const isPositive = transaction.amount >= 0;
-          const newTransactionType = isPositive ? 
+          let newTransactionType = isPositive ? 
             rule.action.positiveTransactionType : 
             rule.action.negativeTransactionType;
+          
+          // Preserve existing InternalTransfer type and set it for "Intern Överföring" transactions
+          const isInternalTransfer = transaction.type === 'InternalTransfer' || 
+                                    transaction.bankCategory === 'Intern Överföring' ||
+                                    (transaction.bankCategory && transaction.bankCategory.includes('Överföring'));
+          
+          if (isInternalTransfer) {
+            newTransactionType = 'InternalTransfer';
+            console.log(`Preserving InternalTransfer type for transaction ${transaction.id} during manual rule application (category: ${transaction.bankCategory})`);
+          }
           
           // Update transaction type using handleTransactionUpdate
           handleTransactionUpdate(transaction.id, { 
