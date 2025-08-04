@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Target, TrendingUp } from 'lucide-react';
+import { Plus, Target, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useBudget } from '../hooks/useBudget';
 import { createSavingsGoal } from '../orchestrator/budgetOrchestrator';
@@ -90,6 +90,49 @@ export function SavingsGoalsPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      {/* Month Navigation */}
+      <div className="flex items-center justify-center gap-4 mb-6">
+        <Button
+          variant="ghost"
+          size="lg"
+          onClick={() => {
+            const [year, month] = budgetState.selectedMonthKey.split('-').map(Number);
+            const prevMonth = month === 1 ? 12 : month - 1;
+            const prevYear = month === 1 ? year - 1 : year;
+            const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+            // Navigate to previous month logic would go here
+          }}
+          className="p-3 h-12 w-12 text-primary hover:text-primary/80"
+        >
+          <ChevronLeft className="h-6 w-6" />
+        </Button>
+
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Aktuell månad:</span>
+          <span className="text-lg font-semibold">
+            {new Date(budgetState.selectedMonthKey + '-01').toLocaleDateString('sv-SE', { 
+              year: 'numeric', 
+              month: 'long' 
+            })}
+          </span>
+        </div>
+
+        <Button
+          variant="ghost"
+          size="lg"
+          onClick={() => {
+            const [year, month] = budgetState.selectedMonthKey.split('-').map(Number);
+            const nextMonth = month === 12 ? 1 : month + 1;
+            const nextYear = month === 12 ? year + 1 : year;
+            const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+            // Navigate to next month logic would go here
+          }}
+          className="p-3 h-12 w-12 text-primary hover:text-primary/80"
+        >
+          <ChevronRight className="h-6 w-6" />
+        </Button>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Sparmål</h1>

@@ -42,7 +42,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, CheckCircle, FileText, Settings, AlertCircle, Circle, CheckSquare, AlertTriangle, ChevronDown, ChevronUp, Trash2, Plus, Edit, Save, X } from 'lucide-react';
+import { Upload, CheckCircle, FileText, Settings, AlertCircle, Circle, CheckSquare, AlertTriangle, ChevronDown, ChevronUp, Trash2, Plus, Edit, Save, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { Bank, BankCSVMapping } from '@/types/bank';
 import { determineTransactionStatus } from '@/services/calculationService';
@@ -1803,6 +1803,49 @@ export const TransactionImportEnhanced: React.FC = () => {
 
   return (
     <div className="container mx-auto p-2 sm:p-4 space-y-4 sm:space-y-6">
+      {/* Month Navigation */}
+      <div className="flex items-center justify-center gap-4 mb-6">
+        <Button
+          variant="ghost"
+          size="lg"
+          onClick={() => {
+            const [year, month] = budgetState.selectedMonthKey.split('-').map(Number);
+            const prevMonth = month === 1 ? 12 : month - 1;
+            const prevYear = month === 1 ? year - 1 : year;
+            const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+            // Navigate to previous month logic would go here
+          }}
+          className="p-3 h-12 w-12 text-primary hover:text-primary/80"
+        >
+          <ChevronLeft className="h-6 w-6" />
+        </Button>
+
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Aktuell månad:</span>
+          <span className="text-lg font-semibold">
+            {new Date(budgetState.selectedMonthKey + '-01').toLocaleDateString('sv-SE', { 
+              year: 'numeric', 
+              month: 'long' 
+            })}
+          </span>
+        </div>
+
+        <Button
+          variant="ghost"
+          size="lg"
+          onClick={() => {
+            const [year, month] = budgetState.selectedMonthKey.split('-').map(Number);
+            const nextMonth = month === 12 ? 1 : month + 1;
+            const nextYear = month === 12 ? year + 1 : year;
+            const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+            // Navigate to next month logic would go here
+          }}
+          className="p-3 h-12 w-12 text-primary hover:text-primary/80"
+        >
+          <ChevronRight className="h-6 w-6" />
+        </Button>
+      </div>
+
       {/* Progress indicator - Mobile optimized */}
       <div className="flex justify-center">
         <div className="flex items-center space-x-2 sm:space-x-4 overflow-x-auto px-2">

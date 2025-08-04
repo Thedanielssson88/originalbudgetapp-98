@@ -5184,66 +5184,7 @@ const BudgetCalculator = () => {
               </Button>
             </div>
             
-            {/* Save Current Month Button */}
-            {isAdminMode && (
-              <div className="flex justify-center mt-4">
-                <Button 
-                  onClick={handleSaveCurrentMonthAsHistorical} 
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2"
-                >
-                  <Save className="h-4 w-4" />
-                  Spara Denna Månad
-                </Button>
-              </div>
-            )}
-            
-            {/* Debug Toggle Button */}
-            {isAdminMode && (
-              <div className="flex justify-center mt-2 gap-2">
-                <Button 
-                  onClick={() => setShowDebugPanel(!showDebugPanel)} 
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs"
-                >
-                  {showDebugPanel ? 'Dölj' : 'Visa'} Debug Loggar
-                </Button>
-                <Button 
-                  onClick={() => addDebugLog('[MANUAL] Visa alla tidigare loggar från start')} 
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs"
-                >
-                  Uppdatera Loggar
-                </Button>
-              </div>
-            )}
-            
-            {/* Debug Panel */}
-            {isAdminMode && showDebugPanel && (
-              <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                <h4 className="text-sm font-medium mb-2">Debug Loggar:</h4>
-                <div className="space-y-1 max-h-60 overflow-y-auto">
-                  {globalDebugLogs.length === 0 ? (
-                    <p className="text-xs text-gray-500">Inga loggar än...</p>
-                  ) : (
-                    globalDebugLogs.map((log, index) => (
-                      <p key={index} className="text-xs font-mono break-all">{log}</p>
-                    ))
-                  )}
-                </div>
-                <Button 
-                  onClick={() => mobileDebugLogger.clearLogs()} 
-                  variant="outline" 
-                  size="sm" 
-                  className="mt-2 text-xs"
-                >
-                  Rensa Loggar
-                </Button>
-              </div>
-            )}
+
           </CardContent>
         </Card>
 
