@@ -18,13 +18,15 @@ interface TransferMatchDialogProps {
   onClose: () => void;
   transaction?: ImportedTransaction;
   suggestions?: ImportedTransaction[];
+  onRefresh?: () => void;
 }
 
 export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
   isOpen,
   onClose,
   transaction,
-  suggestions = []
+  suggestions = [],
+  onRefresh
 }) => {
   const [selectedMatch, setSelectedMatch] = React.useState<string>('');
   const [showAllSuggestions, setShowAllSuggestions] = React.useState<boolean>(false);
@@ -96,6 +98,11 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
         
         // Match the transactions
         matchInternalTransfer(transaction.id, selectedMatch);
+        
+        // Trigger refresh to update the UI
+        if (onRefresh) {
+          onRefresh();
+        }
       }
       
       onClose();

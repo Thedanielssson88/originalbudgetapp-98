@@ -2363,6 +2363,7 @@ export const TransactionImportEnhanced: React.FC = () => {
         onClose={() => setTransferMatchDialog({ isOpen: false })}
         transaction={transferMatchDialog.transaction}
         suggestions={transferMatchDialog.suggestions || []}
+        onRefresh={triggerRefresh}
       />
 
       <SavingsLinkDialog
