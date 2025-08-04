@@ -985,6 +985,36 @@ export function setAccounts(accounts: any[]): void {
   triggerUIRefresh();
 }
 
+export function addAccount(account: { name: string; startBalance: number }): void {
+  console.log('🔄 [ORCHESTRATOR] Adding new account:', account);
+  
+  const newAccount = {
+    id: uuidv4(),
+    name: account.name,
+    startBalance: account.startBalance
+  };
+  
+  // Add to existing accounts
+  state.budgetState.accounts = [...state.budgetState.accounts, newAccount];
+  
+  saveStateToStorage();
+  triggerUIRefresh();
+  
+  console.log('✅ [ORCHESTRATOR] Account added successfully:', newAccount);
+}
+
+export function removeAccount(accountId: string): void {
+  console.log('🔄 [ORCHESTRATOR] Removing account:', accountId);
+  
+  // Remove from accounts
+  state.budgetState.accounts = state.budgetState.accounts.filter(acc => acc.id !== accountId);
+  
+  saveStateToStorage();
+  triggerUIRefresh();
+  
+  console.log('✅ [ORCHESTRATOR] Account removed successfully');
+}
+
 // ===== BANK TEMPLATE MANAGEMENT =====
 
 export function linkAccountToBankTemplate(accountId: string, templateId: string): void {

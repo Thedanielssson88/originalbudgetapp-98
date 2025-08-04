@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { MainCategoriesSettings } from "@/components/MainCategoriesSettings";
 import { PaydaySettings } from "@/components/PaydaySettings";
 import { useBudget } from "@/hooks/useBudget";
-import { getCurrentState } from "@/orchestrator/budgetOrchestrator";
+import { getCurrentState, addAccount, removeAccount } from "@/orchestrator/budgetOrchestrator";
 import { Calendar, User, Shield, Database, Settings, DollarSign, FolderOpen } from "lucide-react";
 
 const SettingsPage = () => {
@@ -76,52 +76,31 @@ const SettingsPage = () => {
     console.log('User names saved');
   };
 
-  const addAccount = () => {
+  const addAccountHandler = () => {
     if (newAccountName.trim() && !accounts.some(acc => acc.name === newAccountName.trim())) {
       console.log('Adding new account:', newAccountName.trim());
       
-      // Get current state and add the account
-      const currentState = getCurrentState();
-      const newAccount = {
-        id: `account-${Date.now()}`,
+      // Use the orchestrator function to add the account
+      addAccount({
         name: newAccountName.trim(),
         startBalance: 0
-      };
-      
-      // Add to accounts array
-      const updatedAccounts = [...currentState.budgetState.accounts, newAccount];
-      
-      // Update the state - this will trigger a re-render
-      currentState.budgetState.accounts = updatedAccounts;
-      
-      // Also save to localStorage for persistence
-      localStorage.setItem('budgetState', JSON.stringify(currentState.budgetState));
+      });
       
       setNewAccountName('');
-      console.log('Account added successfully:', newAccount);
-      
-      // Force a page refresh to show the new account
-      window.location.reload();
+      console.log('Account added successfully via orchestrator');
     }
   };
 
-  const removeAccount = (accountToRemove: string) => {
+  const removeAccountHandler = (accountToRemove: string) => {
     console.log('Removing account:', accountToRemove);
     
-    // Get current state and remove the account
-    const currentState = getCurrentState();
-    const updatedAccounts = currentState.budgetState.accounts.filter(acc => acc.name !== accountToRemove);
-    
-    // Update the state
-    currentState.budgetState.accounts = updatedAccounts;
-    
-    // Also save to localStorage for persistence
-    localStorage.setItem('budgetState', JSON.stringify(currentState.budgetState));
-    
-    console.log('Account removed successfully');
-    
-    // Force a page refresh to show the updated accounts
-    window.location.reload();
+    // Find the account ID to remove
+    const accountToDelete = accounts.find(acc => acc.name === accountToRemove);
+    if (accountToDelete) {
+      // Use the orchestrator function to remove the account
+      removeAccount(accountToDelete.id);
+      console.log('Account removed successfully via orchestrator');
+    }
   };
 
   const createBackup = () => {
@@ -424,7 +403,7 @@ const SettingsPage = () => {
                       onChange={(e) => setNewAccountName(e.target.value)}
                       placeholder="Namn på nytt konto"
                     />
-                    <Button onClick={addAccount}>
+                    <Button onClick={addAccountHandler}>
                       Lägg till konto
                     </Button>
                   </div>
@@ -439,7 +418,7 @@ const SettingsPage = () => {
                         <Button 
                           size="sm" 
                           variant="destructive"
-                          onClick={() => removeAccount(account.name)}
+                          onClick={() => removeAccountHandler(account.name)}
                         >
                           Ta bort
                         </Button>
