@@ -841,7 +841,20 @@ export function applyCategorizationRules(
  * Green: User approved OR auto-approved internal transfers with links
  */
 export function determineTransactionStatus(transaction: any): 'red' | 'yellow' | 'green' {
-  // If already green (user approved), keep it green
+  // Special handling for internal transfers - they MUST have a linked transaction to be green
+  if (transaction.type === 'InternalTransfer') {
+    if (transaction.linkedTransactionId) {
+      // Internal transfer with link can be green if it has categories
+      const hasMainCategory = transaction.appCategoryId;
+      const hasSubCategory = transaction.appSubCategoryId;
+      return (hasMainCategory && hasSubCategory) ? 'green' : 'yellow';
+    } else {
+      // Internal transfer without link is always yellow, regardless of approval status
+      return 'yellow';
+    }
+  }
+  
+  // For non-internal transfers, if already green (user approved), keep it green
   if (transaction.status === 'green') {
     return 'green';
   }
@@ -849,14 +862,6 @@ export function determineTransactionStatus(transaction: any): 'red' | 'yellow' |
   // Check if both main category and subcategory are present
   const hasMainCategory = transaction.appCategoryId;
   const hasSubCategory = transaction.appSubCategoryId;
-  
-  // Auto-approve internal transfers with categories and links
-  if (transaction.type === 'InternalTransfer' && 
-      hasMainCategory && 
-      hasSubCategory && 
-      transaction.linkedTransactionId) {
-    return 'green';
-  }
   
   return (hasMainCategory && hasSubCategory) ? 'yellow' : 'red';
 }
