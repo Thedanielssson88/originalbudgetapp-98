@@ -6887,7 +6887,10 @@ const BudgetCalculator = () => {
                               calculateActualForTarget={calculateActualForTarget}
                               onSavingsCategoryDrillDown={openSavingsCategoryDrillDownDialog}
                               onSavingsTargetDrillDown={openSavingsTargetDrillDownDialog}
-                              onAddSavingsItem={() => {
+                              onAddSavingsItem={(item) => {
+                                // Handle saving the new savings item
+                                console.log('Adding savings item:', item);
+                                // TODO: Implement actual savings item addition logic
                                 setShowAddBudgetDialog({ isOpen: true, type: 'savings' });
                               }}
                               onEditSavingsGroup={(group) => {

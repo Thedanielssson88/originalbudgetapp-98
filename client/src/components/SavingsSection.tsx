@@ -18,7 +18,13 @@ interface SavingsSectionProps {
   calculateActualForTarget?: (targetId: string) => number;
   onSavingsCategoryDrillDown?: (categoryName: string, budgetAmount: number) => void;
   onSavingsTargetDrillDown?: (targetId: string, targetName: string, budgetAmount: number) => void;
-  onAddSavingsItem: () => void;
+  onAddSavingsItem: (item: {
+    mainCategory: string;
+    subcategory: string;
+    name: string;
+    amount: number;
+    account: string;
+  }) => void;
   onEditSavingsGroup: (group: BudgetGroup) => void;
   onDeleteSavingsGroup: (id: string) => void;
 }
@@ -335,10 +341,6 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
     // Get only transactions with type 'Savings' (Typ: Sparande)
     const savingsTransactions = transactionsForPeriod.filter(t => t.type === 'Savings');
     
-    // Debug: Log savings transactions and accounts
-    console.log('🔍 Savings transactions:', savingsTransactions);
-    console.log('🔍 Available accounts:', accounts);
-    
     return (
       <div className="space-y-4">
         {/* View Type Toggle */}
@@ -369,7 +371,7 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
         <div className="flex justify-end mb-4">
           <Button
             size="sm"
-            onClick={onAddSavingsItem}
+            onClick={() => setIsAddDialogOpen(true)}
             className="bg-gradient-to-r from-green-500/10 to-green-600/20 hover:from-green-500/20 hover:to-green-600/30"
           >
             <Plus className="w-4 h-4 mr-1" />
