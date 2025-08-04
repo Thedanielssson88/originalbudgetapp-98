@@ -145,18 +145,40 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
     const fingerprint = createTransactionFingerprint(fileTx);
     const existingTx = savedTransactionsMap.get(fingerprint);
 
-    if (existingTx && existingTx.isManuallyChanged) {
-      // PRESERVE user changes but ALWAYS update bank fields from file
-      console.log(`[ORCHESTRATOR] 💾 Preserving manual changes for transaction: ${fileTx.description}, updating bankCategory: ${fileTx.bankCategory} / ${fileTx.bankSubCategory}`);
-      return {
-        ...existingTx,
-        // ALWAYS update bank data from file - this is the authoritative source
-        bankCategory: fileTx.bankCategory,
-        bankSubCategory: fileTx.bankSubCategory,
-        bankStatus: fileTx.bankStatus,
-        balanceAfter: fileTx.balanceAfter,
-        fileSource: fileTx.fileSource
-      };
+    if (existingTx) {
+      // CRITICAL FIX: ALWAYS update bank fields from file, regardless of manual changes
+      console.log(`[ORCHESTRATOR] 🔄 Updating existing transaction: ${fileTx.description}`);
+      console.log(`[ORCHESTRATOR] 🔄 Old bankCategory: "${existingTx.bankCategory}" -> New: "${fileTx.bankCategory}"`);
+      console.log(`[ORCHESTRATOR] 🔄 Old bankSubCategory: "${existingTx.bankSubCategory}" -> New: "${fileTx.bankSubCategory}"`);
+      
+      if (existingTx.isManuallyChanged) {
+        // PRESERVE user changes but ALWAYS update bank fields from file
+        console.log(`[ORCHESTRATOR] 💾 Preserving manual changes while updating bank categories`);
+        return {
+          ...existingTx,
+          // ALWAYS update bank data from file - this is the authoritative source
+          bankCategory: fileTx.bankCategory,
+          bankSubCategory: fileTx.bankSubCategory,
+          bankStatus: fileTx.bankStatus,
+          balanceAfter: fileTx.balanceAfter,
+          fileSource: fileTx.fileSource
+        };
+      } else {
+        // Non-manually changed transaction - update everything from file
+        console.log(`[ORCHESTRATOR] 🔄 Updating non-manual transaction with all file data`);
+        return {
+          ...fileTx,
+          // Preserve some fields from existing transaction
+          id: existingTx.id,
+          type: existingTx.type,
+          status: existingTx.status,
+          appCategoryId: existingTx.appCategoryId,
+          appSubCategoryId: existingTx.appSubCategoryId,
+          linkedTransactionId: existingTx.linkedTransactionId,
+          savingsTargetId: existingTx.savingsTargetId,
+          coveredCostId: existingTx.coveredCostId
+        };
+      }
     }
     
     // New transaction or unchanged - apply category rules using the new advanced rule engine
