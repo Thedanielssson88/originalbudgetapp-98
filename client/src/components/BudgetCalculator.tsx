@@ -169,6 +169,21 @@ const BudgetCalculator = () => {
     
     return unsubscribe;
   }, []);
+
+  // Listen for tab switching events from routing
+  useEffect(() => {
+    const handleSetActiveTab = (event: CustomEvent) => {
+      const targetTab = event.detail;
+      console.log('🔄 [TAB SWITCH] Setting active tab to:', targetTab);
+      setActiveTab(targetTab);
+    };
+
+    window.addEventListener('setActiveTab', handleSetActiveTab as EventListener);
+    
+    return () => {
+      window.removeEventListener('setActiveTab', handleSetActiveTab as EventListener);
+    };
+  }, []);
   
   // Tab and expandable sections state
   const [activeTab, setActiveTab] = useState<string>("inkomster");

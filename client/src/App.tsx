@@ -23,7 +23,11 @@ const App = () => (
         <AppLayout>
           <Switch>
             <Route path="/" component={BudgetPage} />
-            <Route path="/budget" component={BudgetPage} />
+            <Route path="/inkomster" component={BudgetPage} />
+            <Route path="/sammanstallning" component={BudgetPage} />
+            <Route path="/overforing" component={BudgetPage} />
+            <Route path="/egen-budget" component={BudgetPage} />
+            <Route path="/historia" component={BudgetPage} />
             <Route path="/sparmal" component={SavingsGoalsPage} />
             <Route path="/transaktioner" component={TransactionsPage} />
             <Route path="/installningar" component={SettingsPage} />

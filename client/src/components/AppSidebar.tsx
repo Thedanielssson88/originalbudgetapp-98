@@ -1,4 +1,4 @@
-import { Calculator, Target, Receipt, Settings } from "lucide-react";
+import { Calculator, BarChart3, ArrowRightLeft, PieChart, History, Target, Upload, Settings } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 import {
@@ -13,9 +13,13 @@ import {
 } from "@/components/ui/sidebar";
 
 const items = [
-  { title: "Budget", url: "/", icon: Calculator },
+  { title: "Min Månadsbudget", url: "/inkomster", icon: Calculator },
+  { title: "Sammanställning", url: "/sammanstallning", icon: BarChart3 },
+  { title: "Överföring", url: "/overforing", icon: ArrowRightLeft },
+  { title: "Egen Budget", url: "/egen-budget", icon: PieChart },
+  { title: "Historia", url: "/historia", icon: History },
   { title: "Sparmål", url: "/sparmal", icon: Target },
-  { title: "Transaktioner", url: "/transaktioner", icon: Receipt },
+  { title: "Ladda upp CSV-filer", url: "/transaktioner", icon: Upload },
   { title: "Inställningar", url: "/installningar", icon: Settings },
 ];
 
