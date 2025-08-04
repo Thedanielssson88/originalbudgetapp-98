@@ -1374,32 +1374,43 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
 export function matchInternalTransfer(t1Id: string, t2Id: string): void {
   console.log(`🔄 [ORCHESTRATOR] Matching internal transfers: ${t1Id} <-> ${t2Id}`);
   
-  // Search for transactions across ALL months, not just the selected one
-  let t1: any = null;
-  let t2: any = null;
+  // Search for transactions in centralized allTransactions array first
+  let t1: any = state.budgetState.allTransactions.find(t => t.id === t1Id);
+  let t2: any = state.budgetState.allTransactions.find(t => t.id === t2Id);
   let t1MonthKey = '';
   let t2MonthKey = '';
   
-  // Find the transactions in any month
-  Object.keys(state.budgetState.historicalData).forEach(monthKey => {
-    const monthData = state.budgetState.historicalData[monthKey];
-    if (monthData?.transactions) {
-      const foundT1 = monthData.transactions.find(t => t.id === t1Id);
-      const foundT2 = monthData.transactions.find(t => t.id === t2Id);
-      
-      if (foundT1) {
-        t1 = foundT1;
-        t1MonthKey = monthKey;
+  // If found in centralized storage, derive month keys from dates
+  if (t1) {
+    t1MonthKey = t1.date.substring(0, 7);
+  }
+  if (t2) {
+    t2MonthKey = t2.date.substring(0, 7);
+  }
+  
+  // Fallback: search in monthly historical data if not found in centralized storage
+  if (!t1 || !t2) {
+    Object.keys(state.budgetState.historicalData).forEach(monthKey => {
+      const monthData = state.budgetState.historicalData[monthKey];
+      if (monthData?.transactions) {
+        const foundT1 = monthData.transactions.find(t => t.id === t1Id);
+        const foundT2 = monthData.transactions.find(t => t.id === t2Id);
+        
+        if (foundT1 && !t1) {
+          t1 = foundT1;
+          t1MonthKey = monthKey;
+        }
+        if (foundT2 && !t2) {
+          t2 = foundT2;
+          t2MonthKey = monthKey;
+        }
       }
-      if (foundT2) {
-        t2 = foundT2;
-        t2MonthKey = monthKey;
-      }
-    }
-  });
+    });
+  }
   
   if (!t1 || !t2) {
     console.error(`❌ [ORCHESTRATOR] Could not find transactions: t1=${!!t1} t2=${!!t2}`);
+    console.error(`❌ [ORCHESTRATOR] Searched for ${t1Id} and ${t2Id} in ${state.budgetState.allTransactions.length} centralized transactions and ${Object.keys(state.budgetState.historicalData).length} historical months`);
     return;
   }
   
@@ -1408,22 +1419,24 @@ export function matchInternalTransfer(t1Id: string, t2Id: string): void {
   const account1Name = state.budgetState.accounts.find(a => a.id === t1.accountId)?.name || t1.accountId;
   const account2Name = state.budgetState.accounts.find(a => a.id === t2.accountId)?.name || t2.accountId;
   
+  console.log(`🔄 [ORCHESTRATOR] Matching ${account1Name} transaction "${t1.description}" with ${account2Name} transaction "${t2.description}"`);
+  
   // Update both transactions with link and description
   updateTransaction(t1.id, {
     type: 'InternalTransfer',
     linkedTransactionId: t2.id,
-    userDescription: `Överföring, ${t2.date}`,
+    userDescription: `Överföring till ${account2Name}, ${t2.date}`,
     isManuallyChanged: true
   }, t1MonthKey);
   
   updateTransaction(t2.id, {
     type: 'InternalTransfer',
     linkedTransactionId: t1.id,
-    userDescription: `Överföring, ${t1.date}`,
+    userDescription: `Överföring från ${account1Name}, ${t1.date}`,
     isManuallyChanged: true
   }, t2MonthKey);
   
-  console.log(`✅ [ORCHESTRATOR] Matched internal transfer between ${t1Id} and ${t2Id}`);
+  console.log(`✅ [ORCHESTRATOR] Successfully matched internal transfer between ${t1Id} and ${t2Id}`);
 }
 
 export function linkSavingsTransaction(transactionId: string, savingsTargetId: string, mainCategoryId: string, monthKey?: string): void {
