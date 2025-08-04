@@ -673,7 +673,8 @@ export function getInternalTransferSummary(
 
   // 1. Hämta det korrekta datumintervallet baserat på payday-inställningen
   const { startDate, endDate } = getDateRangeForMonth(selectedMonthKey, budgetState.settings?.payday || 25);
-  const allTransactions = Object.values(budgetState.historicalData).flatMap(m => m.transactions || []);
+  // CRITICAL: Use centralized transaction storage
+  const allTransactions = budgetState.allTransactions || [];
   
   console.log('🔍 [INTERNAL TRANSFERS CALCULATION] Date range and transactions (string dates)', {
     startDate,
@@ -681,6 +682,24 @@ export function getInternalTransferSummary(
     totalTransactions: allTransactions.length,
     internalTransferTransactions: allTransactions.filter(t => t.type === 'InternalTransfer').length
   });
+  
+  // Debug: Show all transaction types in the period
+  const transactionTypesInPeriod = allTransactions
+    .filter(t => t.date >= startDate && t.date <= endDate)
+    .reduce((acc: {[key: string]: number}, t) => {
+      acc[t.type || 'undefined'] = (acc[t.type || 'undefined'] || 0) + 1;
+      return acc;
+    }, {});
+  
+  console.log('🔍 [INTERNAL TRANSFERS CALCULATION] Transaction types in period:', transactionTypesInPeriod);
+  
+  // Debug: Show sample transactions for the Överföring account
+  const overforingAccountId = 'aa9d996d-1baf-4c34-91bb-02f82b51aab6';
+  const overforingTransactions = allTransactions
+    .filter(t => t.accountId === overforingAccountId && t.date >= startDate && t.date <= endDate)
+    .slice(0, 5); // Show first 5
+    
+  console.log('🔍 [INTERNAL TRANSFERS CALCULATION] Sample Överföring account transactions:', overforingTransactions);
   
   // 2. Filtrera ut alla interna överföringar inom den korrekta perioden - ren strängjämförelse
   const transfersForPeriod = allTransactions.filter(t => {

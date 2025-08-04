@@ -27,6 +27,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
   budgetState, 
   selectedMonth 
 }) => {
+  console.log('🔄 [TRANSFERS COMPONENT] Component rendered with month:', selectedMonth);
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
   const [transferMatchDialog, setTransferMatchDialog] = useState<{
@@ -100,7 +101,9 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
   };
 
   // Hämta interna överföringar för varje konto (outside useMemo so it can be used in render)
+  console.log('🔄 [TRANSFERS COMPONENT] Calling getInternalTransferSummary for month:', selectedMonth);
   const allInternalTransfers = getInternalTransferSummary(budgetState, selectedMonth);
+  console.log('🔄 [TRANSFERS COMPONENT] Internal transfers result:', allInternalTransfers);
 
   // Använd useMemo för prestanda! Dessa beräkningar kan vara tunga.
   const analysisData = useMemo(() => {
