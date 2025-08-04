@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { MainCategoriesSettings } from "@/components/MainCategoriesSettings";
 import { PaydaySettings } from "@/components/PaydaySettings";
 import { useBudget } from "@/hooks/useBudget";
+import { getCurrentState } from "@/orchestrator/budgetOrchestrator";
 import { Calendar, User, Shield, Database, Settings, DollarSign, FolderOpen } from "lucide-react";
 
 const SettingsPage = () => {
@@ -22,8 +23,8 @@ const SettingsPage = () => {
   const [tempUserName1, setTempUserName1] = useState('Andreas');
   const [tempUserName2, setTempUserName2] = useState('Susanna');
   
-  // Account management states
-  const [accounts, setAccounts] = useState<string[]>(['Löpande', 'Sparkonto', 'Buffert', 'Nöje', 'Hushållskonto']);
+  // Account management states - get from central state
+  const accounts = budgetState.accounts || [];
   const [newAccountName, setNewAccountName] = useState('');
   
   // Budget template states
@@ -76,34 +77,51 @@ const SettingsPage = () => {
   };
 
   const addAccount = () => {
-    if (newAccountName.trim() && !accounts.includes(newAccountName.trim())) {
-      const updatedAccounts = [...accounts, newAccountName.trim()];
-      setAccounts(updatedAccounts);
-      setNewAccountName('');
+    if (newAccountName.trim() && !accounts.some(acc => acc.name === newAccountName.trim())) {
+      console.log('Adding new account:', newAccountName.trim());
       
-      // Save to localStorage
-      const savedData = localStorage.getItem('budgetCalculatorData');
-      const currentData = savedData ? JSON.parse(savedData) : {};
-      const updatedData = {
-        ...currentData,
-        accounts: updatedAccounts
+      // Get current state and add the account
+      const currentState = getCurrentState();
+      const newAccount = {
+        id: `account-${Date.now()}`,
+        name: newAccountName.trim(),
+        startBalance: 0
       };
-      localStorage.setItem('budgetCalculatorData', JSON.stringify(updatedData));
+      
+      // Add to accounts array
+      const updatedAccounts = [...currentState.budgetState.accounts, newAccount];
+      
+      // Update the state - this will trigger a re-render
+      currentState.budgetState.accounts = updatedAccounts;
+      
+      // Also save to localStorage for persistence
+      localStorage.setItem('budgetState', JSON.stringify(currentState.budgetState));
+      
+      setNewAccountName('');
+      console.log('Account added successfully:', newAccount);
+      
+      // Force a page refresh to show the new account
+      window.location.reload();
     }
   };
 
   const removeAccount = (accountToRemove: string) => {
-    const updatedAccounts = accounts.filter(account => account !== accountToRemove);
-    setAccounts(updatedAccounts);
+    console.log('Removing account:', accountToRemove);
     
-    // Save to localStorage
-    const savedData = localStorage.getItem('budgetCalculatorData');
-    const currentData = savedData ? JSON.parse(savedData) : {};
-    const updatedData = {
-      ...currentData,
-      accounts: updatedAccounts
-    };
-    localStorage.setItem('budgetCalculatorData', JSON.stringify(updatedData));
+    // Get current state and remove the account
+    const currentState = getCurrentState();
+    const updatedAccounts = currentState.budgetState.accounts.filter(acc => acc.name !== accountToRemove);
+    
+    // Update the state
+    currentState.budgetState.accounts = updatedAccounts;
+    
+    // Also save to localStorage for persistence
+    localStorage.setItem('budgetState', JSON.stringify(currentState.budgetState));
+    
+    console.log('Account removed successfully');
+    
+    // Force a page refresh to show the updated accounts
+    window.location.reload();
   };
 
   const createBackup = () => {
@@ -216,7 +234,7 @@ const SettingsPage = () => {
               </CardHeader>
               <CardContent>
                 <MainCategoriesSettings 
-                  mainCategories={budgetState.categories?.map(cat => cat.name) || []}
+                  mainCategories={budgetState.mainCategories || []}
                 />
               </CardContent>
             </Card>
@@ -416,12 +434,12 @@ const SettingsPage = () => {
                   <h3 className="text-lg font-semibold">Aktuella konton</h3>
                   <div className="space-y-2">
                     {accounts.map(account => (
-                      <div key={account} className="flex items-center justify-between p-3 border rounded">
-                        <span>{account}</span>
+                      <div key={account.id || account.name} className="flex items-center justify-between p-3 border rounded">
+                        <span>{account.name}</span>
                         <Button 
                           size="sm" 
                           variant="destructive"
-                          onClick={() => removeAccount(account)}
+                          onClick={() => removeAccount(account.name)}
                         >
                           Ta bort
                         </Button>
