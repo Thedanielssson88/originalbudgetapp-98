@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, ChevronUp, ArrowLeftRight, Plus } from 'lucide-react';
+import { ChevronDown, ChevronUp, ArrowLeftRight, Plus, Edit3, Trash2 } from 'lucide-react';
 import { BudgetState, PlannedTransfer, BudgetItem, Account, MonthData, Transaction } from '@/types/budget';
 import { getAccountNameById } from '../orchestrator/budgetOrchestrator';
 import { getDateRangeForMonth, getInternalTransferSummary } from '../services/calculationService';
@@ -40,6 +40,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
   const [showNewTransferForm, setShowNewTransferForm] = useState(false);
   const [selectedFromAccountId, setSelectedFromAccountId] = useState<string>('');
   const [expandedDailyTransfers, setExpandedDailyTransfers] = useState<Set<string>>(new Set());
+  const [editMode, setEditMode] = useState(false);
 
   // Toggle account expansion
   const toggleAccount = (accountId: string) => {
@@ -111,6 +112,11 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
     console.log('Creating planned transfer:', transfer);
     setShowNewTransferForm(false);
     setSelectedFromAccountId('');
+  };
+
+  const handleDeletePlannedTransfer = async (transferId: string) => {
+    // TODO: Implement delete functionality through orchestrator
+    console.log('Delete planned transfer:', transferId);
   };
 
   // Handle clicking on "Ej matchad" badge to match transfers
@@ -352,8 +358,8 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                             
                             <div className="grid grid-cols-3 gap-4 text-sm">
                               <div className="text-center">
-                                <div className="text-blue-700 font-medium">Budgeterat</div>
-                                <div className="font-semibold text-blue-900">{formatCurrency(data.totalBudgeted)}</div>
+                                <div className="text-red-700 font-medium">Budgeterade kostnader</div>
+                                <div className="font-semibold text-red-900">{formatCurrency(data.totalBudgeted)}</div>
                               </div>
                               <div className="text-center">
                                 <div className="text-blue-700 font-medium">Planerat</div>
@@ -387,15 +393,15 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                             
                             {/* Budgeterade överföringar */}
                             {data.budgetItems.length > 0 && (
-                              <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                                <h4 className="font-semibold mb-3 text-sm text-blue-800 uppercase tracking-wide">
-                                  Budgeterade Överföringar ({data.budgetItems.length})
+                              <div className="bg-red-50 rounded-lg p-3 border border-red-200">
+                                <h4 className="font-semibold mb-3 text-sm text-red-800 uppercase tracking-wide">
+                                  Budgeterade Kostnader ({data.budgetItems.length})
                                 </h4>
                                 <div className="space-y-2">
                                   {data.budgetItems.map(item => (
-                                    <div key={item.id} className="flex justify-between items-center py-2 px-3 rounded bg-white border border-blue-100">
-                                      <span className="text-sm text-blue-900">{item.description}</span>
-                                      <span className="font-medium text-sm text-blue-800">{formatCurrency(item.amount)}</span>
+                                    <div key={item.id} className="flex justify-between items-center py-2 px-3 rounded bg-white border border-red-100">
+                                      <span className="text-sm text-red-900">{item.description}</span>
+                                      <span className="font-medium text-sm text-red-800">{formatCurrency(item.amount)}</span>
                                     </div>
                                   ))}
                                 </div>
@@ -404,18 +410,29 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                             
                             {/* Planerade överföringar sektion */}
                             {(data.transfersIn.length > 0 || data.transfersOut.length > 0) && (
-                              <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
+                              <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
                                 <div className="flex items-center gap-2 mb-3">
-                                  <h4 className="font-semibold text-sm text-purple-800 uppercase tracking-wide">
+                                  <h4 className="font-semibold text-sm text-yellow-800 uppercase tracking-wide">
                                     Planerade Överföringar
                                   </h4>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="ml-2 h-6 w-6 p-0 text-yellow-700 hover:bg-yellow-200"
+                                    onClick={() => setEditMode(!editMode)}
+                                  >
+                                    <Edit3 className="h-4 w-4" />
+                                  </Button>
+                                  {editMode && (
+                                    <span className="text-xs text-yellow-700 ml-2">Redigera läge aktivt</span>
+                                  )}
                                   {data.transfersIn.length > 0 && (
-                                    <Badge className="bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-100">
+                                    <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-100">
                                       In: {data.transfersIn.length}
                                     </Badge>
                                   )}
                                   {data.transfersOut.length > 0 && (
-                                    <Badge variant="outline" className="border-purple-300 text-purple-800">
+                                    <Badge variant="outline" className="border-yellow-300 text-yellow-800">
                                       Ut: {data.transfersOut.length}
                                     </Badge>
                                   )}
@@ -423,33 +440,43 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                                 
                                 {data.transfersIn.length > 0 && (
                                   <div className="mb-3">
-                                    <h5 className="text-xs font-medium text-purple-700 mb-2">Inkommande:</h5>
+                                    <h5 className="text-xs font-medium text-yellow-700 mb-2">Inkommande:</h5>
                                     <div className="space-y-1">
                                       {data.transfersIn.map((t) => (
                                         <div key={t.id}>
-                                          <div className="flex justify-between items-center py-2 px-3 rounded bg-white border border-purple-100">
-                                            <span className="text-sm text-purple-900">
+                                          <div className="flex justify-between items-center py-2 px-3 rounded bg-white border border-yellow-100">
+                                            <span className="text-sm text-yellow-900">
                                               {formatCurrency(t.amount)} från {getAccountNameById(t.fromAccountId)}
                                               {t.transferType === 'daily' && t.transferDays && (
-                                                <span className="ml-2 text-xs text-purple-600">
+                                                <span className="ml-2 text-xs text-yellow-600">
                                                   ({t.transferDays.length} dagar/vecka)
                                                 </span>
                                               )}
                                               {t.description && (
-                                                <span className="ml-2 text-xs text-purple-600">
+                                                <span className="ml-2 text-xs text-yellow-600">
                                                   - {t.description}
                                                 </span>
                                               )}
                                             </span>
                                             <div className="flex items-center gap-2">
-                                              <span className="font-medium text-sm text-purple-600">
+                                              <span className="font-medium text-sm text-yellow-600">
                                                 + {formatCurrency(t.amount)}
                                               </span>
+                                              {editMode && (
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  className="h-6 w-6 p-0 text-red-600 hover:bg-red-100"
+                                                  onClick={() => handleDeletePlannedTransfer(t.id)}
+                                                >
+                                                  <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                              )}
                                               {t.transferType === 'daily' && (
                                                 <Button
                                                   size="sm"
                                                   variant="ghost"
-                                                  className="h-6 w-6 p-0 text-purple-600 hover:bg-purple-100"
+                                                  className="h-6 w-6 p-0 text-yellow-600 hover:bg-yellow-100"
                                                   onClick={() => toggleDailyTransfer(t.id)}
                                                 >
                                                   {expandedDailyTransfers.has(t.id) ? 
@@ -462,11 +489,11 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                                           </div>
                                           {/* Expandable daily transfer details for incoming */}
                                           {t.transferType === 'daily' && expandedDailyTransfers.has(t.id) && (
-                                            <div className="mt-2 pl-4 border-l-2 border-purple-200">
-                                              <div className="text-xs text-purple-700 mb-1">
+                                            <div className="mt-2 pl-4 border-l-2 border-yellow-200">
+                                              <div className="text-xs text-yellow-700 mb-1">
                                                 <strong>Detaljer för daglig överföring:</strong>
                                               </div>
-                                              <div className="text-xs text-purple-600 space-y-1">
+                                              <div className="text-xs text-yellow-600 space-y-1">
                                                 <div>Belopp per dag: <strong>{formatCurrency(t.dailyAmount || 0)}</strong></div>
                                                 <div>Dagar: <strong>{getDayNames(t.transferDays || [])}</strong></div>
                                                 <div>Totalt per månad: <strong>{formatCurrency(t.amount)}</strong></div>
@@ -484,33 +511,43 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
 
                                 {data.transfersOut.length > 0 && (
                                   <div>
-                                    <h5 className="text-xs font-medium text-purple-700 mb-2">Utgående:</h5>
+                                    <h5 className="text-xs font-medium text-yellow-700 mb-2">Utgående:</h5>
                                     <div className="space-y-1">
                                       {data.transfersOut.map((t) => (
                                         <div key={t.id}>
-                                          <div className="flex justify-between items-center py-2 px-3 rounded bg-white border border-purple-100">
-                                            <span className="text-sm text-purple-900">
+                                          <div className="flex justify-between items-center py-2 px-3 rounded bg-white border border-yellow-100">
+                                            <span className="text-sm text-yellow-900">
                                               {formatCurrency(t.amount)} till {getAccountNameById(t.toAccountId)}
                                               {t.transferType === 'daily' && t.transferDays && (
-                                                <span className="ml-2 text-xs text-purple-600">
+                                                <span className="ml-2 text-xs text-yellow-600">
                                                   ({t.transferDays.length} dagar/vecka)
                                                 </span>
                                               )}
                                               {t.description && (
-                                                <span className="ml-2 text-xs text-purple-600">
+                                                <span className="ml-2 text-xs text-yellow-600">
                                                   - {t.description}
                                                 </span>
                                               )}
                                             </span>
                                             <div className="flex items-center gap-2">
-                                              <span className="font-medium text-sm text-purple-600">
+                                              <span className="font-medium text-sm text-yellow-600">
                                                 - {formatCurrency(t.amount)}
                                               </span>
+                                              {editMode && (
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  className="h-6 w-6 p-0 text-red-600 hover:bg-red-100"
+                                                  onClick={() => handleDeletePlannedTransfer(t.id)}
+                                                >
+                                                  <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                              )}
                                               {t.transferType === 'daily' && (
                                                 <Button
                                                   size="sm"
                                                   variant="ghost"
-                                                  className="h-6 w-6 p-0 text-purple-600 hover:bg-purple-100"
+                                                  className="h-6 w-6 p-0 text-yellow-600 hover:bg-yellow-100"
                                                   onClick={() => toggleDailyTransfer(t.id)}
                                                 >
                                                   {expandedDailyTransfers.has(t.id) ? 
@@ -523,11 +560,11 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                                           </div>
                                           {/* Expandable daily transfer details for outgoing */}
                                           {t.transferType === 'daily' && expandedDailyTransfers.has(t.id) && (
-                                            <div className="mt-2 pl-4 border-l-2 border-purple-200">
-                                              <div className="text-xs text-purple-700 mb-1">
+                                            <div className="mt-2 pl-4 border-l-2 border-yellow-200">
+                                              <div className="text-xs text-yellow-700 mb-1">
                                                 <strong>Detaljer för daglig överföring:</strong>
                                               </div>
-                                              <div className="text-xs text-purple-600 space-y-1">
+                                              <div className="text-xs text-yellow-600 space-y-1">
                                                 <div>Belopp per dag: <strong>{formatCurrency(t.dailyAmount || 0)}</strong></div>
                                                 <div>Dagar: <strong>{getDayNames(t.transferDays || [])}</strong></div>
                                                 <div>Totalt per månad: <strong>{formatCurrency(t.amount)}</strong></div>
