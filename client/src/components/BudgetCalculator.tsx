@@ -5288,6 +5288,83 @@ const BudgetCalculator = () => {
           </CardContent>
         </Card>
 
+        {/* Page Navigator */}
+        <Card className="mb-6">
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl">
+              Navigera sidor
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* Current Page Display with Navigation and Dropdown */}
+            <div className="flex items-center justify-center gap-4">
+              <Button
+                variant="ghost"
+                size="lg"
+                onClick={navigateToPreviousTab}
+                className="p-3 h-12 w-12 text-primary hover:text-primary/80"
+                disabled={isAnimating}
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </Button>
+              
+              <Select 
+                value={activeTab} 
+                onValueChange={(value) => setActiveTab(value)}
+              >
+                <SelectTrigger className="w-auto min-w-[200px] border-none bg-transparent text-xl font-semibold text-primary hover:bg-muted/50 transition-colors text-center justify-center">
+                  <SelectValue>
+                    {(() => {
+                      const pageNames = {
+                        'inkomster': 'Min Månadsbudget',
+                        'sammanstallning': 'Sammanställning',
+                        'overforing': 'Överföring',
+                        'egen-budget': 'Egen Budget',
+                        'historia': 'Historia',
+                        'sparmal': 'Sparmål',
+                        'transaktioner': 'Läs in transaktioner',
+                        'installningar': 'Inställningar'
+                      };
+                      return pageNames[activeTab as keyof typeof pageNames] || 'Okänd sida';
+                    })()}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {(() => {
+                    const tabs = getTabOrder();
+                    const pageNames = {
+                      'inkomster': 'Min Månadsbudget',
+                      'sammanstallning': 'Sammanställning',
+                      'overforing': 'Överföring',
+                      'egen-budget': 'Egen Budget',
+                      'historia': 'Historia',
+                      'sparmal': 'Sparmål',
+                      'transaktioner': 'Läs in transaktioner',
+                      'installningar': 'Inställningar'
+                    };
+                    
+                    return tabs.map(tabKey => (
+                      <SelectItem key={tabKey} value={tabKey}>
+                        {pageNames[tabKey as keyof typeof pageNames] || tabKey}
+                      </SelectItem>
+                    ));
+                  })()}
+                </SelectContent>
+              </Select>
+
+              <Button
+                variant="ghost"
+                size="lg"
+                onClick={navigateToNextTab}
+                className="p-3 h-12 w-12 text-primary hover:text-primary/80"
+                disabled={isAnimating}
+              >
+                <ChevronRight className="h-6 w-6" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Hidden TabsList for programmatic navigation only */}
           <TabsList className="hidden">
