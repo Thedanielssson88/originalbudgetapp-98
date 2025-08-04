@@ -409,10 +409,13 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                         <Label className="text-xs">Huvudkategori</Label>
                         <Select
                           value={editingRule?.action.appMainCategoryId || ''}
-                          onValueChange={(value) => setEditingRule(prev => prev ? {
-                            ...prev,
-                            action: { ...prev.action, appMainCategoryId: value, appSubCategoryId: '' }
-                          } : null)}
+                          onValueChange={(value) => {
+                            setEditingRule(prev => prev ? {
+                              ...prev,
+                              action: { ...prev.action, appMainCategoryId: value, appSubCategoryId: '' }
+                            } : null);
+                            setAvailableSubcategories(subcategories[value] || []);
+                          }}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Välj huvudkategori" />
