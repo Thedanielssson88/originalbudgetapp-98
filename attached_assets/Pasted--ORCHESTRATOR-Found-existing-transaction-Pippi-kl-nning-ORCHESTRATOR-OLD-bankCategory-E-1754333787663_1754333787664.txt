@@ -1,0 +1,28 @@
+[ORCHESTRATOR] 🔄 Found existing transaction: Pippi klänning
+[ORCHESTRATOR] 🔄 OLD bankCategory: "EMPTY" -> NEW: "Övriga inkomster"
+[ORCHESTRATOR] 🔄 OLD bankSubCategory: "EMPTY" -> NEW: "Överföringar egna konton"
+[ORCHESTRATOR] 🔄 isManuallyChanged: false
+[ORCHESTRATOR] 🔬 DIAGNOSTIC - existingTx fields: 
+Object {bankCategory: undefined, bankSubCategory: undefined, appCategoryId: undefined, isManuallyChanged: undefined}
+[ORCHESTRATOR] 🔬 DIAGNOSTIC - fileTx fields: 
+Object {bankCategory: "Övriga inkomster", bankSubCategory: "Överföringar egna konton", description: "Pippi klänning"}
+[ORCHESTRATOR] 🔬 DIAGNOSTIC - baseUpdatedTx after creation: 
+Object {bankCategory: "Övriga inkomster", bankSubCategory: "Överföringar egna konton", appCategoryId: undefined}
+[ORCHESTRATOR] 🔄 NON-MANUAL transaction - applying rules to updated data
+[ORCHESTRATOR] ✅ After rules - bankCategory: "Övriga inkomster", type: InternalTransfer
+[ORCHESTRATOR] 🔬 FINAL PROCESSED - bankCategory: "Övriga inkomster", bankSubCategory: "Överföringar egna konton"
+[ORCHESTRATOR] 🔄 Found existing transaction: Helgöverföring
+[ORCHESTRATOR] 🔄 OLD bankCategory: "EMPTY" -> NEW: "Övriga inkomster"
+[ORCHESTRATOR] 🔄 OLD bankSubCategory: "EMPTY" -> NEW: "Kontoöverföringar"
+[ORCHESTRATOR] 🔄 isManuallyChanged: true
+[ORCHESTRATOR] 🔬 DIAGNOSTIC - existingTx fields: 
+Object {bankCategory: undefined, bankSubCategory: undefined, appCategoryId: undefined, isManuallyChanged: true}
+[ORCHESTRATOR] 🔬 DIAGNOSTIC - fileTx fields: 
+Object {bankCategory: "Övriga inkomster", bankSubCategory: "Kontoöverföringar", description: "Helgöverföring"}
+bankCategory: "Övriga inkomster"
+bankSubCategory: "Kontoöverföringar"
+description: "Helgöverföring"
+[[Prototype]]: Object
+[ORCHESTRATOR] 🔬 DIAGNOSTIC - baseUpdatedTx after creation: 
+Object {bankCategory: "Övriga inkomster", bankSubCategory: "Kontoöverföringar", appCategoryId: undefined}
+[ORCHESTRATOR] 💾 MANUAL transaction - preserving user changes, updating bank data only

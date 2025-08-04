@@ -2076,6 +2076,13 @@ export function getAllTransactionsFromDatabase(): ImportedTransaction[] {
   if (transactionsWithBankCategories.length > 0) {
     console.log(`🔍 [ORCHESTRATOR DEBUG] Sample bankCategory: "${transactionsWithBankCategories[0].bankCategory}"`);
     console.log(`🔍 [ORCHESTRATOR DEBUG] Sample bankSubCategory: "${transactionsWithBankCategories[0].bankSubCategory}"`);
+    console.log(`🔍 [ORCHESTRATOR DEBUG] Sample description: "${transactionsWithBankCategories[0].description}"`);
+  } else {
+    console.log(`🔍 [ORCHESTRATOR DEBUG] NO TRANSACTIONS WITH BANK CATEGORIES FOUND! Checking first few transactions...`);
+    const sampleTransactions = allTransactions.slice(0, 3);
+    sampleTransactions.forEach((tx, i) => {
+      console.log(`🔍 [ORCHESTRATOR DEBUG] Transaction ${i}: "${tx.description}" - bankCategory: "${tx.bankCategory || 'MISSING'}" - bankSubCategory: "${tx.bankSubCategory || 'MISSING'}"`);
+    });
   }
   
   return allTransactions;
