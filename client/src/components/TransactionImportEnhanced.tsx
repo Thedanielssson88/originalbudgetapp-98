@@ -1041,22 +1041,21 @@ export const TransactionImportEnhanced: React.FC = () => {
   
   // Helper function to automatically find and match internal transfers
   const findAndMatchTransfer = (transaction: ImportedTransaction) => {
-    // Find potential matches using the same logic as manual "Ej matchad" functionality
-    // Look for transactions with opposite signs within 7 days from OTHER accounts
+    // Find potential matches on the same date with opposite signs on different accounts
     const potentialMatches = allTransactions.filter(t => 
       t.id !== transaction.id &&
       t.accountId !== transaction.accountId && // Different account
+      t.date === transaction.date && // Same date only
       // Opposite signs (positive matches negative, negative matches positive)
       ((transaction.amount > 0 && t.amount < 0) || (transaction.amount < 0 && t.amount > 0)) &&
       Math.abs(Math.abs(t.amount) - Math.abs(transaction.amount)) < 0.01 && // Same absolute amount
-      Math.abs(new Date(t.date).getTime() - new Date(transaction.date).getTime()) <= 7 * 24 * 60 * 60 * 1000 && // Within 7 days
       !t.linkedTransactionId // Not already linked
     );
     
     // If exactly one match found, auto-link them
     if (potentialMatches.length === 1) {
       const matchedTransaction = potentialMatches[0];
-      console.log(`🔄 [AUTO TRANSFER MATCH] Found exact match within 7 days: ${transaction.id} (${transaction.amount} kr, ${transaction.date}) <-> ${matchedTransaction.id} (${matchedTransaction.amount} kr, ${matchedTransaction.date})`);
+      console.log(`🔄 [AUTO TRANSFER MATCH] Found exact match on same date: ${transaction.id} (${transaction.amount} kr, ${transaction.date}) <-> ${matchedTransaction.id} (${matchedTransaction.amount} kr, ${matchedTransaction.date})`);
       
       // Use the matchInternalTransfer function from imports
       // Match the transactions
