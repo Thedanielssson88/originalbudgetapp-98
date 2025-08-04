@@ -1078,7 +1078,7 @@ export const TransactionImportEnhanced: React.FC = () => {
           
           // Update transaction type using handleTransactionUpdate
           handleTransactionUpdate(transaction.id, { 
-            transactionType: newTransactionType as 'Transaction' | 'InternalTransfer' | 'Savings' | 'CostCoverage' | 'ExpenseClaim'
+            type: newTransactionType as 'Transaction' | 'InternalTransfer' | 'Savings' | 'CostCoverage' | 'ExpenseClaim'
           });
           
           updatedCount++;
