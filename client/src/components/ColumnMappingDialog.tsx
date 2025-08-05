@@ -49,16 +49,22 @@ export function ColumnMappingDialog({
 }: ColumnMappingDialogProps) {
   const { toast } = useToast();
   const { data: banks } = useBanks();
-  const { data: existingMappings } = useBankCsvMappingsByBank(selectedBankId || '');
+  const [currentBankId, setCurrentBankId] = useState(selectedBankId || '');
+  const { data: existingMappings } = useBankCsvMappingsByBank(currentBankId || selectedBankId || '');
   const createBank = useCreateBank();
   const createMapping = useCreateBankCsvMapping();
   const updateMapping = useUpdateBankCsvMapping();
-
-  const [currentBankId, setCurrentBankId] = useState(selectedBankId || '');
   const [newBankName, setNewBankName] = useState('');
   const [mappingName, setMappingName] = useState('Standard mappning');
   const [showPreview, setShowPreview] = useState(false);
   const [mapping, setMapping] = useState<Record<string, string>>({});
+
+  // Update currentBankId when selectedBankId changes
+  useEffect(() => {
+    if (selectedBankId) {
+      setCurrentBankId(selectedBankId);
+    }
+  }, [selectedBankId]);
 
   // Load existing mapping when bank changes
   useEffect(() => {
