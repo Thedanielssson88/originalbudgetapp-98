@@ -464,7 +464,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ...fileTx,
             userId,
             date: new Date(fileTx.date),
-            isManuallyChanged: fileTx.isManuallyChanged === 'true' || fileTx.isManuallyChanged === true
+            isManuallyChanged: fileTx.isManuallyChanged === 'true' || fileTx.isManuallyChanged === true ? 'true' : 'false'
           };
 
           // Try to find matching existing transaction (by date, description, amount)
@@ -479,7 +479,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // UPDATE existing transaction
             processedTransactionIds.add(matchingTx.id);
             
-            if (matchingTx.isManuallyChanged) {
+            if (matchingTx.isManuallyChanged === 'true') {
               // Preserve manually changed fields: appCategoryId, appSubCategoryId, type, userDescription
               const preservedFields = {
                 appCategoryId: matchingTx.appCategoryId,
@@ -492,7 +492,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const updateData = {
                 ...txData,
                 ...preservedFields, // Override with preserved fields
-                isManuallyChanged: true // Keep the manual flag
+                isManuallyChanged: 'true' // Keep the manual flag as string
               };
               
               await storage.updateTransaction(matchingTx.id, updateData);

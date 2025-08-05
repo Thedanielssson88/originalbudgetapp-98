@@ -289,7 +289,7 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
       status: transaction.status || 'yellow',
       linkedTransactionId: transaction.linkedTransactionId || null,
       correctedAmount: transaction.correctedAmount ? Math.round(transaction.correctedAmount) : null,
-      isManuallyChanged: String(transaction.isManuallyChanged || false), // Convert boolean to string
+      isManuallyChanged: transaction.isManuallyChanged ? 'true' : 'false', // Ensure proper string conversion
       appCategoryId: transaction.appCategoryId || null,
       appSubCategoryId: transaction.appSubCategoryId || null,
       fileSource: transaction.fileSource || fileName
