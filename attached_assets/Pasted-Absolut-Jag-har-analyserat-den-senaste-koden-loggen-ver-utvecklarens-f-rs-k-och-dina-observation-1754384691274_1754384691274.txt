@@ -1,0 +1,129 @@
+Absolut. Jag har analyserat den senaste koden, loggen över utvecklarens försök, och dina observationer. Det är fullständigt förståeligt att du är frustrerad. Loggen visar en serie försök som var dömda att misslyckas eftersom de, precis som du misstänker, inte adresserar det verkliga problemet i systemets kärna.
+
+Problemet är **inte** i frontend (TypeScript/React/localStorage) som utvecklaren tycks tro, utan djupt i backend-logiken (C\# .NET) och databasens struktur. "Fixa nu"-knappen startar bara om appen eftersom den inte anropar någon backend-logik som utför den nödvändiga migreringen.
+
+Här är en djupgående analys av situationen och ett konkret, steg-för-steg-förslag till din utvecklare som, om det följs, kommer att lösa problemen permanent.
+
+-----
+
+### Till Utvecklaren: En Plan för att Slutgiltigt Lösa Kategori-migreringen
+
+Den nuvarande situationen beror på en fundamental missmatch mellan problemet och de försök som gjorts för att lösa det. Användarens problem ligger i C\# backend och hur data hanteras i SQL-databasen via Entity Framework. [cite\_start]Försöken att lösa detta med `localStorage` i frontend (som ses i loggen [cite: 37, 38, 42, 43, 47]) är irrelevanta för den persistenta datan och kommer aldrig att fungera.
+
+Vi måste omedelbart sluta fokusera på frontend och istället implementera en robust backend-process för migreringen.
+
+#### Grundorsaken: Inkonsekvent Datamodell
+
+Som tidigare konstaterat är grundorsaken att `TransactionRule`-modellen använder `string` för att referera till kategorier, medan `Transaction` använder `Guid` (UUID). När ett kategorinamn ändras, bryts alla kopplingar till reglerna.
+
+**Koden bevisar detta (`Models/TransactionRule.cs`):**
+
+```csharp
+public class TransactionRule
+{
+    // ...
+    public string Huvudkategori { get; set; } // FEL: Ska vara Guid? HuvudkategoriId
+    public string Underkategori { get; set; }  // FEL: Ska vara Guid? UnderkategoriId
+    // ...
+}
+```
+
+### En Fullständig Migreringsplan för "Fixa nu"-knappen
+
+Knappen "Fixa nu" måste trigga en **engångsoperation på backend** som utför en komplett och oåterkallelig migrering av all relevant data. Här är de exakta stegen för att implementera detta.
+
+#### Steg 1: Förberedelse - Ändra Databas-schemat
+
+Innan någon logik skrivs måste databasen förberedas.
+
+1.  **Modifiera `TransactionRule.cs`:**
+
+      * Lägg till två nya properties: `public Guid? HuvudkategoriId { get; set; }` och `public Guid? UnderkategoriId { get; set; }`.
+      * **Behåll de gamla `string`-propertiesen tills vidare.** Vi behöver dem för att läsa den gamla datan under migreringen.
+
+2.  **Skapa och kör en Entity Framework Migration:**
+
+      * Kör `Add-Migration AddCategoryIdsToRules`.
+      * Kör `Update-Database`.
+      * Resultatet ska vara att `TransactionRules`-tabellen nu har två nya, tomma kolumner: `HuvudkategoriId` och `UnderkategoriId`.
+
+#### Steg 2: Implementera Backend-logiken för "Fixa nu"
+
+1.  **Skapa en ny API Endpoint:** Skapa en dedikerad endpoint som frontend-knappen kan anropa, till exempel `POST /api/migration/run-category-migration`. Denna endpoint ska vara skyddad och endast kunna köras en gång.
+
+2.  **Skriv Migrerings-servicen (Denna kod körs när knappen trycks):**
+    Denna service ska utföra följande operationer i en enda transaktion för att säkerställa att allt antingen lyckas eller misslyckas tillsammans.
+
+    ```csharp
+    public async Task<bool> RunMigration()
+    {
+        // Steg A: Hämta all nödvändig data
+        var allRules = await _context.TransactionRules.ToListAsync();
+        var allTransactions = await _context.Transactions.ToListAsync();
+        var allHuvudkategorier = await _context.Huvudkategorier.ToListAsync();
+        var allUnderkategorier = await _context.Underkategorier.ToListAsync();
+
+        // --- MIGRERA REGLER ---
+        foreach (var rule in allRules)
+        {
+            // Migrera bara om den inte redan har ett ID
+            if (rule.HuvudkategoriId == null && !string.IsNullOrEmpty(rule.Huvudkategori))
+            {
+                var matchingHuvudkategori = allHuvudkategorier.FirstOrDefault(h => h.Name == rule.Huvudkategori);
+                if (matchingHuvudkategori != null)
+                {
+                    rule.HuvudkategoriId = matchingHuvudkategori.Id;
+                }
+            }
+
+            if (rule.UnderkategoriId == null && !string.IsNullOrEmpty(rule.Underkategori))
+            {
+                var matchingUnderkategori = allUnderkategorier.FirstOrDefault(u => u.Name == rule.Underkategori);
+                if (matchingUnderkategori != null)
+                {
+                    rule.UnderkategoriId = matchingUnderkategori.Id;
+                }
+            }
+        }
+
+        // --- VERIFIERA TRANSAKTIONER (VIKTIGT!) ---
+        // Säkerställ att transaktionernas HuvudkategoriId stämmer överens med deras Underkategori.
+        foreach (var transaction in allTransactions)
+        {
+            if (transaction.UnderkategoriId != null)
+            {
+                var underkategori = allUnderkategorier.FirstOrDefault(u => u.Id == transaction.UnderkategoriId);
+                if (underkategori != null && transaction.HuvudkategoriId != underkategori.HuvudkategoriId)
+                {
+                    // Korrigera HuvudkategoriId på transaktionen baserat på Underkategorins koppling.
+                    transaction.HuvudkategoriId = underkategori.HuvudkategoriId;
+                }
+            }
+        }
+        
+        // Steg B: Spara alla ändringar till databasen
+        await _context.SaveChangesAsync();
+        
+        // Steg C: Sätt en permanent flagg att migreringen är klar
+        // Detta kan vara en ny tabell/inställning i databasen.
+        // SetMigrationCompletedFlagInDatabase(); 
+
+        return true;
+    }
+    ```
+
+#### Steg 3: Koppla Frontend till Backend
+
+1.  **Uppdatera "Fixa nu"-knappen:** Ändra knappens `onClick`-händelse så att den gör ett `POST`-anrop till den nya `/api/migration/run-category-migration`-endpointen.
+2.  **Hantera Svar:**
+      * Om anropet lyckas (`200 OK`), ladda om sidan. Sidan ska nu (baserat på migreringsflaggan från backend) dölja "Fixa nu"-knappen och rendera gränssnittet i det nya UUID-läget.
+      * Om anropet misslyckas, visa ett felmeddelande.
+
+#### Steg 4: Permanent Refaktorering (Efter Lyckad Migrering)
+
+När migreringen är verifierad i live-systemet är det dags att städa upp koden för att förhindra framtida misstag.
+
+1.  **Ta bort all namn-baserad logik:** Sök igenom hela C\#-projektet. All kod som letar efter kategorier baserat på namn (t.ex. `_context.Huvudkategorier.FirstOrDefault(h => h.Name == "...")`) måste tas bort och ersättas med sökning på ID (`...FirstOrDefault(h => h.Id == ...)`). Detta gäller särskilt i `TransactionService.ApplyRules`.
+2.  **Ta bort gamla properties:** Skapa en sista EF Migration för att ta bort de gamla `string`-kolumnerna (`Huvudkategori`, `Underkategori`) från `TransactionRules`-tabellen.
+
+Genom att följa denna plan kommer migreringen att utföras på rätt ställe (backend), använda rätt data (från databasen), och permanent lösa de problem som plågat systemet. Efter detta kommer namnändringar på kategorier fungera felfritt, precis som det var tänkt från början.

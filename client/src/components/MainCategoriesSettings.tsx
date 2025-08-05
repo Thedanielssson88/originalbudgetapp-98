@@ -19,11 +19,10 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
   
   console.log('🔍 Migration completed status:', migrationCompleted);
   
-  // If migration is completed, check if UUID database has data, otherwise show migration button
+  // If migration is completed, use the UUID-based category manager
   if (migrationCompleted) {
-    console.log('✅ Migration marked complete, checking UUID database...');
-    // For now, always show localStorage system until we verify UUID data exists
-    // return <UuidCategoryManager />;
+    console.log('✅ Migration completed, switching to UUID Category Manager');
+    return <UuidCategoryManager />;
   }
   
   // Otherwise use the legacy localStorage-based system
