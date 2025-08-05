@@ -13,7 +13,7 @@ import { monthlyBudgetService } from '../services/monthlyBudgetService';
 import { apiStore } from '../store/apiStore';
 
 // SMART MERGE FUNCTION - The definitive solution to duplicate and lost changes
-export async function importAndReconcileFile(csvContent: string, accountId: string): Promise<void> {
+export async function importAndReconcileFile(csvContent: string, accountId: string, categoryRules?: any[]): Promise<void> {
   console.log(`🚨 ORCHESTRATOR FUNCTION CALLED - accountId: ${accountId}`);
   addMobileDebugLog(`🚨 ORCHESTRATOR FUNCTION CALLED for ${accountId}`);
   console.log(`[ORCHESTRATOR] 🔥 Smart merge starting for account ${accountId}`);
@@ -195,7 +195,7 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
       } else {
         console.log(`[ORCHESTRATOR] 🔄 NON-MANUAL transaction - applying rules to updated data`);
         // For non-manual transactions: apply categorization rules
-        const processedTransaction = applyCategorizationRules(baseUpdatedTx, state.budgetState.categoryRules || []);
+        const processedTransaction = applyCategorizationRules(baseUpdatedTx, categoryRules || []);
         console.log(`[ORCHESTRATOR] ✅ After rules - bankCategory: "${processedTransaction.bankCategory || 'EMPTY'}", type: ${processedTransaction.type}`);
         console.log(`[ORCHESTRATOR] 🔬 FINAL PROCESSED - bankCategory: "${processedTransaction.bankCategory}", bankSubCategory: "${processedTransaction.bankSubCategory}"`);
         return processedTransaction;
@@ -204,7 +204,7 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
     
     // New transaction or unchanged - apply category rules using the new advanced rule engine
     console.log(`[ORCHESTRATOR] 🔄 Processing transaction: ${fileTx.description}, bankCategory: ${fileTx.bankCategory} / ${fileTx.bankSubCategory}`);
-    const processedTransaction = applyCategorizationRules(fileTx, state.budgetState.categoryRules || []);
+    const processedTransaction = applyCategorizationRules(fileTx, categoryRules || []);
     console.log(`[ORCHESTRATOR] ✅ After processing: ${processedTransaction.description}, bankCategory: ${processedTransaction.bankCategory} / ${processedTransaction.bankSubCategory}`);
     return processedTransaction;
   });
@@ -972,7 +972,7 @@ function reconcileTransactions(
       });
     } else {
       // Apply categorization rules to new transaction using the modern rule engine
-      const categorizedTransaction = applyCategorizationRules(fileTx, categoryRules);
+      const categorizedTransaction = applyCategorizationRules(fileTx, categoryRules || []);
       reconciledTransactions.push(categorizedTransaction);
     }
   });
