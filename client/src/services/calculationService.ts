@@ -876,61 +876,69 @@ export function applyCategorizationRules(
   rules: any[]
 ): any {
   // Sortera reglerna så att textregler (högre prioritet) körs först
-  const sortedRules = [...rules].sort((a, b) => a.priority - b.priority);
+  const sortedRules = [...rules].sort((a, b) => (a.priority || 100) - (b.priority || 100));
 
   for (const rule of sortedRules) {
-    if (!rule.isActive) continue;
-    
-    // Skip rules without proper condition structure
-    if (!rule.condition || !rule.condition.type) {
-      console.warn('Skipping rule without proper condition:', rule);
-      continue;
-    }
+    // Check if rule is active (handle both string and boolean)
+    const isActive = rule.isActive === 'true' || rule.isActive === true;
+    if (!isActive) continue;
     
     let isMatch = false;
     
-    // Kontrollera om transaktionen matchar regelns villkor
-    switch (rule.condition.type) {
-      case 'textContains':
-        if (transaction.description?.toLowerCase().includes(rule.condition.value.toLowerCase())) {
-          isMatch = true;
+    console.log(`🔍 [RULE] Checking rule "${rule.ruleName}" against transaction "${transaction.description}"`);
+    
+    // Check if applicable accounts match (if specified)
+    if (rule.applicableAccountIds && rule.applicableAccountIds !== '[]') {
+      try {
+        const applicableAccounts = JSON.parse(rule.applicableAccountIds);
+        if (applicableAccounts.length > 0 && !applicableAccounts.includes(transaction.accountId)) {
+          console.log(`🔍 [RULE] Rule "${rule.ruleName}" skipped - account ${transaction.accountId} not in applicable accounts`);
+          continue;
         }
-        break;
-      case 'textStartsWith':
-        if (transaction.description?.toLowerCase().startsWith(rule.condition.value.toLowerCase())) {
-          isMatch = true;
-        }
-        break;
-      case 'categoryMatch':
-        if (transaction.bankCategory === rule.condition.bankCategory && 
-            (!rule.condition.bankSubCategory || transaction.bankSubCategory === rule.condition.bankSubCategory)) {
-          isMatch = true;
-        }
-        break;
+      } catch (e) {
+        console.warn('Failed to parse applicableAccountIds:', rule.applicableAccountIds);
+      }
+    }
+    
+    // New PostgreSQL rule structure - check for exact bank category matching
+    if (rule.bankCategory && rule.bankSubCategory) {
+      // Exact bank category + subcategory match
+      if (transaction.bankCategory === rule.bankCategory && 
+          transaction.bankSubCategory === rule.bankSubCategory) {
+        isMatch = true;
+        console.log(`✅ [RULE] Exact bank category match: ${rule.bankCategory} → ${rule.bankSubCategory}`);
+      }
+    } else if (rule.bankCategory && !rule.bankSubCategory) {
+      // Exact bank category match (any subcategory)
+      if (transaction.bankCategory === rule.bankCategory) {
+        isMatch = true;
+        console.log(`✅ [RULE] Bank category match: ${rule.bankCategory}`);
+      }
+    } else {
+      // Text-based matching (rules without bankCategory/bankSubCategory = "Alla Bankkategorier")
+      const transactionText = transaction.description?.toLowerCase() || '';
+      const ruleText = rule.transactionName?.toLowerCase() || '';
+      
+      if (ruleText && transactionText.includes(ruleText)) {
+        isMatch = true;
+        console.log(`✅ [RULE] Text contains match: "${ruleText}" in "${transactionText}"`);
+      }
     }
 
     // Om en match hittas, applicera regeln och avbryt
     if (isMatch) {
-      console.log(`Regel ${rule.id} matchade transaktion ${transaction.id}.`);
+      console.log(`🎯 [RULE] Rule "${rule.ruleName}" matched transaction "${transaction.description}"`);
       
       // Välj rätt transaktionstyp baserat på beloppets tecken
       let transactionType = transaction.amount >= 0 
-        ? rule.action.positiveTransactionType 
-        : rule.action.negativeTransactionType;
+        ? (rule.positiveTransactionType || 'Transaction')
+        : (rule.negativeTransactionType || 'Transaction');
       
-      // Preserve existing InternalTransfer type and set it for "Intern Överföring" transactions
-      const isInternalTransfer = transaction.type === 'InternalTransfer' || 
-                                transaction.category === 'Intern Överföring' ||
-                                (transaction.category && transaction.category.includes('Överföring'));
-      
-      if (isInternalTransfer) {
-        transactionType = 'InternalTransfer';
-        console.log(`Preserving InternalTransfer type for transaction ${transaction.id} (category: ${transaction.category})`);
-      }
+      console.log(`🔄 [RULE] Setting transaction type: ${transactionType} (amount: ${transaction.amount})`);
       
       // Bestäm status baserat på om både huvudkategori och underkategori finns
-      const hasMainCategory = rule.action.appMainCategoryId;
-      const hasSubCategory = rule.action.appSubCategoryId;
+      const hasMainCategory = rule.huvudkategoriId;
+      const hasSubCategory = rule.underkategoriId;
       const status = (hasMainCategory && hasSubCategory) ? 'yellow' : 'red';
       
       return {
@@ -938,10 +946,11 @@ export function applyCategorizationRules(
         // CRITICAL: Explicitly preserve bank category data from file
         bankCategory: transaction.bankCategory,
         bankSubCategory: transaction.bankSubCategory,
-        appCategoryId: rule.action.appMainCategoryId,
-        appSubCategoryId: rule.action.appSubCategoryId,
+        appCategoryId: rule.huvudkategoriId,
+        appSubCategoryId: rule.underkategoriId,
         type: transactionType,
         status: status,
+        isManuallyChanged: 'false' // Reset manual change flag when rule is applied
       };
     }
   }

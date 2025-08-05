@@ -1401,68 +1401,78 @@ export const TransactionImportEnhanced: React.FC = () => {
 
   // Apply all rules to filtered transactions
   const applyRulesToFilteredTransactions = () => {
+    console.log(`🚀 [APPLY RULES] Starting with ${categoryRules.length} PostgreSQL rules and ${filteredTransactions.length} transactions`);
     let updatedCount = 0;
     let autoMatchedCount = 0;
     let autoApprovedCount = 0;
     
     filteredTransactions.forEach(transaction => {
-      // Check each rule for ALL filtered transactions (no status check)
+      console.log(`🔍 [APPLY RULES] Processing transaction: "${transaction.description}" (${transaction.amount} kr)`);
+      
+      // Check each PostgreSQL rule for ALL filtered transactions
       for (const rule of categoryRules) {
-        if (!rule.isActive) continue;
+        // Check if rule is active (handle both string and boolean)
+        const isActive = rule.isActive === 'true' || rule.isActive === true;
+        if (!isActive) {
+          console.log(`⏭️ [APPLY RULES] Rule "${rule.ruleName}" is inactive, skipping`);
+          continue;
+        }
         
         let matchFound = false;
         
-        // Check based on condition type
-        if (rule.condition.type === 'categoryMatch') {
-          // Check bank category match
-          if (transaction.bankCategory === rule.condition.bankCategory) {
-            // If no bank subcategory specified in rule, or it matches
-            if (!rule.condition.bankSubCategory || transaction.bankSubCategory === rule.condition.bankSubCategory) {
-              matchFound = true;
+        console.log(`🔍 [APPLY RULES] Checking rule "${rule.ruleName}" - bankCategory: "${rule.bankCategory}", bankSubCategory: "${rule.bankSubCategory}"`);
+        
+        // Check if applicable accounts match (if specified)
+        if (rule.applicableAccountIds && rule.applicableAccountIds !== '[]') {
+          try {
+            const applicableAccounts = JSON.parse(rule.applicableAccountIds);
+            if (applicableAccounts.length > 0 && !applicableAccounts.includes(transaction.accountId)) {
+              console.log(`⏭️ [APPLY RULES] Rule "${rule.ruleName}" skipped - account ${transaction.accountId} not in applicable accounts`);
+              continue;
             }
+          } catch (e) {
+            console.warn('Failed to parse applicableAccountIds:', rule.applicableAccountIds);
           }
-        } else if (rule.condition.type === 'textContains') {
-          const searchLower = rule.condition.value.toLowerCase();
-          const descriptionLower = (transaction.description || '').toLowerCase();
-          
-          if (descriptionLower.includes(searchLower)) {
+        }
+        
+        // New PostgreSQL rule structure - check for exact bank category matching
+        if (rule.bankCategory && rule.bankSubCategory) {
+          // Exact bank category + subcategory match
+          if (transaction.bankCategory === rule.bankCategory && 
+              transaction.bankSubCategory === rule.bankSubCategory) {
             matchFound = true;
+            console.log(`✅ [APPLY RULES] Exact bank category match: ${rule.bankCategory} → ${rule.bankSubCategory}`);
           }
-        } else if (rule.condition.type === 'textStartsWith') {
-          const searchLower = rule.condition.value.toLowerCase();
-          const descriptionLower = (transaction.description || '').toLowerCase();
-          
-          if (descriptionLower.startsWith(searchLower)) {
+        } else if (rule.bankCategory && !rule.bankSubCategory) {
+          // Exact bank category match (any subcategory)
+          if (transaction.bankCategory === rule.bankCategory) {
             matchFound = true;
+            console.log(`✅ [APPLY RULES] Bank category match: ${rule.bankCategory}`);
+          }
+        } else {
+          // Text-based matching (rules without bankCategory/bankSubCategory = "Alla Bankkategorier")
+          const transactionText = transaction.description?.toLowerCase() || '';
+          const ruleText = rule.transactionName?.toLowerCase() || '';
+          
+          if (ruleText && transactionText.includes(ruleText)) {
+            matchFound = true;
+            console.log(`✅ [APPLY RULES] Text contains match: "${ruleText}" in "${transactionText}"`);
           }
         }
         
         if (matchFound) {
-          // Check if rule applies to this account
-          if (rule.action.applicableAccountIds && 
-              rule.action.applicableAccountIds.length > 0 && 
-              !rule.action.applicableAccountIds.includes(transaction.accountId)) {
-            continue;
-          }
+          console.log(`🎯 [APPLY RULES] Rule "${rule.ruleName}" matched transaction "${transaction.description}"`);
           
           // Apply the rule - update category
-          updateTransactionCategory(transaction.id, rule.action.appMainCategoryId, rule.action.appSubCategoryId);
+          updateTransactionCategory(transaction.id, rule.huvudkategoriId, rule.underkategoriId);
           
-          // Apply the rule - update transaction type based on amount, but preserve InternalTransfer
+          // Apply the rule - update transaction type based on amount
           const isPositive = transaction.amount >= 0;
           let newTransactionType = isPositive ? 
-            rule.action.positiveTransactionType : 
-            rule.action.negativeTransactionType;
+            (rule.positiveTransactionType || 'Transaction') : 
+            (rule.negativeTransactionType || 'Transaction');
           
-          // Preserve existing InternalTransfer type and set it for "Intern Överföring" transactions
-          const isInternalTransfer = transaction.type === 'InternalTransfer' || 
-                                    transaction.bankCategory === 'Intern Överföring' ||
-                                    (transaction.bankCategory && transaction.bankCategory.includes('Överföring'));
-          
-          if (isInternalTransfer) {
-            newTransactionType = 'InternalTransfer';
-            console.log(`Preserving InternalTransfer type for transaction ${transaction.id} during manual rule application (category: ${transaction.bankCategory})`);
-          }
+          console.log(`🔄 [APPLY RULES] Setting transaction type: ${newTransactionType} (amount: ${transaction.amount})`);
           
           // Update transaction type using handleTransactionUpdate
           handleTransactionUpdate(transaction.id, { 
@@ -1471,71 +1481,19 @@ export const TransactionImportEnhanced: React.FC = () => {
           
           // If the rule sets transaction type to InternalTransfer, try to auto-match
           if (newTransactionType === 'InternalTransfer') {
+            console.log(`🔗 [APPLY RULES] Attempting to auto-match InternalTransfer: ${transaction.description}`);
             const wasMatched = findAndMatchTransfer(transaction);
             if (wasMatched) {
               autoMatchedCount++;
-              
-              // Check if the matched transaction should also be auto-approved
-              // Find the matched transaction ID from the linking
-              const updatedTransaction = allTransactions.find(t => t.id === transaction.id);
-              if (updatedTransaction?.linkedTransactionId) {
-                const linkedTransaction = allTransactions.find(t => t.id === updatedTransaction.linkedTransactionId);
-                if (linkedTransaction) {
-                  // Check if the linked transaction also has a rule that applies
-                  for (const linkedRule of categoryRules) {
-                    if (!linkedRule.isActive) continue;
-                    
-                    let linkedMatchFound = false;
-                    
-                    // Check the same rule conditions for the linked transaction
-                    if (linkedRule.condition.type === 'categoryMatch') {
-                      if (linkedTransaction.bankCategory === linkedRule.condition.bankCategory) {
-                        if (!linkedRule.condition.bankSubCategory || linkedTransaction.bankSubCategory === linkedRule.condition.bankSubCategory) {
-                          linkedMatchFound = true;
-                        }
-                      }
-                    } else if (linkedRule.condition.type === 'textContains') {
-                      const searchLower = linkedRule.condition.value.toLowerCase();
-                      const descriptionLower = (linkedTransaction.description || '').toLowerCase();
-                      if (descriptionLower.includes(searchLower)) {
-                        linkedMatchFound = true;
-                      }
-                    } else if (linkedRule.condition.type === 'textStartsWith') {
-                      const searchLower = linkedRule.condition.value.toLowerCase();
-                      const descriptionLower = (linkedTransaction.description || '').toLowerCase();
-                      if (descriptionLower.startsWith(searchLower)) {
-                        linkedMatchFound = true;
-                      }
-                    }
-                    
-                    if (linkedMatchFound) {
-                      // Check if rule applies to the linked transaction's account
-                      if (linkedRule.action.applicableAccountIds && 
-                          linkedRule.action.applicableAccountIds.length > 0 && 
-                          !linkedRule.action.applicableAccountIds.includes(linkedTransaction.accountId)) {
-                        continue;
-                      }
-                      
-                      // Apply rule to linked transaction if it matches
-                      updateTransactionCategory(linkedTransaction.id, linkedRule.action.appMainCategoryId, linkedRule.action.appSubCategoryId);
-                      
-                      // Auto-approve linked transaction if it has both categories
-                      if (linkedRule.action.appMainCategoryId && linkedRule.action.appSubCategoryId) {
-                        handleTransactionUpdate(linkedTransaction.id, { status: 'green' as const });
-                        autoApprovedCount++;
-                      }
-                      break;
-                    }
-                  }
-                }
-              }
+              console.log(`✅ [APPLY RULES] Successfully auto-matched transfer: ${transaction.description}`);
             }
           }
           
           // If both category and subcategory are set, auto-approve the transaction
-          if (rule.action.appMainCategoryId && rule.action.appSubCategoryId) {
+          if (rule.huvudkategoriId && rule.underkategoriId) {
             handleTransactionUpdate(transaction.id, { status: 'green' as const });
             autoApprovedCount++;
+            console.log(`✅ [APPLY RULES] Auto-approved transaction: ${transaction.description}`);
           }
           
           updatedCount++;
