@@ -33,6 +33,12 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
   const { data: allUnderkategorier = [] } = useUnderkategorier();
   const { getHuvudkategoriName, getUnderkategoriName, getCategoryPath } = useCategoryNames();
   
+  // Helper function to get account name by ID
+  const getAccountName = (accountId: string) => {
+    const account = accounts.find(acc => acc.id === accountId);
+    return account ? account.name : accountId;
+  };
+  
   const queryClient = useQueryClient();
   
   // Load PostgreSQL category rules
@@ -464,7 +470,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-xs">
-                        100
+                        {rule.priority || 100}
                       </Badge>
                       <span className="text-xs text-muted-foreground">
                         {rule.ruleName}
@@ -492,6 +498,41 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                     </div>
                     <div className="text-xs">
                       <span className="font-medium">Underkategori:</span> {getUnderkategoriName(rule.underkategoriId || '')}
+                    </div>
+                    
+                    {/* Transaction Types */}
+                    <div className="text-xs border-t pt-1 mt-2">
+                      <div className="font-medium mb-1">Transaktionstyp:</div>
+                      <div className="ml-2 space-y-0.5">
+                        <div>
+                          <span className="text-green-600">Vid positiv:</span> {rule.positiveTransactionType || 'Transaction'}
+                        </div>
+                        <div>
+                          <span className="text-red-600">Vid negativ:</span> {rule.negativeTransactionType || 'Transaction'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Applicable Accounts */}
+                    <div className="text-xs border-t pt-1 mt-2">
+                      <div className="font-medium mb-1">Gäller för konton:</div>
+                      <div className="ml-2">
+                        {(() => {
+                          try {
+                            const accountIds = JSON.parse(rule.applicableAccountIds || '[]');
+                            if (accountIds.length === 0) {
+                              return <span className="text-muted-foreground">Alla konton</span>;
+                            }
+                            return accountIds.map((accountId: string) => (
+                              <div key={accountId} className="text-blue-600">
+                                {getAccountName(accountId)}
+                              </div>
+                            ));
+                          } catch {
+                            return <span className="text-muted-foreground">Alla konton</span>;
+                          }
+                        })()}
+                      </div>
                     </div>
                   </div>
                 </div>

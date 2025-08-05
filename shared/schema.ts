@@ -71,6 +71,12 @@ export const categoryRules = pgTable('category_rules', {
     transactionName: text('transaction_name').notNull(),
     huvudkategoriId: uuid('huvudkategori_id').references(() => huvudkategorier.id, { onDelete: 'cascade' }),
     underkategoriId: uuid('underkategori_id').references(() => underkategorier.id, { onDelete: 'cascade' }),
+    // Additional fields for complete rule management
+    positiveTransactionType: text('positive_transaction_type').default('Transaction').notNull(),
+    negativeTransactionType: text('negative_transaction_type').default('Transaction').notNull(),
+    applicableAccountIds: text('applicable_account_ids').default('[]').notNull(), // JSON string of account IDs
+    priority: integer('priority').default(100).notNull(),
+    isActive: text('is_active').default('true').notNull(),
 });
 
 // Budget posts table for storing individual budget line items
