@@ -247,22 +247,6 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                       {transaction.amount >= 0 ? '+' : ''}{(transaction.amount / 100).toFixed(2)} kr
                     </p>
                   </div>
-                  
-                   {/* Saldo efter transaktion */}
-                   <div className="min-w-0">
-                     <p className="text-xs text-muted-foreground">Saldo efter transaktion</p>
-                     {transaction.correctedAmount !== undefined ? (
-                       <p className={`font-semibold text-sm ${transaction.correctedAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                         {transaction.correctedAmount >= 0 ? '+' : ''}{formatOrenAsCurrency(Math.abs(transaction.correctedAmount), false)}
-                       </p>
-                     ) : (
-                       <p className={`font-semibold text-sm ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                         {transaction.amount >= 0 ? '+' : ''}{formatOrenAsCurrency(Math.abs(transaction.amount), false)}
-                         {/* DEBUG: Show raw amount */}
-                         <span className="text-xs text-gray-400 ml-1">(raw: {transaction.amount})</span>
-                       </p>
-                     )}
-                   </div>
                    
                    {/* Actions - Quick Access Buttons */}
                    <div className="min-w-0" onClick={(e) => e.stopPropagation()}>
