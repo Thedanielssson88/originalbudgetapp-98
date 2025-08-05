@@ -127,6 +127,11 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
           transactionName: newRule.condition.type === 'categoryMatch' ? 
             (newRule.condition as any).bankCategory : 
             (newRule.condition as any).value,
+          // Only include bankCategory/bankSubCategory for categoryMatch rules, not for text-based rules
+          ...(newRule.condition.type === 'categoryMatch' ? {
+            bankCategory: (newRule.condition as any).bankCategory,
+            bankSubCategory: (newRule.condition as any).bankSubCategory
+          } : {}),
           huvudkategoriId: newRule.action.appMainCategoryId,
           underkategoriId: newRule.action.appSubCategoryId,
           positiveTransactionType: newRule.action.positiveTransactionType || 'Transaction',

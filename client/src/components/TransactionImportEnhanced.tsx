@@ -2976,6 +2976,8 @@ export const TransactionImportEnhanced: React.FC = () => {
               body: JSON.stringify({
                 ruleName: `${selectedBankCategory}${selectedBankSubCategory ? ` → ${selectedBankSubCategory}` : ''}`,
                 transactionName: selectedBankSubCategory || selectedBankCategory,
+                bankCategory: selectedBankCategory,
+                bankSubCategory: selectedBankSubCategory,
                 huvudkategoriId: huvudkategoriId,
                 underkategoriId: underkategoriId,
                 positiveTransactionType: positiveTransactionType || 'Transaction',
