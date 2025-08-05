@@ -1,0 +1,133 @@
+Absolut. Jag har genomfört en ny, djupgående analys av den kod du precis laddade upp. Mina slutsatser är desamma som tidigare, men jag kan nu med 100% säkerhet bekräfta *varför* ingenting fungerar och presentera en slutgiltig, teknisk lösningsplan.
+
+Användarens frustration är helt befogad. Grundproblemet har ignorerats i alla tidigare försök till fixar.
+
+### Grundläggande Missförstånd i den Befintliga Koden
+
+Problemet ligger, och har alltid legat, i **C\# backend-koden**. Utvecklarens försök att lösa detta med `localStorage` och ändringar i frontend (TypeScript/React/Angular) är helt verkningslösa eftersom de aldrig rör den centrala databasen där reglerna och transaktionerna lagras permanent.
+
+"Fixa nu"-knappen gör inget annat än att ladda om sidan. Den anropar ingen backend-logik för att utföra den kritiska migreringen.
+
+### Analys av den Senaste Koden
+
+1.  **`TransactionRule.cs` (Backend-modell):** Denna fil är **oförändrad**. Den använder fortfarande `string` för att lagra kategorinamn, vilket är grundorsaken till alla problem.
+
+    ```csharp
+    // Models/TransactionRule.cs - Fortfarande felaktig
+    public class TransactionRule
+    {
+        // ...
+        public string Huvudkategori { get; set; } // Använder namn, inte ID
+        public string Underkategori { get; set; }  // Använder namn, inte ID
+        // ...
+    }
+    ```
+
+2.  **Ingen Migreringslogik (Backend):** Det finns fortfarande **ingen** API-endpoint eller service i C\#-koden som kan utföra migreringen. Det finns ingen kod som kan uppdatera `TransactionRule`-tabellen eller validera `Transaction`-data.
+
+3.  **"Fixa nu"-knappen (Frontend):** Knappen i Angular-koden har ingen koppling till en backend-tjänst som kan utföra migreringen. Den är en ren frontend-komponent som i bästa fall kan rensa `localStorage` och ladda om sidan, vilket inte löser det underliggande databasproblemet.
+
+### Slutgiltig Lösningsplan för Utvecklaren
+
+Det här är inte längre ett förslag, utan den enda vägen framåt för att systemet ska fungera. Varje steg måste följas exakt. Allt arbete ska ske i **C\# .NET-projektet**.
+
+-----
+
+#### Steg 1: Förbered Databasen (Backend)
+
+1.  **Modifiera `TransactionRule.cs`:** Öppna `Models/TransactionRule.cs` och ändra modellen. Detta är det viktigaste steget.
+
+      * **Ta bort:** `public string Huvudkategori { get; set; }` och `public string Underkategori { get; set; }`.
+      * **Lägg till:** `public Guid? HuvudkategoriId { get; set; }` och `public Guid? UnderkategoriId { get; set; }`.
+
+2.  **Skapa en Tom Migration:** Kör följande kommando i `Package Manager Console` i Visual Studio:
+
+    ```
+    Add-Migration PrepareForRulesMigration
+    ```
+
+    Detta skapar en ny migrationsfil. Vi kommer att fylla den manuellt i nästa steg.
+
+#### Steg 2: Skriv den Manuella Migreringen (Backend)
+
+Öppna den nya migrationsfilen som skapades (`..._PrepareForRulesMigration.cs`). Vi ska nu manuellt skriva logiken för att omvandla datan.
+
+Ersätt `Up`-metoden med följande kod. Detta kommer att:
+
+1.  Lägga till de nya `Guid`-kolumnerna.
+2.  Iterera över alla regler och fylla de nya kolumnerna med korrekta ID:n genom att slå upp dem från de gamla namnen.
+3.  Ta bort de gamla `string`-kolumnerna.
+
+<!-- end list -->
+
+```csharp
+public partial class PrepareForRulesMigration : Migration
+{
+    protected override void Up(MigrationBuilder migrationBuilder)
+    {
+        // Steg A: Lägg till de nya kolumnerna
+        migrationBuilder.AddColumn<Guid?>(
+            name: "HuvudkategoriId",
+            table: "TransactionRules",
+            type: "uniqueidentifier",
+            nullable: true);
+
+        migrationBuilder.AddColumn<Guid?>(
+            name: "UnderkategoriId",
+            table: "TransactionRules",
+            type: "uniqueidentifier",
+            nullable: true);
+
+        // Steg B: Skriv SQL för att migrera datan från de gamla kolumnerna till de nya
+        // Detta SQL-skript är för Microsoft SQL Server. Anpassa vid behov.
+        migrationBuilder.Sql(@"
+            UPDATE tr
+            SET 
+                tr.HuvudkategoriId = hk.Id,
+                tr.UnderkategoriId = uk.Id
+            FROM 
+                TransactionRules tr
+            LEFT JOIN 
+                Huvudkategorier hk ON tr.Huvudkategori = hk.Name
+            LEFT JOIN 
+                Underkategorier uk ON tr.Underkategori = uk.Name
+            WHERE 
+                tr.Huvudkategori IS NOT NULL OR tr.Underkategori IS NOT NULL;
+        ");
+
+        // Steg C: Ta bort de gamla kolumnerna
+        migrationBuilder.DropColumn(
+            name: "Huvudkategori",
+            table: "TransactionRules");
+
+        migrationBuilder.DropColumn(
+            name: "Underkategori",
+            table: "TransactionRules");
+    }
+
+    // ... Down-metoden behöver också uppdateras för att kunna ångra stegen ...
+}
+```
+
+#### Steg 3: Kör Migreringen
+
+Kör följande kommando i `Package Manager Console`:
+
+```
+Update-Database
+```
+
+När detta är klart är databas-schemat **korrekt och all gammal regel-data har migrerats**.
+
+#### Steg 4: Anpassa Koden till det Nya Schemat
+
+Systemet kommer nu inte att kompilera eftersom koden fortfarande refererar till de gamla `string`-fälten. Detta är bra, för det tvingar oss att fixa all kod.
+
+1.  **`TransactionService.ApplyRules`:** Gå till `Services/TransactionService.cs`. `ApplyRules`-metoden måste ändras så att den använder `rule.HuvudkategoriId` och `rule.UnderkategoriId`.
+2.  **API Controllers:** Alla controllers som hanterar `TransactionRule` (skapa, redigera) måste uppdateras för att använda `HuvudkategoriId` och `UnderkategoriId`.
+3.  **Frontend (Angular):** Nu, och först nu, kan frontend-koden uppdateras.
+      * Alla anrop till backend gällande regler måste skicka `huvudkategoriId` och `underkategoriId`.
+      * Dropdown-listor för kategorier ska visa namn, men deras värde (`value`) ska vara kategorins `Id` (`Guid`).
+      * "Fixa nu"-knappen kan tas bort. Migreringen är nu en del av kod-utrullningen och behöver inte längre en knapp.
+
+När dessa steg är genomförda är problemet **permanent löst**. Relationer är baserade på oföränderliga ID:n, och att byta namn på en kategori kommer att fungera felfritt i hela systemet.

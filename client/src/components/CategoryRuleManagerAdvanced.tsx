@@ -29,7 +29,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
   // Use UUID-based category hooks
   const { data: huvudkategorier = [] } = useHuvudkategorier();
   const { data: allUnderkategorier = [] } = useUnderkategorier();
-  const { getCategoryName } = useCategoryNames();
+  const { getHuvudkategoriName, getUnderkategoriName, getCategoryPath } = useCategoryNames();
   
   const [isAddingRule, setIsAddingRule] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);

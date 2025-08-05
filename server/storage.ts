@@ -52,6 +52,9 @@ export interface IStorage {
   createTransaction(transaction: InsertTransaction): Promise<TransactionDB>;
   updateTransaction(id: string, transaction: Partial<InsertTransaction>): Promise<TransactionDB | undefined>;
   deleteTransaction(id: string): Promise<boolean>;
+  
+  // Utility method for clearing data
+  clearAllData(): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -69,6 +72,15 @@ export class MemStorage implements IStorage {
     this.categoryRules = new Map();
     this.transactions = new Map();
     this.currentId = 1;
+  }
+
+  // Method to clear all data for fresh migration
+  async clearAllData(): Promise<void> {
+    this.huvudkategorier.clear();
+    this.underkategorier.clear();
+    this.categoryRules.clear();
+    this.transactions.clear();
+    console.log('🧹 In-memory storage cleared');
   }
 
   async getUser(id: number): Promise<User | undefined> {

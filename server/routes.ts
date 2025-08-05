@@ -369,19 +369,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('🧹 Clearing existing migration data...');
       
-      // Note: In a real implementation, you would delete from the database
-      // For now, we'll just log this action since we're using in-memory storage
       const deletedRules = await storage.getCategoryRules();
       const deletedTransactions = await storage.getTransactions();
       const deletedUnder = await storage.getUnderkategorier();
       const deletedHuvud = await storage.getHuvudkategorier();
       
-      console.log('📊 Would clear:', {
+      console.log('📊 Clearing:', {
         rules: deletedRules.length,
         transactions: deletedTransactions.length,
         underkategorier: deletedUnder.length,
         huvudkategorier: deletedHuvud.length
       });
+      
+      // Actually clear the data
+      await storage.clearAllData();
       
       res.json({ 
         message: 'Database cleared for fresh migration',

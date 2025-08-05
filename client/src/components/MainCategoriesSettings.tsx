@@ -81,7 +81,20 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
       localStorage.removeItem('categoryMigrationCompleted');
       localStorage.removeItem('categoryMigrationMapping');
       
-      console.log('🧹 Starting comprehensive migration...');
+      console.log('🚀 === COMPREHENSIVE UUID MIGRATION STARTING ===');
+      
+      console.log('🧹 Clearing database and starting fresh comprehensive migration...');
+      
+      // Clear existing database data first
+      const clearResponse = await fetch('/api/clear-migration-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (clearResponse.ok) {
+        const clearData = await clearResponse.json();
+        console.log('✅ Database cleared:', clearData);
+      }
       
       // Collect all localStorage data for migration
       const currentCategories = categories.length > 0 ? categories : ["Transport", "Barn", "Mat & dryck", "Hushåll", "Hälsa", "Nöje, Fritid & Media", "Inkomster", "Övrigt"];
@@ -97,7 +110,7 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
       };
       
       // Get existing transactions and rules from localStorage 
-      const budgetData = get(StorageKey.BUDGET_CALCULATOR_DATA) || {};
+      const budgetData = get(StorageKey.BUDGET_CALCULATOR_DATA) as any || {};
       const existingTransactions = Array.isArray(budgetData.allTransactions) ? budgetData.allTransactions : [];
       const existingRules = get(StorageKey.CATEGORY_RULES) || [];
       
