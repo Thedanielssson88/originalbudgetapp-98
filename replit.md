@@ -14,6 +14,12 @@ This is a comprehensive budget management application built with React and TypeS
   - Enhanced data integrity and eliminates naming conflicts
   - Categories are now database-persisted with proper foreign key relationships
   - Route `/kategorier` added for category management interface
+- **COMPREHENSIVE UUID MIGRATION SYSTEM (August 2025)**: Implemented complete migration infrastructure to resolve category renaming issues and enable safe UUID-based category system. Features include:
+  - Database clearing functionality for fresh migration starts  
+  - Comprehensive migration API that imports ALL localStorage data (categories, transactions, rules)
+  - UUID-based category rule hooks to eliminate localStorage/UUID conflicts on Rules page
+  - Reset migration functionality for easy re-migration if needed
+  - Complete fix for issue where subcategories disappeared when renaming main categories
 - **FIXED - XLSX Category Import Issue (August 2025)**: Successfully resolved critical issue where XLSX files showed "-" for bankCategory and bankSubCategory while CSV files worked correctly. Implemented comprehensive fix including:
   - Corrected sammanfogningslogik in `budgetOrchestrator.ts` to always preserve bankCategory/bankSubCategory from import files for ALL existing transactions
   - Enhanced UI with four distinct columns: Bankkategori (file data), Bankunderkategori (file data), Huvudkategori (App), Underkategori (App) 

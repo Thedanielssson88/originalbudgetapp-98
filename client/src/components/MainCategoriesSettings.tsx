@@ -21,10 +21,36 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
   
   console.log('🔍 Migration completed status:', migrationCompleted);
   
-  // If migration is completed, use the UUID-based category manager
+  // If migration is completed, check if we have any categories in the database
   if (migrationCompleted) {
     console.log('✅ Migration completed, switching to UUID Category Manager');
-    return <UuidCategoryManager />;
+    return (
+      <div className="space-y-4">
+        <UuidCategoryManager />
+        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium text-blue-900 dark:text-blue-100">Reset Migration</h3>
+              <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                Om du vill köra migrationen igen eller om något gick fel, klicka här för att återställa.
+              </p>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                localStorage.removeItem('categoryMigrationCompleted');
+                localStorage.removeItem('categoryMigrationMapping');
+                window.location.reload();
+              }}
+              className="ml-4"
+            >
+              Reset Migration
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
   
   // Otherwise use the legacy localStorage-based system
