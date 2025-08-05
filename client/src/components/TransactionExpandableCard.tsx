@@ -245,11 +245,11 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                      <p className="text-xs text-muted-foreground">Belopp</p>
                      {transaction.correctedAmount !== undefined ? (
                        <p className={`font-semibold text-sm ${transaction.correctedAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                         {transaction.correctedAmount >= 0 ? '+' : ''}{Math.abs(transaction.correctedAmount).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kr
+                         {transaction.correctedAmount >= 0 ? '+' : ''}{formatOrenAsCurrency(Math.abs(transaction.correctedAmount), false)}
                        </p>
                      ) : (
                        <p className={`font-semibold text-sm ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                         {transaction.amount >= 0 ? '+' : ''}{Math.abs(transaction.amount).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kr
+                         {transaction.amount >= 0 ? '+' : ''}{formatOrenAsCurrency(Math.abs(transaction.amount), false)}
                        </p>
                      )}
                    </div>
@@ -705,7 +705,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                           return (
                             <div className="space-y-1">
                               <p className="text-sm text-green-700 font-medium">
-                                {transaction.amount.toLocaleString('sv-SE')} kr sparas i:
+                                {formatOrenAsCurrency(transaction.amount)} sparas i:
                               </p>
                               <p className="text-sm text-green-600">
                                 {foundTarget.name}
@@ -732,7 +732,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                        <div>
                          <label className="text-xs font-medium text-muted-foreground">Saldo efter transaktion</label>
                          <p className="text-sm font-medium">
-                           {transaction.balanceAfter.toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kr
+                           {formatOrenAsCurrency(transaction.balanceAfter)}
                          </p>
                        </div>
                      )}
@@ -743,7 +743,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                        <div>
                          <label className="text-xs font-medium text-muted-foreground">Estimerat saldo efter transaktion</label>
                          <p className="text-sm font-medium text-muted-foreground">
-                           {transaction.estimatedBalanceAfter.toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kr
+                           {formatOrenAsCurrency(transaction.estimatedBalanceAfter)}
                          </p>
                        </div>
                      )}

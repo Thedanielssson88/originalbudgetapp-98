@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Transaction } from '@/types/budget';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { formatOrenAsCurrency } from '@/utils/currencyUtils';
 
 interface TransactionDrillDownDialogProps {
   isOpen: boolean;
@@ -92,7 +93,7 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
   };
 
   const formatCurrency = (amount: number) => {
-    return `${amount.toLocaleString('sv-SE')} kr`;
+    return formatOrenAsCurrency(amount);
   };
 
   return (
@@ -102,10 +103,10 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
           <DialogTitle className={`${isMobile ? 'flex flex-col space-y-2' : 'flex items-center justify-between'}`}>
             <span className="text-lg font-semibold">Transaktioner för {categoryName}</span>
             <div className={`${isMobile ? 'flex flex-col space-y-1 text-xs' : 'flex items-center space-x-4 text-sm'}`}>
-              <span>Budgeterat: {budgetAmount.toLocaleString('sv-SE')} kr</span>
-              <span className="font-bold">Faktiskt: {actualAmount.toLocaleString('sv-SE')} kr</span>
+              <span>Budgeterat: {formatOrenAsCurrency(budgetAmount)}</span>
+              <span className="font-bold">Faktiskt: {formatOrenAsCurrency(actualAmount)}</span>
               <span className={`font-bold ${difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                Differens: {difference >= 0 ? '+' : ''}{difference.toLocaleString('sv-SE')} kr
+                Differens: {difference >= 0 ? '+' : ''}{formatOrenAsCurrency(difference)}
               </span>
             </div>
           </DialogTitle>
@@ -134,10 +135,10 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
                               {dateTransactions.length}
                             </div>
                                             <div className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded">
-                                              {Math.abs(dateTransactions.reduce((sum, t) => {
+                                              {formatOrenAsCurrency(Math.abs(dateTransactions.reduce((sum, t) => {
                                                 const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
                                                 return sum + effectiveAmount;
-                                              }, 0)).toLocaleString('sv-SE')} kr
+                                              }, 0)), false)}
                                             </div>
                           </div>
                           <Button variant="ghost" size="sm" className="flex-shrink-0">
