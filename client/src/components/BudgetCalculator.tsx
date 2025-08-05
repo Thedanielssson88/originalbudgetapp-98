@@ -602,25 +602,14 @@ const BudgetCalculator = () => {
     // FIXED: Use correctly filtered transactions according to PaydaySettings
     const allPeriodTransactions = activeContent.transactionsForPeriod || [];
     
-    // DEBUG: Log all transaction data to understand the structure
-    console.log(`🔍 [DEBUG] calculateActualAmountForCategory for categoryId: ${categoryId}`);
-    console.log(`🔍 [DEBUG] Total transactions in period:`, allPeriodTransactions.length);
-    
-    // CRITICAL DEBUG: Check what category we're looking for specifically
-    const categoryName = resolveHuvudkategoriName(categoryId);
-    console.log(`🔍 [DEBUG] *** CATEGORY CALCULATION DEBUG ***`);
-    console.log(`🔍 [DEBUG] Looking for categoryId: ${categoryId}`);
-    console.log(`🔍 [DEBUG] Category name: ${categoryName}`);
-    console.log(`🔍 [DEBUG] Is this Transport? ${categoryName === 'Transport'}`);
-    console.log(`🔍 [DEBUG] Transport UUID check: ${categoryId === '4f884437-16c1-4893-b3a6-1320c7c2ada8'}`);
-    
-    // CRITICAL FIX: Find all subcategories that belong to this huvudkategori
+    // Find all subcategories that belong to this huvudkategori
     const relatedSubcategories = underkategorier.filter(sub => sub.huvudkategoriId === categoryId);
     const subcategoryIds = relatedSubcategories.map(sub => sub.id);
     
-    console.log(`🔍 [DEBUG] Found ${relatedSubcategories.length} subcategories for category ${categoryName}:`, 
-      relatedSubcategories.map(sub => ({ id: sub.id, name: sub.name })));
-    console.log(`🔍 [DEBUG] Subcategory IDs:`, subcategoryIds);
+    // MINIMAL DEBUG FOR TRANSPORT ONLY
+    if (categoryId.includes('Transport') || (huvudkategorier.find(k => k.id === categoryId)?.name === 'Transport')) {
+      console.log('🚗 TRANSPORT:', { categoryId, subcategoryCount: relatedSubcategories.length, subcategoryIds });
+    }
     
     // FIXED LOGIC: Look for transactions assigned to EITHER the main category OR any of its subcategories
     const matchingTransactions = (allPeriodTransactions || []).filter((t: Transaction) => {
@@ -630,19 +619,7 @@ const BudgetCalculator = () => {
       return matchesMainCategory || matchesSubcategory;
     });
     
-    console.log(`🔍 [DEBUG] Found ${matchingTransactions.length} transactions matching category or subcategories`);
-    
-    if (matchingTransactions.length > 0) {
-      console.log(`🔍 [DEBUG] Sample matching transactions:`, matchingTransactions.slice(0, 5).map(t => ({
-        id: t.id,
-        amount: t.amount,
-        correctedAmount: t.correctedAmount,
-        type: t.type,
-        description: t.description,
-        appCategoryId: t.appCategoryId,
-        appSubCategoryId: t.appSubCategoryId
-      })));
-    }
+
     
     const total = matchingTransactions
       .reduce((sum: number, t: Transaction) => {
@@ -6305,17 +6282,14 @@ const BudgetCalculator = () => {
                             {costViewType === 'category' ? (
                              // Enhanced expandable category view - Show ALL categories, not just those with budget posts
                               (() => {
-                                console.log('🔍 [DEBUG] Rendering cost categories with costGroups:', costGroups);
-                                console.log('🔍 [DEBUG] costGroups length:', costGroups.length);
-                                console.log('🔍 [DEBUG] budgetState.mainCategories:', budgetState.mainCategories);
-                                console.log('🔍 [DEBUG] budgetState.subCategories:', budgetState.subCategories);
+
                                 
                                 // Group subcategories by main category - SHOW ALL CATEGORIES, not just those with budget posts
                                 const categoryGroups: { [key: string]: { total: number; subcategories: ExtendedSubCategory[] } } = {};
                                 
                                 // Initialize ALL main categories from SQL data
                                 if (!huvudkategorierLoading && !underkategorierLoading) {
-                                  console.log('🔍 [DEBUG] Using SQL categories:', { huvudkategorier: huvudkategorier.length, underkategorier: underkategorier.length });
+
                                   
                                   // Process all huvudkategorier from SQL
                                   huvudkategorier.forEach(huvudkat => {
@@ -6366,7 +6340,7 @@ const BudgetCalculator = () => {
                                 
                                 // Finally, add any additional budget posts that might not be in the standard categories
                                 costGroups.forEach((group) => {
-                                  console.log('🔍 [DEBUG] Processing group:', group.name, 'with subcategories:', group.subCategories);
+
                                   if (!categoryGroups[group.name]) {
                                     categoryGroups[group.name] = { total: 0, subcategories: [] };
                                   }
@@ -6400,14 +6374,9 @@ const BudgetCalculator = () => {
                                   // Find the correct UUID for this category from the huvudkategorier API data
                                   const categoryUuid = huvudkategorier.find(kat => kat.name === categoryName)?.id;
                                   
-                                  console.log(`🔍 [UUID FIX] Category: ${categoryName}`);
-                                  console.log(`🔍 [UUID FIX] Found UUID: ${categoryUuid}`);
-                                  
                                   // Fallback to old system if UUID not found (backwards compatibility)
                                   const categoryGroup = costGroups.find(g => g.name === categoryName);
                                   const categoryIdToUse = categoryUuid || categoryGroup?.id || categoryName;
-                                  
-                                  console.log(`🔍 [UUID FIX] Using category ID: ${categoryIdToUse} (UUID: ${!!categoryUuid}, fallback: ${!categoryUuid})`);
                                   
                                   // CRITICAL FIX: Always calculate actual amount, even if budget is 0
                                   const actualAmount = calculateActualAmountForCategory(categoryIdToUse);
