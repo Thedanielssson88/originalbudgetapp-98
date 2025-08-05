@@ -508,16 +508,18 @@ const BudgetCalculator = () => {
     console.log('🔍 [DEBUG] activeContent useMemo - SQL accounts:', accountsFromAPI);
     console.log('🔍 [DEBUG] activeContent useMemo - SQL categories (huvud):', huvudkategorier);
     console.log('🔍 [DEBUG] activeContent useMemo - SQL categories (under):', underkategorier);
-    console.log('🔍 [DEBUG] activeContent useMemo - SQL transactions: []'); // No transactions hook yet
+    console.log('🔍 [DEBUG] activeContent useMemo - budgetState.allTransactions:', budgetState.allTransactions?.length || 0);
     
     // SYSTEMATIC FIX: Pass SQL data sources to eliminate budgetState dependency
     const allCategories = [...(huvudkategorier || []), ...(underkategorier || [])];
+    const allTransactions = budgetState.allTransactions || [];
+    console.log(`🔍 [DEBUG] activeContent - using ${allTransactions.length} transactions from budgetState.allTransactions`);
     const processedData = getProcessedBudgetDataForMonth(
       budgetState, 
       selectedMonthKey, 
       accountsFromAPI || [], 
       allCategories, 
-      [] // Empty transactions for now until hook is implemented
+      allTransactions // Use actual transactions from budgetState
     );
     
     console.log(`🔍 [DEBUG] activeContent - processedData:`, processedData);
