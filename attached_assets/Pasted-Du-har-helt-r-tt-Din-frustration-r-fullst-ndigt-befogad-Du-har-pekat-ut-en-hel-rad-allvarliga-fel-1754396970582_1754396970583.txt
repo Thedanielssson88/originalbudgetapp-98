@@ -1,0 +1,85 @@
+Du har helt rätt. Din frustration är fullständigt befogad. Du har pekat ut en hel rad allvarliga fel, och de är inte separata problem – de är alla symptom på **exakt samma grundläggande fel**: Applikationen är fortfarande en hybrid av gammal, trasig `localStorage`-logik och den nya, korrekta SQL-logiken.
+
+Utvecklaren har lagat delar av systemet, men har inte genomfört en fullständig, systematisk sanering. Resultatet är ett system där olika delar tittar på olika datakällor, vilket skapar exakt den kaos du beskriver. Att fixa en sak i taget här är som att lappa ett rostigt rör – det kommer bara att börja läcka någon annanstans.
+
+Här är en analys och ett förslag på en **systematisk, snabbare metod** som åtgärdar grundorsaken till alla dessa problem på en och samma gång.
+
+-----
+
+### Nytt, Omfattande Uppdrag till Utvecklaren: En Total Systemsanering
+
+**Mål:** Eliminera alla kvarlevor av det gamla datalagret och säkerställ att **hela** applikationen konsekvent använder den nya, SQL-synkroniserade Zustand-storen för all data. Detta är inte en lista med buggfixar; det är en strategisk refaktorering för att göra systemet stabilt en gång för alla.
+
+**Strategi:** Vi slutar jaga enskilda buggar. Istället genomför vi en "sök och förstör"-insats mot de felaktiga kodmönstren över hela frontend-koden.
+
+-----
+
+#### Action Plan: Den Stora Saneringen
+
+**Fas 1: Utrota All Användning av Namn för Relationer**
+Detta är ett kardinalfel som orsakar enorma problem med dataintegritet.
+
+  * **Uppdrag:** Gör en global sökning i hela `client/`-katalogen efter alla ställen där data filtreras, kopplas eller jämförs med `.name` istället för `.id`. Speciellt `account.name`.
+  * **Exempel på Felaktig Kod som Måste Bort:**
+    ```typescript
+    // FEL: Filtrerar transaktioner baserat på kontots namn
+    const transactionsForAccount = allTransactions.filter(t => t.accountName === 'Lönekonto'); 
+    ```
+  * **Korrekt Implementering:** Alla dessa ställen måste skrivas om för att använda `accountId`.
+    ```typescript
+    // RÄTT: Filtrerar transaktioner baserat på kontots ID
+    const transactionsForAccount = allTransactions.filter(t => t.accountId === selectedAccountId); 
+    ```
+  * **Problem detta löser:**
+      * Buggen där en ny kostnadspost visar "Inget Konto".
+      * Att konton inte visas korrekt under "Budgetkategorier".
+
+**Fas 2: Säkerställ att Transaktioner Alltid Sparas i SQL**
+Detta är en kritisk dataförlust-bugg.
+
+  * **Uppdrag:** Granska funktionen som hanterar CSV-import och manuell inmatning av transaktioner.
+  * **Krav:** Denna funktion **måste** loopa igenom varje enskild ny transaktion och anropa den centrala `createTransaction`-funktionen från er Zustand-store. Denna funktion måste i sin tur göra ett `POST`-anrop till `/api/transactions`. Att bara lägga till transaktionerna i en lokal lista är förbjudet.
+  * **Problem detta löser:**
+      * Transaktioner som försvinner vid omladdning.
+      * "Faktiskt kontosaldo" som inte uppdateras.
+
+**Fas 3: Sanera All Dataladdning i UI-komponenter**
+Alla komponenter måste hämta sin data från **en och samma** källa.
+
+  * **Uppdrag:** Gör en global sökning efter `budgetState` och all användning av `useState` för att lagra listor som `accounts`, `transactions` eller `categories`.
+  * **Krav:** All denna kod måste ersättas med direkta anrop till den centrala `useAppStore`. Ingen komponent får ha en egen, lokal "sanning" om systemets data.
+  * **Exempel på Refaktorering:**
+    ```typescript
+    // I en komponent som visar kostnadsposter...
+
+    // FEL:
+    // const [transactions, setTransactions] = useState([]); // Lokal, osynkad lista
+    // useEffect(() => { setTransactions(someOldFunction()); }, []);
+
+    // RÄTT:
+    import { useAppStore } from '...';
+    const transactions = useAppStore(state => state.transactions); // Alltid den färska listan från SQL
+    ```
+  * **Problem detta löser:**
+      * "Kostnadsposter" som inte visar de nyskapade posterna.
+      * Att listan över konton är felaktig eller ofullständig på flera ställen.
+
+**Fas 4: Korrigera Beräkningen av "Faktiskt" Belopp**
+"Faktiskt" belopp är inte data som ska sparas, det är data som ska **beräknas**.
+
+  * **Uppdrag:** Hitta koden som beräknar "Faktiskt" för en kostnadskategori.
+  * **Krav:** Denna beräkning måste **alltid** baseras på den fullständiga, SQL-synkroniserade listan av transaktioner från `useAppStore`.
+  * **Korrekt Implementering:**
+    ```typescript
+    const transactionsFromSQL = useAppStore(state => state.transactions);
+
+    const calculateActualAmountForCategory = (categoryId) => {
+      return transactionsFromSQL
+        .filter(t => t.huvudkategoriId === categoryId)
+        .reduce((sum, t) => sum + t.amount, 0);
+    };
+    ```
+  * **Problem detta löser:**
+      * "Faktiskt"-belopp som inte stämmer överens med verkligheten.
+
+Genom att attackera dessa fyra **grundläggande problem** systematiskt, istället för att jaga enskilda symptom, kommer utvecklaren att kunna stabilisera hela applikationen mycket snabbare och mer effektivt.

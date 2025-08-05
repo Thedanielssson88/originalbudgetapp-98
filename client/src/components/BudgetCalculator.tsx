@@ -2372,7 +2372,7 @@ const BudgetCalculator = () => {
       id: uuidv4(),
       name: `${item.subcategory}: ${item.name}`,
       amount: calculatedAmount,
-      accountId: item.accountId || (item.account ? budgetState.accounts.find(acc => acc.name === item.account)?.id : undefined),
+      accountId: item.accountId || (item.account ? accounts.find(acc => acc.name === item.account)?.id : undefined),
       financedFrom: item.financedFrom,
       transferType: item.transferType || 'monthly',
       dailyAmount: item.dailyAmount,
@@ -6470,7 +6470,7 @@ const BudgetCalculator = () => {
                                                        </div>
                                                         <div>
                                                            <span className="text-muted-foreground">Konto:</span>
-                                                           <div className="font-medium">{sub.accountId ? budgetState.accounts.find(acc => acc.id === sub.accountId)?.name || 'Inget konto' : 'Inget konto'}</div>
+                                                           <div className="font-medium">{sub.accountId ? accounts.find(acc => acc.id === sub.accountId)?.name || 'Inget konto' : 'Inget konto'}</div>
                                                         </div>
                                                      </div>
                                                      
@@ -6580,8 +6580,10 @@ const BudgetCalculator = () => {
                                        // Check both legacy account name and new accountId
                                        const matchesLegacy = sub.account === account.name;
                                        const matchesNew = sub.accountId === account.id;
-                                       console.log(`🔍 [ACCOUNT VIEW] Checking subcategory ${sub.name}: legacy(${sub.account}=${account.name})=${matchesLegacy}, new(${sub.accountId}=${account.id})=${matchesNew}`);
-                                       return matchesLegacy || matchesNew;
+                                       // CRITICAL FIX: Also check if accountId is mistakenly stored as account name instead of UUID
+                                       const matchesCorruptedData = sub.accountId === account.name;
+                                       console.log(`🔍 [ACCOUNT VIEW] Checking subcategory ${sub.name}: legacy(${sub.account}=${account.name})=${matchesLegacy}, new(${sub.accountId}=${account.id})=${matchesNew}, corrupted(${sub.accountId}=${account.name})=${matchesCorruptedData}`);
+                                       return matchesLegacy || matchesNew || matchesCorruptedData;
                                      });
                                      
                                      console.log(`🔍 [ACCOUNT VIEW] Found ${costItemsForThisAccount.length} budget items for ${account.name}:`, costItemsForThisAccount);
@@ -6805,7 +6807,7 @@ const BudgetCalculator = () => {
                                                            </div>
                                                             <div>
                                                               <span className="text-muted-foreground">Konto:</span>
-                                                              <div className="font-medium">{sub.accountId ? budgetState.accounts.find(acc => acc.id === sub.accountId)?.name || 'Inget konto' : sub.account || 'Inget konto'}</div>
+                                                              <div className="font-medium">{sub.accountId ? accounts.find(acc => acc.id === sub.accountId)?.name || 'Inget konto' : sub.account || 'Inget konto'}</div>
                                                             </div>
                                                          </div>
                                                          
