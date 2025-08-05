@@ -4,6 +4,14 @@ This is a comprehensive budget management application built with React and TypeS
 
 ## Recent Critical Changes (January 2025)
 
+- **NEW - Monthly Account Balance Database Persistence (January 2025)**: Implemented complete database persistence system for monthly account balances with automatic payday calculation:
+  - Created PostgreSQL table `monthly_account_balances` with UUID primary keys and year-month format storage
+  - Integrated automatic balance calculation during CSV/XLSX import to save results to database
+  - Added startup logic to load stored monthly balances from database into local state
+  - Account balances now persist across devices and app restarts with full cross-device synchronization
+  - Payday logic (transactions before 25th) now saves calculated balances directly to database
+  - System automatically loads and applies stored balances during application initialization
+
 - **NEW - Complete UUID-Based Backend Implementation (January 2025)**: Successfully rebuilt the entire backend from scratch with PostgreSQL database and UUID-based architecture:
   - Implemented comprehensive database schema with UUID primary keys for all entities (users, huvudkategorier, underkategorier, accounts, transactions, categoryRules)
   - Created PostgreSQL database connection using Neon serverless driver with Drizzle ORM
