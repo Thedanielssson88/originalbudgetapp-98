@@ -12,7 +12,8 @@ import { Switch } from "@/components/ui/switch";
 import { MainCategoriesSettings } from "@/components/MainCategoriesSettings";
 import { PaydaySettings } from "@/components/PaydaySettings";
 import { useBudget } from "@/hooks/useBudget";
-import { getCurrentState, addAccount, removeAccount, updateSelectedBudgetMonth } from "@/orchestrator/budgetOrchestrator";
+import { getCurrentState, updateSelectedBudgetMonth } from "@/orchestrator/budgetOrchestrator";
+import { apiStore } from "@/store/apiStore";
 import { simpleGoogleDriveService } from "@/services/simpleGoogleDriveService";
 import { Calendar, User, Shield, Database, Settings, DollarSign, FolderOpen, ChevronLeft, ChevronRight, Cloud, CloudOff } from "lucide-react";
 
@@ -223,30 +224,40 @@ const SettingsPage = () => {
     console.log('User names saved');
   };
 
-  const addAccountHandler = () => {
+  const addAccountHandler = async () => {
     if (newAccountName.trim() && !accounts.some(acc => acc.name === newAccountName.trim())) {
       console.log('Adding new account:', newAccountName.trim());
       
-      // Use the orchestrator function to add the account
-      addAccount({
-        name: newAccountName.trim(),
-        startBalance: 0
-      });
-      
-      setNewAccountName('');
-      console.log('Account added successfully via orchestrator');
+      try {
+        // Use the API store to create the account in the database
+        await apiStore.createAccount({
+          name: newAccountName.trim(),
+          startBalance: 0
+        });
+        
+        setNewAccountName('');
+        console.log('Account added successfully via API');
+      } catch (error) {
+        console.error('Failed to create account:', error);
+        // You could show a toast notification here
+      }
     }
   };
 
-  const removeAccountHandler = (accountToRemove: string) => {
+  const removeAccountHandler = async (accountToRemove: string) => {
     console.log('Removing account:', accountToRemove);
     
     // Find the account ID to remove
     const accountToDelete = accounts.find(acc => acc.name === accountToRemove);
     if (accountToDelete) {
-      // Use the orchestrator function to remove the account
-      removeAccount(accountToDelete.id);
-      console.log('Account removed successfully via orchestrator');
+      try {
+        // Use the API store to delete the account from the database
+        await apiStore.deleteAccount(accountToDelete.id);
+        console.log('Account removed successfully via API');
+      } catch (error) {
+        console.error('Failed to delete account:', error);
+        // You could show a toast notification here
+      }
     }
   };
 

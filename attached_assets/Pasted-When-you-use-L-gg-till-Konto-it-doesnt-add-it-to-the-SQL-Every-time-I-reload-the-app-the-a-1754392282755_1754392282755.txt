@@ -1,0 +1,75 @@
+When you use "Lägg till Konto" it doesnt add it to the SQL.
+
+
+
+Every time I reload the app the account disappears. I can only see Överföring as an account.
+
+Absolut. Jag har analyserat den senaste koden igen. Du har helt rätt, problemet kvarstår och orsaken är exakt densamma som förut.
+
+**Nya konton sparas INTE i SQL-databasen.** De läggs bara till i en temporär lista i webbläsarens minne och försvinner därför vid omladdning.
+
+Här är en ny, uppdaterad och fokuserad uppdragsbeskrivning till utvecklaren.
+
+-----
+
+### Nytt Utvecklingsuppdrag: Refaktorering av "Lägg till Konto"
+
+**Mål:** Bygg om "Lägg till Konto"-funktionen så att nya konton sparas permanent i SQL-databasen. Användargränssnittet ska inte ändras.
+
+**Problembeskrivning:**
+När en användare klickar på "Spara" i "Lägg till Konto"-formuläret, görs inget anrop till backend-API:et. Istället uppdateras endast en lokal lista i frontend-koden. Detta gör att det nya kontot försvinner så fort sidan laddas om. Detta måste korrigeras för att använda samma robusta API-flöde som nu finns för kategorier.
+
+-----
+
+#### Exakt Action Plan (Fokus på Frontend-kod)
+
+**Steg 1: Hitta den Felaktiga Spara-funktionen**
+Lokalisera React-komponenten som hanterar "Inställningar -\> Konton". I den komponenten finns en funktion som körs när man sparar ett nytt konto (t.ex. `handleSave`, `addAccount`, eller liknande). Denna funktion är felaktigt implementerad.
+
+**Steg 2: Ta Bort den Felaktiga Koden**
+Den nuvarande funktionen gör troligtvis något i stil med detta:
+
+```typescript
+// NUVARANDE FELAKTIG KOD SOM MÅSTE BORT:
+const handleSaveAccount = (accountName) => {
+  // Skapar ett temporärt, lokalt konto
+  const newAccount = { id: 'temp_' + Date.now(), name: accountName, balance: 0 };
+  
+  // Uppdaterar bara en lokal lista i minnet
+  setAccountsInComponentState([...accounts, newAccount]); 
+};
+```
+
+**Radera denna logik.** Den är grundorsaken till problemet.
+
+**Steg 3: Implementera den Korrekta API-logiken**
+Ersätt den raderade koden med ett anrop till den centrala funktionen i din Zustand-store som är avsedd för att skapa konton. Denna funktion hanterar redan kommunikationen med backend.
+
+```typescript
+// NY, KORREKT KOD SOM SKA IMPLEMENTERAS:
+import { useAppStore } from '...'; // Importera din centrala store
+
+const handleSaveAccount = async (accountName) => {
+  // Hämta funktionen från din store
+  const { createAccount } = useAppStore.getState(); 
+  
+  try {
+    // Anropa funktionen som skickar datan till backend/SQL
+    await createAccount({ name: accountName, balance: 0 });
+    
+    // Nollställ formuläret eller stäng modalen efter att det lyckats
+  } catch (error) {
+    console.error("Det gick inte att spara kontot:", error);
+    // Visa ett felmeddelande för användaren
+  }
+};
+```
+
+**Steg 4: Verifiera `createAccount`-flödet**
+Säkerställ att `createAccount`-funktionen (i din Zustand-store) gör följande:
+
+1.  Skickar ett `POST`-anrop till backend-API:et (`/api/accounts`).
+2.  Tar emot det nyskapade kontot från API:et (som nu har ett permanent UUID från SQL-databasen).
+3.  Lägger till det nya kontot i `accounts`-listan i den centrala Zustand-storen.
+
+När denna refaktorering är gjord kommer "Lägg till Konto" att fungera på samma pålitliga sätt som resten av applikationen. Nya konton kommer att sparas permanent och finnas kvar efter en omladdning.
