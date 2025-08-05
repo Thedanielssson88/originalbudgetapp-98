@@ -36,6 +36,7 @@ type BankCsvMapping = {
 export function useBanks() {
   return useQuery<Bank[]>({
     queryKey: ['/api/banks'],
+    queryFn: () => apiRequest('/api/banks'),
   });
 }
 
@@ -76,6 +77,7 @@ export function useDeleteBank() {
 export function useBankCsvMappings() {
   return useQuery<BankCsvMapping[]>({
     queryKey: ['/api/bank-csv-mappings'],
+    queryFn: () => apiRequest('/api/bank-csv-mappings'),
   });
 }
 
