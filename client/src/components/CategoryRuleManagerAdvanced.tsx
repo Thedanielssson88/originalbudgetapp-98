@@ -12,6 +12,8 @@ import { CategoryRule, RuleCondition } from '@/types/budget';
 import { v4 as uuidv4 } from 'uuid';
 import { get, StorageKey } from '@/services/storageService';
 import { useHuvudkategorier, useUnderkategorier, useCategoryNames } from '@/hooks/useCategories';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { CategoryRule as PostgreSQLCategoryRule } from '@shared/schema';
 
 interface CategoryRuleManagerAdvancedProps {
   rules: CategoryRule[];
@@ -30,6 +32,33 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
   const { data: huvudkategorier = [] } = useHuvudkategorier();
   const { data: allUnderkategorier = [] } = useUnderkategorier();
   const { getHuvudkategoriName, getUnderkategoriName, getCategoryPath } = useCategoryNames();
+  
+  const queryClient = useQueryClient();
+  
+  // Load PostgreSQL category rules
+  const { data: postgresqlRules = [], refetch: refetchRules } = useQuery<PostgreSQLCategoryRule[]>({
+    queryKey: ['/api/category-rules'],
+    queryFn: async () => {
+      const response = await fetch('/api/category-rules');
+      if (!response.ok) throw new Error('Failed to fetch category rules');
+      return response.json();
+    }
+  });
+
+  // Delete rule mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (ruleId: string) => {
+      const response = await fetch(`/api/category-rules/${ruleId}`, {
+        method: 'DELETE'
+      });
+      if (!response.ok) throw new Error('Failed to delete rule');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/category-rules'] });
+      refetchRules();
+    }
+  });
   
   const [isAddingRule, setIsAddingRule] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
@@ -104,8 +133,14 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
     }
   };
 
-  const handleDeleteRule = (ruleId: string) => {
-    onRulesChange(rules.filter(rule => rule.id !== ruleId));
+  const handleDeleteRule = async (ruleId: string) => {
+    console.log('🗑️ [RULE MANAGER] Deleting rule:', ruleId);
+    try {
+      await deleteMutation.mutateAsync(ruleId);
+      console.log('✅ [RULE MANAGER] Rule deleted successfully');
+    } catch (error) {
+      console.error('❌ [RULE MANAGER] Failed to delete rule:', error);
+    }
   };
 
   const handleEditRule = (rule: CategoryRule) => {
@@ -372,214 +407,56 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
         )}
 
         {/* Rules List - Mobile Optimized */}
-        {rules.length > 0 ? (
+        {postgresqlRules.length > 0 ? (
           <div className="space-y-2">
-            {rules
-              .filter(rule => rule && rule.condition && rule.action) // Filter out malformed rules
-              .sort((a, b) => a.priority - b.priority)
+            <div className="text-xs text-muted-foreground mb-2">
+              {postgresqlRules.length} regler laddade från databasen
+            </div>
+            {postgresqlRules
+              .sort((a, b) => (a.priority || 100) - (b.priority || 100))
               .map((rule) => (
               <Card key={rule.id} className="p-3">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Switch
-                        checked={rule.isActive}
-                        onCheckedChange={() => handleToggleRule(rule.id)}
-                      />
                       <Badge variant="outline" className="text-xs">
-                        {rule.priority}
+                        {rule.priority || 100}
                       </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {rule.ruleName}
+                      </span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => handleEditRule(rule)}
-                        className="h-6 w-6 p-0"
-                      >
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
                         onClick={() => handleDeleteRule(rule.id)}
                         className="h-6 w-6 p-0"
+                        disabled={deleteMutation.isPending}
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
                   </div>
                   
-                  {editingRuleId === rule.id ? (
-                    // Edit mode - editable form
-                    <div className="space-y-3">
-                      <div>
-                        <Label className="text-xs">Huvudkategori</Label>
-                        <Select
-                          value={editingRule?.action.appMainCategoryId || ''}
-                          onValueChange={(value) => {
-                            setEditingRule(prev => prev ? {
-                              ...prev,
-                              action: { ...prev.action, appMainCategoryId: value, appSubCategoryId: '' }
-                            } : null);
-                            const subcatsForCategory = allUnderkategorier.filter(
-                              sub => sub.huvudkategoriId === value
-                            );
-                            setAvailableSubcategories(subcatsForCategory.map(sub => sub.id));
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Välj huvudkategori" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {huvudkategorier.map(category => (
-                              <SelectItem key={category.id} value={category.id}>
-                                {category.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <Label className="text-xs">Underkategori</Label>
-                        <Select
-                          value={editingRule?.action.appSubCategoryId || ''}
-                          onValueChange={(value) => setEditingRule(prev => prev ? {
-                            ...prev,
-                            action: { ...prev.action, appSubCategoryId: value }
-                          } : null)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Välj underkategori" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableSubcategories.map(subcategoryId => {
-                              const subcat = allUnderkategorier.find(s => s.id === subcategoryId);
-                              return (
-                                <SelectItem key={subcategoryId} value={subcategoryId}>
-                                  {subcat?.name || subcategoryId}
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label className="text-xs">Positiv typ</Label>
-                          <Select
-                            value={editingRule?.action.positiveTransactionType || 'Transaction'}
-                            onValueChange={(value) => setEditingRule(prev => prev ? {
-                              ...prev,
-                              action: { ...prev.action, positiveTransactionType: value as any }
-                            } : null)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Transaction">Transaction</SelectItem>
-                              <SelectItem value="InternalTransfer">InternalTransfer</SelectItem>
-                              <SelectItem value="Savings">Savings</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label className="text-xs">Negativ typ</Label>
-                          <Select
-                            value={editingRule?.action.negativeTransactionType || 'Transaction'}
-                            onValueChange={(value) => setEditingRule(prev => prev ? {
-                              ...prev,
-                              action: { ...prev.action, negativeTransactionType: value as any }
-                            } : null)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Transaction">Transaction</SelectItem>
-                              <SelectItem value="InternalTransfer">InternalTransfer</SelectItem>
-                              <SelectItem value="Savings">Savings</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2 pt-2">
-                        <Button size="sm" onClick={handleSaveEdit} className="flex-1">
-                          Spara
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={handleCancelEdit} className="flex-1">
-                          Avbryt
-                        </Button>
-                      </div>
+                  <div className="space-y-1">
+                    <div className="text-xs">
+                      <span className="font-medium">Bankkategori:</span> {rule.transactionName}
                     </div>
-                  ) : (
-                    // Read-only mode
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Badge variant={rule.condition.type === 'categoryMatch' ? 'secondary' : 'default'} className="text-xs">
-                          {rule.condition.type === 'textContains' ? 'Text innehåller' :
-                           rule.condition.type === 'textStartsWith' ? 'Text börjar med' :
-                           'Bankens kategori'}
-                        </Badge>
-                        <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                          {rule.condition.type === 'categoryMatch' ? (
-                            <>
-                              {(rule.condition as any).bankCategory}
-                              {(rule.condition as any).bankSubCategory && (
-                                <span className="text-blue-600 dark:text-blue-400"> → {(rule.condition as any).bankSubCategory}</span>
-                              )}
-                            </>
-                          ) : (
-                            (rule.condition as any).value
-                          )}
-                        </code>
-                      </div>
-                      
-                      <div className="text-xs text-muted-foreground">
-                        <span className="font-medium">{getHuvudkategoriName(rule.action.appMainCategoryId) || rule.action.appMainCategoryId}</span>
-                        {rule.action.appSubCategoryId && (
-                          <span> → {getUnderkategoriName(rule.action.appSubCategoryId) || rule.action.appSubCategoryId}</span>
-                        )}
-                      </div>
-                      
-                      <div className="text-xs text-muted-foreground space-y-1">
-                        <div>
-                          <span className="font-medium">Pos: </span>
-                          <span>{rule.action.positiveTransactionType}</span>
-                          <span className="mx-2">|</span>
-                          <span className="font-medium">Neg: </span>
-                          <span>{rule.action.negativeTransactionType}</span>
-                        </div>
-                        {rule.action.applicableAccountIds && rule.action.applicableAccountIds.length > 0 ? (
-                          <div>
-                            <span className="font-medium">Konton: </span>
-                            <span>
-                              {rule.action.applicableAccountIds
-                                .map(id => accounts.find(acc => acc.id === id)?.name || id)
-                                .join(', ')
-                              }
-                            </span>
-                          </div>
-                        ) : (
-                          <div>
-                            <span className="font-medium">Konton: </span>
-                            <span>Alla konton</span>
-                          </div>
-                        )}
-                      </div>
+                    <div className="text-xs">
+                      <span className="font-medium">Huvudkategori:</span> {getHuvudkategoriName(rule.huvudkategoriId)}
                     </div>
-                  )}
+                    <div className="text-xs">
+                      <span className="font-medium">Underkategori:</span> {getUnderkategoriName(rule.underkategoriId)}
+                    </div>
+                  </div>
                 </div>
               </Card>
             ))}
           </div>
         ) : (
-          <div className="text-center py-6 text-muted-foreground text-sm">
-            Inga regler har skapats ännu.
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            Inga regler skapade än
           </div>
         )}
       </CardContent>
