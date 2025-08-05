@@ -28,10 +28,23 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
   const [migrationInProgress, setMigrationInProgress] = useState(false);
   
   const migrationCompleted = isMigrationCompleted();
+  
+  console.log('🔍 Migration completed status:', migrationCompleted);
+  console.log('🔍 Categories:', categories);
+  console.log('🔍 Should show button:', !migrationCompleted);
+  
+  // Force show migration button if we're still using old localStorage system
+  const shouldShowMigrationButton = !migrationCompleted || (migrationCompleted && categories.length > 0);
 
   const handleCompleteUuidMigration = async () => {
     setMigrationInProgress(true);
     try {
+      // Clear the old migration flags to start fresh
+      localStorage.removeItem('categoryMigrationCompleted');
+      localStorage.removeItem('categoryMigrationMapping');
+      
+      console.log('🧹 Cleared old migration flags, starting fresh migration...');
+      
       // First restore any accidentally renamed categories
       const currentCategories = [...categories];
       const transportIndex = currentCategories.findIndex(cat => cat.includes('Transport'));
@@ -160,22 +173,22 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {!migrationCompleted && (
+        {shouldShowMigrationButton && (
           <Alert className="border-orange-200 bg-orange-50 dark:bg-orange-900/20">
             <AlertTriangle className="h-4 w-4 text-orange-500" />
             <AlertDescription className="text-orange-700 dark:text-orange-300">
               <div className="flex items-center justify-between">
                 <span>
-                  Du använder det gamla kategori-systemet. Uppgradera till UUID-baserat system för att undvika problem när du byter namn på kategorier.
+                  <strong>VIKTIGT:</strong> Du använder det gamla kategori-systemet. När du byter namn på kategorier försvinner underkategorierna. Klicka här för att fixa detta problem permanent.
                 </span>
                 <Button 
                   size="sm" 
                   onClick={handleCompleteUuidMigration}
                   disabled={migrationInProgress}
-                  className="ml-4"
+                  className="ml-4 bg-orange-500 hover:bg-orange-600 text-white"
                 >
                   <Database className="h-4 w-4 mr-2" />
-                  {migrationInProgress ? 'Migrerar...' : 'Uppgradera nu'}
+                  {migrationInProgress ? 'Fixar...' : 'Fixa nu'}
                 </Button>
               </div>
             </AlertDescription>
