@@ -384,6 +384,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // @ts-ignore
       const userId = req.userId;
       const transactions = await storage.getTransactions(userId);
+      
+      // DEBUG: Log a few transaction amounts to verify they're coming through correctly
+      if (transactions.length > 0) {
+        console.log('Getting transactions for userId:', userId);
+        console.log('Found transactions:', transactions.length);
+        const sample = transactions.slice(0, 3);
+        sample.forEach((tx, i) => {
+          console.log(`Sample tx ${i}: amount=${tx.amount}, description="${tx.description}"`);
+        });
+      }
+      
       res.json(transactions);
     } catch (error) {
       console.error('Error fetching transactions:', error);

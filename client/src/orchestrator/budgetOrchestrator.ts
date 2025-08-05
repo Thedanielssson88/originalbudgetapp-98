@@ -2569,6 +2569,16 @@ async function loadTransactionsFromDatabase(): Promise<void> {
         date: tx.date,
         bankCategory: tx.bankCategory
       })));
+      
+      // CRITICAL DEBUG: Check exact amount values before and after conversion
+      console.log('[ORCHESTRATOR] AMOUNT DEBUG for first 3 transactions:');
+      sample.forEach((tx, i) => {
+        const originalTx = dbTransactions[i];
+        console.log(`Transaction ${i}: "${tx.description}"`);
+        console.log(`  - Original amount from DB: ${originalTx?.amount} (type: ${typeof originalTx?.amount})`);
+        console.log(`  - Converted amount: ${tx.amount} (type: ${typeof tx.amount})`);
+        console.log(`  - BalanceAfter: ${tx.balanceAfter} (type: ${typeof tx.balanceAfter})`);
+      });
     }
     
   } catch (error) {
