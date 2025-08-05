@@ -3,9 +3,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Trash2, Plus, Edit, Save, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Trash2, Plus, Edit, Save, X, ChevronDown, ChevronUp, Database, AlertTriangle } from 'lucide-react';
 import { setMainCategories } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
+import { forceCompleteMigration, isMigrationCompleted } from '../services/categoryMigrationService';
 
 interface MainCategoriesSettingsProps {
   mainCategories: string[];
@@ -23,6 +25,19 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
   const [newSubcategory, setNewSubcategory] = useState<Record<string, string>>({});
   const [editingSubcategory, setEditingSubcategory] = useState<{category: string, index: number} | null>(null);
   const [editingSubcategoryValue, setEditingSubcategoryValue] = useState('');
+  const [migrationInProgress, setMigrationInProgress] = useState(false);
+  
+  const migrationCompleted = isMigrationCompleted();
+
+  const handleCompleteUuidMigration = async () => {
+    setMigrationInProgress(true);
+    try {
+      await forceCompleteMigration();
+    } catch (error) {
+      console.error('Migration failed:', error);
+      setMigrationInProgress(false);
+    }
+  };
 
   const addCategory = () => {
     if (newCategory.trim() && !categories.includes(newCategory.trim())) {
@@ -133,6 +148,27 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {!migrationCompleted && (
+          <Alert className="border-orange-200 bg-orange-50 dark:bg-orange-900/20">
+            <AlertTriangle className="h-4 w-4 text-orange-500" />
+            <AlertDescription className="text-orange-700 dark:text-orange-300">
+              <div className="flex items-center justify-between">
+                <span>
+                  Du använder det gamla kategori-systemet. Uppgradera till UUID-baserat system för att undvika problem när du byter namn på kategorier.
+                </span>
+                <Button 
+                  size="sm" 
+                  onClick={handleCompleteUuidMigration}
+                  disabled={migrationInProgress}
+                  className="ml-4"
+                >
+                  <Database className="h-4 w-4 mr-2" />
+                  {migrationInProgress ? 'Migrerar...' : 'Uppgradera nu'}
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="space-y-4">
           {categories.map((category, index) => (
             <div key={index} className="border rounded-lg p-3 space-y-3">
