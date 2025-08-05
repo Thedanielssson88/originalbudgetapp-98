@@ -13,7 +13,7 @@ import { MainCategoriesSettings } from "@/components/MainCategoriesSettings";
 import { PaydaySettings } from "@/components/PaydaySettings";
 import { UserManagement } from "@/components/UserManagement";
 import { useBudget } from "@/hooks/useBudget";
-import { useAccounts } from "@/hooks/useAccounts";
+import { useAccounts, useCreateAccount, useDeleteAccount } from "@/hooks/useAccounts";
 import { getCurrentState, updateSelectedBudgetMonth } from "@/orchestrator/budgetOrchestrator";
 import { apiStore } from "@/store/apiStore";
 import { simpleGoogleDriveService } from "@/services/simpleGoogleDriveService";
@@ -24,6 +24,8 @@ const SettingsPage = () => {
   
   // Use API accounts instead of budgetState.accounts
   const { data: accountsFromAPI = [] } = useAccounts();
+  const createAccountMutation = useCreateAccount();
+  const deleteAccountMutation = useDeleteAccount();
   const [currentPayday, setCurrentPayday] = useState(25);
 
   // Month navigation functions
@@ -234,10 +236,12 @@ const SettingsPage = () => {
       console.log('Adding new account:', newAccountName.trim());
       
       try {
-        // Use the API store to create the account in the database
-        await apiStore.createAccount({
+        // Use React Query mutation to create the account in the database
+        await createAccountMutation.mutateAsync({
           name: newAccountName.trim(),
-          startBalance: 0
+          balance: 0, // balance field, not startBalance
+          assignedTo: null,
+          bankTemplateId: null
         });
         
         setNewAccountName('');
@@ -254,10 +258,10 @@ const SettingsPage = () => {
     
     // Find the account ID to remove
     const accountToDelete = accounts.find(acc => acc.name === accountToRemove);
-    if (accountToDelete) {
+    if (accountToDelete?.id) {
       try {
-        // Use the API store to delete the account from the database
-        await apiStore.deleteAccount(accountToDelete.id);
+        // Use React Query mutation to delete the account from the database
+        await deleteAccountMutation.mutateAsync(accountToDelete.id);
         console.log('Account removed successfully via API');
       } catch (error) {
         console.error('Failed to delete account:', error);
