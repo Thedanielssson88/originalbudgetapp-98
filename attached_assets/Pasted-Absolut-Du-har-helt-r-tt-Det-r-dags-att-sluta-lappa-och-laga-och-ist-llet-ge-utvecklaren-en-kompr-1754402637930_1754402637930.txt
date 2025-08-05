@@ -1,0 +1,55 @@
+Absolut. Du har helt rätt. Det är dags att sluta lappa och laga och istället ge utvecklaren en kompromisslös, kristallklar kravspecifikation. Den gamla, smarta funktionaliteten **ska** återinföras, och den ska fungera med den nya, stabila SQL-databasen.
+
+Här är en ny, komplett och extremt tydlig uppdragsbeskrivning.
+
+---
+
+### Nytt Utvecklingsuppdrag: Återskapa den Intelligenta Synkroniseringen
+
+**Mål:** Den nuvarande, simpla importfunktionen som bara skapar nya transaktioner ska raderas och ersättas helt. En ny, intelligent synkroniseringsfunktion ska byggas som replikerar den gamla, korrekta logiken men mot den nya SQL-arkitekturen.
+
+**Kravspecifikation:**
+När en användare laddar upp en CSV/XLSX-fil ska systemet utföra en **synkronisering**, inte en blind import. Detta innebär:
+1.  Transaktioner i filen som redan finns i databasen ska **UPPDATERAS**.
+2.  Transaktioner i filen som inte finns i databasen ska **SKAPAS**.
+3.  Transaktioner som finns i databasen inom filens datumintervall, men som **INTE** längre finns i filen, ska **TAS BORT**.
+4.  Användarens manuella ändringar måste **ALLTID** respekteras och skyddas.
+
+---
+
+#### Exakt Action Plan för Utvecklaren
+
+Detta är inte en frontend-uppgift. Detta kräver en dedikerad, robust backend-endpoint.
+
+**Steg 1: Skapa ett Nytt Backend-Endpoint för Synkronisering**
+Skapa ett nytt endpoint, till exempel `POST /api/transactions/synchronize`. Denna endpoint ska ta emot hela listan med transaktioner från den uppladdade filen.
+
+**Steg 2: Implementera Kärnlogiken på Servern**
+Denna nya funktion måste utföra följande operationer i databasen, i exakt denna ordning:
+
+1.  **Identifiera Datumintervall:** Läs av det allra första och sista transaktionsdatumet från den inkommande fil-datan.
+2.  **Hämta Relevanta Transaktioner från SQL:** Gör en databasfråga: `SELECT * FROM transactions WHERE date BETWEEN [första_datum] AND [sista_datum] AND userId = [användarens_id]`. Spara detta resultat i en lista som vi kallar `db_transactions`.
+3.  **Iterera, Jämför och Agera:** Loopa igenom varje transaktion i listan från filen (`file_transactions`). För varje `file_tx`:
+    a. Försök hitta en motsvarande transaktion i `db_transactions` (baserat på en unik kombination av datum, beskrivning, och belopp).
+    b. **Om en matchning hittas (UPPDATERA):**
+        i. Hämta den matchande `db_tx`.
+        ii. **Kontrollera den manuella flaggan:** `if (db_tx.is_manually_changed === true)`.
+        iii. **Om `true`:** Uppdatera **ALLA** fält på `db_tx` från `file_tx` **FÖRUTOM** de manuellt skyddade fälten:
+            * `huvudkategoriId`
+            * `underkategoriId`
+            * `transaktionstyp` (eller motsvarande fält du har för detta)
+            * Och eventuella andra fält som användaren kan redigera manuellt (t.ex. en egen beskrivning).
+        iv. **Om `false`:** Det är en "ren" transaktion. Uppdatera alla fält och kör den genom den vanliga, automatiska kategoriseringsprocessen.
+    c. **Om ingen matchning hittas (SKAPA):**
+        i. Detta är en helt ny transaktion. Skapa en ny post i databasen för `file_tx`.
+        ii. Kör den genom den vanliga, automatiska kategoriseringsprocessen.
+
+4.  **Radera Försvunna Transaktioner:**
+    a. När loopen i steg 3 är klar, har du en lista över alla transaktioner från filen som nu finns och är uppdaterade i databasen.
+    b. Jämför denna lista med den ursprungliga `db_transactions`-listan från steg 2.
+    c. Varje transaktion som fanns i `db_transactions` men som aldrig hittades under jämförelsen i steg 3 är en transaktion som tagits bort från ditt kontoutdrag. Kör en `DELETE`-operation i databasen för var och en av dessa.
+
+**Steg 3: Säkerställ att den Manuella Flaggan Sätts Korrekt (Frontend)**
+Verifiera att när en användare manuellt ändrar en kategori i UI:t, så skickar `updateTransaction`-funktionen **alltid** med `is_manually_changed: true` i sitt API-anrop till servern. Annars kommer logiken i Steg 2 aldrig att fungera.
+
+Denna plan återställer den intelligenta, tidsparande funktionalitet som är en av grundpelarna i applikationen. Detta är inte en "nice-to-have", det är en fundamental kravspecifikation.

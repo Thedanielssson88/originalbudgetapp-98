@@ -78,6 +78,7 @@ export interface IStorage {
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
   updateTransaction(id: string, transaction: Partial<InsertTransaction>): Promise<Transaction | undefined>;
   deleteTransaction(id: string): Promise<boolean>;
+  getTransactionsInDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]>;
   
   // Budget Posts CRUD
   getBudgetPosts(userId: string, monthKey?: string): Promise<BudgetPost[]>;
@@ -339,6 +340,14 @@ export class MemStorage implements IStorage {
 
   async deleteTransaction(id: string): Promise<boolean> {
     return this.transactions.delete(id);
+  }
+
+  async getTransactionsInDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
+    return Array.from(this.transactions.values()).filter(trans => 
+      trans.userId === userId &&
+      trans.date >= startDate &&
+      trans.date <= endDate
+    );
   }
 }
 

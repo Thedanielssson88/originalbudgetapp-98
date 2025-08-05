@@ -423,6 +423,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // NEW: Intelligent transaction synchronization endpoint
+  app.post("/api/transactions/synchronize", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const fileTransactions = req.body.transactions;
+      
+      if (!fileTransactions || !Array.isArray(fileTransactions)) {
+        return res.status(400).json({ error: 'transactions array is required' });
+      }
+
+      console.log(`[SYNC] Starting synchronization for ${fileTransactions.length} transactions from file`);
+
+      // Step 1: Identify date range from file data
+      const dates = fileTransactions.map(tx => new Date(tx.date)).sort((a, b) => a.getTime() - b.getTime());
+      const startDate = dates[0];
+      const endDate = dates[dates.length - 1];
+      
+      console.log(`[SYNC] Date range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
+
+      // Step 2: Get existing transactions in this date range from database
+      const existingTransactions = await storage.getTransactionsInDateRange(userId, startDate, endDate);
+      console.log(`[SYNC] Found ${existingTransactions.length} existing transactions in date range`);
+
+      const syncStats = {
+        created: 0,
+        updated: 0,
+        deleted: 0,
+        skipped: 0
+      };
+
+      // Step 3: Process each transaction from file
+      const processedTransactionIds = new Set<string>();
+
+      for (const fileTx of fileTransactions) {
+        try {
+          // Convert file transaction to proper format
+          const txData = {
+            ...fileTx,
+            userId,
+            date: new Date(fileTx.date),
+            isManuallyChanged: fileTx.isManuallyChanged === 'true' || fileTx.isManuallyChanged === true
+          };
+
+          // Try to find matching existing transaction (by date, description, amount)
+          const matchingTx = existingTransactions.find(existing => {
+            const sameDate = existing.date.toISOString().split('T')[0] === new Date(fileTx.date).toISOString().split('T')[0];
+            const sameDescription = existing.description === fileTx.description;
+            const sameAmount = Math.abs(existing.amount - fileTx.amount) < 0.01;
+            return sameDate && sameDescription && sameAmount;
+          });
+
+          if (matchingTx) {
+            // UPDATE existing transaction
+            processedTransactionIds.add(matchingTx.id);
+            
+            if (matchingTx.isManuallyChanged) {
+              // Preserve manually changed fields: appCategoryId, appSubCategoryId, type, userDescription
+              const preservedFields = {
+                appCategoryId: matchingTx.appCategoryId,
+                appSubCategoryId: matchingTx.appSubCategoryId,
+                type: matchingTx.type,
+                userDescription: matchingTx.userDescription
+              };
+              
+              // Update all other fields
+              const updateData = {
+                ...txData,
+                ...preservedFields, // Override with preserved fields
+                isManuallyChanged: true // Keep the manual flag
+              };
+              
+              await storage.updateTransaction(matchingTx.id, updateData);
+              syncStats.updated++;
+              console.log(`[SYNC] Updated manually changed transaction: ${matchingTx.id}`);
+            } else {
+              // Update all fields and run through categorization
+              const validatedData = insertTransactionSchema.parse(txData);
+              await storage.updateTransaction(matchingTx.id, validatedData);
+              syncStats.updated++;
+              console.log(`[SYNC] Updated clean transaction: ${matchingTx.id}`);
+            }
+          } else {
+            // CREATE new transaction
+            const validatedData = insertTransactionSchema.parse(txData);
+            const newTransaction = await storage.createTransaction(validatedData);
+            processedTransactionIds.add(newTransaction.id);
+            syncStats.created++;
+            console.log(`[SYNC] Created new transaction: ${newTransaction.id}`);
+          }
+        } catch (error) {
+          console.error(`[SYNC] Error processing transaction:`, error);
+          syncStats.skipped++;
+        }
+      }
+
+      // Step 4: Delete transactions that exist in DB but not in file (within date range)
+      const transactionsToDelete = existingTransactions.filter(existing => 
+        !processedTransactionIds.has(existing.id)
+      );
+
+      for (const txToDelete of transactionsToDelete) {
+        await storage.deleteTransaction(txToDelete.id);
+        syncStats.deleted++;
+        console.log(`[SYNC] Deleted removed transaction: ${txToDelete.id}`);
+      }
+
+      console.log(`[SYNC] Synchronization complete:`, syncStats);
+
+      res.json({
+        success: true,
+        stats: syncStats,
+        message: `Synchronization complete: ${syncStats.created} created, ${syncStats.updated} updated, ${syncStats.deleted} deleted`
+      });
+
+    } catch (error) {
+      console.error('Error synchronizing transactions:', error);
+      res.status(500).json({ error: 'Failed to synchronize transactions' });
+    }
+  });
+
   app.put("/api/transactions/:id", async (req, res) => {
     try {
       // Validate and convert the partial update data

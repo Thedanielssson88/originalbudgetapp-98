@@ -269,50 +269,55 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
   state.budgetState.allTransactions = transactionsForCentralStorage;
   console.log(`[ORCHESTRATOR] ✅ Updated centralized storage with ${state.budgetState.allTransactions.length} transactions`);
   
-  // 8.2. CRITICAL FIX: Save transactions to PostgreSQL database
-  console.log(`[ORCHESTRATOR] 💾 Saving ${finalTransactionList.length} transactions to PostgreSQL database...`);
-  addMobileDebugLog(`💾 Saving ${finalTransactionList.length} transactions to database...`);
+  // 8.2. NEW: Intelligent Synchronization with PostgreSQL Database
+  console.log(`[ORCHESTRATOR] 🔄 SYNCHRONIZING ${finalTransactionList.length} transactions with PostgreSQL database...`);
+  addMobileDebugLog(`🔄 Synchronizing ${finalTransactionList.length} transactions with database...`);
   
   try {
-    // Import the API store to access createTransaction function
-    const { apiStore } = await import('../store/apiStore');
-    
-    for (const transaction of finalTransactionList) {
-      // Convert ImportedTransaction to the format expected by the database
-      const dbTransaction = {
-        accountId: transaction.accountId,
-        date: transaction.date, // Schema handles string-to-Date conversion
-        amount: Math.round(transaction.amount), // Convert to integer (öre)
-        balanceAfter: Math.round(transaction.balanceAfter || 0), // Convert to integer (öre)
-        description: transaction.description,
-        userDescription: transaction.userDescription || '',
-        bankCategory: transaction.bankCategory || '',
-        bankSubCategory: transaction.bankSubCategory || '',
-        type: transaction.type || 'Transaction',
-        status: transaction.status || 'yellow',
-        linkedTransactionId: transaction.linkedTransactionId || null,
-        correctedAmount: transaction.correctedAmount ? Math.round(transaction.correctedAmount) : null,
-        isManuallyChanged: String(transaction.isManuallyChanged || false), // Convert boolean to string
-        appCategoryId: transaction.appCategoryId || null,
-        appSubCategoryId: transaction.appSubCategoryId || null,
-        userId: 'dev-user-123' // Mock user ID for development
-      };
-      
-      try {
-        await apiStore.createTransaction(dbTransaction);
-        console.log(`[ORCHESTRATOR] ✅ Saved transaction to DB: ${transaction.description} (${transaction.amount} kr)`);
-      } catch (error) {
-        console.error(`[ORCHESTRATOR] ❌ Failed to save transaction to DB: ${transaction.description}`, error);
-        addMobileDebugLog(`❌ DB save failed: ${transaction.description}`);
-      }
+    // Convert ImportedTransaction[] to format expected by synchronize endpoint
+    const transactionsToSync = finalTransactionList.map(transaction => ({
+      id: transaction.id,
+      accountId: transaction.accountId,
+      date: transaction.date, // Keep as string, endpoint will convert
+      amount: Math.round(transaction.amount), // Convert to integer (öre)
+      balanceAfter: Math.round(transaction.balanceAfter || 0), // Convert to integer (öre)
+      description: transaction.description,
+      userDescription: transaction.userDescription || '',
+      bankCategory: transaction.bankCategory || '',
+      bankSubCategory: transaction.bankSubCategory || '',
+      type: transaction.type || 'Transaction',
+      status: transaction.status || 'yellow',
+      linkedTransactionId: transaction.linkedTransactionId || null,
+      correctedAmount: transaction.correctedAmount ? Math.round(transaction.correctedAmount) : null,
+      isManuallyChanged: String(transaction.isManuallyChanged || false), // Convert boolean to string
+      appCategoryId: transaction.appCategoryId || null,
+      appSubCategoryId: transaction.appSubCategoryId || null,
+      fileSource: transaction.fileSource || fileName
+    }));
+
+    // Call the new synchronize endpoint
+    const response = await fetch('/api/transactions/synchronize', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        transactions: transactionsToSync
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Synchronization failed: ${response.status} ${response.statusText}`);
     }
-    
-    console.log(`[ORCHESTRATOR] ✅ Successfully saved all ${finalTransactionList.length} transactions to PostgreSQL`);
-    addMobileDebugLog(`✅ All ${finalTransactionList.length} transactions saved to database!`);
+
+    const result = await response.json();
+    console.log(`[ORCHESTRATOR] ✅ SYNCHRONIZATION COMPLETE:`, result.stats);
+    console.log(`[ORCHESTRATOR] ✅ Created: ${result.stats.created}, Updated: ${result.stats.updated}, Deleted: ${result.stats.deleted}`);
+    addMobileDebugLog(`✅ Sync complete: ${result.stats.created} created, ${result.stats.updated} updated, ${result.stats.deleted} deleted`);
     
   } catch (error) {
-    console.error(`[ORCHESTRATOR] ❌ Critical error saving transactions to database:`, error);
-    addMobileDebugLog(`❌ Critical DB save error: ${error}`);
+    console.error(`[ORCHESTRATOR] ❌ Critical error synchronizing transactions:`, error);
+    addMobileDebugLog(`❌ Sync error: ${error.message || error}`);
   }
   
   // 8.5. Automatic transfer matching for InternalTransfer transactions
@@ -1098,6 +1103,10 @@ export async function initializeApp(): Promise<void> {
   isInitialized = true;
   console.log('[BudgetOrchestrator] ✅ Setting initialization flag and starting...');
   addMobileDebugLog('[ORCHESTRATOR] ✅ Setting initialization flag and starting...');
+  
+  // CRITICAL FIX: Always force load transactions on initialization
+  console.log('🔄 [ORCHESTRATOR] CRITICAL: Force loading transactions on initialization...');
+  await forceReloadTransactions();
   
   // Wait for API store to be ready before initializing state
   const { apiStore } = await import('../store/apiStore');
