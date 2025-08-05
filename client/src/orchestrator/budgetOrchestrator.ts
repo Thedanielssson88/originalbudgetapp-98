@@ -1024,6 +1024,51 @@ async function triggerAutoBackup() {
 // Track initialization to prevent multiple calls
 let isInitialized = false;
 
+// NEW: Force reload transactions from database (for debugging)
+export async function forceReloadTransactions(): Promise<void> {
+  console.log('🔄 [ORCHESTRATOR] FORCE RELOAD: Loading transactions from PostgreSQL...');
+  
+  try {
+    const { apiStore } = await import('../store/apiStore');
+    const dbTransactions = await apiStore.getTransactions();
+    
+    console.log(`✅ [ORCHESTRATOR] FORCE RELOAD: Found ${dbTransactions.length} transactions in database`);
+    
+    // Convert and store transactions
+    const convertedTransactions = (dbTransactions || []).map(tx => ({
+      id: tx.id,
+      accountId: tx.accountId,
+      date: tx.date,
+      amount: tx.amount,
+      balanceAfter: tx.balanceAfter || 0,
+      description: tx.description,
+      userDescription: tx.userDescription || '',
+      type: tx.type || 'Transaction',
+      status: tx.status || 'red',
+      linkedTransactionId: tx.linkedTransactionId,
+      correctedAmount: tx.correctedAmount,
+      isManuallyChanged: tx.isManuallyChanged === 'true',
+      appCategoryId: tx.appCategoryId,
+      appSubCategoryId: tx.appSubCategoryId,
+      bankCategory: tx.bankCategory || '',
+      bankSubCategory: tx.bankSubCategory || '',
+      createdAt: tx.createdAt || new Date().toISOString(),
+      fileSource: tx.fileSource || 'database'
+    }));
+    
+    // Store in centralized transaction storage
+    state.budgetState.allTransactions = convertedTransactions;
+    
+    console.log(`✅ [ORCHESTRATOR] FORCE RELOAD: Stored ${convertedTransactions.length} transactions in state`);
+    
+    // Trigger UI refresh to show the transactions
+    triggerUIRefresh();
+    
+  } catch (error) {
+    console.error('❌ [ORCHESTRATOR] FORCE RELOAD failed:', error);
+  }
+}
+
 // Initialize the application
 export async function initializeApp(): Promise<void> {
   console.log('[BudgetOrchestrator] 🚀 initializeApp() called!');
@@ -1075,6 +1120,12 @@ export async function initializeApp(): Promise<void> {
   console.log('🔍 [ORCHESTRATOR] About to call loadTransactionsFromDatabase...');
   await loadTransactionsFromDatabase();
   console.log('✅ [ORCHESTRATOR] loadTransactionsFromDatabase completed!');
+  
+  // EMERGENCY: Also try force reload as backup
+  if (state.budgetState.allTransactions.length === 0) {
+    console.log('⚠️ [ORCHESTRATOR] No transactions loaded, trying force reload...');
+    await forceReloadTransactions();
+  }
   
   // Run initial calculations to ensure state is up to date
   runCalculationsAndUpdateState();

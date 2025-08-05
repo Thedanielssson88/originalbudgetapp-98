@@ -28,9 +28,22 @@ export function useApiStore() {
 // Hook to initialize the store on app startup
 export function useInitializeApiStore() {
   useEffect(() => {
+    console.log('🔄 [HOOK] useInitializeApiStore starting initialization...');
+    
     // Initialize the store when the app starts
-    apiStore.initialize().catch(error => {
-      console.error('Failed to initialize API store:', error);
-    });
+    apiStore.initialize()
+      .then(() => {
+        console.log('✅ [HOOK] API store initialized successfully');
+        // CRITICAL: Also initialize the budget orchestrator
+        import('../orchestrator/budgetOrchestrator').then(({ initializeApp }) => {
+          console.log('🔄 [HOOK] Now calling initializeApp...');
+          initializeApp().catch(error => {
+            console.error('[HOOK] Failed to initialize app:', error);
+          });
+        });
+      })
+      .catch(error => {
+        console.error('[HOOK] Failed to initialize API store:', error);
+      });
   }, []);
 }
