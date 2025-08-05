@@ -487,6 +487,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   
   // CRITICAL: Read transactions from centralized storage - single source of truth
   const allTransactions = useMemo(() => {
+    console.log('[TX IMPORT] 🔥 useMemo IS RUNNING! Dependencies changed!');
     console.log('[TX IMPORT] 🔄 Reading from centralized transaction storage');
     console.log('[TX IMPORT] 📊 Total transactions in centralized storage:', budgetState?.allTransactions?.length || 0);
     
@@ -557,6 +558,12 @@ export const TransactionImportEnhanced: React.FC = () => {
     
     return transactions;
   }, [budgetState?.allTransactions, refreshKey]);
+  
+  // CRITICAL DEBUG: Force log every render to understand why useMemo doesn't trigger
+  console.log('[TX IMPORT] 🚨 RENDER DEBUG:');
+  console.log('[TX IMPORT] 🚨 budgetState?.allTransactions length:', budgetState?.allTransactions?.length || 0);
+  console.log('[TX IMPORT] 🚨 refreshKey:', refreshKey);
+  console.log('[TX IMPORT] 🚨 allTransactions (from useMemo) length:', allTransactions.length);
 
   // Use actual accounts from API instead of budget state, converting to Account format
   const accounts: Account[] = (accountsFromAPI || []).map(acc => ({
