@@ -2928,27 +2928,45 @@ export const TransactionImportEnhanced: React.FC = () => {
       <CategorySelectionDialog
         isOpen={categoryDialogOpen}
         onClose={() => setCategoryDialogOpen(false)}
-        onConfirm={(mainCategory, subCategory, positiveTransactionType, negativeTransactionType, applicableAccountIds) => {
-          const newRule = {
-            id: uuidv4(),
-            priority: 100,
-            condition: { 
-              type: 'categoryMatch' as const,
+        onConfirm={async (huvudkategoriId, underkategoriId, positiveTransactionType, negativeTransactionType, applicableAccountIds) => {
+          try {
+            console.log('🔍 [CATEGORY DIALOG] Saving new rule to PostgreSQL:', {
+              ruleName: `${selectedBankCategory}${selectedBankSubCategory ? ` → ${selectedBankSubCategory}` : ''}`,
+              transactionName: selectedBankSubCategory || selectedBankCategory,
+              huvudkategoriId,
+              underkategoriId,
               bankCategory: selectedBankCategory,
               bankSubCategory: selectedBankSubCategory
-            },
-            action: {
-              appMainCategoryId: mainCategory,
-              appSubCategoryId: subCategory,
-              positiveTransactionType: positiveTransactionType as any,
-              negativeTransactionType: negativeTransactionType as any,
-              applicableAccountIds: applicableAccountIds
-            },
-            isActive: true
-          };
-          addMobileDebugLog('🔍 [DEBUG] Creating rule for Semester: ' + JSON.stringify(newRule, null, 2));
-          addCategoryRule(newRule);
-          triggerRefresh();
+            });
+
+            // Save rule directly to PostgreSQL using new UUID-based system
+            const response = await fetch('/api/category-rules', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                ruleName: `${selectedBankCategory}${selectedBankSubCategory ? ` → ${selectedBankSubCategory}` : ''}`,
+                transactionName: selectedBankSubCategory || selectedBankCategory,
+                huvudkategoriId: huvudkategoriId,
+                underkategoriId: underkategoriId,
+                userId: 'dev-user-123'
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`Failed to create category rule: ${response.statusText}`);
+            }
+
+            const savedRule = await response.json();
+            console.log('✅ [CATEGORY DIALOG] Rule saved to PostgreSQL:', savedRule);
+            addMobileDebugLog(`✅ [CATEGORY DIALOG] Rule saved: ${savedRule.ruleName}`);
+            
+            triggerRefresh();
+          } catch (error) {
+            console.error('❌ [CATEGORY DIALOG] Failed to save rule:', error);
+            addMobileDebugLog(`❌ [CATEGORY DIALOG] Failed to save rule: ${error}`);
+          }
         }}
         bankCategory={selectedBankCategory}
         bankSubCategory={selectedBankSubCategory}

@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { get, StorageKey } from '@/services/storageService';
+import { useQuery } from '@tanstack/react-query';
+import type { Huvudkategori, Underkategori } from '@shared/schema';
 
 interface CategorySelectionDialogProps {
   isOpen: boolean;
@@ -35,24 +37,36 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
   const [positiveTransactionType, setPositiveTransactionType] = useState('Transaction');
   const [negativeTransactionType, setNegativeTransactionType] = useState('Transaction');
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
-  const [subcategories, setSubcategories] = useState<Record<string, string[]>>({});
-  const [availableSubcategories, setAvailableSubcategories] = useState<string[]>([]);
+  // Load categories from PostgreSQL database using React Query
+  const { data: huvudkategorier = [], isLoading: isLoadingHuvudkategorier } = useQuery<Huvudkategori[]>({
+    queryKey: ['/api/huvudkategorier'],
+    queryFn: async () => {
+      const response = await fetch('/api/huvudkategorier');
+      if (!response.ok) throw new Error('Failed to fetch huvudkategorier');
+      return response.json();
+    }
+  });
 
-  // Load subcategories from storage
-  useEffect(() => {
-    const loadedSubcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
-    setSubcategories(loadedSubcategories);
-  }, []);
+  const { data: underkategorier = [], isLoading: isLoadingUnderkategorier } = useQuery<Underkategori[]>({
+    queryKey: ['/api/underkategorier'],
+    queryFn: async () => {
+      const response = await fetch('/api/underkategorier');
+      if (!response.ok) throw new Error('Failed to fetch underkategorier');
+      return response.json();
+    }
+  });
 
-  // Update available subcategories when main category changes
+  // Get available subcategories for the selected main category
+  const availableSubcategories = underkategorier.filter(
+    sub => sub.huvudkategoriId === selectedMainCategory
+  );
+
+  // Reset subcategory when main category changes
   useEffect(() => {
     if (selectedMainCategory) {
-      setAvailableSubcategories(subcategories[selectedMainCategory] || []);
       setSelectedSubCategory('');
-    } else {
-      setAvailableSubcategories([]);
     }
-  }, [selectedMainCategory, subcategories]);
+  }, [selectedMainCategory]);
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -67,9 +81,22 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
 
   const handleConfirm = () => {
     if (selectedMainCategory && selectedSubCategory) {
+      // Find the actual category names for display purposes
+      const selectedHuvudkategori = huvudkategorier.find(cat => cat.id === selectedMainCategory);
+      const selectedUnderkategori = underkategorier.find(cat => cat.id === selectedSubCategory);
+      
+      console.log('🔍 [CATEGORY DIALOG] Creating rule with:', {
+        huvudkategoriId: selectedMainCategory,
+        huvudkategoriName: selectedHuvudkategori?.name,
+        underkategoriId: selectedSubCategory,
+        underkategoriName: selectedUnderkategori?.name,
+        bankCategory,
+        bankSubCategory
+      });
+      
       onConfirm(
-        selectedMainCategory, 
-        selectedSubCategory, 
+        selectedMainCategory,  // This will now be UUID
+        selectedSubCategory,   // This will now be UUID
         positiveTransactionType,
         negativeTransactionType,
         selectedAccountIds
@@ -106,9 +133,9 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
                 <SelectValue placeholder="Välj huvudkategori" />
               </SelectTrigger>
               <SelectContent>
-                {mainCategories.map(category => (
-                  <SelectItem key={category} value={category}>
-                    {category}
+                {huvudkategorier.map(category => (
+                  <SelectItem key={category.id} value={category.id}>
+                    {category.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -190,8 +217,8 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
               </SelectTrigger>
               <SelectContent>
                 {availableSubcategories.map(subcategory => (
-                  <SelectItem key={subcategory} value={subcategory}>
-                    {subcategory}
+                  <SelectItem key={subcategory.id} value={subcategory.id}>
+                    {subcategory.name}
                   </SelectItem>
                 ))}
               </SelectContent>
