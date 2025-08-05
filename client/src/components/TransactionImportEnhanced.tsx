@@ -596,7 +596,8 @@ export const TransactionImportEnhanced: React.FC = () => {
       positiveTransactionType: 'Transaction' as const,
       negativeTransactionType: 'Transaction' as const,
       applicableAccountIds: []
-    }
+    },
+    isActive: rule.isActive === 'true'
   }));
 
   // Check if CSV contains transactions on/after 24th for balance correction
@@ -1020,8 +1021,8 @@ export const TransactionImportEnhanced: React.FC = () => {
         addMobileDebugLog(`🎯 FINAL PARSE: ${parseResult.headers.length} headers, ${parseResult.dataRows.length} rows`);
         
         // Debug category data one more time
-        const kategoriIndex = parseResult.headers.findIndex(h => h.toLowerCase().includes('kategori') && !h.toLowerCase().includes('under'));
-        const underkategoriIndex = parseResult.headers.findIndex(h => h.toLowerCase().includes('underkategori'));
+        const kategoriIndex = parseResult.headers.findIndex((h: string) => h.toLowerCase().includes('kategori') && !h.toLowerCase().includes('under'));
+        const underkategoriIndex = parseResult.headers.findIndex((h: string) => h.toLowerCase().includes('underkategori'));
         
         if (kategoriIndex >= 0 && parseResult.dataRows.length > 0) {
           const sampleCategories = parseResult.dataRows.slice(0, 3).map((row: string[]) => row[kategoriIndex] || '[EMPTY]');
@@ -1490,7 +1491,7 @@ export const TransactionImportEnhanced: React.FC = () => {
       // Check each PostgreSQL rule directly
       for (const rule of postgresqlRules) {
         // Check if rule is active (handle both string and boolean)
-        const isActive = rule.isActive === 'true' || rule.isActive === true;
+        const isActive = rule.isActive === 'true';
         if (!isActive) {
           console.log(`⏭️ [APPLY RULES] Rule "${rule.ruleName}" is inactive, skipping`);
           continue;
@@ -2301,7 +2302,7 @@ export const TransactionImportEnhanced: React.FC = () => {
           <TabsContent value="rules" className="space-y-4">
             <CategoryRuleManagerAdvanced
               key={refreshKey}
-              rules={categoryRules.map(rule => ({ ...rule, isActive: rule.isActive || 'true' }))}
+              rules={categoryRules}
               onRulesChange={(newRules) => {
                 // Clear existing rules and add new ones (using modern format)
                 categoryRules.forEach(oldRule => {
@@ -2309,7 +2310,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                 });
                 
                 newRules.forEach(rule => {
-                  addCategoryRule({ ...rule, isActive: rule.isActive || 'true' });
+                  addCategoryRule({ ...rule, isActive: rule.isActive });
                 });
                 
                 triggerRefresh();
@@ -2329,7 +2330,7 @@ export const TransactionImportEnhanced: React.FC = () => {
               <CardContent>
                 <UncategorizedBankCategories 
                   transactions={allTransactions}
-                  categoryRules={categoryRules.map(rule => ({ ...rule, isActive: rule.isActive || 'true' }))}
+                  categoryRules={categoryRules}
                   onCreateRule={(bankCategory, bankSubCategory) => {
                     setSelectedBankCategory(bankCategory);
                     setSelectedBankSubCategory(bankSubCategory);
