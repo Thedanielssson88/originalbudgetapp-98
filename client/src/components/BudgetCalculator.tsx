@@ -15,6 +15,10 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/component
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight, Target, Receipt, ArrowRightLeft } from 'lucide-react';
+import { useCategoryResolver } from '../hooks/useCategories';
+import { useUuidCategoryBridge } from '../services/uuidCategoryBridge';
+import { StorageKey, get, set } from '../services/storageService';
+
 import { CostItemEditDialog } from './CostItemEditDialog';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useSwipeGestures } from '@/hooks/useSwipeGestures';
@@ -78,7 +82,7 @@ import {
   setMonthFinalBalances,
   updatePaydaySetting
 } from '../orchestrator/budgetOrchestrator';
-import { StorageKey, get, set } from '../services/storageService';
+import { getCurrentMonthData } from '../state/budgetState';
 import { useBudget } from '../hooks/useBudget';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { mobileDebugLogger, addMobileDebugLog } from '../utils/mobileDebugLogger';
@@ -124,7 +128,20 @@ const BudgetCalculator = () => {
   // Use the original useBudget hook - fix hook ordering instead
   const { isLoading, budgetState, calculated } = useBudget();
   const { toast } = useToast();
+  
+  // Import UUID category resolution system
+  const { resolveHuvudkategoriName, resolveUnderkategoriName, isLoading: categoriesLoading } = useCategoryResolver();
+  const { migrateBudgetData, needsMigration } = useUuidCategoryBridge();
+  
   console.log('🔍 [DEBUG] BudgetCalculator component rendering - start');
+  
+  // Auto-migrate budget data to UUID categories if needed
+  useEffect(() => {
+    if (!categoriesLoading && needsMigration) {
+      console.log('🔄 [UUID MIGRATION] Auto-migrating budget data to UUID categories...');
+      migrateBudgetData();
+    }
+  }, [categoriesLoading, needsMigration, migrateBudgetData]);
   
   // Utility function to check if a SubCategory belongs to a specific account
   const subCategoryBelongsToAccount = (sub: SubCategory, accountName: string): boolean => {
@@ -6130,18 +6147,34 @@ const BudgetCalculator = () => {
                                 // Group subcategories by main category - SHOW ALL CATEGORIES, not just those with budget posts
                                 const categoryGroups: { [key: string]: { total: number; subcategories: ExtendedSubCategory[] } } = {};
                                 
-                                // First, initialize ALL main categories from budgetState
-                                if (budgetState.mainCategories) {
-                                  budgetState.mainCategories.forEach(mainCategory => {
-                                    if (!categoryGroups[mainCategory]) {
-                                      categoryGroups[mainCategory] = { total: 0, subcategories: [] };
+                                // First, initialize ALL main categories from UUID system instead of old string system
+                                if (!categoriesLoading) {
+                                  // Process existing cost items to extract their category information
+                                  const existingCostItems = getCurrentMonthData()?.costItems || [];
+                                  existingCostItems.forEach(item => {
+                                    let categoryName = '';
+                                    
+                                    // Check if mainCategoryId is a UUID or old string ID
+                                    if (item.mainCategoryId && item.mainCategoryId.includes('-')) {
+                                      // It's a UUID, resolve it
+                                      categoryName = resolveHuvudkategoriName(item.mainCategoryId);
+                                    } else {
+                                      // It's an old string ID, convert it using localStorage fallback
+                                      const oldMainCategories = get<string[]>(StorageKey.MAIN_CATEGORIES) || [];
+                                      const categoryIndex = parseInt(item.mainCategoryId) - 1;
+                                      categoryName = oldMainCategories[categoryIndex] || `Category ${item.mainCategoryId}`;
+                                    }
+                                    
+                                    if (categoryName && !categoryGroups[categoryName]) {
+                                      categoryGroups[categoryName] = { total: 0, subcategories: [] };
                                     }
                                   });
                                 }
                                 
-                                // Then add all subcategories from budgetState
-                                if (budgetState.subCategories) {
-                                  budgetState.subCategories.forEach(subCategory => {
+                                // Then add all subcategories from localStorage (fallback)
+                                const oldSubCategories = get<any[]>(StorageKey.SUB_CATEGORIES) || [];
+                                if (oldSubCategories.length > 0) {
+                                  oldSubCategories.forEach(subCategory => {
                                     const mainCategory = subCategory.mainCategory;
                                     if (!categoryGroups[mainCategory]) {
                                       categoryGroups[mainCategory] = { total: 0, subcategories: [] };

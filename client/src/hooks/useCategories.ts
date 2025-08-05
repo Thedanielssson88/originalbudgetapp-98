@@ -194,3 +194,39 @@ export function useCategoryNames() {
     underkategorier,
   };
 }
+
+// Additional utility hook for budget system integration
+export function useCategoryResolver() {
+  const { data: huvudkategorier = [], isLoading: isLoadingHuvud } = useHuvudkategorier();
+  const { data: underkategorier = [], isLoading: isLoadingUnder } = useUnderkategorier();
+  
+  const resolveHuvudkategoriName = (id: string): string => {
+    if (!id) return 'Ej angiven';
+    const category = huvudkategorier.find(cat => cat.id === id);
+    return category?.name || `Unknown (${id})`;
+  };
+  
+  const resolveUnderkategoriName = (id: string): string => {
+    if (!id) return 'Ej angiven';
+    const category = underkategorier.find(cat => cat.id === id);
+    return category?.name || `Unknown (${id})`;
+  };
+  
+  const getHuvudkategoriById = (id: string): any | undefined => {
+    return huvudkategorier.find(cat => cat.id === id);
+  };
+  
+  const getUnderkategoriById = (id: string): any | undefined => {
+    return underkategorier.find(cat => cat.id === id);
+  };
+  
+  return {
+    resolveHuvudkategoriName,
+    resolveUnderkategoriName,
+    getHuvudkategoriById,
+    getUnderkategoriById,
+    huvudkategorier,
+    underkategorier,
+    isLoading: isLoadingHuvud || isLoadingUnder
+  };
+}
