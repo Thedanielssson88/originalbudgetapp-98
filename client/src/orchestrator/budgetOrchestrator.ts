@@ -1645,17 +1645,27 @@ export function removeAccount(accountId: string): void {
 
 // ===== BANK TEMPLATE MANAGEMENT =====
 
-export function linkAccountToBankTemplate(accountId: string, templateId: string): void {
+export async function linkAccountToBankTemplate(accountId: string, templateId: string): Promise<void> {
   console.log(`[ORCHESTRATOR] 🏦 Linking account ${accountId} to bank template ${templateId}`);
   
-  const account = state.budgetState.accounts.find(acc => acc.id === accountId);
-  if (account) {
-    account.bankTemplateId = templateId;
-    saveStateToStorage();
+  try {
+    // Update account in PostgreSQL via API
+    const response = await fetch(`/api/accounts/${accountId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ bankTemplateId: templateId })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to update account: ${response.statusText}`);
+    }
+
     triggerUIRefresh();
     console.log(`[ORCHESTRATOR] ✅ Account ${accountId} linked to template ${templateId}`);
-  } else {
-    console.error(`[ORCHESTRATOR] ❌ Account ${accountId} not found`);
+  } catch (error) {
+    console.error(`[ORCHESTRATOR] ❌ Failed to link account ${accountId} to template ${templateId}:`, error);
   }
 }
 

@@ -24,6 +24,8 @@ export const accounts = pgTable('accounts', {
     balance: integer('balance').default(0).notNull(),
     // Account ownership: either 'gemensamt' or a family member ID
     assignedTo: text('assigned_to').default('gemensamt'), // 'gemensamt' or familyMember.id
+    // Bank template ID for CSV import mapping  
+    bankTemplateId: text('bank_template_id'),
 });
 
 export const huvudkategorier = pgTable('huvudkategorier', {

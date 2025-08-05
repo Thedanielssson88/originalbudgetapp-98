@@ -626,11 +626,11 @@ export const TransactionImportEnhanced: React.FC = () => {
     set(StorageKey.BANKS, updatedBanks);
   };
 
-  const handleBankSelection = (accountId: string, bankId: string) => {
+  const handleBankSelection = async (accountId: string, bankId: string) => {
     console.log(`🏦 [TransactionImportEnhanced] Bank selection: Account ${accountId} -> Bank ${bankId}`);
     
     // Spara permanent koppling via orchestrator
-    linkAccountToBankTemplate(accountId, bankId);
+    await linkAccountToBankTemplate(accountId, bankId);
     
     // Uppdatera lokalt state för UI
     setSelectedBanks(prev => ({ ...prev, [accountId]: bankId }));
