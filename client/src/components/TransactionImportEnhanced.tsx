@@ -499,8 +499,8 @@ export const TransactionImportEnhanced: React.FC = () => {
     return transactions;
   }, [budgetState?.allTransactions, refreshKey]);
 
-  // Use actual accounts from budget state
-  const accounts: Account[] = budgetState?.accounts || [];
+  // Use actual accounts from API instead of budget state
+  const accounts: Account[] = accountsFromAPI || [];
   
   // Get main categories from actual budget data
   const mainCategories = budgetState?.mainCategories || [];
@@ -1638,7 +1638,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <CardTitle className="text-base sm:text-lg truncate">{account.name}</CardTitle>
                       <CardDescription className="text-sm">
-                        Startbalans: {account.startBalance.toLocaleString('sv-SE')} kr
+                        Startbalans: {(account.startBalance || account.balance || 0).toLocaleString('sv-SE')} kr
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
