@@ -157,6 +157,61 @@ export async function performCompleteMigration(): Promise<MigrationResult> {
   // Step 2: Update existing transactions
   await migrateTransactionCategories(migrationResult.categoryMapping);
   
+  // Step 3: Mark migration as completed
+  set(StorageKey.CATEGORY_MIGRATION_MAPPING, migrationResult.categoryMapping);
+  set(StorageKey.CATEGORY_MIGRATION_COMPLETED, new Date().toISOString());
+  
   console.log('🎉 Complete migration finished successfully!');
   return migrationResult;
+}
+
+/**
+ * Force complete migration with existing UUID database data
+ */
+export async function forceCompleteMigration(): Promise<void> {
+  console.log('🚀 Force completing migration with existing UUID database...');
+  
+  try {
+    // Fetch existing UUID categories from database
+    const [huvudkategorierResponse, underkategorierResponse] = await Promise.all([
+      fetch('/api/huvudkategorier'),
+      fetch('/api/underkategorier')
+    ]);
+    
+    if (!huvudkategorierResponse.ok || !underkategorierResponse.ok) {
+      throw new Error('Failed to fetch UUID categories from database');
+    }
+    
+    const huvudkategorier = await huvudkategorierResponse.json();
+    const underkategorier = await underkategorierResponse.json();
+    
+    // Build category mapping
+    const categoryMapping: Record<string, string> = {};
+    
+    // Map main categories
+    huvudkategorier.forEach((cat: any) => {
+      categoryMapping[cat.name] = cat.id;
+    });
+    
+    // Map subcategories
+    underkategorier.forEach((sub: any) => {
+      const huvudkategori = huvudkategorier.find((h: any) => h.id === sub.huvudkategoriId);
+      if (huvudkategori) {
+        categoryMapping[`${huvudkategori.name}:${sub.name}`] = sub.id;
+      }
+    });
+    
+    // Save migration completion
+    set(StorageKey.CATEGORY_MIGRATION_MAPPING, categoryMapping);
+    set(StorageKey.CATEGORY_MIGRATION_COMPLETED, new Date().toISOString());
+    
+    console.log('✅ Force migration completed with mapping:', categoryMapping);
+    
+    // Trigger page reload to switch to UUID system
+    window.location.reload();
+    
+  } catch (error) {
+    console.error('❌ Force migration failed:', error);
+    throw error;
+  }
 }

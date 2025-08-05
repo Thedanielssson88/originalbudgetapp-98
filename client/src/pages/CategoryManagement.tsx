@@ -16,7 +16,7 @@ import {
 import { UuidCategoryManager } from '../components/UuidCategoryManager';
 import { CategoryMigrationDialog } from '../components/CategoryMigrationDialog';
 import { useCategoriesHierarchy } from '../hooks/useCategories';
-import { isMigrationCompleted } from '../services/categoryMigrationService';
+import { isMigrationCompleted, forceCompleteMigration } from '../services/categoryMigrationService';
 import { StorageKey, get } from '../services/storageService';
 
 export default function CategoryManagement() {
@@ -40,6 +40,14 @@ export default function CategoryManagement() {
     setMigrationDialogOpen(false);
   };
 
+  const handleForceCompleteMigration = async () => {
+    try {
+      await forceCompleteMigration();
+    } catch (error) {
+      console.error('Force migration failed:', error);
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -54,6 +62,12 @@ export default function CategoryManagement() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Uppdatera
           </Button>
+          {!migrationCompleted && (
+            <Button variant="secondary" onClick={handleForceCompleteMigration}>
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Slutför migration
+            </Button>
+          )}
           <Button onClick={() => setMigrationDialogOpen(true)}>
             <ArrowUpDown className="h-4 w-4 mr-2" />
             {migrationCompleted ? 'Visa migration' : 'Migrera kategorier'}
