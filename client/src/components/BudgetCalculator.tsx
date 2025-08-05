@@ -1380,21 +1380,22 @@ const BudgetCalculator = () => {
     console.log('🔍 [DEBUG] handleAddBudgetItem called with:', budgetItem);
     console.log('🔍 [DEBUG] budgetItem.accountId:', budgetItem.accountId);
     console.log('🔍 [DEBUG] Available accounts:', budgetState.accounts);
-    console.log('🔍 [DEBUG] Accounts with names:', budgetState.accounts.map(acc => ({ id: acc.id, name: acc.name })));
+    console.log('🔍 [DEBUG] SQL huvudkategorier:', huvudkategorier);
+    console.log('🔍 [DEBUG] SQL underkategorier:', underkategorier);
     
-    // Special debug for Hushållskonto
-    const hushallskontoAccount = budgetState.accounts.find(acc => acc.name === 'Hushållskonto');
-    console.log('🔍 [DEBUG] Hushållskonto account details:', hushallskontoAccount);
-    
-    // Hitta rätt konto baserat på accountId
+    // Find category names from SQL data using UUIDs
+    const selectedHuvudkategori = huvudkategorier.find(k => k.id === budgetItem.mainCategoryId);
+    const selectedUnderkategori = underkategorier.find(k => k.id === budgetItem.subCategoryId);
     const selectedAccount = budgetState.accounts.find(acc => acc.id === budgetItem.accountId);
-    console.log('🔍 [DEBUG] Found account:', selectedAccount);
-    console.log('🔍 [DEBUG] Selected account name:', selectedAccount?.name);
     
-    // För nu, konvertera tillbaka till legacy format för att inte bryta befintlig logik
+    console.log('🔍 [DEBUG] Found huvudkategori:', selectedHuvudkategori);
+    console.log('🔍 [DEBUG] Found underkategori:', selectedUnderkategori);
+    console.log('🔍 [DEBUG] Found account:', selectedAccount);
+    
+    // Convert to legacy format using proper category names
     const legacyItem = {
-      mainCategory: budgetItem.mainCategoryId,
-      subcategory: budgetItem.subCategoryId,
+      mainCategory: selectedHuvudkategori?.name || budgetItem.mainCategoryId,
+      subcategory: selectedUnderkategori?.name || budgetItem.subCategoryId,
       name: budgetItem.description,
       amount: budgetItem.amount,
       account: selectedAccount?.name || '',
@@ -1404,8 +1405,9 @@ const BudgetCalculator = () => {
       transferDays: budgetItem.transferDays
     };
     
-    console.log('🔍 [DEBUG] Legacy item created:', legacyItem);
-    console.log('🔍 [DEBUG] Legacy item account field:', legacyItem.account);
+    console.log('🔍 [DEBUG] Legacy item created with proper names:', legacyItem);
+    console.log('🔍 [DEBUG] Legacy mainCategory:', legacyItem.mainCategory);
+    console.log('🔍 [DEBUG] Legacy subcategory:', legacyItem.subcategory);
     handleAddCostItem(legacyItem);
   };
   
