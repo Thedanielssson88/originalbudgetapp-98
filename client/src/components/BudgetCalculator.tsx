@@ -2461,55 +2461,9 @@ const BudgetCalculator = () => {
     ));
   };
 
-  // Initialize Transport subcategories if empty
-  React.useEffect(() => {
-    const transportGroup = costGroups.find(group => group.name === 'Transport');
-    if (transportGroup && (!transportGroup.subCategories || transportGroup.subCategories.length === 0)) {
-      const defaultTransportSubcategories: SubCategory[] = [
-        {
-          id: 'transport_fuel_sub',
-          name: 'Bränsle',
-          amount: 800,
-          accountId: budgetState.accounts.find(acc => acc.name === 'Löpande')?.id,
-          financedFrom: 'Löpande kostnad'
-        },
-        {
-          id: 'transport_maintenance_sub', 
-          name: 'Underhåll fordon',
-          amount: 600,
-          accountId: budgetState.accounts.find(acc => acc.name === 'Löpande')?.id,
-          financedFrom: 'Löpande kostnad'
-        },
-        {
-          id: 'transport_parking_sub',
-          name: 'Parkering',
-          amount: 300,
-          accountId: budgetState.accounts.find(acc => acc.name === 'Löpande')?.id,
-          financedFrom: 'Löpande kostnad'
-        },
-        {
-          id: 'transport_public_sub',
-          name: 'Kollektivtrafik',
-          amount: 300,
-          accountId: budgetState.accounts.find(acc => acc.name === 'Löpande')?.id,
-          financedFrom: 'Löpande kostnad'
-        }
-      ];
-      
-      // Update cost groups with subcategories
-      const updatedCostGroups = costGroups.map(group => 
-        group.id === transportGroup.id 
-          ? { ...group, subCategories: defaultTransportSubcategories } 
-          : group
-      );
-      updateCostGroups(updatedCostGroups);
-      
-      // Also save the subcategories mapping to storage for future reference
-      const subcategoriesMapping = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
-      subcategoriesMapping['Transport'] = defaultTransportSubcategories.map(sub => sub.name);
-      set(StorageKey.SUBCATEGORIES, subcategoriesMapping);
-    }
-  }, [costGroups]);
+  // Note: Removed hardcoded Transport subcategories initialization
+  // All categories and subcategories should now come from SQL database
+  // Legacy subcategories with IDs like 'transport_fuel_sub' are no longer used
 
   const addCustomHoliday = () => {
     const newHoliday = {
