@@ -239,10 +239,18 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                       {!transaction.savingsTargetId && transaction.type === 'ExpenseClaim' && 'Utlägg'}
                     </p>
                   </div>
+
+                  {/* Amount from Database (amount / 100) */}
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Belopp</p>
+                    <p className={`font-semibold text-sm ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {transaction.amount >= 0 ? '+' : ''}{(transaction.amount / 100).toFixed(2)} kr
+                    </p>
+                  </div>
                   
-                   {/* Amount */}
+                   {/* Saldo efter transaktion */}
                    <div className="min-w-0">
-                     <p className="text-xs text-muted-foreground">Belopp</p>
+                     <p className="text-xs text-muted-foreground">Saldo efter transaktion</p>
                      {transaction.correctedAmount !== undefined ? (
                        <p className={`font-semibold text-sm ${transaction.correctedAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                          {transaction.correctedAmount >= 0 ? '+' : ''}{formatOrenAsCurrency(Math.abs(transaction.correctedAmount), false)}
