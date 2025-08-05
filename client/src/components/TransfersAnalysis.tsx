@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, ArrowLeftRight, Plus, Edit3, Trash2 } from 'luc
 import { BudgetState, PlannedTransfer, BudgetItem, Account, MonthData, Transaction } from '@/types/budget';
 import { getAccountNameById } from '../orchestrator/budgetOrchestrator';
 import { getDateRangeForMonth, getInternalTransferSummary } from '../services/calculationService';
+import { useAccounts } from '@/hooks/useAccounts';
 import { SimpleTransferMatchDialog } from './SimpleTransferMatchDialog';
 import { NewTransferForm } from './NewTransferForm';
 
@@ -29,6 +30,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
   selectedMonth 
 }) => {
   console.log('🔄 [TRANSFERS COMPONENT] Component rendered with month:', selectedMonth);
+  const { data: accountsFromAPI = [], isLoading: accountsLoading } = useAccounts();
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
   const [transferMatchDialog, setTransferMatchDialog] = useState<{
@@ -149,7 +151,12 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
 
   // Hämta interna överföringar för varje konto (outside useMemo so it can be used in render)
   console.log('🔄 [TRANSFERS COMPONENT] Calling getInternalTransferSummary for month:', selectedMonth);
-  const allInternalTransfers = getInternalTransferSummary(budgetState, selectedMonth);
+  // Pass accounts from API to transfer calculation
+  const budgetStateWithAPIAccounts = {
+    ...budgetState,
+    accounts: accountsFromAPI.map(acc => ({ id: acc.id, name: acc.name, startBalance: acc.balance || 0 }))
+  };
+  const allInternalTransfers = getInternalTransferSummary(budgetStateWithAPIAccounts, selectedMonth);
   console.log('🔄 [TRANSFERS COMPONENT] Internal transfers result:', allInternalTransfers);
 
   // Använd useMemo för prestanda! Dessa beräkningar kan vara tunga.
@@ -228,18 +235,18 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
     const monthlyTransfers = budgetState.plannedTransfers?.filter(pt => pt.month === selectedMonth) || [];
     
     console.log('🔄 [TRANSFERS] Extracted cost items:', costItems);
-    console.log('🔄 [TRANSFERS] Available accounts:', budgetState.accounts);
-    console.log('🔄 [TRANSFERS] Accounts type check:', budgetState.accounts.map(acc => ({ type: typeof acc, value: acc })));
+    console.log('🔄 [TRANSFERS] Available accounts (from API):', accountsFromAPI);
+    console.log('🔄 [TRANSFERS] Accounts type check:', accountsFromAPI.map(acc => ({ type: typeof acc, value: acc })));
     
     // 3. Skapa en lookup-map för kategorier för snabb åtkomst (för framtida användning)
     const categoryMap = new Map(budgetState.mainCategories?.map(c => [c, c]) || []);
-    // 4. Use ALL accounts from settings, not just those with budget items
-    console.log('🔄 [TRANSFERS] All available accounts:', budgetState.accounts);
-    // Create Account objects for ALL accounts from settings
-    const relevantAccounts: Account[] = budgetState.accounts.map(account => ({
+    // 4. Use ALL accounts from API, not just those with budget items
+    console.log('🔄 [TRANSFERS] All available accounts:', accountsFromAPI);
+    // Create Account objects for ALL accounts from API
+    const relevantAccounts: Account[] = accountsFromAPI.map(account => ({
       id: account.id,
       name: account.name,
-      startBalance: account.startBalance || 0
+      startBalance: account.balance || 0
     }));
     console.log('🔄 [TRANSFERS] Showing all accounts:', relevantAccounts);
     // 5. Loopa igenom varje relevant konto och aggregera data

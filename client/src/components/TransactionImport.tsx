@@ -25,6 +25,7 @@ import { Upload, CheckCircle, FileText, Settings, AlertCircle, Plus } from 'luci
 import { AddBankDialog } from './AddBankDialog';
 import { Bank, BankCSVMapping, ColumnMapping } from '@/types/bank';
 import { get, set, StorageKey } from '@/services/storageService';
+import { useAccounts } from '@/hooks/useAccounts';
 
 interface UploadedFile {
   file: File;
@@ -56,12 +57,8 @@ export const TransactionImport: React.FC = () => {
   const [selectedBanks, setSelectedBanks] = useState<{[accountId: string]: string}>({});
   const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
 
-  // Mock accounts - this should come from props or context
-  const accounts = [
-    { id: 'hushalskonto', name: 'Hushållskonto', balance: 0 },
-    { id: 'sparkonto', name: 'Sparkonto', balance: 0 },
-    { id: 'barnkonto', name: 'Barnkonto', balance: 0 }
-  ];
+  // Get accounts from API
+  const { data: accounts = [], isLoading: accountsLoading } = useAccounts();
 
   // Load banks and mappings from storage
   useEffect(() => {

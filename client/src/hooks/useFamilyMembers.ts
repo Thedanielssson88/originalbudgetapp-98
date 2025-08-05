@@ -2,11 +2,20 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { FamilyMember } from '@shared/schema';
 import { apiStore } from '@/store/apiStore';
 
+// Helper function for API requests
+async function apiRequest(url: string, options?: RequestInit) {
+  const response = await fetch(url, options);
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.statusText}`);
+  }
+  return response.json();
+}
+
 // Get all family members
 export function useFamilyMembers() {
   return useQuery({
     queryKey: ['/api/family-members'],
-    queryFn: () => apiStore.familyMembers,
+    queryFn: () => apiRequest('/api/family-members'),
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
@@ -17,7 +26,11 @@ export function useCreateFamilyMember() {
   
   return useMutation({
     mutationFn: async (data: { name: string; role?: string }) => {
-      await apiStore.createFamilyMember(data);
+      return apiRequest('/api/family-members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/family-members'] });
@@ -31,7 +44,11 @@ export function useUpdateFamilyMember() {
   
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: { name?: string; role?: string } }) => {
-      await apiStore.updateFamilyMember(id, data);
+      return apiRequest(`/api/family-members/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/family-members'] });
@@ -45,7 +62,9 @@ export function useDeleteFamilyMember() {
   
   return useMutation({
     mutationFn: async (id: string) => {
-      await apiStore.deleteFamilyMember(id);
+      return apiRequest(`/api/family-members/${id}`, {
+        method: 'DELETE',
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/family-members'] });

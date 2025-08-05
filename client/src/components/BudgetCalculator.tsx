@@ -45,6 +45,7 @@ import { updateAccountBalanceForMonth, getAccountNameById } from '../orchestrato
 import { useToast } from '@/hooks/use-toast';
 import { useMonthlyBudget } from '@/hooks/useMonthlyBudget';
 import { useFamilyMembers } from '@/hooks/useFamilyMembers';
+import { useAccounts } from '@/hooks/useAccounts';
 import { 
   createSavingsGoal,
   updateCostGroups,
@@ -52,7 +53,6 @@ import {
   updateAccountBalance,
   unsetAccountBalance,
   forceRecalculation,
-
   addSavingsItem,
   setSavingsGroups,
   setDailyTransfer,
@@ -125,6 +125,7 @@ const BudgetCalculator = () => {
   // Use the original useBudget hook - fix hook ordering instead
   const { isLoading, budgetState, calculated } = useBudget();
   const { data: familyMembers } = useFamilyMembers();
+  const { data: accountsFromAPI = [], isLoading: accountsLoading } = useAccounts();
   const currentMonthlyBudget = useMonthlyBudget(budgetState.selectedMonthKey);
   const { toast } = useToast();
   
@@ -146,7 +147,7 @@ const BudgetCalculator = () => {
   const subCategoryBelongsToAccount = (sub: SubCategory, accountName: string): boolean => {
     if (sub.accountId) {
       // New logic: compare accountId
-      const account = budgetState.accounts.find(acc => acc.name === accountName);
+      const account = accountsFromAPI.find(acc => acc.name === accountName);
       return account ? sub.accountId === account.id : false;
     }
     // Legacy fallback: this should not happen after migration
@@ -1069,7 +1070,7 @@ const BudgetCalculator = () => {
       
       // Calculate final balance as sum of ALL entries shown in the table (same as UI):
       // original balance + savings deposits + cost budget deposits - all costs
-      const accountData = budgetState.accounts.find(acc => acc.name === account);
+      const accountData = accountsFromAPI.find(acc => acc.name === account);
       const allCostItems = costGroups.reduce((items, group) => {
         const groupCosts = group.subCategories?.filter(sub => subCategoryBelongsToAccount(sub, account)) || [];
         return items.concat(groupCosts);
