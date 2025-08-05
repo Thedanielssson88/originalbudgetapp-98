@@ -1,0 +1,44 @@
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🚀 [HOOK] useBudget hook is running!
+🔄 [HOOK] useBudget render - isLoading: false, selectedMonthKey: 2025-07
+🔍 [BALANCE CORRECTION] Dialog rendered with: 
+Object {open: false, transactionsCount: 361, accountBalancesKeys: Array(3), sampleTransactions: Array(3)}
