@@ -15,7 +15,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/component
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp, History, ChevronLeft, ChevronRight, Target, Receipt, ArrowRightLeft } from 'lucide-react';
-import { useCategoryResolver } from '../hooks/useCategories';
+import { useCategoryResolver, useHuvudkategorier, useUnderkategorier } from '../hooks/useCategories';
 import { useUuidCategoryBridge } from '../services/uuidCategoryBridge';
 import { StorageKey, get, set } from '../services/storageService';
 
@@ -132,6 +132,10 @@ const BudgetCalculator = () => {
   // Import UUID category resolution system
   const { resolveHuvudkategoriName, resolveUnderkategoriName, isLoading: categoriesLoading } = useCategoryResolver();
   const { migrateBudgetData, needsMigration } = useUuidCategoryBridge();
+  
+  // API hooks for categories
+  const { data: huvudkategorier = [], isLoading: huvudkategorierLoading } = useHuvudkategorier();
+  const { data: underkategorier = [], isLoading: underkategorierLoading } = useUnderkategorier();
   
   console.log('🔍 [DEBUG] BudgetCalculator component rendering - start');
   
@@ -6232,72 +6236,54 @@ const BudgetCalculator = () => {
                                 // Group subcategories by main category - SHOW ALL CATEGORIES, not just those with budget posts
                                 const categoryGroups: { [key: string]: { total: number; subcategories: ExtendedSubCategory[] } } = {};
                                 
-                                // First, initialize ALL main categories from UUID system instead of old string system
-                                if (!categoriesLoading) {
-                                  // Process existing cost items to extract their category information
-                                  const existingCostItems = getCurrentMonthData()?.costItems || [];
-                                  existingCostItems.forEach(item => {
-                                    let categoryName = '';
-                                    
-                                    // Check if mainCategoryId is a UUID or old string ID
-                                    if (item.mainCategoryId && item.mainCategoryId.includes('-')) {
-                                      // It's a UUID, resolve it
-                                      categoryName = resolveHuvudkategoriName(item.mainCategoryId);
-                                    } else {
-                                      // It's an old string ID, convert it using localStorage fallback
-                                      const oldMainCategories = get<string[]>(StorageKey.MAIN_CATEGORIES) || [];
-                                      const categoryIndex = parseInt(item.mainCategoryId) - 1;
-                                      categoryName = oldMainCategories[categoryIndex] || `Category ${item.mainCategoryId}`;
+                                // Initialize ALL main categories from SQL data
+                                if (!huvudkategorierLoading && !underkategorierLoading) {
+                                  console.log('🔍 [DEBUG] Using SQL categories:', { huvudkategorier: huvudkategorier.length, underkategorier: underkategorier.length });
+                                  
+                                  // Process all huvudkategorier from SQL
+                                  huvudkategorier.forEach(huvudkat => {
+                                    if (!categoryGroups[huvudkat.name]) {
+                                      categoryGroups[huvudkat.name] = { total: 0, subcategories: [] };
                                     }
                                     
-                                    if (categoryName && !categoryGroups[categoryName]) {
-                                      categoryGroups[categoryName] = { total: 0, subcategories: [] };
-                                    }
-                                  });
-                                }
-                                
-                                // Then add all subcategories from localStorage (fallback)
-                                const oldSubCategories = get<any[]>(StorageKey.SUB_CATEGORIES) || [];
-                                if (oldSubCategories.length > 0) {
-                                  oldSubCategories.forEach(subCategory => {
-                                    const mainCategory = subCategory.mainCategory;
-                                    if (!categoryGroups[mainCategory]) {
-                                      categoryGroups[mainCategory] = { total: 0, subcategories: [] };
-                                    }
+                                    // Find all underkategorier for this huvudkategori
+                                    const relatedUnderkategorier = underkategorier.filter(underkat => 
+                                      underkat.huvudkategoriId === huvudkat.id
+                                    );
                                     
-                                    // Find if this subcategory has a budget post
-                                    let budgetAmount = 0;
-                                    let groupId = '';
-                                    let accountId = '';
-                                    
-                                    costGroups.forEach((group) => {
-                                      if (group.name === mainCategory) {
-                                        group.subCategories?.forEach((sub) => {
-                                          if (sub.name === subCategory.name) {
-                                            // ANVÄND DEN NYA BERÄKNINGSLOGIKEN HÄR
-                                            if (sub.transferType === 'daily') {
-                                              // Om det är en daglig överföring, anropa den nya funktionen
-                                              budgetAmount = calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth);
-                                            } else {
-                                              // Annars, använd det vanliga fasta beloppet
-                                              budgetAmount = sub.amount;
+                                    relatedUnderkategorier.forEach(underkat => {
+                                      // Find if this underkategori has a budget post in costGroups
+                                      let budgetAmount = 0;
+                                      let groupId = '';
+                                      let accountId = '';
+                                      
+                                      costGroups.forEach((group) => {
+                                        if (group.name === huvudkat.name) {
+                                          group.subCategories?.forEach((sub) => {
+                                            if (sub.name === underkat.name) {
+                                              // Use new calculation logic
+                                              if (sub.transferType === 'daily') {
+                                                budgetAmount = calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth);
+                                              } else {
+                                                budgetAmount = sub.amount;
+                                              }
+                                              groupId = group.id;
+                                              accountId = sub.accountId || '';
                                             }
-                                            groupId = group.id;
-                                            accountId = sub.accountId || '';
-                                          }
-                                        });
-                                      }
+                                          });
+                                        }
+                                      });
+                                      
+                                      categoryGroups[huvudkat.name].subcategories.push({
+                                        id: underkat.id,
+                                        name: underkat.name,
+                                        amount: budgetAmount,
+                                        accountId: accountId,
+                                        groupId: groupId || `main_${huvudkat.name}`
+                                      } as SubCategory & { groupId: string });
+                                      
+                                      categoryGroups[huvudkat.name].total += budgetAmount;
                                     });
-                                    
-                                    categoryGroups[mainCategory].subcategories.push({
-                                      id: subCategory.id || `sub_${subCategory.name}`,
-                                      name: subCategory.name,
-                                      amount: budgetAmount,
-                                      accountId: accountId,
-                                      groupId: groupId || `main_${mainCategory}`
-                                    } as SubCategory & { groupId: string });
-                                    
-                                    categoryGroups[mainCategory].total += budgetAmount;
                                   });
                                 }
                                 
