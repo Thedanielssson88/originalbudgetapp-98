@@ -423,6 +423,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/transactions/:id", async (req, res) => {
+    try {
+      // Validate and convert the partial update data
+      const updateData = insertTransactionSchema.partial().parse(req.body);
+      
+      // Convert date string to Date object if date is being updated
+      if (updateData.date && typeof updateData.date === 'string') {
+        updateData.date = new Date(updateData.date);
+      }
+      
+      const transaction = await storage.updateTransaction(req.params.id, updateData);
+      if (!transaction) {
+        return res.status(404).json({ error: 'Transaction not found' });
+      }
+      res.json(transaction);
+    } catch (error) {
+      console.error('Error updating transaction:', error);
+      res.status(400).json({ error: 'Failed to update transaction' });
+    }
+  });
+
   app.patch("/api/transactions/:id", async (req, res) => {
     try {
       const updateData = insertTransactionSchema.partial().parse(req.body);

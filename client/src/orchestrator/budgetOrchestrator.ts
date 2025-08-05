@@ -10,6 +10,7 @@ import { ImportedTransaction } from '../types/transaction';
 import { CategoryRule } from '../types/budget';
 import { simpleGoogleDriveService } from '../services/simpleGoogleDriveService';
 import { monthlyBudgetService } from '../services/monthlyBudgetService';
+import { apiStore } from '../store/apiStore';
 
 // SMART MERGE FUNCTION - The definitive solution to duplicate and lost changes
 export async function importAndReconcileFile(csvContent: string, accountId: string): Promise<void> {
@@ -1809,6 +1810,22 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
   
   saveStateToStorage();
   runCalculationsAndUpdateState();
+  
+  // *** NEW: SAVE TO DATABASE ***
+  // Call API to persist the changes to PostgreSQL
+  apiStore.updateTransaction(transactionId, {
+    hoofdkategoriId: updates.appCategoryId,
+    underkategoriId: updates.appSubCategoryId,
+    type: updates.type,
+    status: updatedTransaction.status,
+    linkedTransactionId: updates.linkedTransactionId,
+    correctedAmount: updates.correctedAmount
+  }).then(() => {
+    console.log(`✅ [Orchestrator] Transaction ${transactionId} successfully saved to database`);
+  }).catch(error => {
+    console.error(`❌ [Orchestrator] Failed to save transaction ${transactionId} to database:`, error);
+  });
+  
   console.log(`✅ [Orchestrator] Transaction ${transactionId} updated successfully in centralized storage`);
 }
 

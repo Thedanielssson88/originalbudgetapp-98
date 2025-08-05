@@ -59,6 +59,22 @@ class ApiStore {
     return response.json();
   }
 
+  async updateTransaction(id: string, data: any): Promise<any> {
+    const response = await fetch(`/api/transactions/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to update transaction: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
   async getOrCreateMonthlyBudget(monthKey: string): Promise<any> {
     // No-op for now - placeholder for compatibility
     console.log(`[API Store] getOrCreateMonthlyBudget called for ${monthKey}`);

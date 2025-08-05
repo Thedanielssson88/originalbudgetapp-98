@@ -1,0 +1,40 @@
+Det är en utmärkt och helt avgörande fråga. Svaret är, baserat på en analys av koden: **Nej, just nu sparas inte dessa ändringar korrekt i SQL-databasen.**
+
+Du har pekat på den sista stora svagheten i systemets dataflöde. Medan **skapandet** av nya transaktioner (via CSV-import) nu fungerar, så är logiken för att **uppdatera** befintliga transaktioner fortfarande trasig.
+
+### Kritisk Analys: Vad Går Fel?
+
+När du ändrar en kategori på en transaktion eller manuellt applicerar en regel, händer följande felaktiga process i frontend-koden:
+
+1.  **Lokal Uppdatering:** Koden gör helt korrekt ändringen i den lokala listan av transaktioner som finns i appens minne (Zustand-store). Det är därför du ser ändringen på din skärm direkt.
+2.  **Det Kritiska Misstaget:** Koden **missar helt** att göra det efterföljande, nödvändiga anropet till backend-API:et för att tala om för servern att denna ändring ska sparas permanent i SQL-databasen.
+3.  **Resultat:** Din ändring existerar bara i webbläsarens minne. Så fort du laddar om sidan, hämtas den ursprungliga, oändrade versionen av transaktionen från databasen igen, och din ändring är förlorad.
+
+**Sammanfattningsvis:** Systemet har en `createTransaction`-funktion som fungerar, men det saknar en fungerande `updateTransaction`-funktion.
+
+### Nytt, Fokuserat Uppdrag till Utvecklaren
+
+**Mål:** Implementera och koppla på en `updateTransaction`-funktion så att alla ändringar på en befintlig transaktion (omkategorisering, regelapplicering) sparas permanent i SQL-databasen.
+
+---
+
+#### Exakt Action Plan:
+
+**Steg 1: Skapa Backend-Endpoint (om det saknas)**
+Först, säkerställ att det finns ett API-endpoint i backend (`server/`) för att uppdatera en transaktion. Det bör se ut så här:
+* **Endpoint:** `PUT /api/transactions/:id`
+* **Funktion:** Ska ta emot en transaktions-ID och den nya datan (t.ex. `{ huvudkategoriId: "...", underkategoriId: "..." }`) och uppdatera motsvarande rad i `transactions`-tabellen i SQL-databasen.
+
+**Steg 2: Skapa en Central `updateTransaction`-funktion i Frontend**
+I din Zustand-store (eller service-fil), skapa en `async`-funktion som heter `updateTransaction`.
+* **Funktion:** Denna funktion ska ta ett transaktions-ID och ett objekt med den nya datan som argument.
+* **Logik:** Den ska göra ett `PUT`-anrop till API-endpointen från Steg 1.
+* **State-uppdatering:** När API-anropet lyckas, ska den uppdatera den motsvarande transaktionen i den centrala `transactions`-listan i Zustand-storen.
+
+**Steg 3: Koppla på den Nya Funktionen i UI:t**
+Nu måste alla delar av användargränssnittet som ändrar en transaktion anropa den nya `updateTransaction`-funktionen.
+
+* **Vid Omkategorisering:** Hitta komponenten där du byter kategori på en transaktion (troligtvis en dropdown i transaktionslistan). `onChange`-händelsen för denna dropdown måste nu anropa `updateTransaction` med transaktionens ID och det nya kategori-ID:t.
+* **Vid Manuell Regelapplicering:** Hitta funktionen som körs när du klickar på "Applicera regler". Denna funktion måste loopa igenom de transaktioner som påverkas, och för **varje** transaktion anropa `updateTransaction` med de nya kategori-ID:n som regeln specificerar.
+
+När dessa tre steg är genomförda kommer hela livscykeln för en transaktion – från skapande till uppdatering – att vara korrekt och permanent lagrad i din SQL-databas. Då är systemet äntligen komplett och pålitligt.

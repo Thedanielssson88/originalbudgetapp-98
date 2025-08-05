@@ -499,8 +499,12 @@ export const TransactionImportEnhanced: React.FC = () => {
     return transactions;
   }, [budgetState?.allTransactions, refreshKey]);
 
-  // Use actual accounts from API instead of budget state
-  const accounts: Account[] = accountsFromAPI || [];
+  // Use actual accounts from API instead of budget state, converting to Account format
+  const accounts: Account[] = (accountsFromAPI || []).map(acc => ({
+    id: acc.id,
+    name: acc.name,
+    startBalance: acc.balance || 0
+  }));
   
   // Get main categories from actual budget data
   const mainCategories = budgetState?.mainCategories || [];
@@ -524,7 +528,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     const balances: Record<string, Record<string, number>> = {};
     
     Object.entries(budgetState?.historicalData || {}).forEach(([monthKey, monthData]) => {
-      balances[monthKey] = monthData.accountBalances || {};
+      balances[monthKey] = (monthData || {}).accountBalances || {};
     });
     
     return balances;
@@ -1638,7 +1642,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <CardTitle className="text-base sm:text-lg truncate">{account.name}</CardTitle>
                       <CardDescription className="text-sm">
-                        Startbalans: {(account.startBalance || account.balance || 0).toLocaleString('sv-SE')} kr
+                        Startbalans: {(account.startBalance || 0).toLocaleString('sv-SE')} kr
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
