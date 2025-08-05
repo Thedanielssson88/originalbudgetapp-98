@@ -540,9 +540,9 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                       </div>
                       
                       <div className="text-xs text-muted-foreground">
-                        <span className="font-medium">{getCategoryName(rule.action.appMainCategoryId) || rule.action.appMainCategoryId}</span>
+                        <span className="font-medium">{getHuvudkategoriName(rule.action.appMainCategoryId) || rule.action.appMainCategoryId}</span>
                         {rule.action.appSubCategoryId && (
-                          <span> → {getCategoryName(rule.action.appSubCategoryId) || rule.action.appSubCategoryId}</span>
+                          <span> → {getUnderkategoriName(rule.action.appSubCategoryId) || rule.action.appSubCategoryId}</span>
                         )}
                       </div>
                       
