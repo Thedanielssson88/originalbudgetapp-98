@@ -1454,9 +1454,13 @@ export const TransactionImportEnhanced: React.FC = () => {
           const transactionText = transaction.description?.toLowerCase() || '';
           const ruleText = rule.transactionName?.toLowerCase() || '';
           
+          console.log(`🔍 [APPLY RULES] Text matching - Transaction: "${transactionText}", Rule: "${ruleText}"`);
+          
           if (ruleText && transactionText.includes(ruleText)) {
             matchFound = true;
             console.log(`✅ [APPLY RULES] Text contains match: "${ruleText}" in "${transactionText}"`);
+          } else {
+            console.log(`❌ [APPLY RULES] No text match: "${ruleText}" not found in "${transactionText}"`);
           }
         }
         
