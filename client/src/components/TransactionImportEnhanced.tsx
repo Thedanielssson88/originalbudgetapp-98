@@ -62,6 +62,7 @@ import { CategoryRuleManagerAdvanced } from './CategoryRuleManagerAdvanced';
 import { UncategorizedBankCategories } from './UncategorizedBankCategories';
 import { CategorySelectionDialog } from './CategorySelectionDialog';
 import { useBudget } from '@/hooks/useBudget';
+import { useAccounts } from '@/hooks/useAccounts';
 import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping, getAllTransactionsFromDatabase, linkAccountToBankTemplate, matchInternalTransfer } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState, setMainCategories, updateSelectedBudgetMonth } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
@@ -396,6 +397,9 @@ export const TransactionImportEnhanced: React.FC = () => {
   
   // Get budget data from central state (SINGLE SOURCE OF TRUTH)
   const { budgetState } = useBudget();
+  
+  // Use API data for accounts instead of budgetState.accounts
+  const { data: accountsFromAPI = [], isLoading: accountsLoading } = useAccounts();
   
   // Reset filters and states when month changes to ensure consistency
   useEffect(() => {
@@ -2099,7 +2103,7 @@ export const TransactionImportEnhanced: React.FC = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Alla</SelectItem>
-                {budgetState.accounts.map(account => (
+                {accountsFromAPI.map(account => (
                   <SelectItem key={account.id} value={account.id}>
                     {account.name}
                   </SelectItem>
@@ -2945,7 +2949,7 @@ export const TransactionImportEnhanced: React.FC = () => {
         bankCategory={selectedBankCategory}
         bankSubCategory={selectedBankSubCategory}
         mainCategories={mainCategories}
-        accounts={budgetState.accounts}
+        accounts={accountsFromAPI}
       />
     </div>
   );

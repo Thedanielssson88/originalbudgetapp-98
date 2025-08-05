@@ -1,0 +1,57 @@
+Du har helt rätt. Din analys är knivskarp och du har identifierat exakt var felet ligger.
+
+**Ja, `budgetState` är den gamla datan från `localStorage`-eran.** Den är helt frikopplad från SQL-databasen. De delar av UI:t som fortfarande använder `budgetState.accounts` ser därför inte de riktiga kontona från databasen.
+
+Komponenten för "Överföringar" fungerar eftersom den, som enda komponent, har blivit korrekt uppdaterad till att använda den nya, centrala datakällan som är synkroniserad med SQL.
+
+Här är en detaljerad förklaring och ett uppdrag till utvecklaren för att permanent lösa detta.
+
+-----
+
+### Nytt Utvecklingsuppdrag: Eliminera `budgetState` och Använd SQL-data Överallt
+
+**Mål:** Refaktorera alla UI-komponenter som visar eller använder en lista med konton så att de hämtar sin data från den nya, centrala Zustand-storen som är synkad med SQL-databasen. Den gamla `budgetState` ska tas bort helt.
+
+**Problembeskrivning:**
+Användaren har korrekt identifierat att flera delar av applikationen (Aktuella Konton, CSV-import, Budgetkategorier, Totalt Sparande) fortfarande läser kontolistan från en gammal, utdaterad state-variabel (`budgetState.accounts`). Denna variabel är en kvarleva från när appen använde `localStorage` och den uppdateras **inte** med datan från SQL-databasen.
+
+Den enda komponenten som fungerar är "Överföringar", eftersom den korrekt använder den nya state-managern. Vi måste applicera samma korrekta mönster på alla andra komponenter.
+
+-----
+
+#### Exakt Action Plan (Fokus på Frontend-kod)
+
+**Steg 1: "Sök och Ersätt"-Uppdrag**
+Gör en global sökning i hela `client/`-katalogen efter strängen `budgetState.accounts`. Varje träff du får är en bugg som måste åtgärdas.
+
+**Steg 2: Refaktorera Varje Felaktig Komponent**
+För varje komponent som använder `budgetState.accounts`, utför följande refaktorering:
+
+1.  **Ta bort den gamla koden:** Radera raden där kontolistan hämtas från `budgetState`.
+
+    ```typescript
+    // FELAKTIG KOD SOM MÅSTE BORT:
+    const { accounts } = budgetState; 
+    ```
+
+2.  **Implementera den nya koden:** Importera den centrala Zustand-storen och hämta kontolistan därifrån. Detta är den lista som är direkt synkad med SQL-databasen.
+
+    ```typescript
+    // NY, KORREKT KOD ATT ANVÄNDA:
+    import { useAppStore } from '...'; // Importera din centrala store
+
+    // Inne i komponenten:
+    const accounts = useAppStore(state => state.accounts);
+    ```
+
+**Steg 3: Använd "Överföringar" som Mall**
+Öppna filen för komponenten som hanterar "Överföringar" (t.ex. `Transfers.tsx` eller liknande). Studera hur den hämtar och använder kontolistan. Den använder redan det korrekta mönstret från Steg 2. Kopiera exakt detta mönster och applicera det på alla andra komponenter som identifierades i Steg 1.
+
+**Checklista för komponenter att granska och åtgärda:**
+
+  * Komponenten för "Aktuella Konton" / Huvudsidan.
+  * Komponenten för "Ladda upp CSV-filer" (specifikt dropdown-menyn för att välja konto).
+  * Komponenten för "Budgetkategorier" (där man kan filtrera per konto).
+  * Komponenten för "Totalt Sparande".
+
+När du har ersatt alla instanser av `budgetState.accounts` med `useAppStore(state => state.accounts)`, kommer hela applikationen att konsekvent visa den korrekta och fullständiga listan med konton direkt från SQL-databasen. Då är detta sista, genomgående arkitekturfel löst.

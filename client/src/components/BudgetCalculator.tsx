@@ -453,9 +453,9 @@ const BudgetCalculator = () => {
   const susannaPersonalCosts = (currentMonthData as any).susannaPersonalCosts || 0;
   const susannaPersonalSavings = (currentMonthData as any).susannaPersonalSavings || 0;
   
-  // Account management states  
-  const accounts = budgetState.accounts.map(acc => acc.name);
-  const accountsWithIds = budgetState.accounts; // Keep full account objects with IDs
+  // Account management states - USE API DATA
+  const accounts = accountsFromAPI.map(acc => acc.name);
+  const accountsWithIds = accountsFromAPI; // Keep full account objects with IDs
   
   // Create unified savings items list that combines savingsGroups with active savings goals
   const allSavingsItems = useMemo(() => {
@@ -479,7 +479,7 @@ const BudgetCalculator = () => {
     console.log('🔍 [DEBUG] allSavingsItems - includes "Semester"?', combined.some(item => item.name === 'Semester'));
     return combined;
 
-  }, [savingsGroups, budgetState.savingsGoals, selectedBudgetMonth, budgetState.accounts]);
+  }, [savingsGroups, budgetState.savingsGoals, selectedBudgetMonth, accountsFromAPI]);
 
   // CENTRALIZED LOGIC: Use single function call to replace complex logic
   const activeContent = useMemo(() => {

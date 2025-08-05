@@ -7,6 +7,7 @@ import { BudgetState, PlannedTransfer, BudgetItem, Account } from '@/types/budge
 import { NewTransferForm } from './NewTransferForm';
 import { createPlannedTransfer } from '../orchestrator/budgetOrchestrator';
 import { getInternalTransferSummary } from '../services/calculationService';
+import { useAccounts } from '@/hooks/useAccounts';
 
 interface AccountRowData {
   account: Account;
@@ -37,6 +38,9 @@ export const AccountRow: React.FC<AccountRowProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showNewTransferForm, setShowNewTransferForm] = useState(false);
+  
+  // Use API accounts instead of budgetState.accounts
+  const { data: accountsFromAPI = [] } = useAccounts();
 
   // Data från props
   const { account, totalBudgeted, totalTransferredIn, actualTransferredIn, budgetItems, transfersOut } = data;
@@ -79,7 +83,7 @@ export const AccountRow: React.FC<AccountRowProps> = ({
   };
 
   const getAccountNameById = (accountId: string): string => {
-    const foundAccount = budgetState.accounts.find(acc => acc.id === accountId);
+    const foundAccount = accountsFromAPI.find(acc => acc.id === accountId);
     return foundAccount?.name || 'Okänt konto';
   };
 
@@ -241,7 +245,7 @@ export const AccountRow: React.FC<AccountRowProps> = ({
         <NewTransferForm
           targetAccountId={account.id}
           targetAccountName={account.name}
-          availableAccounts={budgetState.accounts.filter(acc => acc.id !== account.id)}
+          availableAccounts={accountsFromAPI.filter(acc => acc.id !== account.id)}
           onSubmit={handleCreateTransfer}
           onCancel={() => setShowNewTransferForm(false)}
         />
