@@ -1,0 +1,88 @@
+Absolut. Tack för den detaljerade beskrivningen av problemen från live-systemet. Dina observationer är helt korrekta och är exakt de symptom man kan förvänta sig med tanke på hur koden är skriven. Det du beskriver bekräftar att systemet inte konsekvent använder ID:n, vilket leder till att dataintegriteten bryts så fort ett kategorinamn ändras.
+
+Här är en sammanställning av alla problem och en detaljerad förklaring till utvecklaren, baserad på dina exempel och den kod jag har analyserat.
+
+-----
+
+### Till Utvecklaren: Analys av Problem vid Namnändring av Kategorier
+
+Här är en djupgående analys av de fel som uppstår i systemet när en användare byter namn på en `Huvudkategori` eller `Underkategori`. Användarens feedback från live-systemet visar tydligt på allvarliga brister i den nuvarande implementationen.
+
+#### Grundorsaken: Inkonsekvent Användning av ID:n
+
+Trots att `Huvudkategori`, `Underkategori` och `Transaction` har `Guid`-baserade ID:n, så använder den kritiska `TransactionRule`-modellen fortfarande **textsträngar (namn)** för att referera till kategorier. Detta är grundorsaken till alla problem som beskrivs nedan.
+
+**Bevis (från `Models/TransactionRule.cs`):**
+
+```csharp
+public class TransactionRule
+{
+    // ...
+    // Dessa fält borde vara Guid? HuvudkategoriId och Guid? UnderkategoriId
+    public string Huvudkategori { get; set; } 
+    public string Underkategori { get; set; }
+    // ...
+}
+```
+
+#### Problem 1: Regler Blir Korrupta och Obrukbara
+
+**Användarens observation:** "Bytte namn på Transport till Transport 2 och regeln säger fortfarande Transport. Klickar jag på 'Ändra' så blir Huvudkategori och Underkategori tomma eftersom att den inte hittar en matchning mot 'Transport'."
+
+**Teknisk förklaring:**
+
+1.  **Regeln lagrar det gamla namnet:** När du byter namn på "Transport" till "Transport 2", uppdateras `Huvudkategori`-objektet korrekt i sin tabell. Men `TransactionRule`-objektet, som har "Transport" sparat som en ren textsträng, ändras inte.
+2.  **Redigeringsvyn misslyckas:** När du öppnar redigeringsvyn för regeln försöker systemet fylla i dropdown-listorna. Den tar värdet "Transport" från regeln och försöker hitta en huvudkategori med det namnet. Eftersom ingen kategori längre heter "Transport", hittas ingen matchning, och fältet visas som tomt. Regeln är nu i praktiken trasig.
+
+#### Problem 2: Inkonsekvent Data i Transaktionslistan
+
+**Användarens observation:** "För 'Alla transaktioner' kan jag se att Huvudkategori (App) blir tom, medan Underkategori (App) har kvar Bränsle... Huvudkategorin bör ha uppdaterats till Transport 2 om kopplingen via ID var rätt."
+
+**Teknisk förklaring:**
+Detta indikerar att relationen mellan `Transaction`, `Huvudkategori` och `Underkategori` inte är robust.
+
+1.  En transaktion har både ett `HuvudkategoriId` och ett `UnderkategoriId`.
+2.  `Underkategori`-objektet har i sin tur ett `HuvudkategoriId` som definierar vilken huvudkategori den tillhör.
+3.  När du bytte namn på "Transport", verkar det som att en process (troligen relaterad till regelapplicering eller någon annan uppdateringslogik) har nollställt `HuvudkategoriId` på själva `Transaction`-objektet, eftersom den inte längre kunde validera det gamla namnet "Transport".
+4.  `UnderkategoriId` på transaktionen ("Bränsle") förblev dock intakt.
+5.  När transaktionslistan ska visas, lyckas den rendera namnet "Bränsle" via `UnderkategoriId`. Men när den ska visa huvudkategorins namn, misslyckas den eftersom `HuvudkategoriId` på transaktionen är tomt/null. Den borde istället kunna hämta huvudkategorin via underkategorins relation (`Underkategori.HuvudkategoriId`), men den nuvarande logiken verkar inte göra det på ett felsäkert sätt.
+
+#### Exempelflöde: "EasyPark"-regeln
+
+Låt oss följa flödet med en konkret regel för att illustrera hur allt går fel:
+
+1.  **Skapande:** En regel skapas: "Om transaktion innehåller 'EasyPark', koppla till Huvudkategori 'Transport' och Underkategori 'Parkering'".
+      * I databasen sparas en `TransactionRule` med `Huvudkategori = "Transport"` och `Underkategori = "Parkering"`.
+2.  **Namnändring:** Användaren byter namn på huvudkategorin "Transport" till "Transport 2".
+3.  **Regelapplicering (Automatiskt/Manuellt):** En ny transaktion "EasyPark ..." importeras. Regelmotorn körs.
+      * Den hittar regeln.
+      * Den försöker hitta en huvudkategori med namnet `rule.Huvudkategori` (dvs. "Transport").
+      * **FEL:** Sökningen misslyckas. Ingen huvudkategori kopplas. Transaktionen får ett tomt `HuvudkategoriId`.
+4.  **Redigering av regeln:** Användaren går till regelsidan.
+      * **FEL:** Regeln visas med det gamla namnet "Transport". När användaren klickar på "Ändra" blir fältet för huvudkategori tomt, eftersom det inte finns någon matchning.
+
+### Slutsats och Obligatoriska Åtgärder
+
+Systemet är i ett trasigt tillstånd. Att använda en blandning av ID:n och namn som identifierare är ohållbart och garanterar dataförlust och buggar. Den enda lösningen är att genomföra en fullständig refaktorering så att **endast ID:n används för alla relationer**.
+
+**Exakta instruktioner för att permanent lösa problemen:**
+
+1.  **Modifiera `TransactionRule`-modellen:**
+
+      * Byt ut `public string Huvudkategori` mot `public Guid? HuvudkategoriId`.
+      * Byt ut `public string Underkategori` mot `public Guid? UnderkategoriId`.
+
+2.  **Skapa och Kör en Datamigrering (Entity Framework Migration):**
+
+      * **Steg A (Schema):** Skapa en ny migration som lägger till de nya `Guid`-kolumnerna (`HuvudkategoriId`, `UnderkategoriId`) i `TransactionRules`-tabellen.
+      * **Steg B (Data):** I samma migration, skriv ett SQL-skript (`migrationBuilder.Sql(...)`) som fyller de nya `Id`-kolumnerna. Skriptet måste iterera över alla regler och för varje regel:
+          * Hämta `Id` från `Huvudkategorier`-tabellen där namnet matchar den gamla `Huvudkategori`-strängen.
+          * Uppdatera `HuvudkategoriId` i `TransactionRules`-tabellen.
+          * Gör samma sak för `UnderkategoriId`.
+      * **Steg C (Rensning):** När datan är verifierad, skapa en ny migration för att ta bort de gamla och nu överflödiga `Huvudkategori`- och `Underkategori`-kolumnerna från `TransactionRules`.
+
+3.  **Refaktorera All Relaterad Kod:**
+
+      * **Regelmotorn (`TransactionService`):** Ändra `ApplyRules`-metoden så att den använder `rule.HuvudkategoriId` och `rule.UnderkategoriId` för att koppla transaktioner.
+      * **API-Controllers:** Uppdatera alla endpoints för att skapa/redigera regler (`/api/TransactionRules`) så att de tar emot och returnerar `HuvudkategoriId` och `UnderkategoriId`.
+      * **Frontend (Angular):** Uppdatera komponenterna för regelhantering. Dropdown-listor för kategorier ska visa kategorinamn för användaren, men det värde som skickas till backend när en regel sparas måste vara kategorins **ID**.
