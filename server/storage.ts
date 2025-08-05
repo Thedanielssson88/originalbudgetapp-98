@@ -69,6 +69,7 @@ export interface IStorage {
     huvudkategorier: Huvudkategori[];
     underkategorier: Underkategori[];
     categoryRules: CategoryRule[];
+    transactions: Transaction[];
   }>;
 }
 
@@ -95,12 +96,14 @@ export class MemStorage implements IStorage {
     huvudkategorier: Huvudkategori[];
     underkategorier: Underkategori[];
     categoryRules: CategoryRule[];
+    transactions: Transaction[];
   }> {
     return {
       accounts: await this.getAccounts(userId),
       huvudkategorier: await this.getHuvudkategorier(userId),
       underkategorier: await this.getUnderkategorier(userId),
       categoryRules: await this.getCategoryRules(userId),
+      transactions: await this.getTransactions(userId),
     };
   }
 
@@ -300,6 +303,5 @@ export class MemStorage implements IStorage {
 // Import the database storage
 import { DatabaseStorage } from "./dbStorage";
 
-// Temporarily using in-memory storage while database endpoint is being configured
-// Switch to: new DatabaseStorage() once database endpoint is enabled
-export const storage = new MemStorage();
+// Use database storage when DATABASE_URL is available
+export const storage = process.env.DATABASE_URL ? new DatabaseStorage() : new MemStorage();

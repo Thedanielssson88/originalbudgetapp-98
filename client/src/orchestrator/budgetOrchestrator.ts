@@ -1,7 +1,6 @@
 // Single Source of Truth Orchestrator - Simplified architecture
 
 import { state, initializeStateFromStorage, saveStateToStorage, getCurrentMonthData, updateCurrentMonthData } from '../state/budgetState';
-import { StorageKey, set } from '../services/storageService';
 import { calculateFullPrognosis, calculateBudgetResults, calculateAccountProgression, calculateMonthlyBreakdowns, calculateProjectedBalances, applyCategorizationRules, determineTransactionStatus } from '../services/calculationService';
 import { BudgetGroup, MonthData, SavingsGoal, CsvMapping, PlannedTransfer, Transaction } from '../types/budget';
 import { updateAccountBalanceFromBankData } from '../utils/bankBalanceUtils';
@@ -858,7 +857,7 @@ async function triggerAutoBackup() {
 let isInitialized = false;
 
 // Initialize the application
-export function initializeApp(): void {
+export async function initializeApp(): Promise<void> {
   console.log('[BudgetOrchestrator] 🚀 initializeApp() called!');
   addMobileDebugLog('[ORCHESTRATOR] 🚀 initializeApp() called!');
   
@@ -871,6 +870,18 @@ export function initializeApp(): void {
   isInitialized = true;
   console.log('[BudgetOrchestrator] ✅ Setting initialization flag and starting...');
   addMobileDebugLog('[ORCHESTRATOR] ✅ Setting initialization flag and starting...');
+  
+  // Wait for API store to be ready before initializing state
+  const { apiStore } = await import('../store/apiStore');
+  if (!apiStore.isLoading) {
+    console.log('[BudgetOrchestrator] API store already loaded, syncing data...');
+    addMobileDebugLog('[ORCHESTRATOR] API store already loaded, syncing data...');
+  } else {
+    console.log('[BudgetOrchestrator] Waiting for API store to load...');
+    addMobileDebugLog('[ORCHESTRATOR] Waiting for API store to load...');
+    // Wait a bit for API store to initialize
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
   
   initializeStateFromStorage();
   
@@ -1462,9 +1473,7 @@ export function setMonthFinalBalances(value: {[key: string]: boolean}): void {
 // Main categories management
 export function setMainCategories(value: string[]): void {
   state.budgetState.mainCategories = value;
-  // Also save to separate storage for migration compatibility
-  set(StorageKey.MAIN_CATEGORIES, value);
-  saveStateToStorage();
+  // No longer saving to localStorage - will be persisted via API
   triggerUIRefresh();
 }
 

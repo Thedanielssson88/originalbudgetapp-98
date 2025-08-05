@@ -1,0 +1,148 @@
+Absolut. Här är ett nytt, komplett och extremt tydligt uppdrag till utvecklaren. Det är baserat på den senaste koden och fokuserar på att byta ut datakällan utan att ändra en enda pixel i användargränssnittet.
+
+-----
+
+### Nytt Utvecklingsuppdrag: Refaktorering av Datalager för Stabilitet
+
+**Mål:** Applikationens datalager ska byggas om för att exklusivt använda den centrala SQL-databasen för all användardata. Användargränssnittet (UI) får absolut **inte** ändras. Alla ändringar ska ske "under huven" i hur data hämtas och sparas.
+
+**Det Centrala Problemet Att Lösa:**
+Frontend-koden använder idag `localStorage` som en primär databas. Detta skapar en konflikt med den riktiga SQL-databasen på servern, vilket leder till dataförlust, synkroniseringsfel och ett opålitligt system. Denna användning av `localStorage` måste upphöra helt och hållet för all permanent data.
+
+**Den Gyllene Regeln:** SQL-databasen är den **enda** källan till sanning. Frontend-appen ska vara "dum" – den ska bara visa data den får från servern och skicka tillbaka ändringar för att sparas.
+
+-----
+
+### Exakt Action Plan: Steg-för-steg
+
+#### Fas 1: Eliminera `localStorage` som Datakälla
+
+Detta är det första och viktigaste steget. Vi måste koppla bort den felaktiga datakällan.
+
+**Action 1.1: Radera All Kod Som Sparar Till `localStorage`**
+Gör en global sökning i `client/`-katalogen efter `localStorage.setItem`. Radera varenda rad som sparar följande nycklar:
+
+  * `'mainCategories'`
+  * `'subCategories'`
+  * `'accounts'`
+  * `'transactions'`
+  * `'categoryRules'`
+
+**Action 1.2: Radera All Kod Som Läser Från `localStorage`**
+Gör en global sökning efter `localStorage.getItem`. Ta bort all logik där `useState` eller `Zustand`-stores initialiseras med data från `localStorage`.
+
+**Exempel på kod som MÅSTE tas bort (från olika komponenter och hooks):**
+
+```typescript
+// FEL: Initialiserar state från localStorage. Radera detta.
+const [mainCategories, setMainCategories] = useState(() => {
+  const saved = localStorage.getItem('mainCategories');
+  return saved ? JSON.parse(saved) : [];
+});
+
+// FEL: En useEffect som sparar state. Radera hela denna hook.
+useEffect(() => {
+  localStorage.setItem('mainCategories', JSON.stringify(mainCategories));
+}, [mainCategories]);
+```
+
+Efter detta steg kommer applikationen att starta helt tom. Detta är förväntat och korrekt.
+
+-----
+
+#### Fas 2: Implementera en Ren API-driven Dataladdning
+
+Nu ska vi koppla på den korrekta datakällan: ditt backend-API.
+
+**Action 2.1: Skapa en Central Dataladdningsfunktion**
+I din Zustand-store (eller en separat service-fil) skapa en asynkron funktion, `fetchAndInitializeStore`. Denna funktion ska göra följande:
+
+1.  Anropa **ett enda** backend-endpoint (t.ex. `GET /api/bootstrap-data`) som returnerar all data för den inloggade användaren.
+2.  Detta endpoint ska returnera ett JSON-objekt som ser ut så här:
+    ```json
+    {
+      "accounts": [...],
+      "mainCategories": [...],
+      "subCategories": [...],
+      "transactions": [...],
+      "rules": [...]
+    }
+    ```
+3.  När datan har tagits emot, anropa en action i din Zustand-store som populerar alla states med denna data.
+
+**Action 2.2: Anropa Dataladdningen vid Appstart**
+I din huvudsakliga app-komponent (t.ex. `App.tsx` eller en layout-komponent som bara körs en gång efter inloggning), använd en `useEffect`-hook för att anropa `fetchAndInitializeStore`.
+
+**Exempel på implementering:**
+
+```jsx
+// I din huvudkomponent...
+const { initializeStore, isLoading } = useYourZustandStore();
+
+useEffect(() => {
+  // Körs bara en gång när komponenten monteras
+  initializeStore(); 
+}, [initializeStore]);
+
+if (isLoading) {
+  return <LoadingSpinner />; // Visa en laddningsindikator medan data hämtas
+}
+
+return (
+  // Resten av din applikation...
+);
+```
+
+-----
+
+#### Fas 3: Koppla UI-Komponenter till den Nya Datakällan
+
+Nu när all data finns i Zustand-store och hämtas från API:et, måste komponenterna använda den. **Ändra inte hur komponenterna ser ut, bara var de hämtar sin data ifrån.**
+
+**Action 3.1: Läs Data från Zustand**
+Alla komponenter som tidigare hade en egen `useState` för att hålla t.ex. en lista med kategorier, ska nu istället hämta den direkt från Zustand.
+
+**Exempel:**
+
+```jsx
+// I en komponent som visar huvudkategorier...
+import { useYourZustandStore } from '...';
+
+const CategoryListComponent = () => {
+  // FEL: const [categories, setCategories] = useState([]);
+  // RÄTT: Hämta direkt från den centrala storen.
+  const categories = useYourZustandStore(state => state.mainCategories); 
+
+  return (
+    <ul>
+      {categories.map(cat => <li key={cat.id}>{cat.name}</li>)}
+    </ul>
+  );
+};
+```
+
+**Action 3.2: Spara Ändringar via API-anrop**
+När en användare gör en ändring (skapar/uppdaterar/raderar något), ska komponenten **inte** uppdatera sitt eget state. Istället ska den:
+
+1.  Anropa en funktion/action (t.ex. `createCategory`).
+2.  Denna funktion anropar backend-API:et (t.ex. `POST /api/huvudkategorier`).
+3.  När API:et returnerar ett lyckat svar, uppdateras Zustand-store.
+4.  Komponenten, som lyssnar på Zustand-store, kommer då automatiskt att renderas om med den korrekta datan.
+
+**Exempel på flöde för att skapa en kategori:**
+
+```jsx
+// I din "skapa kategori"-komponent...
+const { createCategory } = useYourZustandStore();
+const [categoryName, setCategoryName] = useState('');
+
+const handleSave = async () => {
+  if (categoryName) {
+    // Anropa action som hanterar API-anrop och state-uppdatering
+    await createCategory({ name: categoryName }); 
+    setCategoryName(''); // Rensa input-fältet
+  }
+};
+```
+
+Genom att följa dessa tre faser exakt kommer du att ha ett system där UI:t är oförändrat, men datan hanteras på ett korrekt, robust och permanent sätt via SQL-databasen.

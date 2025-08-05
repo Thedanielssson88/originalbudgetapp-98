@@ -23,7 +23,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // @ts-ignore
       const userId = req.userId;
+      console.log('Bootstrap request with userId:', userId);
       const data = await storage.bootstrap(userId);
+      console.log('Bootstrap data:', JSON.stringify(data, null, 2));
       res.json(data);
     } catch (error) {
       console.error('Error bootstrapping:', error);

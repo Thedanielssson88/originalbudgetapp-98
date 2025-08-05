@@ -29,12 +29,14 @@ export class DatabaseStorage implements IStorage {
     huvudkategorier: Huvudkategori[];
     underkategorier: Underkategori[];
     categoryRules: CategoryRule[];
+    transactions: Transaction[];
   }> {
-    const [accountsResult, huvudkategorierResult, underkategorierResult, categoryRulesResult] = await Promise.all([
+    const [accountsResult, huvudkategorierResult, underkategorierResult, categoryRulesResult, transactionsResult] = await Promise.all([
       this.getAccounts(userId),
       this.getHuvudkategorier(userId),
       this.getUnderkategorier(userId),
-      this.getCategoryRules(userId)
+      this.getCategoryRules(userId),
+      this.getTransactions(userId)
     ]);
 
     return {
@@ -42,6 +44,7 @@ export class DatabaseStorage implements IStorage {
       huvudkategorier: huvudkategorierResult,
       underkategorier: underkategorierResult,
       categoryRules: categoryRulesResult,
+      transactions: transactionsResult,
     };
   }
 
@@ -58,7 +61,10 @@ export class DatabaseStorage implements IStorage {
 
   // Account methods
   async getAccounts(userId: string): Promise<Account[]> {
-    return await db.select().from(accounts).where(eq(accounts.userId, userId));
+    console.log('Getting accounts for userId:', userId);
+    const result = await db.select().from(accounts).where(eq(accounts.userId, userId));
+    console.log('Found accounts:', result);
+    return result;
   }
 
   async getAccount(id: string): Promise<Account | undefined> {

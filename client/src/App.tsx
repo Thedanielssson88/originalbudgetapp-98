@@ -12,11 +12,15 @@ import TransactionsPage from "./pages/TransactionsPage";
 import SettingsPage from "./pages/SettingsPage";
 import CategoryManagement from "./pages/CategoryManagement";
 import NotFound from "./pages/NotFound";
+import { useInitializeApiStore } from "./hooks/useApiStore";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
+const AppContent = () => {
+  // Initialize the API store when the app starts
+  useInitializeApiStore();
+  
+  return (
     <TooltipProvider>
       <Toaster />
       <Sonner />
@@ -39,6 +43,12 @@ const App = () => (
         </AppLayout>
       </Router>
     </TooltipProvider>
+  );
+};
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <AppContent />
     <MobileDebugPanel />
   </QueryClientProvider>
 );
