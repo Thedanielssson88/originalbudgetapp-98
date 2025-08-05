@@ -11,6 +11,7 @@ import { CategoryRule } from '../types/budget';
 import { simpleGoogleDriveService } from '../services/simpleGoogleDriveService';
 import { monthlyBudgetService } from '../services/monthlyBudgetService';
 import { apiStore } from '../store/apiStore';
+import { parseInputToOren, kronoraToOren } from '../utils/currencyUtils';
 
 // SMART MERGE FUNCTION - The definitive solution to duplicate and lost changes
 export async function importAndReconcileFile(csvContent: string, accountId: string, categoryRules?: any[]): Promise<void> {
@@ -728,12 +729,13 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
         }
       }
       
-      const parsedAmount = parseFloat(cleanedAmountField);
+      const amountInKronor = parseFloat(cleanedAmountField);
+      const parsedAmount = kronoraToOren(amountInKronor); // Convert to ören for database storage
 
       console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: Raw line: "${lines[i]}"`);
-      console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: Amount field: "${rawAmountField}" -> cleaned: "${cleanedAmountField}" -> ${parsedAmount}`);
+      console.log(`[ORCHESTRATOR] 💰 Amount field: "${rawAmountField}" -> cleaned: "${cleanedAmountField}" -> kronor: ${amountInKronor} -> ören: ${parsedAmount}`);
 
-      if (isNaN(parsedAmount)) {
+      if (isNaN(amountInKronor)) {
         console.log(`[ORCHESTRATOR] ⚠️ Skipping line ${i}: Invalid amount`);
         continue;
       }
@@ -772,9 +774,10 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
           }
         }
         
-        const parsedBalance = parseFloat(cleanedBalanceField);
-        if (!isNaN(parsedBalance)) {
-          balanceAfter = parsedBalance;
+        const balanceInKronor = parseFloat(cleanedBalanceField);
+        if (!isNaN(balanceInKronor)) {
+          balanceAfter = kronoraToOren(balanceInKronor); // Convert to ören for database storage
+          console.log(`[ORCHESTRATOR] 💰 Balance field: "${rawBalanceField}" -> cleaned: "${cleanedBalanceField}" -> kronor: ${balanceInKronor} -> ören: ${balanceAfter}`);
         }
       }
 

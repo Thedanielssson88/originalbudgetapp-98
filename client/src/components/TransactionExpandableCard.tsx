@@ -13,6 +13,7 @@ import { TransactionTypeSelector } from './TransactionTypeSelector';
 import { useBudget } from '@/hooks/useBudget';
 import { useTransactionExpansion } from '@/hooks/useTransactionExpansion';
 import { useHuvudkategorier, useUnderkategorier, useCategoryNames } from '@/hooks/useCategories';
+import { formatOrenAsCurrency } from '@/utils/currencyUtils';
 
 interface TransactionExpandableCardProps {
   transaction: ImportedTransaction;

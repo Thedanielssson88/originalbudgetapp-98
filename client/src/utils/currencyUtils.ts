@@ -102,7 +102,7 @@ export function validateAmountInput(input: string): string {
     return ''; // Invalid input
   }
   
-  return formatOrenAsCurrency(ören, false);
+  return formatOrenAsCurrency(oren, false);
 }
 
 // Example usage and tests (for development):
