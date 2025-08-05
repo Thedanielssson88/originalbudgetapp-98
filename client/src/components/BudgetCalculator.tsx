@@ -23,6 +23,7 @@ import { CostItemEditDialog } from './CostItemEditDialog';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useSwipeGestures } from '@/hooks/useSwipeGestures';
 import { AccountDataTable, AccountDataRow } from '@/components/AccountDataTable';
+import { MonthlyAccountBalances } from '@/components/MonthlyAccountBalances';
 import CreateMonthDialog from './CreateMonthDialog';
 import { CustomLineChart } from './CustomLineChart';
 import { AccountSelector } from '@/components/AccountSelector';
@@ -9616,10 +9617,17 @@ const BudgetCalculator = () => {
                 </CardContent>
               </Card>
 
+              {/* Monthly Account Balances */}
+              <MonthlyAccountBalances 
+                selectedMonthKey={selectedBudgetMonth || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
+                accounts={budgetState.accounts}
+                className={isMobile ? 'mx-1' : ''}
+              />
+
               {/* Account Data Table */}
               <Card className={isMobile ? 'mx-1' : ''}>
                 <CardHeader className={isMobile ? 'px-3 py-4' : ''}>
-                  <CardTitle className={`${isMobile ? 'text-base' : ''}`}>Kontosaldon</CardTitle>
+                  <CardTitle className={`${isMobile ? 'text-base' : ''}`}>Kontosaldon Historik</CardTitle>
                   <CardDescription className={isMobile ? 'text-sm' : ''}>
                     Detaljerad tabell över alla kontosaldon
                   </CardDescription>

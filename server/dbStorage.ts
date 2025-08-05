@@ -402,13 +402,20 @@ export class DatabaseStorage implements IStorage {
 
   // Monthly Account Balances - stores calculated balances per month
   async getMonthlyAccountBalances(userId: string, monthKey?: string): Promise<MonthlyAccountBalance[]> {
-    let query = db.select().from(monthlyAccountBalances).where(eq(monthlyAccountBalances.userId, userId));
-    
     if (monthKey) {
-      query = query.where(eq(monthlyAccountBalances.monthKey, monthKey));
+      return await db.select()
+        .from(monthlyAccountBalances)
+        .where(
+          and(
+            eq(monthlyAccountBalances.userId, userId),
+            eq(monthlyAccountBalances.monthKey, monthKey)
+          )
+        );
+    } else {
+      return await db.select()
+        .from(monthlyAccountBalances)
+        .where(eq(monthlyAccountBalances.userId, userId));
     }
-    
-    return await query;
   }
 
   async getMonthlyAccountBalance(userId: string, monthKey: string, accountId: string): Promise<MonthlyAccountBalance | undefined> {
@@ -451,6 +458,7 @@ export class DatabaseStorage implements IStorage {
       const result = await db.update(monthlyAccountBalances)
         .set({ 
           calculatedBalance: balance.calculatedBalance,
+          faktisktKontosaldo: balance.faktisktKontosaldo,
           updatedAt: new Date()
         })
         .where(eq(monthlyAccountBalances.id, existing.id))
@@ -460,6 +468,23 @@ export class DatabaseStorage implements IStorage {
       const result = await db.insert(monthlyAccountBalances).values(balance).returning();
       return { balance: result[0], created: true };
     }
+  }
+
+  async updateFaktisktKontosaldo(userId: string, monthKey: string, accountId: string, faktisktKontosaldo: number | null): Promise<MonthlyAccountBalance | undefined> {
+    const existing = await this.getMonthlyAccountBalance(userId, monthKey, accountId);
+    
+    if (existing) {
+      const result = await db.update(monthlyAccountBalances)
+        .set({ 
+          faktisktKontosaldo: faktisktKontosaldo,
+          updatedAt: new Date()
+        })
+        .where(eq(monthlyAccountBalances.id, existing.id))
+        .returning();
+      return result[0];
+    }
+    
+    return undefined;
   }
 
   async deleteMonthlyAccountBalance(userId: string, monthKey: string, accountId: string): Promise<boolean> {

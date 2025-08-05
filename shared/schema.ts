@@ -35,6 +35,7 @@ export const monthlyAccountBalances = pgTable('monthly_account_balances', {
     monthKey: text('month_key').notNull(), // Format: "YYYY-MM" (e.g., "2025-08")
     accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
     calculatedBalance: integer('calculated_balance').notNull(), // Balance in öre calculated from last transaction before 25th
+    faktisktKontosaldo: integer('faktiskt_kontosaldo'), // User inputted actual balance in öre, nullable
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({

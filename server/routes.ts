@@ -840,6 +840,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/monthly-account-balances/:monthKey/:accountId/faktiskt-kontosaldo", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const { monthKey, accountId } = req.params;
+      const { faktisktKontosaldo } = req.body;
+      
+      const result = await storage.updateFaktisktKontosaldo(userId, monthKey, accountId, faktisktKontosaldo);
+      
+      if (result) {
+        res.json(result);
+      } else {
+        res.status(404).json({ error: 'Monthly account balance not found' });
+      }
+    } catch (error) {
+      console.error('Error updating faktiskt kontosaldo:', error);
+      res.status(400).json({ error: 'Failed to update faktiskt kontosaldo' });
+    }
+  });
+
   // Create the server
   const httpServer = createServer(app);
   return httpServer;
