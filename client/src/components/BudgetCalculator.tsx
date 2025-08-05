@@ -179,10 +179,10 @@ const BudgetCalculator = () => {
   useEffect(() => {
     // Load existing logs immediately when component mounts
     const existingLogs = mobileDebugLogger.getLogs();
-    setGlobalDebugLogs(existingLogs.map(log => `${log.timestamp}: ${log.message}`));
+    setGlobalDebugLogs((existingLogs || []).map(log => `${log.timestamp}: ${log.message}`));
     
     const unsubscribe = mobileDebugLogger.subscribe((logs) => {
-      setGlobalDebugLogs(logs.map(log => `${log.timestamp}: ${log.message}`));
+      setGlobalDebugLogs((logs || []).map(log => `${log.timestamp}: ${log.message}`));
     });
     
     // Add a log to show component mounted
@@ -458,8 +458,8 @@ const BudgetCalculator = () => {
   const susannaPersonalSavings = (currentMonthData as any).susannaPersonalSavings || 0;
   
   // Account management states - USE API DATA
-  const accounts = accountsFromAPI.map(acc => acc.name);
-  const accountsWithIds = accountsFromAPI; // Keep full account objects with IDs
+  const accounts = accountsFromAPI?.map(acc => acc.name) || [];
+  const accountsWithIds = accountsFromAPI || []; // Keep full account objects with IDs
   
   // Create unified savings items list that combines savingsGroups with active savings goals
   const allSavingsItems = useMemo(() => {
@@ -480,7 +480,7 @@ const BudgetCalculator = () => {
     // 4. Return only the regular savings categories (no savings goals)
     const combined = [...generalSavings]; // Only include regular savings, not goals
     console.log('🔍 [DEBUG] allSavingsItems - final combined result (no savings goals):', combined);
-    console.log('🔍 [DEBUG] allSavingsItems - includes "Semester"?', combined.some(item => item.name === 'Semester'));
+    console.log('🔍 [DEBUG] allSavingsItems - includes "Semester"?', combined?.some(item => item.name === 'Semester'));
     return combined;
 
   }, [savingsGroups, budgetState.savingsGoals, selectedBudgetMonth, accountsFromAPI]);
@@ -509,7 +509,7 @@ const BudgetCalculator = () => {
     console.log(`🔍 [DEBUG] activeContent - activeAccounts count: ${processedData.activeAccounts?.length || 0}`);
     console.log(`🔍 [DEBUG] activeContent - activeAccounts:`, processedData.activeAccounts);
     console.log(`🔍 [DEBUG] activeContent - transactionsForPeriod count: ${processedData.transactionsForPeriod?.length || 0}`);
-    console.log(`🔍 [DEBUG] activeContent - sample transactions:`, processedData.transactionsForPeriod?.slice(0, 3).map(t => ({ 
+    console.log(`🔍 [DEBUG] activeContent - sample transactions:`, (processedData.transactionsForPeriod || []).slice(0, 3).map(t => ({ 
       id: t.id, 
       accountId: t.accountId, 
       date: t.date, 
@@ -720,7 +720,7 @@ const BudgetCalculator = () => {
     // Combine all methods and remove duplicates
     const allTransactions = [...directAccountTransactions, ...nameMatchTransactions];
     categoryBasedTransactions.forEach(t => {
-      if (!allTransactions.some(existing => existing.id === t.id)) {
+      if (!allTransactions?.some(existing => existing.id === t.id)) {
         allTransactions.push(t);
       }
     });
@@ -1789,7 +1789,7 @@ const BudgetCalculator = () => {
 
   // Safety check to ensure accounts is always an array of strings
   useEffect(() => {
-    if (accounts.some(account => typeof account !== 'string')) {
+    if (accounts?.some(account => typeof account !== 'string')) {
       console.warn('Found non-string accounts, converting to strings:', accounts);
       const stringAccounts = accounts.map(account => 
         typeof account === 'string' ? account : (account as any).name || String(account)

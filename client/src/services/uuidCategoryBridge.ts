@@ -147,6 +147,11 @@ export class UuidCategoryBridge {
     // Check if we have old string-based categories in current state
     const currentMainCategories = state.budgetState.mainCategories;
     
+    // If currentMainCategories is undefined or empty, no migration needed
+    if (!currentMainCategories || !Array.isArray(currentMainCategories)) {
+      return false;
+    }
+    
     // If we have numeric strings like "1", "2", "3" instead of UUIDs, we need migration
     return currentMainCategories.some(cat => /^\d+$/.test(cat));
   }
@@ -219,7 +224,7 @@ export function useUuidCategoryBridge() {
   };
   
   const migrateBudgetData = () => {
-    if (!isLoading && huvudkategorier.length > 0) {
+    if (!isLoading && huvudkategorier?.length > 0) {
       UuidCategoryBridge.migrateBudgetDataToUuid(huvudkategorier, underkategorier);
     }
   };

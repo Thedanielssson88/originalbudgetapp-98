@@ -367,29 +367,133 @@ function createEmptyMonthDataForImport() {
 
 // ============= REGELHANTERING =============
 
-export function addCategoryRule(rule: any): void {
-  const newRule = {
-    id: uuidv4(),
-    isActive: true,
-    ...rule
-  };
+// Load category rules from PostgreSQL database
+async function loadCategoryRulesFromDatabase(): Promise<void> {
+  console.log('🔍 [DEBUG] Loading category rules from PostgreSQL...');
   
-  console.log('🔍 [DEBUG] Adding category rule:', newRule);
-  console.log('🔍 [DEBUG] Before adding - total rules:', state.budgetState.categoryRules.length);
+  try {
+    const { apiStore } = await import('../store/apiStore');
+    const dbRules = await apiStore.getCategoryRules();
+    
+    console.log('✅ [DEBUG] Loaded rules from PostgreSQL:', dbRules);
+    console.log('✅ [DEBUG] Current categoryRules in state:', state.budgetState.categoryRules.length);
+    
+    if (!dbRules || dbRules.length === 0) {
+      console.log('⚠️ [DEBUG] No rules found in PostgreSQL database');
+      return;
+    }
+    
+    // Convert PostgreSQL rules to legacy format for localStorage compatibility
+    const legacyRules = dbRules.map(dbRule => ({
+      id: dbRule.id,
+      priority: 100,
+      condition: {
+        type: 'textContains' as const,
+        value: dbRule.transactionName,
+        bankCategory: dbRule.transactionName,
+        bankSubCategory: ''
+      },
+      action: {
+        appMainCategoryId: dbRule.huvudkategoriId,
+        appSubCategoryId: dbRule.underkategoriId,
+        positiveTransactionType: 'Transaction' as const,
+        negativeTransactionType: 'Transaction' as const,
+        applicableAccountIds: []
+      },
+      isActive: true
+    }));
+    
+    console.log('🔄 [DEBUG] Converted PostgreSQL rules to legacy format:', legacyRules);
+    
+    // Merge with existing localStorage rules (avoid duplicates)
+    const existingRuleIds = new Set(state.budgetState.categoryRules.map(r => r.id));
+    const newRules = legacyRules.filter(rule => !existingRuleIds.has(rule.id));
+    
+    console.log(`🔄 [DEBUG] Existing rules: ${existingRuleIds.size}, New rules to add: ${newRules.length}`);
+    
+    if (newRules.length > 0) {
+      state.budgetState.categoryRules = [...state.budgetState.categoryRules, ...newRules];
+      console.log(`✅ [DEBUG] Added ${newRules.length} new rules from PostgreSQL`);
+      console.log(`✅ [DEBUG] Total rules now: ${state.budgetState.categoryRules.length}`);
+      
+      import('../utils/mobileDebugLogger').then(({ addMobileDebugLog }) => {
+        addMobileDebugLog(`✅ [ORCHESTRATOR] Loaded ${dbRules.length} rules from PostgreSQL, added ${newRules.length} new`);
+      });
+      
+      saveStateToStorage();
+      triggerUIRefresh();
+    } else {
+      console.log('ℹ️ [DEBUG] All PostgreSQL rules already exist in localStorage - no duplicates added');
+      import('../utils/mobileDebugLogger').then(({ addMobileDebugLog }) => {
+        addMobileDebugLog(`ℹ️ [ORCHESTRATOR] PostgreSQL rules already loaded (${dbRules.length} total)`);
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ [DEBUG] Failed to load rules from PostgreSQL:', error);
+    import('../utils/mobileDebugLogger').then(({ addMobileDebugLog }) => {
+      addMobileDebugLog(`❌ [ORCHESTRATOR] Failed to load rules from DB: ${error}`);
+    });
+  }
+}
+
+export async function addCategoryRule(rule: any): Promise<void> {
+  console.log('🔍 [DEBUG] Adding category rule to PostgreSQL:', rule);
   
-  state.budgetState.categoryRules = [...state.budgetState.categoryRules, newRule];
-  
-  console.log('🔍 [DEBUG] After adding - total rules:', state.budgetState.categoryRules.length);
-  console.log('🔍 [DEBUG] All rules:', state.budgetState.categoryRules);
-  
-  // Add mobile debug logging too
-  import('../utils/mobileDebugLogger').then(({ addMobileDebugLog }) => {
-    addMobileDebugLog(`🔍 [ORCHESTRATOR] Rule added. Total rules now: ${state.budgetState.categoryRules.length}`);
-    addMobileDebugLog(`🔍 [ORCHESTRATOR] Latest rule ID: ${newRule.id}`);
-  });
-  
-  saveStateToStorage();
-  triggerUIRefresh();
+  try {
+    // Create rule data for PostgreSQL
+    const newRuleData = {
+      ruleName: rule.condition?.bankCategory || rule.condition?.value || 'Auto-generated rule',
+      transactionName: rule.condition?.bankCategory || rule.condition?.value || '',
+      huvudkategoriId: rule.action?.appMainCategoryId || '',
+      underkategoriId: rule.action?.appSubCategoryId || '',
+      userId: 'dev-user-123' // Mock user ID for development
+    };
+    
+    // Save to PostgreSQL database via API
+    const { apiStore } = await import('../store/apiStore');
+    const savedRule = await apiStore.createCategoryRule(newRuleData);
+    
+    console.log('✅ [DEBUG] Rule saved to PostgreSQL:', savedRule);
+    
+    // Also add to localStorage for backward compatibility during transition
+    const legacyRule = {
+      id: savedRule.id,
+      isActive: true,
+      ...rule
+    };
+    
+    state.budgetState.categoryRules = [...state.budgetState.categoryRules, legacyRule];
+    
+    console.log('🔍 [DEBUG] After adding - total rules:', state.budgetState.categoryRules.length);
+    
+    // Add mobile debug logging
+    import('../utils/mobileDebugLogger').then(({ addMobileDebugLog }) => {
+      addMobileDebugLog(`🔍 [ORCHESTRATOR] Rule saved to PostgreSQL. ID: ${savedRule.id}`);
+      addMobileDebugLog(`🔍 [ORCHESTRATOR] Rule name: ${newRuleData.ruleName}`);
+    });
+    
+    saveStateToStorage();
+    triggerUIRefresh();
+  } catch (error) {
+    console.error('❌ [DEBUG] Failed to save rule to PostgreSQL:', error);
+    
+    // Fallback to localStorage only
+    const fallbackRule = {
+      id: uuidv4(),
+      isActive: true,
+      ...rule
+    };
+    
+    state.budgetState.categoryRules = [...state.budgetState.categoryRules, fallbackRule];
+    
+    import('../utils/mobileDebugLogger').then(({ addMobileDebugLog }) => {
+      addMobileDebugLog(`❌ [ORCHESTRATOR] Failed to save to DB, using localStorage. Error: ${error}`);
+    });
+    
+    saveStateToStorage();
+    triggerUIRefresh();
+  }
 }
 
 export function updateCategoryRule(ruleId: string, updates: Partial<any>): void {
@@ -946,6 +1050,9 @@ export async function initializeApp(): Promise<void> {
   
   // Load monthly budget data from database for current month
   await loadMonthlyBudgetFromDatabase();
+  
+  // Load category rules from PostgreSQL
+  await loadCategoryRulesFromDatabase();
   
   // Run initial calculations to ensure state is up to date
   runCalculationsAndUpdateState();

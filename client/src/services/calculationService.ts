@@ -84,6 +84,11 @@ export function calculateAccountEndBalances(
   currentMonthKey: string,
   accounts: Account[]
 ): { [accountName: string]: number } {
+  // Guard against undefined accounts
+  if (!accounts || !Array.isArray(accounts)) {
+    return {};
+  }
+  
   const accountNames = accounts.map(acc => acc.name);
   const endBalances: { [accountName: string]: number } = {};
   
@@ -119,6 +124,11 @@ export function calculateFullPrognosis(
   accounts: Account[]
 ) {
   console.log('[Calculator] Påbörjar full omberäkning av estimerade saldon...');
+  
+  // Guard against undefined accounts
+  if (!accounts || !Array.isArray(accounts)) {
+    return { estimatedStartBalancesByMonth: {}, estimatedFinalBalancesByMonth: {} };
+  }
   
   const historicalMonths = Object.keys(historicalData).sort((a, b) => a.localeCompare(b));
   const accountNames = accounts.map(acc => acc.name);
@@ -755,6 +765,11 @@ export function getInternalTransferSummary(
   });
 
   const allAccounts = budgetState.accounts;
+
+  // Guard against undefined allAccounts
+  if (!allAccounts || !Array.isArray(allAccounts)) {
+    return [];
+  }
 
   // 4. Gå igenom varje konto och bygg upp en sammanställning (faktiska + planerade)
   const result = allAccounts.map(account => {
