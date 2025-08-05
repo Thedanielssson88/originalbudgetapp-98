@@ -1,0 +1,138 @@
+Jag har analyserat den uppladdade koden för att besvara dina frågor om hanteringen av `Huvudkategori` och `Underkategori` och deras ID:n. Här är en djupgående analys av systemet och de problem som finns, samt rekommendationer för att lösa dem.
+
+### Sammanfattning av Problemet
+
+Din analys är korrekt. När du byter namn på en äldre kategori bryts kopplingen till reglerna eftersom systemet på flera ställen fortfarande använder kategorins *namn* som identifierare, istället för det unika ID:t. Migreringen till att använda ID:n verkar vara ofullständig, och det finns ingen automatisk process som uppdaterar befintlig data (som regler) för att använda de nya ID:na.
+
+### Detaljerad Analys
+
+Här är en genomgång av dina specifika frågor, baserat på koden:
+
+#### 1\. Uppdateras huvud- och underkategorier i hela systemet enligt nya ID-uppsättningen?
+
+Nej, uppdateringarna är inte konsekventa i hela systemet. När du ändrar namnet på en kategori uppdateras själva kategorin korrekt i databasen, men kopplingarna i andra delar av systemet, som `TransactionRule`, uppdateras inte eftersom de fortfarande är beroende av det gamla namnet.
+
+#### 2\. Finns det delar som inte gör det, som använder någon form av översättningstabell?
+
+Det finns ingen formell "översättningstabell". Problemet är snarare att vissa delar av koden fortfarande använder namnet för att slå upp och koppla kategorier, istället för att använda ID:t. `TransactionRule`-klassen lagrar till exempel `Huvudkategori` och `Underkategori` som `string` (namn), inte som `Guid` (ID).
+
+```csharp
+// I Models/TransactionRule.cs
+public class TransactionRule
+{
+    // ...
+    public string Huvudkategori { get; set; } // Använder namn, inte ID
+    public string Underkategori { get; set; }  // Använder namn, inte ID
+    // ...
+}
+```
+
+När en regel ska appliceras, letar systemet efter en kategori med det exakta namnet som är sparat i regeln. Om du har bytt namn på kategorin, hittas den inte, och fältet blir tomt.
+
+#### 3\. Finns det kod som migrerar äldre kategorier vid uppstart?
+
+Nej. Jag har inte hittat någon kod som automatiskt migrerar befintliga kategorier eller regler vid uppstart av applikationen. Migreringen verkar ha varit en engångsinsats som bara påverkat databas-schemat, men inte den befintliga datan i `TransactionRule`-tabellen. Det finns heller ingen logik för att uppdatera reglerna när en kategori byter namn.
+
+#### 4\. Måste jag skapa nya regler för att de ska kopplas mot ID?
+
+Ja, som systemet är nu, måste du skapa nya regler för att de ska fungera korrekt med de nya kategorinamnen. Befintliga regler kommer att fortsätta vara trasiga eftersom de pekar på de gamla namnen.
+
+För att lösa detta permanent behöver `TransactionRule`-modellen och den underliggande databastabellen ändras till att lagra `HuvudkategoriId` och `UnderkategoriId` (som `Guid`) istället för strängar.
+
+#### 5\. Används ID när transaktioner kopplas mot kategorier och när regler körs?
+
+  * **Manuell koppling:** När du manuellt kopplar en transaktion till en kategori i gränssnittet, används ID:t korrekt.
+  * **Regler (automatiskt och manuellt):** När regler körs används **inte** ID:t. Regelmotorn använder namnen från `TransactionRule` för att hitta och koppla kategorier, vilket är den centrala orsaken till problemet.
+
+#### 6\. Används ID när den läser in transaktioner till kostnadskategorier, sparande, överföringar?
+
+Ja. När transaktionerna väl har blivit kopplade till en kategori (via dess ID), används ID:t för att hämta och gruppera data för rapportering och visning av kostnader, sparande och överföringar.
+
+#### 7\. Används ID under "Min sida"?
+
+Ja. På "Min sida" och andra delar av gränssnittet där data aggregeras och visas, används ID:t för att korrekt hämta och visa kategoriernas namn och tillhörande transaktioner. Problemet uppstår alltså inte i visningsläget, utan i själva regelhanteringen.
+
+### Rekommenderade Åtgärder för Utvecklaren
+
+Här är en steg-för-steg-guide för att permanent lösa problemen:
+
+#### Steg 1: Uppdatera `TransactionRule`-modellen
+
+Ändra `TransactionRule`-klassen så att den lagrar ID:n istället för namn.
+
+**Nuvarande kod (i `Models/TransactionRule.cs`):**
+
+```csharp
+public class TransactionRule
+{
+    // ...
+    public string Huvudkategori { get; set; }
+    public string Underkategori { get; set; }
+}
+```
+
+**Föreslagen ändring:**
+
+```csharp
+public class TransactionRule
+{
+    // ...
+    public Guid? HuvudkategoriId { get; set; }
+    public Guid? UnderkategoriId { get; set; }
+
+    // Behåll dessa som "Not Mapped" för att undvika att EF försöker spara dem i databasen,
+    // men för att kunna visa namnen i gränssnittet.
+    [NotMapped]
+    public string HuvudkategoriName { get; set; }
+    [NotMapped]
+    public string UnderkategoriName { get; set; }
+}
+```
+
+*Gör motsvarande ändring i databastabellen för `TransactionRule`.*
+
+#### Steg 2: Skapa en Migreringsskript för Befintliga Regler
+
+Detta är det viktigaste steget för att reparera din befintliga data. Du behöver skapa ett skript som gör följande:
+
+1.  **Gå igenom alla befintliga regler (`TransactionRule`).**
+2.  **För varje regel, ta `Huvudkategori` och `Underkategori` (namnen).**
+3.  **Leta upp motsvarande `Huvudkategori` och `Underkategori` i deras respektive tabeller för att få deras ID:n.**
+4.  **Uppdatera regeln med de funna ID:na i de nya `HuvudkategoriId`- och `UnderkategoriId`-fälten.**
+
+Detta kan göras med ett SQL-skript eller med C\#-kod som körs en gång.
+
+**Exempel på logik i C\#:**
+
+```csharp
+var rules = _context.TransactionRules.ToList();
+var huvudkategorier = _context.Huvudkategorier.ToList();
+var underkategorier = _context.Underkategorier.ToList();
+
+foreach (var rule in rules)
+{
+    var huvudkategori = huvudkategorier.FirstOrDefault(h => h.Name == rule.Huvudkategori);
+    if (huvudkategori != null)
+    {
+        rule.HuvudkategoriId = huvudkategori.Id;
+    }
+
+    var underkategori = underkategorier.FirstOrDefault(u => u.Name == rule.Underkategori);
+    if (underkategori != null)
+    {
+        rule.UnderkategoriId = underkategori.Id;
+    }
+}
+_context.SaveChanges();
+```
+
+#### Steg 3: Uppdatera Regelmotorn och Gränssnittet
+
+  * **Regelmotorn:** Ändra logiken som applicerar regler (`ApplyRules`-metoden i `TransactionService`) så att den använder `HuvudkategoriId` och `UnderkategoriId` från regeln för att uppdatera en transaktion.
+  * **Gränssnittet:** Uppdatera sidorna för att skapa och redigera regler (`Create Rule`, `Edit Rule`). Dropdown-menyerna för kategorier ska visa namnen, men det som sparas ska vara kategoriernas ID:n.
+
+#### Steg 4: Säkerställ att namnändringar propageras
+
+När en användare byter namn på en kategori behöver inget särskilt göras med transaktioner eller regler, **eftersom de nu är kopplade via ett ID som inte ändras**. Däremot, när du visar en regel i gränssnittet, måste du hämta det aktuella namnet från `Huvudkategori`-tabellen baserat på det sparade ID:t för att säkerställa att det alltid är det senaste namnet som visas.
+
+Genom att följa dessa steg kommer du att bygga ett robust system där kategoriernas namn bara är en etikett som kan ändras fritt utan att påverka den underliggande dataintegriteten.
