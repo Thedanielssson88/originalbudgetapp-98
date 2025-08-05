@@ -1104,10 +1104,6 @@ export async function initializeApp(): Promise<void> {
   console.log('[BudgetOrchestrator] ✅ Setting initialization flag and starting...');
   addMobileDebugLog('[ORCHESTRATOR] ✅ Setting initialization flag and starting...');
   
-  // CRITICAL FIX: Always force load transactions on initialization
-  console.log('🔄 [ORCHESTRATOR] CRITICAL: Force loading transactions on initialization...');
-  await forceReloadTransactions();
-  
   // Wait for API store to be ready before initializing state
   const { apiStore } = await import('../store/apiStore');
   if (!apiStore.isLoading) {
@@ -1121,6 +1117,10 @@ export async function initializeApp(): Promise<void> {
   }
   
   initializeStateFromStorage();
+  
+  // CRITICAL FIX: Load transactions AFTER state initialization to prevent conflicts
+  console.log('🔄 [ORCHESTRATOR] CRITICAL: Force loading transactions AFTER state init...');
+  await forceReloadTransactions();
   
   // Sync accounts from API store to orchestrator state
   await syncAccountsFromApiStore();
@@ -1140,19 +1140,27 @@ export async function initializeApp(): Promise<void> {
   // Load category rules from PostgreSQL
   await loadCategoryRulesFromDatabase();
   
-  // CRITICAL FIX: Load all transactions from PostgreSQL at app startup
+  // CRITICAL FIX: Load all transactions from PostgreSQL at app startup (secondary check)
   console.log('🔍 [ORCHESTRATOR] About to call loadTransactionsFromDatabase...');
   await loadTransactionsFromDatabase();
   console.log('✅ [ORCHESTRATOR] loadTransactionsFromDatabase completed!');
   
-  // EMERGENCY: Also try force reload as backup
+  // FINAL CHECK: Ensure transactions are still loaded
+  console.log(`🔍 [ORCHESTRATOR] FINAL CHECK: ${state.budgetState.allTransactions.length} transactions in state after all loading`);
   if (state.budgetState.allTransactions.length === 0) {
-    console.log('⚠️ [ORCHESTRATOR] No transactions loaded, trying force reload...');
+    console.log('⚠️ [ORCHESTRATOR] EMERGENCY: No transactions loaded, final force reload...');
     await forceReloadTransactions();
+    console.log(`🔍 [ORCHESTRATOR] AFTER EMERGENCY RELOAD: ${state.budgetState.allTransactions.length} transactions in state`);
   }
+  
+  // CRITICAL: Final transaction count check before calculations
+  console.log(`🔍 [ORCHESTRATOR] PRE-CALCULATION CHECK: ${state.budgetState.allTransactions.length} transactions in state`);
   
   // Run initial calculations to ensure state is up to date
   runCalculationsAndUpdateState();
+  
+  // DIAGNOSTIC: Check if calculations cleared transactions
+  console.log(`🔍 [ORCHESTRATOR] POST-CALCULATION CHECK: ${state.budgetState.allTransactions.length} transactions in state`);
   
   // Mark loading as complete
   state.isLoading = false;
