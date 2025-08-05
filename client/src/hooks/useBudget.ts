@@ -36,7 +36,9 @@ export const useBudget = () => {
   // Initialize app once
   useEffect(() => {
     console.log(`🔄 [HOOK] Initializing app...`);
-    initializeApp();
+    initializeApp().catch(error => {
+      console.error('[HOOK] Failed to initialize app:', error);
+    });
   }, []);
 
   // Always get the latest state on each render
