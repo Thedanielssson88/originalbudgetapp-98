@@ -1,0 +1,74 @@
+Jag har analyserat koden igen med specifikt fokus på CSV-importen. Du har helt rätt, min tidigare bedömning var för optimistisk.
+
+**Transaktionerna från en CSV-fil sparas INTE i databasen.**
+
+Anledningen är att utvecklaren har byggt den korrekta funktionen för att spara *en enskild* transaktion (som används när du matar in manuellt), men har **missat att koppla på denna funktion i logiken för fil-import.**
+
+### Kritisk Analys: Exakt Varför CSV-Importen Misslyckas
+
+När du laddar upp en CSV-fil händer följande i koden:
+
+1.  **Filen Läses Korrekt:** Frontend-koden läser och tolkar din CSV-fil korrekt. Den skapar en lista med transaktionsobjekt i webbläsarens minne.
+2.  **Det Kritiska Misstaget:** Koden tar sedan denna lista och anropar en funktion som **endast uppdaterar den lokala listan i appens minne (Zustand-store).** Den gör **aldrig** det nödvändiga steget att loopa igenom listan och anropa API:et för varje enskild transaktion för att spara den i SQL-databasen.
+3.  **Resultat:** Du ser transaktionerna på skärmen direkt efter importen (eftersom den lokala listan är uppdaterad), men så fort du laddar om sidan är de borta, eftersom de aldrig blev permanent sparade på servern.
+
+Detta är ett klassiskt misstag där en ny, korrekt funktion (`createTransaction`) har skapats, men man har glömt att ersätta den gamla, felaktiga logiken på alla ställen där den används.
+
+### Nytt, Fokuserat Uppdrag till Utvecklaren
+
+**Mål:** Bygg om logiken för CSV-import så att den loopar igenom alla transaktioner från filen och anropar den befintliga `createTransaction`-funktionen för att spara varje transaktion individuellt i SQL-databasen.
+
+-----
+
+#### Exakt Action Plan:
+
+**Fokus: Filen som hanterar CSV-import (t.ex. `ImportTransactions.tsx` eller liknande i `client/`-katalogen).**
+
+**Steg 1: Hitta den Felaktiga Funktionen**
+Leta upp funktionen som anropas efter att CSV-filen har blivit bearbetad. Den heter troligtvis något i stil med `handleFileUpload`, `onData`, eller `handleImport`.
+
+**Steg 2: Ta Bort den Felaktiga Koden**
+Den nuvarande funktionen gör troligtvis bara en enda sak:
+
+```typescript
+// NUVARANDE FELAKTIG KOD SOM MÅSTE BORT:
+const handleImport = (parsedTransactions) => {
+  // Uppdaterar bara den lokala listan, skickar inget till servern.
+  addTransactionsToStore(parsedTransactions); 
+};
+```
+
+**Denna logik är ofullständig och måste ersättas helt.**
+
+**Steg 3: Implementera den Korrekta API-logiken**
+Den nya funktionen måste vara `async` och innehålla en loop.
+
+```typescript
+// NY, KORREKT KOD ATT IMPLEMENTERA:
+import { useAppStore } from '...'; 
+
+const handleImport = async (parsedTransactions) => {
+  // Hämta den korrekta "skapa"-funktionen från er centrala store
+  const { createTransaction } = useAppStore.getState(); 
+  
+  // Informera användaren att en import pågår (visa en spinner/laddningsindikator)
+
+  try {
+    // Loopa igenom varje transaktion från filen
+    for (const transactionData of parsedTransactions) {
+      // Anropa funktionen som skickar datan till backend/SQL för VARJE transaktion
+      await createTransaction(transactionData); 
+    }
+    
+    // Meddela användaren att importen är klar och lyckades
+
+  } catch (error) {
+    console.error("Importen misslyckades för en eller flera transaktioner:", error);
+    // Visa ett tydligt felmeddelande för användaren
+  } finally {
+    // Dölj laddningsindikatorn
+  }
+};
+```
+
+När denna ändring är gjord kommer CSV-importen äntligen att fungera som den ska. Varje transaktion kommer att sparas permanent, och hela systemet blir därmed mycket mer användbart och pålitligt.

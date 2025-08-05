@@ -940,11 +940,11 @@ export const TransactionImportEnhanced: React.FC = () => {
           addMobileDebugLog(`🎯 Categories found: ${sampleCategories.join(', ')}`);
         }
         
-        importAndReconcileFile(parseResult.cleanCsv, accountId);
+        await importAndReconcileFile(parseResult.cleanCsv, accountId);
       } catch (error) {
         console.warn(`🔍 [IMPORT] Smart parser failed, using original CSV:`, error);
         addMobileDebugLog(`⚠️ Smart parser failed: ${error}`);
-        importAndReconcileFile(csvContent, accountId);
+        await importAndReconcileFile(csvContent, accountId);
       }
       console.log(`🚀 [IMPORT] importAndReconcileFile call completed for account: ${accountName}`);
       

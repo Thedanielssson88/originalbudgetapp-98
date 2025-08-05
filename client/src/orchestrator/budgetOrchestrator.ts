@@ -12,7 +12,7 @@ import { simpleGoogleDriveService } from '../services/simpleGoogleDriveService';
 import { monthlyBudgetService } from '../services/monthlyBudgetService';
 
 // SMART MERGE FUNCTION - The definitive solution to duplicate and lost changes
-export function importAndReconcileFile(csvContent: string, accountId: string): void {
+export async function importAndReconcileFile(csvContent: string, accountId: string): Promise<void> {
   console.log(`🚨 ORCHESTRATOR FUNCTION CALLED - accountId: ${accountId}`);
   addMobileDebugLog(`🚨 ORCHESTRATOR FUNCTION CALLED for ${accountId}`);
   console.log(`[ORCHESTRATOR] 🔥 Smart merge starting for account ${accountId}`);
@@ -267,6 +267,52 @@ export function importAndReconcileFile(csvContent: string, accountId: string): v
   // Update centralized storage
   state.budgetState.allTransactions = transactionsForCentralStorage;
   console.log(`[ORCHESTRATOR] ✅ Updated centralized storage with ${state.budgetState.allTransactions.length} transactions`);
+  
+  // 8.2. CRITICAL FIX: Save transactions to PostgreSQL database
+  console.log(`[ORCHESTRATOR] 💾 Saving ${finalTransactionList.length} transactions to PostgreSQL database...`);
+  addMobileDebugLog(`💾 Saving ${finalTransactionList.length} transactions to database...`);
+  
+  try {
+    // Import the API store to access createTransaction function
+    const { apiStore } = await import('../store/apiStore');
+    
+    for (const transaction of finalTransactionList) {
+      // Convert ImportedTransaction to the format expected by the database
+      const dbTransaction = {
+        accountId: transaction.accountId,
+        date: transaction.date,
+        amount: transaction.amount,
+        balanceAfter: transaction.balanceAfter || 0,
+        description: transaction.description,
+        userDescription: transaction.userDescription || '',
+        bankCategory: transaction.bankCategory || '',
+        bankSubCategory: transaction.bankSubCategory || '',
+        type: transaction.type || 'Transaction',
+        status: transaction.status || 'yellow',
+        linkedTransactionId: transaction.linkedTransactionId || null,
+        correctedAmount: transaction.correctedAmount || null,
+        isManuallyChanged: transaction.isManuallyChanged || false,
+        appCategoryId: transaction.appCategoryId || null,
+        appSubCategoryId: transaction.appSubCategoryId || null,
+        userId: 'dev-user-123' // Mock user ID for development
+      };
+      
+      try {
+        await apiStore.createTransaction(dbTransaction);
+        console.log(`[ORCHESTRATOR] ✅ Saved transaction to DB: ${transaction.description} (${transaction.amount} kr)`);
+      } catch (error) {
+        console.error(`[ORCHESTRATOR] ❌ Failed to save transaction to DB: ${transaction.description}`, error);
+        addMobileDebugLog(`❌ DB save failed: ${transaction.description}`);
+      }
+    }
+    
+    console.log(`[ORCHESTRATOR] ✅ Successfully saved all ${finalTransactionList.length} transactions to PostgreSQL`);
+    addMobileDebugLog(`✅ All ${finalTransactionList.length} transactions saved to database!`);
+    
+  } catch (error) {
+    console.error(`[ORCHESTRATOR] ❌ Critical error saving transactions to database:`, error);
+    addMobileDebugLog(`❌ Critical DB save error: ${error}`);
+  }
   
   // 8.5. Automatic transfer matching for InternalTransfer transactions
   performAutomaticTransferMatching();
