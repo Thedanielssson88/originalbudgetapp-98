@@ -9,12 +9,12 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { BudgetItem, Account } from '../types/budget';
 import { useHuvudkategorier, useUnderkategorier } from '../hooks/useCategories';
+import { useAccounts } from '../hooks/useAccounts';
 
 interface AddBudgetItemDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (item: BudgetItem) => void;
-  accounts: Account[];
   type: 'cost' | 'savings';
 }
 
@@ -22,12 +22,12 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
   isOpen, 
   onClose, 
   onSave, 
-  accounts,
   type 
 }) => {
-  // Fetch categories from SQL database
+  // Fetch data from SQL database
   const { data: huvudkategorier = [], isLoading: isLoadingHuvud } = useHuvudkategorier();
   const { data: underkategorier = [], isLoading: isLoadingUnder } = useUnderkategorier();
+  const { data: accounts = [], isLoading: isLoadingAccounts } = useAccounts();
 
   const [formData, setFormData] = useState({
     mainCategoryId: '',
@@ -307,11 +307,15 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
               </SelectTrigger>
               <SelectContent className="bg-popover border border-border shadow-lg z-50">
                 <SelectItem value="none">Inget konto</SelectItem>
-                {accounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.name}
-                  </SelectItem>
-                ))}
+                {isLoadingAccounts ? (
+                  <SelectItem value="loading" disabled>Laddar...</SelectItem>
+                ) : (
+                  accounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
