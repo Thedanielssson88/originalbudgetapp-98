@@ -1399,9 +1399,9 @@ export const TransactionImportEnhanced: React.FC = () => {
     return false; // No unique match found
   };
 
-  // Apply all rules to filtered transactions
+  // Apply all rules to filtered transactions - use PostgreSQL rules directly instead of mapped rules
   const applyRulesToFilteredTransactions = () => {
-    console.log(`🚀 [APPLY RULES] Starting with ${categoryRules.length} PostgreSQL rules and ${filteredTransactions.length} transactions`);
+    console.log(`🚀 [APPLY RULES] Starting with ${postgresqlRules.length} PostgreSQL rules and ${filteredTransactions.length} transactions`);
     let updatedCount = 0;
     let autoMatchedCount = 0;
     let autoApprovedCount = 0;
@@ -1409,8 +1409,8 @@ export const TransactionImportEnhanced: React.FC = () => {
     filteredTransactions.forEach(transaction => {
       console.log(`🔍 [APPLY RULES] Processing transaction: "${transaction.description}" (${transaction.amount} kr)`);
       
-      // Check each PostgreSQL rule for ALL filtered transactions
-      for (const rule of categoryRules) {
+      // Check each PostgreSQL rule directly
+      for (const rule of postgresqlRules) {
         // Check if rule is active (handle both string and boolean)
         const isActive = rule.isActive === 'true' || rule.isActive === true;
         if (!isActive) {
@@ -1435,7 +1435,7 @@ export const TransactionImportEnhanced: React.FC = () => {
           }
         }
         
-        // New PostgreSQL rule structure - check for exact bank category matching
+        // PostgreSQL rule structure - check for exact bank category matching
         if (rule.bankCategory && rule.bankSubCategory) {
           // Exact bank category + subcategory match
           if (transaction.bankCategory === rule.bankCategory && 
@@ -2152,18 +2152,18 @@ export const TransactionImportEnhanced: React.FC = () => {
             </Button>
             <Button
               onClick={() => {
-                console.log(`🔍 [APPLY RULES] Button clicked - categoryRules: ${categoryRules.length}, filteredTransactions: ${filteredTransactions.length}`);
-                console.log(`🔍 [APPLY RULES] Rules:`, categoryRules);
+                console.log(`🔍 [APPLY RULES] Button clicked - postgresqlRules: ${postgresqlRules.length}, filteredTransactions: ${filteredTransactions.length}`);
+                console.log(`🔍 [APPLY RULES] PostgreSQL rules:`, postgresqlRules);
                 console.log(`🔍 [APPLY RULES] PostgreSQL rules loading:`, rulesLoading);
                 applyRulesToFilteredTransactions();
               }}
-              disabled={categoryRules.length === 0 || filteredTransactions.length === 0}
+              disabled={postgresqlRules.length === 0 || filteredTransactions.length === 0}
               size="sm"
               variant="secondary"
               className="text-xs sm:text-sm"
             >
               <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-              Applicera regler på filtrerade transaktioner ({categoryRules.length} regler)
+              Applicera regler på filtrerade transaktioner ({postgresqlRules.length} regler)
             </Button>
           </div>
         </div>
