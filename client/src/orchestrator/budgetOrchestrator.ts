@@ -2417,6 +2417,12 @@ export function getCsvMapping(fileFingerprint: string): CsvMapping | undefined {
 // ===== ACCOUNT HELPER FUNCTIONS =====
 
 export function getAccountNameById(accountId: string): string {
+  // Safety check: ensure accounts array exists
+  if (!state.budgetState.accounts || !Array.isArray(state.budgetState.accounts)) {
+    console.warn(`[ORCHESTRATOR] getAccountNameById called but accounts not loaded yet, returning accountId: ${accountId}`);
+    return accountId;
+  }
+  
   // First check if the accountId is already a name (like "Bil")
   const accountByName = state.budgetState.accounts.find(acc => acc.name === accountId);
   if (accountByName) {
