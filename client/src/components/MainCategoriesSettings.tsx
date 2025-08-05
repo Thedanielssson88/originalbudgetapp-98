@@ -19,10 +19,11 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
   
   console.log('🔍 Migration completed status:', migrationCompleted);
   
-  // If migration is completed, use the UUID-based category manager
+  // If migration is completed, check if UUID database has data, otherwise show migration button
   if (migrationCompleted) {
-    console.log('✅ Using UUID Category Manager');
-    return <UuidCategoryManager />;
+    console.log('✅ Migration marked complete, checking UUID database...');
+    // For now, always show localStorage system until we verify UUID data exists
+    // return <UuidCategoryManager />;
   }
   
   // Otherwise use the legacy localStorage-based system
@@ -41,8 +42,36 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
   const [editingSubcategoryValue, setEditingSubcategoryValue] = useState('');
   const [migrationInProgress, setMigrationInProgress] = useState(false);
   
-  // Always show migration button for legacy system
+  // Always show migration button for legacy system or when categories are empty
   const shouldShowMigrationButton = true;
+  
+  // Reset migration flag on component mount to allow re-migration
+  React.useEffect(() => {
+    localStorage.removeItem('categoryMigrationCompleted');
+  }, []);
+  
+  // If categories are empty, restore them from the predefined list
+  React.useEffect(() => {
+    if (categories.length === 0) {
+      const defaultCategories = ["Transport", "Barn", "Mat & dryck", "Hushåll", "Hälsa", "Nöje, Fritid & Media", "Inkomster", "Övrigt"];
+      const defaultSubcategories = {
+        "Transport": ["Bränsle", "Kollektivtrafik", "Bil service", "Parkering"],
+        "Barn": ["Barnomsorg", "Leksaker", "Barnkläder", "Barnaktiviteter"],
+        "Mat & dryck": ["Livsmedel", "Restaurang", "Kaffe", "Takeaway", "Godis", "Alkohol"],
+        "Hushåll": ["Hyra", "El", "Internet", "Försäkring", "Städning", "Reparationer", "Möbler"],
+        "Hälsa": ["Läkare", "Medicin", "Tandläkare"],
+        "Nöje, Fritid & Media": ["Bio", "Streaming", "Böcker", "Spel", "Gym", "Hobbies"],
+        "Inkomster": ["Lön", "Bonus", "Återbetalning"],
+        "Övrigt": ["Gåvor", "Välgörenhet", "Övrigt"]
+      };
+      
+      console.log('🔄 Restoring default categories...');
+      setCategories(defaultCategories);
+      setMainCategories(defaultCategories);
+      setSubcategories(defaultSubcategories);
+      set(StorageKey.SUBCATEGORIES, defaultSubcategories);
+    }
+  }, [categories.length]);
 
   const handleCompleteUuidMigration = async () => {
     setMigrationInProgress(true);
@@ -53,16 +82,41 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
       
       console.log('🧹 Cleared old migration flags, starting fresh migration...');
       
-      // First restore any accidentally renamed categories
-      const currentCategories = [...categories];
-      const transportIndex = currentCategories.findIndex(cat => cat.includes('Transport'));
-      if (transportIndex !== -1 && currentCategories[transportIndex] !== 'Transport') {
-        currentCategories[transportIndex] = 'Transport';
-        setCategories(currentCategories);
-        setMainCategories(currentCategories);
+      // First populate database with current categories
+      const currentCategories = categories.length > 0 ? categories : ["Transport", "Barn", "Mat & dryck", "Hushåll", "Hälsa", "Nöje, Fritid & Media", "Inkomster", "Övrigt"];
+      const currentSubcategories = Object.keys(subcategories).length > 0 ? subcategories : {
+        "Transport": ["Bränsle", "Kollektivtrafik", "Bil service", "Parkering"],
+        "Barn": ["Barnomsorg", "Leksaker", "Barnkläder", "Barnaktiviteter"],
+        "Mat & dryck": ["Livsmedel", "Restaurang", "Kaffe", "Takeaway", "Godis", "Alkohol"],
+        "Hushåll": ["Hyra", "El", "Internet", "Försäkring", "Städning", "Reparationer", "Möbler"],
+        "Hälsa": ["Läkare", "Medicin", "Tandläkare"],
+        "Nöje, Fritid & Media": ["Bio", "Streaming", "Böcker", "Spel", "Gym", "Hobbies"],
+        "Inkomster": ["Lön", "Bonus", "Återbetalning"],
+        "Övrigt": ["Gåvor", "Välgörenhet", "Övrigt"]
+      };
+      
+      // Populate database first
+      const migrateResponse = await fetch('/api/migrate-categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mainCategories: currentCategories,
+          subcategories: currentSubcategories
+        })
+      });
+      
+      if (!migrateResponse.ok) {
+        throw new Error('Failed to populate database');
       }
       
-      await forceCompleteMigration();
+      const migrationData = await migrateResponse.json();
+      console.log('✅ Database populated:', migrationData);
+      
+      // Save mapping and mark complete
+      if (migrationData.categoryMapping) {
+        set(StorageKey.CATEGORY_MIGRATION_MAPPING, migrationData.categoryMapping);
+      }
+      set(StorageKey.CATEGORY_MIGRATION_COMPLETED, new Date().toISOString());
       
       // Force page reload to switch to UUID system
       window.location.reload();
