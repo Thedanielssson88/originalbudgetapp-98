@@ -13,11 +13,11 @@ export function useApiStore() {
       forceUpdate();
     };
     
-    subscribeToStore(updateCallback);
+    subscribeToStore();
     
     // Unsubscribe on cleanup
     return () => {
-      unsubscribeFromStore(updateCallback);
+      unsubscribeFromStore();
     };
   }, []);
   

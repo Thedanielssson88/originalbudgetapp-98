@@ -70,7 +70,7 @@ export function findBankBalanceForMonth(
   console.log(`🔍 [BANK BALANCE] Found bank balance for ${accountName}: ${latestTransaction.balanceAfter} kr from transaction on ${latestTransaction.date} (for month ${monthKey})`);
   
   return {
-    balance: latestTransaction.balanceAfter,
+    balance: latestTransaction.balanceAfter!,
     date: latestTransaction.date
   };
 }
