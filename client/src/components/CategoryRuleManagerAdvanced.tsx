@@ -120,7 +120,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
     
     if (newRule.condition && newRule.action && hasConditionValue && hasMainCategory && hasSubCategory) {
       try {
-        console.log('🔍 [RULE MANAGER] Saving new manual rule to PostgreSQL:', {
+        const rulePayload = {
           ruleName: newRule.condition.type === 'categoryMatch' ? 
             (newRule.condition as any).bankCategory : 
             `${newRule.condition.type}: ${(newRule.condition as any).value}`,
@@ -128,26 +128,24 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
             (newRule.condition as any).bankCategory : 
             (newRule.condition as any).value,
           huvudkategoriId: newRule.action.appMainCategoryId,
-          underkategoriId: newRule.action.appSubCategoryId
-        });
+          underkategoriId: newRule.action.appSubCategoryId,
+          positiveTransactionType: newRule.action.positiveTransactionType || 'Transaction',
+          negativeTransactionType: newRule.action.negativeTransactionType || 'Transaction',
+          applicableAccountIds: JSON.stringify(newRule.action.applicableAccountIds || []),
+          priority: newRule.priority || 100,
+          isActive: 'true',
+          userId: 'dev-user-123'
+        };
+        
+        console.log('🔍 [RULE MANAGER] Saving new manual rule to PostgreSQL with all fields:', rulePayload);
 
-        // Save rule directly to PostgreSQL
+        // Save rule directly to PostgreSQL with all fields
         const response = await fetch('/api/category-rules', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            ruleName: newRule.condition.type === 'categoryMatch' ? 
-              (newRule.condition as any).bankCategory : 
-              `${newRule.condition.type}: ${(newRule.condition as any).value}`,
-            transactionName: newRule.condition.type === 'categoryMatch' ? 
-              (newRule.condition as any).bankCategory : 
-              (newRule.condition as any).value,
-            huvudkategoriId: newRule.action.appMainCategoryId,
-            underkategoriId: newRule.action.appSubCategoryId,
-            userId: 'dev-user-123'
-          }),
+          body: JSON.stringify(rulePayload),
         });
 
         if (!response.ok) {
