@@ -557,7 +557,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     }
     
     return transactions;
-  }, [budgetState?.allTransactions, refreshKey]);
+  }, [JSON.stringify(budgetState?.allTransactions?.slice(0, 1)), budgetState?.allTransactions?.length, refreshKey]);
   
   // CRITICAL DEBUG: Force log every render to understand why useMemo doesn't trigger
   console.log('[TX IMPORT] 🚨 RENDER DEBUG:');
