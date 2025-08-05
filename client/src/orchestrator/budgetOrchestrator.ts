@@ -1057,26 +1057,44 @@ export async function forceReloadTransactions(): Promise<void> {
     console.log(`✅ [ORCHESTRATOR] FORCE RELOAD: Found ${dbTransactions.length} transactions in database`);
     
     // Convert and store transactions
-    const convertedTransactions = (dbTransactions || []).map(tx => ({
-      id: tx.id,
-      accountId: tx.accountId,
-      date: tx.date,
-      amount: tx.amount,
-      balanceAfter: tx.balanceAfter || 0,
-      description: tx.description,
-      userDescription: tx.userDescription || '',
-      type: tx.type || 'Transaction',
-      status: tx.status || 'red',
-      linkedTransactionId: tx.linkedTransactionId,
-      correctedAmount: tx.correctedAmount,
-      isManuallyChanged: tx.isManuallyChanged === 'true',
-      appCategoryId: tx.appCategoryId,
-      appSubCategoryId: tx.appSubCategoryId,
-      bankCategory: tx.bankCategory || '',
-      bankSubCategory: tx.bankSubCategory || '',
-      createdAt: tx.createdAt || new Date().toISOString(),
-      fileSource: tx.fileSource || 'database'
-    }));
+    const convertedTransactions = (dbTransactions || []).map((tx, index) => {
+      // CRITICAL DEBUG: Log what we're converting for first few transactions
+      if (index < 3) {
+        console.log(`[ORCHESTRATOR] FORCE RELOAD DEBUG ${index}:`);
+        console.log(`  - TX ID: ${tx.id}`);
+        console.log(`  - TX amount from DB: ${tx.amount} (type: ${typeof tx.amount})`);
+        console.log(`  - TX description: "${tx.description}"`);
+      }
+      
+      const converted = {
+        id: tx.id,
+        accountId: tx.accountId,
+        date: tx.date,
+        amount: tx.amount,
+        balanceAfter: tx.balanceAfter || 0,
+        description: tx.description,
+        userDescription: tx.userDescription || '',
+        type: tx.type || 'Transaction',
+        status: tx.status || 'red',
+        linkedTransactionId: tx.linkedTransactionId,
+        correctedAmount: tx.correctedAmount,
+        isManuallyChanged: tx.isManuallyChanged === 'true',
+        appCategoryId: tx.appCategoryId,
+        appSubCategoryId: tx.appSubCategoryId,
+        bankCategory: tx.bankCategory || '',
+        bankSubCategory: tx.bankSubCategory || '',
+        createdAt: tx.createdAt || new Date().toISOString(),
+        fileSource: tx.fileSource || 'database'
+      };
+      
+      // CRITICAL DEBUG: Log converted result
+      if (index < 3) {
+        console.log(`  - Converted amount: ${converted.amount} (type: ${typeof converted.amount})`);
+        console.log(`  - Converted balanceAfter: ${converted.balanceAfter} (type: ${typeof converted.balanceAfter})`);
+      }
+      
+      return converted;
+    });
     
     // Store in centralized transaction storage
     state.budgetState.allTransactions = convertedTransactions;
@@ -1098,6 +1116,14 @@ export async function initializeApp(): Promise<void> {
   
   if (isInitialized) {
     console.log('[BudgetOrchestrator] ⚠️ App already initialized - but checking transactions...');
+    
+    // CRITICAL DEBUG: Check if transactions exist in state after initialization
+    const currentTxCount = state?.budgetState?.allTransactions?.length || 0;
+    console.log(`[BudgetOrchestrator] 📊 Current transaction count in state: ${currentTxCount}`);
+    if (currentTxCount === 0) {
+      console.log('[BudgetOrchestrator] 🔄 No transactions found, forcing reload...');
+      await forceReloadTransactions();
+    }
     addMobileDebugLog('[ORCHESTRATOR] ⚠️ App already initialized - but checking transactions...');
     
     // Even if initialized, always ensure transactions are loaded
@@ -1183,6 +1209,19 @@ export async function initializeApp(): Promise<void> {
 
 // Get current state
 export function getCurrentState() {
+  // CRITICAL DEBUG: Log current state transactions for debugging
+  const currentTransactionCount = state?.budgetState?.allTransactions?.length || 0;
+  if (currentTransactionCount === 0) {
+    console.warn(`[ORCHESTRATOR] getCurrentState() WARNING: allTransactions is empty or undefined`);
+    console.warn(`[ORCHESTRATOR] State structure:`, {
+      hasBudgetState: !!state?.budgetState,
+      hasAllTransactions: !!state?.budgetState?.allTransactions,
+      transactionCount: currentTransactionCount
+    });
+  } else {
+    console.log(`[ORCHESTRATOR] getCurrentState() returning state with ${currentTransactionCount} transactions`);
+  }
+  
   return state;
 }
 

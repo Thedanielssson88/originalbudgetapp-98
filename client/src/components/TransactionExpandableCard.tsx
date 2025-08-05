@@ -250,6 +250,8 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                      ) : (
                        <p className={`font-semibold text-sm ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                          {transaction.amount >= 0 ? '+' : ''}{formatOrenAsCurrency(Math.abs(transaction.amount), false)}
+                         {/* DEBUG: Show raw amount */}
+                         <span className="text-xs text-gray-400 ml-1">(raw: {transaction.amount})</span>
                        </p>
                      )}
                    </div>

@@ -415,6 +415,21 @@ export const TransactionImportEnhanced: React.FC = () => {
   // Get budget data from central state (SINGLE SOURCE OF TRUTH)
   const { budgetState } = useBudget();
   
+  // CRITICAL DEBUG: Check what budgetState contains
+  console.log('[TX IMPORT] 🔍 CRITICAL DEBUG - budgetState from useBudget():');
+  console.log('[TX IMPORT] 🔍 budgetState exists:', !!budgetState);
+  console.log('[TX IMPORT] 🔍 allTransactions exists:', !!budgetState?.allTransactions);
+  console.log('[TX IMPORT] 🔍 allTransactions length:', budgetState?.allTransactions?.length || 0);
+  if (budgetState?.allTransactions && budgetState.allTransactions.length > 0) {
+    const firstTx = budgetState.allTransactions[0];
+    console.log('[TX IMPORT] 🔍 First transaction:', {
+      id: firstTx.id,
+      description: firstTx.description,
+      amount: firstTx.amount,
+      type: typeof firstTx.amount
+    });
+  }
+  
   // Use API data for accounts instead of budgetState.accounts
   const { data: accountsFromAPI = [], isLoading: accountsLoading } = useAccounts();
   
@@ -475,27 +490,54 @@ export const TransactionImportEnhanced: React.FC = () => {
     console.log('[TX IMPORT] 🔄 Reading from centralized transaction storage');
     console.log('[TX IMPORT] 📊 Total transactions in centralized storage:', budgetState?.allTransactions?.length || 0);
     
+    // CRITICAL DEBUG: Check if budgetState exists and has valid amounts
+    if (budgetState?.allTransactions && budgetState.allTransactions.length > 0) {
+      const firstTx = budgetState.allTransactions[0];
+      console.log('[TX IMPORT] CRITICAL DEBUG - First transaction in budgetState:');
+      console.log(`  - ID: ${firstTx.id}`);
+      console.log(`  - Description: "${firstTx.description}"`);  
+      console.log(`  - Amount: ${firstTx.amount} (type: ${typeof firstTx.amount})`);
+      console.log(`  - BalanceAfter: ${firstTx.balanceAfter} (type: ${typeof firstTx.balanceAfter})`);
+    }
+    
     // Convert Transaction[] to ImportedTransaction[] format
-    const transactions = (budgetState?.allTransactions || []).map(t => ({
-      id: t.id,
-      accountId: t.accountId,
-      date: t.date,
-      amount: t.amount,
-      balanceAfter: t.balanceAfter,
-      description: t.description,
-      userDescription: t.userDescription,
-      bankCategory: t.bankCategory,  // CRITICAL FIX: Include bank category from centralized storage
-      bankSubCategory: t.bankSubCategory,  // CRITICAL FIX: Include bank subcategory from centralized storage
-      type: t.type as ImportedTransaction['type'],
-      status: t.status as ImportedTransaction['status'],
-      linkedTransactionId: t.linkedTransactionId,
-      correctedAmount: t.correctedAmount,
-      isManuallyChanged: t.isManuallyChanged,
-      appCategoryId: t.appCategoryId,
-      appSubCategoryId: t.appSubCategoryId,
-      importedAt: (t as any).importedAt || new Date().toISOString(),
-      fileSource: (t as any).fileSource || 'budgetState'
-    } as ImportedTransaction));
+    const transactions = (budgetState?.allTransactions || []).map((t, index) => {
+      // CRITICAL DEBUG: Log first few amounts to see conversion issue
+      if (index < 3) {
+        console.log(`[TX IMPORT] AMOUNT DEBUG ${index}: "${t.description}"`);
+        console.log(`  - Source amount: ${t.amount} (type: ${typeof t.amount})`);
+        console.log(`  - Source balanceAfter: ${t.balanceAfter} (type: ${typeof t.balanceAfter})`);
+      }
+      
+      const converted = {
+        id: t.id,
+        accountId: t.accountId,
+        date: t.date,
+        amount: t.amount,
+        balanceAfter: t.balanceAfter,
+        description: t.description,
+        userDescription: t.userDescription,
+        bankCategory: t.bankCategory,  // CRITICAL FIX: Include bank category from centralized storage
+        bankSubCategory: t.bankSubCategory,  // CRITICAL FIX: Include bank subcategory from centralized storage
+        type: t.type as ImportedTransaction['type'],
+        status: t.status as ImportedTransaction['status'],
+        linkedTransactionId: t.linkedTransactionId,
+        correctedAmount: t.correctedAmount,
+        isManuallyChanged: t.isManuallyChanged,
+        appCategoryId: t.appCategoryId,
+        appSubCategoryId: t.appSubCategoryId,
+        importedAt: (t as any).importedAt || new Date().toISOString(),
+        fileSource: (t as any).fileSource || 'budgetState'
+      } as ImportedTransaction;
+      
+      // CRITICAL DEBUG: Log converted result
+      if (index < 3) {
+        console.log(`  - Converted amount: ${converted.amount} (type: ${typeof converted.amount})`);
+        console.log(`  - Converted balanceAfter: ${converted.balanceAfter} (type: ${typeof converted.balanceAfter})`);
+      }
+      
+      return converted;
+    });
     
     console.log('[TX IMPORT] 📊 Converted transactions:', transactions.length);
     
