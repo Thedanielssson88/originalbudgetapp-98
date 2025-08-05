@@ -494,13 +494,22 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                   
                   <div className="space-y-1">
                     <div className="text-xs">
-                      <span className="font-medium">Bankkategori:</span> {rule.transactionName}
+                      <span className="font-medium">Bankhuvudkategori:</span> 
+                      <span className="ml-1 bg-blue-100 px-2 py-0.5 rounded text-blue-800">
+                        {rule.bankCategory || 'Alla Bankkategorier'}
+                      </span>
                     </div>
                     <div className="text-xs">
-                      <span className="font-medium">Huvudkategori:</span> {getHuvudkategoriName(rule.huvudkategoriId || '')}
+                      <span className="font-medium">Bankunderkategori:</span> 
+                      <span className="ml-1 bg-blue-100 px-2 py-0.5 rounded text-blue-800">
+                        {rule.bankSubCategory || 'Alla Bankunderkategorier'}
+                      </span>
+                    </div>
+                    <div className="text-xs border-t pt-1 mt-2">
+                      <span className="font-medium">App Huvudkategori:</span> {getHuvudkategoriName(rule.huvudkategoriId || '')}
                     </div>
                     <div className="text-xs">
-                      <span className="font-medium">Underkategori:</span> {getUnderkategoriName(rule.underkategoriId || '')}
+                      <span className="font-medium">App Underkategori:</span> {getUnderkategoriName(rule.underkategoriId || '')}
                     </div>
                     
                     {/* Transaction Types */}

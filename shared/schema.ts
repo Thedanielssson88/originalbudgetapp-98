@@ -69,6 +69,8 @@ export const categoryRules = pgTable('category_rules', {
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     ruleName: text('rule_name').notNull(),
     transactionName: text('transaction_name').notNull(),
+    bankCategory: text('bank_category'), // Optional - only for exact bank category matching rules
+    bankSubCategory: text('bank_sub_category'), // Optional - only for exact bank category matching rules
     huvudkategoriId: uuid('huvudkategori_id').references(() => huvudkategorier.id, { onDelete: 'cascade' }),
     underkategoriId: uuid('underkategori_id').references(() => underkategorier.id, { onDelete: 'cascade' }),
     // Additional fields for complete rule management
