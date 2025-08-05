@@ -63,6 +63,7 @@ import { UncategorizedBankCategories } from './UncategorizedBankCategories';
 import { CategorySelectionDialog } from './CategorySelectionDialog';
 import { useBudget } from '@/hooks/useBudget';
 import { useAccounts } from '@/hooks/useAccounts';
+import { useCategoryRules } from '@/hooks/useCategoryRules';
 import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping, linkAccountToBankTemplate, matchInternalTransfer } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState, setMainCategories, updateSelectedBudgetMonth } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
@@ -512,8 +513,27 @@ export const TransactionImportEnhanced: React.FC = () => {
   // Get subcategories from storage
   const [subcategoriesFromStorage, setSubcategoriesFromStorage] = useState<Record<string, string[]>>({});
   
-  // Read category rules directly from central state (no local state)
-  const categoryRules = categoryRulesFromState;
+  // Read category rules from PostgreSQL using the hook
+  const { data: postgresqlRules = [], isLoading: rulesLoading } = useCategoryRules();
+  
+  // Use PostgreSQL rules instead of local state rules
+  const categoryRules = postgresqlRules.map(rule => ({
+    id: rule.id,
+    priority: 100, // Default priority since PostgreSQL rules don't have this field yet
+    condition: {
+      type: 'categoryMatch' as const,
+      bankCategory: rule.transactionName || '',
+      bankSubCategory: '',
+      value: rule.transactionName || ''
+    },
+    action: {
+      appMainCategoryId: rule.huvudkategoriId || '',
+      appSubCategoryId: rule.underkategoriId || '',
+      positiveTransactionType: 'Transaction' as const,
+      negativeTransactionType: 'Transaction' as const,
+      applicableAccountIds: []
+    }
+  }));
 
   // Check if CSV contains transactions on/after 24th for balance correction
   const hasTransactionsOnOrAfter24th = useMemo(() => {
@@ -2169,14 +2189,19 @@ export const TransactionImportEnhanced: React.FC = () => {
               Rensa urval
             </Button>
             <Button
-              onClick={applyRulesToFilteredTransactions}
+              onClick={() => {
+                console.log(`🔍 [APPLY RULES] Button clicked - categoryRules: ${categoryRules.length}, filteredTransactions: ${filteredTransactions.length}`);
+                console.log(`🔍 [APPLY RULES] Rules:`, categoryRules);
+                console.log(`🔍 [APPLY RULES] PostgreSQL rules loading:`, rulesLoading);
+                applyRulesToFilteredTransactions();
+              }}
               disabled={categoryRules.length === 0 || filteredTransactions.length === 0}
               size="sm"
               variant="secondary"
               className="text-xs sm:text-sm"
             >
               <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-              Applicera regler på filtrerade transaktioner
+              Applicera regler på filtrerade transaktioner ({categoryRules.length} regler)
             </Button>
           </div>
         </div>
