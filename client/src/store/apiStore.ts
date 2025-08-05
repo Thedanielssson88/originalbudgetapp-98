@@ -2,6 +2,7 @@
 
 import type { 
   Account, 
+  FamilyMember,
   Huvudkategori, 
   Underkategori, 
   CategoryRule, 
@@ -15,6 +16,7 @@ interface ApiStore {
   
   // Core data from API
   accounts: Account[];
+  familyMembers: FamilyMember[];
   huvudkategorier: Huvudkategori[];
   underkategorier: Underkategori[];
   categoryRules: CategoryRule[];
@@ -27,9 +29,13 @@ interface ApiStore {
   
   // Actions
   initialize: () => Promise<void>;
-  createAccount: (account: { name: string; startBalance: number }) => Promise<void>;
+  createAccount: (account: { name: string; startBalance: number; assignedTo?: string }) => Promise<void>;
   updateAccount: (id: string, data: Partial<Account>) => Promise<void>;
   deleteAccount: (id: string) => Promise<void>;
+  
+  createFamilyMember: (data: { name: string; role?: string }) => Promise<void>;
+  updateFamilyMember: (id: string, data: { name?: string; role?: string }) => Promise<void>;
+  deleteFamilyMember: (id: string) => Promise<void>;
   
   createHuvudkategori: (data: { name: string; description?: string }) => Promise<void>;
   updateHuvudkategori: (id: string, data: { name?: string; description?: string }) => Promise<void>;
@@ -69,6 +75,7 @@ let store: ApiStore;
 const state = {
   isLoading: true,
   accounts: [] as Account[],
+  familyMembers: [] as FamilyMember[],
   huvudkategorier: [] as Huvudkategori[],
   underkategorier: [] as Underkategori[],
   categoryRules: [] as CategoryRule[],
@@ -89,6 +96,7 @@ function notifySubscribers() {
 store = {
   get isLoading() { return state.isLoading; },
   get accounts() { return state.accounts; },
+  get familyMembers() { return state.familyMembers; },
   get huvudkategorier() { return state.huvudkategorier; },
   get underkategorier() { return state.underkategorier; },
   get categoryRules() { return state.categoryRules; },
@@ -107,6 +115,7 @@ store = {
       
       // Update state with API data
       state.accounts = data.accounts || [];
+      state.familyMembers = data.familyMembers || [];
       state.huvudkategorier = data.huvudkategorier || [];
       state.underkategorier = data.underkategorier || [];
       state.categoryRules = data.categoryRules || [];
@@ -161,6 +170,35 @@ store = {
   async deleteAccount(id) {
     await apiRequest(`/api/accounts/${id}`, { method: 'DELETE' });
     state.accounts = state.accounts.filter(a => a.id !== id);
+    notifySubscribers();
+  },
+  
+  async createFamilyMember(data) {
+    const newMember = await apiRequest('/api/family-members', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    state.familyMembers.push(newMember);
+    notifySubscribers();
+  },
+  
+  async updateFamilyMember(id, data) {
+    const updated = await apiRequest(`/api/family-members/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const index = state.familyMembers.findIndex(f => f.id === id);
+    if (index !== -1) {
+      state.familyMembers[index] = updated;
+      notifySubscribers();
+    }
+  },
+  
+  async deleteFamilyMember(id) {
+    await apiRequest(`/api/family-members/${id}`, { method: 'DELETE' });
+    state.familyMembers = state.familyMembers.filter(f => f.id !== id);
     notifySubscribers();
   },
   

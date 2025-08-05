@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { MainCategoriesSettings } from "@/components/MainCategoriesSettings";
 import { PaydaySettings } from "@/components/PaydaySettings";
+import { UserManagement } from "@/components/UserManagement";
 import { useBudget } from "@/hooks/useBudget";
 import { getCurrentState, updateSelectedBudgetMonth } from "@/orchestrator/budgetOrchestrator";
 import { apiStore } from "@/store/apiStore";
@@ -600,48 +601,7 @@ Kontrollera att filen är en giltig JSON-fil som exporterats från denna app.`);
           </TabsContent>
 
           <TabsContent value="users" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Användarnamn
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <Label htmlFor="user1">Första användaren</Label>
-                    <Input
-                      id="user1"
-                      value={tempUserName1}
-                      onChange={(e) => setTempUserName1(e.target.value)}
-                      placeholder="Ange första användarens namn"
-                    />
-                  </div>
-                  <div className="space-y-3">
-                    <Label htmlFor="user2">Andra användaren</Label>
-                    <Input
-                      id="user2"
-                      value={tempUserName2}
-                      onChange={(e) => setTempUserName2(e.target.value)}
-                      placeholder="Ange andra användarens namn"
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex justify-end">
-                  <Button onClick={saveUserNames}>
-                    Spara användarnamn
-                  </Button>
-                </div>
-
-                <Alert>
-                  <AlertDescription>
-                    Aktuella namn: <strong>{userName1}</strong> och <strong>{userName2}</strong>
-                  </AlertDescription>
-                </Alert>
-              </CardContent>
-            </Card>
+            <UserManagement />
           </TabsContent>
 
           <TabsContent value="backup" className="space-y-6">

@@ -1,5 +1,6 @@
 import { 
   users, 
+  familyMembers,
   accounts,
   huvudkategorier,
   underkategorier,
@@ -8,6 +9,8 @@ import {
   monthlyBudgets,
   type User, 
   type InsertUser,
+  type FamilyMember,
+  type InsertFamilyMember,
   type Account,
   type InsertAccount,
   type Huvudkategori,
@@ -29,6 +32,13 @@ export interface IStorage {
   // User CRUD
   getUser(id: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  
+  // Family Member CRUD
+  getFamilyMembers(userId: string): Promise<FamilyMember[]>;
+  getFamilyMember(id: string): Promise<FamilyMember | undefined>;
+  createFamilyMember(member: InsertFamilyMember): Promise<FamilyMember>;
+  updateFamilyMember(id: string, member: Partial<InsertFamilyMember>): Promise<FamilyMember | undefined>;
+  deleteFamilyMember(id: string): Promise<boolean>;
   
   // Account CRUD
   getAccounts(userId: string): Promise<Account[]>;
@@ -104,17 +114,21 @@ export class MemStorage implements IStorage {
   // Bootstrap method
   async bootstrap(userId: string): Promise<{
     accounts: Account[];
+    familyMembers: FamilyMember[];
     huvudkategorier: Huvudkategori[];
     underkategorier: Underkategori[];
     categoryRules: CategoryRule[];
     transactions: Transaction[];
+    monthlyBudgets: MonthlyBudget[];
   }> {
     return {
       accounts: await this.getAccounts(userId),
+      familyMembers: await this.getFamilyMembers(userId),
       huvudkategorier: await this.getHuvudkategorier(userId),
       underkategorier: await this.getUnderkategorier(userId),
       categoryRules: await this.getCategoryRules(userId),
       transactions: await this.getTransactions(userId),
+      monthlyBudgets: await this.getMonthlyBudgets(userId),
     };
   }
 
