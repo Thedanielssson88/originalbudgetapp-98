@@ -617,11 +617,11 @@ const BudgetCalculator = () => {
         // Get the effective amount (corrected amount if available, otherwise original amount)
         const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
         
-        // FIXED LOGIC: Count ALL negative amounts as costs, regardless of transaction type
-        // This ensures that all expenses assigned to a Huvudkategori are included in "Faktiskt"
-        if (effectiveAmount < 0) {
+        // FIXED LOGIC: Only count transactions with type="Transaction" and negative amounts
+        // This matches the user's requirement to only include actual bank transactions, not expense claims etc.
+        if (t.type === 'Transaction' && effectiveAmount < 0) {
           const absoluteAmount = Math.abs(effectiveAmount);
-          console.log(`🔍 [DEBUG] Including transaction ${t.id}: ${effectiveAmount} -> ${absoluteAmount} (type: ${t.type})`);
+          console.log(`🔍 [DEBUG] Including Transaction ${t.id}: ${effectiveAmount} -> ${absoluteAmount} (type: ${t.type})`);
           return sum + absoluteAmount;
         }
         
@@ -642,9 +642,10 @@ const BudgetCalculator = () => {
     console.log(`🔍 [DEBUG] All period transactions (${(allPeriodTransactions || []).length}):`, (allPeriodTransactions || []).map(t => ({ id: t.id, amount: t.amount, categoryId: t.appCategoryId, description: t.description, date: t.date })));
     
     // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
-    // Filter for transactions belonging to this category and use effective amount for negative check
+    // Filter for transactions belonging to this category, with type="Transaction" and negative amounts
     const filtered = (allPeriodTransactions || []).filter((t: Transaction) => {
       if (t.appCategoryId !== categoryId) return false;
+      if (t.type !== 'Transaction') return false; // Only include bank transactions
       
       // Use effective amount (corrected amount if available, otherwise original amount)
       const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
