@@ -292,7 +292,7 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
       isManuallyChanged: transaction.isManuallyChanged ? 'true' : 'false', // Ensure proper string conversion
       appCategoryId: transaction.appCategoryId || null,
       appSubCategoryId: transaction.appSubCategoryId || null,
-      fileSource: transaction.fileSource || fileName
+      fileSource: transaction.fileSource || 'import'
     }));
 
     // Call the new synchronize endpoint
@@ -1561,9 +1561,9 @@ async function syncAccountsFromApiStore(): Promise<void> {
     console.log('[BudgetOrchestrator] 🔄 Syncing accounts from API store...');
     const { apiStore } = await import('../store/apiStore');
     
-    // Get accounts from API store and convert to orchestrator format
-    const apiAccounts = apiStore.accounts || [];
-    const orchestratorAccounts = apiAccounts.map((acc: any) => ({
+    // Get accounts from API store (use getAccounts() method)
+    const apiAccounts = await apiStore.getAccounts();
+    const orchestratorAccounts = (apiAccounts || []).map((acc: any) => ({
       id: acc.id,
       name: acc.name,
       startBalance: acc.balance || 0
@@ -1924,18 +1924,23 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
   runCalculationsAndUpdateState();
   
   // *** NEW: SAVE TO DATABASE ***
-  // Call API to persist the changes to PostgreSQL
-  apiStore.updateTransaction(transactionId, {
-    hoofdkategoriId: updates.appCategoryId,
-    underkategoriId: updates.appSubCategoryId,
-    type: updates.type,
-    status: updatedTransaction.status,
-    linkedTransactionId: updates.linkedTransactionId,
-    correctedAmount: updates.correctedAmount
-  }).then(() => {
-    console.log(`✅ [Orchestrator] Transaction ${transactionId} successfully saved to database`);
-  }).catch(error => {
-    console.error(`❌ [Orchestrator] Failed to save transaction ${transactionId} to database:`, error);
+  // Call API to persist the changes to PostgreSQL asynchronously
+  Promise.resolve().then(async () => {
+    try {
+      const { apiStore } = await import('../store/apiStore');
+      await apiStore.updateTransaction(transactionId, {
+        hoofdkategoriId: updates.appCategoryId,
+        underkategoriId: updates.appSubCategoryId,
+        type: updates.type,
+        status: updatedTransaction.status,
+        linkedTransactionId: updates.linkedTransactionId,
+        correctedAmount: updates.correctedAmount,
+        isManuallyChanged: String(updates.isManuallyChanged || true)
+      });
+      console.log(`✅ [Orchestrator] Transaction ${transactionId} successfully saved to database`);
+    } catch (error) {
+      console.error(`❌ [Orchestrator] Failed to save transaction ${transactionId} to database:`, error);
+    }
   });
   
   console.log(`✅ [Orchestrator] Transaction ${transactionId} updated successfully in centralized storage`);
