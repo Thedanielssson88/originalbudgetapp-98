@@ -1,6 +1,6 @@
 // Category Migration Service - Handles migration to UUID-based categories
 // Note: localStorage functions are deprecated - migration should use API data
-import { StorageKey, getDirectly, setDirectly } from './storageService';
+import { StorageKey, get, set, getDirectly, setDirectly } from './storageService';
 
 export interface MigrationResult {
   huvudkategorier: Array<{ id: string; name: string }>;
