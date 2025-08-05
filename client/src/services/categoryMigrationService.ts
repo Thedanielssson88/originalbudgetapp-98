@@ -172,6 +172,41 @@ export async function forceCompleteMigration(): Promise<void> {
   console.log('🚀 Force completing migration with existing UUID database...');
   
   try {
+    // First ensure we have the current categories in the database
+    const currentMainCategories = get<string[]>(StorageKey.MAIN_CATEGORIES) || [];
+    const currentSubcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
+    
+    console.log('📤 Sending current categories to database:', { currentMainCategories, currentSubcategories });
+    
+    // Populate database with current categories first
+    const migrateResponse = await fetch('/api/migrate-categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mainCategories: currentMainCategories,
+        subcategories: currentSubcategories
+      })
+    });
+    
+    if (!migrateResponse.ok) {
+      throw new Error('Failed to populate database with categories');
+    }
+    
+    const migrationData = await migrateResponse.json();
+    console.log('✅ Categories migrated to database:', migrationData);
+    
+    // Use the category mapping from the migration response
+    if (migrationData.categoryMapping) {
+      set(StorageKey.CATEGORY_MIGRATION_MAPPING, migrationData.categoryMapping);
+      console.log('📝 Saved category mapping:', migrationData.categoryMapping);
+    }
+    
+    // Mark migration as completed
+    set(StorageKey.CATEGORY_MIGRATION_COMPLETED, new Date().toISOString());
+    console.log('🎉 Migration completed successfully!');
+    
+    return;
+    
     // Fetch existing UUID categories from database
     const [huvudkategorierResponse, underkategorierResponse] = await Promise.all([
       fetch('/api/huvudkategorier'),

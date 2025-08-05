@@ -32,7 +32,19 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
   const handleCompleteUuidMigration = async () => {
     setMigrationInProgress(true);
     try {
+      // First restore any accidentally renamed categories
+      const currentCategories = [...categories];
+      const transportIndex = currentCategories.findIndex(cat => cat.includes('Transport'));
+      if (transportIndex !== -1 && currentCategories[transportIndex] !== 'Transport') {
+        currentCategories[transportIndex] = 'Transport';
+        setCategories(currentCategories);
+        setMainCategories(currentCategories);
+      }
+      
       await forceCompleteMigration();
+      
+      // Force page reload to switch to UUID system
+      window.location.reload();
     } catch (error) {
       console.error('Migration failed:', error);
       setMigrationInProgress(false);
