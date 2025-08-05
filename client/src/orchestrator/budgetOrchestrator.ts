@@ -1021,8 +1021,14 @@ async function triggerAutoBackup() {
   }
 }
 
-// Track initialization to prevent multiple calls
+// Track initialization to prevent multiple calls  
 let isInitialized = false;
+
+// NEW: Force reset initialization (for debugging)
+export function resetInitialization(): void {
+  console.log('🔄 [ORCHESTRATOR] Resetting initialization flag...');
+  isInitialized = false;
+}
 
 // NEW: Force reload transactions from database (for debugging)
 export async function forceReloadTransactions(): Promise<void> {
@@ -1075,8 +1081,17 @@ export async function initializeApp(): Promise<void> {
   addMobileDebugLog('[ORCHESTRATOR] 🚀 initializeApp() called!');
   
   if (isInitialized) {
-    console.log('[BudgetOrchestrator] ⚠️ App already initialized - skipping...');
-    addMobileDebugLog('[ORCHESTRATOR] ⚠️ App already initialized - skipping...');
+    console.log('[BudgetOrchestrator] ⚠️ App already initialized - but checking transactions...');
+    addMobileDebugLog('[ORCHESTRATOR] ⚠️ App already initialized - but checking transactions...');
+    
+    // Even if initialized, always ensure transactions are loaded
+    console.log(`🔍 [ORCHESTRATOR] Current transactions in state: ${state.budgetState.allTransactions.length}`);
+    if (state.budgetState.allTransactions.length === 0) {
+      console.log('⚠️ [ORCHESTRATOR] No transactions in state, force loading...');
+      await forceReloadTransactions();
+    } else {
+      console.log(`✅ [ORCHESTRATOR] Found ${state.budgetState.allTransactions.length} transactions in state`);
+    }
     return;
   }
   
