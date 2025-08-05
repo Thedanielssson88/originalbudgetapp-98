@@ -114,22 +114,12 @@ export function initializeStateFromStorage(): void {
 // Sync data from API store to budget state
 export function syncFromApiStore(): void {
   try {
-    // Sync accounts
-    state.budgetState.accounts = apiStore.accounts;
-    
-    // Sync categories
-    state.budgetState.mainCategories = apiStore.mainCategories;
-    
-    // Sync category rules
-    state.budgetState.categoryRules = apiStore.categoryRules;
-    
-    // Sync transactions
-    state.budgetState.allTransactions = apiStore.transactions;
-    
-    addMobileDebugLog(`[SYNC] Synced from API store - accounts: ${apiStore.accounts.length}, categories: ${apiStore.mainCategories.length}`);
+    // The ApiStore is now used for API operations only
+    // Data is synced directly from React Query hooks
+    addMobileDebugLog(`[SYNC] API Store is available for operations`);
   } catch (error) {
     console.error('[SYNC] Error syncing from API store:', error);
-    addMobileDebugLog(`[SYNC] 💥 Error: ${error}`);
+    addMobileDebugLog(`[SYNC] 💥 Error: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

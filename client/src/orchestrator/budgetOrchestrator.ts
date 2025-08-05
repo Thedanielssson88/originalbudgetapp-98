@@ -318,10 +318,84 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
     
   } catch (error) {
     console.error(`[ORCHESTRATOR] ❌ Critical error synchronizing transactions:`, error);
-    addMobileDebugLog(`❌ Sync error: ${error.message || error}`);
+    addMobileDebugLog(`❌ Sync error: ${error instanceof Error ? error.message : String(error)}`);
   }
   
-  // 8.5. Automatic transfer matching for InternalTransfer transactions
+  // 8.5. NEW: Automatic Account Balance Setting Based on Last Transaction Before 25th
+  console.log(`[ORCHESTRATOR] 💰 Setting account balances based on last transaction before 25th (payday)...`);
+  addMobileDebugLog(`💰 Setting account balances from payday logic...`);
+  
+  try {
+    // Group transactions by account and month
+    const transactionsByAccountMonth = finalTransactionList.reduce((acc, tx) => {
+      const date = new Date(tx.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const key = `${tx.accountId}_${monthKey}`;
+      
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+      acc[key].push(tx);
+      return acc;
+    }, {} as Record<string, typeof finalTransactionList>);
+    
+    // For each account-month group, find last transaction before 25th
+    for (const [key, transactions] of Object.entries(transactionsByAccountMonth)) {
+      const [accountId, monthKey] = key.split('_');
+      
+      // Filter transactions that are on or before the 24th
+      const transactionsBeforePayday = (transactions as typeof finalTransactionList).filter((tx) => {
+        const date = new Date(tx.date);
+        return date.getDate() <= 24;
+      });
+      
+      if (transactionsBeforePayday.length === 0) continue;
+      
+      // Sort by date to get the last one
+      const lastTransactionBeforePayday = transactionsBeforePayday.sort((a, b) => 
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      )[0];
+      
+      if (lastTransactionBeforePayday?.balanceAfter !== undefined) {
+        // Calculate next month
+        const [year, month] = monthKey.split('-').map(Number);
+        const nextMonth = month === 12 ? 1 : month + 1;
+        const nextYear = month === 12 ? year + 1 : year;
+        const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+        
+        console.log(`[ORCHESTRATOR] 💰 Account ${accountId}: Setting balance for ${nextMonthKey} to ${lastTransactionBeforePayday.balanceAfter / 100} kr (from transaction on ${lastTransactionBeforePayday.date})`);
+        addMobileDebugLog(`💰 ${accountId}: ${nextMonthKey} balance = ${(lastTransactionBeforePayday.balanceAfter / 100).toFixed(2)} kr`);
+        
+        // Create or get the next month data
+        if (!state.budgetState.historicalData[nextMonthKey]) {
+          const currentMonthData = getCurrentMonthData();
+          state.budgetState.historicalData[nextMonthKey] = { ...currentMonthData };
+        }
+        
+        const nextMonthData = state.budgetState.historicalData[nextMonthKey];
+        nextMonthData.accountBalances = nextMonthData.accountBalances || {};
+        nextMonthData.accountBalancesSet = nextMonthData.accountBalancesSet || {};
+        
+        // Get account name for the balance setting
+        const account = state.budgetState.accounts?.find(acc => acc.id === accountId);
+        const accountName = account?.name || accountId;
+        
+        nextMonthData.accountBalances[accountName] = lastTransactionBeforePayday.balanceAfter / 100; // Convert from öre to kronor
+        nextMonthData.accountBalancesSet[accountName] = true;
+        
+        console.log(`[ORCHESTRATOR] ✅ Updated ${accountName} balance for ${nextMonthKey}: ${lastTransactionBeforePayday.balanceAfter / 100} kr`);
+      }
+    }
+    
+    console.log(`[ORCHESTRATOR] ✅ Account balance setting complete`);
+    addMobileDebugLog(`✅ Account balance setting complete`);
+    
+  } catch (error) {
+    console.error(`[ORCHESTRATOR] ❌ Error setting account balances:`, error);
+    addMobileDebugLog(`❌ Error setting account balances: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  // 8.6. Automatic transfer matching for InternalTransfer transactions
   performAutomaticTransferMatching();
   
   // 9. Update account balances from saldo data using the SAME working logic as BudgetCalculator
@@ -1597,30 +1671,8 @@ export function setSelectedHistoricalMonth(monthKey: string): void {
 
 // ===== GLOBAL SETTINGS =====
 
-// Sync accounts from API store to orchestrator state
-async function syncAccountsFromApiStore(): Promise<void> {
-  try {
-    console.log('[BudgetOrchestrator] 🔄 Syncing accounts from API store...');
-    const { apiStore } = await import('../store/apiStore');
-    
-    // Get accounts from API store (use getAccounts() method)
-    const apiAccounts = await apiStore.getAccounts();
-    const orchestratorAccounts = (apiAccounts || []).map((acc: any) => ({
-      id: acc.id,
-      name: acc.name,
-      startBalance: acc.balance || 0
-    }));
-    
-    // Update orchestrator state with API store accounts  
-    state.budgetState.accounts = orchestratorAccounts;
-    
-    console.log('[BudgetOrchestrator] ✅ Synced accounts from API store:', orchestratorAccounts.length);
-    addMobileDebugLog(`[ORCHESTRATOR] ✅ Synced ${orchestratorAccounts.length} accounts from API store`);
-  } catch (error) {
-    console.error('[BudgetOrchestrator] ❌ Failed to sync accounts from API store:', error);
-    addMobileDebugLog('[ORCHESTRATOR] ❌ Failed to sync accounts from API store');
-  }
-}
+// Accounts are now synced via React Query hooks
+// This function is removed to prevent apiStore.getAccounts() error
 
 export function setAccounts(accounts: any[]): void {
   if (Array.isArray(accounts) && accounts.length > 0) {
