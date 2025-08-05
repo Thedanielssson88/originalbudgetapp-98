@@ -133,7 +133,7 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
                 <SelectValue placeholder="Välj huvudkategori" />
               </SelectTrigger>
               <SelectContent>
-                {huvudkategorier.map(category => (
+                {huvudkategorier.filter(category => category.id && category.id !== '').map(category => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.name}
                   </SelectItem>
@@ -216,7 +216,7 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
                 <SelectValue placeholder="Välj underkategori" />
               </SelectTrigger>
               <SelectContent>
-                {availableSubcategories.map(subcategory => (
+                {availableSubcategories.filter(subcategory => subcategory.id && subcategory.id !== '').map(subcategory => (
                   <SelectItem key={subcategory.id} value={subcategory.id}>
                     {subcategory.name}
                   </SelectItem>

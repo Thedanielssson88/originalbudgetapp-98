@@ -125,7 +125,7 @@ export const NewTransferForm: React.FC<NewTransferFormProps> = ({
                 <SelectValue placeholder="Välj konto att överföra från" />
               </SelectTrigger>
               <SelectContent>
-                {availableAccounts.map(account => (
+                {availableAccounts.filter(account => account.id && account.id !== '').map(account => (
                   <SelectItem key={account.id} value={account.id}>
                     {account.name}
                   </SelectItem>
@@ -141,7 +141,7 @@ export const NewTransferForm: React.FC<NewTransferFormProps> = ({
                 <SelectValue placeholder="Välj konto att överföra till" />
               </SelectTrigger>
               <SelectContent>
-                {availableAccounts.map(account => (
+                {availableAccounts.filter(account => account.id && account.id !== '').map(account => (
                   <SelectItem key={account.id} value={account.id}>
                     {account.name}
                   </SelectItem>

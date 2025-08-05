@@ -1721,18 +1721,34 @@ export const TransactionImportEnhanced: React.FC = () => {
                           size="icon"
                           onClick={() => {
                             const bankId = account.bankTemplateId || selectedBanks[account.id];
-                            if (bankId) {
-                              setCurrentMappingBankId(bankId);
-                              setShowColumnMappingDialog(true);
-                            } else {
+                            if (!bankId) {
                               toast({
                                 title: "Välj bank först",
                                 description: "Du måste välja en bank innan du kan konfigurera kolumnmappning.",
                                 variant: "destructive",
                               });
+                              return;
                             }
+                            
+                            // Check if there's uploaded file data for this account
+                            const hasFileData = rawCsvData[account.id]?.headers && rawCsvData[account.id]?.data;
+                            if (!hasFileData) {
+                              toast({
+                                title: "Ladda upp fil först",
+                                description: "Du måste först ladda upp en CSV/XLSX-fil för att kunna konfigurera kolumnmappning.",
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+                            
+                            // Set file data for mapping dialog
+                            setFileColumnsForMapping(rawCsvData[account.id].headers);
+                            setSampleDataForMapping(rawCsvData[account.id].data.slice(0, 3));
+                            setCurrentMappingBankId(bankId);
+                            setShowColumnMappingDialog(true);
                           }}
-                          title="Konfigurera kolumnmappning"
+                          title="Konfigurera kolumnmappning (kräver uppladdad fil)"
+                          disabled={!rawCsvData[account.id]?.headers}
                         >
                           <Settings2 className="w-4 h-4" />
                         </Button>
