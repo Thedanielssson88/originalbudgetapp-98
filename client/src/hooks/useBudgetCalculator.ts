@@ -1,10 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useBudget } from './useBudget';
+import { useAccounts } from './useAccounts';
 import { AccountDataRow } from '@/components/AccountDataTable';
 
 // Custom hook to handle all the complex state and effects for BudgetCalculator
 export const useBudgetCalculator = () => {
   const { isLoading, budgetState, calculated } = useBudget();
+  
+  // Use API accounts instead of budgetState.accounts
+  const { data: accountsFromAPI = [] } = useAccounts();
   
   // ALL STATE HOOKS
   const [isEditingCategories, setIsEditingCategories] = useState<boolean>(false);
@@ -128,7 +132,7 @@ export const useBudgetCalculator = () => {
   // Derived state (only when not loading)
   const { historicalData: appHistoricalData, selectedMonthKey } = budgetState;
   const currentMonthData = appHistoricalData[selectedMonthKey] || {};
-  const accounts = budgetState.accounts.map(acc => acc.name);
+  const accounts = accountsFromAPI.map(acc => acc.name);
   
   // Centralized month list logic for consistent dropdown behavior
   const availableMonths = useMemo(() => {

@@ -13,6 +13,7 @@ import { MainCategoriesSettings } from "@/components/MainCategoriesSettings";
 import { PaydaySettings } from "@/components/PaydaySettings";
 import { UserManagement } from "@/components/UserManagement";
 import { useBudget } from "@/hooks/useBudget";
+import { useAccounts } from "@/hooks/useAccounts";
 import { getCurrentState, updateSelectedBudgetMonth } from "@/orchestrator/budgetOrchestrator";
 import { apiStore } from "@/store/apiStore";
 import { simpleGoogleDriveService } from "@/services/simpleGoogleDriveService";
@@ -20,6 +21,9 @@ import { Calendar, User, Shield, Database, Settings, DollarSign, FolderOpen, Che
 
 const SettingsPage = () => {
   const { budgetState } = useBudget();
+  
+  // Use API accounts instead of budgetState.accounts
+  const { data: accountsFromAPI = [] } = useAccounts();
   const [currentPayday, setCurrentPayday] = useState(25);
 
   // Month navigation functions
@@ -49,8 +53,8 @@ const SettingsPage = () => {
   const [tempUserName1, setTempUserName1] = useState('Andreas');
   const [tempUserName2, setTempUserName2] = useState('Susanna');
   
-  // Account management states - get from central state
-  const accounts = budgetState.accounts || [];
+  // Account management states - get from API instead of central state
+  const accounts = accountsFromAPI || [];
   const [newAccountName, setNewAccountName] = useState('');
   
   // Budget template states
