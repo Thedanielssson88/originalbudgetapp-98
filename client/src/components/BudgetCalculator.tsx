@@ -605,38 +605,42 @@ const BudgetCalculator = () => {
     // DEBUG: Log all transaction data to understand the structure
     console.log(`🔍 [DEBUG] calculateActualAmountForCategory for categoryId: ${categoryId}`);
     console.log(`🔍 [DEBUG] Total transactions in period:`, allPeriodTransactions.length);
-    console.log(`🔍 [DEBUG] All transactions sample:`, allPeriodTransactions.slice(0, 3));
     
     // CRITICAL DEBUG: Check what category we're looking for specifically
     const categoryName = resolveHuvudkategoriName(categoryId);
-    console.log(`🔍 [DEBUG] *** TRANSPORT CATEGORY DEBUG ***`);
+    console.log(`🔍 [DEBUG] *** CATEGORY CALCULATION DEBUG ***`);
     console.log(`🔍 [DEBUG] Looking for categoryId: ${categoryId}`);
     console.log(`🔍 [DEBUG] Category name: ${categoryName}`);
     console.log(`🔍 [DEBUG] Is this Transport? ${categoryName === 'Transport'}`);
     console.log(`🔍 [DEBUG] Transport UUID check: ${categoryId === '4f884437-16c1-4893-b3a6-1320c7c2ada8'}`);
-    console.log(`🔍 [DEBUG] *** END TRANSPORT DEBUG ***`);
     
-    // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
+    // CRITICAL FIX: Find all subcategories that belong to this huvudkategori
+    const relatedSubcategories = underkategorier.filter(sub => sub.huvudkategoriId === categoryId);
+    const subcategoryIds = relatedSubcategories.map(sub => sub.id);
+    
+    console.log(`🔍 [DEBUG] Found ${relatedSubcategories.length} subcategories for category ${categoryName}:`, 
+      relatedSubcategories.map(sub => ({ id: sub.id, name: sub.name })));
+    console.log(`🔍 [DEBUG] Subcategory IDs:`, subcategoryIds);
+    
+    // FIXED LOGIC: Look for transactions assigned to EITHER the main category OR any of its subcategories
     const matchingTransactions = (allPeriodTransactions || []).filter((t: Transaction) => {
-      return t.appCategoryId === categoryId;
+      const matchesMainCategory = t.appCategoryId === categoryId;
+      const matchesSubcategory = t.appSubCategoryId && subcategoryIds.includes(t.appSubCategoryId);
+      
+      return matchesMainCategory || matchesSubcategory;
     });
     
-    console.log(`🔍 [DEBUG] Found ${matchingTransactions.length} transactions matching categoryId: ${categoryId}`);
-    
-    // CRITICAL DEBUG: Show ALL transaction categoryIds to identify mismatches
-    const uniqueCategoryIds = [...new Set(allPeriodTransactions.map(t => t.appCategoryId))];
-    console.log(`🔍 [DEBUG] All unique appCategoryIds in transactions:`, uniqueCategoryIds);
-    console.log(`🔍 [DEBUG] Looking for categoryId:`, categoryId);
-    console.log(`🔍 [DEBUG] CategoryId match check:`, uniqueCategoryIds.includes(categoryId));
+    console.log(`🔍 [DEBUG] Found ${matchingTransactions.length} transactions matching category or subcategories`);
     
     if (matchingTransactions.length > 0) {
-      console.log(`🔍 [DEBUG] Sample matching transactions:`, matchingTransactions.slice(0, 3).map(t => ({
+      console.log(`🔍 [DEBUG] Sample matching transactions:`, matchingTransactions.slice(0, 5).map(t => ({
         id: t.id,
         amount: t.amount,
         correctedAmount: t.correctedAmount,
         type: t.type,
         description: t.description,
-        appCategoryId: t.appCategoryId
+        appCategoryId: t.appCategoryId,
+        appSubCategoryId: t.appSubCategoryId
       })));
     }
     
@@ -654,14 +658,14 @@ const BudgetCalculator = () => {
         }
         
         // Skip positive amounts (these are income/transfers, not costs)
-        console.log(`🔍 [DEBUG] Skipping positive transaction ${t.id}: ${effectiveAmount} (type: ${t.type})`);
+        console.log(`🔍 [DEBUG] Skipping transaction ${t.id}: ${effectiveAmount} (type: ${t.type}, not negative cost)`);
         return sum;
       }, 0);
     
-    console.log(`🔍 [DEBUG] ✅ Final calculated total for category ${categoryId}: ${total} from ${matchingTransactions.length} transactions`);
+    console.log(`🔍 [DEBUG] ✅ Final calculated total for category ${categoryName} (${categoryId}): ${total} from ${matchingTransactions.length} transactions`);
     
     return total;
-  }, [activeContent.transactionsForPeriod, resolveHuvudkategoriName]);
+  }, [activeContent.transactionsForPeriod, resolveHuvudkategoriName, underkategorier]);
 
   const getTransactionsForCategory = (categoryId: string): Transaction[] => {
     // FIXED: Use correctly filtered transactions according to PaydaySettings
