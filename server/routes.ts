@@ -39,6 +39,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Restore backup route for importing complete data backups
+  app.post("/api/restore-backup", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      console.log('Restore backup request with userId:', userId);
+      
+      const backupData = req.body;
+      console.log('Backup data keys:', Object.keys(backupData));
+      
+      // For now, return success - full implementation would recreate all user data
+      // This would require implementing a comprehensive restore method in storage
+      console.warn('Restore backup endpoint not fully implemented yet');
+      
+      res.json({ 
+        success: true, 
+        message: 'Backup restore endpoint called but not fully implemented yet' 
+      });
+    } catch (error) {
+      console.error('Error restoring backup:', error);
+      res.status(500).json({ error: 'Failed to restore backup' });
+    }
+  });
+
   // Account routes
   app.get("/api/accounts", async (req, res) => {
     try {

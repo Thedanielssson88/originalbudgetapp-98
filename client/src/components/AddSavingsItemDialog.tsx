@@ -39,7 +39,8 @@ export const AddSavingsItemDialog: React.FC<AddSavingsItemDialogProps> = ({
   const [availableSubcategories, setAvailableSubcategories] = useState<string[]>([]);
 
   useEffect(() => {
-    const loadedSubcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
+    // TODO: Load subcategories from API instead of localStorage
+    const loadedSubcategories: Record<string, string[]> = {};
     setSubcategories(loadedSubcategories);
   }, []);
 

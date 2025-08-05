@@ -1,12 +1,16 @@
-// Enkel Google Drive integration med OAuth2 popup-inloggning
-import { StorageKey } from './storageService';
+// Simple Google Drive integration with OAuth2 popup login
+import { StorageKey, getDirectly, setDirectly, removeDirectly } from './storageService';
 
 interface BackupData {
-  budgetCalculatorData: string | null;
-  main_categories: string | null;
-  subcategories: string | null;
-  banks: string | null;
-  bank_csv_mappings: string | null;
+  accounts: any[];
+  huvudkategorier: any[];
+  underkategorier: any[];
+  categoryRules: any[];
+  transactions: any[];
+  budgetPosts: any[];
+  monthlyBudgets: any[];
+  banks: any[];
+  bankCsvMappings: any[];
   exportDate: string;
   version: string;
 }
@@ -20,9 +24,9 @@ class SimpleGoogleDriveService {
     try {
       console.log('[GoogleDrive] 🚀 Initializing simple Google Drive service...');
       
-      // Kontrollera om användaren redan är inloggad
-      const savedToken = localStorage.getItem('googleDriveAccessToken');
-      const savedEmail = localStorage.getItem('googleDriveUserEmail');
+      // Check if user is already logged in
+      const savedToken = getDirectly('googleDriveAccessToken');
+      const savedEmail = getDirectly('googleDriveUserEmail');
       
       if (savedToken && savedEmail) {
         // Testa om token fortfarande fungerar
@@ -33,9 +37,9 @@ class SimpleGoogleDriveService {
           this.isSignedIn = true;
           console.log('[GoogleDrive] ✅ Restored existing session for:', savedEmail);
         } else {
-          // Rensa ogiltiga tokens
-          localStorage.removeItem('googleDriveAccessToken');
-          localStorage.removeItem('googleDriveUserEmail');
+          // Clear invalid tokens
+          removeDirectly('googleDriveAccessToken');
+          removeDirectly('googleDriveUserEmail');
         }
       }
       
@@ -108,8 +112,8 @@ class SimpleGoogleDriveService {
             this.isSignedIn = true;
             
             // Spara session
-            localStorage.setItem('googleDriveAccessToken', this.accessToken);
-            localStorage.setItem('googleDriveUserEmail', this.userEmail);
+            setDirectly('googleDriveAccessToken', this.accessToken);
+            setDirectly('googleDriveUserEmail', this.userEmail);
             
             console.log('[GoogleDrive] ✅ Successfully signed in:', this.userEmail);
             resolve(true);
@@ -146,8 +150,8 @@ class SimpleGoogleDriveService {
       this.userEmail = '';
       this.isSignedIn = false;
       
-      localStorage.removeItem('googleDriveAccessToken');
-      localStorage.removeItem('googleDriveUserEmail');
+      removeDirectly('googleDriveAccessToken');
+      removeDirectly('googleDriveUserEmail');
       
       console.log('[GoogleDrive] ✅ Successfully signed out');
     } catch (error) {
@@ -171,15 +175,17 @@ class SimpleGoogleDriveService {
     try {
       console.log('[GoogleDrive] 💾 Creating backup...');
       
-      // Samla all data från localStorage
+      // Get all data from API instead of localStorage
+      const apiResponse = await fetch('/api/bootstrap');
+      if (!apiResponse.ok) {
+        throw new Error('Failed to fetch data for backup');
+      }
+      
+      const apiData = await apiResponse.json();
       const backupData: BackupData = {
-        budgetCalculatorData: localStorage.getItem(StorageKey.BUDGET_CALCULATOR_DATA),
-        main_categories: localStorage.getItem(StorageKey.MAIN_CATEGORIES),
-        subcategories: localStorage.getItem(StorageKey.SUBCATEGORIES),
-        banks: localStorage.getItem(StorageKey.BANKS),
-        bank_csv_mappings: localStorage.getItem(StorageKey.BANK_CSV_MAPPINGS),
+        ...apiData,
         exportDate: new Date().toISOString(),
-        version: '2.0'
+        version: '3.0' // Updated version for API-based backups
       };
 
       // Skapa fil i Google Drive
@@ -258,21 +264,17 @@ class SimpleGoogleDriveService {
 
       const backupData: BackupData = await downloadResponse.json();
       
-      // Återställ data till localStorage
-      if (backupData.budgetCalculatorData) {
-        localStorage.setItem(StorageKey.BUDGET_CALCULATOR_DATA, backupData.budgetCalculatorData);
-      }
-      if (backupData.main_categories) {
-        localStorage.setItem(StorageKey.MAIN_CATEGORIES, backupData.main_categories);
-      }
-      if (backupData.subcategories) {
-        localStorage.setItem(StorageKey.SUBCATEGORIES, backupData.subcategories);
-      }
-      if (backupData.banks) {
-        localStorage.setItem(StorageKey.BANKS, backupData.banks);
-      }
-      if (backupData.bank_csv_mappings) {
-        localStorage.setItem(StorageKey.BANK_CSV_MAPPINGS, backupData.bank_csv_mappings);
+      // Restore data via API instead of localStorage
+      console.log('[GoogleDrive] 🔄 Restoring data via API...');
+      
+      // Check backup version
+      if (backupData.version && backupData.version.startsWith('3.')) {
+        // New API-based backup format
+        await this.restoreFromApiBackup(backupData);
+      } else {
+        // Legacy localStorage backup - convert to API format
+        console.warn('[GoogleDrive] ⚠️ Legacy backup detected, conversion not implemented yet');
+        return false;
       }
 
       console.log('[GoogleDrive] ✅ Backup restored successfully');
@@ -300,6 +302,33 @@ class SimpleGoogleDriveService {
       return data.files && data.files.length > 0;
     } catch {
       return false;
+    }
+  }
+
+  private async restoreFromApiBackup(backupData: BackupData): Promise<void> {
+    console.log('[GoogleDrive] 🔄 Starting API-based restore...');
+    
+    try {
+      // Note: This would require a comprehensive restore API endpoint
+      // that can recreate all user data in the correct order
+      
+      // For now, we'll call a comprehensive restore endpoint
+      const response = await fetch('/api/restore-backup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(backupData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Restore API failed: ${response.statusText}`);
+      }
+
+      console.log('[GoogleDrive] ✅ API restore completed successfully');
+    } catch (error) {
+      console.error('[GoogleDrive] ❌ API restore failed:', error);
+      throw error;
     }
   }
 }

@@ -24,9 +24,9 @@ export const CategoryMigrationDialog: React.FC<CategoryMigrationDialogProps> = (
   const [error, setError] = useState<string | null>(null);
   const [migrationResult, setMigrationResult] = useState<any>(null);
 
-  // Get current localStorage categories for preview
-  const mainCategories = get<string[]>(StorageKey.MAIN_CATEGORIES) || [];
-  const subcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
+  // TODO: Get categories from API instead of localStorage
+  const mainCategories: string[] = [];
+  const subcategories: Record<string, string[]> = {};
 
   const handleMigration = async () => {
     if (migrationCompleted) {

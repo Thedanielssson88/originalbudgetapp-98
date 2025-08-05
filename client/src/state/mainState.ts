@@ -93,7 +93,10 @@ export const state: AppState = {
 };
 
 export function initializeStateFromStorage(): void {
-  const savedData = get<any>(StorageKey.BUDGET_CALCULATOR_DATA);
+  // DEPRECATED: This function is no longer used as data comes from API
+  // TODO: Remove this function completely after migration is complete
+  console.warn('[State] initializeStateFromStorage is deprecated - data should come from API');
+  const savedData = null; // No longer reading from localStorage
   
   if (savedData) {
     try {
@@ -206,14 +209,7 @@ export function initializeStateFromStorage(): void {
 }
 
 export function saveStateToStorage(): void {
-  try {
-    const dataToSave = {
-      ...state.rawData,
-      results: state.calculated.results
-    };
-    set(StorageKey.BUDGET_CALCULATOR_DATA, dataToSave);
-    console.log('[State] State sparad till localStorage.');
-  } catch (error) {
-    console.error('[State] Fel vid sparning till localStorage:', error);
-  }
+  // DEPRECATED: This function is no longer used as data is saved via API
+  // TODO: Remove this function completely after migration is complete
+  console.warn('[State] saveStateToStorage is deprecated - data should be saved via API');
 }

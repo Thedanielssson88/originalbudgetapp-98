@@ -18,7 +18,8 @@ export const UnifiedCategoryManager: React.FC<UnifiedCategoryManagerProps> = ({ 
   const [editingValue, setEditingValue] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [subcategories, setSubcategories] = useState<Record<string, string[]>>(() => {
-    return get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
+    // TODO: Load subcategories from API instead of localStorage
+    return {};
   });
   const [newSubcategory, setNewSubcategory] = useState<Record<string, string>>({});
   const [editingSubcategory, setEditingSubcategory] = useState<{category: string, index: number} | null>(null);
@@ -42,7 +43,7 @@ export const UnifiedCategoryManager: React.FC<UnifiedCategoryManagerProps> = ({ 
     setCategories(updatedCategories);
     setSubcategories(updatedSubcategories);
     setMainCategories(updatedCategories);
-    set(StorageKey.SUBCATEGORIES, updatedSubcategories);
+    // TODO: Save subcategories to API instead of localStorage
   };
 
   const startEdit = (index: number) => {
@@ -84,7 +85,7 @@ export const UnifiedCategoryManager: React.FC<UnifiedCategoryManagerProps> = ({ 
         [category]: [...(subcategories[category] || []), newSubcategoryName]
       };
       setSubcategories(updatedSubcategories);
-      set(StorageKey.SUBCATEGORIES, updatedSubcategories);
+      // TODO: Save subcategories to API instead of localStorage
       setNewSubcategory({ ...newSubcategory, [category]: '' });
     }
   };
@@ -95,7 +96,7 @@ export const UnifiedCategoryManager: React.FC<UnifiedCategoryManagerProps> = ({ 
       [category]: subcategories[category]?.filter((_, i) => i !== index) || []
     };
     setSubcategories(updatedSubcategories);
-    set(StorageKey.SUBCATEGORIES, updatedSubcategories);
+    // TODO: Save subcategories to API instead of localStorage
   };
 
   const startSubcategoryEdit = (category: string, index: number) => {
@@ -113,7 +114,7 @@ export const UnifiedCategoryManager: React.FC<UnifiedCategoryManagerProps> = ({ 
         ) || []
       };
       setSubcategories(updatedSubcategories);
-      set(StorageKey.SUBCATEGORIES, updatedSubcategories);
+      // TODO: Save subcategories to API instead of localStorage
       setEditingSubcategory(null);
       setEditingSubcategoryValue('');
     }

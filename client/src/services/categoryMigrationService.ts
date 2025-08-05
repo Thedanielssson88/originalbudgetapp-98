@@ -1,5 +1,6 @@
-// Category Migration Service - Migrates from string-based to UUID-based categories
-import { StorageKey, get, set } from './storageService';
+// Category Migration Service - Handles migration to UUID-based categories
+// Note: localStorage functions are deprecated - migration should use API data
+import { StorageKey, getDirectly, setDirectly } from './storageService';
 
 export interface MigrationResult {
   huvudkategorier: Array<{ id: string; name: string }>;
@@ -8,14 +9,16 @@ export interface MigrationResult {
 }
 
 /**
- * Migrates existing localStorage categories to UUID-based database categories
+ * DEPRECATED: Migrates existing localStorage categories to UUID-based database categories
+ * This function should no longer be used as categories are now managed via API
  */
 export async function migrateCategoriesFromLocalStorage(): Promise<MigrationResult> {
+  console.warn('⚠️ DEPRECATED: migrateCategoriesFromLocalStorage should not be used anymore');
   console.log('🔄 Starting category migration from localStorage to UUID-based system...');
   
-  // Get current localStorage categories
-  const mainCategories = get<string[]>(StorageKey.MAIN_CATEGORIES) || [];
-  const subcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
+  // Get current localStorage categories (using legacy keys for migration only)
+  const mainCategories = JSON.parse(getDirectly('main_categories') || '[]');
+  const subcategories = JSON.parse(getDirectly('subcategories') || '{}');
   
   console.log('📋 Found localStorage categories:', {
     mainCategories: mainCategories.length,
@@ -53,8 +56,8 @@ export async function migrateCategoriesFromLocalStorage(): Promise<MigrationResu
     console.log('✅ Migration completed successfully:', migrationResult);
     
     // Store the category mapping for future reference
-    set(StorageKey.CATEGORY_MIGRATION_MAPPING, migrationResult.categoryMapping);
-    set(StorageKey.CATEGORY_MIGRATION_COMPLETED, new Date().toISOString());
+    setDirectly('category_migration_mapping', JSON.stringify(migrationResult.categoryMapping));
+    setDirectly('category_migration_completed', new Date().toISOString());
     
     return migrationResult;
   } catch (error) {

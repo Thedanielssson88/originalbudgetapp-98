@@ -66,9 +66,9 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
     }
   }, [transaction.userDescription, isEditingNote]);
 
-  // Load subcategories from the same storage as MainCategoriesSettings
+  // TODO: Load subcategories from API instead of localStorage
   useEffect(() => {
-    const loadedSubcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
+    const loadedSubcategories: Record<string, string[]> = {};
     setSubcategoriesData(loadedSubcategories);
   }, []);
 

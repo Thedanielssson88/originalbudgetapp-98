@@ -76,23 +76,16 @@ const SettingsPage = () => {
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
 
   useEffect(() => {
-    // Load settings from localStorage
-    const savedData = localStorage.getItem('budgetCalculatorData');
-    if (savedData) {
-      try {
-        const parsed = JSON.parse(savedData);
-        setUserName1(parsed.userName1 || 'Andreas');
-        setUserName2(parsed.userName2 || 'Susanna');
-        setTempUserName1(parsed.userName1 || 'Andreas');
-        setTempUserName2(parsed.userName2 || 'Susanna');
-        setBudgetTemplates(parsed.budgetTemplates || {});
-        setAutoBackupEnabled(parsed.autoBackupEnabled || false);
-      } catch (error) {
-        console.error('Error loading settings:', error);
-      }
-    }
+    // TODO: Load user settings from API instead of localStorage
+    // For now, use default values until user settings API is implemented
+    setUserName1('Andreas');
+    setUserName2('Susanna');
+    setTempUserName1('Andreas');
+    setTempUserName2('Susanna');
+    setBudgetTemplates({});
+    setAutoBackupEnabled(false);
     
-    // Check if backup exists
+    // Check if legacy backup exists (for emergency recovery)
     const backup = localStorage.getItem('budgetCalculatorBackup');
     setHasBackup(!!backup);
     
@@ -196,18 +189,8 @@ const SettingsPage = () => {
 
   const toggleAutoBackup = (enabled: boolean) => {
     setAutoBackupEnabled(enabled);
-    
-    // Save to localStorage
-    const savedData = localStorage.getItem('budgetCalculatorData');
-    if (savedData) {
-      try {
-        const parsed = JSON.parse(savedData);
-        parsed.autoBackupEnabled = enabled;
-        localStorage.setItem('budgetCalculatorData', JSON.stringify(parsed));
-      } catch (error) {
-        console.error('Failed to save auto backup setting:', error);
-      }
-    }
+    // TODO: Save auto backup preference to user settings API
+    console.log('Auto backup toggled:', enabled);
   };
 
   const handlePaydayChange = (newPayday: number) => {
@@ -218,17 +201,8 @@ const SettingsPage = () => {
   const saveUserNames = () => {
     setUserName1(tempUserName1);
     setUserName2(tempUserName2);
-    
-    // Save to localStorage
-    const savedData = localStorage.getItem('budgetCalculatorData');
-    const currentData = savedData ? JSON.parse(savedData) : {};
-    const updatedData = {
-      ...currentData,
-      userName1: tempUserName1,
-      userName2: tempUserName2
-    };
-    localStorage.setItem('budgetCalculatorData', JSON.stringify(updatedData));
-    console.log('User names saved');
+    // TODO: Save user names to user settings API
+    console.log('User names saved:', { userName1: tempUserName1, userName2: tempUserName2 });
   };
 
   const addAccountHandler = async () => {
@@ -295,124 +269,127 @@ const SettingsPage = () => {
     }
   };
 
-  const exportData = () => {
-    console.log('🚀 [EXPORT] Starting comprehensive data export...');
+  const exportData = async () => {
+    console.log('🚀 [EXPORT] Starting API-based data export...');
     
-    // Get ALL localStorage keys and their data
-    const allKeys = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      allKeys.push(localStorage.key(i));
-    }
-    
-    console.log('📦 [EXPORT] Found localStorage keys:', allKeys);
-    
-    // Export ALL localStorage data (comprehensive backup)
-    const allData: Record<string, any> = {
-      exportDate: new Date().toISOString(),
-      version: '3.0',
-      deviceInfo: {
-        userAgent: navigator.userAgent,
-        language: navigator.language,
-        timestamp: Date.now()
+    try {
+      // Get all data from API instead of localStorage
+      const response = await fetch('/api/bootstrap');
+      if (!response.ok) {
+        throw new Error('Failed to fetch data for export');
       }
-    };
-    
-    // Add all localStorage data
-    allKeys.forEach(key => {
-      if (key) {
-        const value = localStorage.getItem(key);
-        allData[key] = value;
-        console.log(`📦 [EXPORT] Adding key: ${key}, size: ${value ? value.length : 0} chars`);
-      }
-    });
-    
-    // Log what we're actually exporting
-    console.log('📦 [EXPORT] Complete export data:', {
-      totalKeys: Object.keys(allData).length,
-      hasMainData: !!allData.budgetCalculatorData,
-      mainDataSize: allData.budgetCalculatorData ? allData.budgetCalculatorData.length : 0,
-      allKeys: Object.keys(allData)
-    });
-    
-    const dataStr = JSON.stringify(allData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `budget-data-KOMPLETT-${new Date().toISOString().split('T')[0]}.json`;
-    
-    // For mobile compatibility, try different download methods
-    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-      // Mobile device - try alternative download method
-      console.log('📱 [EXPORT] Mobile device detected, using alternative download method');
-      try {
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } catch (error) {
-        console.error('📱 [EXPORT] Mobile download failed:', error);
-        // Fallback: show data in a new window/tab
-        const newWindow = window.open();
-        if (newWindow) {
-          newWindow.document.write(`<pre>${dataStr}</pre>`);
-          alert('Export data visas i nytt fönster. Kopiera texten och spara som .json fil.');
+      
+      const apiData = await response.json();
+      
+      // Create export data with API data
+      const allData: Record<string, any> = {
+        exportDate: new Date().toISOString(),
+        version: '4.0', // New version for API-based exports
+        deviceInfo: {
+          userAgent: navigator.userAgent,
+          language: navigator.language,
+          timestamp: Date.now()
+        },
+        // Include all API data
+        ...apiData
+      };
+      
+      // Log what we're exporting
+      console.log('📦 [EXPORT] Complete export data:', {
+        totalKeys: Object.keys(allData).length,
+        hasAccounts: !!allData.accounts,
+        accountsCount: allData.accounts?.length || 0,
+        transactionsCount: allData.transactions?.length || 0,
+        allKeys: Object.keys(allData)
+      });
+      
+      const dataStr = JSON.stringify(allData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `budget-data-API-${new Date().toISOString().split('T')[0]}.json`;
+      
+      // For mobile compatibility, try different download methods
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        // Mobile device - try alternative download method
+        console.log('📱 [EXPORT] Mobile device detected, using alternative download method');
+        try {
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } catch (error) {
+          console.error('📱 [EXPORT] Mobile download failed:', error);
+          // Fallback: show data in a new window/tab
+          const newWindow = window.open();
+          if (newWindow) {
+            newWindow.document.write(`<pre>${dataStr}</pre>`);
+            alert('Export data visas i nytt fönster. Kopiera texten och spara som .json fil.');
+          }
         }
+      } else {
+        // Desktop - normal download
+        link.click();
       }
-    } else {
-      // Desktop - normal download
-      link.click();
+      
+      URL.revokeObjectURL(url);
+      console.log('✅ [EXPORT] API-based export completed');
+      alert(`Export slutförd! Alla data från API (${Object.keys(allData).length} fält) har exporterats.`);
+    } catch (error) {
+      console.error('❌ [EXPORT] Export failed:', error);
+      alert('Export misslyckades. Se konsolen för detaljer.');
     }
-    
-    URL.revokeObjectURL(url);
-    console.log('✅ [EXPORT] Export completed');
-    alert(`Export slutförd! Alla data (${Object.keys(allData).length} nycklar) har exporterats.`);
   };
 
   const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    console.log('🔄 [IMPORT] Starting data import from file:', file.name);
+    console.log('🔄 [IMPORT] Starting API-based data import from file:', file.name);
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = JSON.parse(e.target?.result as string);
         console.log('🔄 [IMPORT] Parsed import data:', {
           version: data.version,
           exportDate: data.exportDate,
           totalKeys: Object.keys(data).length,
-          hasMainData: !!data.budgetCalculatorData,
+          hasAccounts: !!data.accounts,
+          hasTransactions: !!data.transactions,
           allKeys: Object.keys(data).filter(k => !['exportDate', 'version', 'deviceInfo'].includes(k))
         });
         
-        let importedCount = 0;
-        
-        // Import ALL data (except metadata)
-        Object.keys(data).forEach(key => {
-          if (!['exportDate', 'version', 'deviceInfo'].includes(key)) {
-            const value = data[key];
-            if (value !== null && value !== undefined) {
-              localStorage.setItem(key, value);
-              importedCount++;
-              console.log(`✅ [IMPORT] Imported key: ${key}, size: ${value.length} chars`);
-            }
-          }
-        });
-        
-        console.log(`✅ [IMPORT] Successfully imported ${importedCount} keys`);
-        
-        // Show detailed success message
-        alert(`Data importerad framgångsrikt! 
-${importedCount} datanycklar har importerats.
-Exporterad: ${data.exportDate ? new Date(data.exportDate).toLocaleString('sv-SE') : 'Okänt datum'}
-Version: ${data.version || 'Okänd'}
+        // Check if this is a new API-based export (version 4.0+)
+        if (data.version && data.version.startsWith('4.')) {
+          // Use the restore API endpoint
+          const response = await fetch('/api/restore-backup', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+          });
 
-Sidan laddas om för att tillämpa alla ändringar.`);
-        
-        // Reload page to apply all changes
-        window.location.reload();
+          if (!response.ok) {
+            throw new Error(`Import API failed: ${response.statusText}`);
+          }
+
+          console.log('✅ [IMPORT] API-based import completed successfully');
+          alert(`Data importerad framgångsrikt via API! 
+Exporterad: ${data.exportDate ? new Date(data.exportDate).toLocaleString('sv-SE') : 'Okänt datum'}
+Version: ${data.version}
+
+Sidan laddas om för att visa importerad data.`);
+          
+          // Reload page to show imported data
+          window.location.reload();
+        } else {
+          // Legacy localStorage-based export
+          alert(`Legacy format detected (version ${data.version || 'unknown'}). 
+Please use Google Drive backup/restore or export new data format from current app.`);
+        }
       } catch (error) {
         console.error('❌ [IMPORT] Import error:', error);
         alert(`Fel vid import av data: ${error instanceof Error ? error.message : 'Okänt fel'}

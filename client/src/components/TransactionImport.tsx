@@ -60,10 +60,10 @@ export const TransactionImport: React.FC = () => {
   // Get accounts from API
   const { data: accounts = [], isLoading: accountsLoading } = useAccounts();
 
-  // Load banks and mappings from storage
+  // TODO: Load banks and mappings from API instead of localStorage
   useEffect(() => {
-    const storedBanks = get<Bank[]>(StorageKey.BANKS) || [];
-    const storedMappings = get<BankCSVMapping[]>(StorageKey.BANK_CSV_MAPPINGS) || [];
+    const storedBanks: Bank[] = [];
+    const storedMappings: BankCSVMapping[] = [];
     setBanks(storedBanks);
     setBankCSVMappings(storedMappings);
   }, []);
@@ -77,7 +77,7 @@ export const TransactionImport: React.FC = () => {
     
     const updatedBanks = [...banks, newBank];
     setBanks(updatedBanks);
-    set(StorageKey.BANKS, updatedBanks);
+    // TODO: Save banks to API instead of localStorage
   };
 
   const handleBankSelection = (accountId: string, bankId: string) => {
@@ -232,7 +232,7 @@ export const TransactionImport: React.FC = () => {
         }
 
         setBankCSVMappings(updatedMappings);
-        set(StorageKey.BANK_CSV_MAPPINGS, updatedMappings);
+        // TODO: Save bank mappings to API instead of localStorage
       }
     });
   };

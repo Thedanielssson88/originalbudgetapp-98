@@ -49,16 +49,18 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
   const [availableSubcategories, setAvailableSubcategories] = useState<string[]>([]);
 
   useEffect(() => {
-    const loadedSubcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
-    console.log('AddCostItemDialog: Loading subcategories:', loadedSubcategories);
+    // TODO: Load subcategories from API instead of localStorage
+    const loadedSubcategories: Record<string, string[]> = {};
+    console.log('AddCostItemDialog: Loading subcategories (TODO: from API):', loadedSubcategories);
     setSubcategories(loadedSubcategories);
   }, []);
 
   // Reload subcategories when dialog opens
   useEffect(() => {
     if (isOpen) {
-      const loadedSubcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
-      console.log('AddCostItemDialog: Reloading subcategories on dialog open:', loadedSubcategories);
+      // TODO: Load subcategories from API instead of localStorage
+      const loadedSubcategories: Record<string, string[]> = {};
+      console.log('AddCostItemDialog: Reloading subcategories on dialog open (TODO: from API):', loadedSubcategories);
       setSubcategories(loadedSubcategories);
     }
   }, [isOpen]);
