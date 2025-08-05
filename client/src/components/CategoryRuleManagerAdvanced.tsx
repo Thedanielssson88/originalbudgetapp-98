@@ -103,7 +103,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
     }
   }, [newRule.action?.appMainCategoryId, allUnderkategorier]);
 
-  const handleAddRule = () => {
+  const handleAddRule = async () => {
     // Validate required fields
     const hasConditionValue = newRule.condition?.type === 'categoryMatch' ? 
       !!(newRule.condition as any).bankCategory : 
@@ -113,31 +113,67 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
     const hasSubCategory = !!newRule.action?.appSubCategoryId;
     
     if (newRule.condition && newRule.action && hasConditionValue && hasMainCategory && hasSubCategory) {
-      const rule: CategoryRule = {
-        id: uuidv4(),
-        priority: newRule.priority || 100,
-        condition: newRule.condition,
-        action: newRule.action,
-        isActive: true
-      };
-      
-      onRulesChange([...rules, rule]);
-      
-      // Reset form
-      setSelectedAccountIds([]);
-      setNewRule({
-        condition: { type: 'textContains', value: '' },
-        action: { 
-          appMainCategoryId: '', 
-          appSubCategoryId: '', 
-          positiveTransactionType: 'Transaction',
-          negativeTransactionType: 'Transaction',
-          applicableAccountIds: []
-        },
-        priority: 100,
-        isActive: true
-      });
-      setIsAddingRule(false);
+      try {
+        console.log('🔍 [RULE MANAGER] Saving new manual rule to PostgreSQL:', {
+          ruleName: newRule.condition.type === 'categoryMatch' ? 
+            (newRule.condition as any).bankCategory : 
+            `${newRule.condition.type}: ${(newRule.condition as any).value}`,
+          transactionName: newRule.condition.type === 'categoryMatch' ? 
+            (newRule.condition as any).bankCategory : 
+            (newRule.condition as any).value,
+          huvudkategoriId: newRule.action.appMainCategoryId,
+          underkategoriId: newRule.action.appSubCategoryId
+        });
+
+        // Save rule directly to PostgreSQL
+        const response = await fetch('/api/category-rules', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ruleName: newRule.condition.type === 'categoryMatch' ? 
+              (newRule.condition as any).bankCategory : 
+              `${newRule.condition.type}: ${(newRule.condition as any).value}`,
+            transactionName: newRule.condition.type === 'categoryMatch' ? 
+              (newRule.condition as any).bankCategory : 
+              (newRule.condition as any).value,
+            huvudkategoriId: newRule.action.appMainCategoryId,
+            underkategoriId: newRule.action.appSubCategoryId,
+            userId: 'dev-user-123'
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to create category rule: ${response.statusText}`);
+        }
+
+        const savedRule = await response.json();
+        console.log('✅ [RULE MANAGER] Manual rule saved to PostgreSQL:', savedRule);
+        
+        // Reset form
+        setSelectedAccountIds([]);
+        setNewRule({
+          condition: { type: 'textContains', value: '' },
+          action: { 
+            appMainCategoryId: '', 
+            appSubCategoryId: '', 
+            positiveTransactionType: 'Transaction',
+            negativeTransactionType: 'Transaction',
+            applicableAccountIds: []
+          },
+          priority: 100,
+          isActive: true
+        });
+        setIsAddingRule(false);
+        
+        // Refresh the rules list
+        queryClient.invalidateQueries({ queryKey: ['/api/category-rules'] });
+        refetchRules();
+        
+      } catch (error) {
+        console.error('❌ [RULE MANAGER] Failed to save manual rule:', error);
+      }
     }
   };
 
@@ -421,14 +457,14 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
               {postgresqlRules.length} regler laddade från databasen
             </div>
             {postgresqlRules
-              .sort((a, b) => (a.priority || 100) - (b.priority || 100))
+              .sort((a, b) => 100 - 100) // PostgreSQL rules don't have priority field yet
               .map((rule) => (
               <Card key={rule.id} className="p-3">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-xs">
-                        {rule.priority || 100}
+                        100
                       </Badge>
                       <span className="text-xs text-muted-foreground">
                         {rule.ruleName}
@@ -452,10 +488,10 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                       <span className="font-medium">Bankkategori:</span> {rule.transactionName}
                     </div>
                     <div className="text-xs">
-                      <span className="font-medium">Huvudkategori:</span> {getHuvudkategoriName(rule.huvudkategoriId)}
+                      <span className="font-medium">Huvudkategori:</span> {getHuvudkategoriName(rule.huvudkategoriId || '')}
                     </div>
                     <div className="text-xs">
-                      <span className="font-medium">Underkategori:</span> {getUnderkategoriName(rule.underkategoriId)}
+                      <span className="font-medium">Underkategori:</span> {getUnderkategoriName(rule.underkategoriId || '')}
                     </div>
                   </div>
                 </div>
