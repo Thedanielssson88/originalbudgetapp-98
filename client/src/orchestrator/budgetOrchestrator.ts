@@ -886,6 +886,9 @@ export async function initializeApp(): Promise<void> {
   
   initializeStateFromStorage();
   
+  // Sync accounts from API store to orchestrator state
+  await syncAccountsFromApiStore();
+  
   // Ensure the Överföring account exists
   ensureOverforingAccount();
   
@@ -1285,6 +1288,31 @@ export function setSelectedHistoricalMonth(monthKey: string): void {
 }
 
 // ===== GLOBAL SETTINGS =====
+
+// Sync accounts from API store to orchestrator state
+async function syncAccountsFromApiStore(): Promise<void> {
+  try {
+    console.log('[BudgetOrchestrator] 🔄 Syncing accounts from API store...');
+    const { apiStore } = await import('../store/apiStore');
+    
+    // Get accounts from API store and convert to orchestrator format
+    const apiAccounts = apiStore.accounts || [];
+    const orchestratorAccounts = apiAccounts.map((acc: any) => ({
+      id: acc.id,
+      name: acc.name,
+      startBalance: acc.balance || 0
+    }));
+    
+    // Update orchestrator state with API store accounts  
+    state.budgetState.accounts = orchestratorAccounts;
+    
+    console.log('[BudgetOrchestrator] ✅ Synced accounts from API store:', orchestratorAccounts.length);
+    addMobileDebugLog(`[ORCHESTRATOR] ✅ Synced ${orchestratorAccounts.length} accounts from API store`);
+  } catch (error) {
+    console.error('[BudgetOrchestrator] ❌ Failed to sync accounts from API store:', error);
+    addMobileDebugLog('[ORCHESTRATOR] ❌ Failed to sync accounts from API store');
+  }
+}
 
 export function setAccounts(accounts: any[]): void {
   if (Array.isArray(accounts) && accounts.length > 0) {
