@@ -163,6 +163,9 @@ export function UserManagement() {
         primaryUserId: familyMemberId 
       });
       
+      // Refresh the monthly budget data to update UI immediately
+      window.location.reload();
+      
       const selectedMember = familyMembers?.find(m => m.id === familyMemberId);
       toast({
         title: "Framgång",
@@ -185,6 +188,9 @@ export function UserManagement() {
       await apiStore.updateMonthlyBudget(budgetState.selectedMonthKey, { 
         secondaryUserId: familyMemberId 
       });
+      
+      // Refresh the monthly budget data to update UI immediately
+      window.location.reload();
       
       const selectedMember = familyMembers?.find(m => m.id === familyMemberId);
       toast({
@@ -327,7 +333,7 @@ export function UserManagement() {
             <div className="grid gap-4">
               {/* Primary User Selection */}
               <div className="space-y-2">
-                <Label>Användare 1 (för Andreas Inkomst)</Label>
+                <Label>Användare 1</Label>
                 <Select
                   value={monthlyBudget.primaryUserId || 'none'}
                   onValueChange={(value) => handlePrimaryUserSelection(value === 'none' ? null : value)}
@@ -348,7 +354,7 @@ export function UserManagement() {
 
               {/* Secondary User Selection */}
               <div className="space-y-2">
-                <Label>Användare 2 (för Susanna Inkomst)</Label>
+                <Label>Användare 2</Label>
                 <Select
                   value={monthlyBudget.secondaryUserId || 'none'}
                   onValueChange={(value) => handleSecondaryUserSelection(value === 'none' ? null : value)}

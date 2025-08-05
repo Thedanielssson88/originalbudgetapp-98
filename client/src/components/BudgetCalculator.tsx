@@ -44,6 +44,7 @@ import {
 import { updateAccountBalanceForMonth, getAccountNameById } from '../orchestrator/budgetOrchestrator';
 import { useToast } from '@/hooks/use-toast';
 import { useMonthlyBudget } from '@/hooks/useMonthlyBudget';
+import { useFamilyMembers } from '@/hooks/useFamilyMembers';
 import { 
   createSavingsGoal,
   updateCostGroups,
@@ -123,6 +124,8 @@ const BudgetCalculator = () => {
   console.log('🔥🔥🔥 FORCING BUDGET CALCULATOR TO LOG 🔥🔥🔥');
   // Use the original useBudget hook - fix hook ordering instead
   const { isLoading, budgetState, calculated } = useBudget();
+  const { data: familyMembers } = useFamilyMembers();
+  const currentMonthlyBudget = useMonthlyBudget(budgetState.selectedMonthKey);
   const { toast } = useToast();
   
   // Import UUID category resolution system
@@ -299,6 +302,20 @@ const BudgetCalculator = () => {
   // User name states
   const [userName1, setUserName1] = useState<string>('Andreas');
   const [userName2, setUserName2] = useState<string>('Susanna');
+
+  // Get dynamic user names based on selected family members
+  const getSelectedUserName = (userId: string | null) => {
+    if (!userId || !familyMembers) return null;
+    const member = familyMembers.find(m => m.id === userId);
+    return member?.name || null;
+  };
+
+  const selectedPrimaryUserName = currentMonthlyBudget.monthlyBudget?.primaryUserId ? getSelectedUserName(currentMonthlyBudget.monthlyBudget.primaryUserId) : null;
+  const selectedSecondaryUserName = currentMonthlyBudget.monthlyBudget?.secondaryUserId ? getSelectedUserName(currentMonthlyBudget.monthlyBudget.secondaryUserId) : null;
+
+  // Use selected user names if available, otherwise fall back to userName1/userName2
+  const displayUserName1 = selectedPrimaryUserName || userName1;
+  const displayUserName2 = selectedSecondaryUserName || userName2;
 
   // Transfer completion states
   const [transferChecks, setTransferChecks] = useState<{[key: string]: boolean}>({});
@@ -5333,7 +5350,7 @@ const BudgetCalculator = () => {
                   <CardContent className="space-y-6 bg-green-50/30">
                     {/* First User Income Section */}
                     <div className="p-4 bg-green-100/50 rounded-lg border border-green-200">
-                      <h3 className="text-lg font-semibold mb-3 text-green-800">{userName1} Inkomst</h3>
+                      <h3 className="text-lg font-semibold mb-3 text-green-800">{displayUserName1} Inkomst</h3>
                       <div className="space-y-3">
                         <div className="space-y-2">
                           <Label htmlFor="andreas" className="text-green-700">Lön</Label>
@@ -5398,7 +5415,7 @@ const BudgetCalculator = () => {
 
                     {/* Second User Income Section */}
                     <div className="p-4 bg-green-100/50 rounded-lg border border-green-200">
-                      <h3 className="text-lg font-semibold mb-3 text-green-800">{userName2} Inkomst</h3>
+                      <h3 className="text-lg font-semibold mb-3 text-green-800">{displayUserName2} Inkomst</h3>
                       <div className="space-y-3">
                         <div className="space-y-2">
                           <Label htmlFor="susanna" className="text-green-700">Lön</Label>
