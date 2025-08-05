@@ -462,11 +462,11 @@ export function saveStateToStorage(): void {
 
 function createEmptyMonthData(): MonthData {
   return {
-    andreasSalary: 45000,
+    andreasSalary: 0,
     andreasförsäkringskassan: 0,
     andreasbarnbidrag: 0,
-    susannaSalary: 40000,
-    susannaförsäkringskassan: 5000,
+    susannaSalary: 0,
+    susannaförsäkringskassan: 0,
     susannabarnbidrag: 0,
     costGroups: [
       { id: uuidv4(), name: 'Hyra', amount: 15000, type: 'cost' },
