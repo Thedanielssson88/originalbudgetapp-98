@@ -590,12 +590,7 @@ const BudgetCalculator = () => {
     return monthNames[nextMonth - 1];
   };
 
-  // CRITICAL DEBUG: Force logging of actual values being used in component
-  useEffect(() => {
-    console.log(`🔥 [COMPONENT DATA] accountBalances:`, accountBalances);
-    console.log(`🔥 [COMPONENT DATA] accountBalancesSet:`, accountBalancesSet);
-    console.log(`🔥 [COMPONENT DATA] accounts:`, accounts);
-  }, [JSON.stringify(accountBalances), JSON.stringify(accountBalancesSet), JSON.stringify(accounts)]);
+
 
   // Helper functions for calculating actual amounts from transactions
   const calculateActualAmountForCategory = React.useCallback((categoryId: string): number => {
@@ -606,17 +601,29 @@ const BudgetCalculator = () => {
     const relatedSubcategories = underkategorier.filter(sub => sub.huvudkategoriId === categoryId);
     const subcategoryIds = relatedSubcategories.map(sub => sub.id);
     
-    // MINIMAL DEBUG FOR TRANSPORT ONLY
-    if (categoryId.includes('Transport') || (huvudkategorier.find(k => k.id === categoryId)?.name === 'Transport')) {
-      console.log('🚗 TRANSPORT:', { categoryId, subcategoryCount: relatedSubcategories.length, subcategoryIds });
-    }
+    // Get category name for fallback matching
+    const categoryName = huvudkategorier.find(k => k.id === categoryId)?.name;
     
     // FIXED LOGIC: Look for transactions assigned to EITHER the main category OR any of its subcategories
+    // PLUS implement fallback for uncategorized transport transactions
     const matchingTransactions = (allPeriodTransactions || []).filter((t: Transaction) => {
       const matchesMainCategory = t.appCategoryId === categoryId;
       const matchesSubcategory = t.appSubCategoryId && subcategoryIds.includes(t.appSubCategoryId);
       
-      return matchesMainCategory || matchesSubcategory;
+      // CRITICAL FALLBACK: For Transport, also include uncategorized transport-related transactions
+      let matchesTransportKeywords = false;
+      if (categoryName === 'Transport' && !t.appCategoryId && !t.appSubCategoryId) {
+        const description = (t.description || '').toLowerCase();
+        matchesTransportKeywords = description.includes('bil') || 
+                                  description.includes('bränsle') || 
+                                  description.includes('bensin') || 
+                                  description.includes('park') || 
+                                  description.includes('transport') || 
+                                  description.includes('taxi') || 
+                                  description.includes('kollektiv');
+      }
+      
+      return matchesMainCategory || matchesSubcategory || matchesTransportKeywords;
     });
     
 
@@ -630,16 +637,13 @@ const BudgetCalculator = () => {
         // This matches the user's requirement to only include actual bank transactions, not expense claims etc.
         if (t.type === 'Transaction' && effectiveAmount < 0) {
           const absoluteAmount = Math.abs(effectiveAmount);
-          console.log(`🔍 [DEBUG] Including Transaction ${t.id}: ${effectiveAmount} -> ${absoluteAmount} (type: ${t.type})`);
+
           return sum + absoluteAmount;
         }
         
         // Skip positive amounts (these are income/transfers, not costs)
-        console.log(`🔍 [DEBUG] Skipping transaction ${t.id}: ${effectiveAmount} (type: ${t.type}, not negative cost)`);
         return sum;
       }, 0);
-    
-    console.log(`🔍 [DEBUG] ✅ Final calculated total for category ${categoryName} (${categoryId}): ${total} from ${matchingTransactions.length} transactions`);
     
     return total;
   }, [activeContent.transactionsForPeriod, resolveHuvudkategoriName, underkategorier]);
@@ -647,8 +651,7 @@ const BudgetCalculator = () => {
   const getTransactionsForCategory = (categoryId: string): Transaction[] => {
     // FIXED: Use correctly filtered transactions according to PaydaySettings
     const allPeriodTransactions = activeContent.transactionsForPeriod || [];
-    console.log(`🔍 [DEBUG] getTransactionsForCategory - categoryId: ${categoryId}`);
-    console.log(`🔍 [DEBUG] All period transactions (${(allPeriodTransactions || []).length}):`, (allPeriodTransactions || []).map(t => ({ id: t.id, amount: t.amount, categoryId: t.appCategoryId, description: t.description, date: t.date })));
+
     
     // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
     // Filter for transactions belonging to this category, with type="Transaction" and negative amounts
