@@ -464,6 +464,10 @@ export async function addCategoryRule(rule: any): Promise<void> {
       ...rule
     };
     
+    // Ensure categoryRules is initialized as array before adding
+    if (!state.budgetState.categoryRules) {
+      state.budgetState.categoryRules = [];
+    }
     state.budgetState.categoryRules = [...state.budgetState.categoryRules, legacyRule];
     
     console.log('🔍 [DEBUG] After adding - total rules:', state.budgetState.categoryRules.length);
@@ -486,6 +490,10 @@ export async function addCategoryRule(rule: any): Promise<void> {
       ...rule
     };
     
+    // Ensure categoryRules is initialized as array before adding
+    if (!state.budgetState.categoryRules) {
+      state.budgetState.categoryRules = [];
+    }
     state.budgetState.categoryRules = [...state.budgetState.categoryRules, fallbackRule];
     
     import('../utils/mobileDebugLogger').then(({ addMobileDebugLog }) => {
@@ -498,6 +506,10 @@ export async function addCategoryRule(rule: any): Promise<void> {
 }
 
 export function updateCategoryRule(ruleId: string, updates: Partial<any>): void {
+  // Ensure categoryRules is initialized as array
+  if (!state.budgetState.categoryRules) {
+    state.budgetState.categoryRules = [];
+  }
   state.budgetState.categoryRules = state.budgetState.categoryRules.map(rule =>
     rule.id === ruleId ? { ...rule, ...updates } : rule
   );
@@ -506,6 +518,10 @@ export function updateCategoryRule(ruleId: string, updates: Partial<any>): void 
 }
 
 export function deleteCategoryRule(ruleId: string): void {
+  // Ensure categoryRules is initialized as array
+  if (!state.budgetState.categoryRules) {
+    state.budgetState.categoryRules = [];
+  }
   state.budgetState.categoryRules = state.budgetState.categoryRules.filter(rule => rule.id !== ruleId);
   saveStateToStorage();
   triggerUIRefresh();

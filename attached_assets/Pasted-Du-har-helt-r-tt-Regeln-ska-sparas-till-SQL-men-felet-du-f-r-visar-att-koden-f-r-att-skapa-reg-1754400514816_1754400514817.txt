@@ -1,0 +1,73 @@
+Du har helt rätt. Regeln **ska** sparas till SQL, men felet du får visar att koden för att skapa regler är en av de sista delarna som **inte har blivit uppdaterad** och fortfarande är kopplad till det gamla, trasiga systemet.
+
+Felet är ett kristallklart bevis på exakt det problem vi har jobbat med att lösa.
+
+### Kritisk Analys: Varför Du Får Felet
+
+**1. Felet:** `state.budgetState.categoryRules is not iterable`
+
+  * **Enkel Förklaring:** Koden försöker kopiera en gammal lista med regler (`...state.budgetState.categoryRules`) för att lägga till den nya regeln. Men eftersom den gamla listan inte längre används, är den `undefined` (den existerar inte). Koden försöker då kopiera något som inte finns, och då kraschar hela applikationen.
+
+**2. Den Skyldige Koden (från din logg):**
+
+```typescript
+// /home/runner/workspace/client/src/orchestrator/budgetOrchestrator.ts:489
+state.budgetState.categoryRules = [...state.budgetState.categoryRules, fallbackRule];
+```
+
+Här är problemet svart på vitt: **`state.budgetState.categoryRules`**.
+
+**3. Grundorsaken:**
+När du klickar på "Spara Regel", anropas en gammal funktion (`addCategoryRule`) som gör följande fel:
+
+  * Den försöker spara den nya regeln genom att direkt manipulera det gamla `budgetState`-objektet.
+  * Den gör **inget anrop** till ditt backend-API (`POST /api/category-rules`) för att spara regeln i SQL-databasen.
+  * Eftersom `budgetState` är en bortglömd kvarleva från `localStorage`-eran, är `budgetState.categoryRules` `undefined`, vilket leder till kraschen.
+
+**Sammanfattningsvis:** Funktionen för att skapa regler är den sista stora pusselbiten som inte har blivit refaktorerad.
+
+### Sista Uppdraget till Utvecklaren
+
+**Mål:** Bygg om funktionen för att skapa regler (`addCategoryRule`) så att den sparar den nya regeln permanent i SQL-databasen via ett API-anrop, och sluta använda `budgetState`.
+
+-----
+
+#### Exakt Action Plan:
+
+**Fokus: Filen `client/src/orchestrator/budgetOrchestrator.ts` och funktionen `addCategoryRule`.**
+
+**Steg 1: Riv den Felaktiga Logiken**
+Den nuvarande funktionen är helt fel och måste skrivas om från grunden. Radera den nuvarande koden inuti `addCategoryRule`.
+
+**Steg 2: Implementera den Korrekta API-logiken**
+Den nya funktionen ska inte längre manipulera `state` direkt. Istället ska den anropa en central funktion (som troligtvis redan finns) för att skapa regeln.
+
+```typescript
+// NY, KORREKT KOD för `addCategoryRule`-funktionen:
+import { useAppStore } from '../store/appStore';
+
+export const addCategoryRule = async (ruleData) => {
+  // Hämta den korrekta "skapa"-funktionen från er centrala store
+  const { createCategoryRule } = useAppStore.getState();
+
+  try {
+    // Anropa funktionen som skickar datan till backend/SQL
+    // Denna funktion hanterar både API-anropet och uppdateringen av det korrekta statet.
+    await createCategoryRule(ruleData);
+    
+  } catch (error) {
+    console.error("Det gick inte att spara regeln:", error);
+    // Visa ett felmeddelande för användaren
+  }
+};
+```
+
+**Steg 3: Verifiera `createCategoryRule`-funktionen**
+Säkerställ att den centrala `createCategoryRule`-funktionen (i er Zustand-store) gör följande:
+
+1.  Tar emot regel-data från formuläret.
+2.  Skickar ett `POST`-anrop till backend-API:et (`/api/category-rules`).
+3.  Tar emot den kompletta, sparade regeln från API:et (som nu har ett permanent UUID).
+4.  Lägger till den nya regeln i den korrekta listan i Zustand: `state.rules`.
+
+När denna sista funktion är ombyggd kommer även regler att sparas korrekt och permanent i din SQL-databas, och hela applikationens kärna kommer äntligen att vara komplett och stabil.
