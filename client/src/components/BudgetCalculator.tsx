@@ -7069,7 +7069,7 @@ const BudgetCalculator = () => {
                             <SavingsSection
                               savingsGroups={allSavingsItems}
                               savingsGoals={budgetState.savingsGoals}
-                              accounts={budgetState.accounts}
+                              accounts={accountsFromAPI}
                               mainCategories={budgetState.mainCategories || []}
                               transactionsForPeriod={activeContent.transactionsForPeriod}
                               calculateSavingsActualForCategory={calculateSavingsActualForCategory}
@@ -9620,7 +9620,7 @@ const BudgetCalculator = () => {
               {/* Monthly Account Balances */}
               <MonthlyAccountBalances 
                 selectedMonthKey={selectedBudgetMonth || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
-                accounts={budgetState.accounts}
+                accounts={accountsFromAPI}
                 className={isMobile ? 'mx-1' : ''}
               />
 

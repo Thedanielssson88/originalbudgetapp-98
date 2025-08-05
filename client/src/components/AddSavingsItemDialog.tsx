@@ -4,68 +4,66 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { StorageKey, get } from '../services/storageService';
+import { useCategoriesHierarchy } from '../hooks/useCategories';
+import type { Account } from '@shared/schema';
 
 interface AddSavingsItemDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (item: {
-    mainCategory: string;
-    subcategory: string;
+    huvudkategoriId: string;
+    underkategoriId: string;
     name: string;
     amount: number;
-    account: string;
+    accountId: string;
   }) => void;
-  mainCategories: string[];
-  accounts: string[];
+  accounts: Account[];
 }
 
 export const AddSavingsItemDialog: React.FC<AddSavingsItemDialogProps> = ({ 
   isOpen, 
   onClose, 
   onSave, 
-  mainCategories, 
   accounts 
 }) => {
+  const { categories, isLoading } = useCategoriesHierarchy();
+  
   const [formData, setFormData] = useState({
-    mainCategory: '',
-    subcategory: '',
+    huvudkategoriId: '',
+    underkategoriId: '',
     name: '',
     amount: 0,
-    account: 'none'
+    accountId: 'none'
   });
   
-  const [subcategories, setSubcategories] = useState<Record<string, string[]>>({});
-  const [availableSubcategories, setAvailableSubcategories] = useState<string[]>([]);
+  const [availableUnderkategorier, setAvailableUnderkategorier] = useState<Array<{id: string, name: string}>>([]);
 
   useEffect(() => {
-    // TODO: Load subcategories from API instead of localStorage
-    const loadedSubcategories: Record<string, string[]> = {};
-    setSubcategories(loadedSubcategories);
-  }, []);
-
-  useEffect(() => {
-    if (formData.mainCategory) {
-      setAvailableSubcategories(subcategories[formData.mainCategory] || []);
-      setFormData(prev => ({ ...prev, subcategory: '' }));
+    if (formData.huvudkategoriId) {
+      const selectedCategory = categories.find(cat => cat.id === formData.huvudkategoriId);
+      setAvailableUnderkategorier(selectedCategory?.underkategorier || []);
+      setFormData(prev => ({ ...prev, underkategoriId: '' }));
     } else {
-      setAvailableSubcategories([]);
+      setAvailableUnderkategorier([]);
     }
-  }, [formData.mainCategory, subcategories]);
+  }, [formData.huvudkategoriId, categories]);
 
   const handleSave = () => {
-    if (formData.mainCategory && formData.subcategory && formData.name && formData.amount > 0) {
+    if (formData.huvudkategoriId && formData.underkategoriId && formData.name && formData.amount > 0) {
       const itemToSave = {
-        ...formData,
-        account: formData.account === 'none' ? '' : formData.account
+        huvudkategoriId: formData.huvudkategoriId,
+        underkategoriId: formData.underkategoriId,
+        name: formData.name,
+        amount: formData.amount,
+        accountId: formData.accountId === 'none' ? '' : formData.accountId
       };
       onSave(itemToSave);
       setFormData({
-        mainCategory: '',
-        subcategory: '',
+        huvudkategoriId: '',
+        underkategoriId: '',
         name: '',
         amount: 0,
-        account: 'none'
+        accountId: 'none'
       });
       onClose();
     }
@@ -73,11 +71,11 @@ export const AddSavingsItemDialog: React.FC<AddSavingsItemDialogProps> = ({
 
   const handleCancel = () => {
     setFormData({
-      mainCategory: '',
-      subcategory: '',
+      huvudkategoriId: '',
+      underkategoriId: '',
       name: '',
       amount: 0,
-      account: 'none'
+      accountId: 'none'
     });
     onClose();
   };
@@ -91,18 +89,19 @@ export const AddSavingsItemDialog: React.FC<AddSavingsItemDialogProps> = ({
         
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="mainCategory">Huvudkategori</Label>
+            <Label htmlFor="huvudkategori">Huvudkategori</Label>
             <Select 
-              value={formData.mainCategory} 
-              onValueChange={(value) => setFormData({ ...formData, mainCategory: value })}
+              value={formData.huvudkategoriId} 
+              onValueChange={(value) => setFormData({ ...formData, huvudkategoriId: value })}
+              disabled={isLoading}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Välj huvudkategori" />
+                <SelectValue placeholder={isLoading ? "Laddar kategorier..." : "Välj huvudkategori"} />
               </SelectTrigger>
               <SelectContent className="bg-popover border border-border shadow-lg z-50">
-                {mainCategories.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
+                {categories.map((category) => (
+                  <SelectItem key={category.id} value={category.id}>
+                    {category.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -110,19 +109,19 @@ export const AddSavingsItemDialog: React.FC<AddSavingsItemDialogProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="subcategory">Underkategori</Label>
+            <Label htmlFor="underkategori">Underkategori</Label>
             <Select 
-              value={formData.subcategory} 
-              onValueChange={(value) => setFormData({ ...formData, subcategory: value })}
-              disabled={!formData.mainCategory}
+              value={formData.underkategoriId} 
+              onValueChange={(value) => setFormData({ ...formData, underkategoriId: value })}
+              disabled={!formData.huvudkategoriId || isLoading}
             >
               <SelectTrigger>
-                <SelectValue placeholder={formData.mainCategory ? "Välj underkategori" : "Välj först huvudkategori"} />
+                <SelectValue placeholder={formData.huvudkategoriId ? "Välj underkategori" : "Välj först huvudkategori"} />
               </SelectTrigger>
               <SelectContent className="bg-popover border border-border shadow-lg z-50">
-                {availableSubcategories.map((subcategory) => (
-                  <SelectItem key={subcategory} value={subcategory}>
-                    {subcategory}
+                {availableUnderkategorier.map((underkategori) => (
+                  <SelectItem key={underkategori.id} value={underkategori.id}>
+                    {underkategori.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -153,8 +152,8 @@ export const AddSavingsItemDialog: React.FC<AddSavingsItemDialogProps> = ({
           <div className="space-y-2">
             <Label htmlFor="account">Konto</Label>
             <Select 
-              value={formData.account} 
-              onValueChange={(value) => setFormData({ ...formData, account: value })}
+              value={formData.accountId} 
+              onValueChange={(value) => setFormData({ ...formData, accountId: value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Välj konto" />
@@ -162,8 +161,8 @@ export const AddSavingsItemDialog: React.FC<AddSavingsItemDialogProps> = ({
               <SelectContent className="bg-popover border border-border shadow-lg z-50">
                 <SelectItem value="none">Inget konto</SelectItem>
                 {accounts.map((account) => (
-                  <SelectItem key={account} value={account}>
-                    {account}
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -177,7 +176,7 @@ export const AddSavingsItemDialog: React.FC<AddSavingsItemDialogProps> = ({
           </Button>
           <Button 
             onClick={handleSave}
-            disabled={!formData.mainCategory || !formData.subcategory || !formData.name || formData.amount <= 0}
+            disabled={!formData.huvudkategoriId || !formData.underkategoriId || !formData.name || formData.amount <= 0}
           >
             Spara
           </Button>

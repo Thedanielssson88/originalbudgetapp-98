@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Plus, Target, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useBudget } from '../hooks/useBudget';
+import { useAccounts } from '../hooks/useAccounts';
 import { createSavingsGoal, updateSelectedBudgetMonth } from '../orchestrator/budgetOrchestrator';
 import { SavingsGoal } from '../types/budget';
 import { Button } from '../components/ui/button';
@@ -15,6 +16,7 @@ import { Badge } from '../components/ui/badge';
 
 export function SavingsGoalsPage() {
   const { budgetState, isLoading } = useBudget();
+  const { data: accountsFromAPI = [], isLoading: accountsLoading } = useAccounts();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -97,12 +99,12 @@ export function SavingsGoalsPage() {
     setFormData({ name: '', accountId: '', targetAmount: '', startDate: '', endDate: '' });
   };
 
-  if (isLoading) {
+  if (isLoading || accountsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Laddar sparmål...</p>
+          <p className="text-muted-foreground">Laddar sparmål och konton...</p>
         </div>
       </div>
     );
@@ -249,7 +251,7 @@ export function SavingsGoalsPage() {
                     <SelectValue placeholder="Välj konto" />
                   </SelectTrigger>
                   <SelectContent>
-                    {budgetState.accounts.map(account => (
+                    {accountsFromAPI.map(account => (
                       <SelectItem key={account.id} value={account.id}>
                         {account.name}
                       </SelectItem>
@@ -322,7 +324,7 @@ export function SavingsGoalsPage() {
             const actualSaved = calculateActualSaved(goal);
             const progress = Math.min((actualSaved / goal.targetAmount) * 100, 100);
             const monthlyAmount = calculateMonthlyAmount(goal);
-            const accountName = budgetState.accounts.find(acc => acc.id === goal.accountId)?.name || 'Okänt konto';
+            const accountName = accountsFromAPI.find(acc => acc.id === goal.accountId)?.name || 'Okänt konto';
             
             return (
               <Card key={goal.id} className="hover:shadow-lg transition-shadow">

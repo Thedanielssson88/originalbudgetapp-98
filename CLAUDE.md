@@ -52,10 +52,10 @@ The application uses PostgreSQL with UUID-based entities managed through Drizzle
 - `banks` / `bankCsvMappings` - Bank import configuration
 
 ### Key Backend Files
-- `server/index.ts` - Main server entry point
+- `server/index.ts` - Main server entry point with middleware setup
 - `server/routes.ts` - API routes and request handling
-- `server/storage.ts` - In-memory storage (development fallback)
 - `server/dbStorage.ts` - PostgreSQL database operations
+- `server/storage.ts` - In-memory storage (development fallback)
 - `shared/schema.ts` - Drizzle schema definitions and Zod validators
 
 ### Frontend Architecture
@@ -95,15 +95,25 @@ The application uses PostgreSQL with UUID-based entities managed through Drizzle
 - Migration system converts legacy string-based categories
 - Categories have hierarchy: `huvudkategorier` -> `underkategorier`
 
-### State Management
-- Central orchestrator manages all state mutations
-- Transactions stored in `budgetState.allTransactions`
-- Month-based filtering applied for display
+### State Management Architecture
+- **Central Orchestrator**: `budgetOrchestrator.ts` manages all state mutations and calculations
+- **Single Source of Truth**: All transactions stored in `budgetState.allTransactions`
+- **Month-based Filtering**: Display logic filters centralized transaction array
+- **Smart Merge Logic**: CSV import uses intelligent reconciliation to prevent duplicates
+- **Real-time Updates**: UI automatically refreshes on state changes
+
+### Transaction Processing Flow
+1. **CSV Import**: Files parsed through `importAndReconcileFile()` function
+2. **Data Reconciliation**: Smart merge compares file data with existing transactions
+3. **Bank Balance Updates**: Account balances calculated from transaction history
+4. **Category Application**: Rules engine applies categorization automatically
+5. **UI Refresh**: Components re-render with updated transaction data
 
 ### Build Process
 - Frontend built with Vite to `dist/public/`
 - Backend bundled with esbuild to `dist/`
 - Development uses Vite HMR integration
+- Single port (5000) serves both API and static files
 
 ## Common Development Tasks
 
@@ -120,18 +130,26 @@ The application uses PostgreSQL with UUID-based entities managed through Drizzle
 3. Add navigation item to `client/src/components/AppSidebar.tsx`
 
 **Modify transaction processing:**
-- Business logic lives in `client/src/orchestrator/budgetOrchestrator.ts`
-- Import logic in `client/src/components/TransactionImport.tsx`
-- Category rules in `client/src/services/categoryMigrationService.ts`
+- Core business logic in `client/src/orchestrator/budgetOrchestrator.ts`
+- Import UI logic in `client/src/components/TransactionImport.tsx`
+- Category migration in `client/src/services/categoryMigrationService.ts`
+- Calculation services in `client/src/services/calculationService.ts`
+
+**Working with the Orchestrator:**
+- All transaction mutations must go through the orchestrator
+- Use `importAndReconcileFile()` for CSV/XLSX imports
+- State changes automatically trigger UI updates
+- Debug logging available through mobile debug utilities
 
 ## Environment Setup
 - Application runs on port 5000 (both development and production)  
 - Requires Node.js with npm
-- Optional: PostgreSQL database (uses Neon serverless by default)
+- PostgreSQL database via `DATABASE_URL` (uses Neon serverless by default)
 - Optional: Google Drive API credentials for cloud backup
 
 ## Key Files for Understanding
 - `replit.md` - Comprehensive project overview and recent changes
-- `shared/schema.ts` - Complete database schema
-- `client/src/orchestrator/budgetOrchestrator.ts` - Core business logic
-- `server/routes.ts` - API endpoints and request handling
+- `shared/schema.ts` - Complete database schema with UUID relationships
+- `client/src/orchestrator/budgetOrchestrator.ts` - Core business logic and state management
+- `server/routes.ts` - API endpoints with mock authentication
+- `client/src/state/budgetState.ts` - Central state definition and persistence

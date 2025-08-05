@@ -7,11 +7,13 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ChevronDown, ChevronUp, Plus, Edit, Trash2 } from 'lucide-react';
 import { BudgetGroup, SavingsGoal, Transaction } from '../types/budget';
 import { AddSavingsItemDialog } from './AddSavingsItemDialog';
+import { useCategoryNames } from '../hooks/useCategories';
+import type { Account } from '@shared/schema';
 
 interface SavingsSectionProps {
   savingsGroups: BudgetGroup[];
   savingsGoals: SavingsGoal[];
-  accounts: { id: string; name: string }[];
+  accounts: Account[];
   mainCategories: string[];
   transactionsForPeriod?: Transaction[];
   calculateSavingsActualForCategory?: (categoryName: string) => number;
@@ -45,10 +47,35 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
   onEditSavingsGroup,
   onDeleteSavingsGroup
 }) => {
+  const { getHuvudkategoriName, getUnderkategoriName } = useCategoryNames();
   const [viewMode, setViewMode] = useState<ViewMode>('category');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
+  // Handler to convert UUID-based savings item to legacy format
+  const handleAddSavingsItem = (item: {
+    huvudkategoriId: string;
+    underkategoriId: string;
+    name: string;
+    amount: number;
+    accountId: string;
+  }) => {
+    const mainCategory = getHuvudkategoriName(item.huvudkategoriId) || 'Unknown';
+    const subcategory = getUnderkategoriName(item.underkategoriId) || 'Unknown';
+    const account = item.accountId === '' || item.accountId === 'none' 
+      ? '' 
+      : accounts.find(acc => acc.id === item.accountId)?.name || '';
+
+    // Convert to legacy format for backwards compatibility
+    onAddSavingsItem({
+      mainCategory,
+      subcategory,
+      name: item.name,
+      amount: item.amount,
+      account
+    });
+  };
 
   const toggleCategoryExpansion = (categoryId: string) => {
     const newExpanded = new Set(expandedCategories);
@@ -636,9 +663,8 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
       <AddSavingsItemDialog
         isOpen={isAddDialogOpen}
         onClose={() => setIsAddDialogOpen(false)}
-        onSave={onAddSavingsItem}
-        mainCategories={mainCategories}
-        accounts={accounts.map(acc => acc.name)}
+        onSave={handleAddSavingsItem}
+        accounts={accounts}
       />
     </div>
   );

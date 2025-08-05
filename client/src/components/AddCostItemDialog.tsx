@@ -6,75 +6,57 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { StorageKey, get } from '../services/storageService';
+import { useCategoriesHierarchy } from '../hooks/useCategories';
+import type { Account } from '@shared/schema';
 
 interface AddCostItemDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (item: {
-    mainCategory: string;
-    subcategory: string;
+    huvudkategoriId: string;
+    underkategoriId: string;
     name: string;
     amount: number;
-    accountId?: string; // ÄNDRAT: Nu sparas accountId istället för account name
+    accountId?: string;
     financedFrom: string;
     transferType?: 'monthly' | 'daily';
     dailyAmount?: number;
     transferDays?: number[];
   }) => void;
-  mainCategories: string[];
-  accounts: { id: string; name: string }[]; // ÄNDRAT: Förväntar sig account objects istället för strings
+  accounts: Account[];
 }
 
 export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({ 
   isOpen, 
   onClose, 
   onSave, 
-  mainCategories, 
   accounts 
 }) => {
+  const { categories, isLoading } = useCategoriesHierarchy();
+  
   const [formData, setFormData] = useState({
-    mainCategory: '',
-    subcategory: '',
+    huvudkategoriId: '',
+    underkategoriId: '',
     name: '',
     amount: 0,
-    account: 'none',
+    accountId: 'none',
     financedFrom: 'Löpande kostnad',
     transferType: 'monthly' as 'monthly' | 'daily',
     dailyAmount: 0,
     transferDays: [] as number[]
   });
   
-  const [subcategories, setSubcategories] = useState<Record<string, string[]>>({});
-  const [availableSubcategories, setAvailableSubcategories] = useState<string[]>([]);
+  const [availableUnderkategorier, setAvailableUnderkategorier] = useState<Array<{id: string, name: string}>>([]);
 
   useEffect(() => {
-    // TODO: Load subcategories from API instead of localStorage
-    const loadedSubcategories: Record<string, string[]> = {};
-    console.log('AddCostItemDialog: Loading subcategories (TODO: from API):', loadedSubcategories);
-    setSubcategories(loadedSubcategories);
-  }, []);
-
-  // Reload subcategories when dialog opens
-  useEffect(() => {
-    if (isOpen) {
-      // TODO: Load subcategories from API instead of localStorage
-      const loadedSubcategories: Record<string, string[]> = {};
-      console.log('AddCostItemDialog: Reloading subcategories on dialog open (TODO: from API):', loadedSubcategories);
-      setSubcategories(loadedSubcategories);
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (formData.mainCategory) {
-      const available = subcategories[formData.mainCategory] || [];
-      console.log(`AddCostItemDialog: Setting subcategories for ${formData.mainCategory}:`, available);
-      setAvailableSubcategories(available);
-      setFormData(prev => ({ ...prev, subcategory: '' }));
+    if (formData.huvudkategoriId) {
+      const selectedCategory = categories.find(cat => cat.id === formData.huvudkategoriId);
+      setAvailableUnderkategorier(selectedCategory?.underkategorier || []);
+      setFormData(prev => ({ ...prev, underkategoriId: '' }));
     } else {
-      setAvailableSubcategories([]);
+      setAvailableUnderkategorier([]);
     }
-  }, [formData.mainCategory, subcategories]);
+  }, [formData.huvudkategoriId, categories]);
 
   const handleSave = () => {
     console.log('🔍 [DEBUG] AddCostItemDialog handleSave called with formData:', formData);
@@ -84,8 +66,8 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
       formData.amount > 0;
       
     console.log('🔍 [DEBUG] Validation check:', {
-      mainCategory: !!formData.mainCategory,
-      subcategory: !!formData.subcategory,
+      huvudkategoriId: !!formData.huvudkategoriId,
+      underkategoriId: !!formData.underkategoriId,
       name: !!formData.name,
       isValidAmount,
       transferType: formData.transferType,
@@ -94,21 +76,26 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
       transferDays: formData.transferDays
     });
       
-    if (formData.mainCategory && formData.subcategory && formData.name && isValidAmount) {
+    if (formData.huvudkategoriId && formData.underkategoriId && formData.name && isValidAmount) {
       console.log('🔍 [DEBUG] Validation passed, calling onSave...');
       const itemToSave = {
-        ...formData,
-        accountId: formData.account === 'none' ? undefined : formData.account // Konvertera till accountId
+        huvudkategoriId: formData.huvudkategoriId,
+        underkategoriId: formData.underkategoriId,
+        name: formData.name,
+        amount: formData.amount,
+        accountId: formData.accountId === 'none' ? undefined : formData.accountId,
+        financedFrom: formData.financedFrom,
+        transferType: formData.transferType,
+        dailyAmount: formData.transferType === 'daily' ? formData.dailyAmount : undefined,
+        transferDays: formData.transferType === 'daily' ? formData.transferDays : undefined
       };
-      // Ta bort den gamla 'account' propertyn
-      const { account, ...finalItem } = itemToSave;
-      onSave(finalItem);
+      onSave(itemToSave);
       setFormData({
-        mainCategory: '',
-        subcategory: '',
+        huvudkategoriId: '',
+        underkategoriId: '',
         name: '',
         amount: 0,
-        account: 'none',
+        accountId: 'none',
         financedFrom: 'Löpande kostnad',
         transferType: 'monthly' as 'monthly' | 'daily',
         dailyAmount: 0,
@@ -122,11 +109,11 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
 
   const handleCancel = () => {
     setFormData({
-      mainCategory: '',
-      subcategory: '',
+      huvudkategoriId: '',
+      underkategoriId: '',
       name: '',
       amount: 0,
-      account: 'none',
+      accountId: 'none',
       financedFrom: 'Löpande kostnad',
       transferType: 'monthly' as 'monthly' | 'daily',
       dailyAmount: 0,
@@ -159,18 +146,19 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
         
         <div className="space-y-4 pb-4">
           <div className="space-y-2">
-            <Label htmlFor="mainCategory">Huvudkategori</Label>
+            <Label htmlFor="huvudkategori">Huvudkategori</Label>
             <Select 
-              value={formData.mainCategory} 
-              onValueChange={(value) => setFormData({ ...formData, mainCategory: value })}
+              value={formData.huvudkategoriId} 
+              onValueChange={(value) => setFormData({ ...formData, huvudkategoriId: value })}
+              disabled={isLoading}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Välj huvudkategori" />
+                <SelectValue placeholder={isLoading ? "Laddar kategorier..." : "Välj huvudkategori"} />
               </SelectTrigger>
               <SelectContent className="bg-popover border border-border shadow-lg z-50">
-                {mainCategories.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
+                {categories.map((category) => (
+                  <SelectItem key={category.id} value={category.id}>
+                    {category.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -178,19 +166,19 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="subcategory">Underkategori</Label>
+            <Label htmlFor="underkategori">Underkategori</Label>
             <Select 
-              value={formData.subcategory} 
-              onValueChange={(value) => setFormData({ ...formData, subcategory: value })}
-              disabled={!formData.mainCategory}
+              value={formData.underkategoriId} 
+              onValueChange={(value) => setFormData({ ...formData, underkategoriId: value })}
+              disabled={!formData.huvudkategoriId || isLoading}
             >
               <SelectTrigger>
-                <SelectValue placeholder={formData.mainCategory ? "Välj underkategori" : "Välj först huvudkategori"} />
+                <SelectValue placeholder={formData.huvudkategoriId ? "Välj underkategori" : "Välj först huvudkategori"} />
               </SelectTrigger>
               <SelectContent className="bg-popover border border-border shadow-lg z-50">
-                {availableSubcategories.map((subcategory) => (
-                  <SelectItem key={subcategory} value={subcategory}>
-                    {subcategory}
+                {availableUnderkategorier.map((underkategori) => (
+                  <SelectItem key={underkategori.id} value={underkategori.id}>
+                    {underkategori.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -281,8 +269,8 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
           <div className="space-y-2">
             <Label htmlFor="account">Konto</Label>
             <Select 
-              value={formData.account} 
-              onValueChange={(value) => setFormData({ ...formData, account: value })}
+              value={formData.accountId} 
+              onValueChange={(value) => setFormData({ ...formData, accountId: value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Välj konto" />
@@ -322,8 +310,8 @@ export const AddCostItemDialog: React.FC<AddCostItemDialogProps> = ({
           <Button 
             onClick={handleSave}
             disabled={
-              !formData.mainCategory || 
-              !formData.subcategory || 
+              !formData.huvudkategoriId || 
+              !formData.underkategoriId || 
               !formData.name || 
               (formData.transferType === 'daily' ? 
                 (formData.dailyAmount <= 0 || formData.transferDays.length === 0) : 
