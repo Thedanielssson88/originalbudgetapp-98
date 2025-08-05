@@ -12,6 +12,7 @@ import TransactionsPage from "./pages/TransactionsPage";
 import SettingsPage from "./pages/SettingsPage";
 import CategoryManagement from "./pages/CategoryManagement";
 import NotFound from "./pages/NotFound";
+import ImportPage from "./pages/ImportPage";
 import { useInitializeApiStore } from "./hooks/useApiStore";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const AppContent = () => {
             <Route path="/sparmal" component={SavingsGoalsPage} />
             <Route path="/transaktioner" component={TransactionsPage} />
             <Route path="/kategorier" component={CategoryManagement} />
+            <Route path="/import" component={ImportPage} />
             <Route path="/installningar" component={SettingsPage} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route component={NotFound} />

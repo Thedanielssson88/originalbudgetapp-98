@@ -919,12 +919,12 @@ export const TransactionImportEnhanced: React.FC = () => {
 
       // Parse and store raw CSV data for table display
       const lines = csvContent.split('\n').filter(line => line.trim());
-      const headers = lines[0]?.split(';').map(h => h.trim()) || [];
-      const rows = lines.slice(1).map(line => line.split(';').map(cell => cell.trim()));
+      const headers = lines[0]?.split(';').map((h: string) => h.trim()) || [];
+      const rows = lines.slice(1).map((line: string) => line.split(';').map((cell: string) => cell.trim()));
       
       setRawCsvData(prev => ({
         ...prev,
-        [accountId]: { headers, data: rows }  // Change 'rows' to 'data' to match Settings2 check
+        [accountId]: { headers, rows: rows }
       }));
       
       // Also immediately set file data for column mapping
@@ -967,7 +967,7 @@ export const TransactionImportEnhanced: React.FC = () => {
         const underkategoriIndex = parseResult.headers.findIndex(h => h.toLowerCase().includes('underkategori'));
         
         if (kategoriIndex >= 0 && parseResult.dataRows.length > 0) {
-          const sampleCategories = parseResult.dataRows.slice(0, 3).map(row => row[kategoriIndex] || '[EMPTY]');
+          const sampleCategories = parseResult.dataRows.slice(0, 3).map((row: string[]) => row[kategoriIndex] || '[EMPTY]');
           console.log(`🎯 [FINAL CHECK] Kategori data: ${sampleCategories.join(', ')}`);
           addMobileDebugLog(`🎯 Categories found: ${sampleCategories.join(', ')}`);
         }
@@ -1489,7 +1489,7 @@ export const TransactionImportEnhanced: React.FC = () => {
           console.log(`🎯 [APPLY RULES] Rule "${rule.ruleName}" matched transaction "${transaction.description}"`);
           
           // Apply the rule - update category
-          updateTransactionCategory(transaction.id, rule.huvudkategoriId, rule.underkategoriId);
+          updateTransactionCategory(transaction.id, rule.huvudkategoriId || '', rule.underkategoriId || '');
           
           // Apply the rule - update transaction type based on amount
           const isPositive = transaction.amount >= 0;
@@ -1686,7 +1686,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                                 name: `${account.name} Bank`,
                                 createdAt: new Date().toISOString()
                               };
-                              setBanks(prev => [...prev, tempBank]);
+                              // Banks are now managed via API hooks, can't directly manipulate state
                               handleBankSelection(account.id, tempBank.id);
                             }
                             setCurrentStep('mapping');
@@ -1746,7 +1746,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                             }
                             
                             // Check if there's uploaded file data for this account or in the latest upload
-                            const hasFileData = rawCsvData[account.id]?.headers && rawCsvData[account.id]?.data;
+                            const hasFileData = rawCsvData[account.id]?.headers && rawCsvData[account.id]?.rows;
                             const hasLatestFileData = fileColumnsForMapping.length > 0 && sampleDataForMapping.length > 0;
                             
                             if (!hasFileData && !hasLatestFileData) {
@@ -1765,7 +1765,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                             } else {
                               // Set file data for mapping dialog from stored raw data
                               setFileColumnsForMapping(rawCsvData[account.id].headers);
-                              setSampleDataForMapping(rawCsvData[account.id].data.slice(0, 3));
+                              setSampleDataForMapping(rawCsvData[account.id].rows.slice(0, 3));
                             }
                             setCurrentMappingBankId(bankId);
                             setShowColumnMappingDialog(true);
@@ -2244,7 +2244,7 @@ export const TransactionImportEnhanced: React.FC = () => {
           <TabsContent value="rules" className="space-y-4">
             <CategoryRuleManagerAdvanced
               key={refreshKey}
-              rules={categoryRules}
+              rules={categoryRules.map(rule => ({ ...rule, isActive: rule.isActive || 'true' }))}
               onRulesChange={(newRules) => {
                 // Clear existing rules and add new ones (using modern format)
                 categoryRules.forEach(oldRule => {
@@ -2252,7 +2252,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                 });
                 
                 newRules.forEach(rule => {
-                  addCategoryRule(rule);
+                  addCategoryRule({ ...rule, isActive: rule.isActive || 'true' });
                 });
                 
                 triggerRefresh();
@@ -2272,7 +2272,7 @@ export const TransactionImportEnhanced: React.FC = () => {
               <CardContent>
                 <UncategorizedBankCategories 
                   transactions={allTransactions}
-                  categoryRules={categoryRules}
+                  categoryRules={categoryRules.map(rule => ({ ...rule, isActive: rule.isActive || 'true' }))}
                   onCreateRule={(bankCategory, bankSubCategory) => {
                     setSelectedBankCategory(bankCategory);
                     setSelectedBankSubCategory(bankSubCategory);
