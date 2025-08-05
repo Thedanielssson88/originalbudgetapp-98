@@ -117,6 +117,13 @@ export interface IStorage {
   updateBankCsvMapping(id: string, mapping: Partial<InsertBankCsvMapping>): Promise<BankCsvMapping | undefined>;
   deleteBankCsvMapping(id: string): Promise<boolean>;
   
+  // Monthly Account Balance methods
+  getMonthlyAccountBalances(userId: string): Promise<any[]>;
+  saveMonthlyAccountBalance(balance: any): Promise<any>;
+  upsertMonthlyAccountBalance(balance: any): Promise<any>;
+  updateFaktisktKontosaldo(userId: string, monthKey: string, accountId: string, faktisktKontosaldo: number): Promise<any>;
+  updateBankensKontosaldo(userId: string, monthKey: string, accountId: string, bankensKontosaldo: number): Promise<any>;
+
   // Bootstrap method to get all data at once
   bootstrap(userId: string): Promise<{
     accounts: Account[];
@@ -144,6 +151,8 @@ export class MemStorage implements IStorage {
   private banks: Map<string, Bank>;
   private bankCsvMappings: Map<string, BankCsvMapping>;
 
+  private monthlyAccountBalances: Map<string, any>;
+
   constructor() {
     this.users = new Map();
     this.familyMembers = new Map();
@@ -156,6 +165,7 @@ export class MemStorage implements IStorage {
     this.monthlyBudgets = new Map();
     this.banks = new Map();
     this.bankCsvMappings = new Map();
+    this.monthlyAccountBalances = new Map();
   }
 
   // Bootstrap method
@@ -176,7 +186,7 @@ export class MemStorage implements IStorage {
       underkategorier: await this.getUnderkategorier(userId),
       categoryRules: await this.getCategoryRules(userId),
       transactions: await this.getTransactions(userId),
-      budgetPosts: await this.getBudgetPosts(userId),
+      budgetPosts: await this.getBudgetPosts(),
       monthlyBudgets: await this.getMonthlyBudgets(userId),
       banks: await this.getBanks(userId),
       bankCsvMappings: await this.getBankCsvMappings(userId),
@@ -194,6 +204,42 @@ export class MemStorage implements IStorage {
     return user;
   }
 
+  // Family Member methods
+  async getFamilyMembers(userId: string): Promise<FamilyMember[]> {
+    return Array.from(this.familyMembers.values()).filter(member => member.userId === userId);
+  }
+
+  async getFamilyMember(id: string): Promise<FamilyMember | undefined> {
+    return this.familyMembers.get(id);
+  }
+
+  async createFamilyMember(member: InsertFamilyMember): Promise<FamilyMember> {
+    const id = crypto.randomUUID();
+    const newMember: FamilyMember = {
+      id,
+      ...member,
+      createdAt: new Date(),
+    };
+    this.familyMembers.set(id, newMember);
+    return newMember;
+  }
+
+  async updateFamilyMember(id: string, member: Partial<InsertFamilyMember>): Promise<FamilyMember | undefined> {
+    const existing = this.familyMembers.get(id);
+    if (!existing) return undefined;
+    
+    const updated: FamilyMember = {
+      ...existing,
+      ...member,
+    };
+    this.familyMembers.set(id, updated);
+    return updated;
+  }
+
+  async deleteFamilyMember(id: string): Promise<boolean> {
+    return this.familyMembers.delete(id);
+  }
+
   // Account methods
   async getAccounts(userId: string): Promise<Account[]> {
     return Array.from(this.accounts.values()).filter(acc => acc.userId === userId);
@@ -208,6 +254,9 @@ export class MemStorage implements IStorage {
     const newAccount: Account = {
       id,
       ...account,
+      balance: account.balance ?? 0,
+      assignedTo: account.assignedTo ?? 'gemensamt',
+      bankTemplateId: account.bankTemplateId ?? null,
     };
     this.accounts.set(id, newAccount);
     return newAccount;
@@ -243,6 +292,7 @@ export class MemStorage implements IStorage {
     const newKategori: Huvudkategori = {
       id,
       ...kategori,
+      description: kategori.description ?? null,
     };
     this.huvudkategorier.set(id, newKategori);
     return newKategori;
@@ -284,6 +334,7 @@ export class MemStorage implements IStorage {
     const newKategori: Underkategori = {
       id,
       ...kategori,
+      description: kategori.description ?? null,
     };
     this.underkategorier.set(id, newKategori);
     return newKategori;
@@ -319,6 +370,15 @@ export class MemStorage implements IStorage {
     const newRule: CategoryRule = {
       id,
       ...rule,
+      isActive: rule.isActive ?? 'true',
+      huvudkategoriId: rule.huvudkategoriId ?? null,
+      bankCategory: rule.bankCategory ?? null,
+      bankSubCategory: rule.bankSubCategory ?? null,
+      underkategoriId: rule.underkategoriId ?? null,
+      positiveTransactionType: rule.positiveTransactionType ?? 'Transaction',
+      negativeTransactionType: rule.negativeTransactionType ?? 'Transaction',
+      applicableAccountIds: rule.applicableAccountIds ?? '[]',
+      priority: rule.priority ?? 100,
     };
     this.categoryRules.set(id, newRule);
     return newRule;
@@ -354,6 +414,19 @@ export class MemStorage implements IStorage {
     const newTransaction: Transaction = {
       id,
       ...transaction,
+      type: transaction.type ?? 'Transaction',
+      status: transaction.status ?? 'yellow',
+      balanceAfter: transaction.balanceAfter ?? 0,
+      userDescription: transaction.userDescription ?? '',
+      bankCategory: transaction.bankCategory ?? '',
+      bankSubCategory: transaction.bankSubCategory ?? '',
+      isManuallyChanged: transaction.isManuallyChanged ?? 'false',
+      huvudkategoriId: transaction.huvudkategoriId ?? null,
+      underkategoriId: transaction.underkategoriId ?? null,
+      linkedTransactionId: transaction.linkedTransactionId ?? null,
+      correctedAmount: transaction.correctedAmount ?? null,
+      appCategoryId: transaction.appCategoryId ?? null,
+      appSubCategoryId: transaction.appSubCategoryId ?? null,
     };
     this.transactions.set(id, newTransaction);
     return newTransaction;
@@ -450,6 +523,148 @@ export class MemStorage implements IStorage {
 
   async deleteBankCsvMapping(id: string): Promise<boolean> {
     return this.bankCsvMappings.delete(id);
+  }
+
+  // Monthly Budget methods
+  async getMonthlyBudgets(userId: string): Promise<MonthlyBudget[]> {
+    return Array.from(this.monthlyBudgets.values()).filter(budget => budget.userId === userId);
+  }
+
+  async getMonthlyBudget(userId: string, monthKey: string): Promise<MonthlyBudget | undefined> {
+    return Array.from(this.monthlyBudgets.values()).find(
+      budget => budget.userId === userId && budget.monthKey === monthKey
+    );
+  }
+
+  async createMonthlyBudget(budget: InsertMonthlyBudget): Promise<MonthlyBudget> {
+    const id = crypto.randomUUID();
+    const newBudget: MonthlyBudget = {
+      id,
+      ...budget,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      primaryUserId: budget.primaryUserId ?? null,
+      secondaryUserId: budget.secondaryUserId ?? null,
+      primaryUserSalary: budget.primaryUserSalary ?? 0,
+      primaryUserförsäkringskassan: budget.primaryUserförsäkringskassan ?? 0,
+      primaryUserbarnbidrag: budget.primaryUserbarnbidrag ?? 0,
+      secondaryUserSalary: budget.secondaryUserSalary ?? 0,
+      secondaryUserförsäkringskassan: budget.secondaryUserförsäkringskassan ?? 0,
+      secondaryUserbarnbidrag: budget.secondaryUserbarnbidrag ?? 0,
+      dailyTransfer: budget.dailyTransfer ?? 300,
+      weekendTransfer: budget.weekendTransfer ?? 540,
+      primaryUserPersonalCosts: budget.primaryUserPersonalCosts ?? 0,
+      primaryUserPersonalSavings: budget.primaryUserPersonalSavings ?? 0,
+      secondaryUserPersonalCosts: budget.secondaryUserPersonalCosts ?? 0,
+      secondaryUserPersonalSavings: budget.secondaryUserPersonalSavings ?? 0,
+      andreasSalary: budget.andreasSalary ?? 0,
+      andreasförsäkringskassan: budget.andreasförsäkringskassan ?? 0,
+      andreasbarnbidrag: budget.andreasbarnbidrag ?? 0,
+      susannaSalary: budget.susannaSalary ?? 0,
+      susannaförsäkringskassan: budget.susannaförsäkringskassan ?? 0,
+      susannabarnbidrag: budget.susannabarnbidrag ?? 0,
+      andreasPersonalCosts: budget.andreasPersonalCosts ?? 0,
+      andreasPersonalSavings: budget.andreasPersonalSavings ?? 0,
+      susannaPersonalCosts: budget.susannaPersonalCosts ?? 0,
+      susannaPersonalSavings: budget.susannaPersonalSavings ?? 0,
+      userName1: budget.userName1 ?? 'Andreas',
+      userName2: budget.userName2 ?? 'Susanna',
+    };
+    this.monthlyBudgets.set(id, newBudget);
+    return newBudget;
+  }
+
+  async updateMonthlyBudget(userId: string, monthKey: string, budget: Partial<InsertMonthlyBudget>): Promise<MonthlyBudget | undefined> {
+    const existing = Array.from(this.monthlyBudgets.values()).find(
+      b => b.userId === userId && b.monthKey === monthKey
+    );
+    if (!existing) return undefined;
+    
+    const updated: MonthlyBudget = {
+      ...existing,
+      ...budget,
+    };
+    this.monthlyBudgets.set(existing.id, updated);
+    return updated;
+  }
+
+  async deleteMonthlyBudget(userId: string, monthKey: string): Promise<boolean> {
+    const existing = Array.from(this.monthlyBudgets.values()).find(
+      b => b.userId === userId && b.monthKey === monthKey
+    );
+    if (!existing) return false;
+    return this.monthlyBudgets.delete(existing.id);
+  }
+
+  // Monthly Account Balance methods
+  async getMonthlyAccountBalances(userId: string): Promise<any[]> {
+    return Array.from(this.monthlyAccountBalances.values()).filter(balance => balance.userId === userId);
+  }
+
+  async saveMonthlyAccountBalance(balance: any): Promise<any> {
+    const id = crypto.randomUUID();
+    const newBalance = {
+      id,
+      ...balance,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.monthlyAccountBalances.set(id, newBalance);
+    return newBalance;
+  }
+
+  async upsertMonthlyAccountBalance(balance: any): Promise<any> {
+    // Find existing balance by userId, monthKey, and accountId
+    const existing = Array.from(this.monthlyAccountBalances.values()).find(
+      b => b.userId === balance.userId && 
+           b.monthKey === balance.monthKey && 
+           b.accountId === balance.accountId
+    );
+
+    if (existing) {
+      // Update existing
+      const updated = {
+        ...existing,
+        ...balance,
+        updatedAt: new Date(),
+      };
+      this.monthlyAccountBalances.set(existing.id, updated);
+      return { balance: updated };
+    } else {
+      // Create new
+      const created = await this.saveMonthlyAccountBalance(balance);
+      return { balance: created };
+    }
+  }
+
+  async updateFaktisktKontosaldo(userId: string, monthKey: string, accountId: string, faktisktKontosaldo: number): Promise<any> {
+    const existing = Array.from(this.monthlyAccountBalances.values()).find(
+      balance => balance.userId === userId && balance.monthKey === monthKey && balance.accountId === accountId
+    );
+    if (!existing) return undefined;
+    
+    const updated = {
+      ...existing,
+      faktisktKontosaldo,
+      updatedAt: new Date(),
+    };
+    this.monthlyAccountBalances.set(existing.id, updated);
+    return updated;
+  }
+
+  async updateBankensKontosaldo(userId: string, monthKey: string, accountId: string, bankensKontosaldo: number): Promise<any> {
+    const existing = Array.from(this.monthlyAccountBalances.values()).find(
+      balance => balance.userId === userId && balance.monthKey === monthKey && balance.accountId === accountId
+    );
+    if (!existing) return undefined;
+    
+    const updated = {
+      ...existing,
+      bankensKontosaldo,
+      updatedAt: new Date(),
+    };
+    this.monthlyAccountBalances.set(existing.id, updated);
+    return updated;
   }
 
   // Stub methods for BudgetPost - not implemented yet

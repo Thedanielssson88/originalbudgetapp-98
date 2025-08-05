@@ -47,6 +47,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMonthlyBudget } from '@/hooks/useMonthlyBudget';
 import { useFamilyMembers } from '@/hooks/useFamilyMembers';
 import { useAccounts } from '@/hooks/useAccounts';
+import { useMonthlyAccountBalances, useUpdateFaktisktKontosaldo } from '@/hooks/useMonthlyAccountBalances';
 import { 
   createSavingsGoal,
   updateCostGroups,
@@ -129,6 +130,10 @@ const BudgetCalculator = () => {
   const { data: accountsFromAPI = [], isLoading: accountsLoading } = useAccounts();
   const currentMonthlyBudget = useMonthlyBudget(budgetState.selectedMonthKey);
   const { toast } = useToast();
+
+  // Hooks for monthly account balances (SQL database)
+  const { data: monthlyBalances = [] } = useMonthlyAccountBalances(budgetState.selectedMonthKey);
+  const updateFaktisktKontosaldoMutation = useUpdateFaktisktKontosaldo();
   
   // Import UUID category resolution system
   const { resolveHuvudkategoriName, resolveUnderkategoriName, isLoading: categoriesLoading } = useCategoryResolver();
@@ -157,6 +162,15 @@ const BudgetCalculator = () => {
     }
     // Legacy fallback: this should not happen after migration
     return false;
+  };
+
+  // Utility function to get faktiskt kontosaldo from SQL database
+  const getFaktisktKontosaldoFromSQL = (accountName: string): number | null => {
+    const account = accountsFromAPI.find(acc => acc.name === accountName);
+    if (!account) return null;
+    
+    const balance = monthlyBalances.find(b => b.accountId === account.id);
+    return balance?.faktisktKontosaldo ?? null;
   };
   
   // ALL HOOKS MUST BE DECLARED FIRST - BEFORE ANY CONDITIONAL LOGIC
@@ -2811,7 +2825,21 @@ const BudgetCalculator = () => {
   const handleAccountBalanceUpdate = (account: string, balance: number) => {
     addDebugLog(`🎯 handleAccountBalanceUpdate called: ${account} = ${balance}`);
     
-    // CRITICAL FIX: Call orchestrator only once to avoid duplicate updates
+    // NEW: Save to SQL database instead of localStorage
+    const accountObj = accountsFromAPI.find(acc => acc.name === account);
+    if (accountObj && budgetState.selectedMonthKey) {
+      const balanceInOre = Math.round(balance * 100); // Convert to öre
+      updateFaktisktKontosaldoMutation.mutate({
+        monthKey: budgetState.selectedMonthKey,
+        accountId: accountObj.id,
+        faktisktKontosaldo: balanceInOre
+      });
+      addDebugLog(`✅ SQL update initiated for ${account}: ${balanceInOre} öre`);
+    } else {
+      console.error(`❌ Could not find account ${account} or selectedMonthKey missing`);
+    }
+    
+    // Keep existing localStorage logic for backward compatibility during transition
     updateAccountBalance(account, balance);
     addDebugLog(`✅ updateAccountBalance completed for ${account}`);
     

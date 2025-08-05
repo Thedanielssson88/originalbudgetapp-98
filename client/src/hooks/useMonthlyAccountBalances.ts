@@ -7,6 +7,8 @@ export interface MonthlyAccountBalance {
   monthKey: string;
   accountId: string;
   calculatedBalance: number; // in öre
+  faktisktKontosaldo?: number | null; // in öre
+  bankensKontosaldo?: number | null; // in öre
   createdAt: string;
   updatedAt: string;
 }
@@ -43,6 +45,27 @@ export function useSaveMonthlyAccountBalance() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      // Invalidate all monthly account balance queries
+      queryClient.invalidateQueries({ queryKey: ['/api/monthly-account-balances'] });
+    },
+  });
+}
+
+export function useUpdateFaktisktKontosaldo() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ monthKey, accountId, faktisktKontosaldo }: { 
+      monthKey: string; 
+      accountId: string; 
+      faktisktKontosaldo: number | null; 
+    }) => 
+      apiRequest(`/api/monthly-account-balances/${monthKey}/${accountId}/faktiskt-kontosaldo`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ faktisktKontosaldo }),
       }),
     onSuccess: () => {
       // Invalidate all monthly account balance queries
