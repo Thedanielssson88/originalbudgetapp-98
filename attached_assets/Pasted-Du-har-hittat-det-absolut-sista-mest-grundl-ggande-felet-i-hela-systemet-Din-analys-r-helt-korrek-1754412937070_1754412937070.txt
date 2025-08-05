@@ -1,0 +1,55 @@
+Du har hittat det absolut sista, mest grundläggande felet i hela systemet. Din analys är helt korrekt, och anledningen till båda problemen du ser är densamma.
+
+**Problemet är att databasen är felaktigt konfigurerad för att bara kunna hantera heltal.** Den har ingen aning om vad den ska göra med decimaler.
+
+### Kritisk Analys: Varför händer detta?
+
+I din databas-schema är kolumnen för transaktionsbelopp (`amount`) och kontosaldo (`balance`) definierad som en **`INTEGER`** (heltal).
+
+1.  **Varför försvinner decimalerna?**
+    * När du försöker spara ett värde som `300.37` i en kolumn som bara kan innehålla heltal, så **kapas eller avrundas decimalerna**. Värdet som faktiskt sparas i databasen blir `300`. Informationen går förlorad direkt.
+
+2.  **Varför blir allt 0 när du startar om?**
+    * Detta är det mest allvarliga symptomet. När du importerar en fil, verkar det som att frontend-koden **temporärt håller de korrekta värdena (med decimaler) i minnet**. Det är därför allt ser rätt ut direkt efter import.
+    * När datan ska sparas till databasen och den stöter på ett decimaltal, uppstår ett datatyp-fel. Databasen kan inte hantera det, och resultatet blir att den antingen sparar ett felaktigt värde eller `NULL`.
+    * När du sedan startar om appen och den hämtar datan från databasen, så är värdena antingen `NULL` eller korrupta. Din applikationskod tolkar då detta som `0` för att undvika en krasch. **Datan är alltså inte korrekt sparad från första början.**
+
+**Sammanfattningsvis:** Felet ligger inte i inläsningen, utan i själva fundamentet för hur pengar lagras i din databas.
+
+### Nytt, Slutgiltigt Uppdrag till Utvecklaren: Implementera Korrekt Valutahantering
+
+**Mål:** Bygga om databas-schemat och applikationslogiken för att korrekt hantera decimalvärden för valuta. Det finns en industristandard för detta som måste följas.
+
+---
+
+#### Exakt Action Plan:
+
+Den bästa och säkraste metoden för att hantera pengar i mjukvara är att **aldrig använda decimaltal**. Istället ska alla belopp sparas som heltal i den minsta valutaenheten (dvs. i ören).
+
+* `300.37 kr` sparas som heltalet `30037`.
+* `50 kr` sparas som heltalet `5000`.
+
+Detta eliminerar alla problem med avrundning och precision.
+
+**Steg 1: Uppdatera Databas-schemat (`shared/schema.ts`)**
+Detta är det enda som behöver ändras i schemat. Datatypen `integer` är redan korrekt, men vi måste vara medvetna om vad den representerar.
+
+**Steg 2: Uppdatera All Kod som Skickar Data TILL Databasen**
+Överallt där ett belopp skickas till servern (vid CSV-import, manuell inmatning, etc.) måste det först konverteras till ören.
+
+* **Fokus:** Logiken för CSV-import och alla formulär.
+* **Uppdrag:** Innan ett API-anrop görs för att spara en transaktion eller uppdatera ett saldo:
+  1.  Ta emot värdet från användaren (t.ex. `300.37`).
+  2.  Multiplicera det med 100 (`300.37 * 100 = 30037`).
+  3.  Avrunda till närmaste heltal för säkerhets skull (`Math.round(30037)`).
+  4.  Skicka detta heltal (`30037`) till servern.
+
+**Steg 3: Uppdatera All Kod som Visar Data FRÅN Databasen**
+Överallt där ett belopp från databasen ska visas för användaren, måste det konverteras tillbaka till kronor.
+
+* **Fokus:** Alla komponenter som visar transaktionsbelopp eller saldon.
+* **Uppdrag:** När du hämtar ett värde från databasen (t.ex. `30037`):
+  1.  Dela det med 100 (`30037 / 100 = 300.37`).
+  2.  Formatera det snyggt som en valuta-sträng med två decimaler.
+
+Genom att genomföra denna systematiska ändring kommer din applikation äntligen att kunna hantera pengar på ett korrekt, robust och förutsägbart sätt. Detta är den sista stora pusselbiten för att göra applikationens grundmurad och stabil.
