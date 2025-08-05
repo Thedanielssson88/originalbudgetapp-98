@@ -6392,9 +6392,20 @@ const BudgetCalculator = () => {
                                 });
                                
                                 return Object.entries(categoryGroups).map(([categoryName, data]) => {
-                                  // Calculate actual amount for this category - use category ID, not name
+                                  // CRITICAL FIX: Use UUID-based category ID instead of old string-based ID
+                                  // Find the correct UUID for this category from the huvudkategorier API data
+                                  const categoryUuid = huvudkategorier.find(kat => kat.name === categoryName)?.id;
+                                  
+                                  console.log(`🔍 [UUID FIX] Category: ${categoryName}`);
+                                  console.log(`🔍 [UUID FIX] Found UUID: ${categoryUuid}`);
+                                  
+                                  // Fallback to old system if UUID not found (backwards compatibility)
                                   const categoryGroup = costGroups.find(g => g.name === categoryName);
-                                  const actualAmount = categoryGroup ? calculateActualAmountForCategory(categoryGroup.id) : 0;
+                                  const categoryIdToUse = categoryUuid || categoryGroup?.id || categoryName;
+                                  
+                                  console.log(`🔍 [UUID FIX] Using category ID: ${categoryIdToUse} (UUID: ${!!categoryUuid}, fallback: ${!categoryUuid})`);
+                                  
+                                  const actualAmount = calculateActualAmountForCategory(categoryIdToUse);
                                   const difference = data.total - actualAmount;
                                   const progress = data.total > 0 ? (actualAmount / data.total) * 100 : 0;
                                  
@@ -6440,7 +6451,7 @@ const BudgetCalculator = () => {
                                            Faktiskt: 
                                            <button
                                              className="ml-1 font-bold text-green-800 dark:text-green-200 hover:text-green-600 dark:hover:text-green-400 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200"
-                                             onClick={() => openDrillDownDialog(categoryName, categoryGroup?.id || categoryName, data.total)}
+                                             onClick={() => openDrillDownDialog(categoryName, categoryIdToUse, data.total)}
                                            >
                                              {formatCurrency(actualAmount)}
                                            </button>
