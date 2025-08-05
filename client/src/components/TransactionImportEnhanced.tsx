@@ -393,8 +393,9 @@ export const TransactionImportEnhanced: React.FC = () => {
   const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
   
   // Bank selection state
-  const [banks, setBanks] = useState<Bank[]>([]);
-  const [bankCSVMappings, setBankCSVMappings] = useState<BankCSVMapping[]>([]);
+  const { data: banks = [] } = useBanks();
+  const { data: bankCSVMappings = [] } = useBankCsvMappings();
+  const createBank = useCreateBank();
   const [selectedBanks, setSelectedBanks] = useState<{[accountId: string]: string}>({});
   const [showColumnMappingDialog, setShowColumnMappingDialog] = useState(false);
   const [currentMappingBankId, setCurrentMappingBankId] = useState<string>('');
@@ -565,13 +566,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     setSubcategoriesFromStorage(loadedSubcategories);
   }, []);
 
-  // Load banks and mappings from storage
-  useEffect(() => {
-    const storedBanks = get<Bank[]>(StorageKey.BANKS) || [];
-    const storedMappings = get<BankCSVMapping[]>(StorageKey.BANK_CSV_MAPPINGS) || [];
-    setBanks(storedBanks);
-    setBankCSVMappings(storedMappings);
-  }, []);
+  // Banks and mappings are now loaded via React Query hooks
 
   // State to collect balance updates during import
   const [balanceUpdates, setBalanceUpdates] = useState<{accountName: string, newBalance: number, monthKey: string}[]>([]);
@@ -620,16 +615,17 @@ export const TransactionImportEnhanced: React.FC = () => {
     }
   }, [pendingToast, isWaitingForBalanceUpdates, balanceUpdates, toast]);
 
-  const handleAddBank = (bankName: string) => {
-    const newBank: Bank = {
-      id: uuidv4(),
-      name: bankName,
-      createdAt: new Date().toISOString()
-    };
-    
-    const updatedBanks = [...banks, newBank];
-    setBanks(updatedBanks);
-    set(StorageKey.BANKS, updatedBanks);
+  const handleAddBank = async (bankName: string) => {
+    try {
+      await createBank.mutateAsync({ name: bankName });
+    } catch (error) {
+      console.error('Failed to create bank:', error);
+      toast({
+        title: "Fel",
+        description: "Kunde inte skapa banken. Försök igen.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleBankSelection = async (accountId: string, bankId: string) => {
