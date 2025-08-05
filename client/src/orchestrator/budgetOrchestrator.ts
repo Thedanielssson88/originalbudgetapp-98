@@ -280,7 +280,7 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
       // Convert ImportedTransaction to the format expected by the database
       const dbTransaction = {
         accountId: transaction.accountId,
-        date: transaction.date,
+        date: transaction.date, // Schema handles string-to-Date conversion
         amount: transaction.amount,
         balanceAfter: transaction.balanceAfter || 0,
         description: transaction.description,

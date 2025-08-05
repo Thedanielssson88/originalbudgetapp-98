@@ -48,6 +48,18 @@ export const transactions = pgTable('transactions', {
     description: text('description').notNull(),
     amount: integer('amount').notNull(),
     date: timestamp('date', { mode: 'date' }).notNull(),
+    balanceAfter: integer('balance_after').default(0).notNull(),
+    userDescription: text('user_description').default('').notNull(),
+    bankCategory: text('bank_category').default('').notNull(),
+    bankSubCategory: text('bank_sub_category').default('').notNull(),
+    type: text('type').default('Transaction').notNull(),
+    status: text('status').default('yellow').notNull(),
+    linkedTransactionId: uuid('linked_transaction_id'),
+    correctedAmount: integer('corrected_amount'),
+    isManuallyChanged: text('is_manually_changed').default('false').notNull(),
+    appCategoryId: uuid('app_category_id').references(() => huvudkategorier.id, { onDelete: 'set null' }),
+    appSubCategoryId: uuid('app_sub_category_id').references(() => underkategorier.id, { onDelete: 'set null' }),
+    // Keep legacy references for backward compatibility
     huvudkategoriId: uuid('huvudkategori_id').references(() => huvudkategorier.id, { onDelete: 'set null' }),
     underkategoriId: uuid('underkategori_id').references(() => underkategorier.id, { onDelete: 'set null' }),
 });

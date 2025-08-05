@@ -406,10 +406,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // @ts-ignore
       const userId = req.userId;
-      const validatedData = insertTransactionSchema.parse({
+      
+      // Convert date string to Date object before validation
+      const requestData = {
         ...req.body,
-        userId
-      });
+        userId,
+        date: new Date(req.body.date) // Convert string date to Date object
+      };
+      
+      const validatedData = insertTransactionSchema.parse(requestData);
       const transaction = await storage.createTransaction(validatedData);
       res.status(201).json(transaction);
     } catch (error) {
