@@ -25,9 +25,13 @@ import { useToast } from '@/hooks/use-toast';
 
 import { useFamilyMembers, useCreateFamilyMember, useUpdateFamilyMember, useDeleteFamilyMember } from '@/hooks/useFamilyMembers';
 import { useAccounts, useUpdateAccount } from '@/hooks/useAccounts';
+import { useMonthlyBudget } from '@/hooks/useMonthlyBudget';
+import { useBudget } from '@/hooks/useBudget';
+import { apiStore } from '@/store/apiStore';
 
 export function UserManagement() {
   const { toast } = useToast();
+  const { budgetState } = useBudget();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<any>(null);
@@ -37,6 +41,7 @@ export function UserManagement() {
   // Hooks
   const { data: familyMembers, isLoading: familyMembersLoading } = useFamilyMembers();
   const { data: accounts, isLoading: accountsLoading } = useAccounts();
+  const { monthlyBudget, isLoading: monthlyBudgetLoading, updateIncome } = useMonthlyBudget(budgetState.selectedMonthKey);
   const createFamilyMemberMutation = useCreateFamilyMember();
   const updateFamilyMemberMutation = useUpdateFamilyMember();
   const deleteFamilyMemberMutation = useDeleteFamilyMember();
@@ -54,8 +59,7 @@ export function UserManagement() {
 
     try {
       await createFamilyMemberMutation.mutateAsync({
-        name: newMemberName.trim(),
-        role: newMemberRole || undefined
+        name: newMemberName.trim()
       });
       
       toast({
@@ -89,8 +93,7 @@ export function UserManagement() {
       await updateFamilyMemberMutation.mutateAsync({
         id: editingMember.id,
         data: {
-          name: editingMember.name.trim(),
-          role: editingMember.role || undefined
+          name: editingMember.name.trim()
         }
       });
       
@@ -146,6 +149,52 @@ export function UserManagement() {
       toast({
         title: "Fel",
         description: "Kunde inte uppdatera kontotilldelning",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handlePrimaryUserSelection = async (familyMemberId: string | null) => {
+    if (!monthlyBudget) return;
+    
+    try {
+      // Use the apiStore directly to update the monthly budget
+      await apiStore.updateMonthlyBudget(budgetState.selectedMonthKey, { 
+        primaryUserId: familyMemberId 
+      });
+      
+      const selectedMember = familyMembers?.find(m => m.id === familyMemberId);
+      toast({
+        title: "Framgång",
+        description: `Användare 1 uppdaterad till ${selectedMember?.name || 'Ingen'}`
+      });
+    } catch (error) {
+      toast({
+        title: "Fel",
+        description: "Kunde inte uppdatera Användare 1",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSecondaryUserSelection = async (familyMemberId: string | null) => {
+    if (!monthlyBudget) return;
+    
+    try {
+      // Use the apiStore directly to update the monthly budget
+      await apiStore.updateMonthlyBudget(budgetState.selectedMonthKey, { 
+        secondaryUserId: familyMemberId 
+      });
+      
+      const selectedMember = familyMembers?.find(m => m.id === familyMemberId);
+      toast({
+        title: "Framgång",
+        description: `Användare 2 uppdaterad till ${selectedMember?.name || 'Ingen'}`
+      });
+    } catch (error) {
+      toast({
+        title: "Fel",
+        description: "Kunde inte uppdatera Användare 2",
         variant: "destructive"
       });
     }
@@ -207,15 +256,7 @@ export function UserManagement() {
                       placeholder="T.ex. Andreas, Susanna, Alicia"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="role">Roll (valfritt)</Label>
-                    <Input
-                      id="role"
-                      value={newMemberRole}
-                      onChange={(e) => setNewMemberRole(e.target.value)}
-                      placeholder="T.ex. Förälder, Barn"
-                    />
-                  </div>
+
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
@@ -236,11 +277,6 @@ export function UserManagement() {
                     <div className="flex items-center gap-3">
                       <div>
                         <div className="font-medium">{member.name}</div>
-                        {member.role && (
-                          <Badge variant="secondary" className="text-xs">
-                            {member.role}
-                          </Badge>
-                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -274,6 +310,89 @@ export function UserManagement() {
               </div>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Primary/Secondary User Selection */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Användare 1 & Användare 2</CardTitle>
+          <CardDescription>
+            Välj vilka familjemedlemmar som representerar Användare 1 och Användare 2 för inkomstberäkningar.
+            Dessa används för "Andreas Inkomst" och "Susanna Inkomst" i budgeten.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!monthlyBudgetLoading && monthlyBudget ? (
+            <div className="grid gap-4">
+              {/* Primary User Selection */}
+              <div className="space-y-2">
+                <Label>Användare 1 (för Andreas Inkomst)</Label>
+                <Select
+                  value={monthlyBudget.primaryUserId || 'none'}
+                  onValueChange={(value) => handlePrimaryUserSelection(value === 'none' ? null : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Välj användare 1" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Ingen vald</SelectItem>
+                    {familyMembers?.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Secondary User Selection */}
+              <div className="space-y-2">
+                <Label>Användare 2 (för Susanna Inkomst)</Label>
+                <Select
+                  value={monthlyBudget.secondaryUserId || 'none'}
+                  onValueChange={(value) => handleSecondaryUserSelection(value === 'none' ? null : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Välj användare 2" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Ingen vald</SelectItem>
+                    {familyMembers?.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Current Selections Display */}
+              {(monthlyBudget.primaryUserId || monthlyBudget.secondaryUserId) && (
+                <div className="mt-4 p-3 bg-muted rounded-lg">
+                  <h4 className="font-medium mb-2">Aktuella val:</h4>
+                  <div className="space-y-1 text-sm">
+                    <div>
+                      <span className="font-medium">Användare 1:</span>{' '}
+                      {monthlyBudget.primaryUserId 
+                        ? familyMembers?.find(m => m.id === monthlyBudget.primaryUserId)?.name || 'Okänd' 
+                        : 'Ingen vald'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Användare 2:</span>{' '}
+                      {monthlyBudget.secondaryUserId 
+                        ? familyMembers?.find(m => m.id === monthlyBudget.secondaryUserId)?.name || 'Okänd' 
+                        : 'Ingen vald'}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center text-muted-foreground py-4">
+              Laddar budgetdata...
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -344,14 +463,7 @@ export function UserManagement() {
                   onChange={(e) => setEditingMember({ ...editingMember, name: e.target.value })}
                 />
               </div>
-              <div>
-                <Label htmlFor="edit-role">Roll (valfritt)</Label>
-                <Input
-                  id="edit-role"
-                  value={editingMember.role || ''}
-                  onChange={(e) => setEditingMember({ ...editingMember, role: e.target.value })}
-                />
-              </div>
+
             </div>
           )}
           <DialogFooter>
