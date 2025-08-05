@@ -545,7 +545,7 @@ function parseCSVContentWithMapping(csvContent: string, accountId: string, fileN
   const transactions = parseCSVContent(csvContent, accountId, fileName);
   
   // Get the mapping that was used
-  const account = state.budgetState.accounts.find(acc => acc.id === accountId);
+  const account = state.budgetState.accounts?.find(acc => acc.id === accountId);
   let savedMapping: CsvMapping | undefined;
   
   if (account?.bankTemplateId) {
@@ -580,7 +580,7 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
   console.log(`[ORCHESTRATOR] 🔍 CSV headers:`, headers);
   
   // NEW: Hämta bankmallen från kontot och använd dess mappning
-  const account = state.budgetState.accounts.find(acc => acc.id === accountId);
+  const account = state.budgetState.accounts?.find(acc => acc.id === accountId);
   let savedMapping: CsvMapping | undefined;
   
   if (account?.bankTemplateId) {
@@ -846,7 +846,7 @@ function updateAccountBalancesUsingWorkingLogic(allTransactions: ImportedTransac
   console.log(`[ORCHESTRATOR] 💰 Starting account balance updates using working logic for account ${accountId}`);
   
   // Get account name from account ID
-  const account = state.budgetState.accounts.find(acc => acc.id === accountId);
+  const account = state.budgetState.accounts?.find(acc => acc.id === accountId);
   if (!account) {
     console.log(`[ORCHESTRATOR] ⚠️ Could not find account name for ID ${accountId}`);
     return;

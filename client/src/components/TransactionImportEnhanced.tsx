@@ -955,8 +955,9 @@ export const TransactionImportEnhanced: React.FC = () => {
       console.log(`🚀 [IMPORT] File import targeting account: ${accountName} (${accountId})`);
       
       // Use smart parser for both CSV and XLSX files to ensure consistent processing
+      let parseResult: any = null;
       try {
-        const parseResult = smartParse(csvContent);
+        parseResult = smartParse(csvContent);
         console.log(`🎯 [IMPORT] Smart parser found ${parseResult.headers.length} headers and ${parseResult.dataRows.length} data rows`);
         addMobileDebugLog(`🎯 FINAL PARSE: ${parseResult.headers.length} headers, ${parseResult.dataRows.length} rows`);
         
@@ -975,10 +976,23 @@ export const TransactionImportEnhanced: React.FC = () => {
         console.warn(`🔍 [IMPORT] Smart parser failed, using original CSV:`, error);
         addMobileDebugLog(`⚠️ Smart parser failed: ${error}`);
         await importAndReconcileFile(csvContent, accountId, postgresqlRules);
+        
+        // Fallback: Create parseResult from raw CSV for Settings2 button
+        const lines = csvContent.split('\n').filter(line => line.trim());
+        const headers = lines[0]?.split(';').map(h => h.trim()) || [];
+        const dataRows = lines.slice(1).map(line => line.split(';').map(cell => cell.trim()));
+        parseResult = { headers, dataRows };
       }
       console.log(`🚀 [IMPORT] importAndReconcileFile call completed for account: ${accountName}`);
       
       console.log('🔄 [DEBUG] After importAndReconcileFile - checking budgetState...');
+      
+      // Store file columns and sample data for column mapping after successful upload
+      if (parseResult && parseResult.headers && parseResult.dataRows && parseResult.dataRows.length > 0) {
+        setFileColumnsForMapping(parseResult.headers);
+        setSampleDataForMapping(parseResult.dataRows.slice(0, 3));
+        console.log('✅ [DEBUG] Stored file data for column mapping:', parseResult.headers);
+      }
       
       // Wait for processing and balance updates, then allow toast to show
       setTimeout(() => {
@@ -1730,9 +1744,11 @@ export const TransactionImportEnhanced: React.FC = () => {
                               return;
                             }
                             
-                            // Check if there's uploaded file data for this account
+                            // Check if there's uploaded file data for this account or in the latest upload
                             const hasFileData = rawCsvData[account.id]?.headers && rawCsvData[account.id]?.data;
-                            if (!hasFileData) {
+                            const hasLatestFileData = fileColumnsForMapping.length > 0 && sampleDataForMapping.length > 0;
+                            
+                            if (!hasFileData && !hasLatestFileData) {
                               toast({
                                 title: "Ladda upp fil först",
                                 description: "Du måste först ladda upp en CSV/XLSX-fil för att kunna konfigurera kolumnmappning.",
@@ -1741,14 +1757,20 @@ export const TransactionImportEnhanced: React.FC = () => {
                               return;
                             }
                             
-                            // Set file data for mapping dialog
-                            setFileColumnsForMapping(rawCsvData[account.id].headers);
-                            setSampleDataForMapping(rawCsvData[account.id].data.slice(0, 3));
+                            // Use file data from latest upload or stored raw data
+                            if (hasLatestFileData) {
+                              // Use already loaded file data for mapping
+                              console.log('Using latest file data for mapping:', fileColumnsForMapping);
+                            } else {
+                              // Set file data for mapping dialog from stored raw data
+                              setFileColumnsForMapping(rawCsvData[account.id].headers);
+                              setSampleDataForMapping(rawCsvData[account.id].data.slice(0, 3));
+                            }
                             setCurrentMappingBankId(bankId);
                             setShowColumnMappingDialog(true);
                           }}
                           title="Konfigurera kolumnmappning (kräver uppladdad fil)"
-                          disabled={!rawCsvData[account.id]?.headers}
+                          disabled={!rawCsvData[account.id]?.headers && fileColumnsForMapping.length === 0}
                         >
                           <Settings2 className="w-4 h-4" />
                         </Button>
