@@ -459,6 +459,7 @@ export class DatabaseStorage implements IStorage {
         .set({ 
           calculatedBalance: balance.calculatedBalance,
           faktisktKontosaldo: balance.faktisktKontosaldo,
+          bankensKontosaldo: balance.bankensKontosaldo,
           updatedAt: new Date()
         })
         .where(eq(monthlyAccountBalances.id, existing.id))
@@ -477,6 +478,23 @@ export class DatabaseStorage implements IStorage {
       const result = await db.update(monthlyAccountBalances)
         .set({ 
           faktisktKontosaldo: faktisktKontosaldo,
+          updatedAt: new Date()
+        })
+        .where(eq(monthlyAccountBalances.id, existing.id))
+        .returning();
+      return result[0];
+    }
+    
+    return undefined;
+  }
+
+  async updateBankensKontosaldo(userId: string, monthKey: string, accountId: string, bankensKontosaldo: number | null): Promise<MonthlyAccountBalance | undefined> {
+    const existing = await this.getMonthlyAccountBalance(userId, monthKey, accountId);
+    
+    if (existing) {
+      const result = await db.update(monthlyAccountBalances)
+        .set({ 
+          bankensKontosaldo: bankensKontosaldo,
           updatedAt: new Date()
         })
         .where(eq(monthlyAccountBalances.id, existing.id))

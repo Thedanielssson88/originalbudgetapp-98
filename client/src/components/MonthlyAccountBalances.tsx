@@ -14,6 +14,7 @@ interface MonthlyAccountBalance {
   accountId: string;
   calculatedBalance: number;
   faktisktKontosaldo?: number | null;
+  bankensKontosaldo?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -202,7 +203,12 @@ export const MonthlyAccountBalances: React.FC<MonthlyAccountBalancesProps> = ({
 
                 {accounts.map(account => {
                   const balance = monthlyBalances?.find(b => b.accountId === account.id);
-                  const bankensaldo = balance ? balance.calculatedBalance / 100 : 0;
+                  // Prioritize bankensKontosaldo from CSV import, fall back to calculatedBalance
+                  const bankensaldo = balance 
+                    ? (balance.bankensKontosaldo !== null && balance.bankensKontosaldo !== undefined 
+                        ? balance.bankensKontosaldo / 100 
+                        : balance.calculatedBalance / 100)
+                    : 0;
                   const faktisktSaldo = balance?.faktisktKontosaldo !== null && balance?.faktisktKontosaldo !== undefined 
                     ? balance.faktisktKontosaldo / 100 
                     : null;

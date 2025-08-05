@@ -393,7 +393,8 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
             body: JSON.stringify({
               monthKey: nextMonthKey,
               accountId: accountId,
-              calculatedBalance: lastTransactionBeforePayday.balanceAfter // Store in öre
+              calculatedBalance: lastTransactionBeforePayday.balanceAfter, // Keep calculated balance for internal use
+              bankensKontosaldo: lastTransactionBeforePayday.balanceAfter // Store CSV import balance in öre
             })
           });
           
