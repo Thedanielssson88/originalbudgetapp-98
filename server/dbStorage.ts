@@ -443,6 +443,25 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async upsertMonthlyAccountBalance(balance: InsertMonthlyAccountBalance): Promise<{ balance: MonthlyAccountBalance, created: boolean }> {
+    // Use upsert logic - update if exists, insert if not
+    const existing = await this.getMonthlyAccountBalance(balance.userId, balance.monthKey, balance.accountId);
+    
+    if (existing) {
+      const result = await db.update(monthlyAccountBalances)
+        .set({ 
+          calculatedBalance: balance.calculatedBalance,
+          updatedAt: new Date()
+        })
+        .where(eq(monthlyAccountBalances.id, existing.id))
+        .returning();
+      return { balance: result[0], created: false };
+    } else {
+      const result = await db.insert(monthlyAccountBalances).values(balance).returning();
+      return { balance: result[0], created: true };
+    }
+  }
+
   async deleteMonthlyAccountBalance(userId: string, monthKey: string, accountId: string): Promise<boolean> {
     const result = await db.delete(monthlyAccountBalances)
       .where(

@@ -385,9 +385,9 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
         
         console.log(`[ORCHESTRATOR] ✅ Updated ${accountName} balance for ${nextMonthKey}: ${lastTransactionBeforePayday.balanceAfter / 100} kr`);
         
-        // Save to database
+        // Save to database using upsert (update if exists, insert if not)
         try {
-          const response = await fetch('/api/monthly-account-balances', {
+          const response = await fetch('/api/monthly-account-balances/upsert', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -398,8 +398,10 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
           });
           
           if (response.ok) {
-            console.log(`[ORCHESTRATOR] 💾 Saved ${accountName} balance to database for ${nextMonthKey}`);
-            addMobileDebugLog(`💾 Saved ${accountName} balance to database`);
+            const result = await response.json();
+            const action = result.created ? 'Created' : 'Updated';
+            console.log(`[ORCHESTRATOR] 💾 ${action} ${accountName} balance in database for ${nextMonthKey}: ${lastTransactionBeforePayday.balanceAfter / 100} kr`);
+            addMobileDebugLog(`💾 ${action} ${accountName} balance: ${(lastTransactionBeforePayday.balanceAfter / 100).toFixed(2)} kr`);
           } else {
             console.error(`[ORCHESTRATOR] ❌ Failed to save ${accountName} balance to database:`, response.statusText);
           }

@@ -824,6 +824,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/monthly-account-balances/upsert", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const validatedData = insertMonthlyAccountBalanceSchema.parse({
+        ...req.body,
+        userId
+      });
+      const result = await storage.upsertMonthlyAccountBalance(validatedData);
+      res.json(result);
+    } catch (error) {
+      console.error('Error upserting monthly account balance:', error);
+      res.status(400).json({ error: 'Failed to upsert monthly account balance' });
+    }
+  });
+
   // Create the server
   const httpServer = createServer(app);
   return httpServer;
