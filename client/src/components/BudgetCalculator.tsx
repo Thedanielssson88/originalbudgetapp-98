@@ -2853,16 +2853,26 @@ const BudgetCalculator = () => {
   const handleAccountBalanceUnset = (account: string) => {
     addDebugLog(`🎯 handleAccountBalanceUnset called: ${account}`);
     
+    // NEW: Save to SQL database instead of localStorage
+    const accountObj = accountsFromAPI.find(acc => acc.name === account);
+    if (accountObj && budgetState.selectedMonthKey) {
+      updateFaktisktKontosaldoMutation.mutate({
+        monthKey: budgetState.selectedMonthKey,
+        accountId: accountObj.id,
+        faktisktKontosaldo: null
+      });
+      addDebugLog(`✅ SQL unset initiated for ${account}`);
+    }
+    
+    // Keep existing localStorage logic for backward compatibility
     unsetAccountBalance(account);
     addDebugLog(`✅ unsetAccountBalance completed for ${account}`);
     
-    // Reset MonthFinalBalances flag when manual values are changed
     const currentDate = new Date();
     const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     resetMonthFinalBalancesFlag(currentMonthKey);
     
     addDebugLog(`🔄 About to call forceRecalculation`);
-    // Force recalculation to ensure all dependent values update
     forceRecalculation();
     console.log(`✅ forceRecalculation completed`);
   };
@@ -5595,8 +5605,9 @@ const BudgetCalculator = () => {
                                      </CollapsibleTrigger>
                                      <CollapsibleContent className="space-y-3 mt-3">
                                         {categoryAccounts.map(account => {
-                                            // CRITICAL FIX: Read directly from central state, not via helper function
-                                            const currentBalance = accountBalances[account] || 0;
+                                            // NEW: Prioritize SQL data over localStorage
+                                            const sqlBalance = getFaktisktKontosaldoFromSQL(account);
+                                            const currentBalance = sqlBalance !== null ? (sqlBalance / 100) : (accountBalances[account] || 0);
                              const freshBalances = (window as any).__freshFinalBalances;
                              const estimatedResult = getEstimatedAccountBalances(freshBalances);
                              const estimatedBalance = estimatedResult?.[account] || 0;
@@ -5639,13 +5650,18 @@ const BudgetCalculator = () => {
                                                      <Input
                                                        type="text"
                                                        defaultValue={(() => {
-                                                         const value = accountBalancesSet[account] 
+                                                         // NEW: Consider SQL data when determining if balance is set
+                                                         const hasSQL = sqlBalance !== null;
+                                                         const hasLocalStorage = accountBalancesSet[account];
+                                                         const isBalanceSet = hasSQL || hasLocalStorage;
+                                                         
+                                                         const value = isBalanceSet
                                                            ? currentBalance.toString() 
                                                            : (currentBalance === 0 ? "Ej ifyllt" : currentBalance.toString());
-                                                         console.log(`🔍 [INPUT VALUE] ${account}: currentBalance=${currentBalance}, accountBalancesSet=${accountBalancesSet[account]}, defaultValue="${value}"`);
+                                                         console.log(`🔍 [INPUT VALUE] ${account}: currentBalance=${currentBalance}, hasSQL=${hasSQL}, hasLocalStorage=${hasLocalStorage}, isBalanceSet=${isBalanceSet}, defaultValue="${value}"`);
                                                          return value;
                                                        })()}
-                                                       key={`${account}-${currentBalance}-${accountBalancesSet[account]}`}
+                                                       key={`${account}-${currentBalance}-${accountBalancesSet[account]}-${sqlBalance}`}
                                                         onBlur={(e) => {
                                                           console.log(`🔄 onBlur triggered for ${account} with value: ${e.target.value}`);
                                                           const value = e.target.value;
