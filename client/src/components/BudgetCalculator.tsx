@@ -151,7 +151,7 @@ const BudgetCalculator = () => {
   const subCategoryBelongsToAccount = (sub: SubCategory, accountName: string): boolean => {
     if (sub.accountId) {
       // New logic: compare accountId
-      const account = accountsFromAPI.find(acc => acc.name === accountName);
+      const account = (accountsFromAPI || []).find(acc => acc.name === accountName);
       return account ? sub.accountId === account.id : false;
     }
     // Legacy fallback: this should not happen after migration
@@ -311,7 +311,7 @@ const BudgetCalculator = () => {
   // Get dynamic user names based on selected family members
   const getSelectedUserName = (userId: string | null) => {
     if (!userId || !familyMembers) return null;
-    const member = familyMembers.find(m => m.id === userId);
+    const member = (familyMembers || []).find(m => m.id === userId);
     return member?.name || null;
   };
 
@@ -555,7 +555,7 @@ const BudgetCalculator = () => {
 
   // Helper function to check if next month's balance is set for an account
   const isNextMonthBalanceSet = (accountName: string): boolean => {
-    const [year, month] = budgetState.selectedMonthKey.split('-').map(Number);
+    const [year, month] = (budgetState.selectedMonthKey || '').split('-').map(Number);
     const nextMonth = month === 12 ? 1 : month + 1;
     const nextYear = month === 12 ? year + 1 : year;
     const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
@@ -566,7 +566,7 @@ const BudgetCalculator = () => {
 
   // Helper function to get next month name
   const getNextMonthName = (): string => {
-    const [year, month] = budgetState.selectedMonthKey.split('-').map(Number);
+    const [year, month] = (budgetState.selectedMonthKey || '').split('-').map(Number);
     const nextMonth = month === 12 ? 1 : month + 1;
     const monthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 
                        'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
@@ -591,7 +591,7 @@ const BudgetCalculator = () => {
     console.log(`🔍 [DEBUG] All transactions:`, allPeriodTransactions);
     
     // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
-    const matchingTransactions = allPeriodTransactions.filter((t: Transaction) => {
+    const matchingTransactions = (allPeriodTransactions || []).filter((t: Transaction) => {
       return t.appCategoryId === categoryId;
     });
     
@@ -624,12 +624,12 @@ const BudgetCalculator = () => {
     // FIXED: Use correctly filtered transactions according to PaydaySettings
     const allPeriodTransactions = activeContent.transactionsForPeriod || [];
     console.log(`🔍 [DEBUG] getTransactionsForCategory - categoryId: ${categoryId}`);
-    console.log(`🔍 [DEBUG] All period transactions (${allPeriodTransactions.length}):`, allPeriodTransactions.map(t => ({ id: t.id, amount: t.amount, categoryId: t.appCategoryId, description: t.description, date: t.date })));
+    console.log(`🔍 [DEBUG] All period transactions (${(allPeriodTransactions || []).length}):`, (allPeriodTransactions || []).map(t => ({ id: t.id, amount: t.amount, categoryId: t.appCategoryId, description: t.description, date: t.date })));
     
     // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
     // But EXCLUDE positive amounts (income) from cost categories
-    const filtered = allPeriodTransactions.filter((t: Transaction) => t.appCategoryId === categoryId && t.amount < 0);
-    console.log(`🔍 [DEBUG] Filtered transactions for category ${categoryId}:`, filtered.map(t => ({ id: t.id, amount: t.amount, description: t.description, date: t.date })));
+    const filtered = (allPeriodTransactions || []).filter((t: Transaction) => t.appCategoryId === categoryId && t.amount < 0);
+    console.log(`🔍 [DEBUG] Filtered transactions for category ${categoryId}:`, (filtered || []).map(t => ({ id: t.id, amount: t.amount, description: t.description, date: t.date })));
     return filtered;
   };
 
@@ -639,7 +639,7 @@ const BudgetCalculator = () => {
     console.log(`🔍 [DEBUG] ============= getTransactionsForAccountId START =============`);
     console.log(`🔍 [DEBUG] Looking for accountId: "${accountId}"`);
     console.log(`🔍 [DEBUG] Total transactions in period: ${allPeriodTransactions.length}`);
-    console.log(`🔍 [DEBUG] activeContent.transactionsForPeriod:`, allPeriodTransactions.slice(0, 5).map(t => ({ 
+    console.log(`🔍 [DEBUG] activeContent.transactionsForPeriod:`, (allPeriodTransactions || []).slice(0, 5).map(t => ({ 
       id: t.id, 
       accountId: t.accountId, 
       date: t.date, 
@@ -648,9 +648,9 @@ const BudgetCalculator = () => {
     })));
     
     // Direct filtering by accountId - much cleaner
-    const accountTransactions = allPeriodTransactions.filter((t: Transaction) => t.accountId === accountId);
+    const accountTransactions = (allPeriodTransactions || []).filter((t: Transaction) => t.accountId === accountId);
     console.log(`🔍 [DEBUG] Found ${accountTransactions.length} transactions for accountId ${accountId}:`, 
-      accountTransactions.map(t => ({ id: t.id, amount: t.amount, description: t.description, date: t.date })));
+      (accountTransactions || []).map(t => ({ id: t.id, amount: t.amount, description: t.description, date: t.date })));
     console.log(`🔍 [DEBUG] ============= getTransactionsForAccountId END =============`);
     
     return accountTransactions;
@@ -667,14 +667,14 @@ const BudgetCalculator = () => {
     
     // Log all transactions with their account info
     console.log(`🔍 [DEBUG] ALL TRANSACTIONS WITH ACCOUNT INFO:`);
-    allPeriodTransactions.forEach((t: Transaction, index: number) => {
-      const account = budgetState.accounts.find(acc => acc.id === t.accountId);
+    (allPeriodTransactions || []).forEach((t: Transaction, index: number) => {
+      const account = (budgetState.accounts || []).find(acc => acc.id === t.accountId);
       console.log(`🔍 [DEBUG] Transaction ${index}: id=${t.id}, accountId=${t.accountId}, resolved account name="${account?.name}", amount=${t.amount}, description="${t.description}", status=${t.status}, appCategoryId=${t.appCategoryId}, date=${t.date}`);
     });
     
     // Method 1: Find transactions directly by accountId
-    const directAccountTransactions = allPeriodTransactions.filter((t: Transaction) => {
-      const account = budgetState.accounts.find(acc => acc.id === t.accountId);
+    const directAccountTransactions = (allPeriodTransactions || []).filter((t: Transaction) => {
+      const account = (budgetState.accounts || []).find(acc => acc.id === t.accountId);
       const matchesDirect = account?.name === accountName;
       if (matchesDirect) {
         console.log(`🔍 [DEBUG] ✅ DIRECT MATCH - Transaction ${t.id}: accountId=${t.accountId}, resolved name=${account?.name}, amount=${t.amount}, date=${t.date}`);
@@ -700,7 +700,7 @@ const BudgetCalculator = () => {
       group.subCategories?.forEach(sub => {
         // Check both legacy account name and new accountId structure
         const matchesLegacy = sub.account === accountName;
-        const account = budgetState.accounts.find(acc => acc.id === sub.accountId);
+        const account = (budgetState.accounts || []).find(acc => acc.id === sub.accountId);
         const matchesNew = account?.name === accountName;
         
         if (matchesLegacy || matchesNew) {
@@ -1216,7 +1216,7 @@ const BudgetCalculator = () => {
       let estimatedOpeningBalance = 0;
       if (!hasActualBalance) {
         // Get estimated opening balance for this month by looking at previous month's ending balance
-        const [currentYear, currentMonth] = monthKey.split('-').map(Number);
+        const [currentYear, currentMonth] = (monthKey || '').split('-').map(Number);
         const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
         const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
         const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
@@ -1398,7 +1398,7 @@ const BudgetCalculator = () => {
     // Find category names from SQL data using UUIDs
     const selectedHuvudkategori = huvudkategorier.find(k => k.id === budgetItem.mainCategoryId);
     const selectedUnderkategori = underkategorier.find(k => k.id === budgetItem.subCategoryId);
-    const selectedAccount = budgetState.accounts.find(acc => acc.id === budgetItem.accountId);
+    const selectedAccount = (budgetState.accounts || []).find(acc => acc.id === budgetItem.accountId);
     
     console.log('🔍 [DEBUG] Found huvudkategori:', selectedHuvudkategori);
     console.log('🔍 [DEBUG] Found underkategori:', selectedUnderkategori);
@@ -1762,7 +1762,7 @@ const BudgetCalculator = () => {
     updateHistoricalDataSingle(monthKey, monthSnapshot);
     
     // Handle next month's estimated start balances separately if needed
-    const [year, month] = monthKey.split('-').map(Number);
+    const [year, month] = (monthKey || '').split('-').map(Number);
     const nextMonth = month === 12 ? 1 : month + 1;
     const nextYear = month === 12 ? year + 1 : year;
     const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
@@ -2182,7 +2182,7 @@ const BudgetCalculator = () => {
     console.log(`🔍 Checking if we can set MonthFinalBalances flag to true for ${monthKey}`);
     
     // Get previous month
-    const [year, month] = monthKey.split('-').map(Number);
+    const [year, month] = (monthKey || '').split('-').map(Number);
     const prevMonth = month === 1 ? 12 : month - 1;
     const prevYear = month === 1 ? year - 1 : year;
     const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
@@ -3982,11 +3982,11 @@ const BudgetCalculator = () => {
     console.log(`🔍 [BANK BALANCE] Starting getBankBalance for account: ${accountName}, month: ${monthKey}`);
     
     // Find account ID from account name - budgetState.accounts is an array of {id, name} objects
-    const accountObj = budgetState.accounts.find(acc => acc.name === accountName);
+    const accountObj = (budgetState.accounts || []).find(acc => acc.name === accountName);
     const accountId = accountObj?.id;
     
     console.log(`🔍 [BANK BALANCE] Found accountId: ${accountId} for accountName: ${accountName}`);
-    console.log(`🔍 [BANK BALANCE] Available accounts:`, budgetState.accounts.map(acc => ({ id: acc.id, name: acc.name })));
+    console.log(`🔍 [BANK BALANCE] Available accounts:`, (budgetState.accounts || []).map(acc => ({ id: acc.id, name: acc.name })));
     
     if (!accountId) {
       console.log(`🔍 [BANK BALANCE] No accountId found for account name: ${accountName}`);
@@ -4309,7 +4309,7 @@ const BudgetCalculator = () => {
 
      // Helper function to format month for display (shows actual month)
      const formatMonthForDisplay = (monthKey: string) => {
-       const [year, monthNum] = monthKey.split('-').map(Number);
+       const [year, monthNum] = (monthKey || '').split('-').map(Number);
        
        const monthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 
                           'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
@@ -8293,7 +8293,7 @@ const BudgetCalculator = () => {
                                 
                                 // Then try ID matching
                                 if (!accountMatches) {
-                                  const accountObj = budgetState.accounts.find(acc => acc.name === account);
+                                  const accountObj = (budgetState.accounts || []).find(acc => acc.name === account);
                                   accountMatches = accountObj && goal.accountId === accountObj.id;
                                 }
                                 
@@ -9704,7 +9704,7 @@ const BudgetCalculator = () => {
                               <SelectValue placeholder="Välj konto" />
                             </SelectTrigger>
                             <SelectContent>
-                              {budgetState.accounts.map(account => (
+                              {(budgetState.accounts || []).map(account => (
                                 <SelectItem key={account.id} value={account.id}>
                                   {account.name}
                                 </SelectItem>
@@ -9794,7 +9794,7 @@ const BudgetCalculator = () => {
                       const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
                                          (end.getMonth() - start.getMonth()) + 1;
                       const monthlyAmount = goal.targetAmount / monthsDiff;
-                      const accountName = budgetState.accounts.find(acc => acc.id === goal.accountId)?.name || 'Okänt konto';
+                      const accountName = (budgetState.accounts || []).find(acc => acc.id === goal.accountId)?.name || 'Okänt konto';
                       
                       return (
                         <Card key={goal.id} className="hover:shadow-lg transition-shadow">

@@ -48,7 +48,7 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
     
     // Store raw CSV data for column mapping interface even if parsing failed
     const lines = cleanedCsvContent.split('\n').filter(line => line.trim());
-    const headers = lines[0]?.split(';').map(h => h.trim()) || [];
+    const headers = (lines[0] || '').split(';').map(h => h.trim());
     addMobileDebugLog(`📋 Available CSV columns: ${headers.join(', ')}`);
     
     // Still trigger UI refresh so user can access column mapping
@@ -61,7 +61,7 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
   console.log(`[ORCHESTRATOR] 📊 Raw transactions from file:`, transactionsFromFile.map(t => ({ date: t.date, desc: t.description.substring(0, 30) })));
   addMobileDebugLog(`📊 Raw transactions: ${transactionsFromFile.length} found`);
   
-  const fileDates = transactionsFromFile.map((t, index) => {
+  const fileDates = (transactionsFromFile || []).map((t, index) => {
     const dateStr = t.date.split('T')[0];
     console.log(`[ORCHESTRATOR] 📊 Transaction ${index}: "${t.date}" -> "${dateStr}" (Amount: ${t.amount}, Description: "${t.description}")`);
     addMobileDebugLog(`📊 TX ${index}: ${dateStr} - ${t.amount} - "${t.description?.substring(0, 30)}"`);
@@ -87,7 +87,7 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
   addMobileDebugLog(`📅 File contains ${transactionsFromFile.length} transactions`);
   
   // 3. Get ALL existing transactions from centralized storage
-  const allSavedTransactions = state.budgetState.allTransactions.map(t => ({
+  const allSavedTransactions = (state.budgetState.allTransactions || []).map(t => ({
     id: t.id,
     accountId: t.accountId,
     date: t.date,
@@ -109,7 +109,7 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
   console.log(`[ORCHESTRATOR] 📅 Found ${allSavedTransactions.length} existing transactions total`);
   addMobileDebugLog(`📅 Found ${allSavedTransactions.length} existing transactions total`);
   
-  const existingForAccount = allSavedTransactions.filter(t => t.accountId === accountId).map(t => t.date.split('T')[0]).sort();
+  const existingForAccount = (allSavedTransactions || []).filter(t => t.accountId === accountId).map(t => t.date.split('T')[0]).sort();
   console.log(`[ORCHESTRATOR] 📅 Existing transactions for account ${accountId}:`, existingForAccount);
   addMobileDebugLog(`📅 Existing transactions for account ${accountId}: ${existingForAccount.join(', ')}`);
   
@@ -136,12 +136,12 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
   
   // 5. Create map of existing transactions for smart merge
   const savedTransactionsMap = new Map<string, ImportedTransaction>();
-  allSavedTransactions.forEach(t => savedTransactionsMap.set(createTransactionFingerprint(t), t));
+  (allSavedTransactions || []).forEach(t => savedTransactionsMap.set(createTransactionFingerprint(t), t));
   
   console.log(`[ORCHESTRATOR] 🧹 Kept ${transactionsToKeep.length} transactions, removing ${allSavedTransactions.length - transactionsToKeep.length} within date range`);
   
   // 6. Intelligent merge - preserve manual changes
-  const mergedTransactions = transactionsFromFile.map(fileTx => {
+  const mergedTransactions = (transactionsFromFile || []).map(fileTx => {
     const fingerprint = createTransactionFingerprint(fileTx);
     const existingTx = savedTransactionsMap.get(fingerprint);
 
@@ -226,7 +226,7 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
   console.log(`[ORCHESTRATOR] 🔍 Updating centralized storage with ${finalTransactionList.length} transactions`);
   
   // Convert ImportedTransaction[] to Transaction[] for centralized storage
-  const transactionsForCentralStorage = finalTransactionList.map((tx, index) => {
+  const transactionsForCentralStorage = (finalTransactionList || []).map((tx, index) => {
     const finalTransaction = {
       id: tx.id,
       accountId: tx.accountId,
@@ -384,7 +384,7 @@ async function loadCategoryRulesFromDatabase(): Promise<void> {
     }
     
     // Convert PostgreSQL rules to legacy format for localStorage compatibility
-    const legacyRules = dbRules.map(dbRule => ({
+    const legacyRules = (dbRules || []).map(dbRule => ({
       id: dbRule.id,
       priority: 100,
       condition: {
@@ -406,7 +406,7 @@ async function loadCategoryRulesFromDatabase(): Promise<void> {
     console.log('🔄 [DEBUG] Converted PostgreSQL rules to legacy format:', legacyRules);
     
     // Merge with existing localStorage rules (avoid duplicates)
-    const existingRuleIds = new Set(state.budgetState.categoryRules.map(r => r.id));
+    const existingRuleIds = new Set((state.budgetState.categoryRules || []).map(r => r.id));
     const newRules = legacyRules.filter(rule => !existingRuleIds.has(rule.id));
     
     console.log(`🔄 [DEBUG] Existing rules: ${existingRuleIds.size}, New rules to add: ${newRules.length}`);
