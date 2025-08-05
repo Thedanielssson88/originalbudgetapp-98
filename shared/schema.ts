@@ -51,6 +51,28 @@ export const categoryRules = pgTable('category_rules', {
     underkategoriId: uuid('underkategori_id').references(() => underkategorier.id, { onDelete: 'cascade' }),
 });
 
+export const monthlyBudgets = pgTable('monthly_budgets', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    monthKey: text('month_key').notNull(), // Format: YYYY-MM
+    andreasSalary: integer('andreas_salary').default(0).notNull(),
+    andreasförsäkringskassan: integer('andreas_forsakringskassan').default(0).notNull(),
+    andreasbarnbidrag: integer('andreas_barnbidrag').default(0).notNull(),
+    susannaSalary: integer('susanna_salary').default(0).notNull(),
+    susannaförsäkringskassan: integer('susanna_forsakringskassan').default(0).notNull(),
+    susannabarnbidrag: integer('susanna_barnbidrag').default(0).notNull(),
+    dailyTransfer: integer('daily_transfer').default(300).notNull(),
+    weekendTransfer: integer('weekend_transfer').default(540).notNull(),
+    andreasPersonalCosts: integer('andreas_personal_costs').default(0).notNull(),
+    andreasPersonalSavings: integer('andreas_personal_savings').default(0).notNull(),
+    susannaPersonalCosts: integer('susanna_personal_costs').default(0).notNull(),
+    susannaPersonalSavings: integer('susanna_personal_savings').default(0).notNull(),
+    userName1: text('user_name_1').default('Andreas').notNull(),
+    userName2: text('user_name_2').default('Susanna').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // Insert schemas for Zod validation
 export const insertUserSchema = createInsertSchema(users);
 
@@ -74,6 +96,12 @@ export const insertCategoryRuleSchema = createInsertSchema(categoryRules).omit({
   id: true,
 });
 
+export const insertMonthlyBudgetSchema = createInsertSchema(monthlyBudgets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Type exports
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -92,3 +120,6 @@ export type Transaction = typeof transactions.$inferSelect;
 
 export type InsertCategoryRule = z.infer<typeof insertCategoryRuleSchema>;
 export type CategoryRule = typeof categoryRules.$inferSelect;
+
+export type InsertMonthlyBudget = z.infer<typeof insertMonthlyBudgetSchema>;
+export type MonthlyBudget = typeof monthlyBudgets.$inferSelect;

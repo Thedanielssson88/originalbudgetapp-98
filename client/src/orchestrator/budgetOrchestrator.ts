@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ImportedTransaction } from '../types/transaction';
 import { CategoryRule } from '../types/budget';
 import { simpleGoogleDriveService } from '../services/simpleGoogleDriveService';
+import { monthlyBudgetService } from '../services/monthlyBudgetService';
 
 // SMART MERGE FUNCTION - The definitive solution to duplicate and lost changes
 export function importAndReconcileFile(csvContent: string, accountId: string): void {
@@ -894,6 +895,9 @@ export async function initializeApp(): Promise<void> {
   addMobileDebugLog(`[ORCHESTRATOR] After storage init - available months: ${Object.keys(state.budgetState.historicalData).join(', ')}`);
   addMobileDebugLog(`[ORCHESTRATOR] Selected month: ${state.budgetState.selectedMonthKey}`);
   
+  // Load monthly budget data from database for current month
+  await loadMonthlyBudgetFromDatabase();
+  
   // Run initial calculations to ensure state is up to date
   runCalculationsAndUpdateState();
   
@@ -1010,26 +1014,56 @@ export function updateSavingsGroups(value: BudgetGroup[]): void {
 
 export function setAndreasSalary(value: number): void {
   updateAndRecalculate({ andreasSalary: value });
+  // Also persist to database
+  const monthKey = state.budgetState.selectedMonthKey;
+  monthlyBudgetService.updateMonthlyBudgetField(monthKey, 'andreasSalary', value).catch(error => {
+    console.error('Failed to update Andreas salary in database:', error);
+  });
 }
 
 export function setAndreasförsäkringskassan(value: number): void {
   updateAndRecalculate({ andreasförsäkringskassan: value });
+  // Also persist to database
+  const monthKey = state.budgetState.selectedMonthKey;
+  monthlyBudgetService.updateMonthlyBudgetField(monthKey, 'andreasförsäkringskassan', value).catch(error => {
+    console.error('Failed to update Andreas försäkringskassan in database:', error);
+  });
 }
 
 export function setAndreasbarnbidrag(value: number): void {
   updateAndRecalculate({ andreasbarnbidrag: value });
+  // Also persist to database
+  const monthKey = state.budgetState.selectedMonthKey;
+  monthlyBudgetService.updateMonthlyBudgetField(monthKey, 'andreasbarnbidrag', value).catch(error => {
+    console.error('Failed to update Andreas barnbidrag in database:', error);
+  });
 }
 
 export function setSusannaSalary(value: number): void {
   updateAndRecalculate({ susannaSalary: value });
+  // Also persist to database
+  const monthKey = state.budgetState.selectedMonthKey;
+  monthlyBudgetService.updateMonthlyBudgetField(monthKey, 'susannaSalary', value).catch(error => {
+    console.error('Failed to update Susanna salary in database:', error);
+  });
 }
 
 export function setSusannaförsäkringskassan(value: number): void {
   updateAndRecalculate({ susannaförsäkringskassan: value });
+  // Also persist to database
+  const monthKey = state.budgetState.selectedMonthKey;
+  monthlyBudgetService.updateMonthlyBudgetField(monthKey, 'susannaförsäkringskassan', value).catch(error => {
+    console.error('Failed to update Susanna försäkringskassan in database:', error);
+  });
 }
 
 export function setSusannabarnbidrag(value: number): void {
   updateAndRecalculate({ susannabarnbidrag: value });
+  // Also persist to database
+  const monthKey = state.budgetState.selectedMonthKey;
+  monthlyBudgetService.updateMonthlyBudgetField(monthKey, 'susannabarnbidrag', value).catch(error => {
+    console.error('Failed to update Susanna barnbidrag in database:', error);
+  });
 }
 
 export function setCostGroups(value: BudgetGroup[]): void {
@@ -1791,6 +1825,50 @@ function cleanupInvalidTransferLinks(): void {
   });
   
   console.log(`✅ [ORCHESTRATOR] Cleaned up ${cleanedCount} invalid transfer links`);
+}
+
+// Load monthly budget from database and update state
+async function loadMonthlyBudgetFromDatabase(): Promise<void> {
+  try {
+    const monthKey = state.budgetState.selectedMonthKey;
+    console.log('📊 [ORCHESTRATOR] Loading monthly budget from database for month:', monthKey);
+    addMobileDebugLog(`📊 [ORCHESTRATOR] Loading monthly budget from database for month: ${monthKey}`);
+    
+    const budget = await monthlyBudgetService.loadMonthlyBudgetFromDatabase(monthKey);
+    
+    if (budget) {
+      console.log('✅ [ORCHESTRATOR] Loaded monthly budget from database:', budget);
+      addMobileDebugLog(`✅ [ORCHESTRATOR] Loaded monthly budget from database - Andreas: ${budget.andreasSalary}, Susanna: ${budget.susannaSalary}`);
+      
+      // Update current month data with database values
+      const updates = {
+        andreasSalary: budget.andreasSalary,
+        andreasförsäkringskassan: budget.andreasförsäkringskassan,
+        andreasbarnbidrag: budget.andreasbarnbidrag,
+        susannaSalary: budget.susannaSalary,
+        susannaförsäkringskassan: budget.susannaförsäkringskassan,
+        susannabarnbidrag: budget.susannabarnbidrag,
+        dailyTransfer: budget.dailyTransfer,
+        weekendTransfer: budget.weekendTransfer,
+        andreasPersonalCosts: budget.andreasPersonalCosts,
+        andreasPersonalSavings: budget.andreasPersonalSavings,
+        susannaPersonalCosts: budget.susannaPersonalCosts,
+        susannaPersonalSavings: budget.susannaPersonalSavings,
+        userName1: budget.userName1,
+        userName2: budget.userName2
+      };
+      
+      updateCurrentMonthData(updates);
+      console.log('✅ [ORCHESTRATOR] Updated current month data with database values');
+      addMobileDebugLog('✅ [ORCHESTRATOR] Updated current month data with database values');
+    } else {
+      console.log('⚠️ [ORCHESTRATOR] No monthly budget found in database, using default values');
+      addMobileDebugLog('⚠️ [ORCHESTRATOR] No monthly budget found in database, using default values');
+    }
+  } catch (error) {
+    console.error('❌ [ORCHESTRATOR] Error loading monthly budget from database:', error);
+    addMobileDebugLog(`❌ [ORCHESTRATOR] Error loading monthly budget: ${error}`);
+  }
 }
 
 // Function to perform automatic transfer matching for InternalTransfer transactions

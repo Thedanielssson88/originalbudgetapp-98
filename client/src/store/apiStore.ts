@@ -5,7 +5,8 @@ import type {
   Huvudkategori, 
   Underkategori, 
   CategoryRule, 
-  Transaction 
+  Transaction,
+  MonthlyBudget 
 } from '@shared/schema';
 
 interface ApiStore {
@@ -18,6 +19,7 @@ interface ApiStore {
   underkategorier: Underkategori[];
   categoryRules: CategoryRule[];
   transactions: Transaction[];
+  monthlyBudgets: MonthlyBudget[];
   
   // Derived state - will be computed from core data
   mainCategories: string[]; // For backward compatibility
@@ -44,6 +46,11 @@ interface ApiStore {
   createTransaction: (transaction: Omit<Transaction, 'id' | 'userId'>) => Promise<void>;
   updateTransaction: (id: string, transaction: Partial<Transaction>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
+  
+  // Monthly Budget methods
+  getOrCreateMonthlyBudget: (monthKey: string) => Promise<MonthlyBudget>;
+  updateMonthlyBudget: (monthKey: string, updates: Partial<MonthlyBudget>) => Promise<MonthlyBudget>;
+  deleteMonthlyBudget: (monthKey: string) => Promise<void>;
 }
 
 // Helper function for API requests
@@ -66,6 +73,7 @@ const state = {
   underkategorier: [] as Underkategori[],
   categoryRules: [] as CategoryRule[],
   transactions: [] as Transaction[],
+  monthlyBudgets: [] as MonthlyBudget[],
   mainCategories: [] as string[],
   subCategories: {} as Record<string, string[]>,
 };
@@ -85,6 +93,7 @@ store = {
   get underkategorier() { return state.underkategorier; },
   get categoryRules() { return state.categoryRules; },
   get transactions() { return state.transactions; },
+  get monthlyBudgets() { return state.monthlyBudgets; },
   get mainCategories() { return state.mainCategories; },
   get subCategories() { return state.subCategories; },
   
@@ -102,6 +111,7 @@ store = {
       state.underkategorier = data.underkategorier || [];
       state.categoryRules = data.categoryRules || [];
       state.transactions = data.transactions || [];
+      state.monthlyBudgets = data.monthlyBudgets || [];
       
       // Compute backward compatibility data
       state.mainCategories = state.huvudkategorier.map(h => h.name);
@@ -321,6 +331,78 @@ store = {
   async deleteTransaction(id) {
     await apiRequest(`/api/transactions/${id}`, { method: 'DELETE' });
     state.transactions = state.transactions.filter(t => t.id !== id);
+    notifySubscribers();
+  },
+
+  // Monthly Budget methods
+  async getOrCreateMonthlyBudget(monthKey: string): Promise<MonthlyBudget> {
+    // First try to find existing budget
+    const existing = state.monthlyBudgets.find(b => b.monthKey === monthKey);
+    if (existing) {
+      return existing;
+    }
+
+    // Try to fetch from server
+    try {
+      const budget = await apiRequest(`/api/monthly-budgets/${monthKey}`);
+      // Add to state if not already there
+      if (!state.monthlyBudgets.find(b => b.monthKey === monthKey)) {
+        state.monthlyBudgets.push(budget);
+        notifySubscribers();
+      }
+      return budget;
+    } catch (error) {
+      // If not found, create a new one with default values
+      const newBudget = {
+        monthKey,
+        andreasSalary: 45000,
+        andreasförsäkringskassan: 0,
+        andreasbarnbidrag: 0,
+        susannaSalary: 40000,
+        susannaförsäkringskassan: 5000,
+        susannabarnbidrag: 0,
+        dailyTransfer: 300,
+        weekendTransfer: 540,
+        andreasPersonalCosts: 0,
+        andreasPersonalSavings: 0,
+        susannaPersonalCosts: 0,
+        susannaPersonalSavings: 0,
+        userName1: 'Andreas',
+        userName2: 'Susanna'
+      };
+
+      const created = await apiRequest('/api/monthly-budgets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newBudget),
+      });
+
+      state.monthlyBudgets.push(created);
+      notifySubscribers();
+      return created;
+    }
+  },
+
+  async updateMonthlyBudget(monthKey: string, updates: Partial<MonthlyBudget>): Promise<MonthlyBudget> {
+    const updated = await apiRequest(`/api/monthly-budgets/${monthKey}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+
+    const index = state.monthlyBudgets.findIndex(b => b.monthKey === monthKey);
+    if (index !== -1) {
+      state.monthlyBudgets[index] = updated;
+    } else {
+      state.monthlyBudgets.push(updated);
+    }
+    notifySubscribers();
+    return updated;
+  },
+
+  async deleteMonthlyBudget(monthKey: string): Promise<void> {
+    await apiRequest(`/api/monthly-budgets/${monthKey}`, { method: 'DELETE' });
+    state.monthlyBudgets = state.monthlyBudgets.filter(b => b.monthKey !== monthKey);
     notifySubscribers();
   },
 };

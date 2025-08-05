@@ -6,7 +6,8 @@ import {
   insertHuvudkategoriSchema, 
   insertUnderkategoriSchema, 
   insertCategoryRuleSchema,
-  insertTransactionSchema
+  insertTransactionSchema,
+  insertMonthlyBudgetSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -373,7 +374,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Monthly Budget routes
+  app.get("/api/monthly-budgets", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const budgets = await storage.getMonthlyBudgets(userId);
+      res.json(budgets);
+    } catch (error) {
+      console.error('Error fetching monthly budgets:', error);
+      res.status(500).json({ error: 'Failed to fetch monthly budgets' });
+    }
+  });
 
+  app.get("/api/monthly-budgets/:monthKey", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const { monthKey } = req.params;
+      const budget = await storage.getMonthlyBudget(userId, monthKey);
+      if (!budget) {
+        return res.status(404).json({ error: 'Monthly budget not found' });
+      }
+      res.json(budget);
+    } catch (error) {
+      console.error('Error fetching monthly budget:', error);
+      res.status(500).json({ error: 'Failed to fetch monthly budget' });
+    }
+  });
+
+  app.post("/api/monthly-budgets", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const validatedData = insertMonthlyBudgetSchema.parse({
+        ...req.body,
+        userId
+      });
+      const budget = await storage.createMonthlyBudget(validatedData);
+      res.status(201).json(budget);
+    } catch (error) {
+      console.error('Error creating monthly budget:', error);
+      res.status(400).json({ error: 'Failed to create monthly budget' });
+    }
+  });
+
+  app.patch("/api/monthly-budgets/:monthKey", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const { monthKey } = req.params;
+      const updateData = insertMonthlyBudgetSchema.partial().parse(req.body);
+      const budget = await storage.updateMonthlyBudget(userId, monthKey, updateData);
+      if (!budget) {
+        return res.status(404).json({ error: 'Monthly budget not found' });
+      }
+      res.json(budget);
+    } catch (error) {
+      console.error('Error updating monthly budget:', error);
+      res.status(400).json({ error: 'Failed to update monthly budget' });
+    }
+  });
+
+  app.delete("/api/monthly-budgets/:monthKey", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const { monthKey } = req.params;
+      const deleted = await storage.deleteMonthlyBudget(userId, monthKey);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Monthly budget not found' });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting monthly budget:', error);
+      res.status(500).json({ error: 'Failed to delete monthly budget' });
+    }
+  });
 
   // Create the server
   const httpServer = createServer(app);

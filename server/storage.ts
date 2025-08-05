@@ -5,6 +5,7 @@ import {
   underkategorier,
   categoryRules,
   transactions,
+  monthlyBudgets,
   type User, 
   type InsertUser,
   type Account,
@@ -16,7 +17,9 @@ import {
   type CategoryRule,
   type InsertCategoryRule,
   type Transaction,
-  type InsertTransaction
+  type InsertTransaction,
+  type MonthlyBudget,
+  type InsertMonthlyBudget
 } from "@shared/schema";
 
 // modify the interface with any CRUD methods
@@ -63,6 +66,13 @@ export interface IStorage {
   updateTransaction(id: string, transaction: Partial<InsertTransaction>): Promise<Transaction | undefined>;
   deleteTransaction(id: string): Promise<boolean>;
   
+  // Monthly Budget CRUD
+  getMonthlyBudgets(userId: string): Promise<MonthlyBudget[]>;
+  getMonthlyBudget(userId: string, monthKey: string): Promise<MonthlyBudget | undefined>;
+  createMonthlyBudget(budget: InsertMonthlyBudget): Promise<MonthlyBudget>;
+  updateMonthlyBudget(userId: string, monthKey: string, budget: Partial<InsertMonthlyBudget>): Promise<MonthlyBudget | undefined>;
+  deleteMonthlyBudget(userId: string, monthKey: string): Promise<boolean>;
+  
   // Bootstrap method to get all data at once
   bootstrap(userId: string): Promise<{
     accounts: Account[];
@@ -70,6 +80,7 @@ export interface IStorage {
     underkategorier: Underkategori[];
     categoryRules: CategoryRule[];
     transactions: Transaction[];
+    monthlyBudgets: MonthlyBudget[];
   }>;
 }
 

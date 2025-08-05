@@ -7,6 +7,7 @@ import {
   underkategorier,
   categoryRules,
   transactions,
+  monthlyBudgets,
   type User,
   type InsertUser,
   type Account,
@@ -18,7 +19,9 @@ import {
   type CategoryRule,
   type InsertCategoryRule,
   type Transaction,
-  type InsertTransaction
+  type InsertTransaction,
+  type MonthlyBudget,
+  type InsertMonthlyBudget
 } from "@shared/schema";
 import { IStorage } from "./storage";
 
@@ -30,13 +33,15 @@ export class DatabaseStorage implements IStorage {
     underkategorier: Underkategori[];
     categoryRules: CategoryRule[];
     transactions: Transaction[];
+    monthlyBudgets: MonthlyBudget[];
   }> {
-    const [accountsResult, huvudkategorierResult, underkategorierResult, categoryRulesResult, transactionsResult] = await Promise.all([
+    const [accountsResult, huvudkategorierResult, underkategorierResult, categoryRulesResult, transactionsResult, monthlyBudgetsResult] = await Promise.all([
       this.getAccounts(userId),
       this.getHuvudkategorier(userId),
       this.getUnderkategorier(userId),
       this.getCategoryRules(userId),
-      this.getTransactions(userId)
+      this.getTransactions(userId),
+      this.getMonthlyBudgets(userId)
     ]);
 
     return {
@@ -45,6 +50,7 @@ export class DatabaseStorage implements IStorage {
       underkategorier: underkategorierResult,
       categoryRules: categoryRulesResult,
       transactions: transactionsResult,
+      monthlyBudgets: monthlyBudgetsResult,
     };
   }
 
@@ -208,6 +214,40 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTransaction(id: string): Promise<boolean> {
     const result = await db.delete(transactions).where(eq(transactions.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Monthly Budget methods
+  async getMonthlyBudgets(userId: string): Promise<MonthlyBudget[]> {
+    return await db.select().from(monthlyBudgets).where(eq(monthlyBudgets.userId, userId));
+  }
+
+  async getMonthlyBudget(userId: string, monthKey: string): Promise<MonthlyBudget | undefined> {
+    const result = await db.select().from(monthlyBudgets)
+      .where(and(eq(monthlyBudgets.userId, userId), eq(monthlyBudgets.monthKey, monthKey)));
+    return result[0];
+  }
+
+  async createMonthlyBudget(budget: InsertMonthlyBudget): Promise<MonthlyBudget> {
+    const result = await db.insert(monthlyBudgets).values(budget).returning();
+    return result[0];
+  }
+
+  async updateMonthlyBudget(userId: string, monthKey: string, budget: Partial<InsertMonthlyBudget>): Promise<MonthlyBudget | undefined> {
+    const result = await db.update(monthlyBudgets)
+      .set({
+        ...budget,
+        updatedAt: new Date()
+      })
+      .where(and(eq(monthlyBudgets.userId, userId), eq(monthlyBudgets.monthKey, monthKey)))
+      .returning();
+    return result[0];
+  }
+
+  async deleteMonthlyBudget(userId: string, monthKey: string): Promise<boolean> {
+    const result = await db.delete(monthlyBudgets)
+      .where(and(eq(monthlyBudgets.userId, userId), eq(monthlyBudgets.monthKey, monthKey)))
+      .returning();
     return result.length > 0;
   }
 }
