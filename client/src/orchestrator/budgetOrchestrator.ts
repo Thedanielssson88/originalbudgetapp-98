@@ -281,8 +281,8 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
       const dbTransaction = {
         accountId: transaction.accountId,
         date: transaction.date, // Schema handles string-to-Date conversion
-        amount: transaction.amount,
-        balanceAfter: transaction.balanceAfter || 0,
+        amount: Math.round(transaction.amount), // Convert to integer (öre)
+        balanceAfter: Math.round(transaction.balanceAfter || 0), // Convert to integer (öre)
         description: transaction.description,
         userDescription: transaction.userDescription || '',
         bankCategory: transaction.bankCategory || '',
@@ -290,8 +290,8 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
         type: transaction.type || 'Transaction',
         status: transaction.status || 'yellow',
         linkedTransactionId: transaction.linkedTransactionId || null,
-        correctedAmount: transaction.correctedAmount || null,
-        isManuallyChanged: transaction.isManuallyChanged || false,
+        correctedAmount: transaction.correctedAmount ? Math.round(transaction.correctedAmount) : null,
+        isManuallyChanged: String(transaction.isManuallyChanged || false), // Convert boolean to string
         appCategoryId: transaction.appCategoryId || null,
         appSubCategoryId: transaction.appSubCategoryId || null,
         userId: 'dev-user-123' // Mock user ID for development
