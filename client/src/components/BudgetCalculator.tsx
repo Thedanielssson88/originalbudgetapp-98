@@ -1392,13 +1392,14 @@ const BudgetCalculator = () => {
     console.log('🔍 [DEBUG] Found underkategori:', selectedUnderkategori);
     console.log('🔍 [DEBUG] Found account:', selectedAccount);
     
-    // Convert to legacy format using proper category names
+    // Convert to legacy format using proper category names and account UUID
     const legacyItem = {
       mainCategory: selectedHuvudkategori?.name || budgetItem.mainCategoryId,
       subcategory: selectedUnderkategori?.name || budgetItem.subCategoryId,
       name: budgetItem.description,
       amount: budgetItem.amount,
       account: selectedAccount?.name || '',
+      accountId: budgetItem.accountId, // Store the UUID for proper account mapping
       financedFrom: budgetItem.financedFrom || 'Löpande kostnad',
       transferType: budgetItem.transferType,
       dailyAmount: budgetItem.dailyAmount,
@@ -2371,7 +2372,7 @@ const BudgetCalculator = () => {
       id: uuidv4(),
       name: `${item.subcategory}: ${item.name}`,
       amount: calculatedAmount,
-      accountId: item.account ? budgetState.accounts.find(acc => acc.name === item.account)?.id : undefined,
+      accountId: item.accountId || (item.account ? budgetState.accounts.find(acc => acc.name === item.account)?.id : undefined),
       financedFrom: item.financedFrom,
       transferType: item.transferType || 'monthly',
       dailyAmount: item.dailyAmount,
