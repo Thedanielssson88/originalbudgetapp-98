@@ -9,6 +9,8 @@ import {
   categoryRules,
   transactions,
   monthlyBudgets,
+  banks,
+  bankCsvMappings,
   type User,
   type InsertUser,
   type FamilyMember,
@@ -26,37 +28,48 @@ import {
   type MonthlyBudget,
   type InsertMonthlyBudget
 } from "@shared/schema";
+
+// Add the missing types that aren't auto-generated yet
+type Bank = typeof banks.$inferSelect;
+type InsertBank = typeof banks.$inferInsert;
+type BankCsvMapping = typeof bankCsvMappings.$inferSelect;
+type InsertBankCsvMapping = typeof bankCsvMappings.$inferInsert;
 import { IStorage } from "./storage";
 
 export class DatabaseStorage implements IStorage {
   // Bootstrap method
   async bootstrap(userId: string): Promise<{
     accounts: Account[];
-    familyMembers: FamilyMember[];
     huvudkategorier: Huvudkategori[];
     underkategorier: Underkategori[];
     categoryRules: CategoryRule[];
     transactions: Transaction[];
+    budgetPosts: any[];
     monthlyBudgets: MonthlyBudget[];
+    banks: Bank[];
+    bankCsvMappings: BankCsvMapping[];
   }> {
-    const [accountsResult, familyMembersResult, huvudkategorierResult, underkategorierResult, categoryRulesResult, transactionsResult, monthlyBudgetsResult] = await Promise.all([
+    const [accountsResult, huvudkategorierResult, underkategorierResult, categoryRulesResult, transactionsResult, monthlyBudgetsResult, banksResult, bankCsvMappingsResult] = await Promise.all([
       this.getAccounts(userId),
-      this.getFamilyMembers(userId),
       this.getHuvudkategorier(userId),
       this.getUnderkategorier(userId),
       this.getCategoryRules(userId),
       this.getTransactions(userId),
-      this.getMonthlyBudgets(userId)
+      this.getMonthlyBudgets(userId),
+      this.getBanks(userId),
+      this.getBankCsvMappings(userId)
     ]);
 
     return {
       accounts: accountsResult,
-      familyMembers: familyMembersResult,
       huvudkategorier: huvudkategorierResult,
       underkategorier: underkategorierResult,
       categoryRules: categoryRulesResult,
       transactions: transactionsResult,
+      budgetPosts: [], // Not implemented yet
       monthlyBudgets: monthlyBudgetsResult,
+      banks: banksResult,
+      bankCsvMappings: bankCsvMappingsResult,
     };
   }
 
@@ -300,5 +313,87 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(monthlyBudgets.userId, userId), eq(monthlyBudgets.monthKey, monthKey)))
       .returning();
     return result.length > 0;
+  }
+
+  // Bank methods
+  async getBanks(userId: string): Promise<Bank[]> {
+    return await db.select().from(banks).where(eq(banks.userId, userId));
+  }
+
+  async getBank(id: string): Promise<Bank | undefined> {
+    const result = await db.select().from(banks).where(eq(banks.id, id));
+    return result[0];
+  }
+
+  async createBank(insertBank: InsertBank): Promise<Bank> {
+    const result = await db.insert(banks).values(insertBank).returning();
+    return result[0];
+  }
+
+  async updateBank(id: string, updateBank: Partial<InsertBank>): Promise<Bank | undefined> {
+    const result = await db.update(banks)
+      .set(updateBank)
+      .where(eq(banks.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteBank(id: string): Promise<boolean> {
+    const result = await db.delete(banks).where(eq(banks.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Bank CSV Mapping methods
+  async getBankCsvMappings(userId: string): Promise<BankCsvMapping[]> {
+    return await db.select().from(bankCsvMappings).where(eq(bankCsvMappings.userId, userId));
+  }
+
+  async getBankCsvMappingsByBank(userId: string, bankId: string): Promise<BankCsvMapping[]> {
+    return await db.select().from(bankCsvMappings)
+      .where(and(eq(bankCsvMappings.userId, userId), eq(bankCsvMappings.bankId, bankId)));
+  }
+
+  async getBankCsvMapping(id: string): Promise<BankCsvMapping | undefined> {
+    const result = await db.select().from(bankCsvMappings).where(eq(bankCsvMappings.id, id));
+    return result[0];
+  }
+
+  async createBankCsvMapping(insertMapping: InsertBankCsvMapping): Promise<BankCsvMapping> {
+    const result = await db.insert(bankCsvMappings).values(insertMapping).returning();
+    return result[0];
+  }
+
+  async updateBankCsvMapping(id: string, updateMapping: Partial<InsertBankCsvMapping>): Promise<BankCsvMapping | undefined> {
+    const result = await db.update(bankCsvMappings)
+      .set(updateMapping)
+      .where(eq(bankCsvMappings.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteBankCsvMapping(id: string): Promise<boolean> {
+    const result = await db.delete(bankCsvMappings).where(eq(bankCsvMappings.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Stub methods for BudgetPost - not implemented yet
+  async getBudgetPosts(): Promise<any[]> {
+    return [];
+  }
+
+  async getBudgetPost(): Promise<any> {
+    return undefined;
+  }
+
+  async createBudgetPost(): Promise<any> {
+    throw new Error("Not implemented");
+  }
+
+  async updateBudgetPost(): Promise<any> {
+    return undefined;
+  }
+
+  async deleteBudgetPost(): Promise<boolean> {
+    return false;
   }
 }

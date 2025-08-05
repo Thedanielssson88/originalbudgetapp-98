@@ -8,6 +8,8 @@ import {
   transactions,
   budgetPosts,
   monthlyBudgets,
+  banks,
+  bankCsvMappings,
   type User, 
   type InsertUser,
   type FamilyMember,
@@ -27,6 +29,12 @@ import {
   type MonthlyBudget,
   type InsertMonthlyBudget
 } from "@shared/schema";
+
+// Add the missing types that aren't auto-generated yet
+type Bank = typeof banks.$inferSelect;
+type InsertBank = typeof banks.$inferInsert;
+type BankCsvMapping = typeof bankCsvMappings.$inferSelect;
+type InsertBankCsvMapping = typeof bankCsvMappings.$inferInsert;
 
 // modify the interface with any CRUD methods
 // you might need
@@ -93,6 +101,21 @@ export interface IStorage {
   createMonthlyBudget(budget: InsertMonthlyBudget): Promise<MonthlyBudget>;
   updateMonthlyBudget(userId: string, monthKey: string, budget: Partial<InsertMonthlyBudget>): Promise<MonthlyBudget | undefined>;
   deleteMonthlyBudget(userId: string, monthKey: string): Promise<boolean>;
+
+  // Bank CRUD
+  getBanks(userId: string): Promise<Bank[]>;
+  getBank(id: string): Promise<Bank | undefined>;
+  createBank(bank: InsertBank): Promise<Bank>;
+  updateBank(id: string, bank: Partial<InsertBank>): Promise<Bank | undefined>;
+  deleteBank(id: string): Promise<boolean>;
+
+  // Bank CSV Mapping CRUD
+  getBankCsvMappings(userId: string): Promise<BankCsvMapping[]>;
+  getBankCsvMappingsByBank(userId: string, bankId: string): Promise<BankCsvMapping[]>;
+  getBankCsvMapping(id: string): Promise<BankCsvMapping | undefined>;
+  createBankCsvMapping(mapping: InsertBankCsvMapping): Promise<BankCsvMapping>;
+  updateBankCsvMapping(id: string, mapping: Partial<InsertBankCsvMapping>): Promise<BankCsvMapping | undefined>;
+  deleteBankCsvMapping(id: string): Promise<boolean>;
   
   // Bootstrap method to get all data at once
   bootstrap(userId: string): Promise<{
@@ -103,11 +126,14 @@ export interface IStorage {
     transactions: Transaction[];
     budgetPosts: BudgetPost[];
     monthlyBudgets: MonthlyBudget[];
+    banks: Bank[];
+    bankCsvMappings: BankCsvMapping[];
   }>;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
+  private familyMembers: Map<string, FamilyMember>;
   private accounts: Map<string, Account>;
   private huvudkategorier: Map<string, Huvudkategori>;
   private underkategorier: Map<string, Underkategori>;
@@ -115,9 +141,12 @@ export class MemStorage implements IStorage {
   private transactions: Map<string, Transaction>;
   private budgetPosts: Map<string, BudgetPost>;
   private monthlyBudgets: Map<string, MonthlyBudget>;
+  private banks: Map<string, Bank>;
+  private bankCsvMappings: Map<string, BankCsvMapping>;
 
   constructor() {
     this.users = new Map();
+    this.familyMembers = new Map();
     this.accounts = new Map();
     this.huvudkategorier = new Map();
     this.underkategorier = new Map();
@@ -125,28 +154,32 @@ export class MemStorage implements IStorage {
     this.transactions = new Map();
     this.budgetPosts = new Map();
     this.monthlyBudgets = new Map();
+    this.banks = new Map();
+    this.bankCsvMappings = new Map();
   }
 
   // Bootstrap method
   async bootstrap(userId: string): Promise<{
     accounts: Account[];
-    familyMembers: FamilyMember[];
     huvudkategorier: Huvudkategori[];
     underkategorier: Underkategori[];
     categoryRules: CategoryRule[];
     transactions: Transaction[];
     budgetPosts: BudgetPost[];
     monthlyBudgets: MonthlyBudget[];
+    banks: Bank[];
+    bankCsvMappings: BankCsvMapping[];
   }> {
     return {
       accounts: await this.getAccounts(userId),
-      familyMembers: await this.getFamilyMembers(userId),
       huvudkategorier: await this.getHuvudkategorier(userId),
       underkategorier: await this.getUnderkategorier(userId),
       categoryRules: await this.getCategoryRules(userId),
       transactions: await this.getTransactions(userId),
       budgetPosts: await this.getBudgetPosts(userId),
       monthlyBudgets: await this.getMonthlyBudgets(userId),
+      banks: await this.getBanks(userId),
+      bankCsvMappings: await this.getBankCsvMappings(userId),
     };
   }
 
@@ -348,6 +381,96 @@ export class MemStorage implements IStorage {
       trans.date >= startDate &&
       trans.date <= endDate
     );
+  }
+
+  // Bank methods - stub implementations for development
+  async getBanks(userId: string): Promise<any[]> {
+    return Array.from(this.banks.values()).filter((bank: any) => bank.userId === userId);
+  }
+
+  async getBank(id: string): Promise<any> {
+    return this.banks.get(id);
+  }
+
+  async createBank(insertBank: any): Promise<any> {
+    const bank = { id: `bank-${Date.now()}`, ...insertBank, createdAt: new Date().toISOString() };
+    this.banks.set(bank.id, bank);
+    return bank;
+  }
+
+  async updateBank(id: string, updateBank: any): Promise<any> {
+    const bank = this.banks.get(id);
+    if (bank) {
+      const updated = { ...bank, ...updateBank };
+      this.banks.set(id, updated);
+      return updated;
+    }
+    return undefined;
+  }
+
+  async deleteBank(id: string): Promise<boolean> {
+    return this.banks.delete(id);
+  }
+
+  // Bank CSV Mapping methods - stub implementations
+  async getBankCsvMappings(userId: string): Promise<any[]> {
+    return Array.from(this.bankCsvMappings.values()).filter((mapping: any) => mapping.userId === userId);
+  }
+
+  async getBankCsvMappingsByBank(userId: string, bankId: string): Promise<any[]> {
+    return Array.from(this.bankCsvMappings.values()).filter((mapping: any) => 
+      mapping.userId === userId && mapping.bankId === bankId);
+  }
+
+  async getBankCsvMapping(id: string): Promise<any> {
+    return this.bankCsvMappings.get(id);
+  }
+
+  async createBankCsvMapping(insertMapping: any): Promise<any> {
+    const mapping = { 
+      id: `mapping-${Date.now()}`, 
+      ...insertMapping, 
+      isActive: 'true',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    this.bankCsvMappings.set(mapping.id, mapping);
+    return mapping;
+  }
+
+  async updateBankCsvMapping(id: string, updateMapping: any): Promise<any> {
+    const mapping = this.bankCsvMappings.get(id);
+    if (mapping) {
+      const updated = { ...mapping, ...updateMapping, updatedAt: new Date().toISOString() };
+      this.bankCsvMappings.set(id, updated);
+      return updated;
+    }
+    return undefined;
+  }
+
+  async deleteBankCsvMapping(id: string): Promise<boolean> {
+    return this.bankCsvMappings.delete(id);
+  }
+
+  // Stub methods for BudgetPost - not implemented yet
+  async getBudgetPosts(): Promise<any[]> {
+    return [];
+  }
+
+  async getBudgetPost(): Promise<any> {
+    return undefined;
+  }
+
+  async createBudgetPost(): Promise<any> {
+    throw new Error("Not implemented");
+  }
+
+  async updateBudgetPost(): Promise<any> {
+    return undefined;
+  }
+
+  async deleteBudgetPost(): Promise<boolean> {
+    return false;
   }
 }
 

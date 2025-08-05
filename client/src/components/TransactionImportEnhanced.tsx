@@ -42,7 +42,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, CheckCircle, FileText, Settings, AlertCircle, Circle, CheckSquare, AlertTriangle, ChevronDown, ChevronUp, Trash2, Plus, Edit, Save, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Upload, CheckCircle, FileText, Settings, Settings2, AlertCircle, Circle, CheckSquare, AlertTriangle, ChevronDown, ChevronUp, Trash2, Plus, Edit, Save, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 import { Bank, BankCSVMapping } from '@/types/bank';
@@ -64,6 +64,8 @@ import { CategorySelectionDialog } from './CategorySelectionDialog';
 import { useBudget } from '@/hooks/useBudget';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useCategoryRules } from '@/hooks/useCategoryRules';
+import { useBanks, useCreateBank, useBankCsvMappings } from '@/hooks/useBanks';
+import { ColumnMappingDialog } from './ColumnMappingDialog';
 import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping, linkAccountToBankTemplate, matchInternalTransfer } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState, setMainCategories, updateSelectedBudgetMonth } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
@@ -394,6 +396,10 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [bankCSVMappings, setBankCSVMappings] = useState<BankCSVMapping[]>([]);
   const [selectedBanks, setSelectedBanks] = useState<{[accountId: string]: string}>({});
+  const [showColumnMappingDialog, setShowColumnMappingDialog] = useState(false);
+  const [currentMappingBankId, setCurrentMappingBankId] = useState<string>('');
+  const [fileColumnsForMapping, setFileColumnsForMapping] = useState<string[]>([]);
+  const [sampleDataForMapping, setSampleDataForMapping] = useState<string[][]>([]);
   const { toast } = useToast();
   
   // Get budget data from central state (SINGLE SOURCE OF TRUTH)
@@ -1710,6 +1716,26 @@ export const TransactionImportEnhanced: React.FC = () => {
                             </Button>
                           }
                         />
+                        <Button 
+                          variant="outline" 
+                          size="icon"
+                          onClick={() => {
+                            const bankId = account.bankTemplateId || selectedBanks[account.id];
+                            if (bankId) {
+                              setCurrentMappingBankId(bankId);
+                              setShowColumnMappingDialog(true);
+                            } else {
+                              toast({
+                                title: "Välj bank först",
+                                description: "Du måste välja en bank innan du kan konfigurera kolumnmappning.",
+                                variant: "destructive",
+                              });
+                            }
+                          }}
+                          title="Konfigurera kolumnmappning"
+                        >
+                          <Settings2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -2969,6 +2995,22 @@ export const TransactionImportEnhanced: React.FC = () => {
         bankSubCategory={selectedBankSubCategory}
         mainCategories={mainCategories}
         accounts={accountsFromAPI}
+      />
+
+      <ColumnMappingDialog
+        isOpen={showColumnMappingDialog}
+        onClose={() => setShowColumnMappingDialog(false)}
+        fileColumns={fileColumnsForMapping}
+        sampleData={sampleDataForMapping}
+        selectedBankId={currentMappingBankId}
+        onMappingSaved={(mapping) => {
+          console.log('Column mapping saved:', mapping);
+          toast({
+            title: "Kolumnmappning sparad",
+            description: `Mappningen för ${mapping.name} har sparats.`,
+          });
+          setShowColumnMappingDialog(false);
+        }}
       />
     </div>
   );

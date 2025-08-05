@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,7 +29,7 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
   const { data: underkategorier = [], isLoading: isLoadingUnder } = useUnderkategorier();
   const { data: accounts = [], isLoading: isLoadingAccounts } = useAccounts();
 
-  const [formData, setFormData] = useState({
+  const initialFormData = useMemo(() => ({
     mainCategoryId: '',
     subCategoryId: '',
     description: '',
@@ -39,38 +39,32 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
     transferType: 'monthly' as 'monthly' | 'daily',
     dailyAmount: 0,
     transferDays: [] as number[]
-  });
+  }), []);
+
+  const [formData, setFormData] = useState(initialFormData);
   
   const [availableSubcategories, setAvailableSubcategories] = useState<any[]>([]);
 
-  // Reset form when dialog opens
+  // Reset form when dialog opens - simplified
   useEffect(() => {
     if (isOpen) {
-      setFormData({
-        mainCategoryId: '',
-        subCategoryId: '',
-        description: '',
-        amount: 0,
-        accountId: 'none',
-        financedFrom: 'Löpande kostnad',
-        transferType: 'monthly',
-        dailyAmount: 0,
-        transferDays: []
-      });
-    }
-  }, [isOpen]);
-
-  // Update available subcategories when huvudkategori changes
-  useEffect(() => {
-    if (formData.mainCategoryId && underkategorier.length > 0) {
-      const available = underkategorier.filter(sub => sub.huvudkategoriId === formData.mainCategoryId);
-      console.log(`AddBudgetItemDialog: Setting subcategories for ${formData.mainCategoryId}:`, available);
-      setAvailableSubcategories(available);
-      setFormData(prev => ({ ...prev, subCategoryId: '' }));
-    } else {
+      setFormData(initialFormData);
       setAvailableSubcategories([]);
     }
+  }, [isOpen, initialFormData]);
+
+  // Simple derived state - no complex effects
+  const currentAvailableSubcategories = useMemo(() => {
+    if (formData.mainCategoryId && underkategorier.length > 0) {
+      return underkategorier.filter(sub => sub.huvudkategoriId === formData.mainCategoryId);
+    }
+    return [];
   }, [formData.mainCategoryId, underkategorier]);
+
+  // Use derived state instead of separate state
+  useEffect(() => {
+    setAvailableSubcategories(currentAvailableSubcategories);
+  }, [currentAvailableSubcategories]);
 
   const handleSave = () => {
     console.log('🔍 [DEBUG] AddBudgetItemDialog handleSave called with formData:', formData);
@@ -115,20 +109,10 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
     }
   };
 
-  const handleCancel = () => {
-    setFormData({
-      mainCategoryId: '',
-      subCategoryId: '',
-      description: '',
-      amount: 0,
-      accountId: 'none',
-      financedFrom: 'Löpande kostnad',
-      transferType: 'monthly',
-      dailyAmount: 0,
-      transferDays: []
-    });
+  const handleCancel = useCallback(() => {
+    setFormData(initialFormData);
     onClose();
-  };
+  }, [initialFormData, onClose]);
 
   const weekdays = [
     { value: 1, label: 'M', name: 'Måndag' },
@@ -140,10 +124,10 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
     { value: 0, label: 'S', name: 'Söndag' }
   ];
 
-  const handleTransferDaysChange = (days: string[]) => {
+  const handleTransferDaysChange = useCallback((days: string[]) => {
     const numericDays = days.map(d => parseInt(d));
-    setFormData({ ...formData, transferDays: numericDays });
-  };
+    setFormData(prev => ({ ...prev, transferDays: numericDays }));
+  }, []);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -159,7 +143,9 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
             <Label htmlFor="mainCategory">Huvudkategori</Label>
             <Select 
               value={formData.mainCategoryId} 
-              onValueChange={(value) => setFormData({ ...formData, mainCategoryId: value })}
+              onValueChange={(value) => {
+                setFormData({ ...formData, mainCategoryId: value, subCategoryId: '' });
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Välj huvudkategori" />
@@ -168,7 +154,7 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
                 {isLoadingHuvud ? (
                   <SelectItem value="loading" disabled>Laddar...</SelectItem>
                 ) : (
-                  huvudkategorier.map((kategori) => (
+                  huvudkategorier.filter(k => k.id && k.id !== '').map((kategori) => (
                     <SelectItem key={kategori.id} value={kategori.id}>
                       {kategori.name}
                     </SelectItem>
@@ -192,7 +178,7 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
                 {isLoadingUnder ? (
                   <SelectItem value="loading" disabled>Laddar...</SelectItem>
                 ) : (
-                  availableSubcategories.map((subkategori) => (
+                  availableSubcategories.filter(s => s.id && s.id !== '').map((subkategori) => (
                     <SelectItem key={subkategori.id} value={subkategori.id}>
                       {subkategori.name}
                     </SelectItem>

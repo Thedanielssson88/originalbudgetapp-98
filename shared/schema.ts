@@ -83,6 +83,32 @@ export const categoryRules = pgTable('category_rules', {
     isActive: text('is_active').default('true').notNull(),
 });
 
+// Banks table for storing bank information
+export const banks = pgTable('banks', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Bank CSV mappings table for storing column mappings per bank
+export const bankCsvMappings = pgTable('bank_csv_mappings', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    bankId: uuid('bank_id').notNull().references(() => banks.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(), // Mapping name/description
+    // Column mappings - store the column index or name from CSV/XLSX
+    dateColumn: text('date_column'), // Which column contains date
+    descriptionColumn: text('description_column'), // Which column contains description  
+    amountColumn: text('amount_column'), // Which column contains amount
+    balanceColumn: text('balance_column'), // Which column contains balance/saldo
+    bankCategoryColumn: text('bank_category_column'), // Which column contains bank category
+    bankSubCategoryColumn: text('bank_sub_category_column'), // Which column contains bank subcategory
+    isActive: text('is_active').default('true').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // Budget posts table for storing individual budget line items
 export const budgetPosts = pgTable('budget_posts', {
     id: uuid('id').defaultRandom().primaryKey(),
@@ -173,6 +199,17 @@ export const insertBudgetPostSchema = createInsertSchema(budgetPosts).omit({
 });
 
 export const insertMonthlyBudgetSchema = createInsertSchema(monthlyBudgets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBankSchema = createInsertSchema(banks).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertBankCsvMappingSchema = createInsertSchema(bankCsvMappings).omit({
   id: true,
   createdAt: true,
   updatedAt: true,

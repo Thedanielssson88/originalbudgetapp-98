@@ -9,7 +9,9 @@ import {
   insertCategoryRuleSchema,
   insertTransactionSchema,
   insertMonthlyBudgetSchema,
-  insertBudgetPostSchema
+  insertBudgetPostSchema,
+  insertBankSchema,
+  insertBankCsvMappingSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -667,6 +669,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting monthly budget:', error);
       res.status(500).json({ error: 'Failed to delete monthly budget' });
+    }
+  });
+
+  // Bank routes
+  app.get("/api/banks", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const banks = await storage.getBanks(userId);
+      res.json(banks);
+    } catch (error) {
+      console.error('Error fetching banks:', error);
+      res.status(500).json({ error: 'Failed to fetch banks' });
+    }
+  });
+
+  app.post("/api/banks", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const validatedData = insertBankSchema.parse({
+        ...req.body,
+        userId
+      });
+      const bank = await storage.createBank(validatedData);
+      res.status(201).json(bank);
+    } catch (error) {
+      console.error('Error creating bank:', error);
+      res.status(400).json({ error: 'Failed to create bank' });
+    }
+  });
+
+  app.delete("/api/banks/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteBank(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Bank not found' });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting bank:', error);
+      res.status(500).json({ error: 'Failed to delete bank' });
+    }
+  });
+
+  // Bank CSV mapping routes
+  app.get("/api/bank-csv-mappings", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const mappings = await storage.getBankCsvMappings(userId);
+      res.json(mappings);
+    } catch (error) {
+      console.error('Error fetching bank CSV mappings:', error);
+      res.status(500).json({ error: 'Failed to fetch bank CSV mappings' });
+    }
+  });
+
+  app.get("/api/bank-csv-mappings/bank/:bankId", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const mappings = await storage.getBankCsvMappingsByBank(userId, req.params.bankId);
+      res.json(mappings);
+    } catch (error) {
+      console.error('Error fetching bank CSV mappings for bank:', error);
+      res.status(500).json({ error: 'Failed to fetch bank CSV mappings for bank' });
+    }
+  });
+
+  app.post("/api/bank-csv-mappings", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const validatedData = insertBankCsvMappingSchema.parse({
+        ...req.body,
+        userId
+      });
+      const mapping = await storage.createBankCsvMapping(validatedData);
+      res.status(201).json(mapping);
+    } catch (error) {
+      console.error('Error creating bank CSV mapping:', error);
+      res.status(400).json({ error: 'Failed to create bank CSV mapping' });
+    }
+  });
+
+  app.patch("/api/bank-csv-mappings/:id", async (req, res) => {
+    try {
+      const updateData = insertBankCsvMappingSchema.partial().parse(req.body);
+      const mapping = await storage.updateBankCsvMapping(req.params.id, updateData);
+      if (!mapping) {
+        return res.status(404).json({ error: 'Bank CSV mapping not found' });
+      }
+      res.json(mapping);
+    } catch (error) {
+      console.error('Error updating bank CSV mapping:', error);
+      res.status(400).json({ error: 'Failed to update bank CSV mapping' });
+    }
+  });
+
+  app.delete("/api/bank-csv-mappings/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteBankCsvMapping(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Bank CSV mapping not found' });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting bank CSV mapping:', error);
+      res.status(500).json({ error: 'Failed to delete bank CSV mapping' });
     }
   });
 
