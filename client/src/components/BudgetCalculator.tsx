@@ -603,34 +603,34 @@ const BudgetCalculator = () => {
     // DEBUG: Log all transaction data to understand the structure
     console.log(`🔍 [DEBUG] calculateActualAmountForCategory for categoryId: ${categoryId}`);
     console.log(`🔍 [DEBUG] Total transactions in period:`, allPeriodTransactions.length);
-    console.log(`🔍 [DEBUG] All transactions:`, allPeriodTransactions);
+    console.log(`🔍 [DEBUG] All transactions sample:`, allPeriodTransactions.slice(0, 3));
     
     // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
     const matchingTransactions = (allPeriodTransactions || []).filter((t: Transaction) => {
       return t.appCategoryId === categoryId;
     });
     
+    console.log(`🔍 [DEBUG] Found ${matchingTransactions.length} transactions matching categoryId: ${categoryId}`);
+    
     const total = matchingTransactions
       .reduce((sum: number, t: Transaction) => {
+        // Get the effective amount (corrected amount if available, otherwise original amount)
+        const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
         
-        // --- NEW SMART LOGIC ---
-        // Standard rule: a cost is a negative transaction
-        if (t.type === 'Transaction' && t.amount < 0) {
-          return sum + Math.abs(t.amount);
+        // FIXED LOGIC: Count ALL negative amounts as costs, regardless of transaction type
+        // This ensures that all expenses assigned to a Huvudkategori are included in "Faktiskt"
+        if (effectiveAmount < 0) {
+          const absoluteAmount = Math.abs(effectiveAmount);
+          console.log(`🔍 [DEBUG] Including transaction ${t.id}: ${effectiveAmount} -> ${absoluteAmount} (type: ${t.type})`);
+          return sum + absoluteAmount;
         }
         
-        // Special rule: If it's an expense claim with a remaining negative amount,
-        // count the remaining amount as a cost.
-        if (t.type === 'ExpenseClaim' && t.correctedAmount !== undefined && t.correctedAmount < 0) {
-          return sum + Math.abs(t.correctedAmount);
-        }
-        // --- END OF NEW LOGIC ---
-
-        // For all other types, don't count as costs
+        // Skip positive amounts (these are income/transfers, not costs)
+        console.log(`🔍 [DEBUG] Skipping positive transaction ${t.id}: ${effectiveAmount} (type: ${t.type})`);
         return sum;
       }, 0);
     
-    console.log(`🔍 [DEBUG] Calculated total for category ${categoryId}: ${total} from ${matchingTransactions.length} transactions`);
+    console.log(`🔍 [DEBUG] ✅ Final calculated total for category ${categoryId}: ${total} from ${matchingTransactions.length} transactions`);
     
     return total;
   };
@@ -642,9 +642,23 @@ const BudgetCalculator = () => {
     console.log(`🔍 [DEBUG] All period transactions (${(allPeriodTransactions || []).length}):`, (allPeriodTransactions || []).map(t => ({ id: t.id, amount: t.amount, categoryId: t.appCategoryId, description: t.description, date: t.date })));
     
     // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
-    // But EXCLUDE positive amounts (income) from cost categories
-    const filtered = (allPeriodTransactions || []).filter((t: Transaction) => t.appCategoryId === categoryId && t.amount < 0);
-    console.log(`🔍 [DEBUG] Filtered transactions for category ${categoryId}:`, (filtered || []).map(t => ({ id: t.id, amount: t.amount, description: t.description, date: t.date })));
+    // Filter for transactions belonging to this category and use effective amount for negative check
+    const filtered = (allPeriodTransactions || []).filter((t: Transaction) => {
+      if (t.appCategoryId !== categoryId) return false;
+      
+      // Use effective amount (corrected amount if available, otherwise original amount)
+      const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+      return effectiveAmount < 0; // Only include negative amounts (costs)
+    });
+    
+    console.log(`🔍 [DEBUG] Filtered transactions for category ${categoryId}:`, (filtered || []).map(t => ({ 
+      id: t.id, 
+      amount: t.amount, 
+      correctedAmount: t.correctedAmount,
+      effectiveAmount: t.correctedAmount !== undefined ? t.correctedAmount : t.amount,
+      description: t.description, 
+      date: t.date 
+    })));
     return filtered;
   };
 
