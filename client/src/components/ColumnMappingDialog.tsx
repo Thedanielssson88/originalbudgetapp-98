@@ -276,14 +276,14 @@ export function ColumnMappingDialog({
                       )}
                     </Label>
                     <Select 
-                      value={mapping[field.key] || ''} 
-                      onValueChange={(value) => setMapping(prev => ({ ...prev, [field.key]: value }))}
+                      value={mapping[field.key] || 'NONE'} 
+                      onValueChange={(value) => setMapping(prev => ({ ...prev, [field.key]: value === 'NONE' ? '' : value }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Välj kolumn..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Ingen mappning</SelectItem>
+                        <SelectItem value="NONE">Ingen mappning</SelectItem>
                         {fileColumns.map(column => (
                           <SelectItem key={column} value={column}>
                             {column}
