@@ -9,6 +9,7 @@ import {
   categoryRules,
   transactions,
   monthlyBudgets,
+  monthlyAccountBalances,
   banks,
   bankCsvMappings,
   type User,
@@ -26,7 +27,9 @@ import {
   type Transaction,
   type InsertTransaction,
   type MonthlyBudget,
-  type InsertMonthlyBudget
+  type InsertMonthlyBudget,
+  type MonthlyAccountBalance,
+  type InsertMonthlyAccountBalance
 } from "@shared/schema";
 
 // Add the missing types that aren't auto-generated yet
@@ -395,5 +398,61 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBudgetPost(): Promise<boolean> {
     return false;
+  }
+
+  // Monthly Account Balances - stores calculated balances per month
+  async getMonthlyAccountBalances(userId: string, monthKey?: string): Promise<MonthlyAccountBalance[]> {
+    let query = db.select().from(monthlyAccountBalances).where(eq(monthlyAccountBalances.userId, userId));
+    
+    if (monthKey) {
+      query = query.where(eq(monthlyAccountBalances.monthKey, monthKey));
+    }
+    
+    return await query;
+  }
+
+  async getMonthlyAccountBalance(userId: string, monthKey: string, accountId: string): Promise<MonthlyAccountBalance | undefined> {
+    const result = await db.select()
+      .from(monthlyAccountBalances)
+      .where(
+        and(
+          eq(monthlyAccountBalances.userId, userId),
+          eq(monthlyAccountBalances.monthKey, monthKey),
+          eq(monthlyAccountBalances.accountId, accountId)
+        )
+      );
+    return result[0];
+  }
+
+  async saveMonthlyAccountBalance(balance: InsertMonthlyAccountBalance): Promise<MonthlyAccountBalance> {
+    // Use upsert logic - update if exists, insert if not
+    const existing = await this.getMonthlyAccountBalance(balance.userId, balance.monthKey, balance.accountId);
+    
+    if (existing) {
+      const result = await db.update(monthlyAccountBalances)
+        .set({ 
+          calculatedBalance: balance.calculatedBalance,
+          updatedAt: new Date()
+        })
+        .where(eq(monthlyAccountBalances.id, existing.id))
+        .returning();
+      return result[0];
+    } else {
+      const result = await db.insert(monthlyAccountBalances).values(balance).returning();
+      return result[0];
+    }
+  }
+
+  async deleteMonthlyAccountBalance(userId: string, monthKey: string, accountId: string): Promise<boolean> {
+    const result = await db.delete(monthlyAccountBalances)
+      .where(
+        and(
+          eq(monthlyAccountBalances.userId, userId),
+          eq(monthlyAccountBalances.monthKey, monthKey),
+          eq(monthlyAccountBalances.accountId, accountId)
+        )
+      )
+      .returning();
+    return result.length > 0;
   }
 }

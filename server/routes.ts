@@ -9,6 +9,7 @@ import {
   insertCategoryRuleSchema,
   insertTransactionSchema,
   insertMonthlyBudgetSchema,
+  insertMonthlyAccountBalanceSchema,
   insertBudgetPostSchema,
   insertBankSchema,
   insertBankCsvMappingSchema
@@ -790,6 +791,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting bank CSV mapping:', error);
       res.status(500).json({ error: 'Failed to delete bank CSV mapping' });
+    }
+  });
+
+  // Monthly Account Balances routes
+  app.get("/api/monthly-account-balances", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const monthKey = req.query.monthKey as string;
+      const balances = await storage.getMonthlyAccountBalances(userId, monthKey);
+      res.json(balances);
+    } catch (error) {
+      console.error('Error fetching monthly account balances:', error);
+      res.status(500).json({ error: 'Failed to fetch monthly account balances' });
+    }
+  });
+
+  app.post("/api/monthly-account-balances", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const validatedData = insertMonthlyAccountBalanceSchema.parse({
+        ...req.body,
+        userId
+      });
+      const balance = await storage.saveMonthlyAccountBalance(validatedData);
+      res.status(201).json(balance);
+    } catch (error) {
+      console.error('Error saving monthly account balance:', error);
+      res.status(400).json({ error: 'Failed to save monthly account balance' });
     }
   });
 

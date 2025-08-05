@@ -384,6 +384,28 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
         nextMonthData.accountBalancesSet[accountName] = true;
         
         console.log(`[ORCHESTRATOR] ✅ Updated ${accountName} balance for ${nextMonthKey}: ${lastTransactionBeforePayday.balanceAfter / 100} kr`);
+        
+        // Save to database
+        try {
+          const response = await fetch('/api/monthly-account-balances', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              monthKey: nextMonthKey,
+              accountId: accountId,
+              calculatedBalance: lastTransactionBeforePayday.balanceAfter // Store in öre
+            })
+          });
+          
+          if (response.ok) {
+            console.log(`[ORCHESTRATOR] 💾 Saved ${accountName} balance to database for ${nextMonthKey}`);
+            addMobileDebugLog(`💾 Saved ${accountName} balance to database`);
+          } else {
+            console.error(`[ORCHESTRATOR] ❌ Failed to save ${accountName} balance to database:`, response.statusText);
+          }
+        } catch (error) {
+          console.error(`[ORCHESTRATOR] ❌ Error saving ${accountName} balance to database:`, error);
+        }
       }
     }
     
@@ -1670,6 +1692,56 @@ export function setSelectedHistoricalMonth(monthKey: string): void {
 }
 
 // ===== GLOBAL SETTINGS =====
+
+// Load monthly account balances from database and sync to local state
+export async function loadMonthlyAccountBalancesFromDatabase(): Promise<void> {
+  try {
+    console.log('[ORCHESTRATOR] 🔄 Loading monthly account balances from database...');
+    
+    const response = await fetch('/api/monthly-account-balances');
+    if (!response.ok) {
+      console.error('[ORCHESTRATOR] ❌ Failed to fetch monthly account balances:', response.statusText);
+      return;
+    }
+    
+    const balances = await response.json();
+    console.log(`[ORCHESTRATOR] 📥 Loaded ${balances.length} monthly account balances from database`);
+    
+    // Get account mapping for name lookup
+    const accountsResponse = await fetch('/api/accounts');
+    const accounts = accountsResponse.ok ? await accountsResponse.json() : [];
+    const accountMap = new Map(accounts.map((acc: any) => [acc.id, acc.name]));
+    
+    // Group balances by month and apply to historical data
+    for (const balance of balances) {
+      const monthKey = balance.monthKey;
+      const accountName = accountMap.get(balance.accountId) || balance.accountId;
+      const balanceInKr = balance.calculatedBalance / 100; // Convert from öre to kronor
+      
+      // Ensure the month exists in historical data
+      if (!state.budgetState.historicalData[monthKey]) {
+        const currentMonthData = getCurrentMonthData();
+        state.budgetState.historicalData[monthKey] = { ...currentMonthData };
+      }
+      
+      const monthData = state.budgetState.historicalData[monthKey];
+      monthData.accountBalances = monthData.accountBalances || {};
+      monthData.accountBalancesSet = monthData.accountBalancesSet || {};
+      
+      monthData.accountBalances[accountName] = balanceInKr;
+      monthData.accountBalancesSet[accountName] = true;
+      
+      console.log(`[ORCHESTRATOR] 💰 Loaded ${accountName} balance for ${monthKey}: ${balanceInKr} kr`);
+    }
+    
+    console.log('[ORCHESTRATOR] ✅ Monthly account balances loaded from database');
+    addMobileDebugLog(`✅ Loaded ${balances.length} monthly balances from database`);
+    
+  } catch (error) {
+    console.error('[ORCHESTRATOR] ❌ Error loading monthly account balances from database:', error);
+    addMobileDebugLog(`❌ Error loading monthly balances: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
 
 // Accounts are now synced via React Query hooks
 // This function is removed to prevent apiStore.getAccounts() error

@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, timestamp, integer } from 'drizzle-orm/pg-core';
+import { pgTable, text, uuid, timestamp, integer, unique } from 'drizzle-orm/pg-core';
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -27,6 +27,20 @@ export const accounts = pgTable('accounts', {
     // Bank template ID for CSV import mapping  
     bankTemplateId: text('bank_template_id'),
 });
+
+// Monthly account balances calculated from last transaction before 25th
+export const monthlyAccountBalances = pgTable('monthly_account_balances', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    monthKey: text('month_key').notNull(), // Format: "YYYY-MM" (e.g., "2025-08")
+    accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+    calculatedBalance: integer('calculated_balance').notNull(), // Balance in öre calculated from last transaction before 25th
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+    // Ensure unique month-account combinations per user
+    uniqueUserMonthAccount: unique().on(table.userId, table.monthKey, table.accountId),
+}));
 
 export const huvudkategorier = pgTable('huvudkategorier', {
     id: uuid('id').defaultRandom().primaryKey(),
@@ -204,6 +218,12 @@ export const insertMonthlyBudgetSchema = createInsertSchema(monthlyBudgets).omit
   updatedAt: true,
 });
 
+export const insertMonthlyAccountBalanceSchema = createInsertSchema(monthlyAccountBalances).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertBankSchema = createInsertSchema(banks).omit({
   id: true,
   createdAt: true,
@@ -242,3 +262,6 @@ export type BudgetPost = typeof budgetPosts.$inferSelect;
 
 export type InsertMonthlyBudget = z.infer<typeof insertMonthlyBudgetSchema>;
 export type MonthlyBudget = typeof monthlyBudgets.$inferSelect;
+
+export type InsertMonthlyAccountBalance = z.infer<typeof insertMonthlyAccountBalanceSchema>;
+export type MonthlyAccountBalance = typeof monthlyAccountBalances.$inferSelect;
