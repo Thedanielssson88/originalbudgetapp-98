@@ -598,7 +598,7 @@ const BudgetCalculator = () => {
   }, [JSON.stringify(accountBalances), JSON.stringify(accountBalancesSet), JSON.stringify(accounts)]);
 
   // Helper functions for calculating actual amounts from transactions
-  const calculateActualAmountForCategory = (categoryId: string): number => {
+  const calculateActualAmountForCategory = React.useCallback((categoryId: string): number => {
     // FIXED: Use correctly filtered transactions according to PaydaySettings
     const allPeriodTransactions = activeContent.transactionsForPeriod || [];
     
@@ -607,12 +607,38 @@ const BudgetCalculator = () => {
     console.log(`🔍 [DEBUG] Total transactions in period:`, allPeriodTransactions.length);
     console.log(`🔍 [DEBUG] All transactions sample:`, allPeriodTransactions.slice(0, 3));
     
+    // CRITICAL DEBUG: Check what category we're looking for specifically
+    const categoryName = resolveHuvudkategoriName(categoryId);
+    console.log(`🔍 [DEBUG] *** TRANSPORT CATEGORY DEBUG ***`);
+    console.log(`🔍 [DEBUG] Looking for categoryId: ${categoryId}`);
+    console.log(`🔍 [DEBUG] Category name: ${categoryName}`);
+    console.log(`🔍 [DEBUG] Is this Transport? ${categoryName === 'Transport'}`);
+    console.log(`🔍 [DEBUG] Transport UUID check: ${categoryId === '4f884437-16c1-4893-b3a6-1320c7c2ada8'}`);
+    console.log(`🔍 [DEBUG] *** END TRANSPORT DEBUG ***`);
+    
     // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
     const matchingTransactions = (allPeriodTransactions || []).filter((t: Transaction) => {
       return t.appCategoryId === categoryId;
     });
     
     console.log(`🔍 [DEBUG] Found ${matchingTransactions.length} transactions matching categoryId: ${categoryId}`);
+    
+    // CRITICAL DEBUG: Show ALL transaction categoryIds to identify mismatches
+    const uniqueCategoryIds = [...new Set(allPeriodTransactions.map(t => t.appCategoryId))];
+    console.log(`🔍 [DEBUG] All unique appCategoryIds in transactions:`, uniqueCategoryIds);
+    console.log(`🔍 [DEBUG] Looking for categoryId:`, categoryId);
+    console.log(`🔍 [DEBUG] CategoryId match check:`, uniqueCategoryIds.includes(categoryId));
+    
+    if (matchingTransactions.length > 0) {
+      console.log(`🔍 [DEBUG] Sample matching transactions:`, matchingTransactions.slice(0, 3).map(t => ({
+        id: t.id,
+        amount: t.amount,
+        correctedAmount: t.correctedAmount,
+        type: t.type,
+        description: t.description,
+        appCategoryId: t.appCategoryId
+      })));
+    }
     
     const total = matchingTransactions
       .reduce((sum: number, t: Transaction) => {
@@ -635,7 +661,7 @@ const BudgetCalculator = () => {
     console.log(`🔍 [DEBUG] ✅ Final calculated total for category ${categoryId}: ${total} from ${matchingTransactions.length} transactions`);
     
     return total;
-  };
+  }, [activeContent.transactionsForPeriod, resolveHuvudkategoriName]);
 
   const getTransactionsForCategory = (categoryId: string): Transaction[] => {
     // FIXED: Use correctly filtered transactions according to PaydaySettings
