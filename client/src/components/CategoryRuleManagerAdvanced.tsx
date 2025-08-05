@@ -51,12 +51,20 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
       const response = await fetch(`/api/category-rules/${ruleId}`, {
         method: 'DELETE'
       });
-      if (!response.ok) throw new Error('Failed to delete rule');
-      return response.json();
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to delete rule: ${response.status} ${errorText}`);
+      }
+      // DELETE returns status 204 with no content, don't try to parse JSON
+      return { success: true };
     },
     onSuccess: () => {
+      console.log('✅ [RULE MANAGER] Rule deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['/api/category-rules'] });
       refetchRules();
+    },
+    onError: (error) => {
+      console.error('❌ [RULE MANAGER] Failed to delete rule:', error);
     }
   });
   
