@@ -6409,9 +6409,21 @@ const BudgetCalculator = () => {
                                   
                                   console.log(`🔍 [UUID FIX] Using category ID: ${categoryIdToUse} (UUID: ${!!categoryUuid}, fallback: ${!categoryUuid})`);
                                   
+                                  // CRITICAL FIX: Always calculate actual amount, even if budget is 0
                                   const actualAmount = calculateActualAmountForCategory(categoryIdToUse);
                                   const difference = data.total - actualAmount;
                                   const progress = data.total > 0 ? (actualAmount / data.total) * 100 : 0;
+                                  
+                                  // DEBUG: Force log for Transport
+                                  if (categoryName === 'Transport') {
+                                    console.log(`🔍 [TRANSPORT DEBUG] Transport category details:`);
+                                    console.log(`🔍 [TRANSPORT DEBUG] - categoryName: ${categoryName}`);
+                                    console.log(`🔍 [TRANSPORT DEBUG] - categoryIdToUse: ${categoryIdToUse}`);
+                                    console.log(`🔍 [TRANSPORT DEBUG] - data.total (budget): ${data.total}`);
+                                    console.log(`🔍 [TRANSPORT DEBUG] - actualAmount: ${actualAmount}`);
+                                    console.log(`🔍 [TRANSPORT DEBUG] - subcategories count: ${data.subcategories.length}`);
+                                    console.log(`🔍 [TRANSPORT DEBUG] - subcategories:`, data.subcategories);
+                                  }
                                  
                                  return (
                                  <div key={categoryName} className="group relative bg-gradient-to-r from-background to-muted/30 border-2 border-border/50 rounded-xl p-4 space-y-3 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.01] animate-fade-in">
