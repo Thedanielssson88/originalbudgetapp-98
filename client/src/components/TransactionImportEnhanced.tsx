@@ -928,8 +928,13 @@ export const TransactionImportEnhanced: React.FC = () => {
       
       setRawCsvData(prev => ({
         ...prev,
-        [accountId]: { headers, rows }
+        [accountId]: { headers, data: rows }  // Change 'rows' to 'data' to match Settings2 check
       }));
+      
+      // Also immediately set file data for column mapping
+      setFileColumnsForMapping(headers);
+      setSampleDataForMapping(rows.slice(0, 3));
+      console.log('✅ [DEBUG] Set initial file data for column mapping from raw CSV:', headers);
 
       // Use the new Smart Merge function - eliminates duplicates and preserves manual changes
       console.log('🔄 [DEBUG] About to import file with accountId:', accountId);
