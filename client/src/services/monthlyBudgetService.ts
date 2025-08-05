@@ -56,20 +56,20 @@ class MonthlyBudgetService {
 
     try {
       const updates: Partial<MonthlyBudget> = {
-        andreasSalary: currentData.andreasSalary || 45000,
-        andreasförsäkringskassan: currentData.andreasförsäkringskassan || 0,
-        andreasbarnbidrag: currentData.andreasbarnbidrag || 0,
-        susannaSalary: currentData.susannaSalary || 40000,
-        susannaförsäkringskassan: currentData.susannaförsäkringskassan || 5000,
-        susannabarnbidrag: currentData.susannabarnbidrag || 0,
-        dailyTransfer: currentData.dailyTransfer || 300,
-        weekendTransfer: currentData.weekendTransfer || 540,
-        andreasPersonalCosts: currentData.andreasPersonalCosts || 0,
-        andreasPersonalSavings: currentData.andreasPersonalSavings || 0,
-        susannaPersonalCosts: currentData.susannaPersonalCosts || 0,
-        susannaPersonalSavings: currentData.susannaPersonalSavings || 0,
-        userName1: currentData.userName1 || 'Andreas',
-        userName2: currentData.userName2 || 'Susanna'
+        andreasSalary: currentData.andreasSalary ?? 45000,
+        andreasförsäkringskassan: currentData.andreasförsäkringskassan ?? 0,
+        andreasbarnbidrag: currentData.andreasbarnbidrag ?? 0,
+        susannaSalary: currentData.susannaSalary ?? 40000,
+        susannaförsäkringskassan: currentData.susannaförsäkringskassan ?? 5000,
+        susannabarnbidrag: currentData.susannabarnbidrag ?? 0,
+        dailyTransfer: currentData.dailyTransfer ?? 300,
+        weekendTransfer: currentData.weekendTransfer ?? 540,
+        andreasPersonalCosts: currentData.andreasPersonalCosts ?? 0,
+        andreasPersonalSavings: currentData.andreasPersonalSavings ?? 0,
+        susannaPersonalCosts: currentData.susannaPersonalCosts ?? 0,
+        susannaPersonalSavings: currentData.susannaPersonalSavings ?? 0,
+        userName1: currentData.userName1 ?? 'Andreas',
+        userName2: currentData.userName2 ?? 'Susanna'
       };
 
       const updated = await apiStore.updateMonthlyBudget(monthKey, updates);
