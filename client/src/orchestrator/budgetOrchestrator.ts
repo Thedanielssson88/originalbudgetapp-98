@@ -1072,7 +1072,9 @@ export async function initializeApp(): Promise<void> {
   await loadCategoryRulesFromDatabase();
   
   // CRITICAL FIX: Load all transactions from PostgreSQL at app startup
+  console.log('🔍 [ORCHESTRATOR] About to call loadTransactionsFromDatabase...');
   await loadTransactionsFromDatabase();
+  console.log('✅ [ORCHESTRATOR] loadTransactionsFromDatabase completed!');
   
   // Run initial calculations to ensure state is up to date
   runCalculationsAndUpdateState();
