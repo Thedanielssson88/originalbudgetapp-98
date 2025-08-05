@@ -2955,16 +2955,19 @@ export const TransactionImportEnhanced: React.FC = () => {
         onClose={() => setCategoryDialogOpen(false)}
         onConfirm={async (huvudkategoriId, underkategoriId, positiveTransactionType, negativeTransactionType, applicableAccountIds) => {
           try {
-            console.log('🔍 [CATEGORY DIALOG] Saving new rule to PostgreSQL:', {
+            console.log('🔍 [CATEGORY DIALOG] Saving new rule to PostgreSQL with all fields:', {
               ruleName: `${selectedBankCategory}${selectedBankSubCategory ? ` → ${selectedBankSubCategory}` : ''}`,
               transactionName: selectedBankSubCategory || selectedBankCategory,
               huvudkategoriId,
               underkategoriId,
+              positiveTransactionType,
+              negativeTransactionType,
+              applicableAccountIds,
               bankCategory: selectedBankCategory,
               bankSubCategory: selectedBankSubCategory
             });
 
-            // Save rule directly to PostgreSQL using new UUID-based system
+            // Save rule directly to PostgreSQL using new UUID-based system with all fields
             const response = await fetch('/api/category-rules', {
               method: 'POST',
               headers: {
@@ -2975,6 +2978,11 @@ export const TransactionImportEnhanced: React.FC = () => {
                 transactionName: selectedBankSubCategory || selectedBankCategory,
                 huvudkategoriId: huvudkategoriId,
                 underkategoriId: underkategoriId,
+                positiveTransactionType: positiveTransactionType || 'Transaction',
+                negativeTransactionType: negativeTransactionType || 'Transaction',
+                applicableAccountIds: JSON.stringify(applicableAccountIds || []),
+                priority: 100,
+                isActive: 'true',
                 userId: 'dev-user-123'
               }),
             });
