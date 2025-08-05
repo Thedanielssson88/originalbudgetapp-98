@@ -1,0 +1,198 @@
+Absolut. Jag förstår. Ingen migrering, ingen gammal data. Vi bygger om det från grunden så att det blir 100% rätt för all ny data.
+
+Här är en ny, komplett utvecklingsguide. Den är skriven för att vara extremt tydlig och lämnar inget utrymme för tolkning. Följ dessa instruktioner exakt.
+
+-----
+
+### To the Developer: A New, Clean-Slate Development Plan
+
+**Objective:** Rebuild the application's data layer to be robust, correct, and permanent. We are abandoning all old data. The application can be completely empty on the first start after these changes.
+
+**The Golden Rules:**
+
+1.  **SQL is the only source of truth.** All application data (accounts, categories, rules, transactions) MUST be stored in the PostgreSQL database.
+2.  **`localStorage` is forbidden for application data.** It is only for non-critical, temporary UI state (like a theme preference).
+3.  **Relationships are ALWAYS managed by UUIDs.** We will NEVER search for a category or any other item by its name to create a link.
+
+-----
+
+### Phase 1: The Foundation – Database & Schema
+
+This is the most critical phase. Do this first.
+
+**Action 1: Make the Database Persistent**
+The database is currently losing all data on restart. This must be fixed. Configure a persistent volume in your `docker-compose.yml`.
+
+**Example `docker-compose.yml`:**
+
+```yaml
+services:
+  postgres:
+    image: postgres:latest
+    environment:
+      # ... your user/password/db config
+    ports:
+      - "5432:5432"
+    volumes:
+      # This line makes the data permanent.
+      - budgetapp-db-data:/var/lib/postgresql/data
+
+volumes:
+  # This line declares the volume.
+  budgetapp-db-data:
+```
+
+**Action 2: Implement the Correct Schema**
+The current schema is the root of all problems. It allows inconsistent data. Replace the **entire content** of `shared/schema.ts` with the code below. This new schema uses UUIDs and Foreign Keys to enforce data integrity at the database level.
+
+**New `shared/schema.ts` file:**
+
+```typescript
+import { pgTable, text, uuid, timestamp, integer } from 'drizzle-orm/pg-core';
+
+// --- User Table (assuming you have one for auth) ---
+export const users = pgTable('users', {
+    id: text('id').primaryKey(), // ID from your authentication provider
+});
+
+// --- Core Application Tables ---
+
+export const accounts = pgTable('accounts', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    balance: integer('balance').default(0).notNull(),
+});
+
+export const huvudkategorier = pgTable('huvudkategorier', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+});
+
+export const underkategorier = pgTable('underkategorier', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    huvudkategoriId: uuid('huvudkategori_id').notNull().references(() => huvudkategorier.id, { onDelete: 'cascade' }),
+});
+
+export const transactions = pgTable('transactions', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+    description: text('description').notNull(),
+    amount: integer('amount').notNull(),
+    date: timestamp('date', { mode: 'date' }).notNull(),
+    huvudkategoriId: uuid('huvudkategori_id').references(() => huvudkategorier.id, { onDelete: 'set null' }),
+    underkategoriId: uuid('underkategori_id').references(() => underkategorier.id, { onDelete: 'set null' }),
+});
+
+export const categoryRules = pgTable('category_rules', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    ruleName: text('rule_name').notNull(),
+    transactionName: text('transaction_name').notNull(),
+    huvudkategoriId: uuid('huvudkategori_id').references(() => huvudkategorier.id, { onDelete: 'cascade' }),
+    underkategoriId: uuid('underkategori_id').references(() => underkategorier.id, { onDelete: 'cascade' }),
+});
+```
+
+**Action 3: Reset and Apply the Schema**
+
+1.  **Delete** the `drizzle` folder (or all existing migration files within it).
+2.  Run `npx drizzle-kit generate:pg` to create a new, clean initial migration file based on the new schema.
+3.  Run `npx drizzle-kit push:pg` to apply this schema to the database. The database will now be empty and correct.
+
+-----
+
+### Phase 2: Purge `localStorage` and Fix the Data Flow
+
+**Action 4: Remove All State from `localStorage`**
+Search the entire frontend codebase (`client/` directory) for `localStorage.getItem` and `localStorage.setItem`. **Delete every instance** that saves or loads application data. This includes:
+
+  * `accounts`
+  * `huvudkategorier` / `mainCategories`
+  * `underkategorier` / `subCategories`
+  * `transactions`
+  * `categoryRules`
+  * Any other user-specific data.
+
+**The new, correct data flow is:**
+
+1.  **App starts:** Frontend state (Zustand) is empty.
+2.  **User logs in:** Frontend calls a backend API endpoint (e.g., `GET /api/bootstrap`) to fetch ALL necessary data (accounts, categories, rules) for that user.
+3.  **State is populated:** The response from the API is used to populate the Zustand store. The UI now renders based on this store.
+4.  **User makes a change:** (e.g., creates a new category).
+      * Frontend calls the backend API (`POST /api/huvudkategorier`) with the new data.
+      * Backend saves it to the SQL database and returns the newly created object (with its UUID).
+      * Frontend uses the successful response to update its Zustand store. The UI updates automatically.
+
+-----
+
+### Phase 3: Fix the Backend API
+
+The API must strictly follow the new schema.
+
+**Action 5: Update API Endpoints (Routes)**
+
+  * **Create/Update Rule (`POST/PUT /api/category-rules`):** The request body from the frontend MUST contain `huvudkategoriId` and/or `underkategoriId` as UUID strings. It must NOT contain names.
+
+  * **Rename Category (`PUT /api/huvudkategorier/:id`):** This endpoint should only update the `name` field for the given `id`. No other tables should be touched. The database's foreign keys handle the rest.
+
+  * **Apply Rules Logic:** This is the most critical logic. It **MUST NOT** search for categories by name.
+
+    **Example of CORRECT rule application logic:**
+
+    ```typescript
+    // In your backend service...
+    const transaction = /* ... get transaction ... */;
+    const rule = /* ... find matching rule ... */;
+
+    if (rule) {
+        // Direct UUID assignment. No name lookups.
+        transaction.huvudkategoriId = rule.huvudkategoriId;
+        transaction.underkategoriId = rule.underkategoriId;
+
+        // Save the updated transaction to the database
+        await db.update(transactions)
+          .set({ 
+              huvudkategoriId: transaction.huvudkategoriId,
+              underkategoriId: transaction.underkategoriId,
+          })
+          .where(eq(transactions.id, transaction.id));
+    }
+    ```
+
+-----
+
+### Phase 4: Fix the Frontend UI
+
+The frontend's job is to display data from the state and send correct requests to the API.
+
+**Action 6: Update UI Components**
+
+  * **Dropdowns (e.g., in Rule Editor):** When a user selects a category, the dropdown must be configured like this:
+
+      * **Label shown to user:** `category.name` (e.g., "Transport")
+      * **Value used internally:** `category.id` (e.g., "a1b2c3d4-...")
+
+    **Example in a React component:**
+
+    ```jsx
+    <select
+      value={selectedCategoryId}
+      onChange={(e) => setSelectedCategoryId(e.target.value)}
+    >
+      <option value="">No category</option>
+      {categoriesFromZustandStore.map(category => (
+        <option key={category.id} value={category.id}>
+          {category.name}
+        </option>
+      ))}
+    </select>
+    ```
+
+  * **Data Display:** To show a category name for a transaction, the component gets `transaction.huvudkategoriId`, finds the category with that `id` in the Zustand store, and displays its `name`.
+
+By following this plan precisely, you will build a stable and correct application. All user data will be safe, and all relationships will be unbreakable.

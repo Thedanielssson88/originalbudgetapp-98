@@ -1,18 +1,21 @@
 import { 
   users, 
+  accounts,
   huvudkategorier,
   underkategorier,
   categoryRules,
   transactions,
   type User, 
   type InsertUser,
+  type Account,
+  type InsertAccount,
   type Huvudkategori,
   type InsertHuvudkategori,
   type Underkategori,
   type InsertUnderkategori,
-  type CategoryRuleDB,
+  type CategoryRule,
   type InsertCategoryRule,
-  type TransactionDB,
+  type Transaction,
   type InsertTransaction
 } from "@shared/schema";
 
@@ -20,89 +23,136 @@ import {
 // you might need
 
 export interface IStorage {
-  getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  // User CRUD
+  getUser(id: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   
+  // Account CRUD
+  getAccounts(userId: string): Promise<Account[]>;
+  getAccount(id: string): Promise<Account | undefined>;
+  createAccount(account: InsertAccount): Promise<Account>;
+  updateAccount(id: string, account: Partial<InsertAccount>): Promise<Account | undefined>;
+  deleteAccount(id: string): Promise<boolean>;
+  
   // Huvudkategori CRUD
-  getHuvudkategorier(): Promise<Huvudkategori[]>;
+  getHuvudkategorier(userId: string): Promise<Huvudkategori[]>;
   getHuvudkategori(id: string): Promise<Huvudkategori | undefined>;
   createHuvudkategori(kategori: InsertHuvudkategori): Promise<Huvudkategori>;
   updateHuvudkategori(id: string, kategori: Partial<InsertHuvudkategori>): Promise<Huvudkategori | undefined>;
   deleteHuvudkategori(id: string): Promise<boolean>;
   
   // Underkategori CRUD
-  getUnderkategorier(): Promise<Underkategori[]>;
-  getUnderkategorierByHuvudkategori(huvudkategoriId: string): Promise<Underkategori[]>;
+  getUnderkategorier(userId: string): Promise<Underkategori[]>;
+  getUnderkategorierByHuvudkategori(huvudkategoriId: string, userId: string): Promise<Underkategori[]>;
   getUnderkategori(id: string): Promise<Underkategori | undefined>;
   createUnderkategori(kategori: InsertUnderkategori): Promise<Underkategori>;
   updateUnderkategori(id: string, kategori: Partial<InsertUnderkategori>): Promise<Underkategori | undefined>;
   deleteUnderkategori(id: string): Promise<boolean>;
   
   // Category Rules CRUD
-  getCategoryRules(): Promise<CategoryRuleDB[]>;
-  getCategoryRule(id: string): Promise<CategoryRuleDB | undefined>;
-  createCategoryRule(rule: InsertCategoryRule): Promise<CategoryRuleDB>;
-  updateCategoryRule(id: string, rule: Partial<InsertCategoryRule>): Promise<CategoryRuleDB | undefined>;
+  getCategoryRules(userId: string): Promise<CategoryRule[]>;
+  getCategoryRule(id: string): Promise<CategoryRule | undefined>;
+  createCategoryRule(rule: InsertCategoryRule): Promise<CategoryRule>;
+  updateCategoryRule(id: string, rule: Partial<InsertCategoryRule>): Promise<CategoryRule | undefined>;
   deleteCategoryRule(id: string): Promise<boolean>;
   
   // Transaction CRUD
-  getTransactions(): Promise<TransactionDB[]>;
-  getTransaction(id: string): Promise<TransactionDB | undefined>;
-  createTransaction(transaction: InsertTransaction): Promise<TransactionDB>;
-  updateTransaction(id: string, transaction: Partial<InsertTransaction>): Promise<TransactionDB | undefined>;
+  getTransactions(userId: string): Promise<Transaction[]>;
+  getTransaction(id: string): Promise<Transaction | undefined>;
+  createTransaction(transaction: InsertTransaction): Promise<Transaction>;
+  updateTransaction(id: string, transaction: Partial<InsertTransaction>): Promise<Transaction | undefined>;
   deleteTransaction(id: string): Promise<boolean>;
   
-  // Utility method for clearing data
-  clearAllData(): Promise<void>;
+  // Bootstrap method to get all data at once
+  bootstrap(userId: string): Promise<{
+    accounts: Account[];
+    huvudkategorier: Huvudkategori[];
+    underkategorier: Underkategori[];
+    categoryRules: CategoryRule[];
+  }>;
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<number, User>;
+  private users: Map<string, User>;
+  private accounts: Map<string, Account>;
   private huvudkategorier: Map<string, Huvudkategori>;
   private underkategorier: Map<string, Underkategori>;
-  private categoryRules: Map<string, CategoryRuleDB>;
-  private transactions: Map<string, TransactionDB>;
-  currentId: number;
+  private categoryRules: Map<string, CategoryRule>;
+  private transactions: Map<string, Transaction>;
 
   constructor() {
     this.users = new Map();
+    this.accounts = new Map();
     this.huvudkategorier = new Map();
     this.underkategorier = new Map();
     this.categoryRules = new Map();
     this.transactions = new Map();
-    this.currentId = 1;
   }
 
-  // Method to clear all data for fresh migration
-  async clearAllData(): Promise<void> {
-    this.huvudkategorier.clear();
-    this.underkategorier.clear();
-    this.categoryRules.clear();
-    this.transactions.clear();
-    console.log('🧹 In-memory storage cleared');
+  // Bootstrap method
+  async bootstrap(userId: string): Promise<{
+    accounts: Account[];
+    huvudkategorier: Huvudkategori[];
+    underkategorier: Underkategori[];
+    categoryRules: CategoryRule[];
+  }> {
+    return {
+      accounts: await this.getAccounts(userId),
+      huvudkategorier: await this.getHuvudkategorier(userId),
+      underkategorier: await this.getUnderkategorier(userId),
+      categoryRules: await this.getCategoryRules(userId),
+    };
   }
 
-  async getUser(id: number): Promise<User | undefined> {
+  // User methods
+  async getUser(id: string): Promise<User | undefined> {
     return this.users.get(id);
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentId++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const user: User = { ...insertUser };
+    this.users.set(user.id, user);
     return user;
   }
 
+  // Account methods
+  async getAccounts(userId: string): Promise<Account[]> {
+    return Array.from(this.accounts.values()).filter(acc => acc.userId === userId);
+  }
+
+  async getAccount(id: string): Promise<Account | undefined> {
+    return this.accounts.get(id);
+  }
+
+  async createAccount(account: InsertAccount): Promise<Account> {
+    const id = crypto.randomUUID();
+    const newAccount: Account = {
+      id,
+      ...account,
+    };
+    this.accounts.set(id, newAccount);
+    return newAccount;
+  }
+
+  async updateAccount(id: string, account: Partial<InsertAccount>): Promise<Account | undefined> {
+    const existing = this.accounts.get(id);
+    if (!existing) return undefined;
+    
+    const updated: Account = {
+      ...existing,
+      ...account,
+    };
+    this.accounts.set(id, updated);
+    return updated;
+  }
+
+  async deleteAccount(id: string): Promise<boolean> {
+    return this.accounts.delete(id);
+  }
+
   // Huvudkategori methods
-  async getHuvudkategorier(): Promise<Huvudkategori[]> {
-    return Array.from(this.huvudkategorier.values());
+  async getHuvudkategorier(userId: string): Promise<Huvudkategori[]> {
+    return Array.from(this.huvudkategorier.values()).filter(kat => kat.userId === userId);
   }
 
   async getHuvudkategori(id: string): Promise<Huvudkategori | undefined> {
@@ -111,12 +161,9 @@ export class MemStorage implements IStorage {
 
   async createHuvudkategori(kategori: InsertHuvudkategori): Promise<Huvudkategori> {
     const id = crypto.randomUUID();
-    const now = new Date();
     const newKategori: Huvudkategori = {
       id,
       ...kategori,
-      createdAt: now,
-      updatedAt: now,
     };
     this.huvudkategorier.set(id, newKategori);
     return newKategori;
@@ -129,7 +176,6 @@ export class MemStorage implements IStorage {
     const updated: Huvudkategori = {
       ...existing,
       ...kategori,
-      updatedAt: new Date(),
     };
     this.huvudkategorier.set(id, updated);
     return updated;
@@ -140,13 +186,13 @@ export class MemStorage implements IStorage {
   }
 
   // Underkategori methods
-  async getUnderkategorier(): Promise<Underkategori[]> {
-    return Array.from(this.underkategorier.values());
+  async getUnderkategorier(userId: string): Promise<Underkategori[]> {
+    return Array.from(this.underkategorier.values()).filter(kat => kat.userId === userId);
   }
 
-  async getUnderkategorierByHuvudkategori(huvudkategoriId: string): Promise<Underkategori[]> {
+  async getUnderkategorierByHuvudkategori(huvudkategoriId: string, userId: string): Promise<Underkategori[]> {
     return Array.from(this.underkategorier.values()).filter(
-      (sub) => sub.huvudkategoriId === huvudkategoriId
+      (sub) => sub.huvudkategoriId === huvudkategoriId && sub.userId === userId
     );
   }
 
@@ -156,12 +202,9 @@ export class MemStorage implements IStorage {
 
   async createUnderkategori(kategori: InsertUnderkategori): Promise<Underkategori> {
     const id = crypto.randomUUID();
-    const now = new Date();
     const newKategori: Underkategori = {
       id,
       ...kategori,
-      createdAt: now,
-      updatedAt: now,
     };
     this.underkategorier.set(id, newKategori);
     return newKategori;
@@ -174,7 +217,6 @@ export class MemStorage implements IStorage {
     const updated: Underkategori = {
       ...existing,
       ...kategori,
-      updatedAt: new Date(),
     };
     this.underkategorier.set(id, updated);
     return updated;
@@ -185,45 +227,31 @@ export class MemStorage implements IStorage {
   }
 
   // Category Rules methods
-  async getCategoryRules(): Promise<CategoryRuleDB[]> {
-    return Array.from(this.categoryRules.values());
+  async getCategoryRules(userId: string): Promise<CategoryRule[]> {
+    return Array.from(this.categoryRules.values()).filter(rule => rule.userId === userId);
   }
 
-  async getCategoryRule(id: string): Promise<CategoryRuleDB | undefined> {
+  async getCategoryRule(id: string): Promise<CategoryRule | undefined> {
     return this.categoryRules.get(id);
   }
 
-  async createCategoryRule(rule: InsertCategoryRule): Promise<CategoryRuleDB> {
+  async createCategoryRule(rule: InsertCategoryRule): Promise<CategoryRule> {
     const id = crypto.randomUUID();
-    const now = new Date();
-    const newRule: CategoryRuleDB = {
+    const newRule: CategoryRule = {
       id,
-      priority: rule.priority || 1,
-      conditionType: rule.conditionType,
-      conditionValue: rule.conditionValue,
-      bankCategory: rule.bankCategory || null,
-      bankSubCategory: rule.bankSubCategory || null,
-      huvudkategoriId: rule.huvudkategoriId,
-      underkategoriId: rule.underkategoriId || null,
-      positiveTransactionType: rule.positiveTransactionType || 'Transaction',
-      negativeTransactionType: rule.negativeTransactionType || 'Transaction',
-      applicableAccountIds: rule.applicableAccountIds || null,
-      isActive: rule.isActive !== undefined ? rule.isActive : true,
-      createdAt: now,
-      updatedAt: now,
+      ...rule,
     };
     this.categoryRules.set(id, newRule);
     return newRule;
   }
 
-  async updateCategoryRule(id: string, rule: Partial<InsertCategoryRule>): Promise<CategoryRuleDB | undefined> {
+  async updateCategoryRule(id: string, rule: Partial<InsertCategoryRule>): Promise<CategoryRule | undefined> {
     const existing = this.categoryRules.get(id);
     if (!existing) return undefined;
     
-    const updated: CategoryRuleDB = {
+    const updated: CategoryRule = {
       ...existing,
       ...rule,
-      updatedAt: new Date(),
     };
     this.categoryRules.set(id, updated);
     return updated;
@@ -234,52 +262,31 @@ export class MemStorage implements IStorage {
   }
 
   // Transaction methods
-  async getTransactions(): Promise<TransactionDB[]> {
-    return Array.from(this.transactions.values());
+  async getTransactions(userId: string): Promise<Transaction[]> {
+    return Array.from(this.transactions.values()).filter(trans => trans.userId === userId);
   }
 
-  async getTransaction(id: string): Promise<TransactionDB | undefined> {
+  async getTransaction(id: string): Promise<Transaction | undefined> {
     return this.transactions.get(id);
   }
 
-  async createTransaction(transaction: InsertTransaction): Promise<TransactionDB> {
+  async createTransaction(transaction: InsertTransaction): Promise<Transaction> {
     const id = crypto.randomUUID();
-    const now = new Date();
-    const newTransaction: TransactionDB = {
+    const newTransaction: Transaction = {
       id,
-      accountId: transaction.accountId,
-      date: transaction.date,
-      bankCategory: transaction.bankCategory || null,
-      bankSubCategory: transaction.bankSubCategory || null,
-      description: transaction.description,
-      userDescription: transaction.userDescription || null,
-      amount: transaction.amount,
-      balanceAfter: transaction.balanceAfter || null,
-      status: transaction.status || 'red',
-      type: transaction.type || 'Transaction',
-      huvudkategoriId: transaction.huvudkategoriId || null,
-      underkategoriId: transaction.underkategoriId || null,
-      linkedTransactionId: transaction.linkedTransactionId || null,
-      correctedAmount: transaction.correctedAmount || null,
-      savingsTargetId: transaction.savingsTargetId || null,
-      isManuallyChanged: transaction.isManuallyChanged || false,
-      importedAt: transaction.importedAt || now,
-      fileSource: transaction.fileSource || null,
-      createdAt: now,
-      updatedAt: now,
+      ...transaction,
     };
     this.transactions.set(id, newTransaction);
     return newTransaction;
   }
 
-  async updateTransaction(id: string, transaction: Partial<InsertTransaction>): Promise<TransactionDB | undefined> {
+  async updateTransaction(id: string, transaction: Partial<InsertTransaction>): Promise<Transaction | undefined> {
     const existing = this.transactions.get(id);
     if (!existing) return undefined;
     
-    const updated: TransactionDB = {
+    const updated: Transaction = {
       ...existing,
       ...transaction,
-      updatedAt: new Date(),
     };
     this.transactions.set(id, updated);
     return updated;
@@ -290,4 +297,9 @@ export class MemStorage implements IStorage {
   }
 }
 
+// Import the database storage
+import { DatabaseStorage } from "./dbStorage";
+
+// Temporarily using in-memory storage while database endpoint is being configured
+// Switch to: new DatabaseStorage() once database endpoint is enabled
 export const storage = new MemStorage();
