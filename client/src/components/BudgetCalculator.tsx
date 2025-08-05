@@ -487,11 +487,23 @@ const BudgetCalculator = () => {
 
   // CENTRALIZED LOGIC: Use single function call to replace complex logic
   const activeContent = useMemo(() => {
-    console.log('✅ Using centralized getProcessedBudgetDataForMonth');
+    console.log('✅ Using centralized getProcessedBudgetDataForMonth WITH SQL DATA');
     console.log('🔍 [DEBUG] activeContent useMemo - budgetState:', budgetState);
     console.log('🔍 [DEBUG] activeContent useMemo - selectedMonthKey:', selectedMonthKey);
+    console.log('🔍 [DEBUG] activeContent useMemo - SQL accounts:', accountsFromAPI);
+    console.log('🔍 [DEBUG] activeContent useMemo - SQL categories (huvud):', huvudkategorier);
+    console.log('🔍 [DEBUG] activeContent useMemo - SQL categories (under):', underkategorier);
+    console.log('🔍 [DEBUG] activeContent useMemo - SQL transactions: []'); // No transactions hook yet
     
-    const processedData = getProcessedBudgetDataForMonth(budgetState, selectedMonthKey);
+    // SYSTEMATIC FIX: Pass SQL data sources to eliminate budgetState dependency
+    const allCategories = [...(huvudkategorier || []), ...(underkategorier || [])];
+    const processedData = getProcessedBudgetDataForMonth(
+      budgetState, 
+      selectedMonthKey, 
+      accountsFromAPI || [], 
+      allCategories, 
+      [] // Empty transactions for now until hook is implemented
+    );
     
     console.log(`🔍 [DEBUG] activeContent - processedData:`, processedData);
     console.log(`🔍 [DEBUG] activeContent - activeAccounts count: ${processedData.activeAccounts?.length || 0}`);
@@ -4128,7 +4140,15 @@ const BudgetCalculator = () => {
       const data = historicalData[monthKey];
       
       // Calculate totals using centralized logic
-      const processedData = getProcessedBudgetDataForMonth(budgetState, monthKey);
+      // SYSTEMATIC FIX: Pass SQL data to eliminate budgetState dependency
+      const allCategories = [...(huvudkategorier || []), ...(underkategorier || [])];
+      const processedData = getProcessedBudgetDataForMonth(
+        budgetState, 
+        monthKey, 
+        accountsFromAPI || [], 
+        allCategories, 
+        [] // Empty transactions for now until hook is implemented
+      );
       const totalCosts = calculateTotalBudgetedCosts(processedData.costItems, monthKey);
       const totalSavings = calculateTotalBudgetedSavings(processedData.savingsItems, monthKey);
       
@@ -4968,7 +4988,15 @@ const BudgetCalculator = () => {
     const data = historicalData[selectedHistoricalMonth];
     
     // Calculate totals using centralized logic
-    const processedData = getProcessedBudgetDataForMonth(budgetState, selectedHistoricalMonth);
+    // SYSTEMATIC FIX: Pass SQL data to eliminate budgetState dependency
+    const allCategories = [...(huvudkategorier || []), ...(underkategorier || [])];
+    const processedData = getProcessedBudgetDataForMonth(
+      budgetState, 
+      selectedHistoricalMonth, 
+      accountsFromAPI || [], 
+      allCategories, 
+      [] // Empty transactions for now until hook is implemented
+    );
     const totalCosts = calculateTotalBudgetedCosts(processedData.costItems, selectedHistoricalMonth);
     const totalSavings = calculateTotalBudgetedSavings(processedData.savingsItems, selectedHistoricalMonth);
     

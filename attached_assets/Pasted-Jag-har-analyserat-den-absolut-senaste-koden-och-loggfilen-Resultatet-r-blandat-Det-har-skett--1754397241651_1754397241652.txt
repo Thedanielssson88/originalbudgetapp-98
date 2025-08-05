@@ -1,0 +1,60 @@
+Jag har analyserat den absolut senaste koden och loggfilen.
+
+Resultatet är blandat. Det har skett **stora och viktiga framsteg**, men grundproblemet med att gammal och ny kod existerar sida vid sida kvarstår och orsakar de buggar du ser.
+
+Utvecklaren har lagat flera delar, men har **inte** genomfört den systematiska sanering som krävs.
+
+### Status: Vad är Korrekt Nu?
+
+1.  **Konton Sparas i SQL:** När du nu använder "Lägg till Konto" så skickas det korrekt till servern och sparas permanent i databasen. Detta är ett stort steg framåt.
+2.  **Transaktioner Sparas (Delvis) i SQL:** Manuellt skapade transaktioner ser nu ut att sparas korrekt.
+3.  **Grundläggande Dataladdning:** Appen hämtar nu en grundläggande uppsättning data från databasen vid start.
+
+### Kritisk Analys: Vad är Fortfarande Helt Fel?
+
+**1. Huvudproblemet: UI:t Använder Fortfarande Gammal, Felaktig Data**
+
+Du har helt rätt i din analys. Många delar av ditt användargränssnitt är fortfarande kopplade till den gamla, `localStorage`-baserade datan (`budgetState`), istället för den nya, SQL-synkade datan (`useAppStore`).
+
+* **"Aktuella Konton", "Budgetkategorier", "Totalt Sparande":** Dessa komponenter tittar fortfarande på den gamla, felaktiga kontolistan. Därför ser du bara "Överföring" eller en ofullständig lista. De är inte kopplade till SQL-datan.
+* **"Kostnadsposter":** Samma problem här. Komponenten som visar dina kostnadsposter hämtar sin data från en gammal, osynkad lista. Därför ser du inte de nya transaktionerna som du vet har sparats korrekt i databasen.
+
+**2. CSV-Importen är Fortfarande Trasig**
+
+Logiken för att hantera en importerad CSV-fil är inte färdigbyggd.
+* Den läser filen, men den **skickar inte transaktionerna vidare till SQL-databasen.** Den uppdaterar bara en lokal lista i minnet, vilket gör att allt försvinner vid omladdning.
+* Den uppdaterar inte heller kontosaldot (`Faktisktkontosaldo`) eftersom den inte har någon koppling till den riktiga datan.
+
+**3. Relationer Använder Fortfarande Namn istället för ID**
+
+På flera ställen i koden används fortfarande `account.name` för att filtrera eller koppla data, istället för det robusta `accountId`. Detta är en tickande bomb som kommer att fortsätta orsaka problem, till exempel att en post du skapar visar "Inget Konto".
+
+### Nytt, Systematiskt Uppdrag till Utvecklaren
+
+Att fortsätta laga en sak i taget kommer inte att fungera. Hela frontend-koden måste saneras systematiskt.
+
+**Mål:** Eliminera **all** användning av `budgetState` och säkerställ att **varje enskild komponent** som behöver tillgång till data (konton, transaktioner, kategorier) hämtar den från den centrala, SQL-synkade `useAppStore`.
+
+---
+
+#### Exakt Action Plan: En Global Refaktorering
+
+**Steg 1: Utrota `budgetState`**
+Gör en global sökning i hela `client/`-projektet efter `budgetState`. Varje träff är en bugg.
+* **Åtgärd:** Ersätt varje `budgetState.accounts` med `useAppStore(state => state.accounts)`.
+* **Åtgärd:** Ersätt varje `budgetState.transactions` med `useAppStore(state => state.transactions)`.
+* Gör detta för **alla** datatyper. `budgetState` ska inte finnas kvar någonstans.
+
+**Steg 2: Bygg om CSV-Importen Från Grunden**
+Riv den nuvarande importlogiken. Den nya funktionen **måste** göra följande:
+1.  Läs transaktionerna från filen.
+2.  Loopa igenom **varje** transaktion.
+3.  För varje transaktion, anropa den centrala `createTransaction`-funktionen i er store, som i sin tur gör ett `POST`-anrop till `/api/transactions`.
+4.  Efter att alla transaktioner har sparats, anropa en funktion `updateAccountBalance` som skickar ett `PUT`-anrop till `/api/accounts/:id` för att uppdatera kontosaldot i databasen.
+
+**Steg 3: Sanera Alla Relationer till att Använda ID**
+Gör en ny global sökning, denna gång efter alla ställen där data filtreras eller jämförs med `.name`.
+* **Åtgärd:** Skriv om all kod som säger `array.filter(item => item.accountName === ...)` till att istället använda `array.filter(item => item.accountId === ...)`.
+* Detta är särskilt viktigt i komponenter som visar listor och i formulär där man väljer ett konto från en dropdown. Värdet som sparas från en dropdown måste vara kontots `id`, inte dess `name`.
+
+Genom att tvinga fram denna systematiska refaktorering, istället för att jaga individuella symptom, kommer ni att kunna stabilisera hela applikationen mycket snabbare och mer effektivt. Hela systemet måste tvingas att använda den nya, korrekta arkitekturen.

@@ -574,66 +574,100 @@ export function getDateRangeForMonth(monthKey: string, payday: number): { startD
 }
 
 // NEW: Central business logic function that replaces the complex useMemo in BudgetCalculator
-export function getProcessedBudgetDataForMonth(budgetState: any, selectedMonthKey: string) {
+// SYSTEMATIC FIX: This function now pulls from SQL database instead of budgetState
+// This eliminates the hybrid system issues and forces everything to use SQL data
+export function getProcessedBudgetDataForMonth(
+  budgetState: any, 
+  selectedMonthKey: string, 
+  sqlAccounts: any[], 
+  sqlCategories: any[], 
+  sqlTransactions: any[]
+) {
   // 1. Get the correct date range
   const payday = budgetState.settings?.payday || 25;
   const { startDate, endDate } = getDateRangeForMonth(selectedMonthKey, payday);
   
-  // 2. Get all relevant raw data
-  const allTransactions = budgetState.allTransactions || [];
-  const currentMonthData = budgetState.historicalData[selectedMonthKey] || {};
+  // 2. CRITICAL FIX: Use SQL data sources instead of localStorage budgetState
+  // Get all transactions from SQL instead of budgetState.allTransactions
+  const allTransactions = sqlTransactions || [];
   
-  // FIXED: Convert costGroups to flat costItems array
-  const costGroups = currentMonthData.costGroups || [];
-  const costItems = costGroups.flatMap((group: any) => 
-    (group.subCategories || []).map((sub: any) => ({
-      ...sub,
-      mainCategoryId: group.name,  // Use group name as main category
-      groupId: group.id
-    }))
-  );
+  // CRITICAL: Instead of pulling from budgetState.historicalData (localStorage), 
+  // we now create cost/savings items from SQL transactions that have been manually created
+  const costItems: any[] = [];
+  const savingsItems: any[] = [];
   
-  // FIXED: Convert savingsGroups to flat savingsItems array  
-  const savingsGroups = currentMonthData.savingsGroups || [];
-  const savingsItems = savingsGroups.flatMap((group: any) => 
-    (group.subCategories || []).map((sub: any) => ({
-      ...sub,
-      mainCategoryId: group.name,  // Use group name as main category
-      groupId: group.id
-    }))
-  );
+  // Convert SQL transactions to budget items format
+  // Filter transactions for this period and convert to budget item format
+  allTransactions.forEach((transaction: any) => {
+    // Check if transaction is in the period
+    const transactionDate = new Date(transaction.date);
+    const periodStart = new Date(startDate);
+    const periodEnd = new Date(endDate);
+    
+    if (transactionDate >= periodStart && transactionDate <= periodEnd) {
+      const budgetItem = {
+        id: transaction.id,
+        name: transaction.description || transaction.category,
+        amount: Math.abs(transaction.amount),
+        accountId: transaction.accountId,
+        account: transaction.accountName, // Keep for legacy compatibility
+        mainCategoryId: transaction.appCategoryId,
+        groupId: transaction.appCategoryId,
+        type: transaction.amount < 0 ? 'cost' : 'savings'
+      };
+      
+      if (transaction.amount < 0) {
+        costItems.push(budgetItem);
+      } else {
+        savingsItems.push(budgetItem);
+      }
+    }
+  });
   
   const budgetItems = [...costItems, ...savingsItems];
   
-  // 3. FIXED: Use the centralized getTransactionsForPeriod function instead of duplicating logic
-  const transactionsForPeriod = getTransactionsForPeriod(budgetState, selectedMonthKey);
+  console.log(`🔄 [SYSTEMATIC FIX] getProcessedBudgetDataForMonth SQL data:`, {
+    selectedMonthKey,
+    sqlAccountsCount: sqlAccounts.length,
+    sqlCategoriesCount: sqlCategories.length,
+    sqlTransactionsCount: allTransactions.length,
+    costItemsCount: costItems.length,
+    savingsItemsCount: savingsItems.length,
+    dateRange: { startDate, endDate }
+  });
+  
+  // 3. Get transactions for period using SQL data
+  const transactionsForPeriod = allTransactions.filter((t: any) => {
+    const transactionDate = new Date(t.date);
+    const periodStart = new Date(startDate);
+    const periodEnd = new Date(endDate);
+    return transactionDate >= periodStart && transactionDate <= periodEnd;
+  });
 
-  // 4. MOVE THE LOGIC from activeContent (useMemo in BudgetCalculator)
-  // Find active accounts and categories
+  // 4. Find active accounts and categories from SQL data
   const activeAccountIds = new Set<string>();
   budgetItems.forEach((item: any) => item.accountId && activeAccountIds.add(item.accountId));
   transactionsForPeriod.forEach((t: any) => t.accountId && activeAccountIds.add(t.accountId));
   
   const activeMainCategoryIds = new Set<string>();
-  // Process budget items for main categories
   budgetItems.forEach((item: any) => {
     if (item.mainCategoryId) {
       activeMainCategoryIds.add(item.mainCategoryId);
     }
   });
   
-  // Process transactions for main categories  
   transactionsForPeriod.forEach((t: any) => {
     if (t.appCategoryId) {
       activeMainCategoryIds.add(t.appCategoryId);
     }
   });
 
-  const activeAccounts = budgetState.accounts.filter((acc: any) => activeAccountIds.has(acc.id));
-  // FIXED: Always return all main categories for adding new items, not just ones with transactions
-  const activeCategories = budgetState.mainCategories || [];
+  // CRITICAL FIX: Use SQL accounts instead of budgetState.accounts
+  const activeAccounts = sqlAccounts.filter((acc: any) => activeAccountIds.has(acc.id));
+  // CRITICAL FIX: Use SQL categories instead of budgetState.mainCategories
+  const activeCategories = sqlCategories || [];
   
-  // 5. Return a single, complete object with all data the UI needs
+  // 5. Return a single, complete object with all SQL-backed data
   return {
     activeAccounts,
     activeCategories,
@@ -641,7 +675,7 @@ export function getProcessedBudgetDataForMonth(budgetState: any, selectedMonthKe
     budgetItems: {
       costItems: costItems,
       savingsItems: savingsItems,
-      all: budgetItems  // Keep the combined array for backward compatibility
+      all: budgetItems
     },
     dateRange: { startDate, endDate },
     costItems,
