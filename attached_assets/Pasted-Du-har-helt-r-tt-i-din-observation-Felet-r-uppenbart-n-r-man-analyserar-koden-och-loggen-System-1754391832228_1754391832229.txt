@@ -1,0 +1,78 @@
+Du har helt rätt i din observation. Felet är uppenbart när man analyserar koden och loggen: **Systemet är hårdkodat med standardvärden för inkomster, och dessa värden skriver över dina ändringar.**
+
+Detta är inte ett databasfel, utan ett fel i hur frontend-koden hanterar och presenterar datan.
+
+### Kritisk Analys: Exakt Varför Det Går Fel
+
+I din frontend-kod, specifikt i filen `client/src/components/IncomeBudget.tsx`, finns en lista med standard-inkomstbudgetar som är hårdkodad direkt i koden. Den ser ut ungefär så här:
+
+```typescript
+// Ungefärlig kod från IncomeBudget.tsx
+
+const defaultIncomeBudgets = [
+  { name: 'Lön Andreas', amount: 45000, ... },
+  { name: 'Lön Susanna', amount: 45000, ... },
+  { name: 'Barnbidrag', amount: 2650, ... },
+  // ... och så vidare
+];
+```
+
+Här är flödet som orsakar problemet:
+
+1.  **Appen Startar:** Systemet laddar de *riktiga* budget-värdena från din SQL-databas. Låt oss säga att du har sparat "Lön Andreas" med 0 kr.
+2.  **Du Går till Inkomstbudget-sidan:** När du navigerar till sidan där du ser och ändrar inkomstbudgeten, så **ignorerar komponenten datan från databasen**. Istället visar den alltid den hårdkodade listan med `defaultIncomeBudgets`. Det är därför du alltid ser "45000" från början, oavsett vad du har sparat.
+3.  **Du Ändrar ett Värde:** Du ändrar "Lön Andreas" till 0.
+4.  **Du Sparar:** När du sparar skickas värdet **korrekt** till din backend och sparas i SQL-databasen. Loggen visar att ett `PUT`-anrop görs med `amount: 0`. Fram till hit är allt tekniskt korrekt på serversidan.
+5.  **Sidan Ritas Om:** När komponenten ritas om efter att du har sparat, så **återgår den till att visa den hårdkodade listan igen**. Den kastar bort det korrekta värdet (0) och visar återigen standardvärdet (45000).
+
+**Slutsats:** Din data sparas korrekt, men komponenten för att visa och redigera datan är felbyggd och visar alltid sin egen hårdkodade data istället för den verkliga datan från databasen.
+
+### Nytt, Fokuserat Uppdrag till Utvecklaren
+
+**Mål:** Bygg om `IncomeBudget`-komponenten så att den hämtar, visar och sparar data från SQL-databasen, istället för att använda en hårdkodad lista.
+
+-----
+
+#### Exakt Action Plan:
+
+**Fokusera på filen `client/src/components/IncomeBudget.tsx` (eller motsvarande).**
+
+**Steg 1: Ta Bort den Hårdkodade Datan**
+Hitta listan `defaultIncomeBudgets` (eller vad den nu heter) och **radera den helt och hållet**. Denna lista är roten till allt ont.
+
+**Steg 2: Hämta Verklig Data från Zustand-storen**
+Komponenten måste hämta listan med inkomstbudgetar från din centrala Zustand-store, som i sin tur har laddat datan från SQL-databasen vid appstart.
+
+```typescript
+// I IncomeBudget.tsx
+
+import { useAppStore } from '...'; // Importera din Zustand-store
+
+const IncomeBudget = () => {
+  // FEL: const budgets = defaultIncomeBudgets;
+  // RÄTT: Hämta den verkliga datan från den centrala storen.
+  const incomeBudgets = useAppStore(state => state.incomeBudgets);
+  const updateIncomeBudget = useAppStore(state => state.updateIncomeBudget);
+
+  // ... resten av komponenten
+};
+```
+
+**Steg 3: Koppla Spara-funktionen till API:et**
+Funktionen som körs när du ändrar ett värde och sparar måste anropa den centrala `updateIncomeBudget`-funktionen (som redan finns i din store). Denna funktion är ansvarig för att skicka ett `PUT`-anrop till ditt backend-API för att permanent spara ändringen i SQL-databasen.
+
+```typescript
+// I IncomeBudget.tsx
+
+const handleAmountChange = (id, newAmount) => {
+  // Anropa den centrala funktionen som pratar med backend.
+  updateIncomeBudget(id, { amount: newAmount });
+};
+```
+
+Genom att göra dessa tre ändringar kommer komponenten att:
+
+1.  Visa den **verkliga** datan från din databas när den laddas.
+2.  Låta dig redigera den.
+3.  Spara dina ändringar **permanent** i databasen.
+4.  Visa dina sparade ändringar korrekt, även efter att sidan har ritats om.

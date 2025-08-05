@@ -43,6 +43,7 @@ import {
 } from '../services/calculationService';
 import { updateAccountBalanceForMonth, getAccountNameById } from '../orchestrator/budgetOrchestrator';
 import { useToast } from '@/hooks/use-toast';
+import { useMonthlyBudget } from '@/hooks/useMonthlyBudget';
 import { 
   createSavingsGoal,
   updateCostGroups,
@@ -50,12 +51,7 @@ import {
   updateAccountBalance,
   unsetAccountBalance,
   forceRecalculation,
-  setAndreasSalary,
-  setAndreasförsäkringskassan,
-  setAndreasbarnbidrag,
-  setSusannaSalary,
-  setSusannaförsäkringskassan,
-  setSusannabarnbidrag,
+
   addSavingsItem,
   setSavingsGroups,
   setDailyTransfer,
@@ -374,20 +370,24 @@ const BudgetCalculator = () => {
   const { historicalData: appHistoricalData, selectedMonthKey } = budgetState;
   const currentMonthData = appHistoricalData[selectedMonthKey] || {};
   
+  // DATABASE-BACKED MONTHLY BUDGET DATA
+  const { monthlyBudget, isLoading: isBudgetLoading, updateIncome } = useMonthlyBudget(selectedMonthKey);
+  
   // CRITICAL DEBUG: Log what data is actually available
   console.log(`🔍 [DATA LOADING] selectedMonthKey: ${selectedMonthKey}`);
   console.log(`🔍 [DATA LOADING] appHistoricalData keys:`, Object.keys(appHistoricalData));
   console.log(`🔍 [DATA LOADING] currentMonthData:`, currentMonthData);
+  console.log(`🔍 [DATA LOADING] monthlyBudget from database:`, monthlyBudget);
   console.log(`🔍 [DATA LOADING] currentMonthData.accountBalances:`, (currentMonthData as any).accountBalances);
   console.log(`🔍 [DATA LOADING] currentMonthData.accountBalancesSet:`, (currentMonthData as any).accountBalancesSet);
   
-  // Data från den enda källan till sanning
-  const andreasSalary = (currentMonthData as any).andreasSalary || 45000;
-  const andreasförsäkringskassan = (currentMonthData as any).andreasförsäkringskassan || 0;
-  const andreasbarnbidrag = (currentMonthData as any).andreasbarnbidrag || 0;
-  const susannaSalary = (currentMonthData as any).susannaSalary || 40000;
-  const susannaförsäkringskassan = (currentMonthData as any).susannaförsäkringskassan || 5000;
-  const susannabarnbidrag = (currentMonthData as any).susannabarnbidrag || 0;
+  // Data från den enda källan till sanning - DATABASE FIRST, then fallback to legacy
+  const andreasSalary = monthlyBudget?.andreasSalary ?? (currentMonthData as any).andreasSalary ?? 0;
+  const andreasförsäkringskassan = monthlyBudget?.andreasförsäkringskassan ?? (currentMonthData as any).andreasförsäkringskassan ?? 0;
+  const andreasbarnbidrag = monthlyBudget?.andreasbarnbidrag ?? (currentMonthData as any).andreasbarnbidrag ?? 0;
+  const susannaSalary = monthlyBudget?.susannaSalary ?? (currentMonthData as any).susannaSalary ?? 0;
+  const susannaförsäkringskassan = monthlyBudget?.susannaförsäkringskassan ?? (currentMonthData as any).susannaförsäkringskassan ?? 0;
+  const susannabarnbidrag = monthlyBudget?.susannabarnbidrag ?? (currentMonthData as any).susannabarnbidrag ?? 0;
   const costGroups = (currentMonthData as any).costGroups || [];
   const savingsGroups = (currentMonthData as any).savingsGroups || [];
   const dailyTransfer = (currentMonthData as any).dailyTransfer || 300;
@@ -5312,7 +5312,7 @@ const BudgetCalculator = () => {
                             placeholder="Ange månadslön"
                             value={andreasSalary === 0 ? '0' : (andreasSalary || '')}
                             onChange={(e) => {
-                              setAndreasSalary(Number(e.target.value));
+                              updateIncome('andreasSalary', Number(e.target.value));
                               const currentDate = new Date();
                               const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
                               resetMonthFinalBalancesFlag(currentMonthKey);
@@ -5328,7 +5328,7 @@ const BudgetCalculator = () => {
                             type="number"
                             placeholder="Ange försäkringskassan"
                             value={andreasförsäkringskassan === 0 ? '0' : (andreasförsäkringskassan || '')}
-                            onChange={(e) => setAndreasförsäkringskassan(Number(e.target.value))}
+                            onChange={(e) => updateIncome('andreasförsäkringskassan', Number(e.target.value))}
                             className="text-lg bg-white/70"
                           />
                         </div>
@@ -5340,7 +5340,7 @@ const BudgetCalculator = () => {
                             type="number"
                             placeholder="Ange barnbidrag"
                             value={andreasbarnbidrag === 0 ? '0' : (andreasbarnbidrag || '')}
-                            onChange={(e) => setAndreasbarnbidrag(Number(e.target.value))}
+                            onChange={(e) => updateIncome('andreasbarnbidrag', Number(e.target.value))}
                             className="text-lg bg-white/70"
                           />
                         </div>
@@ -5359,7 +5359,7 @@ const BudgetCalculator = () => {
                             placeholder="Ange månadslön"
                             value={susannaSalary === 0 ? '0' : (susannaSalary || '')}
                             onChange={(e) => {
-                              setSusannaSalary(Number(e.target.value));
+                              updateIncome('susannaSalary', Number(e.target.value));
                               const currentDate = new Date();
                               const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
                               resetMonthFinalBalancesFlag(currentMonthKey);
@@ -5375,7 +5375,7 @@ const BudgetCalculator = () => {
                             type="number"
                             placeholder="Ange försäkringskassan"
                             value={susannaförsäkringskassan === 0 ? '0' : (susannaförsäkringskassan || '')}
-                            onChange={(e) => setSusannaförsäkringskassan(Number(e.target.value))}
+                            onChange={(e) => updateIncome('susannaförsäkringskassan', Number(e.target.value))}
                             className="text-lg bg-white/70"
                           />
                         </div>
@@ -5387,7 +5387,7 @@ const BudgetCalculator = () => {
                             type="number"
                             placeholder="Ange barnbidrag"
                             value={susannabarnbidrag === 0 ? '0' : (susannabarnbidrag || '')}
-                            onChange={(e) => setSusannabarnbidrag(Number(e.target.value))}
+                            onChange={(e) => updateIncome('susannabarnbidrag', Number(e.target.value))}
                             className="text-lg bg-white/70"
                           />
                         </div>
