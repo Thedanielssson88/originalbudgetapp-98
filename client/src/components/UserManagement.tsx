@@ -28,10 +28,12 @@ import { useAccounts, useUpdateAccount } from '@/hooks/useAccounts';
 import { useMonthlyBudget } from '@/hooks/useMonthlyBudget';
 import { useBudget } from '@/hooks/useBudget';
 import { apiStore } from '@/store/apiStore';
+import { useQueryClient } from '@tanstack/react-query';
 
 export function UserManagement() {
   const { toast } = useToast();
   const { budgetState } = useBudget();
+  const queryClient = useQueryClient();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<any>(null);
@@ -164,7 +166,10 @@ export function UserManagement() {
       });
       
       // Refresh the monthly budget data to update UI immediately
-      window.location.reload();
+      await refreshMonthlyBudget();
+      
+      // Invalidate React Query cache to trigger UI updates
+      queryClient.invalidateQueries({ queryKey: ['/api/monthly-budgets'] });
       
       const selectedMember = familyMembers?.find(m => m.id === familyMemberId);
       toast({
@@ -190,7 +195,10 @@ export function UserManagement() {
       });
       
       // Refresh the monthly budget data to update UI immediately
-      window.location.reload();
+      await refreshMonthlyBudget();
+      
+      // Invalidate React Query cache to trigger UI updates
+      queryClient.invalidateQueries({ queryKey: ['/api/monthly-budgets'] });
       
       const selectedMember = familyMembers?.find(m => m.id === familyMemberId);
       toast({
