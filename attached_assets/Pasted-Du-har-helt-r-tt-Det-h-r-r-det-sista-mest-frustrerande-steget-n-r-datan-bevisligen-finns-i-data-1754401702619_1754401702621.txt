@@ -1,0 +1,61 @@
+Du har helt rätt. Det här är det sista, mest frustrerande steget – när datan bevisligen finns i databasen men en specifik del av appen vägrar att visa den.
+
+Jag har analyserat koden med ditt specifika problem i åtanke. Felet är nu isolerat till **en enda komponent** i ditt användargränssnitt.
+
+### Kritisk Analys: Varför Just Denna Sida är Trasig
+
+Tänk dig att hela ditt hus nu har fått korrekt el dragen från det centrala proppskåpet (din SQL-databas via `useAppStore`). Alla lampor i alla rum lyser, förutom i ett enda rum: "CSV-sidan".
+
+Anledningen är att lampan i just det rummet fortfarande är kopplad till ett gammalt, urladdat batteri som ligger i en låda (`budgetState` eller en lokal `useState`), istället för att vara kopplad till det nya proppskåpet.
+
+**Det som händer i koden:**
+
+1.  **Data finns:** Din centrala state (`useAppStore`) innehåller den fullständiga, korrekta listan med transaktioner från SQL-databasen.
+2.  **Komponenten är Felkopplad:** React-komponenten som ansvarar för vyn "Ladda upp CSV-filer, Överföring" har **inte** blivit uppdaterad. Den ignorerar den centrala datan. Istället tittar den på en egen, tom eller inaktuell lista med transaktioner.
+3.  **Konsekvens:** Eftersom den listan är tom, visar den texten "Inga transaktioner" och knappen "Gå till Kategorisering" är inaktiverad, eftersom dess villkor (`lista.length > 0`) aldrig blir uppfyllt.
+
+### Sista Uppdraget till Utvecklaren: Koppla in den Sista Lampan
+
+**Mål:** Refaktorera den sista felande komponenten så att den hämtar sin transaktionslista från den centrala, SQL-synkroniserade `useAppStore`.
+
+-----
+
+#### Exakt Action Plan:
+
+**Fokus: Den specifika React-komponentfilen för vyn "Ladda upp CSV-filer, Överföring" (t.ex. `TransactionImportView.tsx` eller liknande i `client/`-katalogen).**
+
+**Steg 1: Hitta och Riv den Felaktiga Datakällan**
+Öppna filen. Inuti komponenten, leta upp raden där den hämtar sin lista med transaktioner. Det kommer att vara en av två felaktiga metoder:
+
+```typescript
+// ANTIGEN DENNA (FEL):
+const { transactions } = budgetState; 
+
+// ELLER DENNA (OCKSÅ FEL):
+const [transactions, setTransactions] = useState([]);
+```
+
+**Radera denna logik.** Detta är källan till att komponenten är blind för den riktiga datan.
+
+**Steg 2: Anslut den Korrekta Datakällan**
+Ersätt den raderade koden med en direkt anslutning till den centrala `useAppStore`, som alla andra fungerande komponenter nu använder.
+
+```typescript
+// NY, KORREKT KOD:
+import { useAppStore } from '...'; // Importera er centrala store
+
+// Inne i komponenten:
+const transactions = useAppStore(state => state.transactions);
+```
+
+**Steg 3: Korrigera Knappens Logik**
+Hitta knappen "Gå till Kategorisering". Dess `disabled`-attribut är troligtvis kopplat till den gamla, felaktiga listan. Säkerställ att den nu kontrollerar den nya, korrekta listan.
+
+```jsx
+// Koden för knappen...
+<Button disabled={transactions.length === 0}>
+  Gå till Kategorisering
+</Button>
+```
+
+När denna sista, isolerade komponent är korrekt ansluten till den centrala datakällan, kommer den att kunna se alla transaktioner från databasen. Då kommer listan att visas korrekt och knappen att aktiveras. Då är hela applikationen äntligen enhetlig och stabil.

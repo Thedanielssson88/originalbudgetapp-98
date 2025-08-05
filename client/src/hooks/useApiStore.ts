@@ -35,12 +35,20 @@ export function useInitializeApiStore() {
       .then(() => {
         console.log('✅ [HOOK] API store initialized successfully');
         // CRITICAL: Also initialize the budget orchestrator
-        import('../orchestrator/budgetOrchestrator').then(({ initializeApp, resetInitialization }) => {
+        import('../orchestrator/budgetOrchestrator').then(({ initializeApp, resetInitialization, forceReloadTransactions }) => {
           console.log('🔄 [HOOK] Resetting initialization and calling initializeApp...');
           resetInitialization(); // Force reset before initialization
-          initializeApp().catch(error => {
-            console.error('[HOOK] Failed to initialize app:', error);
-          });
+          initializeApp()
+            .then(() => {
+              console.log('✅ [HOOK] InitializeApp completed, now force reloading transactions...');
+              return forceReloadTransactions();
+            })
+            .then(() => {
+              console.log('✅ [HOOK] Force reload transactions completed!');
+            })
+            .catch(error => {
+              console.error('[HOOK] Failed to initialize app or load transactions:', error);
+            });
         });
       })
       .catch(error => {
