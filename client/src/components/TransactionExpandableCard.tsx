@@ -12,6 +12,7 @@ import { StorageKey, get } from '@/services/storageService';
 import { TransactionTypeSelector } from './TransactionTypeSelector';
 import { useBudget } from '@/hooks/useBudget';
 import { useTransactionExpansion } from '@/hooks/useTransactionExpansion';
+import { useHuvudkategorier, useUnderkategorier, useCategoryNames } from '@/hooks/useCategories';
 
 interface TransactionExpandableCardProps {
   transaction: ImportedTransaction;
@@ -46,6 +47,11 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   onExpenseClaim,
   onRefresh
 }) => {
+  // Use UUID-based category hooks
+  const { data: huvudkategorier = [] } = useHuvudkategorier();
+  const { data: allUnderkategorier = [] } = useUnderkategorier();
+  const { getCategoryName } = useCategoryNames();
+  
   const { isExpanded, setIsExpanded } = useTransactionExpansion(transaction.id);
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [localNoteValue, setLocalNoteValue] = useState(transaction.userDescription || '');
@@ -145,16 +151,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                   <div className="min-w-0" onClick={(e) => e.stopPropagation()}>
                     <p className="text-xs text-muted-foreground">Huvudkategori (App)</p>
                     <Select
-                      value={(() => {
-                        if (transaction.appCategoryId) {
-                          if (mainCategories.includes(transaction.appCategoryId)) {
-                            return transaction.appCategoryId;
-                          }
-                          const costGroup = costGroups.find(group => group.id === transaction.appCategoryId);
-                          return costGroup ? costGroup.name : '';
-                        }
-                        return '';
-                      })()}
+                      value={transaction.appCategoryId || ''}
                       onValueChange={(value) => {
                         try {
                           onUpdateCategory(transaction.id, value);
@@ -171,9 +168,9 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                         <SelectValue placeholder="Välj kategori" />
                       </SelectTrigger>
                       <SelectContent className="bg-background border border-border shadow-lg z-50">
-                        {mainCategories.map(category => (
-                          <SelectItem key={category} value={category}>
-                            {category}
+                        {huvudkategorier.map(category => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -184,46 +181,20 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                   <div className="min-w-0" onClick={(e) => e.stopPropagation()}>
                     <p className="text-xs text-muted-foreground">Underkategori (App)</p>
                     {(() => {
-                      const selectedCategoryName = (() => {
-                        if (transaction.appCategoryId) {
-                          if (mainCategories.includes(transaction.appCategoryId)) {
-                            return transaction.appCategoryId;
-                          }
-                          const costGroup = costGroups.find(group => group.id === transaction.appCategoryId);
-                          return costGroup ? costGroup.name : '';
-                        }
-                        return '';
-                      })();
+                      const selectedCategoryId = transaction.appCategoryId;
 
-                      const availableSubcategories = subcategoriesData[selectedCategoryName] || [];
+                      // Get subcategories for the selected hoofdkategori (UUID-based)
+                      const availableSubcategories = allUnderkategorier.filter(
+                        sub => sub.huvudkategoriId === selectedCategoryId
+                      );
 
-                      if (selectedCategoryName && availableSubcategories.length > 0) {
+                      if (selectedCategoryId && availableSubcategories.length > 0) {
                         return (
                           <Select
-                            value={(() => {
-                              if (transaction.appSubCategoryId) {
-                                if (availableSubcategories.includes(transaction.appSubCategoryId)) {
-                                  return transaction.appSubCategoryId;
-                                }
-                                if (selectedCategoryName === 'Transport') {
-                                  const transportGroup = costGroups.find(group => group.name === 'Transport');
-                                  const subcategory = transportGroup?.subCategories?.find(sub => sub.id === transaction.appSubCategoryId);
-                                  return subcategory ? subcategory.name : '';
-                                }
-                              }
-                              return '';
-                            })()}
-                            onValueChange={(subCategoryName) => {
+                            value={transaction.appSubCategoryId || ''}
+                            onValueChange={(subCategoryId) => {
                               try {
-                                if (selectedCategoryName === 'Transport') {
-                                  const transportGroup = costGroups.find(group => group.name === 'Transport');
-                                  const subcategory = transportGroup?.subCategories?.find(sub => sub.name === subCategoryName);
-                                  if (subcategory) {
-                                    onUpdateCategory(transaction.id, selectedCategoryName, subcategory.id);
-                                  }
-                                } else {
-                                  onUpdateCategory(transaction.id, selectedCategoryName, subCategoryName);
-                                }
+                                onUpdateCategory(transaction.id, selectedCategoryId, subCategoryId);
                                 // Trigger refresh after category update
                                 if (onRefresh) {
                                   setTimeout(() => onRefresh(), 100);
@@ -238,15 +209,20 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                             </SelectTrigger>
                             <SelectContent className="bg-background border border-border shadow-lg z-50">
                               {availableSubcategories.map(subcategory => (
-                                <SelectItem key={subcategory} value={subcategory}>
-                                  {subcategory}
+                                <SelectItem key={subcategory.id} value={subcategory.id}>
+                                  {subcategory.name}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         );
+                      } else {
+                        return (
+                          <div className="h-8 flex items-center text-xs text-muted-foreground bg-muted/30 px-2 rounded">
+                            {selectedCategoryId ? 'Inga underkategorier' : 'Välj huvudkategori först'}
+                          </div>
+                        );
                       }
-                      return <p className="text-sm text-muted-foreground h-8 flex items-center">-</p>;
                     })()}
                   </div>
 

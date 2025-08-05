@@ -11,11 +11,12 @@ import { Trash2, Plus, Edit } from 'lucide-react';
 import { CategoryRule, RuleCondition } from '@/types/budget';
 import { v4 as uuidv4 } from 'uuid';
 import { get, StorageKey } from '@/services/storageService';
+import { useHuvudkategorier, useUnderkategorier, useCategoryNames } from '@/hooks/useCategories';
 
 interface CategoryRuleManagerAdvancedProps {
   rules: CategoryRule[];
   onRulesChange: (rules: CategoryRule[]) => void;
-  mainCategories: string[];
+  mainCategories: string[]; // Legacy - still used for backwards compatibility during transition
   accounts: { id: string; name: string }[];
 }
 
@@ -25,9 +26,13 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
   mainCategories,
   accounts
 }) => {
+  // Use UUID-based category hooks
+  const { data: huvudkategorier = [] } = useHuvudkategorier();
+  const { data: allUnderkategorier = [] } = useUnderkategorier();
+  const { getCategoryName } = useCategoryNames();
+  
   const [isAddingRule, setIsAddingRule] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
-  const [subcategories, setSubcategories] = useState<Record<string, string[]>>({});
   const [availableSubcategories, setAvailableSubcategories] = useState<string[]>([]);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [editingRule, setEditingRule] = useState<CategoryRule | null>(null);
@@ -44,16 +49,13 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
     isActive: true
   });
 
-  // Load subcategories from storage
-  useEffect(() => {
-    const loadedSubcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
-    setSubcategories(loadedSubcategories);
-  }, []);
-
-  // Update available subcategories when main category changes
+  // Update available subcategories when main category changes (UUID-based)
   useEffect(() => {
     if (newRule.action?.appMainCategoryId) {
-      setAvailableSubcategories(subcategories[newRule.action.appMainCategoryId] || []);
+      const subcatsForCategory = allUnderkategorier.filter(
+        sub => sub.huvudkategoriId === newRule.action?.appMainCategoryId
+      );
+      setAvailableSubcategories(subcatsForCategory.map(sub => sub.id));
       // Reset subcategory when main category changes
       setNewRule(prev => ({
         ...prev,
@@ -62,7 +64,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
     } else {
       setAvailableSubcategories([]);
     }
-  }, [newRule.action?.appMainCategoryId, subcategories]);
+  }, [newRule.action?.appMainCategoryId, allUnderkategorier]);
 
   const handleAddRule = () => {
     // Validate required fields
@@ -109,9 +111,12 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
   const handleEditRule = (rule: CategoryRule) => {
     setEditingRuleId(rule.id);
     setEditingRule({ ...rule });
-    // Set available subcategories for the rule being edited
+    // Set available subcategories for the rule being edited (UUID-based)
     if (rule.action.appMainCategoryId) {
-      setAvailableSubcategories(subcategories[rule.action.appMainCategoryId] || []);
+      const subcatsForCategory = allUnderkategorier.filter(
+        sub => sub.huvudkategoriId === rule.action.appMainCategoryId
+      );
+      setAvailableSubcategories(subcatsForCategory.map(sub => sub.id));
     }
   };
 
@@ -209,9 +214,9 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                     <SelectValue placeholder="Välj huvudkategori" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mainCategories.map(category => (
-                      <SelectItem key={category} value={category}>
-                        {category}
+                    {huvudkategorier.map(category => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -232,11 +237,14 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                     <SelectValue placeholder="Välj underkategori" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableSubcategories.map(subcategory => (
-                      <SelectItem key={subcategory} value={subcategory}>
-                        {subcategory}
-                      </SelectItem>
-                    ))}
+                    {availableSubcategories.map(subcategoryId => {
+                      const subcat = allUnderkategorier.find(s => s.id === subcategoryId);
+                      return (
+                        <SelectItem key={subcategoryId} value={subcategoryId}>
+                          {subcat?.name || subcategoryId}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -414,16 +422,19 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                               ...prev,
                               action: { ...prev.action, appMainCategoryId: value, appSubCategoryId: '' }
                             } : null);
-                            setAvailableSubcategories(subcategories[value] || []);
+                            const subcatsForCategory = allUnderkategorier.filter(
+                              sub => sub.huvudkategoriId === value
+                            );
+                            setAvailableSubcategories(subcatsForCategory.map(sub => sub.id));
                           }}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Välj huvudkategori" />
                           </SelectTrigger>
                           <SelectContent>
-                            {mainCategories.map(category => (
-                              <SelectItem key={category} value={category}>
-                                {category}
+                            {huvudkategorier.map(category => (
+                              <SelectItem key={category.id} value={category.id}>
+                                {category.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -443,11 +454,14 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                             <SelectValue placeholder="Välj underkategori" />
                           </SelectTrigger>
                           <SelectContent>
-                            {availableSubcategories.map(subcategory => (
-                              <SelectItem key={subcategory} value={subcategory}>
-                                {subcategory}
-                              </SelectItem>
-                            ))}
+                            {availableSubcategories.map(subcategoryId => {
+                              const subcat = allUnderkategorier.find(s => s.id === subcategoryId);
+                              return (
+                                <SelectItem key={subcategoryId} value={subcategoryId}>
+                                  {subcat?.name || subcategoryId}
+                                </SelectItem>
+                              );
+                            })}
                           </SelectContent>
                         </Select>
                       </div>
@@ -526,9 +540,9 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                       </div>
                       
                       <div className="text-xs text-muted-foreground">
-                        <span className="font-medium">{rule.action.appMainCategoryId}</span>
+                        <span className="font-medium">{getCategoryName(rule.action.appMainCategoryId) || rule.action.appMainCategoryId}</span>
                         {rule.action.appSubCategoryId && (
-                          <span> → {rule.action.appSubCategoryId}</span>
+                          <span> → {getCategoryName(rule.action.appSubCategoryId) || rule.action.appSubCategoryId}</span>
                         )}
                       </div>
                       
