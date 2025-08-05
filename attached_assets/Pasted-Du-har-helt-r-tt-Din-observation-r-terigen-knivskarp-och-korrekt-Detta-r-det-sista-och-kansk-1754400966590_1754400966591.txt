@@ -1,0 +1,78 @@
+Du har helt rätt. Din observation är, återigen, knivskarp och korrekt. Detta är det sista, och kanske mest förvirrande, steget i den här långa processen.
+
+Transaktionerna **sparas** nu korrekt i SQL-databasen. Problemet är att applikationen **inte hämtar upp dem** när den startar.
+
+### Kritisk Analys: Varför hämtas inte transaktionerna?
+
+Tänk dig att din app gör en beställning från databasen när den startar. Beställningslistan ser ut ungefär så här:
+
+  * "Hej SQL-databas, skicka mig:"
+  * "Alla Konton"
+  * "Alla Huvudkategorier"
+  * "Alla Underkategorier"
+  * "Alla Inkomstkategorier"
+  * "Alla Regler"
+
+Problemet är att **"Alla Transaktioner" saknas på beställningslistan.**
+
+Appen ber helt enkelt aldrig servern att skicka över transaktionerna, trots att de finns där och väntar. Därför är transaktionslistan i appen alltid tom när du startar om den.
+
+Detta är ett klassiskt förbiseende i en komplicerad refaktorering. Man har byggt den korrekta logiken för att *spara* data, men glömt att uppdatera logiken för att *hämta* den.
+
+### Sista Uppdraget till Utvecklaren: Lägg till Transaktioner på Beställningslistan
+
+**Mål:** Modifiera dataladdnings-processen så att den även hämtar alla användarens transaktioner från databasen vid appstart.
+
+-----
+
+#### Exakt Action Plan:
+
+**Fokus: Backend-API:et och Frontend-dataladdningen.**
+
+**Steg 1: Uppdatera Backend-Endpointen**
+Leta upp den API-endpoint i `server/`-katalogen som hanterar den initiala dataladdningen (t.ex. `GET /api/bootstrap-data` eller liknande).
+
+  * **Nuvarande kod:** Denna endpoint hämtar listor för konton, kategorier, etc.
+  * **Nödvändig ändring:** Lägg till en query som även hämtar alla transaktioner som tillhör den inloggade användaren.
+    ```typescript
+    // I din bootstrap-endpoint i backend...
+    const accounts = await db.query.accounts.findMany({ where: eq(accounts.userId, userId) });
+    const categories = await db.query.huvudkategorier.findMany({ where: eq(huvudkategorier.userId, userId) });
+    // ... och så vidare ...
+
+    // LÄGG TILL DENNA RAD:
+    const transactions = await db.query.transactions.findMany({ where: eq(transactions.userId, userId) });
+
+    // Se till att transaktionerna inkluderas i svaret som skickas tillbaka
+    return { accounts, categories, transactions /* ... etc */ };
+    ```
+
+**Steg 2: Uppdatera Frontend-Storen**
+Leta upp funktionen i din Zustand-store (`client/src/store/appStore.ts` eller liknande) som tar emot datan från `bootstrap`-anropet.
+
+  * **Nuvarande kod:** Denna funktion tar emot datan och sätter state för konton, kategorier etc.
+  * **Nödvändig ändring:** Se till att den även tar emot och sätter state för transaktioner.
+    ```typescript
+    // I din initializeStore-funktion i Zustand...
+    initializeStore: (data) => {
+      set({
+        accounts: data.accounts,
+        mainCategories: data.mainCategories,
+        // ... etc ...
+
+        // LÄGG TILL/SÄKERSTÄLL ATT DENNA RAD FINNS:
+        transactions: data.transactions, 
+
+        isLoading: false,
+      });
+    },
+    ```
+
+När dessa två steg är genomförda kommer din app att:
+
+1.  Fråga servern efter transaktionerna vid start.
+2.  Ta emot transaktionerna från servern.
+3.  Ladda in dem i appens centrala minne.
+4.  Visa dem korrekt i ditt användargränssnitt.
+
+Då är hela kedjan, från att spara till att ladda, äntligen komplett för alla delar av din applikation.

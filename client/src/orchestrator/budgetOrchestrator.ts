@@ -1071,6 +1071,9 @@ export async function initializeApp(): Promise<void> {
   // Load category rules from PostgreSQL
   await loadCategoryRulesFromDatabase();
   
+  // CRITICAL FIX: Load all transactions from PostgreSQL at app startup
+  await loadTransactionsFromDatabase();
+  
   // Run initial calculations to ensure state is up to date
   runCalculationsAndUpdateState();
   
@@ -2397,6 +2400,65 @@ export async function getAllTransactionsFromDatabase(): Promise<ImportedTransact
     console.error('❌ [ORCHESTRATOR] Failed to get transactions from database:', error);
     // Return empty array as fallback, but log the error
     return [];
+  }
+}
+
+// NEW: Load all transactions from PostgreSQL at app startup
+async function loadTransactionsFromDatabase(): Promise<void> {
+  console.log('🔍 [ORCHESTRATOR] Loading all transactions from PostgreSQL at startup...');
+  addMobileDebugLog('[ORCHESTRATOR] Loading transactions from database...');
+  
+  try {
+    const { apiStore } = await import('../store/apiStore');
+    const dbTransactions = await apiStore.getTransactions();
+    
+    console.log(`✅ [ORCHESTRATOR] Loaded ${dbTransactions.length} transactions from PostgreSQL`);
+    addMobileDebugLog(`✅ [ORCHESTRATOR] Loaded ${dbTransactions.length} transactions from database`);
+    
+    // Convert database transactions to the format expected by budgetState
+    const convertedTransactions = (dbTransactions || []).map(tx => ({
+      id: tx.id,
+      accountId: tx.accountId,
+      date: tx.date,
+      amount: tx.amount,
+      balanceAfter: tx.balanceAfter || 0,
+      description: tx.description,
+      userDescription: tx.userDescription || '',
+      type: tx.type || 'Transaction',
+      status: tx.status || 'red',
+      linkedTransactionId: tx.linkedTransactionId,
+      correctedAmount: tx.correctedAmount,
+      isManuallyChanged: tx.isManuallyChanged === 'true',
+      appCategoryId: tx.appCategoryId,
+      appSubCategoryId: tx.appSubCategoryId,
+      bankCategory: tx.bankCategory || '',
+      bankSubCategory: tx.bankSubCategory || '',
+      createdAt: tx.createdAt || new Date().toISOString(),
+      fileSource: tx.fileSource || 'database'
+    }));
+    
+    // Store in centralized transaction storage
+    state.budgetState.allTransactions = convertedTransactions;
+    
+    console.log(`✅ [ORCHESTRATOR] Stored ${convertedTransactions.length} transactions in centralized storage`);
+    addMobileDebugLog(`✅ [ORCHESTRATOR] Centralized storage updated with ${convertedTransactions.length} transactions`);
+    
+    // Debug: Show sample of loaded transactions
+    if (convertedTransactions.length > 0) {
+      const sample = convertedTransactions.slice(0, 3);
+      console.log('[ORCHESTRATOR] Sample loaded transactions:', sample.map(tx => ({
+        description: tx.description,
+        amount: tx.amount,
+        date: tx.date,
+        bankCategory: tx.bankCategory
+      })));
+    }
+    
+  } catch (error) {
+    console.error('❌ [ORCHESTRATOR] Failed to load transactions from PostgreSQL:', error);
+    addMobileDebugLog(`❌ [ORCHESTRATOR] Failed to load transactions: ${error}`);
+    // Initialize with empty array as fallback
+    state.budgetState.allTransactions = [];
   }
 }
 
