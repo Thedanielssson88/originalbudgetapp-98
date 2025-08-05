@@ -393,9 +393,17 @@ export const TransactionImportEnhanced: React.FC = () => {
   const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
   
   // Bank selection state
-  const { data: banks = [] } = useBanks();
+  const { data: banks = [], isLoading: banksLoading, error: banksError } = useBanks();
   const { data: bankCSVMappings = [] } = useBankCsvMappings();
   const createBank = useCreateBank();
+  
+  // Debug banks data
+  console.log('🏦 [BANKS DEBUG] Banks data:', { 
+    banks: banks, 
+    count: banks?.length || 0, 
+    loading: banksLoading, 
+    error: banksError 
+  });
   const [selectedBanks, setSelectedBanks] = useState<{[accountId: string]: string}>({});
   const [showColumnMappingDialog, setShowColumnMappingDialog] = useState(false);
   const [currentMappingBankId, setCurrentMappingBankId] = useState<string>('');
