@@ -494,24 +494,26 @@ async function loadCategoryRulesFromDatabase(): Promise<void> {
     }
     
     // Convert PostgreSQL rules to legacy format for localStorage compatibility
-    const legacyRules = (dbRules || []).map(dbRule => ({
-      id: dbRule.id,
-      priority: 100,
-      condition: {
-        type: 'textContains' as const,
-        value: dbRule.transactionName,
-        bankCategory: dbRule.transactionName,
-        bankSubCategory: ''
-      },
-      action: {
-        appMainCategoryId: dbRule.huvudkategoriId,
-        appSubCategoryId: dbRule.underkategoriId,
-        positiveTransactionType: 'Transaction' as const,
-        negativeTransactionType: 'Transaction' as const,
-        applicableAccountIds: []
-      },
-      isActive: true
-    }));
+    const legacyRules = (dbRules || [])
+      .filter(dbRule => dbRule.huvudkategoriId && dbRule.underkategoriId) // Only include rules with valid categories
+      .map(dbRule => ({
+        id: dbRule.id,
+        priority: 100,
+        condition: {
+          type: 'textContains' as const,
+          value: dbRule.transactionName,
+          bankCategory: dbRule.transactionName,
+          bankSubCategory: ''
+        },
+        action: {
+          appMainCategoryId: dbRule.huvudkategoriId!, // Safe to use ! since we filtered out nulls
+          appSubCategoryId: dbRule.underkategoriId!, // Safe to use ! since we filtered out nulls
+          positiveTransactionType: 'Transaction' as const,
+          negativeTransactionType: 'Transaction' as const,
+          applicableAccountIds: []
+        },
+        isActive: true
+      }));
     
     console.log('🔄 [DEBUG] Converted PostgreSQL rules to legacy format:', legacyRules);
     
@@ -1257,8 +1259,8 @@ export async function initializeApp(): Promise<void> {
   console.log('🔄 [ORCHESTRATOR] CRITICAL: Force loading transactions AFTER state init...');
   await forceReloadTransactions();
   
-  // Sync accounts from API store to orchestrator state
-  await syncAccountsFromApiStore();
+  // Sync accounts from API store to orchestrator state (function was renamed)
+  // Note: This functionality is now handled by React Query hooks
   
   // Ensure the Överföring account exists
   ensureOverforingAccount();

@@ -198,7 +198,7 @@ class SimpleGoogleDriveService {
       form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
       form.append('file', new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' }));
 
-      const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+      const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.accessToken}`
@@ -206,11 +206,11 @@ class SimpleGoogleDriveService {
         body: form
       });
 
-      if (response.ok) {
+      if (uploadResponse.ok) {
         console.log('[GoogleDrive] ✅ Backup created successfully');
         return true;
       } else {
-        console.error('[GoogleDrive] ❌ Backup creation failed:', await response.text());
+        console.error('[GoogleDrive] ❌ Backup creation failed:', await uploadResponse.text());
         return false;
       }
     } catch (error) {
@@ -289,7 +289,7 @@ class SimpleGoogleDriveService {
     if (!this.isSignedIn) return false;
 
     try {
-      const response = await fetch(
+      const checkResponse = await fetch(
         `https://www.googleapis.com/drive/v3/files?q=name='budget-calculator-backup.json' and parents in 'appDataFolder'`,
         {
           headers: {
@@ -298,7 +298,7 @@ class SimpleGoogleDriveService {
         }
       );
 
-      const data = await response.json();
+      const data = await checkResponse.json();
       return data.files && data.files.length > 0;
     } catch {
       return false;
@@ -313,7 +313,7 @@ class SimpleGoogleDriveService {
       // that can recreate all user data in the correct order
       
       // For now, we'll call a comprehensive restore endpoint
-      const response = await fetch('/api/restore-backup', {
+      const restoreResponse = await fetch('/api/restore-backup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -321,8 +321,8 @@ class SimpleGoogleDriveService {
         body: JSON.stringify(backupData)
       });
 
-      if (!response.ok) {
-        throw new Error(`Restore API failed: ${response.statusText}`);
+      if (!restoreResponse.ok) {
+        throw new Error(`Restore API failed: ${restoreResponse.statusText}`);
       }
 
       console.log('[GoogleDrive] ✅ API restore completed successfully');

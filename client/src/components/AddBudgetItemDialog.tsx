@@ -45,15 +45,14 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
   
   const [availableSubcategories, setAvailableSubcategories] = useState<any[]>([]);
 
-  // Reset form when dialog opens - simplified
+  // Reset form when dialog opens
   useEffect(() => {
     if (isOpen) {
       setFormData(initialFormData);
-      setAvailableSubcategories([]);
     }
-  }, [isOpen, initialFormData]);
+  }, [isOpen]); // Remove initialFormData from dependencies to prevent infinite loop
 
-  // Simple derived state - no complex effects
+  // Filter subcategories based on selected main category
   const currentAvailableSubcategories = useMemo(() => {
     if (formData.mainCategoryId && underkategorier.length > 0) {
       return underkategorier.filter(sub => sub.huvudkategoriId === formData.mainCategoryId);
@@ -61,7 +60,7 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
     return [];
   }, [formData.mainCategoryId, underkategorier]);
 
-  // Use derived state instead of separate state
+  // Update available subcategories when the filtered list changes
   useEffect(() => {
     setAvailableSubcategories(currentAvailableSubcategories);
   }, [currentAvailableSubcategories]);
