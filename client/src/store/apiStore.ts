@@ -352,14 +352,14 @@ store = {
       }
       return budget;
     } catch (error) {
-      // If not found, create a new one with default values
+      // If not found, create a new one with default values (all income starts at 0)
       const newBudget = {
         monthKey,
-        andreasSalary: 45000,
+        andreasSalary: 0,
         andreasförsäkringskassan: 0,
         andreasbarnbidrag: 0,
-        susannaSalary: 40000,
-        susannaförsäkringskassan: 5000,
+        susannaSalary: 0,
+        susannaförsäkringskassan: 0,
         susannabarnbidrag: 0,
         dailyTransfer: 300,
         weekendTransfer: 540,

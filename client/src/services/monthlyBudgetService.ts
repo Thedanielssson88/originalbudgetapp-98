@@ -56,11 +56,11 @@ class MonthlyBudgetService {
 
     try {
       const updates: Partial<MonthlyBudget> = {
-        andreasSalary: currentData.andreasSalary ?? 45000,
+        andreasSalary: currentData.andreasSalary ?? 0,
         andreasförsäkringskassan: currentData.andreasförsäkringskassan ?? 0,
         andreasbarnbidrag: currentData.andreasbarnbidrag ?? 0,
-        susannaSalary: currentData.susannaSalary ?? 40000,
-        susannaförsäkringskassan: currentData.susannaförsäkringskassan ?? 5000,
+        susannaSalary: currentData.susannaSalary ?? 0,
+        susannaförsäkringskassan: currentData.susannaförsäkringskassan ?? 0,
         susannabarnbidrag: currentData.susannabarnbidrag ?? 0,
         dailyTransfer: currentData.dailyTransfer ?? 300,
         weekendTransfer: currentData.weekendTransfer ?? 540,
