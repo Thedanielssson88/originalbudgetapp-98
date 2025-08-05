@@ -382,9 +382,14 @@ async function loadCategoryRulesFromDatabase(): Promise<void> {
     const dbRules = await apiStore.getCategoryRules();
     
     console.log('✅ [DEBUG] Loaded rules from PostgreSQL:', dbRules);
+    
+    // Safety check: ensure categoryRules array exists before checking length
+    if (!state.budgetState.categoryRules) {
+      state.budgetState.categoryRules = [];
+    }
     console.log('✅ [DEBUG] Current categoryRules in state:', state.budgetState.categoryRules.length);
     
-    if (!dbRules || dbRules.length === 0) {
+    if (!dbRules || !Array.isArray(dbRules) || dbRules.length === 0) {
       console.log('⚠️ [DEBUG] No rules found in PostgreSQL database');
       return;
     }
@@ -411,8 +416,11 @@ async function loadCategoryRulesFromDatabase(): Promise<void> {
     
     console.log('🔄 [DEBUG] Converted PostgreSQL rules to legacy format:', legacyRules);
     
-    // Merge with existing localStorage rules (avoid duplicates)
-    const existingRuleIds = new Set((state.budgetState.categoryRules || []).map(r => r.id));
+    // Ensure categoryRules exists and merge with existing rules (avoid duplicates)
+    if (!state.budgetState.categoryRules) {
+      state.budgetState.categoryRules = [];
+    }
+    const existingRuleIds = new Set(state.budgetState.categoryRules.map(r => r.id));
     const newRules = legacyRules.filter(rule => !existingRuleIds.has(rule.id));
     
     console.log(`🔄 [DEBUG] Existing rules: ${existingRuleIds.size}, New rules to add: ${newRules.length}`);
