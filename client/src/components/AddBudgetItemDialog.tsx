@@ -8,13 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { BudgetItem, Account } from '../types/budget';
-import { StorageKey, get } from '../services/storageService';
+import { useHuvudkategorier, useUnderkategorier } from '../hooks/useCategories';
 
 interface AddBudgetItemDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (item: BudgetItem) => void;
-  mainCategories: string[];
   accounts: Account[];
   type: 'cost' | 'savings';
 }
@@ -23,10 +22,13 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
   isOpen, 
   onClose, 
   onSave, 
-  mainCategories, 
   accounts,
   type 
 }) => {
+  // Fetch categories from SQL database
+  const { data: huvudkategorier = [], isLoading: isLoadingHuvud } = useHuvudkategorier();
+  const { data: underkategorier = [], isLoading: isLoadingUnder } = useUnderkategorier();
+
   const [formData, setFormData] = useState({
     mainCategoryId: '',
     subCategoryId: '',
@@ -39,23 +41,11 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
     transferDays: [] as number[]
   });
   
-  const [subcategories, setSubcategories] = useState<Record<string, string[]>>({});
-  const [availableSubcategories, setAvailableSubcategories] = useState<string[]>([]);
+  const [availableSubcategories, setAvailableSubcategories] = useState<any[]>([]);
 
-  useEffect(() => {
-    const loadedSubcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
-    console.log('AddBudgetItemDialog: Loading subcategories:', loadedSubcategories);
-    setSubcategories(loadedSubcategories);
-  }, []);
-
-  // Reload subcategories when dialog opens
+  // Reset form when dialog opens
   useEffect(() => {
     if (isOpen) {
-      const loadedSubcategories = get<Record<string, string[]>>(StorageKey.SUBCATEGORIES) || {};
-      console.log('AddBudgetItemDialog: Reloading subcategories on dialog open:', loadedSubcategories);
-      setSubcategories(loadedSubcategories);
-      
-      // Reset form when dialog opens
       setFormData({
         mainCategoryId: '',
         subCategoryId: '',
@@ -70,16 +60,17 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
     }
   }, [isOpen]);
 
+  // Update available subcategories when huvudkategori changes
   useEffect(() => {
-    if (formData.mainCategoryId) {
-      const available = subcategories[formData.mainCategoryId] || [];
+    if (formData.mainCategoryId && underkategorier.length > 0) {
+      const available = underkategorier.filter(sub => sub.huvudkategoriId === formData.mainCategoryId);
       console.log(`AddBudgetItemDialog: Setting subcategories for ${formData.mainCategoryId}:`, available);
       setAvailableSubcategories(available);
       setFormData(prev => ({ ...prev, subCategoryId: '' }));
     } else {
       setAvailableSubcategories([]);
     }
-  }, [formData.mainCategoryId, subcategories]);
+  }, [formData.mainCategoryId, underkategorier]);
 
   const handleSave = () => {
     console.log('🔍 [DEBUG] AddBudgetItemDialog handleSave called with formData:', formData);
@@ -174,11 +165,15 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
                 <SelectValue placeholder="Välj huvudkategori" />
               </SelectTrigger>
               <SelectContent className="bg-popover border border-border shadow-lg z-50">
-                {mainCategories.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
-                  </SelectItem>
-                ))}
+                {isLoadingHuvud ? (
+                  <SelectItem value="loading" disabled>Laddar...</SelectItem>
+                ) : (
+                  huvudkategorier.map((kategori) => (
+                    <SelectItem key={kategori.id} value={kategori.id}>
+                      {kategori.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -194,11 +189,15 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
                 <SelectValue placeholder={formData.mainCategoryId ? "Välj underkategori" : "Välj först huvudkategori"} />
               </SelectTrigger>
               <SelectContent className="bg-popover border border-border shadow-lg z-50">
-                {availableSubcategories.map((subcategory) => (
-                  <SelectItem key={subcategory} value={subcategory}>
-                    {subcategory}
-                  </SelectItem>
-                ))}
+                {isLoadingUnder ? (
+                  <SelectItem value="loading" disabled>Laddar...</SelectItem>
+                ) : (
+                  availableSubcategories.map((subkategori) => (
+                    <SelectItem key={subkategori.id} value={subkategori.id}>
+                      {subkategori.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>

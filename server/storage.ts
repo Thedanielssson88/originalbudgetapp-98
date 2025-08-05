@@ -6,6 +6,7 @@ import {
   underkategorier,
   categoryRules,
   transactions,
+  budgetPosts,
   monthlyBudgets,
   type User, 
   type InsertUser,
@@ -21,6 +22,8 @@ import {
   type InsertCategoryRule,
   type Transaction,
   type InsertTransaction,
+  type BudgetPost,
+  type InsertBudgetPost,
   type MonthlyBudget,
   type InsertMonthlyBudget
 } from "@shared/schema";
@@ -76,6 +79,13 @@ export interface IStorage {
   updateTransaction(id: string, transaction: Partial<InsertTransaction>): Promise<Transaction | undefined>;
   deleteTransaction(id: string): Promise<boolean>;
   
+  // Budget Posts CRUD
+  getBudgetPosts(userId: string, monthKey?: string): Promise<BudgetPost[]>;
+  getBudgetPost(id: string): Promise<BudgetPost | undefined>;
+  createBudgetPost(post: InsertBudgetPost): Promise<BudgetPost>;
+  updateBudgetPost(id: string, post: Partial<InsertBudgetPost>): Promise<BudgetPost | undefined>;
+  deleteBudgetPost(id: string): Promise<boolean>;
+  
   // Monthly Budget CRUD
   getMonthlyBudgets(userId: string): Promise<MonthlyBudget[]>;
   getMonthlyBudget(userId: string, monthKey: string): Promise<MonthlyBudget | undefined>;
@@ -90,6 +100,7 @@ export interface IStorage {
     underkategorier: Underkategori[];
     categoryRules: CategoryRule[];
     transactions: Transaction[];
+    budgetPosts: BudgetPost[];
     monthlyBudgets: MonthlyBudget[];
   }>;
 }
@@ -101,6 +112,8 @@ export class MemStorage implements IStorage {
   private underkategorier: Map<string, Underkategori>;
   private categoryRules: Map<string, CategoryRule>;
   private transactions: Map<string, Transaction>;
+  private budgetPosts: Map<string, BudgetPost>;
+  private monthlyBudgets: Map<string, MonthlyBudget>;
 
   constructor() {
     this.users = new Map();
@@ -109,6 +122,8 @@ export class MemStorage implements IStorage {
     this.underkategorier = new Map();
     this.categoryRules = new Map();
     this.transactions = new Map();
+    this.budgetPosts = new Map();
+    this.monthlyBudgets = new Map();
   }
 
   // Bootstrap method
@@ -119,6 +134,7 @@ export class MemStorage implements IStorage {
     underkategorier: Underkategori[];
     categoryRules: CategoryRule[];
     transactions: Transaction[];
+    budgetPosts: BudgetPost[];
     monthlyBudgets: MonthlyBudget[];
   }> {
     return {
@@ -128,6 +144,7 @@ export class MemStorage implements IStorage {
       underkategorier: await this.getUnderkategorier(userId),
       categoryRules: await this.getCategoryRules(userId),
       transactions: await this.getTransactions(userId),
+      budgetPosts: await this.getBudgetPosts(userId),
       monthlyBudgets: await this.getMonthlyBudgets(userId),
     };
   }

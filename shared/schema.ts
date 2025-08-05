@@ -61,6 +61,25 @@ export const categoryRules = pgTable('category_rules', {
     underkategoriId: uuid('underkategori_id').references(() => underkategorier.id, { onDelete: 'cascade' }),
 });
 
+// Budget posts table for storing individual budget line items
+export const budgetPosts = pgTable('budget_posts', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    monthKey: text('month_key').notNull(), // Format: YYYY-MM
+    huvudkategoriId: uuid('huvudkategori_id').notNull().references(() => huvudkategorier.id, { onDelete: 'cascade' }),
+    underkategoriId: uuid('underkategori_id').notNull().references(() => underkategorier.id, { onDelete: 'cascade' }),
+    description: text('description').notNull(),
+    amount: integer('amount').notNull(), // For fixed monthly amounts
+    accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }),
+    financedFrom: text('financed_from').default('Löpande kostnad').notNull(), // 'Löpande kostnad' or 'Enskild kostnad'
+    transferType: text('transfer_type').default('monthly').notNull(), // 'monthly' or 'daily'
+    dailyAmount: integer('daily_amount'), // For daily transfers
+    transferDays: text('transfer_days'), // JSON array of weekday numbers [0-6] for daily transfers
+    type: text('type').notNull(), // 'cost' or 'savings'
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const monthlyBudgets = pgTable('monthly_budgets', {
     id: uuid('id').defaultRandom().primaryKey(),
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -125,6 +144,12 @@ export const insertCategoryRuleSchema = createInsertSchema(categoryRules).omit({
   id: true,
 });
 
+export const insertBudgetPostSchema = createInsertSchema(budgetPosts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertMonthlyBudgetSchema = createInsertSchema(monthlyBudgets).omit({
   id: true,
   createdAt: true,
@@ -152,6 +177,9 @@ export type Transaction = typeof transactions.$inferSelect;
 
 export type InsertCategoryRule = z.infer<typeof insertCategoryRuleSchema>;
 export type CategoryRule = typeof categoryRules.$inferSelect;
+
+export type InsertBudgetPost = z.infer<typeof insertBudgetPostSchema>;
+export type BudgetPost = typeof budgetPosts.$inferSelect;
 
 export type InsertMonthlyBudget = z.infer<typeof insertMonthlyBudgetSchema>;
 export type MonthlyBudget = typeof monthlyBudgets.$inferSelect;

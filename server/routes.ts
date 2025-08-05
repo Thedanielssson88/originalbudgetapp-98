@@ -8,7 +8,8 @@ import {
   insertUnderkategoriSchema, 
   insertCategoryRuleSchema,
   insertTransactionSchema,
-  insertMonthlyBudgetSchema
+  insertMonthlyBudgetSchema,
+  insertBudgetPostSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {

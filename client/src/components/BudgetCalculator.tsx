@@ -11054,7 +11054,6 @@ const BudgetCalculator = () => {
         isOpen={showAddBudgetDialog.isOpen}
         onClose={() => setShowAddBudgetDialog({ isOpen: false, type: 'cost' })}
         onSave={handleAddBudgetItem}
-        mainCategories={activeContent.activeCategories}
         accounts={budgetState.accounts}
         type={showAddBudgetDialog.type}
       />
