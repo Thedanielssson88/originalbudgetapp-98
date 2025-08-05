@@ -8,12 +8,26 @@ import { Trash2, Plus, Edit, Save, X, ChevronDown, ChevronUp, Database, AlertTri
 import { setMainCategories } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
 import { forceCompleteMigration, isMigrationCompleted } from '../services/categoryMigrationService';
+import { UuidCategoryManager } from './UuidCategoryManager';
 
 interface MainCategoriesSettingsProps {
   mainCategories: string[];
 }
 
 export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ mainCategories }) => {
+  const migrationCompleted = isMigrationCompleted();
+  
+  console.log('🔍 Migration completed status:', migrationCompleted);
+  
+  // If migration is completed, use the UUID-based category manager
+  if (migrationCompleted) {
+    console.log('✅ Using UUID Category Manager');
+    return <UuidCategoryManager />;
+  }
+  
+  // Otherwise use the legacy localStorage-based system
+  console.log('⚠️ Using legacy localStorage category system');
+  
   const [categories, setCategories] = useState<string[]>(mainCategories);
   const [newCategory, setNewCategory] = useState('');
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -27,14 +41,8 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
   const [editingSubcategoryValue, setEditingSubcategoryValue] = useState('');
   const [migrationInProgress, setMigrationInProgress] = useState(false);
   
-  const migrationCompleted = isMigrationCompleted();
-  
-  console.log('🔍 Migration completed status:', migrationCompleted);
-  console.log('🔍 Categories:', categories);
-  console.log('🔍 Should show button:', !migrationCompleted);
-  
-  // Force show migration button if we're still using old localStorage system
-  const shouldShowMigrationButton = !migrationCompleted || (migrationCompleted && categories.length > 0);
+  // Always show migration button for legacy system
+  const shouldShowMigrationButton = true;
 
   const handleCompleteUuidMigration = async () => {
     setMigrationInProgress(true);
