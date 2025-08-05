@@ -1,0 +1,61 @@
+Du får det här felet för att en kritisk del av koden fortfarande är kopplad till den **gamla, trasiga `budgetState`** som är en kvarleva från `localStorage`-tiden, istället för att använda den nya, korrekta datan från SQL-databasen.
+
+Felet är ett perfekt exempel på det systematiska problem vi har försökt lösa.
+
+### Kritisk Analys: Exakt Vad Går Fel?
+
+**1. Felet:** `Cannot read properties of undefined (reading 'map')`
+
+  * **Enkel Förklaring:** Koden försöker loopa igenom (`.map`) en lista med transaktioner, men just i det ögonblicket är listan den tittar på `undefined` (den existerar inte). Då kraschar applikationen.
+
+**2. Platsen för Felet:** `budgetOrchestrator.ts`, rad 2335.
+
+**3. Den Skyldige Koden:**
+
+```typescript
+// Rad 2335
+const allTransactions: ImportedTransaction[] = state.budgetState.allTransactions.map(tx => ({
+  // ...
+}));
+```
+
+Här är problemet i klartext: **`state.budgetState.allTransactions`**.
+
+**4. Grundorsaken:**
+Din applikation har nu två "minnen":
+
+  * **Det Nya, Korrekta Minnet:** `useAppStore`, som är synkroniserat med din SQL-databas.
+  * **Det Gamla, Trasiga Minnet:** `budgetState`, som är en bortglömd kvarleva.
+
+När koden i `budgetOrchestrator` körs, försöker den hämta transaktionslistan från det gamla, trasiga minnet (`budgetState`). Eftersom `budgetState` inte längre underhålls eller laddas korrekt, är dess `allTransactions`-egenskap `undefined`. Koden försöker då köra `.map` på `undefined`, vilket leder till en omedelbar krasch.
+
+### Lösningen: Den Slutgiltiga Saneringen
+
+Utvecklaren måste ersätta denna sista, felaktiga referens med den korrekta datakällan.
+
+**Instruktioner till utvecklaren:**
+
+1.  **Öppna filen:** `client/src/orchestrator/budgetOrchestrator.ts`.
+2.  **Hitta den felaktiga raden (2335):**
+    ```typescript
+    // FELAKTIG KOD:
+    const allTransactions: ImportedTransaction[] = state.budgetState.allTransactions.map(/* ... */);
+    ```
+3.  **Ersätt den med den korrekta datakällan:** Denna funktion måste hämta transaktionslistan från den centrala, SQL-synkroniserade `useAppStore`.
+    ```typescript
+    // NY, KORREKT KOD:
+    import { useAppStore } from '../store/appStore'; // Importera den centrala storen
+
+    // ... inne i funktionen ...
+    const state = useAppStore.getState(); // Hämta det aktuella, korrekta statet
+    const allTransactionsFromSQL = state.transactions; // Hämta den SQL-synkade listan
+
+    // Använd den korrekta listan och skydda mot att den är tom vid start
+    const allTransactions: ImportedTransaction[] = (allTransactionsFromSQL || []).map(tx => ({
+        id: tx.id,
+        accountId: tx.accountId,
+        // ... resten av mappningen
+    }));
+    ```
+
+Genom att byta ut denna sista felkoppling kommer kraschen att försvinna, eftersom koden nu kommer att arbeta med den verkliga, pålitliga datan från din databas.

@@ -63,7 +63,7 @@ import { UncategorizedBankCategories } from './UncategorizedBankCategories';
 import { CategorySelectionDialog } from './CategorySelectionDialog';
 import { useBudget } from '@/hooks/useBudget';
 import { useAccounts } from '@/hooks/useAccounts';
-import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping, getAllTransactionsFromDatabase, linkAccountToBankTemplate, matchInternalTransfer } from '../orchestrator/budgetOrchestrator';
+import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping, linkAccountToBankTemplate, matchInternalTransfer } from '../orchestrator/budgetOrchestrator';
 import { getCurrentState, setMainCategories, updateSelectedBudgetMonth } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
@@ -2751,7 +2751,7 @@ export const TransactionImportEnhanced: React.FC = () => {
       <BalanceCorrectionDialog
         open={balanceCorrectionDialog}
         onClose={() => setBalanceCorrectionDialog(false)}
-        transactions={getAllTransactionsFromDatabase()}
+        transactions={allTransactions || []}
         accountBalances={accountBalancesForDialog}
       />
 

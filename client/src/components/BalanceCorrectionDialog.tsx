@@ -48,7 +48,7 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
     console.log('🔍 [BALANCE CORRECTION] Account balances:', accountBalances);
     
     // Debug: Log all unique account IDs and their transaction counts
-    const allAccountIds = [...new Set(transactions.map(tx => tx.accountId))];
+    const allAccountIds = Array.from(new Set(transactions.map(tx => tx.accountId)));
     console.log('🔍 [BALANCE CORRECTION] All account IDs in transactions:', allAccountIds);
     
     allAccountIds.forEach(accountId => {
@@ -198,7 +198,7 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
 
   const handleUseBankBalance = async (monthData: MonthBalanceData) => {
     const key = `${monthData.monthKey}-${monthData.accountId}`;
-    setUpdatingBalances(prev => new Set([...prev, key]));
+    setUpdatingBalances(prev => new Set(Array.from(prev).concat([key])));
 
     try {
       const accountName = getAccountNameById(monthData.accountId);

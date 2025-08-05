@@ -75,6 +75,16 @@ class ApiStore {
     return response.json();
   }
 
+  async getTransactions(): Promise<any[]> {
+    const response = await fetch('/api/transactions');
+
+    if (!response.ok) {
+      throw new Error(`Failed to get transactions: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
   async getOrCreateMonthlyBudget(monthKey: string): Promise<any> {
     // No-op for now - placeholder for compatibility
     console.log(`[API Store] getOrCreateMonthlyBudget called for ${monthKey}`);

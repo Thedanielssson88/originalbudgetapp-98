@@ -2328,41 +2328,46 @@ export function getAccountNameById(accountId: string): string {
 
 // ===== TRANSACTION RETRIEVAL =====
 
-export function getAllTransactionsFromDatabase(): ImportedTransaction[] {
-  console.log('🔍 [ORCHESTRATOR] Getting all transactions from centralized storage...');
+export async function getAllTransactionsFromDatabase(): Promise<ImportedTransaction[]> {
+  console.log('🔍 [ORCHESTRATOR] Getting all transactions from SQL database...');
   
-  // CRITICAL: Use centralized transaction storage INCLUDING bank categories
-  const allTransactions: ImportedTransaction[] = state.budgetState.allTransactions.map(tx => ({
-    id: tx.id,
-    accountId: tx.accountId,
-    date: tx.date,
-    amount: tx.amount,
-    balanceAfter: tx.balanceAfter,
-    description: tx.description,
-    userDescription: tx.userDescription,
-    type: tx.type as ImportedTransaction['type'],
-    status: tx.status as ImportedTransaction['status'],
-    linkedTransactionId: tx.linkedTransactionId,
-    correctedAmount: tx.correctedAmount,
-    isManuallyChanged: tx.isManuallyChanged,
-    appCategoryId: tx.appCategoryId,
-    appSubCategoryId: tx.appSubCategoryId,
-    bankCategory: tx.bankCategory,  // CRITICAL: Include bank category from file (now properly typed)
-    bankSubCategory: tx.bankSubCategory,  // CRITICAL: Include bank subcategory from file (now properly typed)
-    importedAt: (tx as any).importedAt || new Date().toISOString(),
-    fileSource: (tx as any).fileSource || 'database'
-  } as ImportedTransaction));
-  
-  console.log(`🔍 [ORCHESTRATOR] Total transactions from centralized storage: ${allTransactions.length}`);
-  
-  // DEBUG: Check if bank categories are present
-  const transactionsWithBankCategories = allTransactions.filter(tx => tx.bankCategory);
-  console.log(`🔍 [ORCHESTRATOR DEBUG] Transactions with bankCategory: ${transactionsWithBankCategories.length}/${allTransactions.length}`);
-  if (transactionsWithBankCategories.length > 0) {
-    console.log(`🔍 [ORCHESTRATOR DEBUG] Sample bankCategory: "${transactionsWithBankCategories[0].bankCategory}"`);
-    console.log(`🔍 [ORCHESTRATOR DEBUG] Sample bankSubCategory: "${transactionsWithBankCategories[0].bankSubCategory}"`);
-    console.log(`🔍 [ORCHESTRATOR DEBUG] Sample description: "${transactionsWithBankCategories[0].description}"`);
-  } else {
+  try {
+    // NEW: Get transactions directly from database instead of broken budgetState
+    const transactionsFromDB = await apiStore.getTransactions();
+    console.log(`🔍 [ORCHESTRATOR] Retrieved ${transactionsFromDB.length} transactions from SQL database`);
+    
+    // Convert database transactions to ImportedTransaction format
+    const allTransactions: ImportedTransaction[] = (transactionsFromDB || []).map(tx => ({
+      id: tx.id,
+      accountId: tx.accountId,
+      date: tx.date,
+      amount: tx.amount,
+      balanceAfter: tx.balanceAfter || 0,
+      description: tx.description,
+      userDescription: tx.userDescription || '',
+      type: (tx.type as ImportedTransaction['type']) || 'Transaction',
+      status: (tx.status as ImportedTransaction['status']) || 'red',
+      linkedTransactionId: tx.linkedTransactionId,
+      correctedAmount: tx.correctedAmount,
+      isManuallyChanged: tx.isManuallyChanged || false,
+      appCategoryId: tx.hoofdkategoriId,
+      appSubCategoryId: tx.underkategoriId,
+      bankCategory: tx.bankCategory || '',
+      bankSubCategory: tx.bankSubCategory || '',
+      importedAt: tx.createdAt || new Date().toISOString(),
+      fileSource: tx.fileSource || 'database'
+    } as ImportedTransaction));
+    
+    console.log(`🔍 [ORCHESTRATOR] Total transactions from SQL database: ${allTransactions.length}`);
+    
+    // DEBUG: Check if bank categories are present
+    const transactionsWithBankCategories = allTransactions.filter(tx => tx.bankCategory);
+    console.log(`🔍 [ORCHESTRATOR DEBUG] Transactions with bankCategory: ${transactionsWithBankCategories.length}/${allTransactions.length}`);
+    if (transactionsWithBankCategories.length > 0) {
+      console.log(`🔍 [ORCHESTRATOR DEBUG] Sample bankCategory: "${transactionsWithBankCategories[0].bankCategory}"`);
+      console.log(`🔍 [ORCHESTRATOR DEBUG] Sample bankSubCategory: "${transactionsWithBankCategories[0].bankSubCategory}"`);
+      console.log(`🔍 [ORCHESTRATOR DEBUG] Sample description: "${transactionsWithBankCategories[0].description}"`);
+    } else {
     console.log(`🔍 [ORCHESTRATOR DEBUG] NO TRANSACTIONS WITH BANK CATEGORIES FOUND! Checking first few transactions...`);
     const sampleTransactions = allTransactions.slice(0, 3);
     sampleTransactions.forEach((tx, i) => {
@@ -2371,6 +2376,12 @@ export function getAllTransactionsFromDatabase(): ImportedTransaction[] {
   }
   
   return allTransactions;
+  
+  } catch (error) {
+    console.error('❌ [ORCHESTRATOR] Failed to get transactions from database:', error);
+    // Return empty array as fallback, but log the error
+    return [];
+  }
 }
 
 // NEW: Function to update payday setting
