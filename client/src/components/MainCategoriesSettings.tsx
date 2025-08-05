@@ -9,12 +9,14 @@ import { setMainCategories } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
 import { forceCompleteMigration, isMigrationCompleted } from '../services/categoryMigrationService';
 import { UuidCategoryManager } from './UuidCategoryManager';
+import { useToast } from '@/hooks/use-toast';
 
 interface MainCategoriesSettingsProps {
   mainCategories: string[];
 }
 
 export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ mainCategories }) => {
+  const { toast } = useToast();
   const migrationCompleted = isMigrationCompleted();
   
   console.log('🔍 Migration completed status:', migrationCompleted);
@@ -79,9 +81,9 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
       localStorage.removeItem('categoryMigrationCompleted');
       localStorage.removeItem('categoryMigrationMapping');
       
-      console.log('🧹 Cleared old migration flags, starting fresh migration...');
+      console.log('🧹 Starting comprehensive migration...');
       
-      // First populate database with current categories
+      // Collect all localStorage data for migration
       const currentCategories = categories.length > 0 ? categories : ["Transport", "Barn", "Mat & dryck", "Hushåll", "Hälsa", "Nöje, Fritid & Media", "Inkomster", "Övrigt"];
       const currentSubcategories = Object.keys(subcategories).length > 0 ? subcategories : {
         "Transport": ["Bränsle", "Kollektivtrafik", "Bil service", "Parkering"],
@@ -94,22 +96,42 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
         "Övrigt": ["Gåvor", "Välgörenhet", "Övrigt"]
       };
       
-      // Populate database first
-      const migrateResponse = await fetch('/api/migrate-categories', {
+      // Get existing transactions and rules from localStorage 
+      const budgetData = get(StorageKey.BUDGET_CALCULATOR_DATA) || {};
+      const existingTransactions = Array.isArray(budgetData.allTransactions) ? budgetData.allTransactions : [];
+      const existingRules = get(StorageKey.CATEGORY_RULES) || [];
+      
+      console.log('📊 Migrating data:', {
+        categories: currentCategories.length,
+        subcategories: Object.keys(currentSubcategories).length,
+        transactions: existingTransactions.length,
+        rules: Array.isArray(existingRules) ? existingRules.length : 0
+      });
+
+      // Call comprehensive migration API
+      const migrateResponse = await fetch('/api/migrate-all-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mainCategories: currentCategories,
-          subcategories: currentSubcategories
+          subcategories: currentSubcategories,
+          transactions: existingTransactions,
+          rules: existingRules
         })
       });
       
       if (!migrateResponse.ok) {
-        throw new Error('Failed to populate database');
+        throw new Error('Failed to complete comprehensive migration');
       }
       
       const migrationData = await migrateResponse.json();
-      console.log('✅ Database populated:', migrationData);
+      console.log('✅ Comprehensive migration completed:', migrationData);
+      
+      // Show success message
+      toast({
+        title: 'Migration Slutförd!',
+        description: `Migrerade ${migrationData.huvudkategorier.length} kategorier, ${migrationData.underkategorier.length} underkategorier, ${migrationData.migratedTransactions} transaktioner, och ${migrationData.migratedRules} regler.`,
+      });
       
       // Save mapping and mark complete
       if (migrationData.categoryMapping) {
@@ -118,9 +140,14 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
       set(StorageKey.CATEGORY_MIGRATION_COMPLETED, new Date().toISOString());
       
       // Force page reload to switch to UUID system
-      window.location.reload();
+      setTimeout(() => window.location.reload(), 2000);
     } catch (error) {
       console.error('Migration failed:', error);
+      toast({
+        title: 'Migration Misslyckades',
+        description: 'Ett fel uppstod under migreringen. Försök igen.',
+        variant: 'destructive'
+      });
       setMigrationInProgress(false);
     }
   };
@@ -238,18 +265,23 @@ export const MainCategoriesSettings: React.FC<MainCategoriesSettingsProps> = ({ 
           <Alert className="border-orange-200 bg-orange-50 dark:bg-orange-900/20">
             <AlertTriangle className="h-4 w-4 text-orange-500" />
             <AlertDescription className="text-orange-700 dark:text-orange-300">
-              <div className="flex items-center justify-between">
-                <span>
-                  <strong>VIKTIGT:</strong> Du använder det gamla kategori-systemet. När du byter namn på kategorier försvinner underkategorierna. Klicka här för att fixa detta problem permanent.
-                </span>
+              <div className="flex flex-col space-y-3">
+                <div>
+                  <strong>VIKTIGT:</strong> Du använder det gamla kategori-systemet. När du byter namn på kategorier försvinner underkategorierna. 
+                </div>
+                <div className="text-sm opacity-90">
+                  "Fixa nu" kommer att:
+                  • Importera alla dina befintliga kategorier till UUID-systemet
+                  • Konvertera alla transaktioner och regler
+                  • Aktivera säker kategorinamnändring (underkategorier försvinner inte)
+                </div>
                 <Button 
-                  size="sm" 
                   onClick={handleCompleteUuidMigration}
                   disabled={migrationInProgress}
-                  className="ml-4 bg-orange-500 hover:bg-orange-600 text-white"
+                  className="bg-orange-500 hover:bg-orange-600 text-white self-start"
                 >
                   <Database className="h-4 w-4 mr-2" />
-                  {migrationInProgress ? 'Fixar...' : 'Fixa nu'}
+                  {migrationInProgress ? 'Migrerar all data...' : 'Fixa nu - Komplett Migration'}
                 </Button>
               </div>
             </AlertDescription>

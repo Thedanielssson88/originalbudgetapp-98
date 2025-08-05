@@ -20,6 +20,7 @@ export enum StorageKey {
   SUBCATEGORIES = 'subcategories',
   BANKS = 'banks',
   BANK_CSV_MAPPINGS = 'bank_csv_mappings',
+  CATEGORY_RULES = 'categoryRules',
   CATEGORY_MIGRATION_MAPPING = 'category_migration_mapping',
   CATEGORY_MIGRATION_COMPLETED = 'category_migration_completed'
 }
