@@ -440,6 +440,37 @@ const BudgetCalculator = () => {
       });
     }
   }, [monthlyBudget]);
+
+  // Individual setters for income values (for backward compatibility)
+  const setAndreasSalary = (value: number) => {
+    setLocalIncomeValues(prev => ({ ...prev, andreasSalary: value.toString() }));
+    updateIncome({ andreasSalary: value });
+  };
+
+  const setAndreasförsäkringskassan = (value: number) => {
+    setLocalIncomeValues(prev => ({ ...prev, andreasförsäkringskassan: value.toString() }));
+    updateIncome({ andreasförsäkringskassan: value });
+  };
+
+  const setAndreasbarnbidrag = (value: number) => {
+    setLocalIncomeValues(prev => ({ ...prev, andreasbarnbidrag: value.toString() }));
+    updateIncome({ andreasbarnbidrag: value });
+  };
+
+  const setSusannaSalary = (value: number) => {
+    setLocalIncomeValues(prev => ({ ...prev, susannaSalary: value.toString() }));
+    updateIncome({ susannaSalary: value });
+  };
+
+  const setSusannaförsäkringskassan = (value: number) => {
+    setLocalIncomeValues(prev => ({ ...prev, susannaförsäkringskassan: value.toString() }));
+    updateIncome({ susannaförsäkringskassan: value });
+  };
+
+  const setSusannabarnbidrag = (value: number) => {
+    setLocalIncomeValues(prev => ({ ...prev, susannabarnbidrag: value.toString() }));
+    updateIncome({ susannabarnbidrag: value });
+  };
   
   // CRITICAL DEBUG: Log what data is actually available
   console.log(`🔍 [DATA LOADING] selectedMonthKey: ${selectedMonthKey}`);
