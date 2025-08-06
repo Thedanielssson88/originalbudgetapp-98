@@ -29,6 +29,11 @@ npm run db:push  # Push schema changes to database
 npm start
 ```
 
+**Package Management:**
+- Project uses npm with package-lock.json
+- Dependencies include React 18, Express 4, Drizzle ORM, shadcn/ui components
+- TypeScript 5.6.3 with strict type checking enabled
+
 ## Application Architecture
 
 This is a full-stack budget management application with PostgreSQL database, Express.js backend, and React frontend.
@@ -42,14 +47,20 @@ This is a full-stack budget management application with PostgreSQL database, Exp
 ### Database Schema
 The application uses PostgreSQL with UUID-based entities managed through Drizzle ORM:
 - `users` - User accounts (mock auth with dev-user-123)
-- `accounts` - Financial accounts (checking, savings, etc.)
-- `transactions` - Bank transactions with categorization
-- `huvudkategorier` / `underkategorier` - Category hierarchy system
-- `categoryRules` - Automated transaction categorization rules
-- `monthlyBudgets` - Monthly budget configurations
-- `budgetPosts` - Individual budget line items
-- `monthlyAccountBalances` - Monthly account balance tracking
-- `banks` / `bankCsvMappings` - Bank import configuration
+- `familyMembers` - Household user management with UUID keys
+- `accounts` - Financial accounts with bank template mapping and family member assignment
+- `transactions` - Bank transactions with UUID-based categorization and full audit trail
+- `huvudkategorier` / `underkategorier` - UUID-based category hierarchy system (eliminates naming conflicts)
+- `categoryRules` - Automated transaction categorization rules with UUID category references
+- `monthlyBudgets` / `budgetPosts` - Monthly budget configurations with UUID relationships
+- `monthlyAccountBalances` - Payday-based balance tracking (25th of each month)
+- `banks` / `bankCsvMappings` - Bank import configuration with column mapping persistence
+
+**Critical Schema Features:**
+- All entities use UUID primary keys to eliminate conflicts
+- Foreign key relationships ensure data integrity
+- Month-based partitioning for balance calculations
+- User isolation through userId foreign keys
 
 ### Key Backend Files
 - `server/index.ts` - Main server entry point with middleware setup
@@ -101,13 +112,18 @@ The application uses PostgreSQL with UUID-based entities managed through Drizzle
 - **Month-based Filtering**: Display logic filters centralized transaction array
 - **Smart Merge Logic**: CSV import uses intelligent reconciliation to prevent duplicates
 - **Real-time Updates**: UI automatically refreshes on state changes
+- **Hybrid Storage**: PostgreSQL backend with localStorage fallback for development
+- **State Persistence**: TanStack Query for server state, localStorage for client state
+- **Mobile Debug System**: Comprehensive logging system for troubleshooting mobile issues
 
 ### Transaction Processing Flow
-1. **CSV Import**: Files parsed through `importAndReconcileFile()` function
-2. **Data Reconciliation**: Smart merge compares file data with existing transactions
-3. **Bank Balance Updates**: Account balances calculated from transaction history
-4. **Category Application**: Rules engine applies categorization automatically
-5. **UI Refresh**: Components re-render with updated transaction data
+1. **CSV/XLSX Import**: Files parsed through `importAndReconcileFile()` function with encoding cleanup
+2. **Column Mapping**: Bank-specific CSV mapping stored in `bankCsvMappings` table
+3. **Data Reconciliation**: Smart merge compares file data with existing transactions using multiple criteria
+4. **Balance Calculation**: Monthly account balances calculated based on payday logic (25th of month)
+5. **Category Application**: UUID-based rules engine applies categorization automatically
+6. **Database Persistence**: All changes committed to PostgreSQL with audit trail
+7. **UI Refresh**: TanStack Query invalidation triggers component re-renders
 
 ### Build Process
 - Frontend built with Vite to `dist/public/`
@@ -143,13 +159,33 @@ The application uses PostgreSQL with UUID-based entities managed through Drizzle
 
 ## Environment Setup
 - Application runs on port 5000 (both development and production)  
-- Requires Node.js with npm
+- Requires Node.js with npm (project uses ES modules)
 - PostgreSQL database via `DATABASE_URL` (uses Neon serverless by default)
+- Drizzle Kit for database schema management
 - Optional: Google Drive API credentials for cloud backup
+- Development uses Vite with HMR and esbuild for backend bundling
+- Production serves static files and API from single Express server
+
+## Critical Implementation Notes
+
+### Recent Major Changes (January 2025)
+- **Complete UUID Migration**: All entities migrated from string-based to UUID-based identifiers
+- **Database Persistence**: Monthly account balances now persist in PostgreSQL
+- **Enhanced Import System**: Improved CSV/XLSX handling with better encoding support
+- **TypeScript Compilation**: All compilation errors resolved, clean build process
+
+### Development Priorities
+- Always use UUID-based category operations, never string-based lookups
+- Ensure all database operations go through the orchestrator pattern
+- Test import functionality with real bank CSV/XLSX files
+- Validate monthly balance calculations match payday logic (25th of month)
+- Use TanStack Query for all server state management
 
 ## Key Files for Understanding
 - `replit.md` - Comprehensive project overview and recent changes
-- `shared/schema.ts` - Complete database schema with UUID relationships
+- `shared/schema.ts` - Complete database schema with UUID relationships and foreign keys
 - `client/src/orchestrator/budgetOrchestrator.ts` - Core business logic and state management
-- `server/routes.ts` - API endpoints with mock authentication
+- `server/dbStorage.ts` - PostgreSQL operations with UUID-based queries
+- `server/routes.ts` - API endpoints with mock authentication middleware
 - `client/src/state/budgetState.ts` - Central state definition and persistence
+- `client/src/services/categoryMigrationService.ts` - UUID migration and data conversion

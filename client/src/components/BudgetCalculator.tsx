@@ -18,6 +18,7 @@ import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit
 import { useCategoryResolver, useHuvudkategorier, useUnderkategorier } from '../hooks/useCategories';
 import { useUuidCategoryBridge } from '../services/uuidCategoryBridge';
 import { StorageKey, get, set } from '../services/storageService';
+import { formatOrenAsCurrency } from '@/utils/currencyUtils';
 
 import { CostItemEditDialog } from './CostItemEditDialog';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
@@ -597,7 +598,7 @@ const BudgetCalculator = () => {
   const accountEndBalances = calculateAccountEndBalances(
     budgetState.historicalData, 
     budgetState.selectedMonthKey, 
-    budgetState.accounts
+    accountsFromAPI || []
   );
   const accountEndBalancesSet = {}; // No longer used since it's calculated
 
@@ -736,18 +737,18 @@ const BudgetCalculator = () => {
     console.log(`🔍 [DEBUG] ============= getTransactionsForAccount START =============`);
     console.log(`🔍 [DEBUG] Looking for account: "${accountName}"`);
     console.log(`🔍 [DEBUG] Total transactions in period: ${allPeriodTransactions.length}`);
-    console.log(`🔍 [DEBUG] Available accounts:`, budgetState.accounts);
+    console.log(`🔍 [DEBUG] Available accounts:`, accountsFromAPI);
     
     // Log all transactions with their account info
     console.log(`🔍 [DEBUG] ALL TRANSACTIONS WITH ACCOUNT INFO:`);
     (allPeriodTransactions || []).forEach((t: Transaction, index: number) => {
-      const account = (budgetState.accounts || []).find(acc => acc.id === t.accountId);
+      const account = (accountsFromAPI || []).find(acc => acc.id === t.accountId);
       console.log(`🔍 [DEBUG] Transaction ${index}: id=${t.id}, accountId=${t.accountId}, resolved account name="${account?.name}", amount=${t.amount}, description="${t.description}", status=${t.status}, appCategoryId=${t.appCategoryId}, date=${t.date}`);
     });
     
     // Method 1: Find transactions directly by accountId
     const directAccountTransactions = (allPeriodTransactions || []).filter((t: Transaction) => {
-      const account = (budgetState.accounts || []).find(acc => acc.id === t.accountId);
+      const account = (accountsFromAPI || []).find(acc => acc.id === t.accountId);
       const matchesDirect = account?.name === accountName;
       if (matchesDirect) {
         console.log(`🔍 [DEBUG] ✅ DIRECT MATCH - Transaction ${t.id}: accountId=${t.accountId}, resolved name=${account?.name}, amount=${t.amount}, date=${t.date}`);
@@ -773,7 +774,7 @@ const BudgetCalculator = () => {
       group.subCategories?.forEach(sub => {
         // Check both legacy account name and new accountId structure
         const matchesLegacy = sub.account === accountName;
-        const account = (budgetState.accounts || []).find(acc => acc.id === sub.accountId);
+        const account = (accountsFromAPI || []).find(acc => acc.id === sub.accountId);
         const matchesNew = account?.name === accountName;
         
         if (matchesLegacy || matchesNew) {
@@ -836,15 +837,15 @@ const BudgetCalculator = () => {
       description: t.description
     })));
     
-    // FIXED: Filter for Transaction type with negative amounts (cost transactions)
+    // FIXED: Show only negative amount transactions (costs) for account drill-down
     const transactions = allTransactions.filter(t => {
-      const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+      const effectiveAmount = (t.correctedAmount !== undefined && t.correctedAmount !== null && t.correctedAmount !== t.amount) ? t.correctedAmount : t.amount;
       const isTransaction = t.type === 'Transaction';
       const isNegative = effectiveAmount < 0;
       
-      console.log(`🔍 [DEBUG] Transaction ${t.description || 'No desc'}: type=${t.type}, effectiveAmount=${effectiveAmount}, isTransaction=${isTransaction}, isNegative=${isNegative}`);
+      console.log(`🔍 [DEBUG] Transaction ${t.description || 'No desc'}: type=${t.type}, effectiveAmount=${effectiveAmount}, isTransaction=${isTransaction}, isNegative=${isNegative}, included=${isTransaction && isNegative}`);
       
-      return isTransaction && isNegative;
+      return isTransaction && isNegative; // Show only Transaction type with negative amounts
     });
     
     console.log(`🔍 [DEBUG] transactions after filtering (type=Transaction AND negative): ${transactions.length}`);
@@ -1481,14 +1482,14 @@ const BudgetCalculator = () => {
   const handleAddBudgetItem = (budgetItem: any) => {
     console.log('🔍 [DEBUG] handleAddBudgetItem called with:', budgetItem);
     console.log('🔍 [DEBUG] budgetItem.accountId:', budgetItem.accountId);
-    console.log('🔍 [DEBUG] Available accounts:', budgetState.accounts);
+    console.log('🔍 [DEBUG] Available accounts:', accountsFromAPI);
     console.log('🔍 [DEBUG] SQL huvudkategorier:', huvudkategorier);
     console.log('🔍 [DEBUG] SQL underkategorier:', underkategorier);
     
     // Find category names from SQL data using UUIDs
     const selectedHuvudkategori = huvudkategorier.find(k => k.id === budgetItem.mainCategoryId);
     const selectedUnderkategori = underkategorier.find(k => k.id === budgetItem.subCategoryId);
-    const selectedAccount = (budgetState.accounts || []).find(acc => acc.id === budgetItem.accountId);
+    const selectedAccount = (accountsFromAPI || []).find(acc => acc.id === budgetItem.accountId);
     
     console.log('🔍 [DEBUG] Found huvudkategori:', selectedHuvudkategori);
     console.log('🔍 [DEBUG] Found underkategori:', selectedUnderkategori);
@@ -2325,7 +2326,7 @@ const BudgetCalculator = () => {
     
     // Always recalculate final balances based on previous month's current data
     const finalBalances: {[key: string]: number} = {};
-    const accountsToProcess = budgetState.accounts.map(acc => acc.name);
+    const accountsToProcess = (accountsFromAPI || []).map(acc => acc.name);
     
     accountsToProcess.forEach(account => {
       // Use the actual account balance if it exists and is not 0
@@ -4095,12 +4096,12 @@ const BudgetCalculator = () => {
   const getBankBalance = (accountName: string, monthKey: string) => {
     console.log(`🔍 [BANK BALANCE] Starting getBankBalance for account: ${accountName}, month: ${monthKey}`);
     
-    // Find account ID from account name - budgetState.accounts is an array of {id, name} objects
-    const accountObj = (budgetState.accounts || []).find(acc => acc.name === accountName);
+    // Find account ID from account name - accountsFromAPI is an array of {id, name} objects
+    const accountObj = (accountsFromAPI || []).find(acc => acc.name === accountName);
     const accountId = accountObj?.id;
     
     console.log(`🔍 [BANK BALANCE] Found accountId: ${accountId} for accountName: ${accountName}`);
-    console.log(`🔍 [BANK BALANCE] Available accounts:`, (budgetState.accounts || []).map(acc => ({ id: acc.id, name: acc.name })));
+    console.log(`🔍 [BANK BALANCE] Available accounts:`, (accountsFromAPI || []).map(acc => ({ id: acc.id, name: acc.name })));
     
     if (!accountId) {
       console.log(`🔍 [BANK BALANCE] No accountId found for account name: ${accountName}`);
@@ -6760,24 +6761,28 @@ const BudgetCalculator = () => {
                                     console.log(`🔍 [ACCOUNT VIEW] Total budget for ${account.name}: ${totalBudget}`);
                                     
                                        // 3. FIXED: Use accountId directly instead of account name
-                                       const transactionsForThisAccount = getTransactionsForAccountId(account.id);
+                                       const allTransactionsForThisAccount = getTransactionsForAccountId(account.id);
                                      
-                                     console.log(`🔍 [ACCOUNT VIEW] Found ${transactionsForThisAccount.length} transactions for ${account.name} (ID: ${account.id}):`, transactionsForThisAccount);
+                                     console.log(`🔍 [ACCOUNT VIEW] Found ${allTransactionsForThisAccount.length} total transactions for ${account.name} (ID: ${account.id}):`, allTransactionsForThisAccount);
                                      
-                                        // 4. Beräkna det FAKTISKA beloppet genom enkel summering
-                                        // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
-                                        // But EXCLUDE positive amounts (income) from cost calculations
-                                        const actualAmount = transactionsForThisAccount
+                                        // 4. Filter for negative transactions only (costs) - both for calculation and display count
+                                        const negativeTransactions = allTransactionsForThisAccount
                                           .filter((t: any) => {
-                                            const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+                                            const effectiveAmount = (t.correctedAmount !== undefined && t.correctedAmount !== null && t.correctedAmount !== t.amount) ? t.correctedAmount : t.amount;
                                             return effectiveAmount < 0; // Only include negative amounts (costs)
-                                          })
+                                          });
+                                          
+                                        console.log(`🔍 [ACCOUNT VIEW] Found ${negativeTransactions.length} negative transactions for ${account.name}`);
+                                     
+                                        // 5. Beräkna det FAKTISKA beloppet genom enkel summering av negativa transaktioner
+                                        // MUST use same logic as drill-down dialog for consistency
+                                        const actualAmount = negativeTransactions
                                           .reduce((sum: number, t: any) => {
-                                            const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+                                            const effectiveAmount = (t.correctedAmount !== undefined && t.correctedAmount !== null && t.correctedAmount !== t.amount) ? t.correctedAmount : t.amount;
                                             return sum + Math.abs(effectiveAmount);
                                           }, 0);
                                      
-                                     console.log(`🔍 [ACCOUNT VIEW] Actual amount for ${account.name}: ${actualAmount}`);
+                                     console.log(`🔍 [ACCOUNT VIEW] Actual amount for ${account.name}: ${actualAmount} (from ${negativeTransactions.length} negative transactions)`);
                                      
                                      const difference = totalBudget - actualAmount;
                                     
@@ -6824,7 +6829,7 @@ const BudgetCalculator = () => {
                                           <div className="text-right space-y-2">
                                             <div className="bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 rounded-lg p-3 border border-purple-200 dark:border-purple-800">
                                               <div className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                                                Budget: <span className="font-bold text-purple-900 dark:text-purple-100">{formatCurrency(totalBudget)}</span>
+                                                Budget: <span className="font-bold text-purple-900 dark:text-purple-100">{formatOrenAsCurrency(totalBudget)}</span>
                                               </div>
                                               <div className="text-sm font-medium text-orange-700 dark:text-orange-300 mt-1">
                                                 Faktiskt: 
@@ -6832,12 +6837,12 @@ const BudgetCalculator = () => {
                                                   className="ml-1 font-bold text-orange-800 dark:text-orange-200 hover:text-orange-600 dark:hover:text-orange-400 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200"
                                                   onClick={() => openAccountDrillDownDialog(account.id, account.name, totalBudget, actualAmount)}
                                                 >
-                                                  {formatCurrency(actualAmount)}
+                                                  {formatOrenAsCurrency(actualAmount)}
                                                 </button>
                                               </div>
                                               <div className={`text-sm font-bold mt-1 ${difference >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
                                                 <span className="inline-flex items-center gap-1">
-                                                  {difference >= 0 ? '↗' : '↘'} {difference >= 0 ? '+' : ''}{formatCurrency(Math.abs(difference))}
+                                                  {difference >= 0 ? '↗' : '↘'} {difference >= 0 ? '+' : ''}{formatOrenAsCurrency(Math.abs(difference))}
                                                 </span>
                                               </div>
                                             </div>
@@ -6850,7 +6855,7 @@ const BudgetCalculator = () => {
                                             <div className="mt-4 pl-8 space-y-3 border-l-4 border-accent/30 bg-gradient-to-r from-accent/10 to-transparent rounded-r-lg pr-4 py-3">
                                               <div className="text-center py-4 text-muted-foreground">
                                                 <div>Expansion för {account.name}</div>
-                                                <div>{transactionsForThisAccount.length} transaktioner hittades</div>
+                                                <div>{negativeTransactions.length} kostnadstransaktioner hittades</div>
                                               </div>
                                             </div>
                                           </div>
@@ -8234,7 +8239,7 @@ const BudgetCalculator = () => {
                                 
                                 // Then try ID matching
                                 if (!accountMatches) {
-                                  const accountObj = (budgetState.accounts || []).find(acc => acc.name === account);
+                                  const accountObj = (accountsFromAPI || []).find(acc => acc.name === account);
                                   accountMatches = accountObj && goal.accountId === accountObj.id;
                                 }
                                 
@@ -9652,7 +9657,7 @@ const BudgetCalculator = () => {
                               <SelectValue placeholder="Välj konto" />
                             </SelectTrigger>
                             <SelectContent>
-                              {(budgetState.accounts || []).map(account => (
+                              {(accountsFromAPI || []).map(account => (
                                 <SelectItem key={account.id} value={account.id}>
                                   {account.name}
                                 </SelectItem>
@@ -9742,7 +9747,7 @@ const BudgetCalculator = () => {
                       const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
                                          (end.getMonth() - start.getMonth()) + 1;
                       const monthlyAmount = goal.targetAmount / monthsDiff;
-                      const accountName = (budgetState.accounts || []).find(acc => acc.id === goal.accountId)?.name || 'Okänt konto';
+                      const accountName = (accountsFromAPI || []).find(acc => acc.id === goal.accountId)?.name || 'Okänt konto';
                       
                       return (
                         <Card key={goal.id} className="hover:shadow-lg transition-shadow">

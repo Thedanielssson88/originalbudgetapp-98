@@ -8,6 +8,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Transaction } from '@/types/budget';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { formatOrenAsCurrency } from '@/utils/currencyUtils';
+import { useAccounts } from '@/hooks/useAccounts';
 
 interface TransactionDrillDownDialogProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
   const [expandedTransactions, setExpandedTransactions] = useState<Set<string>>(new Set());
   const isMobile = useIsMobile();
+  const { data: accounts = [] } = useAccounts();
   
   const difference = budgetAmount - actualAmount;
 
@@ -96,6 +98,22 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
     return formatOrenAsCurrency(amount);
   };
 
+  // Helper function to resolve account name from accountId
+  const getAccountName = (accountId: string) => {
+    const account = accounts.find(acc => acc.id === accountId);
+    return account?.name || accountId; // Fallback to accountId if name not found
+  };
+
+  // Helper function to format date as YYYY-MM-DD
+  const formatDateOnly = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('sv-SE'); // Swedish format: YYYY-MM-DD
+    } catch {
+      return dateString.split('T')[0] || dateString; // Fallback: take part before 'T'
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className={`${isMobile ? 'max-w-[95vw] max-h-[90vh] m-2' : 'max-w-4xl max-h-[80vh]'} overflow-hidden flex flex-col`}>
@@ -136,7 +154,7 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
                             </div>
                                             <div className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded">
                                               {formatOrenAsCurrency(Math.abs(dateTransactions.reduce((sum, t) => {
-                                                const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+                                                const effectiveAmount = (t.correctedAmount !== undefined && t.correctedAmount !== null && t.correctedAmount !== t.amount) ? t.correctedAmount : t.amount;
                                                 return sum + effectiveAmount;
                                               }, 0)), false)}
                                             </div>
@@ -167,7 +185,7 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
                                       <div className="w-6 h-6 rounded-full bg-yellow-500 flex-shrink-0"></div>
                                       <div className="flex-1 min-w-0">
                                         <div className="font-medium text-xs text-muted-foreground">Konto</div>
-                                        <div className={`font-bold ${isMobile ? 'text-sm' : 'text-base'} truncate`}>{transaction.accountId}</div>
+                                        <div className={`font-bold ${isMobile ? 'text-sm' : 'text-base'} truncate`}>{getAccountName(transaction.accountId)}</div>
                                       </div>
                                       {!isMobile && (
                                         <div className="flex-1 min-w-0">
@@ -184,7 +202,7 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
                                     )}
                                     <div className={`${isMobile ? 'flex items-center justify-between ml-8' : 'flex items-center space-x-3'}`}>
                                        <div>
-                                         {transaction.correctedAmount !== undefined ? (
+                                         {transaction.correctedAmount !== undefined && transaction.correctedAmount !== null && (transaction.correctedAmount !== transaction.amount) ? (
                                            <div className="space-y-1">
                                              <div className="text-muted-foreground text-xs">Korrigerat belopp</div>
                                              <div className={`font-bold ${transaction.correctedAmount >= 0 ? 'text-green-600' : 'text-red-500'} ${isMobile ? 'text-sm' : 'text-base'}`}>
@@ -221,7 +239,7 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
                                     <div className={`${isMobile ? 'grid grid-cols-2 gap-2' : 'space-y-2'}`}>
                                       <div>
                                         <div className="text-xs text-muted-foreground">Datum</div>
-                                        <div className={`font-medium ${isMobile ? 'text-sm' : 'text-base'}`}>{transaction.date}</div>
+                                        <div className={`font-medium ${isMobile ? 'text-sm' : 'text-base'}`}>{formatDateOnly(transaction.date)}</div>
                                       </div>
                                       
                                       <div>
