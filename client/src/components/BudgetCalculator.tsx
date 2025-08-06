@@ -646,7 +646,7 @@ const BudgetCalculator = () => {
       }, 0);
     
     return total;
-  }, [activeContent.transactionsForPeriod, resolveHuvudkategoriName, underkategorier]);
+  }, [activeContent.transactionsForPeriod, underkategorier, huvudkategorier]);
 
   const getTransactionsForCategory = (categoryId: string): Transaction[] => {
     // FIXED: Use correctly filtered transactions according to PaydaySettings
@@ -6727,12 +6727,8 @@ const BudgetCalculator = () => {
                                      
                                      const difference = totalBudget - actualAmount;
                                     
-                                    // 5. Visa endast konton som faktiskt har en budgetpost eller en transaktion
-                                    // Show account if it has budget items OR transactions (not both required)
-                                    if (costItemsForThisAccount.length === 0 && transactionsForThisAccount.length === 0) {
-                                      console.log(`🔍 [ACCOUNT VIEW] Skipping ${account.name} - no budget items or transactions`);
-                                      return null;
-                                    }
+                                    // 5. FIXED: Show ALL accounts, even those without budget items or transactions
+                                    // This allows users to see all their accounts in the account view
                                     
                                     // 6. Rendera vyn för detta specifika konto
                                     return (
@@ -6794,199 +6790,75 @@ const BudgetCalculator = () => {
                                           </div>
                                         </div>
 
-                                        {/* Den expanderade vyn som listar de specifika budgetposterna */}
+                                        {/* FIXED: Show transactions grouped by Huvudkategori instead of budget posts */}
                                         {expandedCostGroups[`account_${account.name}`] && (
                                           <div className="animate-accordion-down">
                                             <div className="mt-4 pl-8 space-y-3 border-l-4 border-accent/30 bg-gradient-to-r from-accent/10 to-transparent rounded-r-lg pr-4 py-3">
-                                              {costItemsForThisAccount.map((sub) => {
-                                                // Find parent group for editing purposes (using original costGroups structure)
-                                                const parentGroup = costGroups.find(g => g.subCategories?.some(s => s.id === sub.id));
-                                                return (
-                                               <div key={sub.id}>
-                                                 {isEditingCategories ? (
-                                                   <div className="space-y-2 p-3 bg-gradient-to-r from-muted/50 to-muted/30 rounded-lg border border-border/30">
-                                                     <div className="flex gap-2 items-center">
-                                                        <Input
-                                                          value={sub.name}
-                                                          onChange={(e) => parentGroup && updateSubCategory(parentGroup.id, sub.id, 'name', e.target.value)}
-                                                          placeholder="Kostnadsnamn"
-                                                          className="flex-1"
-                                                        />
-                                                        <Input
-                                                          type="number"
-                                                          value={sub.amount}
-                                                          onChange={(e) => parentGroup && updateSubCategory(parentGroup.id, sub.id, 'amount', Number(e.target.value))}
-                                                          placeholder="Belopp"
-                                                          className="w-24"
-                                                        />
-                                                        <Button
-                                                          size="sm"
-                                                          variant="destructive"
-                                                          onClick={() => parentGroup && removeSubCategory(parentGroup.id, sub.id)}
-                                                          className="hover:scale-110 transition-all duration-200"
-                                                        >
-                                                          <Trash2 className="w-4 h-4" />
-                                                        </Button>
+                                              {(() => {
+                                                // Group transactions by Huvudkategori for this account
+                                                const transactionsForAccount = transactionsForThisAccount.filter((t: any) => {
+                                                  const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+                                                  return t.type === 'Transaction' && effectiveAmount < 0; // Only cost transactions
+                                                });
+                                                
+                                                const categoryGroups: { [categoryId: string]: { name: string; amount: number; transactions: any[] } } = {};
+                                                
+                                                transactionsForAccount.forEach((t: any) => {
+                                                  const categoryId = t.appCategoryId;
+                                                  if (!categoryId) return; // Skip uncategorized transactions for now
+                                                  
+                                                  const categoryName = huvudkategorier.find(k => k.id === categoryId)?.name || 'Okänd kategori';
+                                                  const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+                                                  const absoluteAmount = Math.abs(effectiveAmount);
+                                                  
+                                                  if (!categoryGroups[categoryId]) {
+                                                    categoryGroups[categoryId] = { name: categoryName, amount: 0, transactions: [] };
+                                                  }
+                                                  
+                                                  categoryGroups[categoryId].amount += absoluteAmount;
+                                                  categoryGroups[categoryId].transactions.push(t);
+                                                });
+                                                
+                                                return Object.entries(categoryGroups).map(([categoryId, data]) => (
+                                                  <div key={categoryId} className="bg-gradient-to-r from-background to-accent/10 rounded-lg border border-border/50 overflow-hidden transition-all duration-200 hover:shadow-md">
+                                                    <div className="flex justify-between items-center p-3">
+                                                      <div className="flex items-center gap-2">
+                                                        <span className="font-medium text-foreground">
+                                                          {data.name}
+                                                        </span>
+                                                        <Badge variant="outline" className="text-xs">
+                                                          {data.transactions.length} transaktioner
+                                                        </Badge>
                                                       </div>
-                                                      <div className="flex gap-2 items-center text-sm">
-                                                        <span className="text-muted-foreground min-w-16">Kategori:</span>
-                                                        <span className="text-sm font-medium">{parentGroup?.name || 'Okänd'}</span>
-                                                      </div>
-                                                      <div className="flex gap-2 items-center">
-                                                        <span className="text-sm text-muted-foreground min-w-16">Finansieras från:</span>
-                                                        <Select
-                                                          value={sub.financedFrom || 'Löpande kostnad'}
-                                                          onValueChange={(value) => parentGroup && updateSubCategory(parentGroup.id, sub.id, 'financedFrom', value as 'Löpande kostnad' | 'Enskild kostnad')}
+                                                      <div className="text-right">
+                                                        <div className="text-sm text-muted-foreground">Faktiskt:</div>
+                                                        <button
+                                                          className="font-bold text-red-600 hover:text-red-800 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200"
+                                                          onClick={() => {
+                                                            // Open drill-down with transactions for this category in this account
+                                                            setDrillDownDialog({
+                                                              isOpen: true,
+                                                              transactions: data.transactions,
+                                                              categoryName: `${data.name} (${account.name})`,
+                                                              budgetAmount: 0, // No budget amount for account view
+                                                              actualAmount: data.amount
+                                                            });
+                                                          }}
                                                         >
-                                                         <SelectTrigger className="w-40">
-                                                           <SelectValue />
-                                                         </SelectTrigger>
-                                                         <SelectContent className="bg-popover border border-border shadow-lg z-50">
-                                                           <SelectItem value="Löpande kostnad">Löpande kostnad</SelectItem>
-                                                           <SelectItem value="Enskild kostnad">Enskild kostnad</SelectItem>
-                                                         </SelectContent>
-                                                       </Select>
-                                                     </div>
-                                                   </div>
-                                                 ) : (
-                                                   // Enhanced non-editing view with expandable details
-                                                   <div className="bg-gradient-to-r from-background to-accent/10 rounded-lg border border-border/50 overflow-hidden transition-all duration-200 hover:shadow-md">
-                                                      <div className="flex justify-between items-center p-3 cursor-pointer"
-                                                           onClick={() => setExpandedBudgetCategories(prev => ({
-                                                             ...prev,
-                                                             [`account_${account.name}_${sub.id}`]: !prev[`account_${account.name}_${sub.id}`]
-                                                           }))}>
-                                                         <div className="flex items-center gap-2">
-                                                           <Button
-                                                             variant="ghost"
-                                                             size="sm"
-                                                             className="p-1 h-8 w-8 rounded-full bg-accent/5 hover:bg-accent/10"
-                                                           >
-                                                             {expandedBudgetCategories[`account_${account.name}_${sub.id}`] ? (
-                                                               <ChevronUp className="h-4 w-4 text-accent" />
-                                                             ) : (
-                                                               <ChevronDown className="h-4 w-4 text-accent" />
-                                                             )}
-                                                           </Button>
-                                                           <span className="font-medium text-foreground">
-                                                             {sub.name} ({parentGroup?.name || 'Okänd'})
-                                                           </span>
-                                                           <Button
-                                                             variant="ghost"
-                                                             size="sm"
-                                                             onClick={(e) => {
-                                                               e.stopPropagation();
-                                                               parentGroup && openEditDialog(sub, parentGroup.name);
-                                                             }}
-                                                             className="p-1 h-8 w-8 rounded-full bg-secondary/50 hover:bg-secondary/80 transition-all duration-200 opacity-70 hover:opacity-100"
-                                                           >
-                                                             <Edit className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                                                           </Button>
-                                                         </div>
-                                                       <span className="font-bold text-destructive bg-destructive/10 px-2 py-1 rounded-full text-sm">
-                                                         {sub.transferType === 'daily' 
-                                                           ? formatCurrency(calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth))
-                                                           : formatCurrency(sub.amount)
-                                                         }
-                                                       </span>
-                                                     </div>
-                                                     
-                                                      {/* Expandable details for each subcategory */}
-                                                      {expandedBudgetCategories[`account_${account.name}_${sub.id}`] && (
-                                                        <div className="p-4 bg-gradient-to-r from-accent/20 to-accent/5 border-t border-border/30 animate-accordion-down">
-                                                          {/* Content similar to category view */}
-                                                          <div className="grid grid-cols-2 gap-4 text-sm">
-                                                            <div>
-                                                              <span className="text-muted-foreground">Huvudkategori:</span>
-                                                              <div className="font-medium">{parentGroup?.name || 'Okänd'}</div>
-                                                            </div>
-                                                           <div>
-                                                             <span className="text-muted-foreground">Underkategori:</span>
-                                                             <div className="font-medium">{sub.name}</div>
-                                                           </div>
-                                                         </div>
-                                                         
-                                                         <div className="grid grid-cols-2 gap-4 text-sm mt-3">
-                                                           <div>
-                                                             <span className="text-muted-foreground">Överföringstyp:</span>
-                                                             <div className="font-medium">{sub.transferType === 'daily' ? 'Daglig överföring' : 'Månadsöverföring'}</div>
-                                                           </div>
-                                                            <div>
-                                                              <span className="text-muted-foreground">Konto:</span>
-                                                              <div className="font-medium">{sub.accountId ? accounts.find(acc => acc.id === sub.accountId)?.name || 'Inget konto' : sub.account || 'Inget konto'}</div>
-                                                            </div>
-                                                         </div>
-                                                         
-                                                         <div className="grid grid-cols-2 gap-4 text-sm mt-3">
-                                                           <div>
-                                                             <span className="text-muted-foreground">
-                                                               {sub.transferType === 'daily' ? 'Månadsbelopp:' : 'Belopp:'}
-                                                             </span>
-                                                             <div className="font-medium">
-                                                               {sub.transferType === 'daily' 
-                                                                 ? formatCurrency(calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth))
-                                                                 : formatCurrency(sub.amount)
-                                                               }
-                                                             </div>
-                                                           </div>
-                                                           <div>
-                                                             <span className="text-muted-foreground">Finansieras ifrån:</span>
-                                                             <div className="font-medium">{sub.financedFrom || 'Löpande kostnad'}</div>
-                                                           </div>
-                                                         </div>
-                                                         
-                                                         {/* Additional information for daily transfers */}
-                                                         {sub.transferType === 'daily' && (
-                                                           <div className="border-t pt-3 mt-3 space-y-3">
-                                                             <div className="grid grid-cols-2 gap-4 text-sm">
-                                                               <div>
-                                                                 <span className="text-muted-foreground">Dagar det överförs:</span>
-                                                                 <div className="font-medium">{formatTransferDays(sub.transferDays || [])}</div>
-                                                               </div>
-                                                               <div>
-                                                                 <span className="text-muted-foreground">Summa per dag:</span>
-                                                                 <div className="font-medium">{formatCurrency(sub.dailyAmount || 0)}</div>
-                                                               </div>
-                                                             </div>
-                                                             
-                                                             <div className="space-y-2">
-                                                               <div>
-                                                                 <span className="text-muted-foreground">Estimerat överfört:</span>
-                                                                 <div className="font-medium text-green-600">
-                                                                   Dagar: {(() => {
-                                                                     const estimatedAmount = calculateEstimatedToDate(sub, selectedBudgetMonth);
-                                                                     const daysToDate = Math.floor(estimatedAmount / (sub.dailyAmount || 1));
-                                                                     return `${daysToDate} × ${formatCurrency(sub.dailyAmount || 0)} = ${formatCurrency(estimatedAmount)}`;
-                                                                   })()}
-                                                                 </div>
-                                                               </div>
-                                                               
-                                                               <div>
-                                                                 <span className="text-muted-foreground">Kvar att överföra:</span>
-                                                                 <div className="font-medium text-blue-600">
-                                                                   Dagar: {(() => {
-                                                                     const remainingAmount = calculateRemaining(sub, selectedBudgetMonth);
-                                                                     const remainingDays = Math.floor(remainingAmount / (sub.dailyAmount || 1));
-                                                                     return `${remainingDays} × ${formatCurrency(sub.dailyAmount || 0)} = ${formatCurrency(remainingAmount)}`;
-                                                                   })()}
-                                                                 </div>
-                                                               </div>
-                                                             </div>
-                                                           </div>
-                                                         )}
-                                                       </div>
-                                                     )}
-                                                   </div>
-                                                 )}
-                                                </div>
-                                                );
-                                              })}
+                                                          {formatCurrency(data.amount)}
+                                                        </button>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                ));
+                                              })()}
                                               
-                                              {isEditingCategories && (
-                                                <div className="text-center pt-2">
-                                                  <span className="text-sm text-muted-foreground">
-                                                    Lägg till nya poster via kategorier ovan
-                                                  </span>
+                                              {transactionsForThisAccount.filter((t: any) => {
+                                                const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+                                                return t.type === 'Transaction' && effectiveAmount < 0; // Only cost transactions
+                                              }).length === 0 && (
+                                                <div className="text-center py-4 text-muted-foreground">
+                                                  Inga kostnader hittade för detta konto
                                                 </div>
                                               )}
                                             </div>

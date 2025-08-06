@@ -659,6 +659,48 @@ export function getProcessedBudgetDataForMonth(
   budgetItems.forEach((item: any) => item.accountId && activeAccountIds.add(item.accountId));
   transactionsForPeriod.forEach((t: any) => t.accountId && activeAccountIds.add(t.accountId));
   
+  // CRITICAL FIX: Also include accounts from budget configuration (costGroups and savingsGroups)
+  // This ensures accounts with budget posts but no transactions are still shown in account view
+  const currentMonthData = budgetState.historicalData?.[selectedMonthKey] || {};
+  const costGroups = currentMonthData.costGroups || [];
+  const savingsGroups = currentMonthData.savingsGroups || [];
+  
+  // Add accounts from cost groups
+  costGroups.forEach((group: any) => {
+    if (group.subCategories) {
+      group.subCategories.forEach((sub: any) => {
+        if (sub.accountId) {
+          activeAccountIds.add(sub.accountId);
+        }
+        // Also handle legacy account name format
+        if (sub.account && !sub.accountId) {
+          const matchingAccount = sqlAccounts.find(acc => acc.name === sub.account);
+          if (matchingAccount) {
+            activeAccountIds.add(matchingAccount.id);
+          }
+        }
+      });
+    }
+  });
+  
+  // Add accounts from savings groups
+  savingsGroups.forEach((group: any) => {
+    if (group.subCategories) {
+      group.subCategories.forEach((sub: any) => {
+        if (sub.accountId) {
+          activeAccountIds.add(sub.accountId);
+        }
+        // Also handle legacy account name format
+        if (sub.account && !sub.accountId) {
+          const matchingAccount = sqlAccounts.find(acc => acc.name === sub.account);
+          if (matchingAccount) {
+            activeAccountIds.add(matchingAccount.id);
+          }
+        }
+      });
+    }
+  });
+  
   const activeMainCategoryIds = new Set<string>();
   budgetItems.forEach((item: any) => {
     if (item.mainCategoryId) {
@@ -672,8 +714,16 @@ export function getProcessedBudgetDataForMonth(
     }
   });
 
-  // CRITICAL FIX: Use SQL accounts instead of budgetState.accounts
-  const activeAccounts = sqlAccounts.filter((acc: any) => activeAccountIds.has(acc.id));
+  // CRITICAL FIX: Use ALL SQL accounts instead of filtering by activeAccountIds
+  // User wants to see all accounts in account view, even if they have no budget items
+  const activeAccounts = sqlAccounts;
+  
+  console.log(`🔍 [ACCOUNT VIEW FIX] Active account IDs:`, Array.from(activeAccountIds));
+  console.log(`🔍 [ACCOUNT VIEW FIX] Active accounts:`, activeAccounts.map(acc => ({ id: acc.id, name: acc.name })));
+  console.log(`🔍 [ACCOUNT VIEW FIX] Cost groups with accounts:`, costGroups.map(g => ({ 
+    name: g.name, 
+    subCategories: g.subCategories?.map((s: any) => ({ name: s.name, accountId: s.accountId, account: s.account })) || [] 
+  })));
   // CRITICAL FIX: Use SQL categories instead of budgetState.mainCategories
   const activeCategories = sqlCategories || [];
   
