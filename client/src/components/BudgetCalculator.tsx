@@ -6727,6 +6727,11 @@ const BudgetCalculator = () => {
                                    console.log('🔍 [ACCOUNT VIEW] Looking for Hushållskonto in activeAccounts:', activeContent.activeAccounts.find(a => a.name === 'Hushållskonto'));
 
                                  console.log(`🔍 [ACCOUNT VIEW] Total accounts to process: ${activeContent.activeAccounts?.length || 0}`);
+                                 console.log(`🔍 [ACCOUNT VIEW] activeContent structure:`, { 
+                                   hasActiveAccounts: !!activeContent.activeAccounts,
+                                   activeAccountsType: typeof activeContent.activeAccounts,
+                                   activeAccountsLength: activeContent.activeAccounts?.length
+                                 });
                                  return (activeContent.activeAccounts || []).map((account) => {
                                     console.log(`🔍 [ACCOUNT VIEW] Processing account: ${account.name} (ID: ${account.id})`);
                                     
