@@ -718,12 +718,30 @@ export function getProcessedBudgetDataForMonth(
   // User wants to see all accounts in account view, even if they have no budget items
   const activeAccounts = sqlAccounts;
   
+  console.log(`🔍 [ACCOUNT VIEW FIX] Date range: ${startDate} to ${endDate} (selectedMonthKey: ${selectedMonthKey})`);
+  console.log(`🔍 [ACCOUNT VIEW FIX] Total SQL transactions: ${sqlTransactions.length}`);
+  console.log(`🔍 [ACCOUNT VIEW FIX] Transactions for period: ${transactionsForPeriod.length}`);
   console.log(`🔍 [ACCOUNT VIEW FIX] Active account IDs:`, Array.from(activeAccountIds));
   console.log(`🔍 [ACCOUNT VIEW FIX] Active accounts:`, activeAccounts.map(acc => ({ id: acc.id, name: acc.name })));
-  console.log(`🔍 [ACCOUNT VIEW FIX] Cost groups with accounts:`, costGroups.map(g => ({ 
-    name: g.name, 
-    subCategories: g.subCategories?.map((s: any) => ({ name: s.name, accountId: s.accountId, account: s.account })) || [] 
-  })));
+  
+  // Debug specific transaction
+  const specificTransaction = sqlTransactions.find(t => t.id === 'edf1acd9-23bd-4795-92b3-0f518845460a');
+  if (specificTransaction) {
+    console.log(`🔍 [ACCOUNT VIEW FIX] Found specific transaction:`, {
+      id: specificTransaction.id,
+      date: specificTransaction.date,
+      accountId: specificTransaction.accountId,
+      amount: specificTransaction.amount,
+      type: specificTransaction.type
+    });
+    const transactionDate = new Date(specificTransaction.date);
+    const periodStart = new Date(startDate);
+    const periodEnd = new Date(endDate);
+    const isInPeriod = transactionDate >= periodStart && transactionDate <= periodEnd;
+    console.log(`🔍 [ACCOUNT VIEW FIX] Transaction date check: ${transactionDate.toISOString()} >= ${periodStart.toISOString()} && <= ${periodEnd.toISOString()} = ${isInPeriod}`);
+  } else {
+    console.log(`🔍 [ACCOUNT VIEW FIX] Specific transaction edf1acd9-23bd-4795-92b3-0f518845460a NOT found in sqlTransactions`);
+  }
   // CRITICAL FIX: Use SQL categories instead of budgetState.mainCategories
   const activeCategories = sqlCategories || [];
   

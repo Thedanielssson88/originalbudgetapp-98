@@ -798,14 +798,31 @@ const BudgetCalculator = () => {
     
     const allTransactions = getTransactionsForAccountId(accountId);
     console.log(`🔍 [DEBUG] allTransactions from getTransactionsForAccountId: ${allTransactions.length}`);
+    console.log(`🔍 [DEBUG] sample transactions:`, allTransactions.slice(0, 3).map(t => ({
+      type: t.type,
+      amount: t.amount,
+      correctedAmount: t.correctedAmount,
+      description: t.description
+    })));
     
-    // Filter out positive amounts (income) from cost category drill-downs using corrected amounts
+    // FIXED: Filter for Transaction type with negative amounts (cost transactions)
     const transactions = allTransactions.filter(t => {
       const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
-      return effectiveAmount < 0;
+      const isTransaction = t.type === 'Transaction';
+      const isNegative = effectiveAmount < 0;
+      
+      console.log(`🔍 [DEBUG] Transaction ${t.description || 'No desc'}: type=${t.type}, effectiveAmount=${effectiveAmount}, isTransaction=${isTransaction}, isNegative=${isNegative}`);
+      
+      return isTransaction && isNegative;
     });
     
-    console.log(`🔍 [DEBUG] transactions after filtering negative amounts: ${transactions.length}`);
+    console.log(`🔍 [DEBUG] transactions after filtering (type=Transaction AND negative): ${transactions.length}`);
+    console.log(`🔍 [DEBUG] filtered transaction sample:`, transactions.slice(0, 3).map(t => ({
+      type: t.type,
+      amount: t.amount,
+      correctedAmount: t.correctedAmount,
+      description: t.description
+    })));
     console.log(`🔍 [DEBUG] ============= openAccountDrillDownDialog END =============`);
     
     setDrillDownDialog({
@@ -6678,11 +6695,12 @@ const BudgetCalculator = () => {
                                    console.log('🔍 [ACCOUNT VIEW] Account names:', activeContent.activeAccounts.map(a => a.name));
                                    console.log('🔍 [ACCOUNT VIEW] Looking for Hushållskonto in activeAccounts:', activeContent.activeAccounts.find(a => a.name === 'Hushållskonto'));
 
-                                 return activeContent.activeAccounts.map((account) => {
+                                 console.log(`🔍 [ACCOUNT VIEW] Total accounts to process: ${activeContent.activeAccounts?.length || 0}`);
+                                 return (activeContent.activeAccounts || []).map((account) => {
                                     console.log(`🔍 [ACCOUNT VIEW] Processing account: ${account.name} (ID: ${account.id})`);
                                     
                                      // 1. FIXED: Use correctly filtered budget items according to PaydaySettings
-                                     const costItemsForThisAccount = activeContent.budgetItems.costItems.filter(sub => {
+                                     const costItemsForThisAccount = (activeContent.budgetItems?.costItems || []).filter(sub => {
                                        // Check both legacy account name and new accountId
                                        const matchesLegacy = sub.account === account.name;
                                        const matchesNew = sub.accountId === account.id;
@@ -6790,77 +6808,14 @@ const BudgetCalculator = () => {
                                           </div>
                                         </div>
 
-                                        {/* FIXED: Show transactions grouped by Huvudkategori instead of budget posts */}
+                                        {/* Account expansion content - show cost transaction count */}
                                         {expandedCostGroups[`account_${account.name}`] && (
                                           <div className="animate-accordion-down">
                                             <div className="mt-4 pl-8 space-y-3 border-l-4 border-accent/30 bg-gradient-to-r from-accent/10 to-transparent rounded-r-lg pr-4 py-3">
-                                              {(() => {
-                                                // Group transactions by Huvudkategori for this account
-                                                const transactionsForAccount = transactionsForThisAccount.filter((t: any) => {
-                                                  const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
-                                                  return t.type === 'Transaction' && effectiveAmount < 0; // Only cost transactions
-                                                });
-                                                
-                                                const categoryGroups: { [categoryId: string]: { name: string; amount: number; transactions: any[] } } = {};
-                                                
-                                                transactionsForAccount.forEach((t: any) => {
-                                                  const categoryId = t.appCategoryId;
-                                                  if (!categoryId) return; // Skip uncategorized transactions for now
-                                                  
-                                                  const categoryName = huvudkategorier.find(k => k.id === categoryId)?.name || 'Okänd kategori';
-                                                  const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
-                                                  const absoluteAmount = Math.abs(effectiveAmount);
-                                                  
-                                                  if (!categoryGroups[categoryId]) {
-                                                    categoryGroups[categoryId] = { name: categoryName, amount: 0, transactions: [] };
-                                                  }
-                                                  
-                                                  categoryGroups[categoryId].amount += absoluteAmount;
-                                                  categoryGroups[categoryId].transactions.push(t);
-                                                });
-                                                
-                                                return Object.entries(categoryGroups).map(([categoryId, data]) => (
-                                                  <div key={categoryId} className="bg-gradient-to-r from-background to-accent/10 rounded-lg border border-border/50 overflow-hidden transition-all duration-200 hover:shadow-md">
-                                                    <div className="flex justify-between items-center p-3">
-                                                      <div className="flex items-center gap-2">
-                                                        <span className="font-medium text-foreground">
-                                                          {data.name}
-                                                        </span>
-                                                        <Badge variant="outline" className="text-xs">
-                                                          {data.transactions.length} transaktioner
-                                                        </Badge>
-                                                      </div>
-                                                      <div className="text-right">
-                                                        <div className="text-sm text-muted-foreground">Faktiskt:</div>
-                                                        <button
-                                                          className="font-bold text-red-600 hover:text-red-800 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200"
-                                                          onClick={() => {
-                                                            // Open drill-down with transactions for this category in this account
-                                                            setDrillDownDialog({
-                                                              isOpen: true,
-                                                              transactions: data.transactions,
-                                                              categoryName: `${data.name} (${account.name})`,
-                                                              budgetAmount: 0, // No budget amount for account view
-                                                              actualAmount: data.amount
-                                                            });
-                                                          }}
-                                                        >
-                                                          {formatCurrency(data.amount)}
-                                                        </button>
-                                                      </div>
-                                                    </div>
-                                                  </div>
-                                                ));
-                                              })()}
-                                              
-                                              {transactionsForThisAccount.filter((t: any) => {
-                                                const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
-                                                return t.type === 'Transaction' && effectiveAmount < 0; // Only cost transactions
-                                              }).length === 0 && (
-                                                <div className="text-center py-4 text-muted-foreground">
-                                                  Inga kostnader hittade för detta konto
-                                                </div>
-                                              )}
+                                              <div className="text-center py-4 text-muted-foreground">
+                                                <div>Expansion för {account.name}</div>
+                                                <div>{transactionsForThisAccount.length} transaktioner hittades</div>
+                                              </div>
                                             </div>
                                           </div>
                                         )}
