@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, Target, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useBudget } from '../hooks/useBudget';
 import { useAccounts } from '../hooks/useAccounts';
+import { useHuvudkategorier, useUnderkategorier } from '../hooks/useCategories';
+import { useCreateBudgetPost, useBudgetPosts } from '../hooks/useBudgetPosts';
 import { createSavingsGoal, updateSelectedBudgetMonth } from '../orchestrator/budgetOrchestrator';
 import { SavingsGoal } from '../types/budget';
 import { Button } from '../components/ui/button';
@@ -17,8 +19,14 @@ import { Badge } from '../components/ui/badge';
 export function SavingsGoalsPage() {
   const { budgetState, isLoading } = useBudget();
   const { data: accountsFromAPI = [], isLoading: accountsLoading } = useAccounts();
+  const { data: huvudkategorier = [], isLoading: isLoadingHuvud } = useHuvudkategorier();
+  const { data: underkategorier = [], isLoading: isLoadingUnder } = useUnderkategorier();
+  const { data: budgetPostsFromAPI = [], isLoading: isLoadingBudgetPosts } = useBudgetPosts();
+  const createBudgetPostMutation = useCreateBudgetPost();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
+    huvudkategoriId: '',
+    underkategoriId: '',
     name: '',
     accountId: '',
     targetAmount: '',
@@ -54,7 +62,7 @@ export function SavingsGoalsPage() {
     // Använd centraliserad transaction storage
     if (budgetState.allTransactions) {
       budgetState.allTransactions.forEach(transaction => {
-        if (transaction.type === 'Sparande' && 
+        if (transaction.type === 'Savings' && 
             transaction.accountId === goal.accountId &&
             transaction.savingsTargetId === goal.id) {
           totalSaved += Math.abs(transaction.amount);
@@ -74,37 +82,125 @@ export function SavingsGoalsPage() {
     return goal.targetAmount / monthsDiff;
   };
 
-  const handleCreateGoal = () => {
-    if (!formData.name || !formData.accountId || !formData.targetAmount || 
+  const handleCreateGoal = async () => {
+    if (!formData.huvudkategoriId || !formData.underkategoriId || !formData.name || !formData.accountId || !formData.targetAmount || 
         !formData.startDate || !formData.endDate) {
       return;
     }
 
-    const newGoal: Omit<SavingsGoal, 'id'> = {
-      name: formData.name,
-      accountId: formData.accountId,
-      targetAmount: parseFloat(formData.targetAmount),
-      startDate: formData.startDate,
-      endDate: formData.endDate
-    };
+    try {
+      // Create structured description with goal dates
+      const goalDescription = JSON.stringify({
+        name: formData.name,
+        startDate: formData.startDate,
+        endDate: formData.endDate
+      });
 
-    // Generate UUID for the new goal
-    const goalWithId = {
-      id: uuidv4(),
-      ...newGoal
-    };
+      // Save to SQL database as budget_post
+      const budgetPostData = {
+        userId: 'dev-user-123', // Mock user ID for development
+        monthKey: budgetState.selectedMonthKey,
+        huvudkategoriId: formData.huvudkategoriId,
+        underkategoriId: formData.underkategoriId,
+        description: goalDescription,
+        amount: Math.round(parseFloat(formData.targetAmount) * 100), // Convert to öre
+        accountId: formData.accountId,
+        accountIdFrom: null,
+        financedFrom: 'Löpande kostnad',
+        transferType: 'monthly',
+        dailyAmount: null,
+        transferDays: null,
+        type: 'sparmål',
+        transactionType: 'Sparmål',
+        budgetType: 'Sparmål',
+      };
 
-    createSavingsGoal(goalWithId);
-    setIsCreateDialogOpen(false);
-    setFormData({ name: '', accountId: '', targetAmount: '', startDate: '', endDate: '' });
+      console.log('🔍 [DEBUG] Creating savings goal as budget post:', budgetPostData);
+      
+      await createBudgetPostMutation.mutateAsync(budgetPostData);
+      
+      console.log('🔍 [DEBUG] Savings goal saved successfully to PostgreSQL');
+
+      // Still create the old savings goal for backwards compatibility (until we fully migrate)
+      const newGoal: Omit<SavingsGoal, 'id'> = {
+        name: formData.name,
+        accountId: formData.accountId,
+        targetAmount: parseFloat(formData.targetAmount),
+        startDate: formData.startDate,
+        endDate: formData.endDate
+      };
+
+      const goalWithId = {
+        id: uuidv4(),
+        ...newGoal
+      };
+
+      createSavingsGoal(goalWithId);
+      setIsCreateDialogOpen(false);
+      setFormData({ huvudkategoriId: '', underkategoriId: '', name: '', accountId: '', targetAmount: '', startDate: '', endDate: '' });
+    } catch (error) {
+      console.error('🔍 [ERROR] Failed to create savings goal:', error);
+      // Could add error toast here
+    }
   };
 
-  if (isLoading || accountsLoading) {
+  // Convert budget posts with type='sparmål' to SavingsGoal format
+  const savingsGoalsFromSQL = useMemo(() => {
+    if (!budgetPostsFromAPI || budgetPostsFromAPI.length === 0) return [];
+    
+    return budgetPostsFromAPI
+      .filter(post => post.type === 'sparmål')
+      .map(post => {
+        try {
+          // Parse the structured description
+          const goalData = JSON.parse(post.description);
+          return {
+            id: post.id,
+            name: goalData.name,
+            accountId: post.accountId || '',
+            targetAmount: post.amount / 100, // Convert from öre to kronor
+            startDate: goalData.startDate,
+            endDate: goalData.endDate
+          };
+        } catch (error) {
+          console.warn('Failed to parse savings goal description:', post.description, error);
+          // Fallback for invalid JSON
+          return {
+            id: post.id,
+            name: post.description,
+            accountId: post.accountId || '',
+            targetAmount: post.amount / 100,
+            startDate: '',
+            endDate: ''
+          };
+        }
+      });
+  }, [budgetPostsFromAPI]);
+
+  // Combine SQL savings goals with legacy savings goals (during transition period)
+  const allSavingsGoals = useMemo(() => {
+    const legacyGoals = budgetState.savingsGoals || [];
+    const sqlGoals = savingsGoalsFromSQL || [];
+    
+    // For now, prioritize SQL goals over legacy goals
+    // You might want to deduplicate based on name or other criteria
+    return [...sqlGoals, ...legacyGoals];
+  }, [savingsGoalsFromSQL, budgetState.savingsGoals]);
+
+  // Filter subcategories based on selected main category
+  const availableSubcategories = useMemo(() => {
+    if (formData.huvudkategoriId && underkategorier.length > 0) {
+      return underkategorier.filter(sub => sub.huvudkategoriId === formData.huvudkategoriId);
+    }
+    return [];
+  }, [formData.huvudkategoriId, underkategorier]);
+
+  if (isLoading || accountsLoading || isLoadingHuvud || isLoadingUnder || isLoadingBudgetPosts) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Laddar sparmål och konton...</p>
+          <p className="text-muted-foreground">Laddar sparmål, konton och kategorier...</p>
         </div>
       </div>
     );
@@ -234,6 +330,55 @@ export function SavingsGoalsPage() {
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
+                <Label htmlFor="huvudkategori">Huvudkategori</Label>
+                <Select 
+                  value={formData.huvudkategoriId} 
+                  onValueChange={(value) => {
+                    setFormData(prev => ({ ...prev, huvudkategoriId: value, underkategoriId: '' }));
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Välj huvudkategori" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover border border-border shadow-lg z-50">
+                    {isLoadingHuvud ? (
+                      <SelectItem value="loading" disabled>Laddar...</SelectItem>
+                    ) : (
+                      huvudkategorier.filter(k => k.id && k.id !== '').map((kategori) => (
+                        <SelectItem key={kategori.id} value={kategori.id}>
+                          {kategori.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="underkategori">Underkategori</Label>
+                <Select 
+                  value={formData.underkategoriId} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, underkategoriId: value }))}
+                  disabled={!formData.huvudkategoriId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={formData.huvudkategoriId ? "Välj underkategori" : "Välj först huvudkategori"} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover border border-border shadow-lg z-50">
+                    {isLoadingUnder ? (
+                      <SelectItem value="loading" disabled>Laddar...</SelectItem>
+                    ) : (
+                      availableSubcategories.filter(s => s.id && s.id !== '').map((subkategori) => (
+                        <SelectItem key={subkategori.id} value={subkategori.id}>
+                          {subkategori.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="grid gap-2">
                 <Label htmlFor="name">Namn</Label>
                 <Input
                   id="name"
@@ -294,13 +439,26 @@ export function SavingsGoalsPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleCreateGoal}>Skapa sparmål</Button>
+              <Button 
+                onClick={handleCreateGoal}
+                disabled={
+                  !formData.huvudkategoriId || 
+                  !formData.underkategoriId || 
+                  !formData.name || 
+                  !formData.accountId || 
+                  !formData.targetAmount || 
+                  !formData.startDate || 
+                  !formData.endDate
+                }
+              >
+                Skapa sparmål
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      {budgetState.savingsGoals.length === 0 ? (
+      {allSavingsGoals.length === 0 ? (
         <Card className="text-center py-12">
           <CardContent>
             <Target className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
@@ -320,7 +478,7 @@ export function SavingsGoalsPage() {
         </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {budgetState.savingsGoals.map(goal => {
+          {allSavingsGoals.map(goal => {
             const actualSaved = calculateActualSaved(goal);
             const progress = Math.min((actualSaved / goal.targetAmount) * 100, 100);
             const monthlyAmount = calculateMonthlyAmount(goal);

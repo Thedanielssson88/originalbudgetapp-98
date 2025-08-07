@@ -27,6 +27,11 @@ const queryClient = new QueryClient({
   },
 });
 
+// Expose queryClient globally for orchestrator access
+if (typeof window !== 'undefined') {
+  (window as any).__queryClient = queryClient;
+}
+
 const AppContent = () => {
   // Initialize the API store when the app starts
   useInitializeApiStore();

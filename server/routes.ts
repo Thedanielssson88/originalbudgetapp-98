@@ -585,8 +585,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/transactions/:id", async (req, res) => {
     try {
+      console.log('🔍 [API] Raw request body before validation:', req.body);
+      
       // Validate and convert the partial update data
       const updateData = insertTransactionSchema.partial().parse(req.body);
+      
+      console.log('🔍 [API] Parsed updateData after validation:', updateData);
+      
+      // Debug logging for savingsTargetId updates
+      if (updateData.savingsTargetId !== undefined) {
+        console.log(`🔄 [API] Updating transaction ${req.params.id} with savingsTargetId:`, updateData.savingsTargetId);
+        console.log(`🔄 [API] Full updateData:`, updateData);
+        console.log(`🔄 [API] Raw request body:`, req.body);
+      }
       
       // Convert date string to Date object if date is being updated
       if (updateData.date && typeof updateData.date === 'string') {
@@ -597,6 +608,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!transaction) {
         return res.status(404).json({ error: 'Transaction not found' });
       }
+      
+      // Debug logging for response
+      if (updateData.savingsTargetId !== undefined) {
+        console.log(`✅ [API] Updated transaction response:`, { 
+          id: transaction.id, 
+          savingsTargetId: transaction.savingsTargetId,
+          savings_target_id: (transaction as any).savings_target_id,
+          rawTransaction: transaction
+        });
+        
+        // Also check what's actually in the database with raw SQL
+        try {
+          const { Pool } = await import('pg');
+          if (process.env.DATABASE_URL) {
+            const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+            const result = await pool.query('SELECT id, savings_target_id FROM transactions WHERE id = $1', [req.params.id]);
+            console.log(`🔍 [API] Raw database check:`, result.rows[0]);
+            await pool.end();
+          }
+        } catch (dbError) {
+          console.log(`❌ [API] Database check failed:`, dbError);
+        }
+      }
+      
       res.json(transaction);
     } catch (error) {
       console.error('Error updating transaction:', error);
@@ -615,6 +650,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error updating transaction:', error);
       res.status(400).json({ error: 'Failed to update transaction' });
+    }
+  });
+
+  // Test endpoint for savingsTargetId validation
+  app.post("/api/test-savings-target", async (req, res) => {
+    try {
+      console.log('🧪 [TEST] Raw request body:', req.body);
+      const updateData = insertTransactionSchema.partial().parse(req.body);
+      console.log('🧪 [TEST] Parsed data:', updateData);
+      
+      res.json({ 
+        success: true, 
+        rawBody: req.body, 
+        parsedData: updateData,
+        hasSavingsTargetId: 'savingsTargetId' in updateData,
+        savingsTargetIdValue: updateData.savingsTargetId 
+      });
+    } catch (error) {
+      console.log('🧪 [TEST] Validation error:', error);
+      res.status(400).json({ error: error.message, details: error });
     }
   });
 

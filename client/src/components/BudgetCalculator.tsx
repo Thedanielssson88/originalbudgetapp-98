@@ -546,7 +546,7 @@ const BudgetCalculator = () => {
   const [isAdminMode, setIsAdminMode] = useState<boolean>(true);
   const [balanceType, setBalanceType] = useState<'starting' | 'closing'>('closing');
   const [monthFinalBalances, setMonthFinalBalances] = useState<{[key: string]: boolean}>({});
-  const [costViewType, setCostViewType] = useState<'category' | 'account'>('category');
+  const [costViewType, setCostViewType] = useState<'category' | 'account' | 'all'>('category');
   const [savingsViewType, setSavingsViewType] = useState<'category' | 'account'>('category');
   const [isEditingSavings, setIsEditingSavings] = useState(false);
   
@@ -6585,8 +6585,8 @@ const BudgetCalculator = () => {
                             <ToggleGroup 
                               type="single" 
                               value={costViewType} 
-                              onValueChange={(value) => value && setCostViewType(value as 'category' | 'account')}
-                              className="grid grid-cols-2 w-full max-w-md"
+                              onValueChange={(value) => value && setCostViewType(value as 'category' | 'account' | 'all')}
+                              className="grid grid-cols-3 w-full max-w-lg"
                             >
                               <ToggleGroupItem 
                                 value="category" 
@@ -6599,6 +6599,12 @@ const BudgetCalculator = () => {
                                 className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
                               >
                                 Konto
+                              </ToggleGroupItem>
+                              <ToggleGroupItem 
+                                value="all" 
+                                className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                              >
+                                Alla poster
                               </ToggleGroupItem>
                             </ToggleGroup>
                           </div>
@@ -7170,9 +7176,367 @@ const BudgetCalculator = () => {
                                  );
                                });
                              })()
-                            ) : (
+                            ) : costViewType === 'account' ? (
                               // Account view - show costs grouped by account
-                              <div>Account view placeholder</div>
+                              (() => {
+                                console.log('🔍 [COST ACCOUNT VIEW] Starting account-first logic');
+                                console.log('🔍 [COST ACCOUNT VIEW] Available accounts:', activeContent.activeAccounts);
+                                console.log('🔍 [COST ACCOUNT VIEW] costGroups:', costGroups);
+                                
+                                return (
+                                  <div className="space-y-4">
+                                    {/* Account sections */}
+                                    {(activeContent.activeAccounts || []).map((account) => {
+                                      const accountExpanded = expandedCostGroups[`cost-account-${account.id}`];
+                                      
+                                      // Get cost items for this account from all cost groups
+                                      const costItemsForAccount = costGroups.flatMap(group => 
+                                        (group.subCategories || []).flatMap(sub => {
+                                          // Check for new hierarchical structure with nested budget posts
+                                          if (sub.budgetPosts && sub.budgetPosts.length > 0) {
+                                            return sub.budgetPosts
+                                              .filter((post: any) => post.accountId === account.id)
+                                              .map((post: any) => ({ 
+                                                ...post, 
+                                                groupName: group.name, 
+                                                groupId: group.id,
+                                                subCategoryName: sub.name
+                                              }));
+                                          } else {
+                                            // Handle legacy flat structure
+                                            return sub.accountId === account.id ? [{ 
+                                              ...sub, 
+                                              groupName: group.name, 
+                                              groupId: group.id,
+                                              subCategoryName: sub.name 
+                                            }] : [];
+                                          }
+                                        })
+                                      );
+                                      
+                                      // Get transactions for this account (costs) - same logic as getTransactionsForAccountId
+                                      const allTransactionsForAccount = (activeContent.transactionsForPeriod || []).filter(t => 
+                                        t.accountId === account.id && (t.type === 'Transaction' || t.type === 'ExpenseClaim')
+                                      );
+                                      
+                                      // Filter for only negative amounts (costs) - same logic as openAccountDrillDownDialog
+                                      const transactionsForAccount = allTransactionsForAccount.filter(t => {
+                                        const effectiveAmount = (t.correctedAmount !== undefined && t.correctedAmount !== null && t.correctedAmount !== t.amount) ? t.correctedAmount : t.amount;
+                                        return effectiveAmount < 0; // Only negative amounts (costs)
+                                      });
+                                      
+                                      // Calculate totals
+                                      const budgetedAmount = costItemsForAccount.reduce((sum, item) => {
+                                        if (item.transferType === 'daily') {
+                                          return sum + (calculateMonthlyAmountForDailyTransfer(item, selectedBudgetMonth) * 100);
+                                        }
+                                        return sum + item.amount;
+                                      }, 0);
+                                      
+                                      const actualAmount = transactionsForAccount.reduce((sum, t) => {
+                                        const effectiveAmount = (t.correctedAmount !== undefined && t.correctedAmount !== null && t.correctedAmount !== t.amount) ? t.correctedAmount : t.amount;
+                                        return sum + effectiveAmount; // Keep negative amounts to show as costs
+                                      }, 0);
+                                      
+                                      const difference = budgetedAmount - actualAmount;
+                                      const progress = budgetedAmount > 0 ? (actualAmount / budgetedAmount) * 100 : 0;
+                                      
+                                      return (
+                                        <div key={account.id} className="group relative bg-gradient-to-r from-background to-muted/30 border-2 border-border/50 rounded-xl p-4 space-y-3 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.01] animate-fade-in">
+                                          {/* Account Header */}
+                                          <div className="flex items-center gap-3">
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => setExpandedCostGroups(prev => ({
+                                                ...prev,
+                                                [`cost-account-${account.id}`]: !prev[`cost-account-${account.id}`]
+                                              }))}
+                                              className="p-2 h-10 w-10 rounded-full bg-primary/10 hover:bg-primary/20 transition-all duration-200 group-hover:scale-110"
+                                            >
+                                              {accountExpanded ? (
+                                                <ChevronUp className="h-5 w-5 text-primary transition-transform duration-200" />
+                                              ) : (
+                                                <ChevronDown className="h-5 w-5 text-primary transition-transform duration-200" />
+                                              )}
+                                            </Button>
+                                            
+                                            <div className="flex-1 min-w-0">
+                                              <div className="font-bold text-lg text-foreground group-hover:text-primary transition-colors duration-200">
+                                                {account.name}
+                                              </div>
+                                              <div className="text-sm text-muted-foreground flex items-center gap-2">
+                                                <span className="inline-flex items-center gap-1">
+                                                  <div className="w-2 h-2 rounded-full bg-primary/60"></div>
+                                                  {costItemsForAccount.length} {costItemsForAccount.length === 1 ? 'post' : 'poster'}
+                                                </span>
+                                              </div>
+                                            </div>
+                                            
+                                            {/* Enhanced Budget vs Actual */}
+                                            <div className="text-right space-y-2">
+                                              <div className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
+                                                <div className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                                                  Budget: <span className="font-bold text-blue-900 dark:text-blue-100">{formatCurrency(budgetedAmount / 100)}</span>
+                                                </div>
+                                                <div className="text-sm font-medium text-green-700 dark:text-green-300 mt-1">
+                                                  Faktiskt: 
+                                                  <button
+                                                    className={`ml-1 font-bold underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200 ${
+                                                      actualAmount < 0 
+                                                        ? 'text-red-800 dark:text-red-200 hover:text-red-600 dark:hover:text-red-400' 
+                                                        : 'text-green-800 dark:text-green-200 hover:text-green-600 dark:hover:text-green-400'
+                                                    }`}
+                                                    onClick={() => openAccountDrillDownDialog(account.id, account.name, budgetedAmount, actualAmount)}
+                                                  >
+                                                    {formatCurrency(actualAmount / 100)}
+                                                  </button>
+                                                </div>
+                                                <div className={`text-sm font-bold mt-1 ${difference >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                                                  <span className="inline-flex items-center gap-1">
+                                                    {difference >= 0 ? '↗' : '↘'} {difference >= 0 ? '+' : ''}{formatCurrency(Math.abs(difference) / 100)}
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </div>
+                                          
+                                          {/* Enhanced Progress Section */}
+                                          <div className="space-y-3">
+                                            <div className="relative">
+                                              <Progress 
+                                                value={Math.min(progress, 100)} 
+                                                className="h-3 bg-gradient-to-r from-muted to-muted/50 border border-border/30 rounded-full overflow-hidden"
+                                              />
+                                              <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-primary/5 rounded-full pointer-events-none"></div>
+                                            </div>
+                                            <div className="flex justify-between items-center text-xs">
+                                              <span className="text-muted-foreground font-medium">
+                                                Förbrukning
+                                              </span>
+                                              <span className={`font-bold px-2 py-1 rounded-full text-xs ${
+                                                progress <= 75 ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                                                progress <= 90 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                                                'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                              }`}>
+                                                {progress.toFixed(1)}%
+                                              </span>
+                                            </div>
+                                          </div>
+                                          
+                                          {/* Expandable Content with Animation */}
+                                          {accountExpanded && (
+                                            <div className="animate-accordion-down">
+                                              <div className="mt-4 pl-8 space-y-3 border-l-4 border-primary/30 bg-gradient-to-r from-muted/20 to-transparent rounded-r-lg pr-4 py-3">
+                                                {/* Cost items (posts) for this account */}
+                                                {costItemsForAccount.length > 0 && (
+                                                  <div className="space-y-3">
+                                                    <h5 className="font-semibold text-primary/80">Kostnadsposter</h5>
+                                                    {costItemsForAccount.map((item) => {
+                                                      const itemActual = item.underkategoriId 
+                                                        ? calculateActualAmountForUnderkategori(item.underkategoriId)
+                                                        : 0;
+                                                      
+                                                      return (
+                                                        <div key={item.id} className="bg-gradient-to-r from-background to-muted/20 rounded-lg border border-border/50 overflow-hidden transition-all duration-200 hover:shadow-md">
+                                                          <div className="flex justify-between items-center p-3 cursor-pointer"
+                                                               onClick={() => setExpandedBudgetCategories(prev => ({
+                                                                 ...prev,
+                                                                 [`account_${account.id}_${item.id}`]: !prev[`account_${account.id}_${item.id}`]
+                                                               }))}>
+                                                             <div className="flex items-center gap-2">
+                                                               <Button
+                                                                 variant="ghost"
+                                                                 size="sm"
+                                                                 className="p-1 h-8 w-8 rounded-full bg-primary/5 hover:bg-primary/10"
+                                                               >
+                                                                 {expandedBudgetCategories[`account_${account.id}_${item.id}`] ? (
+                                                                   <ChevronUp className="h-4 w-4 text-primary" />
+                                                                 ) : (
+                                                                   <ChevronDown className="h-4 w-4 text-primary" />
+                                                                 )}
+                                                               </Button>
+                                                               <span className="font-medium text-foreground">{item.name || item.description}</span>
+                                                             </div>
+                                                             <span className="font-bold text-destructive bg-destructive/10 px-2 py-1 rounded-full text-sm">
+                                                               {item.transferType === 'daily' 
+                                                                 ? formatCurrency(calculateMonthlyAmountForDailyTransfer(item, selectedBudgetMonth))
+                                                                 : formatCurrency(item.amount / 100)
+                                                               }
+                                                             </span>
+                                                          </div>
+                                                          
+                                                          {/* Expandable details - same format as Kategorier view */}
+                                                          {expandedBudgetCategories[`account_${account.id}_${item.id}`] && (
+                                                            <div className="p-4 bg-gradient-to-r from-muted/30 to-muted/10 border-t border-border/30 animate-accordion-down">
+                                                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                                                <div>
+                                                                  <span className="text-muted-foreground">Huvudkategori:</span>
+                                                                  <div className="font-medium">{item.groupName}</div>
+                                                                </div>
+                                                                <div>
+                                                                  <span className="text-muted-foreground">Underkategori:</span>
+                                                                  <div className="font-medium">{item.subCategoryName || item.name || item.description}</div>
+                                                                </div>
+                                                              </div>
+                                                              
+                                                              <div className="grid grid-cols-2 gap-4 text-sm mt-3">
+                                                                <div>
+                                                                  <span className="text-muted-foreground">Överföringstyp:</span>
+                                                                  <div className="font-medium">{item.transferType === 'daily' ? 'Daglig överföring' : 'Månadsöverföring'}</div>
+                                                                </div>
+                                                                <div>
+                                                                  <span className="text-muted-foreground">Konto:</span>
+                                                                  <div className="font-medium">{account.name}</div>
+                                                                </div>
+                                                              </div>
+                                                              
+                                                              <div className="grid grid-cols-2 gap-4 text-sm mt-3">
+                                                                <div>
+                                                                  <span className="text-muted-foreground">
+                                                                    {item.transferType === 'daily' ? 'Månadsbelopp:' : 'Belopp:'}
+                                                                  </span>
+                                                                  <div className="font-medium">
+                                                                    {item.transferType === 'daily' 
+                                                                      ? formatCurrency(calculateMonthlyAmountForDailyTransfer(item, selectedBudgetMonth))
+                                                                      : formatCurrency(item.amount / 100)
+                                                                    }
+                                                                  </div>
+                                                                </div>
+                                                                <div>
+                                                                  <span className="text-muted-foreground">Finansieras ifrån:</span>
+                                                                  <div className="font-medium">{item.financedFrom || 'Löpande kostnad'}</div>
+                                                                </div>
+                                                              </div>
+                                                              
+                                                              {/* Additional information for daily transfers */}
+                                                              {item.transferType === 'daily' && (
+                                                                <div className="border-t pt-3 mt-3 space-y-3">
+                                                                  <div className="grid grid-cols-2 gap-4 text-sm">
+                                                                    <div>
+                                                                      <span className="text-muted-foreground">Dagar det överförs:</span>
+                                                                      <div className="font-medium">{formatTransferDays(item.transferDays || [])}</div>
+                                                                    </div>
+                                                                    <div>
+                                                                      <span className="text-muted-foreground">Summa per dag:</span>
+                                                                      <div className="font-medium">{formatCurrency(item.dailyAmount / 100 || 0)}</div>
+                                                                    </div>
+                                                                  </div>
+                                                                  
+                                                                  <div className="space-y-2">
+                                                                    <div>
+                                                                      <span className="text-muted-foreground">Estimerat överfört:</span>
+                                                                      <div className="font-medium text-green-600">
+                                                                        Dagar: {(() => {
+                                                                          const estimatedAmount = calculateEstimatedToDate(item, selectedBudgetMonth);
+                                                                          const daysToDate = Math.floor(estimatedAmount / ((item.dailyAmount / 100) || 1));
+                                                                          return `${daysToDate} × ${formatCurrency((item.dailyAmount / 100) || 0)} = ${formatCurrency(estimatedAmount)}`;
+                                                                        })()}
+                                                                      </div>
+                                                                    </div>
+                                                                    
+                                                                    <div>
+                                                                      <span className="text-muted-foreground">Kvar att överföra:</span>
+                                                                      <div className="font-medium text-blue-600">
+                                                                        Dagar: {(() => {
+                                                                          const remainingAmount = calculateRemaining(item, selectedBudgetMonth);
+                                                                          const remainingDays = Math.floor(remainingAmount / ((item.dailyAmount / 100) || 1));
+                                                                          return `${remainingDays} × ${formatCurrency((item.dailyAmount / 100) || 0)} = ${formatCurrency(remainingAmount)}`;
+                                                                        })()}
+                                                                      </div>
+                                                                    </div>
+                                                                  </div>
+                                                                </div>
+                                                              )}
+                                                            </div>
+                                                          )}
+                                                        </div>
+                                                      );
+                                                    })}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })()
+                            ) : (
+                              // Alla poster view - copy of account view  
+                              (() => {
+                                console.log('🔍 [COST ALL POSTS] Starting all posts view');
+                                console.log('🔍 [COST ALL POSTS] costGroups:', costGroups);
+                                
+                                // Get ALL budget posts with type='cost' directly from API
+                                const allCostItems = (budgetPostsFromAPI || [])
+                                  .filter(post => post.type === 'cost' && post.monthKey === selectedBudgetMonth)
+                                  .map(post => ({
+                                    ...post,
+                                    accountName: (activeContent.activeAccounts || []).find(acc => acc.id === post.accountId)?.name || 'Inget konto',
+                                    groupName: huvudkategorier.find(h => h.id === post.huvudkategoriId)?.name || 'Okänd kategori',
+                                    subCategoryName: underkategorier.find(u => u.id === post.underkategoriId)?.name || 'Okänd underkategori'
+                                  }));
+                                
+                                console.log('🔍 [COST ALL POSTS] All cost items:', allCostItems);
+                                
+                                return (
+                                  <div className="space-y-4">
+                                    <div className="space-y-3">
+                                      <h5 className="font-medium text-sm text-blue-700">Alla Kostnadsposter</h5>
+                                      {allCostItems.length > 0 ? (
+                                        allCostItems.map((item) => {
+                                          const itemActual = item.underkategoriId 
+                                            ? calculateActualAmountForUnderkategori(item.underkategoriId)
+                                            : 0;
+                                          const itemDifference = item.amount - itemActual;
+                                          
+                                          return (
+                                            <div key={item.id} className="p-3 bg-white border border-blue-200 rounded-lg">
+                                              <div className="flex justify-between items-start mb-2">
+                                                <div className="flex-1">
+                                                  <h6 className="font-medium text-sm">{item.name || item.description}</h6>
+                                                  <p className="text-xs text-muted-foreground">
+                                                    Kategori: {item.groupName}
+                                                    {item.subCategoryName && item.subCategoryName !== item.name && ` / ${item.subCategoryName}`}
+                                                  </p>
+                                                  <p className="text-xs text-muted-foreground">
+                                                    Konto: {item.accountName}
+                                                  </p>
+                                                </div>
+                                                <div className="text-right text-xs">
+                                                  <div>Budget: {formatCurrency(item.amount / 100)}</div>
+                                                  <div>
+                                                    Faktiskt: 
+                                                    <button
+                                                      className="font-bold text-blue-600 hover:text-blue-500 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200 ml-1"
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onSubCategoryDrillDown && onSubCategoryDrillDown(item.name, item.amount);
+                                                      }}
+                                                    >
+                                                      {formatCurrency(itemActual)}
+                                                    </button>
+                                                  </div>
+                                                  <div className={`font-medium ${itemDifference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                    Diff: {itemDifference >= 0 ? '+' : ''}{formatCurrency(Math.abs(itemDifference))}
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          );
+                                        })
+                                      ) : (
+                                        <div className="text-center text-muted-foreground py-8">
+                                          <p>Inga kostnadsposter hittades</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })()
                             )}
                           </div>
                         )}

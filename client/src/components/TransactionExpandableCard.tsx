@@ -13,7 +13,9 @@ import { TransactionTypeSelector } from './TransactionTypeSelector';
 import { useBudget } from '@/hooks/useBudget';
 import { useTransactionExpansion } from '@/hooks/useTransactionExpansion';
 import { useHuvudkategorier, useUnderkategorier, useCategoryNames } from '@/hooks/useCategories';
+import { useBudgetPosts } from '@/hooks/useBudgetPosts';
 import { formatOrenAsCurrency } from '@/utils/currencyUtils';
+import { addMobileDebugLog } from '@/utils/mobileDebugLogger';
 
 interface TransactionExpandableCardProps {
   transaction: ImportedTransaction;
@@ -52,6 +54,36 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   const { data: huvudkategorier = [] } = useHuvudkategorier();
   const { data: allUnderkategorier = [] } = useUnderkategorier();
   const categoryNames = useCategoryNames();
+  // Force fetch ALL budget posts for linked transaction lookups
+  const { data: budgetPostsFromAPI = [], refetch: refetchBudgetPosts } = useBudgetPosts();
+  
+  // Debug the budget posts data
+  useEffect(() => {
+    console.log('🔍 [TransactionExpandableCard] All Budget Posts from hook:', {
+      count: budgetPostsFromAPI.length,
+      targetId: '9252e444-4868-4b5e-a309-e0fbd711fe16',
+      hasTargetId: budgetPostsFromAPI.some(p => p.id === '9252e444-4868-4b5e-a309-e0fbd711fe16'),
+      allIds: budgetPostsFromAPI.map(p => p.id),
+      sparmålPosts: budgetPostsFromAPI.filter(p => p.type === 'sparmål').map(p => ({ id: p.id, description: p.description }))
+    });
+    
+    // Special debug for the problematic transaction
+    if (transaction.id === 'efe00305-a8c4-4906-a493-28ebea93af0e') {
+      const foundPost = budgetPostsFromAPI.find(p => p.id === transaction.savingsTargetId);
+      console.log('🚨 [DEBUG EGYPTEN TRANSACTION] Found transaction with savingsTargetId:', {
+        transactionId: transaction.id,
+        savingsTargetId: transaction.savingsTargetId,
+        budgetPostsCount: budgetPostsFromAPI.length,
+        foundPost
+      });
+      
+      // If we have a savingsTargetId but can't find the post, force refresh
+      if (transaction.savingsTargetId && !foundPost) {
+        console.log('🔄 [DEBUG] Forcing budget posts refetch for missing linked post');
+        refetchBudgetPosts();
+      }
+    }
+  }, [budgetPostsFromAPI, transaction]);
   
   const { isExpanded, setIsExpanded } = useTransactionExpansion(transaction.id);
   const [isEditingNote, setIsEditingNote] = useState(false);
@@ -478,7 +510,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
               </div>
 
               {/* Linked transaction and savings information */}
-              {(transaction.linkedTransactionId || transaction.savingsTargetId || transaction.type === 'InternalTransfer') && (
+              {(transaction.linkedTransactionId || transaction.savingsTargetId || transaction.type === 'InternalTransfer' || transaction.type === 'Savings' || transaction.type === 'Sparande') && (
                 <div className="mt-4 space-y-3">
                   {/* Linked transaction information */}
                   {(transaction.linkedTransactionId || transaction.type === 'InternalTransfer') && (
@@ -583,64 +615,73 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                     </div>
                   )}
 
-                  {/* Linked savings information */}
-                  {transaction.savingsTargetId && (transaction.type === 'Savings' || transaction.type === 'Transaction') && (
+                  {/* Linked savings information - DEBUG */}
+                  {(() => {
+                    if (transaction.type === 'Sparande' || transaction.type === 'Savings') {
+                      const debugInfo = {
+                        id: transaction.id,
+                        type: transaction.type,
+                        description: transaction.description,
+                        savingsTargetId: transaction.savingsTargetId,
+                        linked_saving: transaction.linked_saving,
+                        amount: transaction.amount,
+                        hasAnySavingsId: !!(transaction.savingsTargetId || transaction.linked_saving),
+                        conditionMet: !!(transaction.savingsTargetId || transaction.linked_saving) && (transaction.type === 'Savings' || transaction.type === 'Sparande' || transaction.type === 'Transaction')
+                      };
+                      console.log('🔍 [SPARANDE DEBUG] Transaction details:', debugInfo);
+                      addMobileDebugLog(`🔍 [SPARANDE DEBUG] ${transaction.description}: type=${debugInfo.type}, savingsTargetId=${debugInfo.savingsTargetId}, hasLink=${debugInfo.hasAnySavingsId}, showSection=${debugInfo.conditionMet}`);
+                    }
+                    return null;
+                  })()}
+
+                  {/* Linked savings information - Only for Savings/Sparande type with savingsTargetId */}
+                  {transaction.savingsTargetId && (transaction.type === 'Savings' || transaction.type === 'Sparande') && (
                     <div>
                       <label className="text-xs font-medium text-muted-foreground">
-                        Kopplad till sparande
+                        Länkad transaktion
                       </label>
-                      <div className="mt-1 p-2 bg-green-50 border border-green-200 rounded-md">
+                      <div className="mt-1 p-2 bg-blue-50 border border-blue-200 rounded-md">
                         {(() => {
-                          const currentMonthData = budgetState?.historicalData?.[budgetState.selectedMonthKey];
-                          const savingsGroups = currentMonthData?.savingsGroups || [];
-                          const savingsGoals = budgetState?.savingsGoals || [];
+                          // Look up the budget_post by ID using the same pattern as internal transfers
+                          const linkedBudgetPost = budgetPostsFromAPI.find(post => post.id === transaction.savingsTargetId);
                           
-                          let foundTarget = null;
-                          savingsGroups.forEach(group => {
-                            (group.subCategories || []).forEach(sub => {
-                              if (sub.id === transaction.savingsTargetId) {
-                                foundTarget = {
-                                  name: sub.name,
-                                  groupName: group.name,
-                                  type: 'subcategory'
-                                };
-                              }
-                            });
-                          });
-                          
-                          if (!foundTarget) {
-                            const goal = savingsGoals.find(g => g.id === transaction.savingsTargetId);
-                            if (goal) {
-                              foundTarget = {
-                                name: goal.name,
-                                groupName: 'Sparmål',
-                                type: 'goal'
-                              };
-                            }
-                          }
-                          
-                          if (!foundTarget) {
+                          if (!linkedBudgetPost) {
                             return (
-                              <p className="text-sm text-green-700">
-                                Kopplad till okänt sparmål (ID: {transaction.savingsTargetId})
+                              <p className="text-sm text-blue-700">
+                                Länkad transaktion hittades inte
                               </p>
                             );
                           }
+
+                          // Get the account name
+                          const account = budgetState?.accounts?.find(acc => acc.id === linkedBudgetPost.accountId);
                           
+                          // Display the budget post information using the same format as internal transfers
                           return (
                             <div className="space-y-1">
-                              <p className="text-sm text-green-700 font-medium">
-                                {formatOrenAsCurrency(transaction.amount)} sparas i:
+                              <p className="text-sm text-blue-600">
+                                {linkedBudgetPost.description}
                               </p>
-                              <p className="text-sm text-green-600">
-                                {foundTarget.name}
-                              </p>
-                              <p className="text-xs text-green-500">
-                                Kategori: {foundTarget.groupName}
+                              <p className="text-xs text-blue-500">
+                                Typ: {linkedBudgetPost.type === 'sparmål' ? 'Sparmål' : 'Sparpost'} • Konto: {account?.name || linkedBudgetPost.accountId}
                               </p>
                             </div>
                           );
                         })()}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Show message for Savings/Sparande type without savingsTargetId */}
+                  {!transaction.savingsTargetId && (transaction.type === 'Savings' || transaction.type === 'Sparande') && (
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Länkad transaktion
+                      </label>
+                      <div className="mt-1 p-2 bg-gray-50 border border-gray-200 rounded-md">
+                        <p className="text-sm text-gray-600">
+                          Länkad transaktion hittades inte
+                        </p>
                       </div>
                     </div>
                   )}

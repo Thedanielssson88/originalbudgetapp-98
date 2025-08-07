@@ -2307,6 +2307,11 @@ export const deleteSavingsGoal = (goalId: string) => {
 export function updateTransaction(transactionId: string, updates: Partial<ImportedTransaction>, monthKey?: string): void {
   console.log(`🔄 [ORCHESTRATOR] updateTransaction called with:`, { transactionId, updates, monthKey });
   
+  // Import mobile debug logger dynamically to avoid circular deps
+  import('../utils/mobileDebugLogger').then(({ addMobileDebugLog }) => {
+    addMobileDebugLog(`🔄 [ORCHESTRATOR] updateTransaction: ${transactionId} with savingsTargetId=${updates.savingsTargetId}`);
+  });
+  
   // CRITICAL: Use centralized transaction storage
   const originalTransactionIndex = state.budgetState.allTransactions.findIndex(t => t.id === transactionId);
   if (originalTransactionIndex === -1) {
@@ -2368,31 +2373,89 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
     oldStatus: originalTransaction.status, 
     newStatus: updatedTransaction.status,
     oldType: originalTransaction.type,
-    newType: updatedTransaction.type
+    newType: updatedTransaction.type,
+    oldSavingsTargetId: originalTransaction.savingsTargetId,
+    newSavingsTargetId: updatedTransaction.savingsTargetId,
+    updatesSavingsTargetId: updates.savingsTargetId
   });
   
-  console.log(`🔄 [ORCHESTRATOR] State updated, about to save and trigger refresh...`);
+  // Add mobile debug log
+  import('../utils/mobileDebugLogger').then(({ addMobileDebugLog }) => {
+    addMobileDebugLog(`🔄 [ORCHESTRATOR] After update: savingsTargetId changed from ${originalTransaction.savingsTargetId} to ${updatedTransaction.savingsTargetId}`);
+  });
+  
+  console.log(`🔄 [ORCHESTRATOR] State updated, about to save to storage...`);
   
   saveStateToStorage();
-  runCalculationsAndUpdateState();
+  // DON'T call runCalculationsAndUpdateState() immediately - let the database update complete first
+  // The database update will trigger a refresh when it's done
   
   // *** NEW: SAVE TO DATABASE ***
   // Call API to persist the changes to PostgreSQL asynchronously
   Promise.resolve().then(async () => {
     try {
       const { apiStore } = await import('../store/apiStore');
-      await apiStore.updateTransaction(transactionId, {
+      const dbUpdateData = {
         appCategoryId: updates.appCategoryId,
         appSubCategoryId: updates.appSubCategoryId,
         type: updates.type,
         status: updatedTransaction.status,
         linkedTransactionId: updates.linkedTransactionId,
+        savingsTargetId: updates.savingsTargetId,
         correctedAmount: updates.correctedAmount,
         isManuallyChanged: String(updates.isManuallyChanged || true)
-      });
+      };
+      
+      console.log(`🔄 [Orchestrator] Saving to database:`, { transactionId, dbUpdateData });
+      
+      // Import mobile debug logger for database update
+      const { addMobileDebugLog } = await import('../utils/mobileDebugLogger');
+      addMobileDebugLog(`🔄 [DB UPDATE] Saving transaction ${transactionId} with savingsTargetId=${dbUpdateData.savingsTargetId}`);
+      
+      // Test the schema validation with our test endpoint
+      try {
+        const testResponse = await fetch('/api/test-savings-target', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(dbUpdateData)
+        });
+        const testResult = await testResponse.json();
+        addMobileDebugLog(`🧪 [TEST] Schema validation result: hasSavingsTargetId=${testResult.hasSavingsTargetId}, value=${testResult.savingsTargetIdValue}`);
+      } catch (testError) {
+        addMobileDebugLog(`🧪 [TEST] Schema validation test failed: ${testError.message}`);
+      }
+      
+      const dbResponse = await apiStore.updateTransaction(transactionId, dbUpdateData);
+      
       console.log(`✅ [Orchestrator] Transaction ${transactionId} successfully saved to database`);
+      console.log(`🔍 [Orchestrator] Database response:`, dbResponse);
+      addMobileDebugLog(`✅ [DB UPDATE] Transaction ${transactionId} successfully saved to database`);
+      addMobileDebugLog(`🔍 [DB UPDATE] Response savingsTargetId: ${dbResponse?.savingsTargetId || dbResponse?.savings_target_id || 'undefined'}`);
+      
+      // Now reload transactions from database and trigger refresh after database update is complete
+      addMobileDebugLog(`🔄 [DB UPDATE] Reloading transactions from database after successful update`);
+      await loadTransactionsFromDatabase();
+      
+      // Invalidate React Query cache to force UI update
+      // We need to get the global queryClient instance from the app
+      if (typeof window !== 'undefined' && (window as any).__queryClient) {
+        try {
+          const client = (window as any).__queryClient;
+          await client.invalidateQueries({ queryKey: ['/api/transactions'] });
+          await client.invalidateQueries({ queryKey: ['/api/budget-posts'] });
+          addMobileDebugLog(`🔄 [DB UPDATE] Invalidated React Query cache for transactions and budget-posts`);
+        } catch (e) {
+          console.log('Could not invalidate queries:', e);
+        }
+      }
+      
+      addMobileDebugLog(`🔄 [DB UPDATE] Triggering refresh after transaction reload`);
+      runCalculationsAndUpdateState();
     } catch (error) {
       console.error(`❌ [Orchestrator] Failed to save transaction ${transactionId} to database:`, error);
+      // Import mobile debug logger for error
+      const { addMobileDebugLog } = await import('../utils/mobileDebugLogger');
+      addMobileDebugLog(`❌ [DB UPDATE] Failed to save transaction ${transactionId}: ${error.message}`);
     }
   });
   
@@ -2972,6 +3035,23 @@ async function loadTransactionsFromDatabase(): Promise<void> {
     console.log(`✅ [ORCHESTRATOR] Loaded ${dbTransactions.length} transactions from PostgreSQL`);
     addMobileDebugLog(`✅ [ORCHESTRATOR] Loaded ${dbTransactions.length} transactions from database`);
     
+    // Debug: Check if any transactions have savingsTargetId
+    const transactionsWithSavings = dbTransactions.filter(t => t.savingsTargetId || (t as any).savings_target_id);
+    if (transactionsWithSavings.length > 0) {
+      console.log(`🔍 [ORCHESTRATOR] Found ${transactionsWithSavings.length} transactions with savings links:`, 
+        transactionsWithSavings.map(t => ({ 
+          id: t.id, 
+          description: t.description,
+          savingsTargetId: t.savingsTargetId, 
+          savings_target_id: (t as any).savings_target_id 
+        }))
+      );
+      addMobileDebugLog(`🔍 [LOAD] Found ${transactionsWithSavings.length} transactions with savingsTargetId in database response`);
+    } else {
+      console.log(`🔍 [ORCHESTRATOR] No transactions found with savingsTargetId or savings_target_id fields`);
+      addMobileDebugLog(`🔍 [LOAD] No transactions found with savingsTargetId in database response`);
+    }
+    
     // Convert database transactions to the format expected by budgetState
     const convertedTransactions = (dbTransactions || []).map(tx => ({
       id: tx.id,
@@ -2984,6 +3064,7 @@ async function loadTransactionsFromDatabase(): Promise<void> {
       type: tx.type || 'Transaction',
       status: tx.status || 'red',
       linkedTransactionId: tx.linkedTransactionId,
+      savingsTargetId: tx.savingsTargetId, // This maps directly from the database column
       correctedAmount: tx.correctedAmount,
       isManuallyChanged: tx.isManuallyChanged === 'true',
       appCategoryId: tx.appCategoryId,

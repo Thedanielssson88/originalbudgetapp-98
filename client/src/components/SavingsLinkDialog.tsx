@@ -5,6 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { ImportedTransaction } from '@/types/transaction';
 import { useBudget } from '@/hooks/useBudget';
+import { useBudgetPosts } from '@/hooks/useBudgetPosts';
+import { addMobileDebugLog } from '@/utils/mobileDebugLogger';
 
 interface SavingsLinkDialogProps {
   isOpen: boolean;
@@ -30,11 +32,20 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
 }) => {
   const [selectedTarget, setSelectedTarget] = useState<string>('');
   const { budgetState } = useBudget();
+  const { data: budgetPostsFromAPI = [] } = useBudgetPosts();
 
-  // Get month data for savings categories
+  // Get month data for savings categories (legacy)
   const currentMonthData = budgetState?.historicalData?.[budgetState.selectedMonthKey];
   const savingsGroups = currentMonthData?.savingsGroups || [];
   const savingsGoals = budgetState?.savingsGoals || [];
+
+  // Get savings goals and savings posts from SQL budget_posts
+  const savingsPostsFromSQL = useMemo(() => {
+    if (!budgetPostsFromAPI) return [];
+    return budgetPostsFromAPI.filter(post => 
+      post.type === 'sparmål' || post.type === 'savings'
+    );
+  }, [budgetPostsFromAPI]);
 
   // Create unified list of all selectable savings targets
   const selectableTargets = useMemo<SavingsTarget[]>(() => {
@@ -42,7 +53,7 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
 
     const targets: SavingsTarget[] = [];
 
-    // Add savings subcategories (specific savings posts)
+    // Add savings subcategories (specific savings posts) - LEGACY
     savingsGroups.forEach(group => {
       (group.subCategories || []).forEach(sub => {
         targets.push({
@@ -54,7 +65,38 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
       });
     });
 
-    // Filter savings goals based on transaction date
+    // Add savings posts from SQL database
+    savingsPostsFromSQL.forEach(post => {
+      try {
+        let displayName = post.description;
+        let postType = 'SQL post';
+        
+        // Try to parse structured JSON description for sparmål
+        if (post.type === 'sparmål') {
+          try {
+            const goalData = JSON.parse(post.description);
+            displayName = goalData.name;
+            postType = 'Sparmål (SQL)';
+          } catch {
+            // Fallback to raw description for non-JSON descriptions
+            postType = 'Sparmål (SQL)';
+          }
+        } else if (post.type === 'savings') {
+          postType = 'Sparpost (SQL)';
+        }
+
+        targets.push({
+          id: post.id,
+          name: `${displayName} (${postType})`,
+          mainCategoryId: post.huvudkategoriId || post.id, // Use huvudkategoriId or fallback to post ID
+          type: post.type === 'sparmål' ? 'goal' : 'subcategory'
+        });
+      } catch (error) {
+        console.warn('Failed to process savings post:', post, error);
+      }
+    });
+
+    // Filter legacy savings goals based on transaction date
     const transactionDate = new Date(transaction.date);
     const relevantSavingsGoals = savingsGoals.filter(goal => {
       const startDate = new Date(goal.startDate + '-01');
@@ -62,18 +104,18 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
       return transactionDate >= startDate && transactionDate <= endDate;
     });
 
-    // Add relevant savings goals
+    // Add relevant legacy savings goals
     relevantSavingsGoals.forEach(goal => {
       targets.push({
         id: goal.id, // UUID from savings goal
-        name: `${goal.name} (Sparmål)`,
+        name: `${goal.name} (Sparmål - Legacy)`,
         mainCategoryId: goal.mainCategoryId || goal.id, // Use mainCategoryId if set, otherwise goal ID
         type: 'goal'
       });
     });
 
     return targets;
-  }, [savingsGroups, savingsGoals, transaction]);
+  }, [savingsGroups, savingsGoals, savingsPostsFromSQL, transaction]);
 
   // Set initial selection based on existing savings link
   React.useEffect(() => {
@@ -101,23 +143,39 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
       return;
     }
     
+    console.log('🔗 [SavingsLinkDialog] Linking transaction to savings target:', {
+      transactionId: transaction.id,
+      targetId: target.id,
+      targetName: target.name,
+      targetType: target.type,
+      mainCategoryId: target.mainCategoryId
+    });
+    
     // Update transaction with correct linking via prop function
     const updates: Partial<ImportedTransaction> = {
-      type: 'Sparande',
+      type: 'Savings', // Use 'Savings' instead of 'Sparande' for consistency with SQL
       appCategoryId: target.mainCategoryId, // Link to main category
-      savingsTargetId: target.id // Link to specific savings post/goal
+      savingsTargetId: target.id // Link to specific savings post/goal (budget_post ID for SQL targets)
     };
     
     // Call the prop function instead of direct orchestrator call
+    console.log('🔗 [SavingsLinkDialog] Calling onUpdateTransaction with updates:', updates);
+    addMobileDebugLog(`🔗 [SavingsLinkDialog] Linking transaction ${transaction.id} to savings target ${target.id} (${target.name})`);
+    addMobileDebugLog(`🔗 Updates: type=${updates.type}, savingsTargetId=${updates.savingsTargetId}, appCategoryId=${updates.appCategoryId}`);
+    
     onUpdateTransaction(transaction.id, updates);
     
     // Trigger refresh after the update
     if (onRefresh) {
       setTimeout(() => {
+        console.log('🔗 [SavingsLinkDialog] Triggering refresh after linking');
+        addMobileDebugLog('🔗 [SavingsLinkDialog] Triggering refresh after linking');
         onRefresh();
       }, 100);
     }
     
+    console.log('🔗 [SavingsLinkDialog] Link operation completed, closing dialog');
+    addMobileDebugLog('🔗 [SavingsLinkDialog] Link operation completed, closing dialog');
     onClose();
   };
 

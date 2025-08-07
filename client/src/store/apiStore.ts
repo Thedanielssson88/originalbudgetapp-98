@@ -60,6 +60,15 @@ class ApiStore {
   }
 
   async updateTransaction(id: string, data: any): Promise<any> {
+    // Debug logging for savingsTargetId
+    if (data.savingsTargetId !== undefined) {
+      console.log(`🔄 [API STORE] Updating transaction ${id} with data:`, data);
+      // Also log to mobile debug
+      import('../utils/mobileDebugLogger').then(({ addMobileDebugLog }) => {
+        addMobileDebugLog(`🔄 [API STORE] Updating transaction ${id} with savingsTargetId=${data.savingsTargetId}`);
+      });
+    }
+    
     const response = await fetch(`/api/transactions/${id}`, {
       method: 'PUT',
       headers: {
@@ -72,7 +81,22 @@ class ApiStore {
       throw new Error(`Failed to update transaction: ${response.statusText}`);
     }
 
-    return response.json();
+    const result = await response.json();
+    
+    // Debug logging for response
+    if (data.savingsTargetId !== undefined) {
+      console.log(`✅ [API STORE] Response from server:`, { 
+        id: result.id, 
+        savingsTargetId: result.savingsTargetId,
+        savings_target_id: result.savings_target_id 
+      });
+      // Also log to mobile debug
+      import('../utils/mobileDebugLogger').then(({ addMobileDebugLog }) => {
+        addMobileDebugLog(`✅ [API STORE] Server response savingsTargetId=${result.savingsTargetId}, snake_case=${result.savings_target_id}`);
+      });
+    }
+
+    return result;
   }
 
   async getTransactions(): Promise<any[]> {

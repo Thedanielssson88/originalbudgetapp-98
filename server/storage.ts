@@ -90,10 +90,10 @@ export interface IStorage {
   
   // Budget Posts CRUD
   getBudgetPosts(userId: string, monthKey?: string): Promise<BudgetPost[]>;
-  getBudgetPost(id: string): Promise<BudgetPost | undefined>;
+  getBudgetPost(userId: string, id: string): Promise<BudgetPost | undefined>;
   createBudgetPost(post: InsertBudgetPost): Promise<BudgetPost>;
-  updateBudgetPost(id: string, post: Partial<InsertBudgetPost>): Promise<BudgetPost | undefined>;
-  deleteBudgetPost(id: string): Promise<boolean>;
+  updateBudgetPost(userId: string, id: string, post: Partial<InsertBudgetPost>): Promise<BudgetPost | undefined>;
+  deleteBudgetPost(userId: string, id: string): Promise<boolean>;
   
   // Monthly Budget CRUD
   getMonthlyBudgets(userId: string): Promise<MonthlyBudget[]>;
@@ -711,23 +711,23 @@ export class MemStorage implements IStorage {
   }
 
   // Stub methods for BudgetPost - not implemented yet
-  async getBudgetPosts(): Promise<any[]> {
+  async getBudgetPosts(userId: string, monthKey?: string): Promise<any[]> {
     return [];
   }
 
-  async getBudgetPost(): Promise<any> {
+  async getBudgetPost(userId: string, id: string): Promise<any> {
     return undefined;
   }
 
-  async createBudgetPost(): Promise<any> {
+  async createBudgetPost(post: InsertBudgetPost): Promise<any> {
     throw new Error("Not implemented");
   }
 
-  async updateBudgetPost(): Promise<any> {
+  async updateBudgetPost(userId: string, id: string, post: Partial<InsertBudgetPost>): Promise<any> {
     return undefined;
   }
 
-  async deleteBudgetPost(): Promise<boolean> {
+  async deleteBudgetPost(userId: string, id: string): Promise<boolean> {
     return false;
   }
 }

@@ -19,7 +19,7 @@ export interface ImportedTransaction {
   appSubCategoryId?: string;
   
   // Transaction type and status
-  type: 'Transaction' | 'InternalTransfer' | 'Savings' | 'CostCoverage' | 'ExpenseClaim';
+  type: 'Transaction' | 'InternalTransfer' | 'Savings' | 'Sparande' | 'CostCoverage' | 'ExpenseClaim';
   status: 'red' | 'yellow' | 'green'; // Red=needs action, Yellow=auto, Green=approved
   
   // Transfer specific fields
@@ -30,6 +30,7 @@ export interface ImportedTransaction {
   coveredCostId?: string; // If this transfer covers a specific cost
   correctedAmount?: number; // För "Täck en kostnad"-logiken
   savingsTargetId?: string; // ID för kopplat sparmål eller sparkategori
+  linked_saving?: string; // Legacy field name for savingsTargetId
   
   // Metadata
   isManuallyChanged?: boolean; // If user manually changed category, don't override on re-import

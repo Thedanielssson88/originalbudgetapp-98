@@ -73,6 +73,7 @@ export const transactions = pgTable('transactions', {
     type: text('type').default('Transaction').notNull(),
     status: text('status').default('yellow').notNull(),
     linkedTransactionId: uuid('linked_transaction_id'),
+    savingsTargetId: uuid('savings_target_id'), // Links to budget_posts.id for savings goals/posts
     correctedAmount: integer('corrected_amount'),
     isManuallyChanged: text('is_manually_changed').default('false').notNull(),
     appCategoryId: uuid('app_category_id').references(() => huvudkategorier.id, { onDelete: 'set null' }),
@@ -150,6 +151,9 @@ export const budgetPosts = pgTable('budget_posts', {
     huvudkategoriId: uuid('huvudkategori_id').references(() => huvudkategorier.id, { onDelete: 'cascade' }), // Nullable for transfers
     underkategoriId: uuid('underkategori_id').references(() => underkategorier.id, { onDelete: 'cascade' }), // Nullable for transfers
     description: text('description').notNull(),
+    name: text('name'), // For sparmål - the actual name like "Egypten"
+    startDate: text('start_date'), // For sparmål - format: YYYY-MM
+    endDate: text('end_date'), // For sparmål - format: YYYY-MM
     amount: integer('amount').notNull(), // For fixed monthly amounts
     accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }), // To account for transfers
     accountIdFrom: uuid('account_id_from').references(() => accounts.id, { onDelete: 'set null' }), // From account for transfers
@@ -157,7 +161,7 @@ export const budgetPosts = pgTable('budget_posts', {
     transferType: text('transfer_type').default('monthly').notNull(), // 'monthly' or 'daily'
     dailyAmount: integer('daily_amount'), // For daily transfers
     transferDays: text('transfer_days'), // JSON array of weekday numbers [0-6] for daily transfers
-    type: text('type').notNull(), // 'cost', 'savings', or 'transfer'
+    type: text('type').notNull(), // 'cost', 'savings', 'sparmål', or 'transfer'
     transactionType: text('transaction_type').default('Kostnadspost'), // Transaction type label
     budgetType: text('budget_type').default('Kostnadspost'), // Budget type label
     createdAt: timestamp('created_at').defaultNow().notNull(),
