@@ -67,10 +67,10 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
       sparmålPosts: budgetPostsFromAPI.filter(p => p.type === 'sparmål').map(p => ({ id: p.id, description: p.description }))
     });
     
-    // Special debug for LÖN transactions
+    // Special debug for LÖN transactions - Check if the fix worked
     if (transaction.description === 'LÖN' && (transaction.id === 'efe00305-a8c4-4906-a493-28ebea93af0e' || transaction.id === 'edece0e6-59d1-4967-a90b-28ef3c4bfc2f')) {
       const foundPost = budgetPostsFromAPI.find(p => p.id === transaction.savingsTargetId);
-      console.log('🚨 [DEBUG LÖN TRANSACTION] Transaction with savingsTargetId:', {
+      console.log('🚨 [DEBUG LÖN TRANSACTION - POST FIX] Transaction with savingsTargetId:', {
         transactionId: transaction.id,
         savingsTargetId: transaction.savingsTargetId,
         transaction_savingsTargetId: (transaction as any).savings_target_id,
@@ -78,7 +78,8 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
         transactionKeys: Object.keys(transaction),
         budgetPostsCount: budgetPostsFromAPI.length,
         foundPost,
-        expectedTargetId: '9252e444-4868-4b5e-a309-e0fbd711fe16'
+        expectedTargetId: '9252e444-4868-4b5e-a309-e0fbd711fe16',
+        fixWorked: transaction.savingsTargetId === '9252e444-4868-4b5e-a309-e0fbd711fe16'
       });
       
       // If we have a savingsTargetId but can't find the post, force refresh

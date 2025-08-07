@@ -419,6 +419,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sample.forEach((tx, i) => {
           console.log(`Sample tx ${i}: amount=${tx.amount}, description="${tx.description}"`);
         });
+        
+        // Special debug for savingsTargetId field
+        const savingsTransactions = transactions.filter(tx => tx.savingsTargetId);
+        console.log(`🔍 [API] Found ${savingsTransactions.length} transactions with savingsTargetId:`);
+        savingsTransactions.slice(0, 5).forEach(tx => {
+          console.log(`  - ID: ${tx.id}, savingsTargetId: ${tx.savingsTargetId}, description: "${tx.description}"`);
+        });
+        
+        // Special debug for our target transactions
+        const targetTransactions = transactions.filter(tx => 
+          tx.id === 'edece0e6-59d1-4967-a90b-28ef3c4bfc2f' || tx.id === 'efe00305-a8c4-4906-a493-28ebea93af0e'
+        );
+        if (targetTransactions.length > 0) {
+          console.log(`🚨 [API] Target LÖN transactions debug:`);
+          targetTransactions.forEach(tx => {
+            console.log(`  - ID: ${tx.id}, savingsTargetId: ${tx.savingsTargetId || 'MISSING'}, description: "${tx.description}"`);
+          });
+        }
       }
       
       res.json(transactions);

@@ -1447,6 +1447,7 @@ export async function forceReloadTransactions(): Promise<void> {
         type: tx.type || 'Transaction',
         status: tx.status || 'red',
         linkedTransactionId: tx.linkedTransactionId,
+        savingsTargetId: tx.savingsTargetId, // CRITICAL FIX: Include savingsTargetId field
         correctedAmount: tx.correctedAmount,
         isManuallyChanged: tx.isManuallyChanged === 'true',
         appCategoryId: tx.appCategoryId,
@@ -2987,6 +2988,7 @@ export async function getAllTransactionsFromDatabase(): Promise<ImportedTransact
       type: (tx.type as ImportedTransaction['type']) || 'Transaction',
       status: (tx.status as ImportedTransaction['status']) || 'red',
       linkedTransactionId: tx.linkedTransactionId,
+      savingsTargetId: tx.savingsTargetId, // CRITICAL FIX: Include savingsTargetId field
       correctedAmount: tx.correctedAmount,
       isManuallyChanged: tx.isManuallyChanged || false,
       appCategoryId: tx.hoofdkategoriId,
