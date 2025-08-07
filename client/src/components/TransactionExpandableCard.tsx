@@ -54,8 +54,8 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   const { data: huvudkategorier = [] } = useHuvudkategorier();
   const { data: allUnderkategorier = [] } = useUnderkategorier();
   const categoryNames = useCategoryNames();
-  // Force fetch ALL budget posts for linked transaction lookups
-  const { data: budgetPostsFromAPI = [], refetch: refetchBudgetPosts } = useBudgetPosts();
+  // Force fetch ALL budget posts for linked transaction lookups (pass null to get all)
+  const { data: budgetPostsFromAPI = [], refetch: refetchBudgetPosts } = useBudgetPosts(null);
   
   // Debug the budget posts data
   useEffect(() => {

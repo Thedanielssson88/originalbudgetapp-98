@@ -73,15 +73,25 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
   }), []);
 
   const [formData, setFormData] = useState(initialFormData);
-  
-  const [availableSubcategories, setAvailableSubcategories] = useState<any[]>([]);
 
   // Reset form when dialog opens
   useEffect(() => {
     if (isOpen) {
-      setFormData(initialFormData);
+      setFormData({
+        mainCategoryId: '',
+        subCategoryId: '',
+        description: '',
+        amount: 0,
+        accountId: 'none',
+        fromAccountId: 'none',
+        toAccountId: 'none',
+        financedFrom: 'Löpande kostnad' as 'Löpande kostnad' | 'Enskild kostnad',
+        transferType: 'monthly' as 'monthly' | 'daily',
+        dailyAmount: 0,
+        transferDays: [] as number[]
+      });
     }
-  }, [isOpen]); // Remove initialFormData from dependencies to prevent infinite loop
+  }, [isOpen]);
 
   // Filter subcategories based on selected main category
   const currentAvailableSubcategories = useMemo(() => {
@@ -91,10 +101,8 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
     return [];
   }, [formData.mainCategoryId, underkategorier]);
 
-  // Update available subcategories when the filtered list changes
-  useEffect(() => {
-    setAvailableSubcategories(currentAvailableSubcategories);
-  }, [currentAvailableSubcategories]);
+  // Remove the problematic useEffect that was causing infinite loops
+  // We can use currentAvailableSubcategories directly in the JSX
 
   const handleSave = async () => {
     console.log('🔍 [DEBUG] AddBudgetItemDialog handleSave called with formData:', formData);
@@ -247,7 +255,7 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
                 {isLoadingUnder ? (
                   <SelectItem value="loading" disabled>Laddar...</SelectItem>
                 ) : (
-                  availableSubcategories.filter(s => s.id && s.id !== '').map((subkategori) => (
+                  currentAvailableSubcategories.filter(s => s.id && s.id !== '').map((subkategori) => (
                     <SelectItem key={subkategori.id} value={subkategori.id}>
                       {subkategori.name}
                     </SelectItem>
