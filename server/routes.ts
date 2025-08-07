@@ -12,7 +12,8 @@ import {
   insertMonthlyAccountBalanceSchema,
   insertBudgetPostSchema,
   insertBankSchema,
-  insertBankCsvMappingSchema
+  insertBankCsvMappingSchema,
+  insertPlannedTransferSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -708,6 +709,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Budget Posts routes
+  app.get("/api/budget-posts", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const monthKey = req.query.monthKey as string;
+      const budgetPosts = await storage.getBudgetPosts(userId, monthKey);
+      res.json(budgetPosts);
+    } catch (error) {
+      console.error('Error fetching budget posts:', error);
+      res.status(500).json({ error: 'Failed to fetch budget posts' });
+    }
+  });
+
+  app.get("/api/budget-posts/:id", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const { id } = req.params;
+      const budgetPost = await storage.getBudgetPost(userId, id);
+      if (!budgetPost) {
+        return res.status(404).json({ error: 'Budget post not found' });
+      }
+      res.json(budgetPost);
+    } catch (error) {
+      console.error('Error fetching budget post:', error);
+      res.status(500).json({ error: 'Failed to fetch budget post' });
+    }
+  });
+
+  app.post("/api/budget-posts", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const validatedData = insertBudgetPostSchema.parse({
+        ...req.body,
+        userId
+      });
+      const budgetPost = await storage.createBudgetPost(validatedData);
+      res.status(201).json(budgetPost);
+    } catch (error) {
+      console.error('Error creating budget post:', error);
+      res.status(400).json({ error: 'Failed to create budget post' });
+    }
+  });
+
+  app.patch("/api/budget-posts/:id", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const { id } = req.params;
+      const updateData = insertBudgetPostSchema.partial().parse(req.body);
+      const budgetPost = await storage.updateBudgetPost(userId, id, updateData);
+      if (!budgetPost) {
+        return res.status(404).json({ error: 'Budget post not found' });
+      }
+      res.json(budgetPost);
+    } catch (error) {
+      console.error('Error updating budget post:', error);
+      res.status(400).json({ error: 'Failed to update budget post' });
+    }
+  });
+
+  app.delete("/api/budget-posts/:id", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const { id } = req.params;
+      const deleted = await storage.deleteBudgetPost(userId, id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Budget post not found' });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting budget post:', error);
+      res.status(500).json({ error: 'Failed to delete budget post' });
+    }
+  });
+
   // Bank routes
   app.get("/api/banks", async (req, res) => {
     try {
@@ -871,7 +951,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { monthKey, accountId } = req.params;
       const { faktisktKontosaldo } = req.body;
       
+      console.log(`Updating faktiskt kontosaldo for account ${accountId}, month ${monthKey}, value:`, faktisktKontosaldo, typeof faktisktKontosaldo);
+      
       const result = await storage.updateFaktisktKontosaldo(userId, monthKey, accountId, faktisktKontosaldo);
+      
+      console.log('Update result:', result);
       
       if (result) {
         res.json(result);
@@ -901,6 +985,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error updating bankens kontosaldo:', error);
       res.status(400).json({ error: 'Failed to update bankens kontosaldo' });
+    }
+  });
+
+  // Planned Transfers routes
+  app.get("/api/planned-transfers", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const month = req.query.month as string;
+      const transfers = await storage.getPlannedTransfers(userId, month);
+      res.json(transfers);
+    } catch (error) {
+      console.error('Error fetching planned transfers:', error);
+      res.status(500).json({ error: 'Failed to fetch planned transfers' });
+    }
+  });
+
+  app.post("/api/planned-transfers", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      
+      // Convert amounts from SEK to öre (multiply by 100)
+      const transferData = {
+        ...req.body,
+        userId,
+        amount: Math.round((req.body.amount || 0) * 100),
+        dailyAmount: req.body.dailyAmount ? Math.round(req.body.dailyAmount * 100) : undefined,
+        transferDays: req.body.transferDays ? JSON.stringify(req.body.transferDays) : undefined
+      };
+      
+      const validatedData = insertPlannedTransferSchema.parse(transferData);
+      const transfer = await storage.createPlannedTransfer(validatedData);
+      res.status(201).json(transfer);
+    } catch (error) {
+      console.error('Error creating planned transfer:', error);
+      res.status(400).json({ error: 'Failed to create planned transfer' });
+    }
+  });
+
+  app.put("/api/planned-transfers/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Convert amounts from SEK to öre if present
+      const updateData = { ...req.body };
+      if (updateData.amount !== undefined) {
+        updateData.amount = Math.round(updateData.amount * 100);
+      }
+      if (updateData.dailyAmount !== undefined) {
+        updateData.dailyAmount = Math.round(updateData.dailyAmount * 100);
+      }
+      if (updateData.transferDays !== undefined) {
+        updateData.transferDays = JSON.stringify(updateData.transferDays);
+      }
+      
+      const transfer = await storage.updatePlannedTransfer(id, updateData);
+      if (transfer) {
+        res.json(transfer);
+      } else {
+        res.status(404).json({ error: 'Planned transfer not found' });
+      }
+    } catch (error) {
+      console.error('Error updating planned transfer:', error);
+      res.status(400).json({ error: 'Failed to update planned transfer' });
+    }
+  });
+
+  app.delete("/api/planned-transfers/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deletePlannedTransfer(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting planned transfer:', error);
+      res.status(400).json({ error: 'Failed to delete planned transfer' });
     }
   });
 

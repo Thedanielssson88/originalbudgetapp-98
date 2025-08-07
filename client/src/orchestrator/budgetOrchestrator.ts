@@ -13,6 +13,303 @@ import { monthlyBudgetService } from '../services/monthlyBudgetService';
 import { apiStore } from '../store/apiStore';
 import { parseInputToOren, kronoraToOren } from '../utils/currencyUtils';
 
+/**
+ * Matches bank categories to system categories based on exact name matching
+ * Returns {appCategoryId, appSubCategoryId} if found, null otherwise
+ */
+async function matchBankCategoriesToSystemCategories(bankCategory: string, bankSubCategory: string): Promise<{appCategoryId: string, appSubCategoryId: string} | null> {
+  try {
+    // Skip if bank categories are empty or whitespace
+    if (!bankCategory || !bankSubCategory || !bankCategory.trim() || !bankSubCategory.trim()) {
+      console.log(`[BANK CATEGORY MATCHING] Skipping empty bank categories: "${bankCategory}" / "${bankSubCategory}"`);
+      return null;
+    }
+    
+    console.log(`[BANK CATEGORY MATCHING] Attempting to match: "${bankCategory}" / "${bankSubCategory}"`);
+    
+    // Fetch system categories from database with simple error handling
+    let huvudkategorierResponse, underkategorierResponse;
+    try {
+      [huvudkategorierResponse, underkategorierResponse] = await Promise.all([
+        fetch('/api/huvudkategorier', { 
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        }),
+        fetch('/api/underkategorier', { 
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        })
+      ]);
+    } catch (error) {
+      console.warn(`[BANK CATEGORY MATCHING] Failed to fetch categories from API:`, error.message);
+      return null;
+    }
+    
+    if (!huvudkategorierResponse.ok || !underkategorierResponse.ok) {
+      console.warn(`[BANK CATEGORY MATCHING] API responses not OK: huvudkategorier=${huvudkategorierResponse.status}, underkategorier=${underkategorierResponse.status}`);
+      return null;
+    }
+    
+    const huvudkategorier = await huvudkategorierResponse.json();
+    const underkategorier = await underkategorierResponse.json();
+    
+    if (!Array.isArray(huvudkategorier) || !Array.isArray(underkategorier)) {
+      console.warn('[BANK CATEGORY MATCHING] Invalid response format from APIs');
+      return null;
+    }
+    
+    console.log(`[BANK CATEGORY MATCHING] Fetched ${huvudkategorier.length} huvudkategorier, ${underkategorier.length} underkategorier`);
+    
+    // Find matching huvudkategori by exact name match (case insensitive)
+    const matchingHuvudkategori = huvudkategorier.find((kat: any) => 
+      kat.name && kat.name.toLowerCase().trim() === bankCategory.toLowerCase().trim()
+    );
+    
+    if (!matchingHuvudkategori) {
+      console.log(`[BANK CATEGORY MATCHING] No matching huvudkategori found for: "${bankCategory}"`);
+      return null;
+    }
+    
+    // Find matching underkategori by exact name match and belonging to the huvudkategori
+    const matchingUnderkategori = underkategorier.find((kat: any) => 
+      kat.name && kat.name.toLowerCase().trim() === bankSubCategory.toLowerCase().trim() &&
+      kat.huvudkategoriId === matchingHuvudkategori.id
+    );
+    
+    if (!matchingUnderkategori) {
+      console.log(`[BANK CATEGORY MATCHING] No matching underkategori found for: "${bankSubCategory}" under "${bankCategory}"`);
+      return null;
+    }
+    
+    console.log(`[BANK CATEGORY MATCHING] ✅ Found match: "${bankCategory}" -> "${matchingHuvudkategori.name}" (${matchingHuvudkategori.id}), "${bankSubCategory}" -> "${matchingUnderkategori.name}" (${matchingUnderkategori.id})`);
+    
+    return {
+      appCategoryId: matchingHuvudkategori.id,
+      appSubCategoryId: matchingUnderkategori.id
+    };
+    
+  } catch (error) {
+    console.error('[BANK CATEGORY MATCHING] Error matching categories:', error);
+    console.log('[BANK CATEGORY MATCHING] Continuing import without bank category matching...');
+    return null;
+  }
+}
+
+/**
+ * Simple bank category matching using hardcoded mappings (no API calls)
+ * This is a fallback approach that doesn't require network requests
+ */
+async function matchBankCategoriesSimple(bankCategory: string, bankSubCategory: string): Promise<{appCategoryId: string, appSubCategoryId: string} | null> {
+  try {
+    console.log(`[BANK CATEGORY SIMPLE] Attempting simple match for: "${bankCategory}" / "${bankSubCategory}"`);
+    
+    // Common bank category mappings (you can extend this as needed)
+    const bankCategoryMappings: {[key: string]: {[key: string]: {appCategoryId: string, appSubCategoryId: string}}} = {
+      "Mat & dryck": {
+        "Livsmedel": { appCategoryId: "8424bc25-493b-4983-8349-7c0c33bd8d2a", appSubCategoryId: "5e841229-e512-411c-8f0c-a093b324a34a" },
+        "Restaurang & Kafé": { appCategoryId: "8424bc25-493b-4983-8349-7c0c33bd8d2a", appSubCategoryId: "53e6e79f-b4c8-47be-bbd7-9a7e4eb6638e" },
+        "Fastfood & take-away": { appCategoryId: "8424bc25-493b-4983-8349-7c0c33bd8d2a", appSubCategoryId: "26e96527-f132-417f-ac1f-07842cf51770" }
+      },
+      "Transport": {
+        "Bränsle": { appCategoryId: "4f884437-16c1-4893-b3a6-1320c7c2ada8", appSubCategoryId: "0b5c89f1-5771-4161-b364-1635b4eac57b" },
+        "Kollektivtrafik & Taxi": { appCategoryId: "4f884437-16c1-4893-b3a6-1320c7c2ada8", appSubCategoryId: "11106080-7ae2-4d6f-a666-018f6f9c2a92" }
+      },
+      "Hushåll": {
+        "El & Värme": { appCategoryId: "ead69b7f-51d2-43b4-bc08-638053392877", appSubCategoryId: "ba5151bb-384b-44b8-b096-14f0466b2695" },
+        "Hemelektronik & Vitvaror": { appCategoryId: "ead69b7f-51d2-43b4-bc08-638053392877", appSubCategoryId: "684d9237-4fbc-46a4-9a8d-5c9606596e63" }
+      }
+      // Add more mappings as needed based on your bank's categories
+    };
+    
+    const trimmedBankCategory = bankCategory.trim();
+    const trimmedBankSubCategory = bankSubCategory.trim();
+    const categoryMapping = bankCategoryMappings[trimmedBankCategory]?.[trimmedBankSubCategory];
+    
+    console.log(`[BANK CATEGORY SIMPLE] 🔍 DEBUG - looking for mapping:`);
+    console.log(`[BANK CATEGORY SIMPLE] 🔍 DEBUG - trimmedBankCategory: "${trimmedBankCategory}"`);
+    console.log(`[BANK CATEGORY SIMPLE] 🔍 DEBUG - trimmedBankSubCategory: "${trimmedBankSubCategory}"`);
+    console.log(`[BANK CATEGORY SIMPLE] 🔍 DEBUG - available main categories:`, Object.keys(bankCategoryMappings));
+    if (bankCategoryMappings[trimmedBankCategory]) {
+      console.log(`[BANK CATEGORY SIMPLE] 🔍 DEBUG - available subcategories for "${trimmedBankCategory}":`, Object.keys(bankCategoryMappings[trimmedBankCategory]));
+    }
+    
+    if (categoryMapping) {
+      console.log(`[BANK CATEGORY SIMPLE] ✅ Found mapping: "${bankCategory}" / "${bankSubCategory}" -> ${categoryMapping.appCategoryId}/${categoryMapping.appSubCategoryId}`);
+      return categoryMapping;
+    } else {
+      console.log(`[BANK CATEGORY SIMPLE] No mapping found for: "${bankCategory}" / "${bankSubCategory}"`);
+      return null;
+    }
+    
+  } catch (error) {
+    console.error('[BANK CATEGORY SIMPLE] Error in simple matching:', error);
+    return null;
+  }
+}
+
+/**
+ * Apply the SAME rules as "Applicera regler på filtrerade transaktioner" with selective field protection
+ * This ensures import uses identical logic to manual rule application
+ * STEP 1: Apply PostgreSQL rules first (priority over bank matching)
+ * STEP 2: Bank category matching as fallback for empty categories
+ */
+async function applyImportRulesWithProtection(transaction: any, categoryRules: any[]): Promise<any> {
+  const originalTransaction = { ...transaction };
+  const isManuallyChanged = transaction.isManuallyChanged === true || transaction.isManuallyChanged === 'true';
+  const isStatusGreen = transaction.status === 'green';
+  
+  // Debug logging
+  console.log(`[IMPORT RULES] === Processing transaction: "${transaction.description}" ===`);
+  console.log(`[IMPORT RULES] Received ${categoryRules?.length || 0} rules`);
+  console.log(`[IMPORT RULES] Transaction account: ${transaction.accountId}`);
+  console.log(`[IMPORT RULES] isStatusGreen: ${isStatusGreen}, isManuallyChanged: ${isManuallyChanged}`);
+  console.log(`[IMPORT RULES] 🔍 ENTRY DEBUG - bankCategory: "${transaction.bankCategory}", bankSubCategory: "${transaction.bankSubCategory}"`);
+  console.log(`[IMPORT RULES] 🔍 ENTRY DEBUG - appCategoryId: "${transaction.appCategoryId}", appSubCategoryId: "${transaction.appSubCategoryId}"`);
+  
+  // CRITICAL FIX: If no rules passed, fetch them directly
+  if (!categoryRules || categoryRules.length === 0) {
+    console.warn(`[IMPORT RULES] ⚠️ No rules provided, fetching directly from API...`);
+    try {
+      const response = await fetch('/api/category-rules');
+      if (response.ok) {
+        categoryRules = await response.json();
+        console.log(`[IMPORT RULES] ✅ Fetched ${categoryRules.length} rules from API`);
+      } else {
+        console.error(`[IMPORT RULES] ❌ Failed to fetch rules: ${response.status}`);
+        categoryRules = [];
+      }
+    } catch (error) {
+      console.error(`[IMPORT RULES] ❌ Error fetching rules:`, error);
+      categoryRules = [];
+    }
+  }
+  
+  // PROTECTION: Skip green status transactions (don't change them at all)
+  if (isStatusGreen) {
+    console.log(`[IMPORT RULES] ⏭️ SKIPPING - Green status transaction: "${transaction.description}"`);
+    return originalTransaction;
+  }
+  
+  // PROTECTION: Skip manually changed transactions (don't apply rules to them)
+  if (isManuallyChanged) {
+    console.log(`[IMPORT RULES] ⏭️ SKIPPING - Manually changed transaction: "${transaction.description}"`);
+    return originalTransaction;
+  }
+  
+  // Apply the same rule logic as the manual "Applicera regler" button
+  let workingTransaction = { ...transaction };
+  let ruleMatched = false;
+  
+  // STEP 1: Check each PostgreSQL rule (same logic as manual button)
+  for (const rule of categoryRules) {
+    // Check if rule is active
+    const isActive = rule.isActive === 'true';
+    if (!isActive) {
+      console.log(`[IMPORT RULES] ⏭️ Rule "${rule.ruleName}" is inactive, skipping`);
+      continue;
+    }
+    
+    let matchFound = false;
+    console.log(`[IMPORT RULES] 🔍 Checking rule "${rule.ruleName}"`);
+    
+    // Check account restrictions (same logic as manual button)
+    if (rule.applicableAccountIds && rule.applicableAccountIds !== '[]') {
+      try {
+        const applicableAccounts = JSON.parse(rule.applicableAccountIds);
+        if (applicableAccounts.length > 0 && !applicableAccounts.includes(transaction.accountId)) {
+          console.log(`[IMPORT RULES] ⏭️ Rule skipped - account mismatch`);
+          continue;
+        }
+      } catch (e) {
+        console.warn('[IMPORT RULES] Failed to parse applicableAccountIds:', rule.applicableAccountIds);
+      }
+    }
+    
+    // Rule matching logic (same as manual button)
+    const isAllBankCategories = rule.bankCategory === 'Alla Bankkategorier' || rule.bankSubCategory === 'Alla Bankunderkategorier';
+    
+    if (rule.bankCategory && rule.bankSubCategory && !isAllBankCategories) {
+      // Exact bank category + subcategory match
+      if (transaction.bankCategory === rule.bankCategory && 
+          transaction.bankSubCategory === rule.bankSubCategory) {
+        matchFound = true;
+        console.log(`[IMPORT RULES] ✅ Exact bank category match: ${rule.bankCategory} → ${rule.bankSubCategory}`);
+      }
+    } else if (rule.bankCategory && !rule.bankSubCategory && !isAllBankCategories) {
+      // Exact bank category match (any subcategory)
+      if (transaction.bankCategory === rule.bankCategory) {
+        matchFound = true;
+        console.log(`[IMPORT RULES] ✅ Bank category match: ${rule.bankCategory}`);
+      }
+    } else {
+      // Text-based matching (same as manual button)
+      const transactionText = transaction.description?.toLowerCase() || '';
+      const ruleText = rule.transactionName?.toLowerCase() || '';
+      
+      console.log(`[IMPORT RULES] 🔍 Text matching - Transaction: "${transactionText}", Rule: "${ruleText}"`);
+      
+      if (ruleText && transactionText.includes(ruleText)) {
+        matchFound = true;
+        console.log(`[IMPORT RULES] ✅ TEXT MATCH FOUND: "${ruleText}" in "${transactionText}"`);
+      }
+    }
+    
+    if (matchFound) {
+      console.log(`[IMPORT RULES] 🎯 RULE MATCHED: "${rule.ruleName}" for "${transaction.description}"`);
+      
+      // Apply categories (same as manual button)
+      workingTransaction.appCategoryId = rule.huvudkategoriId;
+      workingTransaction.appSubCategoryId = rule.underkategoriId;
+      
+      // Apply transaction type based on amount (same as manual button)
+      const isPositive = transaction.amount >= 0;
+      workingTransaction.type = isPositive ? 
+        (rule.positiveTransactionType || 'Transaction') : 
+        (rule.negativeTransactionType || 'Transaction');
+      
+      console.log(`[IMPORT RULES] ✅ Applied rule: categories=${rule.huvudkategoriId}/${rule.underkategoriId}, type=${workingTransaction.type}`);
+      
+      // If both category and subcategory are set, auto-approve (same as manual button)
+      if (rule.huvudkategoriId && rule.underkategoriId) {
+        workingTransaction.status = 'green';
+        console.log(`[IMPORT RULES] ✅ Auto-approved transaction`);
+      }
+      
+      ruleMatched = true;
+      break; // Stop checking other rules
+    }
+  }
+  
+  // STEP 2: Bank category fallback if no rules matched (use simple matching)
+  if (!ruleMatched && transaction.bankCategory && transaction.bankSubCategory) {
+    console.log(`[IMPORT RULES] 🏦 No rules matched, attempting bank category fallback for: "${transaction.bankCategory}" / "${transaction.bankSubCategory}"`);
+    
+    try {
+      // Use simple name-based matching (same as manual button)
+      const matchedCategories = await matchBankCategoriesSimple(
+        transaction.bankCategory, 
+        transaction.bankSubCategory
+      );
+      
+      if (matchedCategories) {
+        workingTransaction.appCategoryId = matchedCategories.appCategoryId;
+        workingTransaction.appSubCategoryId = matchedCategories.appSubCategoryId;
+        console.log(`[IMPORT RULES] ✅ Bank category fallback applied: ${matchedCategories.appCategoryId}/${matchedCategories.appSubCategoryId}`);
+      } else {
+        console.log(`[IMPORT RULES] ℹ️ No bank category fallback match found`);
+      }
+    } catch (error) {
+      console.warn(`[IMPORT RULES] ⚠️ Bank category fallback failed:`, error);
+    }
+  }
+  
+  return workingTransaction;
+}
+
 // SMART MERGE FUNCTION - The definitive solution to duplicate and lost changes
 export async function importAndReconcileFile(csvContent: string, accountId: string, categoryRules?: any[]): Promise<void> {
   console.log(`🚨 ORCHESTRATOR FUNCTION CALLED - accountId: ${accountId}`);
@@ -142,8 +439,8 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
   
   console.log(`[ORCHESTRATOR] 🧹 Kept ${transactionsToKeep.length} transactions, removing ${allSavedTransactions.length - transactionsToKeep.length} within date range`);
   
-  // 6. Intelligent merge - preserve manual changes
-  const mergedTransactions = (transactionsFromFile || []).map(fileTx => {
+  // 6. Intelligent merge with SAME rule logic as manual "Applicera regler på filtrerade transaktioner"
+  const mergedTransactions = await Promise.all((transactionsFromFile || []).map(async (fileTx) => {
     const fingerprint = createTransactionFingerprint(fileTx);
     const existingTx = savedTransactionsMap.get(fingerprint);
 
@@ -153,19 +450,6 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
       console.log(`[ORCHESTRATOR] 🔄 OLD bankCategory: "${existingTx.bankCategory || 'EMPTY'}" -> NEW: "${fileTx.bankCategory || 'EMPTY'}"`);
       console.log(`[ORCHESTRATOR] 🔄 OLD bankSubCategory: "${existingTx.bankSubCategory || 'EMPTY'}" -> NEW: "${fileTx.bankSubCategory || 'EMPTY'}"`);
       console.log(`[ORCHESTRATOR] 🔄 isManuallyChanged: ${existingTx.isManuallyChanged || false}`);
-      
-      // DIAGNOSTIC: Log exactly what we're working with
-      console.log(`[ORCHESTRATOR] 🔬 DIAGNOSTIC - existingTx fields:`, {
-        bankCategory: existingTx.bankCategory,
-        bankSubCategory: existingTx.bankSubCategory,
-        appCategoryId: existingTx.appCategoryId,
-        isManuallyChanged: existingTx.isManuallyChanged
-      });
-      console.log(`[ORCHESTRATOR] 🔬 DIAGNOSTIC - fileTx fields:`, {
-        bankCategory: fileTx.bankCategory,
-        bankSubCategory: fileTx.bankSubCategory,
-        description: fileTx.description
-      });
       
       // Create base updated transaction with ALL bank data from file
       const baseUpdatedTx = {
@@ -182,33 +466,18 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
         description: fileTx.description,
       };
       
-      console.log(`[ORCHESTRATOR] 🔬 DIAGNOSTIC - baseUpdatedTx after creation:`, {
-        bankCategory: baseUpdatedTx.bankCategory,
-        bankSubCategory: baseUpdatedTx.bankSubCategory,
-        appCategoryId: baseUpdatedTx.appCategoryId
-      });
-      
-      if (existingTx.isManuallyChanged) {
-        console.log(`[ORCHESTRATOR] 💾 MANUAL transaction - preserving user changes, updating bank data only`);
-        console.log(`[ORCHESTRATOR] 🔬 FINAL MANUAL - bankCategory: "${baseUpdatedTx.bankCategory}", bankSubCategory: "${baseUpdatedTx.bankSubCategory}"`);
-        // For manually changed transactions: keep user categorization, update bank data
-        return baseUpdatedTx; // This preserves all manual changes while updating bank data
-      } else {
-        console.log(`[ORCHESTRATOR] 🔄 NON-MANUAL transaction - applying rules to updated data`);
-        // For non-manual transactions: apply categorization rules
-        const processedTransaction = applyCategorizationRules(baseUpdatedTx, categoryRules || []);
-        console.log(`[ORCHESTRATOR] ✅ After rules - bankCategory: "${processedTransaction.bankCategory || 'EMPTY'}", type: ${processedTransaction.type}`);
-        console.log(`[ORCHESTRATOR] 🔬 FINAL PROCESSED - bankCategory: "${processedTransaction.bankCategory}", bankSubCategory: "${processedTransaction.bankSubCategory}"`);
-        return processedTransaction;
-      }
+      // Apply SAME rule logic as manual button with protection
+      const processedTransaction = await applyImportRulesWithProtection(baseUpdatedTx, categoryRules || []);
+      console.log(`[ORCHESTRATOR] ✅ Import rule processing complete for existing transaction`);
+      return processedTransaction;
     }
     
-    // New transaction or unchanged - apply category rules using the new advanced rule engine
-    console.log(`[ORCHESTRATOR] 🔄 Processing transaction: ${fileTx.description}, bankCategory: ${fileTx.bankCategory} / ${fileTx.bankSubCategory}`);
-    const processedTransaction = applyCategorizationRules(fileTx, categoryRules || []);
-    console.log(`[ORCHESTRATOR] ✅ After processing: ${processedTransaction.description}, bankCategory: ${processedTransaction.bankCategory} / ${processedTransaction.bankSubCategory}`);
+    // New transaction - apply SAME rule logic as manual button
+    console.log(`[ORCHESTRATOR] 🔄 Processing new transaction: ${fileTx.description}, bankCategory: ${fileTx.bankCategory} / ${fileTx.bankSubCategory}`);
+    const processedTransaction = await applyImportRulesWithProtection(fileTx, categoryRules || []);
+    console.log(`[ORCHESTRATOR] ✅ Import rule processing complete for new transaction`);
     return processedTransaction;
-  });
+  }));
   
   // 7. Combine cleaned list with new merged transactions
   const finalTransactionList = [...transactionsToKeep, ...mergedTransactions];
@@ -1275,6 +1544,9 @@ export async function initializeApp(): Promise<void> {
   // Load monthly budget data from database for current month
   await loadMonthlyBudgetFromDatabase();
   
+  // Load planned transfers from database
+  await loadPlannedTransfersFromDatabase();
+  
   // Load category rules from PostgreSQL
   await loadCategoryRulesFromDatabase();
   
@@ -2110,8 +2382,8 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
     try {
       const { apiStore } = await import('../store/apiStore');
       await apiStore.updateTransaction(transactionId, {
-        hoofdkategoriId: updates.appCategoryId,
-        underkategoriId: updates.appSubCategoryId,
+        appCategoryId: updates.appCategoryId,
+        appSubCategoryId: updates.appSubCategoryId,
         type: updates.type,
         status: updatedTransaction.status,
         linkedTransactionId: updates.linkedTransactionId,
@@ -2781,7 +3053,39 @@ export function updatePaydaySetting(newPayday: number): void {
 
 // ===== PLANNED TRANSFERS MANAGEMENT =====
 
-export function createPlannedTransfer(transfer: Omit<PlannedTransfer, 'id' | 'created'>): void {
+async function loadPlannedTransfersFromDatabase(): Promise<void> {
+  console.log('📥 [ORCHESTRATOR] Loading planned transfers from database...');
+  
+  try {
+    const apiUrl = (window as any).apiUrl || '';
+    const response = await fetch(`${apiUrl}/api/planned-transfers`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch planned transfers from database');
+    }
+    
+    const transfers = await response.json();
+    
+    // Convert from database format to local format
+    const convertedTransfers = transfers.map((transfer: any) => ({
+      ...transfer,
+      amount: transfer.amount / 100, // Convert from öre to SEK
+      dailyAmount: transfer.dailyAmount ? transfer.dailyAmount / 100 : undefined,
+      transferDays: transfer.transferDays ? JSON.parse(transfer.transferDays) : undefined
+    }));
+    
+    // Replace local state with database state
+    state.budgetState.plannedTransfers = convertedTransfers;
+    saveStateToStorage();
+    
+    console.log(`✅ [ORCHESTRATOR] Loaded ${transfers.length} planned transfers from database`);
+  } catch (error) {
+    console.error('❌ [ORCHESTRATOR] Failed to load planned transfers from database:', error);
+    // Keep using local storage data if database fails
+  }
+}
+
+export async function createPlannedTransfer(transfer: Omit<PlannedTransfer, 'id' | 'created'>): Promise<void> {
   console.log('🔄 [ORCHESTRATOR] Creating planned transfer:', transfer);
   
   // Calculate total amount for daily transfers
@@ -2795,19 +3099,52 @@ export function createPlannedTransfer(transfer: Omit<PlannedTransfer, 'id' | 'cr
     console.log(`💰 [ORCHESTRATOR] Daily transfer calculated: ${transfer.dailyAmount} × ${daysInPayCycle} days = ${totalAmount} SEK`);
   }
   
-  const newTransfer: PlannedTransfer = {
-    ...transfer,
-    amount: totalAmount,
-    id: uuidv4(),
-    created: new Date().toISOString()
-  };
-  
-  state.budgetState.plannedTransfers.push(newTransfer);
-  saveStateToStorage();
-  triggerUIRefresh();
-  
-  const transferTypeText = transfer.transferType === 'daily' ? 'Daglig överföring' : 'Fast månadsöverföring';
-  console.log(`✅ [ORCHESTRATOR] ${transferTypeText} created: ${totalAmount} SEK from ${transfer.fromAccountId} to ${transfer.toAccountId}`);
+  // Save to SQL backend
+  try {
+    const apiUrl = (window as any).apiUrl || '';
+    const response = await fetch(`${apiUrl}/api/planned-transfers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...transfer,
+        amount: totalAmount
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to create planned transfer in database');
+    }
+    
+    const savedTransfer = await response.json();
+    
+    // Also save to local state for immediate UI update
+    const newTransfer: PlannedTransfer = {
+      ...savedTransfer,
+      amount: savedTransfer.amount / 100, // Convert from öre to SEK
+      dailyAmount: savedTransfer.dailyAmount ? savedTransfer.dailyAmount / 100 : undefined,
+      transferDays: savedTransfer.transferDays ? JSON.parse(savedTransfer.transferDays) : undefined
+    };
+    
+    state.budgetState.plannedTransfers.push(newTransfer);
+    saveStateToStorage();
+    triggerUIRefresh();
+    
+    const transferTypeText = transfer.transferType === 'daily' ? 'Daglig överföring' : 'Fast månadsöverföring';
+    console.log(`✅ [ORCHESTRATOR] ${transferTypeText} created: ${totalAmount} SEK from ${transfer.fromAccountId} to ${transfer.toAccountId}`);
+  } catch (error) {
+    console.error('❌ [ORCHESTRATOR] Failed to save planned transfer to database:', error);
+    // Fall back to local storage only
+    const newTransfer: PlannedTransfer = {
+      ...transfer,
+      amount: totalAmount,
+      id: uuidv4(),
+      created: new Date().toISOString()
+    };
+    
+    state.budgetState.plannedTransfers.push(newTransfer);
+    saveStateToStorage();
+    triggerUIRefresh();
+  }
 }
 
 // Helper function to calculate days in transfer cycle

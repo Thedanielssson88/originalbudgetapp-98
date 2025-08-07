@@ -124,6 +124,12 @@ export interface IStorage {
   updateFaktisktKontosaldo(userId: string, monthKey: string, accountId: string, faktisktKontosaldo: number): Promise<any>;
   updateBankensKontosaldo(userId: string, monthKey: string, accountId: string, bankensKontosaldo: number): Promise<any>;
 
+  // Planned Transfers CRUD
+  getPlannedTransfers(userId: string, month?: string): Promise<any[]>;
+  createPlannedTransfer(transfer: any): Promise<any>;
+  updatePlannedTransfer(id: string, transfer: any): Promise<any>;
+  deletePlannedTransfer(id: string): Promise<void>;
+
   // Bootstrap method to get all data at once
   bootstrap(userId: string): Promise<{
     accounts: Account[];
@@ -152,6 +158,7 @@ export class MemStorage implements IStorage {
   private bankCsvMappings: Map<string, BankCsvMapping>;
 
   private monthlyAccountBalances: Map<string, any>;
+  private plannedTransfers: Map<string, any>;
 
   constructor() {
     this.users = new Map();
@@ -166,6 +173,7 @@ export class MemStorage implements IStorage {
     this.banks = new Map();
     this.bankCsvMappings = new Map();
     this.monthlyAccountBalances = new Map();
+    this.plannedTransfers = new Map();
   }
 
   // Bootstrap method
@@ -665,6 +673,41 @@ export class MemStorage implements IStorage {
     };
     this.monthlyAccountBalances.set(existing.id, updated);
     return updated;
+  }
+
+  // Planned Transfers methods
+  async getPlannedTransfers(userId: string, month?: string): Promise<any[]> {
+    const transfers = Array.from(this.plannedTransfers.values())
+      .filter(t => t.userId === userId);
+    
+    if (month) {
+      return transfers.filter(t => t.month === month);
+    }
+    return transfers;
+  }
+
+  async createPlannedTransfer(transfer: any): Promise<any> {
+    const id = uuidv4();
+    const newTransfer = {
+      ...transfer,
+      id,
+      createdAt: new Date()
+    };
+    this.plannedTransfers.set(id, newTransfer);
+    return newTransfer;
+  }
+
+  async updatePlannedTransfer(id: string, transfer: any): Promise<any> {
+    const existing = this.plannedTransfers.get(id);
+    if (!existing) return undefined;
+    
+    const updated = { ...existing, ...transfer };
+    this.plannedTransfers.set(id, updated);
+    return updated;
+  }
+
+  async deletePlannedTransfer(id: string): Promise<void> {
+    this.plannedTransfers.delete(id);
   }
 
   // Stub methods for BudgetPost - not implemented yet

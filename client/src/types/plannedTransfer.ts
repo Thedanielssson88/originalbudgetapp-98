@@ -11,4 +11,7 @@ export interface PlannedTransfer {
   // Daily transfer specific fields
   dailyAmount?: number; // Amount per day for daily transfers
   transferDays?: number[]; // Days of week (0=Sunday, 1=Monday, etc.) for daily transfers
+  // Category fields
+  huvudkategoriId?: string; // UUID of main category
+  underkategoriId?: string; // UUID of subcategory
 }

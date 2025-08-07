@@ -125,21 +125,41 @@ export const bankCsvMappings = pgTable('bank_csv_mappings', {
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Planned transfers table for storing transfer configurations
+export const plannedTransfers = pgTable('planned_transfers', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    fromAccountId: uuid('from_account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+    toAccountId: uuid('to_account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+    amount: integer('amount').notNull(), // Amount in öre
+    month: text('month').notNull(), // Format: YYYY-MM
+    description: text('description'),
+    transferType: text('transfer_type').default('monthly').notNull(), // 'monthly' or 'daily'
+    dailyAmount: integer('daily_amount'), // Amount per day for daily transfers (in öre)
+    transferDays: text('transfer_days'), // JSON array of weekday numbers [0-6]
+    huvudkategoriId: uuid('huvudkategori_id').references(() => huvudkategorier.id, { onDelete: 'set null' }),
+    underkategoriId: uuid('underkategori_id').references(() => underkategorier.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 // Budget posts table for storing individual budget line items
 export const budgetPosts = pgTable('budget_posts', {
     id: uuid('id').defaultRandom().primaryKey(),
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     monthKey: text('month_key').notNull(), // Format: YYYY-MM
-    huvudkategoriId: uuid('huvudkategori_id').notNull().references(() => huvudkategorier.id, { onDelete: 'cascade' }),
-    underkategoriId: uuid('underkategori_id').notNull().references(() => underkategorier.id, { onDelete: 'cascade' }),
+    huvudkategoriId: uuid('huvudkategori_id').references(() => huvudkategorier.id, { onDelete: 'cascade' }), // Nullable for transfers
+    underkategoriId: uuid('underkategori_id').references(() => underkategorier.id, { onDelete: 'cascade' }), // Nullable for transfers
     description: text('description').notNull(),
     amount: integer('amount').notNull(), // For fixed monthly amounts
-    accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }),
+    accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }), // To account for transfers
+    accountIdFrom: uuid('account_id_from').references(() => accounts.id, { onDelete: 'set null' }), // From account for transfers
     financedFrom: text('financed_from').default('Löpande kostnad').notNull(), // 'Löpande kostnad' or 'Enskild kostnad'
     transferType: text('transfer_type').default('monthly').notNull(), // 'monthly' or 'daily'
     dailyAmount: integer('daily_amount'), // For daily transfers
     transferDays: text('transfer_days'), // JSON array of weekday numbers [0-6] for daily transfers
-    type: text('type').notNull(), // 'cost' or 'savings'
+    type: text('type').notNull(), // 'cost', 'savings', or 'transfer'
+    transactionType: text('transaction_type').default('Kostnadspost'), // Transaction type label
+    budgetType: text('budget_type').default('Kostnadspost'), // Budget type label
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -237,6 +257,11 @@ export const insertBankCsvMappingSchema = createInsertSchema(bankCsvMappings).om
   updatedAt: true,
 });
 
+export const insertPlannedTransferSchema = createInsertSchema(plannedTransfers).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Type exports
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -267,3 +292,6 @@ export type MonthlyBudget = typeof monthlyBudgets.$inferSelect;
 
 export type InsertMonthlyAccountBalance = z.infer<typeof insertMonthlyAccountBalanceSchema>;
 export type MonthlyAccountBalance = typeof monthlyAccountBalances.$inferSelect;
+
+export type InsertPlannedTransfer = z.infer<typeof insertPlannedTransferSchema>;
+export type PlannedTransfer = typeof plannedTransfers.$inferSelect;

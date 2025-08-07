@@ -10,8 +10,10 @@ import {
   transactions,
   monthlyBudgets,
   monthlyAccountBalances,
+  budgetPosts,
   banks,
   bankCsvMappings,
+  plannedTransfers,
   type User,
   type InsertUser,
   type FamilyMember,
@@ -29,7 +31,9 @@ import {
   type MonthlyBudget,
   type InsertMonthlyBudget,
   type MonthlyAccountBalance,
-  type InsertMonthlyAccountBalance
+  type InsertMonthlyAccountBalance,
+  type PlannedTransfer,
+  type InsertPlannedTransfer
 } from "@shared/schema";
 
 // Add the missing types that aren't auto-generated yet
@@ -379,25 +383,111 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  // Stub methods for BudgetPost - not implemented yet
-  async getBudgetPosts(): Promise<any[]> {
-    return [];
+  // Budget Post methods
+  async getBudgetPosts(userId: string, monthKey?: string): Promise<any[]> {
+    console.log('Getting budget posts for userId:', userId, 'monthKey:', monthKey);
+    
+    try {
+      let query = db
+        .select()
+        .from(budgetPosts)
+        .where(eq(budgetPosts.userId, userId));
+      
+      if (monthKey) {
+        query = query.where(eq(budgetPosts.monthKey, monthKey));
+      }
+      
+      const results = await query;
+      console.log('Found budget posts:', results.length);
+      return results;
+    } catch (error) {
+      console.error('Error getting budget posts:', error);
+      throw error;
+    }
   }
 
-  async getBudgetPost(): Promise<any> {
-    return undefined;
+  async getBudgetPost(userId: string, id: string): Promise<any> {
+    console.log('Getting budget post for userId:', userId, 'id:', id);
+    
+    try {
+      const result = await db
+        .select()
+        .from(budgetPosts)
+        .where(and(
+          eq(budgetPosts.userId, userId),
+          eq(budgetPosts.id, id)
+        ))
+        .limit(1);
+      
+      console.log('Found budget post:', result.length > 0 ? result[0] : 'not found');
+      return result.length > 0 ? result[0] : undefined;
+    } catch (error) {
+      console.error('Error getting budget post:', error);
+      throw error;
+    }
   }
 
-  async createBudgetPost(): Promise<any> {
-    throw new Error("Not implemented");
+  async createBudgetPost(data: any): Promise<any> {
+    console.log('Creating budget post with data:', JSON.stringify(data, null, 2));
+    console.log('budgetType field value:', data.budgetType);
+    
+    try {
+      const result = await db
+        .insert(budgetPosts)
+        .values(data)
+        .returning();
+      
+      console.log('Created budget post result:', JSON.stringify(result[0], null, 2));
+      console.log('Result budgetType field:', result[0].budgetType);
+      return result[0];
+    } catch (error) {
+      console.error('Error creating budget post:', error);
+      throw error;
+    }
   }
 
-  async updateBudgetPost(): Promise<any> {
-    return undefined;
+  async updateBudgetPost(userId: string, id: string, data: any): Promise<any> {
+    console.log('Updating budget post for userId:', userId, 'id:', id, 'data:', data);
+    
+    try {
+      const result = await db
+        .update(budgetPosts)
+        .set({
+          ...data,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(budgetPosts.userId, userId),
+          eq(budgetPosts.id, id)
+        ))
+        .returning();
+      
+      console.log('Updated budget post:', result.length > 0 ? result[0] : 'not found');
+      return result.length > 0 ? result[0] : undefined;
+    } catch (error) {
+      console.error('Error updating budget post:', error);
+      throw error;
+    }
   }
 
-  async deleteBudgetPost(): Promise<boolean> {
-    return false;
+  async deleteBudgetPost(userId: string, id: string): Promise<boolean> {
+    console.log('Deleting budget post for userId:', userId, 'id:', id);
+    
+    try {
+      const result = await db
+        .delete(budgetPosts)
+        .where(and(
+          eq(budgetPosts.userId, userId),
+          eq(budgetPosts.id, id)
+        ))
+        .returning();
+      
+      console.log('Deleted budget post:', result.length > 0);
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error deleting budget post:', error);
+      throw error;
+    }
   }
 
   // Monthly Account Balances - stores calculated balances per month
@@ -471,10 +561,49 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Planned Transfers methods
+  async getPlannedTransfers(userId: string, month?: string): Promise<PlannedTransfer[]> {
+    if (month) {
+      return await db.select()
+        .from(plannedTransfers)
+        .where(
+          and(
+            eq(plannedTransfers.userId, userId),
+            eq(plannedTransfers.month, month)
+          )
+        );
+    } else {
+      return await db.select()
+        .from(plannedTransfers)
+        .where(eq(plannedTransfers.userId, userId));
+    }
+  }
+
+  async createPlannedTransfer(transfer: InsertPlannedTransfer): Promise<PlannedTransfer> {
+    const result = await db.insert(plannedTransfers).values(transfer).returning();
+    return result[0];
+  }
+
+  async updatePlannedTransfer(id: string, transfer: Partial<InsertPlannedTransfer>): Promise<PlannedTransfer | undefined> {
+    const result = await db.update(plannedTransfers)
+      .set(transfer)
+      .where(eq(plannedTransfers.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deletePlannedTransfer(id: string): Promise<void> {
+    await db.delete(plannedTransfers).where(eq(plannedTransfers.id, id));
+  }
+
   async updateFaktisktKontosaldo(userId: string, monthKey: string, accountId: string, faktisktKontosaldo: number | null): Promise<MonthlyAccountBalance | undefined> {
+    console.log(`🔍 updateFaktisktKontosaldo called: userId=${userId}, monthKey=${monthKey}, accountId=${accountId}, value=${faktisktKontosaldo}`);
     const existing = await this.getMonthlyAccountBalance(userId, monthKey, accountId);
     
+    console.log(`🔍 Existing record:`, existing ? { id: existing.id, currentFaktiskt: existing.faktisktKontosaldo } : 'NOT FOUND');
+    
     if (existing) {
+      console.log(`🔍 Updating existing record ${existing.id} with faktisktKontosaldo: ${faktisktKontosaldo}`);
       const result = await db.update(monthlyAccountBalances)
         .set({ 
           faktisktKontosaldo: faktisktKontosaldo,
@@ -482,10 +611,24 @@ export class DatabaseStorage implements IStorage {
         })
         .where(eq(monthlyAccountBalances.id, existing.id))
         .returning();
+      console.log(`✅ Update successful, new value:`, result[0]?.faktisktKontosaldo);
+      return result[0];
+    } else {
+      console.log(`❌ No existing monthly balance record found for accountId=${accountId}, monthKey=${monthKey}. Creating one...`);
+      // Create a new record if none exists
+      const newRecord = {
+        userId,
+        monthKey,
+        accountId,
+        calculatedBalance: 0, // Default value
+        faktisktKontosaldo: faktisktKontosaldo,
+        bankensKontosaldo: null
+      };
+      console.log(`🔍 Creating new record:`, newRecord);
+      const result = await db.insert(monthlyAccountBalances).values(newRecord).returning();
+      console.log(`✅ Created new record:`, result[0]);
       return result[0];
     }
-    
-    return undefined;
   }
 
   async updateBankensKontosaldo(userId: string, monthKey: string, accountId: string, bankensKontosaldo: number | null): Promise<MonthlyAccountBalance | undefined> {

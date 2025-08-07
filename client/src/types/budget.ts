@@ -1,5 +1,8 @@
 // Definierar alla typer som används i appen.
 
+// Import Account type from shared schema
+export type { Account } from '@shared/schema';
+
 export interface Transaction {
   id: string; // Ett unikt ID, t.ex. från bankens referens + datum
   accountId: string; // Vilket av våra konton den tillhör
@@ -82,12 +85,6 @@ export interface BudgetGroup {
   financedFrom?: 'Löpande kostnad' | 'Enskild kostnad';
 }
 
-export interface Account {
-  id: string;
-  name: string;
-  startBalance: number;
-  bankTemplateId?: string; // Koppling till bankmall
-}
 
 export interface SavingsGoal {
   id: string;

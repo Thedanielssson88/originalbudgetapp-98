@@ -18,7 +18,7 @@ import { Calculator, DollarSign, TrendingUp, Users, Calendar, Plus, Trash2, Edit
 import { useCategoryResolver, useHuvudkategorier, useUnderkategorier } from '../hooks/useCategories';
 import { useUuidCategoryBridge } from '../services/uuidCategoryBridge';
 import { StorageKey, get, set } from '../services/storageService';
-import { formatOrenAsCurrency } from '@/utils/currencyUtils';
+import { formatOrenAsCurrency, kronoraToOren, orenToKronor } from '@/utils/currencyUtils';
 
 import { CostItemEditDialog } from './CostItemEditDialog';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
@@ -48,6 +48,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useMonthlyBudget } from '@/hooks/useMonthlyBudget';
 import { useFamilyMembers } from '@/hooks/useFamilyMembers';
 import { useAccounts } from '@/hooks/useAccounts';
+import { useTransactions } from '@/hooks/useTransactions';
+import { useBudgetPosts } from '@/hooks/useBudgetPosts';
 import { useMonthlyAccountBalances, useUpdateFaktisktKontosaldo } from '@/hooks/useMonthlyAccountBalances';
 import { 
   createSavingsGoal,
@@ -128,9 +130,166 @@ const BudgetCalculator = () => {
   // Use the original useBudget hook - fix hook ordering instead
   const { isLoading, budgetState, calculated } = useBudget();
   const { data: familyMembers } = useFamilyMembers();
-  const { data: accountsFromAPI = [], isLoading: accountsLoading } = useAccounts();
+  const { data: accountsFromAPI = [], isLoading: accountsLoading, error: accountsError } = useAccounts();
+  const { data: transactionsFromAPI = [], isLoading: transactionsLoading } = useTransactions();
+  const { data: budgetPostsFromAPI = [], isLoading: budgetPostsLoading } = useBudgetPosts(budgetState.selectedMonthKey);
   const currentMonthlyBudget = useMonthlyBudget(budgetState.selectedMonthKey);
   const { toast } = useToast();
+  
+  // API hooks for categories - declare early as they're needed in useMemo
+  const { data: huvudkategorier = [], isLoading: huvudkategorierLoading } = useHuvudkategorier();
+  const { data: underkategorier = [], isLoading: underkategorierLoading } = useUnderkategorier();
+
+  // Convert PostgreSQL budget posts to legacy format for display with proper hierarchy
+  const budgetPostsAsLegacyGroups = useMemo(() => {
+    console.log('🔍 [DEBUG] Converting budget posts to legacy format with hierarchy');
+    console.log('🔍 [DEBUG] Budget posts data:', budgetPostsFromAPI);
+    console.log('🔍 [DEBUG] Available huvudkategorier:', huvudkategorier);
+    console.log('🔍 [DEBUG] Available underkategorier:', underkategorier);
+    
+    // Debug: Show all budget posts with their types
+    const savingsTypePosts = budgetPostsFromAPI.filter((post: any) => post.type === 'savings');
+    console.log('🔍 [DEBUG] Budget posts with type=savings:', savingsTypePosts.length, savingsTypePosts);
+    const costTypePosts = budgetPostsFromAPI.filter((post: any) => post.type === 'cost');
+    console.log('🔍 [DEBUG] Budget posts with type=cost:', costTypePosts.length, costTypePosts);
+    const otherTypePosts = budgetPostsFromAPI.filter((post: any) => post.type !== 'savings' && post.type !== 'cost');
+    console.log('🔍 [DEBUG] Budget posts with other types:', otherTypePosts.length, otherTypePosts);
+
+    const costGroups: any[] = [];
+    const savingsGroups: any[] = [];
+
+    // ALWAYS include ALL huvudkategorier, not just ones with budget posts
+    // This ensures we never fall back to localStorage
+    const huvudkategorierByType = new Map<string, Set<string>>();
+    
+    // Add all huvudkategorier as 'cost' by default (can be changed later if needed)
+    huvudkategorier.forEach(huvudkat => {
+      const type = 'cost'; // Default type - could be determined differently
+      if (!huvudkategorierByType.has(type)) {
+        huvudkategorierByType.set(type, new Set());
+      }
+      huvudkategorierByType.get(type)!.add(huvudkat.id);
+    });
+    
+    // Override with actual types from budget posts (EXCLUDE transfers)
+    // FILTER: Only include budget posts with type='savings' for savings groups
+    budgetPostsFromAPI
+      .filter((post: any) => post.type !== 'transfer') // Exclude transfer posts
+      .forEach((post: any) => {
+        const type = post.type || 'cost';
+        // Only add to savings groups if the post type is specifically 'savings'
+        if (type === 'savings' || (type !== 'savings' && type !== 'cost')) {
+          // For savings: only include posts with type='savings'
+          if (type === 'savings') {
+            if (!huvudkategorierByType.has('savings')) {
+              huvudkategorierByType.set('savings', new Set());
+            }
+            huvudkategorierByType.get('savings')!.add(post.huvudkategoriId);
+          }
+        } else if (type === 'cost') {
+          // For costs: include posts with type='cost' or default type
+          if (!huvudkategorierByType.has(type)) {
+            huvudkategorierByType.set(type, new Set());
+          }
+          huvudkategorierByType.get(type)!.add(post.hovedkategoriId);
+        }
+      });
+
+    // Process each type (cost/savings)
+    for (const [type, huvudkategoriIds] of huvudkategorierByType) {
+      const targetArray = type === 'cost' ? costGroups : savingsGroups;
+
+      // Process each huvudkategori
+      for (const huvudkategoriId of huvudkategoriIds) {
+        const huvudkategori = huvudkategorier.find(k => k.id === huvudkategoriId);
+        if (!huvudkategori) continue;
+
+        // Get all underkategorier for this huvudkategori
+        const relevantUnderkategorier = underkategorier.filter(u => u.huvudkategoriId === huvudkategoriId);
+        
+        console.log('🔍 [DEBUG] Processing huvudkategori:', huvudkategori.name, 'with underkategorier:', relevantUnderkategorier.length);
+
+        const huvudkategoriGroup = {
+          id: huvudkategori.id,
+          name: huvudkategori.name,
+          amount: 0,
+          type: type,
+          subCategories: [] as any[] // These will be the underkategorier
+        };
+
+        // Create proper underkategori structure with nested budget posts
+        relevantUnderkategorier.forEach(underkategori => {
+          // Find budget posts for this underkategori (EXCLUDE transfers)
+          // FILTER: Only include posts that match the current type (savings vs cost)
+          const postsForUnderkategori = budgetPostsFromAPI.filter(post => 
+            post.type !== 'transfer' && // Exclude transfer posts
+            post.underkategoriId === underkategori.id && 
+            post.huvudkategoriId === huvudkategori.id &&
+            // CRITICAL: Only include posts that match the target type
+            (type === 'savings' ? post.type === 'savings' : post.type !== 'savings')
+          );
+
+          console.log('🔍 [DEBUG] Found', postsForUnderkategori.length, `budget posts for underkategori: ${underkategori.name} (type: ${type})`);
+
+          // Calculate total for this underkategori
+          const underkategoriTotal = postsForUnderkategori.reduce((sum, post) => sum + ((post.amount || 0) / 100), 0);
+
+          // Create underkategori as a subCategory container
+          const underkategoriSubCategory = {
+            id: underkategori.id,
+            name: underkategori.name,
+            amount: underkategoriTotal,
+            // Mark this as an underkategori container (not editable budget post)
+            isUnderkategori: true,
+            underkategoriId: underkategori.id,
+            huvudkategoriId: huvudkategori.id,
+            // Store budget posts as nested items
+            budgetPosts: postsForUnderkategori.map(post => {
+              const account = accountsFromAPI.find(acc => acc.id === post.accountId);
+              const amountInKronor = (post.amount || 0) / 100;
+              const dailyAmountInKronor = post.dailyAmount ? post.dailyAmount / 100 : undefined;
+
+              return {
+                id: post.id,
+                name: post.description,
+                amount: amountInKronor,
+                account: account?.name || '',
+                accountId: post.accountId,
+                financedFrom: post.financedFrom || 'Löpande kostnad',
+                transferType: post.transferType || 'monthly',
+                dailyAmount: dailyAmountInKronor,
+                transferDays: post.transferDays ? JSON.parse(post.transferDays) : undefined,
+                // Add category info for reference
+                mainCategory: huvudkategori.name,
+                subcategory: underkategori.name,
+                mainCategoryId: post.huvudkategoriId,
+                subCategoryId: post.underkategoriId
+              };
+            })
+          };
+
+          huvudkategoriGroup.subCategories.push(underkategoriSubCategory);
+          huvudkategoriGroup.amount += underkategoriTotal;
+        });
+
+        targetArray.push(huvudkategoriGroup);
+      }
+    }
+
+    console.log('🔍 [DEBUG] Final hierarchical structure:');
+    console.log('🔍 [DEBUG] Cost groups:', costGroups.length, costGroups);
+    console.log('🔍 [DEBUG] Savings groups (FILTERED for type=savings only):', savingsGroups.length, savingsGroups);
+    
+    // Debug the structure of subCategories to see what's happening
+    costGroups.forEach(group => {
+      console.log(`🔍 [DEBUG] Group "${group.name}" has ${group.subCategories.length} subCategories:`);
+      group.subCategories.forEach(sub => {
+        console.log(`🔍 [DEBUG]   - ${sub.name} (isUnderkategori: ${sub.isUnderkategori}, budgetPosts: ${sub.budgetPosts?.length || 0})`);
+      });
+    });
+
+    return { costGroups, savingsGroups };
+  }, [budgetPostsFromAPI, huvudkategorier, underkategorier, accountsFromAPI]);
 
   // Hooks for monthly account balances (SQL database)
   const { data: monthlyBalances = [] } = useMonthlyAccountBalances(budgetState.selectedMonthKey);
@@ -139,10 +298,6 @@ const BudgetCalculator = () => {
   // Import UUID category resolution system
   const { resolveHuvudkategoriName, resolveUnderkategoriName, isLoading: categoriesLoading } = useCategoryResolver();
   const { migrateBudgetData, needsMigration } = useUuidCategoryBridge();
-  
-  // API hooks for categories
-  const { data: huvudkategorier = [], isLoading: huvudkategorierLoading } = useHuvudkategorier();
-  const { data: underkategorier = [], isLoading: underkategorierLoading } = useUnderkategorier();
   
   console.log('🔍 [DEBUG] BudgetCalculator component rendering - start');
   
@@ -429,15 +584,16 @@ const BudgetCalculator = () => {
   });
 
   // Update local state when database data changes
+  // Convert from öre (database) to SEK (display)
   useEffect(() => {
     if (monthlyBudget) {
       setLocalIncomeValues({
-        andreasSalary: monthlyBudget.andreasSalary.toString(),
-        andreasförsäkringskassan: monthlyBudget.andreasförsäkringskassan.toString(),
-        andreasbarnbidrag: monthlyBudget.andreasbarnbidrag.toString(),
-        susannaSalary: monthlyBudget.susannaSalary.toString(),
-        susannaförsäkringskassan: monthlyBudget.susannaförsäkringskassan.toString(),
-        susannabarnbidrag: monthlyBudget.susannabarnbidrag.toString()
+        andreasSalary: orenToKronor(monthlyBudget.andreasSalary || 0).toString(),
+        andreasförsäkringskassan: orenToKronor(monthlyBudget.andreasförsäkringskassan || 0).toString(),
+        andreasbarnbidrag: orenToKronor(monthlyBudget.andreasbarnbidrag || 0).toString(),
+        susannaSalary: orenToKronor(monthlyBudget.susannaSalary || 0).toString(),
+        susannaförsäkringskassan: orenToKronor(monthlyBudget.susannaförsäkringskassan || 0).toString(),
+        susannabarnbidrag: orenToKronor(monthlyBudget.susannabarnbidrag || 0).toString()
       });
     }
   }, [monthlyBudget]);
@@ -445,32 +601,32 @@ const BudgetCalculator = () => {
   // Individual setters for income values (for backward compatibility)
   const setAndreasSalary = (value: number) => {
     setLocalIncomeValues(prev => ({ ...prev, andreasSalary: value.toString() }));
-    updateIncome({ andreasSalary: value });
+    updateIncome('andreasSalary', value);
   };
 
   const setAndreasförsäkringskassan = (value: number) => {
     setLocalIncomeValues(prev => ({ ...prev, andreasförsäkringskassan: value.toString() }));
-    updateIncome({ andreasförsäkringskassan: value });
+    updateIncome('andreasförsäkringskassan', value);
   };
 
   const setAndreasbarnbidrag = (value: number) => {
     setLocalIncomeValues(prev => ({ ...prev, andreasbarnbidrag: value.toString() }));
-    updateIncome({ andreasbarnbidrag: value });
+    updateIncome('andreasbarnbidrag', value);
   };
 
   const setSusannaSalary = (value: number) => {
     setLocalIncomeValues(prev => ({ ...prev, susannaSalary: value.toString() }));
-    updateIncome({ susannaSalary: value });
+    updateIncome('susannaSalary', value);
   };
 
   const setSusannaförsäkringskassan = (value: number) => {
     setLocalIncomeValues(prev => ({ ...prev, susannaförsäkringskassan: value.toString() }));
-    updateIncome({ susannaförsäkringskassan: value });
+    updateIncome('susannaförsäkringskassan', value);
   };
 
   const setSusannabarnbidrag = (value: number) => {
     setLocalIncomeValues(prev => ({ ...prev, susannabarnbidrag: value.toString() }));
-    updateIncome({ susannabarnbidrag: value });
+    updateIncome('susannabarnbidrag', value);
   };
   
   // CRITICAL DEBUG: Log what data is actually available
@@ -482,14 +638,34 @@ const BudgetCalculator = () => {
   console.log(`🔍 [DATA LOADING] currentMonthData.accountBalancesSet:`, (currentMonthData as any).accountBalancesSet);
   
   // Data från den enda källan till sanning - DATABASE FIRST, then fallback to legacy
-  const andreasSalary = monthlyBudget?.andreasSalary ?? (currentMonthData as any).andreasSalary ?? 0;
-  const andreasförsäkringskassan = monthlyBudget?.andreasförsäkringskassan ?? (currentMonthData as any).andreasförsäkringskassan ?? 0;
-  const andreasbarnbidrag = monthlyBudget?.andreasbarnbidrag ?? (currentMonthData as any).andreasbarnbidrag ?? 0;
-  const susannaSalary = monthlyBudget?.susannaSalary ?? (currentMonthData as any).susannaSalary ?? 0;
-  const susannaförsäkringskassan = monthlyBudget?.susannaförsäkringskassan ?? (currentMonthData as any).susannaförsäkringskassan ?? 0;
-  const susannabarnbidrag = monthlyBudget?.susannabarnbidrag ?? (currentMonthData as any).susannabarnbidrag ?? 0;
-  const costGroups = (currentMonthData as any).costGroups || [];
-  const savingsGroups = (currentMonthData as any).savingsGroups || [];
+  // Convert from öre (database) to SEK (for calculations and display)
+  const andreasSalary = orenToKronor(monthlyBudget?.andreasSalary ?? (currentMonthData as any).andreasSalary ?? 0);
+  const andreasförsäkringskassan = orenToKronor(monthlyBudget?.andreasförsäkringskassan ?? (currentMonthData as any).andreasförsäkringskassan ?? 0);
+  const andreasbarnbidrag = orenToKronor(monthlyBudget?.andreasbarnbidrag ?? (currentMonthData as any).andreasbarnbidrag ?? 0);
+  const susannaSalary = orenToKronor(monthlyBudget?.susannaSalary ?? (currentMonthData as any).susannaSalary ?? 0);
+  const susannaförsäkringskassan = orenToKronor(monthlyBudget?.susannaförsäkringskassan ?? (currentMonthData as any).susannaförsäkringskassan ?? 0);
+  const susannabarnbidrag = orenToKronor(monthlyBudget?.susannabarnbidrag ?? (currentMonthData as any).susannabarnbidrag ?? 0);
+  // CRITICAL FIX: Merge localStorage data with PostgreSQL budget posts
+  const localStorageCostGroups = (currentMonthData as any).costGroups || [];
+  const localStorageSavingsGroups = (currentMonthData as any).savingsGroups || [];
+  
+  // FORCE USE of PostgreSQL hierarchical structure - completely ignore localStorage budget posts
+  // Always use the PostgreSQL structure, even if empty, to get proper hierarchy
+  const costGroups = budgetPostsAsLegacyGroups.costGroups;
+  const savingsGroups = budgetPostsAsLegacyGroups.savingsGroups;
+  
+  console.log('🔍 [DEBUG] FORCED PostgreSQL usage - ignoring localStorage budget posts');
+  console.log('🔍 [DEBUG] PostgreSQL costGroups:', costGroups);
+  console.log('🔍 [DEBUG] localStorage costGroups (IGNORED):', localStorageCostGroups);
+    
+  console.log('🔍 [DEBUG] Merged groups:', {
+    pgCostGroups: budgetPostsAsLegacyGroups.costGroups.length,
+    localCostGroups: localStorageCostGroups.length,
+    totalCostGroups: costGroups.length,
+    pgSavingsGroups: budgetPostsAsLegacyGroups.savingsGroups.length,
+    localSavingsGroups: localStorageSavingsGroups.length,
+    totalSavingsGroups: savingsGroups.length
+  });
   const dailyTransfer = (currentMonthData as any).dailyTransfer || 300;
   const weekendTransfer = (currentMonthData as any).weekendTransfer || 540;
   const customHolidays = (currentMonthData as any).customHolidays || [];
@@ -511,7 +687,12 @@ const BudgetCalculator = () => {
   // Create unified savings items list that combines savingsGroups with active savings goals
   const allSavingsItems = useMemo(() => {
     console.log('🔍 [DEBUG] allSavingsItems - building list...');
-    console.log('🔍 [DEBUG] savingsGroups input:', savingsGroups);
+    console.log('🔍 [DEBUG] savingsGroups input (should be SQL-only with savings type):', savingsGroups);
+    console.log('🔍 [DEBUG] allSavingsItems - budgetPostsFromAPI length:', budgetPostsFromAPI.length);
+    
+    // Debug: Check if we're getting any localStorage interference
+    const localStorageSavingsGroups = (currentMonthData as any).savingsGroups || [];
+    console.log('🔍 [DEBUG] localStorage savingsGroups (should be ignored):', localStorageSavingsGroups.length, localStorageSavingsGroups);
     
     // 1. Start with regular, general savings
     const generalSavings = savingsGroups || [];
@@ -544,8 +725,11 @@ const BudgetCalculator = () => {
     
     // SYSTEMATIC FIX: Pass SQL data sources to eliminate budgetState dependency
     const allCategories = [...(huvudkategorier || []), ...(underkategorier || [])];
-    const allTransactions = budgetState.allTransactions || [];
-    console.log(`🔍 [DEBUG] activeContent - using ${allTransactions.length} transactions from budgetState.allTransactions`);
+    // CRITICAL FIX: Use transactions from React Query cache as primary source, budgetState as fallback
+    const allTransactions = transactionsFromAPI.length > 0 
+      ? transactionsFromAPI 
+      : (budgetState.allTransactions || []);
+    console.log(`🔍 [DEBUG] activeContent - using ${allTransactions.length} transactions (${transactionsFromAPI.length} from API cache, ${(budgetState.allTransactions || []).length} from budgetState)`);
     const processedData = getProcessedBudgetDataForMonth(
       budgetState, 
       selectedMonthKey, 
@@ -577,7 +761,7 @@ const BudgetCalculator = () => {
       dateRange: processedData.dateRange
     };
 
-  }, [budgetState, selectedMonthKey]);
+  }, [budgetState, selectedMonthKey, transactionsFromAPI, accountsFromAPI, huvudkategorier, underkategorier]);
 
   // --- SLUT PÅ NY LOGIK ---
   
@@ -626,73 +810,102 @@ const BudgetCalculator = () => {
 
   // Helper functions for calculating actual amounts from transactions
   const calculateActualAmountForCategory = React.useCallback((categoryId: string): number => {
-    // FIXED: Use correctly filtered transactions according to PaydaySettings
+    // FIXED: Use exact same logic as Account view that works correctly
+    
+    // FIXED: Use activeContent.transactionsForPeriod (same as Account view)
     const allPeriodTransactions = activeContent.transactionsForPeriod || [];
     
-    // Find all subcategories that belong to this huvudkategori
+    // FIXED: Use exact same calculation as Account view
+    const categoryName = huvudkategorier.find(k => k.id === categoryId)?.name || 'Unknown';
     const relatedSubcategories = underkategorier.filter(sub => sub.huvudkategoriId === categoryId);
     const subcategoryIds = relatedSubcategories.map(sub => sub.id);
     
-    // Get category name for fallback matching
-    const categoryName = huvudkategorier.find(k => k.id === categoryId)?.name;
-    
-    // FIXED LOGIC: Look for transactions assigned to EITHER the main category OR any of its subcategories
-    // PLUS implement fallback for uncategorized transport transactions
+    // Filter transactions assigned to EITHER the main category OR any of its subcategories  
     const matchingTransactions = (allPeriodTransactions || []).filter((t: Transaction) => {
       const matchesMainCategory = t.appCategoryId === categoryId;
       const matchesSubcategory = t.appSubCategoryId && subcategoryIds.includes(t.appSubCategoryId);
+      const isTransactionOrExpense = t.type === 'Transaction' || t.type === 'ExpenseClaim'; // Include Transaction and ExpenseClaim (Utlägg), exclude InternalTransfers etc.
       
-      // CRITICAL FALLBACK: For Transport, also include uncategorized transport-related transactions
-      let matchesTransportKeywords = false;
-      if (categoryName === 'Transport' && !t.appCategoryId && !t.appSubCategoryId) {
-        const description = (t.description || '').toLowerCase();
-        matchesTransportKeywords = description.includes('bil') || 
-                                  description.includes('bränsle') || 
-                                  description.includes('bensin') || 
-                                  description.includes('park') || 
-                                  description.includes('transport') || 
-                                  description.includes('taxi') || 
-                                  description.includes('kollektiv');
+      if (categoryName === 'Transport') {
+        console.log(`🚗 [DEBUG] Transport transaction: ${t.description} (${t.amount / 100} kr)`);
+        console.log(`  - Main match: ${matchesMainCategory}, Sub match: ${matchesSubcategory}, Type: ${t.type}, isTransactionOrExpense: ${isTransactionOrExpense}`);
+        console.log(`  - appCategoryId: ${t.appCategoryId}, appSubCategoryId: ${t.appSubCategoryId}`);
       }
       
-      return matchesMainCategory || matchesSubcategory || matchesTransportKeywords;
+      return (matchesMainCategory || matchesSubcategory) && isTransactionOrExpense;
     });
-    
 
-    
-    const total = matchingTransactions
+    // FIXED: Filter for negative transactions only (same as Account view)
+    const negativeTransactions = matchingTransactions
+      .filter((t: Transaction) => {
+        const effectiveAmount = (t.correctedAmount !== undefined && t.correctedAmount !== null && t.correctedAmount !== t.amount) ? t.correctedAmount : t.amount;
+        return effectiveAmount < 0; // Only include negative amounts (costs)
+      });
+      
+    // FIXED: Keep negative values as negative (don't use Math.abs)
+    const total = negativeTransactions
       .reduce((sum: number, t: Transaction) => {
-        // Get the effective amount (corrected amount if available, otherwise original amount)
-        const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
-        
-        // FIXED LOGIC: Only count transactions with type="Transaction" and negative amounts
-        // This matches the user's requirement to only include actual bank transactions, not expense claims etc.
-        if (t.type === 'Transaction' && effectiveAmount < 0) {
-          const absoluteAmount = Math.abs(effectiveAmount);
-
-          return sum + absoluteAmount;
-        }
-        
-        // Skip positive amounts (these are income/transfers, not costs)
-        return sum;
+        const effectiveAmount = (t.correctedAmount !== undefined && t.correctedAmount !== null && t.correctedAmount !== t.amount) ? t.correctedAmount : t.amount;
+        return sum + effectiveAmount; // Keep negative values negative
       }, 0);
-    
+
+    if (categoryName === 'Transport') {
+      console.log(`🚗 [DEBUG] ${categoryName} FINAL calculation:`);
+      console.log(`  - Found ${matchingTransactions.length} matching transactions`);
+      console.log(`  - Found ${negativeTransactions.length} negative transactions`);
+      console.log(`  - Total amount: ${total} öre (${total / 100} kr)`);
+    }
+
     return total;
   }, [activeContent.transactionsForPeriod, underkategorier, huvudkategorier]);
 
-  const getTransactionsForCategory = (categoryId: string): Transaction[] => {
-    // FIXED: Use correctly filtered transactions according to PaydaySettings
+  // Calculate actual amount for a specific underkategori
+  const calculateActualAmountForUnderkategori = React.useCallback((underkategoriId: string): number => {
+    // FIXED: Use exact same logic as Account view and main category calculation
     const allPeriodTransactions = activeContent.transactionsForPeriod || [];
-
     
-    // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
-    // Filter for transactions belonging to this category, with type="Transaction" and negative amounts
-    const filtered = (allPeriodTransactions || []).filter((t: Transaction) => {
-      if (t.appCategoryId !== categoryId) return false;
-      if (t.type !== 'Transaction') return false; // Only include bank transactions
+    // Filter transactions for this specific underkategori
+    const matchingTransactions = (allPeriodTransactions || []).filter((t: Transaction) => {
+      const matchesSubcategory = t.appSubCategoryId === underkategoriId;
+      const isTransactionOrExpense = t.type === 'Transaction' || t.type === 'ExpenseClaim'; // Include Transaction and ExpenseClaim (Utlägg), exclude InternalTransfers etc.
+      return matchesSubcategory && isTransactionOrExpense;
+    });
+
+    // FIXED: Filter for negative transactions only (same as Account view)
+    const negativeTransactions = matchingTransactions.filter((t: Transaction) => {
+      const effectiveAmount = (t.correctedAmount !== undefined && t.correctedAmount !== null && t.correctedAmount !== t.amount) ? t.correctedAmount : t.amount;
+      return effectiveAmount < 0; // Only include negative amounts (costs)
+    });
       
-      // Use effective amount (corrected amount if available, otherwise original amount)
-      const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
+    // FIXED: Keep negative values as negative (don't use Math.abs)
+    const total = negativeTransactions.reduce((sum: number, t: Transaction) => {
+      const effectiveAmount = (t.correctedAmount !== undefined && t.correctedAmount !== null && t.correctedAmount !== t.amount) ? t.correctedAmount : t.amount;
+      return sum + effectiveAmount; // Keep negative values negative
+    }, 0);
+    
+    return total;
+  }, [activeContent.transactionsForPeriod]);
+
+  const getTransactionsForCategory = (categoryId: string): Transaction[] => {
+    // FIXED: Use exact same logic as Account view and calculation function
+    const allPeriodTransactions = activeContent.transactionsForPeriod || [];
+    
+    // Get related subcategories for this main category  
+    const relatedSubcategories = underkategorier.filter(sub => sub.hovedkategoriId === categoryId);
+    const subcategoryIds = relatedSubcategories.map(sub => sub.id);
+    
+    // Filter transactions assigned to EITHER the main category OR any of its subcategories  
+    const matchingTransactions = (allPeriodTransactions || []).filter((t: Transaction) => {
+      const matchesMainCategory = t.appCategoryId === categoryId;
+      const matchesSubcategory = t.appSubCategoryId && subcategoryIds.includes(t.appSubCategoryId);
+      const isTransactionOrExpense = t.type === 'Transaction' || t.type === 'ExpenseClaim'; // Include Transaction and ExpenseClaim (Utlägg), exclude InternalTransfers etc.
+      
+      return (matchesMainCategory || matchesSubcategory) && isTransactionOrExpense;
+    });
+
+    // FIXED: Filter for negative transactions only (same as Account view)
+    const filtered = matchingTransactions.filter((t: Transaction) => {
+      const effectiveAmount = (t.correctedAmount !== undefined && t.correctedAmount !== null && t.correctedAmount !== t.amount) ? t.correctedAmount : t.amount;
       return effectiveAmount < 0; // Only include negative amounts (costs)
     });
     
@@ -704,6 +917,26 @@ const BudgetCalculator = () => {
       description: t.description, 
       date: t.date 
     })));
+    return filtered;
+  };
+
+  const getTransactionsForUnderkategori = (underkategoriId: string): Transaction[] => {
+    // FIXED: Use exact same logic as Account view and main category calculation
+    const allPeriodTransactions = activeContent.transactionsForPeriod || [];
+    
+    // Filter transactions for this specific underkategori
+    const matchingTransactions = (allPeriodTransactions || []).filter((t: Transaction) => {
+      const matchesSubcategory = t.appSubCategoryId === underkategoriId;
+      const isTransactionOrExpense = t.type === 'Transaction' || t.type === 'ExpenseClaim'; // Include Transaction and ExpenseClaim (Utlägg), exclude InternalTransfers etc.
+      return matchesSubcategory && isTransactionOrExpense;
+    });
+
+    // FIXED: Filter for negative transactions only (same as Account view)
+    const filtered = matchingTransactions.filter((t: Transaction) => {
+      const effectiveAmount = (t.correctedAmount !== undefined && t.correctedAmount !== null && t.correctedAmount !== t.amount) ? t.correctedAmount : t.amount;
+      return effectiveAmount < 0; // Only include negative amounts (costs)
+    });
+    
     return filtered;
   };
 
@@ -721,8 +954,10 @@ const BudgetCalculator = () => {
       description: t.description 
     })));
     
-    // Direct filtering by accountId - much cleaner
-    const accountTransactions = (allPeriodTransactions || []).filter((t: Transaction) => t.accountId === accountId);
+    // Direct filtering by accountId - much cleaner, and only Transaction and ExpenseClaim types
+    const accountTransactions = (allPeriodTransactions || []).filter((t: Transaction) => 
+      t.accountId === accountId && (t.type === 'Transaction' || t.type === 'ExpenseClaim') // Include Transaction and ExpenseClaim (Utlägg), exclude InternalTransfers etc.
+    );
     console.log(`🔍 [DEBUG] Found ${accountTransactions.length} transactions for accountId ${accountId}:`, 
       (accountTransactions || []).map(t => ({ id: t.id, amount: t.amount, description: t.description, date: t.date })));
     console.log(`🔍 [DEBUG] ============= getTransactionsForAccountId END =============`);
@@ -750,19 +985,21 @@ const BudgetCalculator = () => {
     const directAccountTransactions = (allPeriodTransactions || []).filter((t: Transaction) => {
       const account = (accountsFromAPI || []).find(acc => acc.id === t.accountId);
       const matchesDirect = account?.name === accountName;
+      const isTransactionOrExpense = t.type === 'Transaction' || t.type === 'ExpenseClaim'; // Include Transaction and ExpenseClaim (Utlägg), exclude InternalTransfers etc.
       if (matchesDirect) {
-        console.log(`🔍 [DEBUG] ✅ DIRECT MATCH - Transaction ${t.id}: accountId=${t.accountId}, resolved name=${account?.name}, amount=${t.amount}, date=${t.date}`);
+        console.log(`🔍 [DEBUG] ✅ DIRECT MATCH - Transaction ${t.id}: accountId=${t.accountId}, resolved name=${account?.name}, amount=${t.amount}, date=${t.date}, type=${t.type}, isTransactionOrExpense=${isTransactionOrExpense}`);
       }
-      return matchesDirect;
+      return matchesDirect && isTransactionOrExpense;
     });
     
     // Method 2: Also check for transactions that might have accountId directly matching the account name
     const nameMatchTransactions = allPeriodTransactions.filter((t: Transaction) => {
       const matchesName = t.accountId === accountName;
+      const isTransactionOrExpense = t.type === 'Transaction' || t.type === 'ExpenseClaim'; // Include Transaction and ExpenseClaim (Utlägg), exclude InternalTransfers etc.
       if (matchesName) {
-        console.log(`🔍 [DEBUG] ✅ NAME MATCH - Transaction ${t.id}: accountId=${t.accountId} matches account name directly, date=${t.date}`);
+        console.log(`🔍 [DEBUG] ✅ NAME MATCH - Transaction ${t.id}: accountId=${t.accountId} matches account name directly, date=${t.date}, type=${t.type}, isTransactionOrExpense=${isTransactionOrExpense}`);
       }
-      return matchesName;
+      return matchesName && isTransactionOrExpense;
     });
     
     console.log(`🔍 [DEBUG] Direct account transactions (${directAccountTransactions.length}):`, directAccountTransactions.map(t => ({ id: t.id, amount: t.amount, description: t.description })));
@@ -812,6 +1049,18 @@ const BudgetCalculator = () => {
     const transactions = getTransactionsForCategory(categoryId);
     const actualAmount = calculateActualAmountForCategory(categoryId);
     
+    // Add mobile debug log only when drill-down is opened
+    if (categoryName === 'Transport') {
+      addMobileDebugLog(`🚗 [TRANSPORT DRILL-DOWN]`);
+      addMobileDebugLog(`  - Category ID: ${categoryId}`);
+      addMobileDebugLog(`  - Found ${transactions.length} transactions`);
+      addMobileDebugLog(`  - Actual amount: ${actualAmount / 100} kr`);
+      
+      transactions.slice(0, 3).forEach(t => {
+        addMobileDebugLog(`  - ${t.description} (${t.appCategoryId}/${t.appSubCategoryId})`);
+      });
+    }
+    
     setDrillDownDialog({
       isOpen: true,
       transactions,
@@ -837,18 +1086,17 @@ const BudgetCalculator = () => {
       description: t.description
     })));
     
-    // FIXED: Show only negative amount transactions (costs) for account drill-down
+    // FIXED: Show only negative amount transactions (costs) for account drill-down (same as Account view)
     const transactions = allTransactions.filter(t => {
       const effectiveAmount = (t.correctedAmount !== undefined && t.correctedAmount !== null && t.correctedAmount !== t.amount) ? t.correctedAmount : t.amount;
-      const isTransaction = t.type === 'Transaction';
       const isNegative = effectiveAmount < 0;
       
-      console.log(`🔍 [DEBUG] Transaction ${t.description || 'No desc'}: type=${t.type}, effectiveAmount=${effectiveAmount}, isTransaction=${isTransaction}, isNegative=${isNegative}, included=${isTransaction && isNegative}`);
+      console.log(`🔍 [DEBUG] Transaction ${t.description || 'No desc'}: type=${t.type}, effectiveAmount=${effectiveAmount}, isNegative=${isNegative}, included=${isNegative}`);
       
-      return isTransaction && isNegative; // Show only Transaction type with negative amounts
+      return isNegative; // Show only negative amounts (costs)
     });
     
-    console.log(`🔍 [DEBUG] transactions after filtering (type=Transaction AND negative): ${transactions.length}`);
+    console.log(`🔍 [DEBUG] transactions after filtering (negative amounts only): ${transactions.length}`);
     console.log(`🔍 [DEBUG] filtered transaction sample:`, transactions.slice(0, 3).map(t => ({
       type: t.type,
       amount: t.amount,
@@ -866,11 +1114,26 @@ const BudgetCalculator = () => {
     });
   };
 
+  const openUnderkategoriDrillDownDialog = (underkategoriName: string, underkategoriId: string, budgetAmount: number) => {
+    const transactions = getTransactionsForUnderkategori(underkategoriId);
+    const actualAmount = calculateActualAmountForUnderkategori(underkategoriId);
+    
+    setDrillDownDialog({
+      isOpen: true,
+      transactions,
+      categoryName: underkategoriName,
+      budgetAmount,
+      actualAmount
+    });
+  };
+
   const getSavingsTransactions = () => {
     console.log('🔍 [DEBUG] getSavingsTransactions called - using centralized storage');
     
-    // Use centralized transaction storage instead of month-specific data
-    const allTransactions = budgetState.allTransactions || [];
+    // Use transactions from React Query cache as primary source
+    const allTransactions = transactionsFromAPI.length > 0 
+      ? transactionsFromAPI 
+      : (budgetState.allTransactions || []);
     
     console.log('🔍 [DEBUG] Total transactions from centralized storage:', allTransactions.length);
     
@@ -2475,7 +2738,7 @@ const BudgetCalculator = () => {
       id: uuidv4(),
       name: `${item.subcategory}: ${item.name}`,
       amount: calculatedAmount,
-      accountId: item.accountId || (item.account ? accounts.find(acc => acc.name === item.account)?.id : undefined),
+      accountId: item.accountId || (item.account ? accountsFromAPI.find(acc => acc.name === item.account)?.id : undefined),
       financedFrom: item.financedFrom,
       transferType: item.transferType || 'monthly',
       dailyAmount: item.dailyAmount,
@@ -2937,20 +3200,24 @@ const BudgetCalculator = () => {
         accountId: accountObj.id,
         faktisktKontosaldo: null
       });
-      addDebugLog(`✅ SQL unset initiated for ${account}`);
+      addDebugLog(`✅ SQL unset initiated for ${account} - NOT calling localStorage unsetAccountBalance to avoid conflict`);
+      
+      // Don't call the localStorage orchestrator function to avoid conflict with database null value
+      // The MonthlyAccountBalances component will handle displaying the null state
+      
+    } else {
+      // Fallback to localStorage logic only if SQL database update is not available
+      unsetAccountBalance(account);
+      addDebugLog(`✅ unsetAccountBalance completed for ${account} (fallback to localStorage)`);
+      
+      const currentDate = new Date();
+      const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+      resetMonthFinalBalancesFlag(currentMonthKey);
+      
+      addDebugLog(`🔄 About to call forceRecalculation`);
+      forceRecalculation();
+      console.log(`✅ forceRecalculation completed`);
     }
-    
-    // Keep existing localStorage logic for backward compatibility
-    unsetAccountBalance(account);
-    addDebugLog(`✅ unsetAccountBalance completed for ${account}`);
-    
-    const currentDate = new Date();
-    const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-    resetMonthFinalBalancesFlag(currentMonthKey);
-    
-    addDebugLog(`🔄 About to call forceRecalculation`);
-    forceRecalculation();
-    console.log(`✅ forceRecalculation completed`);
   };
 
   // Function to load data from selected month into current form
@@ -5178,7 +5445,7 @@ const BudgetCalculator = () => {
                       {group.subCategories?.map((sub: any) => (
                         <div key={sub.id} className="ml-4 flex justify-between text-sm text-muted-foreground">
                           <span>• {sub.name}:</span>
-                          <span>{formatCurrency(sub.amount)}</span>
+                          <span>{formatOrenAsCurrency(sub.amount)}</span>
                         </div>
                       ))}
                     </div>
@@ -5195,7 +5462,7 @@ const BudgetCalculator = () => {
                 {data.savingsGroups?.map((group: any) => (
                   <div key={group.id} className="flex justify-between">
                     <span>{group.name}:</span>
-                    <span className="font-medium">{formatCurrency(group.amount)}</span>
+                    <span className="font-medium">{formatOrenAsCurrency(group.amount)}</span>
                   </div>
                 ))}
               <div className="flex justify-between pt-2 border-t font-semibold">
@@ -5471,7 +5738,10 @@ const BudgetCalculator = () => {
                               }));
                             }}
                             onBlur={(e) => {
-                              updateIncome('andreasSalary', Number(e.target.value) || 0);
+                              // Convert SEK input to öre for storage
+                              const sekValue = Number(e.target.value) || 0;
+                              const oreValue = kronoraToOren(sekValue);
+                              updateIncome('andreasSalary', oreValue);
                               const currentDate = new Date();
                               const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
                               resetMonthFinalBalancesFlag(currentMonthKey);
@@ -5493,7 +5763,11 @@ const BudgetCalculator = () => {
                                 andreasförsäkringskassan: e.target.value
                               }));
                             }}
-                            onBlur={(e) => updateIncome('andreasförsäkringskassan', Number(e.target.value) || 0)}
+                            onBlur={(e) => {
+                              const sekValue = Number(e.target.value) || 0;
+                              const oreValue = kronoraToOren(sekValue);
+                              updateIncome('andreasförsäkringskassan', oreValue);
+                            }}
                             className="text-lg bg-white/70"
                           />
                         </div>
@@ -5511,7 +5785,11 @@ const BudgetCalculator = () => {
                                 andreasbarnbidrag: e.target.value
                               }));
                             }}
-                            onBlur={(e) => updateIncome('andreasbarnbidrag', Number(e.target.value) || 0)}
+                            onBlur={(e) => {
+                              const sekValue = Number(e.target.value) || 0;
+                              const oreValue = kronoraToOren(sekValue);
+                              updateIncome('andreasbarnbidrag', oreValue);
+                            }}
                             className="text-lg bg-white/70"
                           />
                         </div>
@@ -5536,7 +5814,10 @@ const BudgetCalculator = () => {
                               }));
                             }}
                             onBlur={(e) => {
-                              updateIncome('susannaSalary', Number(e.target.value) || 0);
+                              // Convert SEK input to öre for storage
+                              const sekValue = Number(e.target.value) || 0;
+                              const oreValue = kronoraToOren(sekValue);
+                              updateIncome('susannaSalary', oreValue);
                               const currentDate = new Date();
                               const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
                               resetMonthFinalBalancesFlag(currentMonthKey);
@@ -5558,7 +5839,11 @@ const BudgetCalculator = () => {
                                 susannaförsäkringskassan: e.target.value
                               }));
                             }}
-                            onBlur={(e) => updateIncome('susannaförsäkringskassan', Number(e.target.value) || 0)}
+                            onBlur={(e) => {
+                              const sekValue = Number(e.target.value) || 0;
+                              const oreValue = kronoraToOren(sekValue);
+                              updateIncome('susannaförsäkringskassan', oreValue);
+                            }}
                             className="text-lg bg-white/70"
                           />
                         </div>
@@ -5576,7 +5861,11 @@ const BudgetCalculator = () => {
                                 susannabarnbidrag: e.target.value
                               }));
                             }}
-                            onBlur={(e) => updateIncome('susannabarnbidrag', Number(e.target.value) || 0)}
+                            onBlur={(e) => {
+                              const sekValue = Number(e.target.value) || 0;
+                              const oreValue = kronoraToOren(sekValue);
+                              updateIncome('susannabarnbidrag', oreValue);
+                            }}
                             className="text-lg bg-white/70"
                           />
                         </div>
@@ -6343,80 +6632,58 @@ const BudgetCalculator = () => {
                                 if (!huvudkategorierLoading && !underkategorierLoading) {
 
                                   
-                                  // Process all huvudkategorier from SQL
+                                  // Initialize ALL huvudkategorier from SQL but DON'T add underkategorier as budget posts
+                                  // The hierarchical structure will be handled in the next step
                                   huvudkategorier.forEach(huvudkat => {
                                     if (!categoryGroups[huvudkat.name]) {
                                       categoryGroups[huvudkat.name] = { total: 0, subcategories: [] };
                                     }
-                                    
-                                    // Find all underkategorier for this huvudkategori
-                                    const relatedUnderkategorier = underkategorier.filter(underkat => 
-                                      underkat.huvudkategoriId === huvudkat.id
-                                    );
-                                    
-                                    relatedUnderkategorier.forEach(underkat => {
-                                      // Find if this underkategori has a budget post in costGroups
-                                      let budgetAmount = 0;
-                                      let groupId = '';
-                                      let accountId = '';
-                                      
-                                      costGroups.forEach((group) => {
-                                        if (group.name === huvudkat.name) {
-                                          group.subCategories?.forEach((sub) => {
-                                            if (sub.name === underkat.name) {
-                                              // Use new calculation logic
-                                              if (sub.transferType === 'daily') {
-                                                budgetAmount = calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth);
-                                              } else {
-                                                budgetAmount = sub.amount;
-                                              }
-                                              groupId = group.id;
-                                              accountId = sub.accountId || '';
-                                            }
-                                          });
-                                        }
-                                      });
-                                      
-                                      categoryGroups[huvudkat.name].subcategories.push({
-                                        id: underkat.id,
-                                        name: underkat.name,
-                                        amount: budgetAmount,
-                                        accountId: accountId,
-                                        groupId: groupId || `main_${huvudkat.name}`
-                                      } as SubCategory & { groupId: string });
-                                      
-                                      categoryGroups[huvudkat.name].total += budgetAmount;
-                                    });
+                                    // Note: We don't add underkategorier here anymore - they're handled hierarchically below
                                   });
                                 }
                                 
-                                // Finally, add any additional budget posts that might not be in the standard categories
+                                // Process hierarchical PostgreSQL budget posts structure
                                 costGroups.forEach((group) => {
-
                                   if (!categoryGroups[group.name]) {
                                     categoryGroups[group.name] = { total: 0, subcategories: [] };
                                   }
                                   
                                   group.subCategories?.forEach((sub) => {
-                                    // Check if this subcategory is already added from budgetState
-                                    const existingSubcategory = categoryGroups[group.name].subcategories.find(existing => existing.name === sub.name);
-                                    if (!existingSubcategory) {
-                                      let amount = 0;
-                                      // ANVÄND DEN NYA BERÄKNINGSLOGIKEN HÄR
-                                      if (sub.transferType === 'daily') {
-                                        // Om det är en daglig överföring, anropa den nya funktionen
-                                        amount = calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth);
-                                      } else {
-                                        // Annars, använd det vanliga fasta beloppet
-                                        amount = sub.amount;
+                                    if (sub.isUnderkategori && sub.budgetPosts) {
+                                      // Add underkategori as a container with nested budget posts
+                                      const underkategoriContainer = {
+                                        id: sub.id,
+                                        name: sub.name,
+                                        amount: sub.amount,
+                                        groupId: group.id,
+                                        isUnderkategori: true,
+                                        budgetPosts: sub.budgetPosts // Keep the nested budget posts
+                                      } as SubCategory & { 
+                                        groupId: string; 
+                                        isUnderkategori: boolean; 
+                                        budgetPosts: any[] 
+                                      };
+                                      
+                                      categoryGroups[group.name].subcategories.push(underkategoriContainer);
+                                      categoryGroups[group.name].total += sub.amount;
+                                    } else {
+                                      // Handle legacy flat budget posts (non-hierarchical)
+                                      const existingSubcategory = categoryGroups[group.name].subcategories.find(existing => existing.name === sub.name);
+                                      if (!existingSubcategory) {
+                                        let amount = 0;
+                                        if (sub.transferType === 'daily') {
+                                          amount = calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth);
+                                        } else {
+                                          amount = sub.amount;
+                                        }
+                                        
+                                        categoryGroups[group.name].subcategories.push({
+                                          ...sub,
+                                          groupId: group.id
+                                        } as SubCategory & { groupId: string });
+                                        
+                                        categoryGroups[group.name].total += amount;
                                       }
-                                      
-                                      categoryGroups[group.name].subcategories.push({
-                                        ...sub,
-                                        groupId: group.id
-                                      } as SubCategory & { groupId: string });
-                                      
-                                      categoryGroups[group.name].total += amount;
                                     }
                                   });
                                 });
@@ -6432,7 +6699,7 @@ const BudgetCalculator = () => {
                                   
                                   // CRITICAL FIX: Always calculate actual amount, even if budget is 0
                                   const actualAmount = calculateActualAmountForCategory(categoryIdToUse);
-                                  const difference = data.total - actualAmount;
+                                  const difference = data.total - Math.abs(actualAmount);
                                   const progress = data.total > 0 ? (actualAmount / data.total) * 100 : 0;
                                   
 
@@ -6444,10 +6711,58 @@ const BudgetCalculator = () => {
                                      <Button
                                        variant="ghost"
                                        size="sm"
-                                       onClick={() => setExpandedCostGroups(prev => ({
-                                         ...prev,
-                                         [categoryName]: !prev[categoryName]
-                                       }))}
+                                       onClick={() => {
+                                         // Add mobile debug log for Transport category when expanded
+                                         if (categoryName === 'Transport' && !expandedCostGroups[categoryName]) {
+                                           const categoryUuid = huvudkategorier.find(k => k.name === categoryName)?.id || categoryName;
+                                           const actualAmount = calculateActualAmountForCategory(categoryUuid);
+                                           const relatedSubs = underkategorier.filter(sub => sub.huvudkategoriId === categoryUuid);
+                                           
+                                           // Get all transactions to see what we're working with
+                                           const allPeriodTx = activeContent.transactionsForPeriod || [];
+                                           const braensleSubId = relatedSubs.find(s => s.name === 'Bränsle')?.id;
+                                           
+                                           // Find transactions that might be Transport-related  
+                                           const potentialMatches = allPeriodTx.filter(t => 
+                                             t.description?.toLowerCase().includes('stavsnas') ||
+                                             t.description?.toLowerCase().includes('macken') ||
+                                             t.description?.toLowerCase().includes('bränsle') ||
+                                             t.appCategoryId === categoryUuid ||
+                                             t.appSubCategoryId === braensleSubId
+                                           );
+                                           
+                                           // Also search for "stavsnas" in ALL transactions (not just current period)
+                                           const stavsnasInAll = (transactionsFromAPI || []).filter(t => 
+                                             t.description?.toLowerCase().includes('stavsnas')
+                                           );
+                                           
+                                           addMobileDebugLog(`🚗 [TRANSPORT CATEGORY CLICKED]`);
+                                           addMobileDebugLog(`  - Category ID: ${categoryUuid}`);
+                                           addMobileDebugLog(`  - Actual amount: ${actualAmount / 100} kr`);
+                                           addMobileDebugLog(`  - Subcategories: ${relatedSubs.map(s => s.name).join(', ')}`);
+                                           addMobileDebugLog(`  - Bränsle Sub ID: ${braensleSubId}`);
+                                           addMobileDebugLog(`  - Found ${potentialMatches.length} potential Transport transactions:`);
+                                           
+                                           potentialMatches.slice(0, 3).forEach((t, i) => {
+                                             addMobileDebugLog(`    ${i+1}. ${t.description} (-${Math.abs(t.amount)/100}kr)`);
+                                             addMobileDebugLog(`       appCat: ${t.appCategoryId || 'null'}`);
+                                             addMobileDebugLog(`       appSub: ${t.appSubCategoryId || 'null'}`);
+                                           });
+                                           
+                                           // Show Stavsnas search results
+                                           addMobileDebugLog(`  - Stavsnas transactions found in ALL data: ${stavsnasInAll.length}`);
+                                           stavsnasInAll.forEach((t, i) => {
+                                             addMobileDebugLog(`    ${i+1}. ${t.description} (${new Date(t.date).toISOString().split('T')[0]})`);
+                                             addMobileDebugLog(`       Amount: ${t.amount/100}kr, Cat: ${t.appCategoryId || 'null'}`);
+                                             addMobileDebugLog(`       Sub: ${t.appSubCategoryId || 'null'}`);
+                                           });
+                                         }
+                                         
+                                         setExpandedCostGroups(prev => ({
+                                           ...prev,
+                                           [categoryName]: !prev[categoryName]
+                                         }));
+                                       }}
                                        className="p-2 h-10 w-10 rounded-full bg-primary/10 hover:bg-primary/20 transition-all duration-200 group-hover:scale-110"
                                      >
                                        {expandedCostGroups[categoryName] ? (
@@ -6473,20 +6788,24 @@ const BudgetCalculator = () => {
                                      <div className="text-right space-y-2">
                                        <div className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
                                          <div className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                                           Budget: <span className="font-bold text-blue-900 dark:text-blue-100">{formatCurrency(data.total)}</span>
+                                           Budget: <span className="font-bold text-blue-900 dark:text-blue-100">{formatOrenAsCurrency(data.total)}</span>
                                          </div>
                                          <div className="text-sm font-medium text-green-700 dark:text-green-300 mt-1">
                                            Faktiskt: 
                                            <button
-                                             className="ml-1 font-bold text-green-800 dark:text-green-200 hover:text-green-600 dark:hover:text-green-400 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200"
+                                             className={`ml-1 font-bold underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200 ${
+                                               actualAmount < 0 
+                                                 ? 'text-red-800 dark:text-red-200 hover:text-red-600 dark:hover:text-red-400' 
+                                                 : 'text-green-800 dark:text-green-200 hover:text-green-600 dark:hover:text-green-400'
+                                             }`}
                                              onClick={() => openDrillDownDialog(categoryName, categoryIdToUse, data.total)}
                                            >
-                                             {formatCurrency(actualAmount)}
+                                             {formatOrenAsCurrency(actualAmount)}
                                            </button>
                                          </div>
                                          <div className={`text-sm font-bold mt-1 ${difference >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
                                            <span className="inline-flex items-center gap-1">
-                                             {difference >= 0 ? '↗' : '↘'} {difference >= 0 ? '+' : ''}{formatCurrency(Math.abs(difference))}
+                                             {difference >= 0 ? '↗' : '↘'} {difference >= 0 ? '+' : ''}{formatOrenAsCurrency(Math.abs(difference))}
                                            </span>
                                          </div>
                                        </div>
@@ -6562,8 +6881,145 @@ const BudgetCalculator = () => {
                                                    </Button>
                                                  </div>
                                                </div>
+                                             ) : sub.isUnderkategori ? (
+                                               // Render underkategori container with nested budget posts
+                                               <div className="space-y-2">
+                                                 <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border border-primary/20 p-3">
+                                                   <div className="flex justify-between items-center">
+                                                     <div className="flex items-center gap-2">
+                                                       <Button
+                                                         variant="ghost"
+                                                         size="sm"
+                                                         onClick={() => setExpandedBudgetCategories(prev => ({
+                                                           ...prev,
+                                                           [`underkategori_${categoryName}_${sub.id}`]: !prev[`underkategori_${categoryName}_${sub.id}`]
+                                                         }))}
+                                                         className="p-1 h-8 w-8 rounded-full bg-primary/10 hover:bg-primary/20"
+                                                       >
+                                                         {expandedBudgetCategories[`underkategori_${categoryName}_${sub.id}`] ? (
+                                                           <ChevronUp className="h-4 w-4 text-primary" />
+                                                         ) : (
+                                                           <ChevronDown className="h-4 w-4 text-primary" />
+                                                         )}
+                                                       </Button>
+                                                       <span className="font-semibold text-primary">{sub.name}</span>
+                                                       <Badge variant="secondary" className="text-xs">Underkategori</Badge>
+                                                     </div>
+                                                     <div className="text-right space-y-1">
+                                                       <div className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                                                         Budget: <span className="font-bold text-blue-900 dark:text-blue-100">{formatOrenAsCurrency(sub.amount)}</span>
+                                                       </div>
+                                                       <div className="text-sm font-medium text-green-700 dark:text-green-300">
+                                                         Faktiskt: 
+                                                         <button
+                                                           className={`ml-1 font-bold underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200 ${
+                                                             calculateActualAmountForUnderkategori(sub.id) < 0 
+                                                               ? 'text-red-800 dark:text-red-200 hover:text-red-600 dark:hover:text-red-400' 
+                                                               : 'text-green-800 dark:text-green-200 hover:text-green-600 dark:hover:text-green-400'
+                                                           }`}
+                                                           onClick={() => openUnderkategoriDrillDownDialog(sub.name, sub.id, sub.amount)}
+                                                         >
+                                                           {formatOrenAsCurrency(calculateActualAmountForUnderkategori(sub.id))}
+                                                         </button>
+                                                       </div>
+                                                     </div>
+                                                   </div>
+                                                 </div>
+                                                 
+                                                 {/* Show nested budget posts when expanded */}
+                                                 {expandedBudgetCategories[`underkategori_${categoryName}_${sub.id}`] && sub.budgetPosts && (
+                                                   <div className="ml-8 space-y-2">
+                                                     {sub.budgetPosts.map((budgetPost: any) => (
+                                                       <div key={budgetPost.id} className="bg-gradient-to-r from-background to-muted/20 rounded-lg border border-border/50 overflow-hidden transition-all duration-200 hover:shadow-md">
+                                                         <div className="flex justify-between items-center p-3 cursor-pointer"
+                                                              onClick={() => setExpandedBudgetCategories(prev => ({
+                                                                ...prev,
+                                                                [`budgetpost_${categoryName}_${budgetPost.id}`]: !prev[`budgetpost_${categoryName}_${budgetPost.id}`]
+                                                              }))}>
+                                                            <div className="flex items-center gap-2">
+                                                              <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="p-1 h-8 w-8 rounded-full bg-primary/5 hover:bg-primary/10"
+                                                              >
+                                                                {expandedBudgetCategories[`budgetpost_${categoryName}_${budgetPost.id}`] ? (
+                                                                  <ChevronUp className="h-4 w-4 text-primary" />
+                                                                ) : (
+                                                                  <ChevronDown className="h-4 w-4 text-primary" />
+                                                                )}
+                                                              </Button>
+                                                              <span className="font-medium text-foreground">→ {budgetPost.name}</span>
+                                                              <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  openEditDialog(budgetPost, categoryName);
+                                                                }}
+                                                                className="p-1 h-8 w-8 rounded-full bg-secondary/50 hover:bg-secondary/80 transition-all duration-200 opacity-70 hover:opacity-100"
+                                                              >
+                                                                <Edit className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                                              </Button>
+                                                            </div>
+                                                            <span className="font-bold text-destructive bg-destructive/10 px-2 py-1 rounded-full text-sm">
+                                                              {budgetPost.transferType === 'daily' 
+                                                                ? formatOrenAsCurrency(calculateMonthlyAmountForDailyTransfer(budgetPost, selectedBudgetMonth))
+                                                                : formatOrenAsCurrency(budgetPost.amount)
+                                                              }
+                                                            </span>
+                                                         </div>
+                                                         
+                                                         {/* Budget post expandable details */}
+                                                         {expandedBudgetCategories[`budgetpost_${categoryName}_${budgetPost.id}`] && (
+                                                           <div className="p-4 bg-gradient-to-r from-muted/30 to-muted/10 border-t border-border/30 animate-accordion-down">
+                                                             <div className="grid grid-cols-2 gap-4 text-sm">
+                                                               <div>
+                                                                 <span className="text-muted-foreground">Huvudkategori:</span>
+                                                                 <div className="font-medium">{categoryName}</div>
+                                                               </div>
+                                                               <div>
+                                                                 <span className="text-muted-foreground">Underkategori:</span>
+                                                                 <div className="font-medium">{budgetPost.subcategory}</div>
+                                                               </div>
+                                                             </div>
+                                                             
+                                                             <div className="grid grid-cols-2 gap-4 text-sm mt-3">
+                                                               <div>
+                                                                 <span className="text-muted-foreground">Överföringstyp:</span>
+                                                                 <div className="font-medium">{budgetPost.transferType === 'daily' ? 'Daglig överföring' : 'Månadsöverföring'}</div>
+                                                               </div>
+                                                                <div>
+                                                                   <span className="text-muted-foreground">Konto:</span>
+                                                                   <div className="font-medium">{budgetPost.accountId ? accountsFromAPI.find(acc => acc.id === budgetPost.accountId)?.name || 'Inget konto' : 'Inget konto'}</div>
+                                                                </div>
+                                                             </div>
+                                                             
+                                                             <div className="grid grid-cols-2 gap-4 text-sm mt-3">
+                                                               <div>
+                                                                 <span className="text-muted-foreground">
+                                                                   {budgetPost.transferType === 'daily' ? 'Månadsbelopp:' : 'Belopp:'}
+                                                                 </span>
+                                                                 <div className="font-medium">
+                                                                   {budgetPost.transferType === 'daily' 
+                                                                     ? formatOrenAsCurrency(calculateMonthlyAmountForDailyTransfer(budgetPost, selectedBudgetMonth))
+                                                                     : formatOrenAsCurrency(budgetPost.amount)
+                                                                   }
+                                                                 </div>
+                                                               </div>
+                                                               <div>
+                                                                 <span className="text-muted-foreground">Finansieras ifrån:</span>
+                                                                 <div className="font-medium">{budgetPost.financedFrom || 'Löpande kostnad'}</div>
+                                                               </div>
+                                                             </div>
+                                                           </div>
+                                                         )}
+                                                       </div>
+                                                     ))}
+                                                   </div>
+                                                 )}
+                                               </div>
                                              ) : (
-                                               // Display mode with expandable details
+                                               // Display mode with expandable details for regular budget posts
                                                <div className="bg-gradient-to-r from-background to-muted/20 rounded-lg border border-border/50 overflow-hidden transition-all duration-200 hover:shadow-md">
                                                  <div className="flex justify-between items-center p-3 cursor-pointer"
                                                       onClick={() => setExpandedBudgetCategories(prev => ({
@@ -6625,7 +7081,7 @@ const BudgetCalculator = () => {
                                                        </div>
                                                         <div>
                                                            <span className="text-muted-foreground">Konto:</span>
-                                                           <div className="font-medium">{sub.accountId ? accounts.find(acc => acc.id === sub.accountId)?.name || 'Inget konto' : 'Inget konto'}</div>
+                                                           <div className="font-medium">{sub.accountId ? accountsFromAPI.find(acc => acc.id === sub.accountId)?.name || 'Inget konto' : 'Inget konto'}</div>
                                                         </div>
                                                      </div>
                                                      
@@ -6714,226 +7170,13 @@ const BudgetCalculator = () => {
                                  );
                                });
                              })()
-                               ) : (
-                                 // Korrekt "Visa per konto" - börjar med konton först
-                                 (() => {
-                                   console.log('🔍 [ACCOUNT VIEW] Starting account-first logic');
-                                   console.log('🔍 [ACCOUNT VIEW] DEBUG - Current month:', selectedBudgetMonth);
-                                   console.log('🔍 [ACCOUNT VIEW] Available accounts:', activeContent.activeAccounts);
-                                   console.log('🔍 [ACCOUNT VIEW] activeContent.budgetItems.costItems:', activeContent.budgetItems.costItems);
-                                   console.log('🔍 [ACCOUNT VIEW] transactionsForPeriod:', activeContent.transactionsForPeriod || []);
-                                   console.log('🔍 [ACCOUNT VIEW] PaydaySettings date range:', activeContent.dateRange);
-                                   console.log('🔍 [ACCOUNT VIEW] Total activeAccounts count:', activeContent.activeAccounts.length);
-                                   console.log('🔍 [ACCOUNT VIEW] Account names:', activeContent.activeAccounts.map(a => a.name));
-                                   console.log('🔍 [ACCOUNT VIEW] Looking for Hushållskonto in activeAccounts:', activeContent.activeAccounts.find(a => a.name === 'Hushållskonto'));
-
-                                 console.log(`🔍 [ACCOUNT VIEW] Total accounts to process: ${activeContent.activeAccounts?.length || 0}`);
-                                 console.log(`🔍 [ACCOUNT VIEW] activeContent structure:`, { 
-                                   hasActiveAccounts: !!activeContent.activeAccounts,
-                                   activeAccountsType: typeof activeContent.activeAccounts,
-                                   activeAccountsLength: activeContent.activeAccounts?.length
-                                 });
-                                 return (activeContent.activeAccounts || []).map((account) => {
-                                    console.log(`🔍 [ACCOUNT VIEW] Processing account: ${account.name} (ID: ${account.id})`);
-                                    
-                                     // 1. FIXED: Use correctly filtered budget items according to PaydaySettings
-                                     const costItemsForThisAccount = (activeContent.budgetItems?.costItems || []).filter(sub => {
-                                       // Check both legacy account name and new accountId
-                                       const matchesLegacy = sub.account === account.name;
-                                       const matchesNew = sub.accountId === account.id;
-                                       // CRITICAL FIX: Also check if accountId is mistakenly stored as account name instead of UUID
-                                       const matchesCorruptedData = sub.accountId === account.name;
-                                       console.log(`🔍 [ACCOUNT VIEW] Checking subcategory ${sub.name}: legacy(${sub.account}=${account.name})=${matchesLegacy}, new(${sub.accountId}=${account.id})=${matchesNew}, corrupted(${sub.accountId}=${account.name})=${matchesCorruptedData}`);
-                                       return matchesLegacy || matchesNew || matchesCorruptedData;
-                                     });
-                                     
-                                     console.log(`🔍 [ACCOUNT VIEW] Found ${costItemsForThisAccount.length} budget items for ${account.name}:`, costItemsForThisAccount);
-                                    
-                                    // 2. Beräkna den totala BUDGETEN för detta konto
-                                    const totalBudget = costItemsForThisAccount.reduce((sum, sub) => {
-                                      if (sub.transferType === 'daily') {
-                                        return sum + calculateMonthlyAmountForDailyTransfer(sub, selectedBudgetMonth);
-                                      } else {
-                                        return sum + sub.amount;
-                                      }
-                                    }, 0);
-                                    
-                                    console.log(`🔍 [ACCOUNT VIEW] Total budget for ${account.name}: ${totalBudget}`);
-                                    
-                                       // 3. FIXED: Use accountId directly instead of account name
-                                       const allTransactionsForThisAccount = getTransactionsForAccountId(account.id);
-                                     
-                                     console.log(`🔍 [ACCOUNT VIEW] Found ${allTransactionsForThisAccount.length} total transactions for ${account.name} (ID: ${account.id}):`, allTransactionsForThisAccount);
-                                     
-                                        // 4. Filter for negative transactions only (costs) - both for calculation and display count
-                                        const negativeTransactions = allTransactionsForThisAccount
-                                          .filter((t: any) => {
-                                            const effectiveAmount = (t.correctedAmount !== undefined && t.correctedAmount !== null && t.correctedAmount !== t.amount) ? t.correctedAmount : t.amount;
-                                            return effectiveAmount < 0; // Only include negative amounts (costs)
-                                          });
-                                          
-                                        console.log(`🔍 [ACCOUNT VIEW] Found ${negativeTransactions.length} negative transactions for ${account.name}`);
-                                     
-                                        // 5. Beräkna det FAKTISKA beloppet genom enkel summering av negativa transaktioner
-                                        // MUST use same logic as drill-down dialog for consistency
-                                        const actualAmount = negativeTransactions
-                                          .reduce((sum: number, t: any) => {
-                                            const effectiveAmount = (t.correctedAmount !== undefined && t.correctedAmount !== null && t.correctedAmount !== t.amount) ? t.correctedAmount : t.amount;
-                                            return sum + Math.abs(effectiveAmount);
-                                          }, 0);
-                                     
-                                     console.log(`🔍 [ACCOUNT VIEW] Actual amount for ${account.name}: ${actualAmount} (from ${negativeTransactions.length} negative transactions)`);
-                                     
-                                     const difference = totalBudget - actualAmount;
-                                    
-                                    // 5. FIXED: Show ALL accounts, even those without budget items or transactions
-                                    // This allows users to see all their accounts in the account view
-                                    
-                                    // 6. Rendera vyn för detta specifika konto
-                                    return (
-                                      <div key={account.id} className="group relative bg-gradient-to-r from-background to-accent/10 border-2 border-border/50 rounded-xl p-4 space-y-3 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.01] animate-fade-in">
-                                        {/* Huvudraden för kontot */}
-                                        <div className="flex items-center gap-3">
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => {
-                                              console.log(`🔍 Toggling account expansion: ${account.name}`);
-                                              setExpandedCostGroups(prev => ({
-                                                ...prev,
-                                                [`account_${account.name}`]: !prev[`account_${account.name}`]
-                                              }));
-                                            }}
-                                            className="p-2 h-10 w-10 rounded-full bg-accent/10 hover:bg-accent/20 transition-all duration-200 group-hover:scale-110"
-                                          >
-                                            {expandedCostGroups[`account_${account.name}`] ? (
-                                              <ChevronUp className="h-5 w-5 text-accent transition-transform duration-200" />
-                                            ) : (
-                                              <ChevronDown className="h-5 w-5 text-accent transition-transform duration-200" />
-                                            )}
-                                          </Button>
-                                          
-                                          <div className="flex-1 min-w-0">
-                                            <div className="font-bold text-lg text-foreground group-hover:text-accent transition-colors duration-200">
-                                              {account.name}
-                                            </div>
-                                            <div className="text-sm text-muted-foreground flex items-center gap-2">
-                                              <span className="inline-flex items-center gap-1">
-                                                <div className="w-2 h-2 rounded-full bg-accent/60"></div>
-                                                {costItemsForThisAccount.length} budgetposter
-                                              </span>
-                                            </div>
-                                          </div>
-                                          
-                                          {/* Korrekt Budget vs Verklighet för kontot */}
-                                          <div className="text-right space-y-2">
-                                            <div className="bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 rounded-lg p-3 border border-purple-200 dark:border-purple-800">
-                                              <div className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                                                Budget: <span className="font-bold text-purple-900 dark:text-purple-100">{formatOrenAsCurrency(totalBudget)}</span>
-                                              </div>
-                                              <div className="text-sm font-medium text-orange-700 dark:text-orange-300 mt-1">
-                                                Faktiskt: 
-                                                <button
-                                                  className="ml-1 font-bold text-orange-800 dark:text-orange-200 hover:text-orange-600 dark:hover:text-orange-400 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200"
-                                                  onClick={() => openAccountDrillDownDialog(account.id, account.name, totalBudget, actualAmount)}
-                                                >
-                                                  {formatOrenAsCurrency(actualAmount)}
-                                                </button>
-                                              </div>
-                                              <div className={`text-sm font-bold mt-1 ${difference >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                                                <span className="inline-flex items-center gap-1">
-                                                  {difference >= 0 ? '↗' : '↘'} {difference >= 0 ? '+' : ''}{formatOrenAsCurrency(Math.abs(difference))}
-                                                </span>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        </div>
-
-                                        {/* Account expansion content - show cost transaction count */}
-                                        {expandedCostGroups[`account_${account.name}`] && (
-                                          <div className="animate-accordion-down">
-                                            <div className="mt-4 pl-8 space-y-3 border-l-4 border-accent/30 bg-gradient-to-r from-accent/10 to-transparent rounded-r-lg pr-4 py-3">
-                                              <div className="text-center py-4 text-muted-foreground">
-                                                <div>Expansion för {account.name}</div>
-                                                <div>{negativeTransactions.length} kostnadstransaktioner hittades</div>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  }).filter(Boolean);
-                              })()
-                          )}
-                        </div>
-                       )}
-                     </div>
-
-                     {/* Total Daily Budget with Dropdown */}
-                     <div className="p-4 bg-blue-50 rounded-lg">
-                       <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetTransfers')}>
-                         <div>
-                           <div className="text-sm text-muted-foreground">Total daglig budget</div>
-                           <div className="text-2xl font-bold text-blue-600">
-                             {results ? formatCurrency(results.totalDailyBudget) : 'Beräknar...'}
-                           </div>
-                         </div>
-                         {expandedSections.budgetTransfers ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                       </div>
-                       
-                       {expandedSections.budgetTransfers && (
-                         <div className="mt-4 space-y-4">
-                           <div className="flex justify-between items-center">
-                             <h4 className="font-semibold">Budgetöverföringar</h4>
-                             <Button size="sm" onClick={() => setIsEditingTransfers(!isEditingTransfers)}>
-                               {isEditingTransfers ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
-                             </Button>
-                           </div>
-                           
-                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <div className="space-y-2">
-                               <Label htmlFor="daily-transfer">Daglig överföring (måndag-torsdag)</Label>
-                               <Input
-                                 id="daily-transfer"
-                                 type="number"
-                                 value={dailyTransfer || ''}
-                                  onChange={(e) => {
-                                    setDailyTransfer(Number(e.target.value));
-                                    const currentDate = new Date();
-                                    const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-                                    resetMonthFinalBalancesFlag(currentMonthKey);
-                                  }}
-                                 disabled={!isEditingTransfers}
-                               />
-                             </div>
-                             <div className="space-y-2">
-                               <Label htmlFor="weekend-transfer">Helgöverföring (fredag-söndag)</Label>
-                               <Input
-                                 id="weekend-transfer"
-                                 type="number"
-                                 value={weekendTransfer || ''}
-                                  onChange={(e) => {
-                                    setWeekendTransfer(Number(e.target.value));
-                                    const currentDate = new Date();
-                                    const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-                                    resetMonthFinalBalancesFlag(currentMonthKey);
-                                  }}
-                                 disabled={!isEditingTransfers}
-                               />
-                             </div>
-                           </div>
-                            
-                             {results && (
-                               <div className="space-y-3">
-                                 <div className="text-sm text-muted-foreground">
-                                   <div>Daglig överföring: {formatCurrency(dailyTransfer)}</div>
-                                   <div>Helgöverföring: {formatCurrency(weekendTransfer)}</div>
-                                 </div>
-                               </div>
-                             )}
-                         </div>
-                       )}
-                     </div>
+                            ) : (
+                              // Account view - show costs grouped by account
+                              <div>Account view placeholder</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
 
                       {/* Total Savings with Dropdown - Same nice design as Totala kostnader */}
                       <div className="p-4 bg-green-50/80 rounded-lg">
@@ -7000,7 +7243,7 @@ const BudgetCalculator = () => {
                             </div>
                             
                             <div className="flex justify-between items-center">
-                              <h4 className="font-semibold">Sparandekategorier</h4>
+                              <h4 className="font-semibold">Budgetkategorier</h4>
                               <div className="space-x-2">
                                 <Button size="sm" onClick={() => setShowAddBudgetDialog({ isOpen: true, type: 'savings' })}>
                                   <Plus className="w-4 h-4" />
@@ -7032,6 +7275,7 @@ const BudgetCalculator = () => {
                               onDeleteSavingsGroup={(id) => {
                                 // Handle deleting savings group
                                 console.log('Delete savings group:', id);
+                                deleteSavingsGroup(id);
                               }}
                             />
                           </div>
@@ -7040,6 +7284,8 @@ const BudgetCalculator = () => {
                   </CardContent>
                 )}
               </Card>
+
+              {/* Account Summary with Transfers - Moved to TransfersAnalysis component */}
 
               {/* Transfers Analysis Section */}
               <TransfersAnalysis 
@@ -7065,3903 +7311,20 @@ const BudgetCalculator = () => {
                   </div>
                 </CardHeader>
                 {expandedSections.budgetSummary && results && (
-                  <CardContent className="space-y-4">
-                    {/* Income items - Green boxes */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <div className="text-sm text-green-700 font-medium">Totala intäkter</div>
-                        <div className="text-xl font-bold text-green-800">
-                          {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
-                        </div>
-                      </div>
-                      
-                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <div className="text-sm text-green-700 font-medium">Totalt sparande</div>
-                        <div className="text-xl font-bold text-green-800">
-                          {formatCurrency((() => {
-                            const savingsCategoriesTotal = allSavingsItems.reduce((sum, group) => {
-                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                              return sum + group.amount + subCategoriesTotal;
-                            }, 0);
-                            
-                            const savingsGoalsMonthlyTotal = budgetState.savingsGoals.reduce((sum, goal) => {
-                              const start = new Date(goal.startDate + '-01');
-                              const end = new Date(goal.endDate + '-01');
-                              const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
-                                                 (end.getMonth() - start.getMonth()) + 1;
-                              const monthlyAmount = goal.targetAmount / monthsDiff;
-                              
-                              const currentMonthDate = new Date(selectedBudgetMonth + '-01');
-                              if (currentMonthDate >= start && currentMonthDate <= end) {
-                                return sum + monthlyAmount;
-                              }
-                              return sum;
-                            }, 0);
-                            
-                            return savingsCategoriesTotal + savingsGoalsMonthlyTotal;
-                          })())}
-                        </div>
-                        <div className="text-sm font-medium text-green-700 mt-1">
-                          Faktiskt: 
-                          <button
-                            className="ml-1 font-bold text-green-800 hover:text-green-600 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200"
-                            onClick={openSavingsDrillDownDialog}
-                          >
-                            {formatCurrency(calculateTotalActualSavings())}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Cost items - Red boxes */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <div className="text-sm text-red-700 font-medium">Totala kostnader</div>
-                        <div className="text-xl font-bold text-red-800">
-                          -{formatCurrency(costGroups.reduce((sum, group) => {
-                            const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                            return sum + subCategoriesTotal;
-                          }, 0))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Individual shares - Purple boxes */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                        <div className="text-sm text-purple-700 font-medium">{userName1} andel</div>
-                        <div className="text-xl font-bold text-purple-800">
-                          -{formatCurrency(results.andreasShare)}
-                        </div>
-                      </div>
-                      
-                      <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                        <div className="text-sm text-purple-700 font-medium">{userName2} andel</div>
-                        <div className="text-xl font-bold text-purple-800">
-                          -{formatCurrency(results.susannaShare)}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Final sum */}
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <div className="p-4 bg-gray-50 border-2 border-gray-300 rounded-lg">
-                        <div className="text-sm text-gray-600 font-medium mb-1">Slutsumma (bör vara 0)</div>
-                        <div className={`text-2xl font-bold ${
-                          Math.abs(calculateBalanceLeft(historicalData[selectedBudgetMonth], selectedBudgetMonth)) < 0.01 
-                            ? 'text-green-600' 
-                            : 'text-red-600'
-                        }`}>
-                          {formatCurrency(calculateBalanceLeft(historicalData[selectedBudgetMonth], selectedBudgetMonth))}
-                        </div>
-                        {Math.abs(calculateBalanceLeft(historicalData[selectedBudgetMonth], selectedBudgetMonth)) > 0.01 && (
-                          <div className="text-xs text-red-500 mt-1">
-                            ⚠️ Budgeten är inte balanserad
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                  <CardContent className="pt-0">
+                    <div>Budget Summary Content Placeholder</div>
                   </CardContent>
                 )}
               </Card>
 
-              {/* Calculate and Show Summary Button */}
-              <div className="space-y-3">
-                <Button onClick={() => {
-                  setActiveTab("sammanstallning");
-                  setTimeout(() => {
-                    // Find the main title element for the current tab
-                    const mainTitle = document.querySelector('h1.text-3xl.font-bold.text-center');
-                    if (mainTitle) {
-                      mainTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
-                  }, 100);
-                }} className="w-full bg-green-600 hover:bg-green-700" size="lg">
-                  <Calculator className="mr-2 h-4 w-4" />
-                  Beräkna och visa sammanställningen
-                </Button>
-                
-                <p className="text-sm text-muted-foreground text-center">
-                  💡 Tips: Gå till <strong>Sammanställning</strong> för att se detaljerad överföringsanalys mellan konton
-                </p>
-              </div>
+              {/* Additional sections placeholder */}
+              <div className="space-y-4">
+                {/* Content placeholder */}
               </div>
             </div>
-          </TabsContent>
-
-          {/* Tab 2: Sammanställning */}
-          <TabsContent value="sammanstallning" className="mt-0">
-            <div className={`relative overflow-hidden ${
-              isAnimating && previousTab === "sammanstallning" 
-                ? swipeDirection === "left" 
-                  ? "animate-slide-out-left" 
-                  : "animate-slide-out-right"
-                : isAnimating && activeTab === "sammanstallning"
-                  ? swipeDirection === "left"
-                    ? "animate-slide-in-right"
-                    : "animate-slide-in-left"
-                  : ""
-            }`}>
-              <div className="space-y-6">
-              {/* Overview Chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Budgetöversikt</CardTitle>
-                  <CardDescription>Översikt över intäkter, kostnader och överföringar</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Stacked Bar Chart */}
-                  <div className="h-80 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={[
-                          {
-                            name: 'Intäkter',
-                            andreas: andreasSalary + andreasförsäkringskassan + andreasbarnbidrag,
-                            susanna: susannaSalary + susannaförsäkringskassan + susannabarnbidrag,
-                          },
-                          {
-                            name: 'Kostnader',
-                            costs: costGroups.reduce((sum, group) => {
-                              const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                              return sum + subCategoriesTotal;
-                            }, 0),
-                            dailyBudget: results?.totalDailyBudget || 0,
-                          },
-                           {
-                             name: 'Överföring',
-                             andreasShare: results?.andreasShare || 0,
-                             susannaShare: results?.susannaShare || 0,
-                              savings: (() => {
-                                const savingsCategoriesTotal = allSavingsItems.reduce((sum, group) => {
-                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                  return sum + group.amount + subCategoriesTotal;
-                                }, 0);
-                                
-                                const savingsGoalsMonthlyTotal = budgetState.savingsGoals.reduce((sum, goal) => {
-                                  const start = new Date(goal.startDate + '-01');
-                                  const end = new Date(goal.endDate + '-01');
-                                  const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
-                                                     (end.getMonth() - start.getMonth()) + 1;
-                                  const monthlyAmount = goal.targetAmount / monthsDiff;
-                                  
-                                  const currentMonthDate = new Date(selectedBudgetMonth + '-01');
-                                  if (currentMonthDate >= start && currentMonthDate <= end) {
-                                    return sum + monthlyAmount;
-                                  }
-                                  return sum;
-                                }, 0);
-                                
-                                return savingsCategoriesTotal + savingsGoalsMonthlyTotal;
-                              })(),
-                           }
-                        ]}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                        barCategoryGap="10%"
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis 
-                          dataKey="name" 
-                          fontSize={12}
-                          tick={{ fontSize: 12 }}
-                          interval={0}
-                        />
-                        <YAxis 
-                          fontSize={12}
-                          tick={{ fontSize: 12 }}
-                          tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
-                        />
-                        <Tooltip 
-                          formatter={(value, name) => [
-                            formatCurrency(Number(value)), 
-                            name === 'andreas' ? userName1 :
-                            name === 'susanna' ? userName2 :
-                            name === 'costs' ? 'Kostnader' :
-                            name === 'dailyBudget' ? 'Daglig budget' :
-                            name === 'andreasShare' ? `${userName1}s andel` :
-                            name === 'susannaShare' ? `${userName2}s andel` :
-                            name === 'savings' ? 'Sparande' : name
-                          ]}
-                          labelFormatter={(label) => label}
-                        />
-                        
-                        {/* Income bars - green colors */}
-                        <Bar dataKey="andreas" stackId="income" fill="hsl(142, 71%, 45%)" name={userName1} />
-                        <Bar dataKey="susanna" stackId="income" fill="hsl(142, 71%, 35%)" name={userName2} />
-                        
-                        {/* Cost bars - red colors */}
-                        <Bar dataKey="costs" stackId="costs" fill="hsl(0, 84%, 60%)" name="Kostnader" />
-                        <Bar dataKey="dailyBudget" stackId="costs" fill="hsl(0, 84%, 45%)" name="Daglig budget" />
-                        
-                        {/* Transfer bars - purple and green */}
-                        <Bar dataKey="andreasShare" stackId="transfer" fill="hsl(262, 83%, 58%)" name={`${userName1}s andel`} />
-                        <Bar dataKey="susannaShare" stackId="transfer" fill="hsl(262, 83%, 68%)" name={`${userName2}s andel`} />
-                        <Bar dataKey="savings" stackId="transfer" fill="hsl(142, 71%, 45%)" name="Sparande" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                   </div>
-                   
-                   {/* Budget vs Reality Summary */}
-                   <Card className="bg-blue-50 border-blue-200">
-                     <CardHeader>
-                       <CardTitle className="text-blue-800">Budget vs Verklighet</CardTitle>
-                       <CardDescription>Jämförelse mellan budgeterade och faktiska belopp</CardDescription>
-                     </CardHeader>
-                     <CardContent>
-                        {(() => {
-                          // FIXED: Use correctly filtered transactions according to PaydaySettings
-                          const periodTransactions = activeContent.transactionsForPeriod || [];
-                          const totalBudgetCosts = costGroups.reduce((sum, group) => {
-                            const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                            return sum + subCategoriesTotal;
-                          }, 0);
-                           const totalActualCosts = periodTransactions
-                            .filter((t: Transaction) => {
-                              const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
-                              return t.type === 'Transaction' && effectiveAmount < 0;
-                            })
-                            .reduce((sum: number, t: Transaction) => {
-                              const effectiveAmount = t.correctedAmount !== undefined ? t.correctedAmount : t.amount;
-                              return sum + Math.abs(effectiveAmount);
-                            }, 0);
-                         const costDifference = totalBudgetCosts - totalActualCosts;
-                         
-                         return (
-                           <div className="grid grid-cols-2 gap-4">
-                             <div className="space-y-2">
-                               <div className="text-sm text-muted-foreground">Totala kostnader</div>
-                               <div>Budget: {formatCurrency(totalBudgetCosts)}</div>
-                               <div>Faktiskt: {formatCurrency(totalActualCosts)}</div>
-                               <div className={`font-bold ${costDifference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                 Differens: {costDifference >= 0 ? '+' : ''}{formatCurrency(Math.abs(costDifference))}
-                               </div>
-                             </div>
-                             <div className="space-y-2">
-                               <div className="text-sm text-muted-foreground">Status</div>
-                                <div className="text-xs">
-                                  {periodTransactions.length} transaktioner för period
-                               </div>
-                               <div className="text-xs text-blue-600">
-                                 Klicka på "Läs in transaktioner" för att importera
-                               </div>
-                             </div>
-                           </div>
-                         );
-                       })()}
-                     </CardContent>
-                   </Card>
-
-                    {/* Expandable Budget Sections */}
-                   <div className="space-y-4">
-                     {/* Intäkter Section */}
-                     <div className="p-4 bg-primary/10 rounded-lg">
-                       <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetIncome')}>
-                         <div>
-                           <h4 className="font-medium">Intäkter</h4>
-                           <p className="text-sm text-muted-foreground">
-                             {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
-                           </p>
-                         </div>
-                         <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.budgetIncome ? 'rotate-180' : ''}`} />
-                       </div>
-                       
-                       {expandedSections.budgetIncome && (
-                         <div className="mt-3 space-y-4 border-t pt-3">
-                           {/* Income Chart */}
-                           <div className="h-48 w-full">
-                             <ResponsiveContainer width="100%" height="100%">
-                               <PieChart>
-                                 <Pie
-                                   data={[
-                                     {
-                                       name: userName1,
-                                       value: andreasSalary + andreasförsäkringskassan + andreasbarnbidrag,
-                                       color: 'hsl(262, 83%, 58%)'
-                                     },
-                                     {
-                                       name: userName2,
-                                       value: susannaSalary + susannaförsäkringskassan + susannabarnbidrag,
-                                       color: 'hsl(200, 95%, 45%)'
-                                     }
-                                   ]}
-                                   dataKey="value"
-                                   nameKey="name"
-                                   cx="50%"
-                                   cy="50%"
-                                   outerRadius={80}
-                                 >
-                                   <Cell fill="hsl(262, 83%, 58%)" />
-                                   <Cell fill="hsl(200, 95%, 45%)" />
-                                 </Pie>
-                                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                               </PieChart>
-                             </ResponsiveContainer>
-                           </div>
-                           
-                            {/* Expandable income categories */}
-                            <div className="space-y-2">
-                              {(() => {
-                                const total = andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag;
-                                const andreasTotal = andreasSalary + andreasförsäkringskassan + andreasbarnbidrag;
-                                const susannaTotal = susannaSalary + susannaförsäkringskassan + susannabarnbidrag;
-                                const andreasPercentage = total > 0 ? (andreasTotal / total * 100).toFixed(1) : '0';
-                                const susannaPercentage = total > 0 ? (susannaTotal / total * 100).toFixed(1) : '0';
-                                
-                                return (
-                                  <>
-                                    <Collapsible open={expandedBudgetCategories['budget-income-andreas']}>
-                                      <CollapsibleTrigger 
-                                        className="w-full p-3 rounded-lg" 
-                                        style={{ backgroundColor: 'hsl(262, 83%, 58%, 0.2)' }}
-                                        onClick={() => toggleBudgetCategory('budget-income-andreas')}
-                                      >
-                                        <div className="flex items-center justify-between">
-                                          <div className="flex items-center justify-between w-full">
-                                            <span className="font-medium">{userName1}</span>
-                                            <div className="flex items-center space-x-2">
-                                              <span className="font-semibold">{andreasPercentage}%</span>
-                                              <ChevronDown className={`h-4 w-4 transition-transform ${expandedBudgetCategories['budget-income-andreas'] ? 'rotate-180' : ''}`} />
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <p className="text-sm text-muted-foreground mt-1 text-left">
-                                          {formatCurrency(andreasTotal)}
-                                        </p>
-                                      </CollapsibleTrigger>
-                                      <CollapsibleContent className="mt-2">
-                                        <div className="p-3 border rounded-lg bg-background">
-                                          <div className="space-y-1 text-sm">
-                                            <div className="flex justify-between">
-                                              <span>• Lön:</span>
-                                              <span className="font-medium">{formatCurrency(andreasSalary)}</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                              <span>• Försäkringskassan:</span>
-                                              <span className="font-medium">{formatCurrency(andreasförsäkringskassan)}</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                              <span>• Barnbidrag:</span>
-                                              <span className="font-medium">{formatCurrency(andreasbarnbidrag)}</span>
-                                            </div>
-                                            <div className="flex justify-between pt-1 border-t">
-                                              <span className="font-medium">Total:</span>
-                                              <span className="font-semibold">{formatCurrency(andreasTotal)}</span>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </CollapsibleContent>
-                                    </Collapsible>
-                                    
-                                    <Collapsible open={expandedBudgetCategories['budget-income-susanna']}>
-                                      <CollapsibleTrigger 
-                                        className="w-full p-3 rounded-lg" 
-                                        style={{ backgroundColor: 'hsl(200, 95%, 45%, 0.2)' }}
-                                        onClick={() => toggleBudgetCategory('budget-income-susanna')}
-                                      >
-                                        <div className="flex items-center justify-between">
-                                          <div className="flex items-center justify-between w-full">
-                                            <span className="font-medium">{userName2}</span>
-                                            <div className="flex items-center space-x-2">
-                                              <span className="font-semibold">{susannaPercentage}%</span>
-                                              <ChevronDown className={`h-4 w-4 transition-transform ${expandedBudgetCategories['budget-income-susanna'] ? 'rotate-180' : ''}`} />
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <p className="text-sm text-muted-foreground mt-1 text-left">
-                                          {formatCurrency(susannaTotal)}
-                                        </p>
-                                      </CollapsibleTrigger>
-                                      <CollapsibleContent className="mt-2">
-                                        <div className="p-3 border rounded-lg bg-background">
-                                          <div className="space-y-1 text-sm">
-                                            <div className="flex justify-between">
-                                              <span>• Lön:</span>
-                                              <span className="font-medium">{formatCurrency(susannaSalary)}</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                              <span>• Försäkringskassan:</span>
-                                              <span className="font-medium">{formatCurrency(susannaförsäkringskassan)}</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                              <span>• Barnbidrag:</span>
-                                              <span className="font-medium">{formatCurrency(susannabarnbidrag)}</span>
-                                            </div>
-                                            <div className="flex justify-between pt-1 border-t">
-                                              <span className="font-medium">Total:</span>
-                                              <span className="font-semibold">{formatCurrency(susannaTotal)}</span>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </CollapsibleContent>
-                                    </Collapsible>
-                                  </>
-                                );
-                              })()}
-                            </div>
-                        </div>
-                      )}
-                    </div>
-                    
-                     {/* Kostnader Section */}
-                     <div className="p-4 bg-destructive/10 rounded-lg">
-                       <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetCosts')}>
-                         <div>
-                           <h4 className="font-medium">Kostnader</h4>
-                           <p className="text-sm text-muted-foreground">
-                             {formatCurrency(costGroups.reduce((sum, group) => {
-                               const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                               return sum + subCategoriesTotal;
-                             }, 0) + (results?.totalDailyBudget || 0))}
-                           </p>
-                         </div>
-                         <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.budgetCosts ? 'rotate-180' : ''}`} />
-                       </div>
-                       
-                       {expandedSections.budgetCosts && (
-                         <div className="mt-3 space-y-4 border-t pt-3">
-                           {/* Costs Chart */}
-                           <div className="h-48 w-full">
-                             <ResponsiveContainer width="100%" height="100%">
-                               <PieChart>
-                                 <Pie
-                                   data={[
-                                     ...costGroups.map((group, index) => ({
-                                       name: group.name,
-                                       value: group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0,
-                                       color: `hsl(${15 + (index * 60)}, 75%, 55%)`
-                                     })),
-                                     {
-                                       name: 'Daglig Budget',
-                                       value: results?.totalDailyBudget || 0,
-                                       color: 'hsl(345, 82%, 48%)'
-                                     }
-                                   ]}
-                                   dataKey="value"
-                                   nameKey="name"
-                                   cx="50%"
-                                   cy="50%"
-                                   outerRadius={80}
-                                 >
-                                   {costGroups.map((_, index) => (
-                                     <Cell key={index} fill={`hsl(${15 + (index * 60)}, 75%, 55%)`} />
-                                   ))}
-                                   <Cell fill="hsl(345, 82%, 48%)" />
-                                 </Pie>
-                                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                               </PieChart>
-                             </ResponsiveContainer>
-                           </div>
-                           
-                            {/* Expandable budget categories */}
-                            <div className="space-y-2">
-                              {(() => {
-                                const costGroupsTotal = costGroups.reduce((sum, group) => {
-                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                  return sum + subCategoriesTotal;
-                                }, 0);
-                                const dailyBudgetTotal = results?.totalDailyBudget || 0;
-                                const total = costGroupsTotal + dailyBudgetTotal;
-                                
-                                return (
-                                  <>
-                                    {costGroups.map((group, index) => {
-                                      const groupTotal = group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0;
-                                      const percentage = total > 0 ? (groupTotal / total * 100).toFixed(1) : '0';
-                                      const color = `hsl(${15 + (index * 60)}, 75%, 55%)`;
-                                      const categoryKey = `budget-costs-${group.id}`;
-                                      
-                                      return (
-                                        <Collapsible key={group.id} open={expandedBudgetCategories[categoryKey]}>
-                                          <CollapsibleTrigger 
-                                            className="w-full p-3 rounded-lg" 
-                                            style={{ backgroundColor: `${color.replace(')', ', 0.2)')}` }}
-                                            onClick={() => toggleBudgetCategory(categoryKey)}
-                                          >
-                                            <div className="flex items-center justify-between">
-                                              <div className="flex items-center justify-between w-full">
-                                                <span className="font-medium">{group.name}</span>
-                                                <div className="flex items-center space-x-2">
-                                                  <span className="font-semibold">{percentage}%</span>
-                                                  <ChevronDown className={`h-4 w-4 transition-transform ${expandedBudgetCategories[categoryKey] ? 'rotate-180' : ''}`} />
-                                                </div>
-                                              </div>
-                                            </div>
-                                            <p className="text-sm text-muted-foreground mt-1 text-left">
-                                              {formatCurrency(groupTotal)}
-                                            </p>
-                                          </CollapsibleTrigger>
-                                          <CollapsibleContent className="mt-2">
-                                            <div className="p-3 border rounded-lg bg-background">
-                                              <div className="space-y-1 text-sm">
-                                                {group.subCategories && group.subCategories.length > 0 ? (
-                                                  <>
-                                                     {group.subCategories.map((sub) => (
-                                                       <div key={sub.id} className="space-y-2">
-                                                         <div className="flex justify-between">
-                                                           <span>• {sub.name}:</span>
-                                                           <span className="font-medium">{formatCurrency(getSubcategoryDisplayAmount(sub))}</span>
-                                                         </div>
-                                                          {sub.transferType === 'daily' && sub.dailyAmount && sub.transferDays && (
-                                                            <div className="ml-4 p-3 bg-muted/50 rounded border-l-2 border-primary/20">
-                                                              <div className="text-xs space-y-2">
-                                                                <div className="flex justify-between items-center">
-                                                                  <span className="font-medium">Överföring:</span>
-                                                                  <span className="font-semibold">{formatCurrency(sub.dailyAmount)} ({formatTransferDays(sub.transferDays)})</span>
-                                                                </div>
-                                                                
-                                                                <div className="flex items-center my-2">
-                                                                  <div className="flex-1 border-t border-border"></div>
-                                                                </div>
-                                                                
-                                                                <div className="space-y-1">
-                                                                  <div className="flex justify-between">
-                                                                    <span>Estimerat t.o.m. idag:</span>
-                                                                    <span className="font-medium">{formatCurrency(calculateEstimatedToDate(sub, selectedBudgetMonth))}</span>
-                                                                  </div>
-                                                                  <div className="flex justify-between">
-                                                                    <span>Faktiskt överfört (CSV):</span>
-                                                                    <span className="font-medium">{formatCurrency(calculateActualTransferred(sub, (currentMonthData as any).transactions || [], selectedBudgetMonth))}</span>
-                                                                  </div>
-                                                                  <div className="flex justify-between">
-                                                                    <span>Differens:</span>
-                                                                     <span className={`font-medium ${calculateDifference(sub, (currentMonthData as any).transactions || [], selectedBudgetMonth) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                                       {calculateDifference(sub, (currentMonthData as any).transactions || [], selectedBudgetMonth) >= 0 ? '+' : ''}{formatCurrency(calculateDifference(sub, (currentMonthData as any).transactions || [], selectedBudgetMonth))}
-                                                                    </span>
-                                                                  </div>
-                                                                </div>
-                                                              </div>
-                                                            </div>
-                                                          )}
-                                                       </div>
-                                                     ))}
-                                                     <div className="flex justify-between pt-1 border-t">
-                                                       <span className="font-medium">Total:</span>
-                                                       <span className="font-semibold">{formatCurrency(group.subCategories.reduce((sum, sub) => sum + getSubcategoryDisplayAmount(sub), 0))}</span>
-                                                     </div>
-                                                  </>
-                                                ) : (
-                                                  <div className="flex justify-between">
-                                                    <span>Inga kostnadsposter</span>
-                                                    <span className="font-medium">{formatCurrency(0)}</span>
-                                                  </div>
-                                                )}
-                                              </div>
-                                            </div>
-                                          </CollapsibleContent>
-                                        </Collapsible>
-                                      );
-                                    })}
-                                    
-                                    <Collapsible open={expandedBudgetCategories['budget-costs-daily']}>
-                                      <CollapsibleTrigger 
-                                        className="w-full p-3 rounded-lg" 
-                                        style={{ backgroundColor: 'hsl(345, 82%, 48%, 0.2)' }}
-                                        onClick={() => toggleBudgetCategory('budget-costs-daily')}
-                                      >
-                                        <div className="flex items-center justify-between">
-                                          <div className="flex items-center justify-between w-full">
-                                            <span className="font-medium">Daglig Budget</span>
-                                            <div className="flex items-center space-x-2">
-                                              <span className="font-semibold">{total > 0 ? (dailyBudgetTotal / total * 100).toFixed(1) : '0'}%</span>
-                                              <ChevronDown className={`h-4 w-4 transition-transform ${expandedBudgetCategories['budget-costs-daily'] ? 'rotate-180' : ''}`} />
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <p className="text-sm text-muted-foreground mt-1 text-left">
-                                          {formatCurrency(dailyBudgetTotal)}
-                                        </p>
-                                      </CollapsibleTrigger>
-                                       <CollapsibleContent className="mt-2">
-                                         <div className="p-3 border rounded-lg bg-background">
-                                           <div className="space-y-3 text-sm">
-                                             {/* Total Daily Budget Calculation */}
-                                             <div>
-                                               <p className="font-medium mb-2">Uträkning total daglig budget:</p>
-                                               <div className="space-y-1 pl-2">
-                                                 <div className="flex justify-between">
-                                                   <span>• Vardagar: {results?.weekdayCount || 0} × {formatCurrency(dailyTransfer)} =</span>
-                                                   <span className="font-medium">{formatCurrency((results?.weekdayCount || 0) * dailyTransfer)}</span>
-                                                 </div>
-                                                 <div className="flex justify-between">
-                                                   <span>• Helgdagar: {results?.fridayCount || 0} × {formatCurrency(weekendTransfer)} =</span>
-                                                   <span className="font-medium">{formatCurrency((results?.fridayCount || 0) * weekendTransfer)}</span>
-                                                 </div>
-                                                 <div className="flex justify-between pt-1 border-t">
-                                                   <span className="font-medium">Total daglig budget:</span>
-                                                   <span className="font-semibold">{formatCurrency(results?.totalDailyBudget || 0)}</span>
-                                                 </div>
-                                               </div>
-                                             </div>
-                                             
-                                           </div>
-                                         </div>
-                                       </CollapsibleContent>
-                                    </Collapsible>
-                                  </>
-                                );
-                              })()}
-                            </div>
-                        </div>
-                      )}
-                    </div>
-                    
-                     {/* Överföring Section */}
-                     <div className="p-4 bg-primary/10 rounded-lg">
-                       <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('budgetTransfer')}>
-                         <div>
-                           <h4 className="font-medium">Överföring</h4>
-                           <p className="text-sm text-muted-foreground">
-                             {formatCurrency((results?.andreasShare || 0) + (results?.susannaShare || 0) + savingsGroups.reduce((sum, group) => {
-                               const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                               return sum + group.amount + subCategoriesTotal;
-                             }, 0))}
-                           </p>
-                         </div>
-                         <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.budgetTransfer ? 'rotate-180' : ''}`} />
-                       </div>
-                       
-                       {expandedSections.budgetTransfer && (
-                         <div className="mt-3 space-y-4 border-t pt-3">
-                           {/* Transfer Chart */}
-                           <div className="h-48 w-full">
-                             <ResponsiveContainer width="100%" height="100%">
-                               <PieChart>
-                                 <Pie
-                                   data={[
-                                     {
-                                       name: `${userName1}s andel`,
-                                       value: results?.andreasShare || 0,
-                                       color: 'hsl(45, 93%, 58%)'
-                                     },
-                                     {
-                                       name: `${userName2}s andel`,
-                                       value: results?.susannaShare || 0,
-                                       color: 'hsl(280, 85%, 65%)'
-                                     },
-                                     {
-                                       name: 'Sparande',
-                                       value: savingsGroups.reduce((sum, group) => {
-                                         const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                         return sum + group.amount + subCategoriesTotal;
-                                       }, 0),
-                                       color: 'hsl(142, 71%, 45%)'
-                                     }
-                                   ]}
-                                   dataKey="value"
-                                   nameKey="name"
-                                   cx="50%"
-                                   cy="50%"
-                                   outerRadius={80}
-                                 >
-                                   <Cell fill="hsl(45, 93%, 58%)" />
-                                   <Cell fill="hsl(280, 85%, 65%)" />
-                                   <Cell fill="hsl(142, 71%, 45%)" />
-                                 </Pie>
-                                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                               </PieChart>
-                             </ResponsiveContainer>
-                           </div>
-                           
-                            {/* Expandable transfer categories */}
-                            <div className="space-y-2">
-                              {(() => {
-                                const andreasShare = results?.andreasShare || 0;
-                                const susannaShare = results?.susannaShare || 0;
-                                const savingsTotal = savingsGroups.reduce((sum, group) => {
-                                  const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                  return sum + group.amount + subCategoriesTotal;
-                                }, 0);
-                                const total = andreasShare + susannaShare + savingsTotal;
-                                
-                                const andreasPercentage = total > 0 ? (andreasShare / total * 100).toFixed(1) : '0';
-                                const susannaPercentage = total > 0 ? (susannaShare / total * 100).toFixed(1) : '0';
-                                const savingsPercentage = total > 0 ? (savingsTotal / total * 100).toFixed(1) : '0';
-                                
-                                return (
-                                  <>
-                                    <Collapsible open={expandedBudgetCategories['budget-transfer-andreas']}>
-                                      <CollapsibleTrigger 
-                                        className="w-full p-3 rounded-lg" 
-                                        style={{ backgroundColor: 'hsl(45, 93%, 58%, 0.2)' }}
-                                        onClick={() => toggleBudgetCategory('budget-transfer-andreas')}
-                                      >
-                                        <div className="flex items-center justify-between">
-                                          <div className="flex items-center justify-between w-full">
-                                            <span className="font-medium">{userName1}s andel</span>
-                                            <div className="flex items-center space-x-2">
-                                              <span className="font-semibold">{andreasPercentage}%</span>
-                                              <ChevronDown className={`h-4 w-4 transition-transform ${expandedBudgetCategories['budget-transfer-andreas'] ? 'rotate-180' : ''}`} />
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <p className="text-sm text-muted-foreground mt-1 text-left">
-                                          {formatCurrency(andreasShare)}
-                                        </p>
-                                      </CollapsibleTrigger>
-                                      <CollapsibleContent className="mt-2">
-                                        <div className="p-3 border rounded-lg bg-background">
-                                          <div className="space-y-1 text-sm">
-                                            <div className="flex justify-between">
-                                              <span>• Personlig andel:</span>
-                                              <span className="font-semibold">{formatCurrency(andreasShare)}</span>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </CollapsibleContent>
-                                    </Collapsible>
-                                    
-                                    <Collapsible open={expandedBudgetCategories['budget-transfer-susanna']}>
-                                      <CollapsibleTrigger 
-                                        className="w-full p-3 rounded-lg" 
-                                        style={{ backgroundColor: 'hsl(280, 85%, 65%, 0.2)' }}
-                                        onClick={() => toggleBudgetCategory('budget-transfer-susanna')}
-                                      >
-                                        <div className="flex items-center justify-between">
-                                          <div className="flex items-center justify-between w-full">
-                                            <span className="font-medium">{userName2}s andel</span>
-                                            <div className="flex items-center space-x-2">
-                                              <span className="font-semibold">{susannaPercentage}%</span>
-                                              <ChevronDown className={`h-4 w-4 transition-transform ${expandedBudgetCategories['budget-transfer-susanna'] ? 'rotate-180' : ''}`} />
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <p className="text-sm text-muted-foreground mt-1 text-left">
-                                          {formatCurrency(susannaShare)}
-                                        </p>
-                                      </CollapsibleTrigger>
-                                      <CollapsibleContent className="mt-2">
-                                        <div className="p-3 border rounded-lg bg-background">
-                                          <div className="space-y-1 text-sm">
-                                            <div className="flex justify-between">
-                                              <span>• Personlig andel:</span>
-                                              <span className="font-semibold">{formatCurrency(susannaShare)}</span>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </CollapsibleContent>
-                                    </Collapsible>
-                                    
-                                    <Collapsible open={expandedBudgetCategories['budget-transfer-savings']}>
-                                      <CollapsibleTrigger 
-                                        className="w-full p-3 rounded-lg" 
-                                        style={{ backgroundColor: 'hsl(142, 71%, 45%, 0.2)' }}
-                                        onClick={() => toggleBudgetCategory('budget-transfer-savings')}
-                                      >
-                                        <div className="flex items-center justify-between">
-                                          <div className="flex items-center justify-between w-full">
-                                            <span className="font-medium">Sparande</span>
-                                            <div className="flex items-center space-x-2">
-                                              <span className="font-semibold">{savingsPercentage}%</span>
-                                              <ChevronDown className={`h-4 w-4 transition-transform ${expandedBudgetCategories['budget-transfer-savings'] ? 'rotate-180' : ''}`} />
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <p className="text-sm text-muted-foreground mt-1 text-left">
-                                          {formatCurrency(savingsTotal)}
-                                        </p>
-                                      </CollapsibleTrigger>
-                                      <CollapsibleContent className="mt-2">
-                                        <div className="p-3 border rounded-lg bg-background">
-                                          <div className="space-y-1 text-sm">
-                                            {savingsGroups.map((group) => (
-                                              <div key={group.id} className="space-y-1">
-                                                <div className="flex justify-between">
-                                                  <span>• {group.name}:</span>
-                                                  <span className="font-medium">{formatCurrency(group.amount + (group.subCategories?.reduce((sum, sub) => sum + sub.amount, 0) || 0))}</span>
-                                                </div>
-                                                {group.subCategories && group.subCategories.length > 0 && (
-                                                  <div className="pl-4 space-y-1">
-                                                    {group.subCategories.map((sub) => (
-                                                      <div key={sub.id} className="flex justify-between text-xs text-muted-foreground">
-                                                        <span>- {sub.name}:</span>
-                                                        <span>{formatCurrency(sub.amount)}</span>
-                                                      </div>
-                                                    ))}
-                                                  </div>
-                                                )}
-                                              </div>
-                                            ))}
-                                            <div className="flex justify-between pt-1 border-t">
-                                              <span className="font-medium">Total sparande:</span>
-                                              <span className="font-semibold">{formatCurrency(savingsTotal)}</span>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </CollapsibleContent>
-                                    </Collapsible>
-                                  </>
-                                );
-                              })()}
-                            </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Editable Categories */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Överföring</CardTitle>
-                  <CardDescription>Kontosammanställning</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-
-
-
-
-
-                    {/* Account Summary with Dropdown */}
-                   {isAdminMode && (
-                     <div className="p-4 bg-indigo-50 rounded-lg">
-                       <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('accountSummary')}>
-                         <div>
-                            <div className="text-sm text-muted-foreground">Överföring till konton</div>
-                            <div className="text-lg font-bold text-indigo-600">
-                              {accounts.length + 2} konton
-                            </div>
-                         </div>
-                         {expandedSections.accountSummary ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                       </div>
-                     
-                     {expandedSections.accountSummary && (
-                       <div className="mt-4 space-y-4">
-                         {/* Account Summary List */}
-                         <div className="space-y-3">
-                           {accounts.map(account => {
-                              // Calculate savings for this account
-                              const accountSavings = allSavingsItems
-                                .filter(group => group.account === account)
-                                .reduce((sum, group) => sum + group.amount, 0);
-                             
-                             // Calculate costs for this account
-                             const accountCosts = costGroups.reduce((sum, group) => {
-                                const groupCosts = group.subCategories
-                                  ?.filter(sub => subCategoryBelongsToAccount(sub, account))
-                                  .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                               return sum + groupCosts;
-                             }, 0);
-                             
-                             const netAmount = accountSavings - accountCosts;
-                             const hasDetails = accountSavings > 0 || accountCosts > 0;
-                             
-                             return (
-                               <div key={account} className="p-3 bg-white rounded border">
-                                 <div className="flex justify-between items-center">
-                                   <div className="flex items-center gap-2">
-                                     <span className="font-medium">{account}</span>
-                                     {hasDetails && (
-                                       <button
-                                         onClick={() => toggleAccountDetails(account)}
-                                         className="text-gray-400 hover:text-gray-600"
-                                       >
-                                         {expandedAccounts[account] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                       </button>
-                                     )}
-                                   </div>
-                                   <div className={`font-semibold ${netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                     {netAmount >= 0 ? '+' : ''}{formatCurrency(netAmount)}
-                                   </div>
-                                 </div>
-                                 
-                                 {/* Expandable breakdown */}
-                                 {expandedAccounts[account] && hasDetails && (
-                                   <div className="mt-3 pt-3 border-t space-y-2">
-                                     {/* Savings breakdown */}
-                                     {savingsGroups
-                                       .filter(group => group.account === account)
-                                       .map(group => (
-                                         <div key={`savings-${group.id}`} className="flex justify-between text-sm">
-                                           <span className="text-gray-600">{group.name} (Sparande)</span>
-                                           <span className="text-green-600">+{formatCurrency(group.amount)}</span>
-                                         </div>
-                                       ))}
-                                     
-                                     {/* Costs breakdown */}
-                                     {costGroups.map(group => 
-                                       group.subCategories
-                                          ?.filter(sub => subCategoryBelongsToAccount(sub, account))
-                                         .map(sub => (
-                                           <div key={`cost-${sub.id}`} className="flex justify-between text-sm">
-                                             <span className="text-gray-600">{sub.name} (Kostnad)</span>
-                                             <span className="text-red-600">-{formatCurrency(sub.amount)}</span>
-                                           </div>
-                                         ))
-                                     )}
-                                   </div>
-                                 )}
-                               </div>
-                             );
-                            })}
-                            
-                            {/* Andreas konto and Susannas konto */}
-                            <div className="p-3 bg-white rounded border">
-                              <div className="flex justify-between items-center">
-                                <span className="font-medium">Andreas konto</span>
-                                <div className="font-semibold text-purple-600">
-                                  +{results ? formatCurrency(results.andreasShare) : 'Beräknar...'}
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="p-3 bg-white rounded border">
-                              <div className="flex justify-between items-center">
-                                <span className="font-medium">Susannas konto</span>
-                                <div className="font-semibold text-purple-600">
-                                  +{results ? formatCurrency(results.susannaShare) : 'Beräknar...'}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                         
-                         {/* Account Management Section */}
-                         <div className="p-4 bg-gray-50 rounded-lg">
-                           <div className="flex justify-between items-center mb-4">
-                             <h4 className="font-semibold">Hantera konton</h4>
-                             <Button 
-                               size="sm" 
-                               variant="outline" 
-                               onClick={() => setIsEditingAccounts(!isEditingAccounts)}
-                             >
-                               {isEditingAccounts ? 'Stäng' : 'Redigera konton'}
-                             </Button>
-                           </div>
-                           
-                           {isEditingAccounts && (
-                             <div className="space-y-4">
-                               <div className="flex gap-2">
-                                 <Input
-                                   placeholder="Nytt kontonamn"
-                                   value={newAccountName}
-                                   onChange={(e) => setNewAccountName(e.target.value)}
-                                   className="flex-1"
-                                 />
-                                 <Button onClick={addAccount} disabled={!newAccountName.trim()}>
-                                   <Plus className="w-4 h-4 mr-1" />
-                                   Lägg till
-                                 </Button>
-                               </div>
-                               
-                               <div className="space-y-2">
-                                 <h5 className="text-sm font-medium">Befintliga konton:</h5>
-                                 {accounts.map((account) => (
-                                   <div key={account} className="flex justify-between items-center p-2 bg-white rounded border">
-                                     <span>{account}</span>
-                                     <Button
-                                       size="sm"
-                                       variant="destructive"
-                                       onClick={() => removeAccount(account)}
-                                     >
-                                       <Trash2 className="w-4 h-4" />
-                                     </Button>
-                                   </div>
-                                 ))}
-                               </div>
-                             </div>
-                           )}
-                         </div>
-                       </div>
-                      )}
-                     </div>
-                   )}
-
-                     {/* Account Summary after transfers */}
-                     {isAdminMode && (
-                       <div className="p-4 bg-indigo-50 rounded-lg">
-                         <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('finalAccountSummary')}>
-                           <div>
-                              <div className="text-sm text-muted-foreground">Kontosammanställning</div>
-                              <div className="text-lg font-bold text-indigo-600">
-                                {accounts.length + 2} konton efter överföring
-                              </div>
-                           </div>
-                           {expandedSections.finalAccountSummary ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                         </div>
-                      
-                      {expandedSections.finalAccountSummary && (
-                        <div className="mt-4 space-y-4">
-                          {/* Final Account Summary List */}
-                          <div className="space-y-3">
-                            {accounts.map(account => {
-                              // Get original balance using Calc.Kontosaldo from same month
-                              const originalBalance = getCalcKontosaldoSameMonth(account);
-                               
-                               // Calculate savings for this account
-                               const accountSavings = allSavingsItems
-                                 .filter(group => group.account === account)
-                                 .reduce((sum, group) => sum + group.amount, 0);
-                              
-                              // Calculate costs for this account
-                              const accountCosts = costGroups.reduce((sum, group) => {
-                                const groupCosts = group.subCategories
-                                   ?.filter(sub => subCategoryBelongsToAccount(sub, account))
-                                  .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                return sum + groupCosts;
-                              }, 0);
-                              
-                              // Calculate final balance (original balance + all amounts as positive)
-                              const finalBalance = originalBalance + accountSavings + accountCosts;
-                              
-                              const hasDetails = accountSavings > 0 || accountCosts > 0 || originalBalance !== 0;
-                              
-                              return (
-                                <div key={account} className="p-3 bg-white rounded border">
-                                  <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-medium">{account}</span>
-                                      {hasDetails && (
-                                        <button
-                                          onClick={() => toggleAccountDetails(`final-${account}`)}
-                                          className="text-gray-400 hover:text-gray-600"
-                                        >
-                                          {expandedAccounts[`final-${account}`] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                        </button>
-                                      )}
-                                    </div>
-                                    <div className={`font-semibold ${finalBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                      {formatCurrency(finalBalance)}
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Expandable breakdown */}
-                                  {expandedAccounts[`final-${account}`] && hasDetails && (
-                                    <div className="mt-3 pt-3 border-t space-y-2">
-                      {/* Original balance */}
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">
-                          {isCalcDescrEstimatedSameMonth(account) ? "Ursprungligt saldo (Est)" : "Ursprungligt saldo"}
-                        </span>
-                        <span className={originalBalance >= 0 ? 'text-blue-600' : 'text-red-600'}>
-                          {originalBalance >= 0 ? '+' : ''}{formatCurrency(Math.abs(originalBalance))}
-                        </span>
-                      </div>
-                                      
-                                      {/* Savings breakdown */}
-                                      {savingsGroups
-                                        .filter(group => group.account === account)
-                                        .map(group => (
-                                          <div key={`final-savings-${group.id}`} className="flex justify-between text-sm">
-                                            <span className="text-gray-600">{group.name} (Sparande)</span>
-                                            <span className="text-green-600">+{formatCurrency(group.amount)}</span>
-                                          </div>
-                                        ))}
-                                      
-                                      {/* Costs breakdown - shown as positive additions */}
-                                      {costGroups.map(group => 
-                                        group.subCategories
-                                           ?.filter(sub => subCategoryBelongsToAccount(sub, account))
-                                          .map(sub => (
-                                            <div key={`final-cost-${sub.id}`} className="flex justify-between text-sm">
-                                              <span className="text-gray-600">{sub.name} (Kostnad)</span>
-                                              <span className="text-green-600">+{formatCurrency(sub.amount)}</span>
-                                            </div>
-                                          ))
-                                      )}
-                                      
-                                      {/* Final calculation */}
-                                      <div className="pt-2 mt-2 border-t border-gray-200">
-                                        <div className="flex justify-between text-sm font-medium">
-                                          <span className="text-gray-800">Slutligt saldo</span>
-                                          <span className={finalBalance >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                            {formatCurrency(finalBalance)}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                             })}
-                             
-                             {/* Andreas konto final balance */}
-                             <div className="p-3 bg-white rounded border">
-                               <div className="flex justify-between items-center">
-                                 <span className="font-medium">Andreas konto</span>
-                                 <div className="font-semibold text-purple-600">
-                                   {results ? formatCurrency(results.andreasShare) : 'Beräknar...'}
-                                 </div>
-                               </div>
-                             </div>
-                             
-                             {/* Susannas konto final balance */}
-                             <div className="p-3 bg-white rounded border">
-                               <div className="flex justify-between items-center">
-                                 <span className="font-medium">Susannas konto</span>
-                                 <div className="font-semibold text-purple-600">
-                                   {results ? formatCurrency(results.susannaShare) : 'Beräknar...'}
-                                 </div>
-                               </div>
-                             </div>
-                           </div>
-                        </div>
-                       )}
-                     </div>
-                     )}
-
-                     {/* Account Summary after cost budget */}
-                    <div className="p-4 bg-green-50 rounded-lg">
-                      <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('accountSummaryCostBudget')}>
-                        <div>
-                            <div className="text-sm text-muted-foreground">Kontobelopp efter budget</div>
-                            <div className="text-lg font-bold text-green-600">
-                              {accounts.length + 2} konton
-                            </div>
-                        </div>
-                        {expandedSections.accountSummaryCostBudget ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                      </div>
-                      
-                      {expandedSections.accountSummaryCostBudget && (
-                        <div className="mt-4 space-y-4">
-                          {/* Cost Budget Account Summary List */}
-                          <div className="space-y-3">
-                            {accounts.map(account => {
-                              // Get original balance using Calc.Kontosaldo from same month
-                              const originalBalance = getCalcKontosaldoSameMonth(account);
-                              
-                              // Calculate total deposits (savings + costs as positive) for this account
-                              const savingsAmount = allSavingsItems.reduce((sum, group) => {
-                                // Check if the group itself is assigned to this account
-                                if (group.account === account) {
-                                  return sum + group.amount;
-                                }
-                                // Check subcategories for this account
-                                const subCategoriesAmount = group.subCategories
-                                   ?.filter(sub => subCategoryBelongsToAccount(sub, account))
-                                  .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                return sum + subCategoriesAmount;
-                              }, 0);
-                              
-                              // Add savings goals monthly amount for this account
-                              const savingsGoalsMonthlyAmount = budgetState.savingsGoals.reduce((sum, goal) => {
-                                // Try direct account name matching first (in case accountId was set to account name)
-                                let accountMatches = goal.accountId === account;
-                                
-                                // Then try ID matching
-                                if (!accountMatches) {
-                                  const accountObj = (accountsFromAPI || []).find(acc => acc.name === account);
-                                  accountMatches = accountObj && goal.accountId === accountObj.id;
-                                }
-                                
-                                if (accountMatches) {
-                                  const start = new Date(goal.startDate + '-01');
-                                  const end = new Date(goal.endDate + '-01');
-                                  const monthsDiff = Math.max(1, (end.getFullYear() - start.getFullYear()) * 12 + 
-                                                     (end.getMonth() - start.getMonth()) + 1);
-                                  const monthlyAmount = goal.targetAmount / monthsDiff;
-                                  
-                                  const currentMonthDate = new Date(selectedBudgetMonth + '-01');
-                                  if (currentMonthDate >= start && currentMonthDate <= end) {
-                                    return sum + monthlyAmount;
-                                  }
-                                }
-                                return sum;
-                              }, 0);
-                              
-                              const costsAmount = costGroups.reduce((sum, group) => {
-                                const groupCosts = group.subCategories
-                                   ?.filter(sub => subCategoryBelongsToAccount(sub, account))
-                                  .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                return sum + groupCosts;
-                              }, 0);
-                              
-                               // Only count savings as deposits, not costs
-                               const totalDeposits = savingsAmount + savingsGoalsMonthlyAmount;
-                               
-                                // Get all cost subcategories for this account that are "Löpande kostnad"
-                                const accountCostItems = costGroups.reduce((items, group) => {
-                                  const groupCosts = group.subCategories?.filter(sub => 
-                                    subCategoryBelongsToAccount(sub, account) && (sub.financedFrom === 'Löpande kostnad' || !sub.financedFrom)
-                                  ) || [];
-                                  return items.concat(groupCosts);
-                                }, []);
-                                
-                                // Calculate total costs for this account (only Löpande kostnad)
-                                const totalCosts = accountCostItems.reduce((sum, item) => sum + item.amount, 0);
-                               
-                                 // Calculate final balance as sum of ALL entries shown in the table:
-                                 // original balance + savings deposits + cost budget deposits - all costs
-                                 const allCostItems = costGroups.reduce((items, group) => {
-                                    const groupCosts = group.subCategories?.filter(sub => subCategoryBelongsToAccount(sub, account)) || [];
-                                   return items.concat(groupCosts);
-                                 }, []);
-                                 const totalAllCosts = allCostItems.reduce((sum, item) => sum + item.amount, 0);
-                                 
-                                  const finalBalance = originalBalance + totalDeposits + totalCosts - totalAllCosts;
-                                
-                                console.log(`=== UI SLUTSALDO CALCULATION FOR ${account} ===`);
-                                console.log(`Original balance: ${originalBalance}`);
-                                console.log(`Savings (deposits): ${savingsAmount}`);
-                                console.log(`Total costs (Löpande): ${totalCosts}`);
-                                console.log(`Total all costs: ${totalAllCosts}`);
-                                console.log(`UI Calculation: ${originalBalance} + ${totalDeposits} + ${totalCosts} - ${totalAllCosts} = ${finalBalance}`);
-                                console.log(`Month: ${selectedBudgetMonth}`);
-                                console.log(`This should MATCH accountEstimatedFinalBalances[${account}]`);
-                                console.log(`=== END UI SLUTSALDO ===`);
-                              
-                              const hasDetails = totalDeposits > 0 || accountCostItems.length > 0 || originalBalance !== 0;
-                              
-                              return (
-                                <div key={account} className="p-3 bg-white rounded border">
-                                  <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-medium">{account}</span>
-                                      {hasDetails && (
-                                        <button
-                                          onClick={() => toggleAccountDetails(`costbudget-${account}`)}
-                                          className="text-gray-400 hover:text-gray-600"
-                                        >
-                                          {expandedAccounts[`costbudget-${account}`] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                        </button>
-                                      )}
-                                    </div>
-                                    <div className={`font-semibold ${finalBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                      {formatCurrency(finalBalance)}
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Expandable breakdown */}
-                                  {expandedAccounts[`costbudget-${account}`] && hasDetails && (
-                                    <div className="mt-3 pt-3 border-t space-y-2">
-                                      {/* Original balance */}
-                                      <div className="flex justify-between text-sm">
-                                         <span className="text-gray-600">
-                                           {isCalcDescrEstimatedSameMonth(account) ? "Ursprungligt saldo (Est)" : "Ursprungligt saldo"}
-                                         </span>
-                                        <span className={originalBalance >= 0 ? 'text-blue-600' : 'text-red-600'}>
-                                          {originalBalance >= 0 ? '+' : ''}{formatCurrency(Math.abs(originalBalance))}
-                                        </span>
-                                      </div>
-                                      
-                                      {/* Individual savings groups assigned to this account */}
-                                      {allSavingsItems
-                                        .filter(group => group.account === account)
-                                        .map(savingsGroup => (
-                                          <div key={`costbudget-savings-${savingsGroup.id}`} className="flex justify-between text-sm">
-                                            <span className="text-gray-600">{savingsGroup.name}</span>
-                                            <span className="text-green-600">+{formatCurrency(savingsGroup.amount)}</span>
-                                          </div>
-                                        ))}
-                                      
-                                      {/* Individual savings subcategories assigned to this account */}
-                                      {allSavingsItems
-                                         .filter(group => group.subCategories && group.subCategories.some(sub => subCategoryBelongsToAccount(sub, account)))
-                                         .map(group => 
-                                           group.subCategories
-                                             ?.filter(sub => subCategoryBelongsToAccount(sub, account))
-                                            .map(sub => (
-                                              <div key={`costbudget-savings-sub-${sub.id}`} className="flex justify-between text-sm">
-                                                <span className="text-gray-600">{sub.name}</span>
-                                                <span className="text-green-600">+{formatCurrency(sub.amount)}</span>
-                                              </div>
-                                            ))
-                                        )}
-                                      
-                                       {/* Cost budget deposits - only Löpande kostnad costs as positive deposits */}
-                                       {totalCosts > 0 && (
-                                         <div className="flex justify-between text-sm">
-                                           <span className="text-gray-600">Insättning kostnadsbudget (Löpande kostnad)</span>
-                                           <span className="text-green-600">+{formatCurrency(totalCosts)}</span>
-                                         </div>
-                                       )}
-                                      
-                                       {/* Individual cost items as negative values - show all items but only Löpande kostnad affects budget */}
-                                       {costGroups.reduce((items, group) => {
-                                         const groupCosts = group.subCategories?.filter(sub => sub.account === account) || [];
-                                         return items.concat(groupCosts);
-                                       }, []).map(costItem => (
-                                         <div key={`costbudget-cost-${costItem.id}`} className="flex justify-between text-sm">
-                                           <span className="text-gray-600">
-                                             {costItem.name} ({costItem.financedFrom || 'Löpande kostnad'})
-                                           </span>
-                                           <span className="text-red-600">-{formatCurrency(costItem.amount)}</span>
-                                         </div>
-                                       ))}
-                                      
-                                       {/* Final calculation line */}
-                                       <div className="pt-2 mt-2 border-t border-gray-200">
-                                         <div className="flex justify-between text-sm font-medium">
-                                           <span className="text-gray-800">Estimerat slutsaldo</span>
-                                           <span className={finalBalance >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                             {formatCurrency(finalBalance)}
-                                           </span>
-                                          </div>
-
-                                          {/* Line separator */}
-                                          <div className="border-t border-gray-200 mt-2 pt-2">
-                                            {isNextMonthBalanceSet(account) ? (
-                                              <>
-                                                {/* Faktiska extra kostnader/intäkter */}
-                                                <div className="flex justify-between text-sm font-medium">
-                                                  <span className="text-gray-800">Faktiska extra kostnader/intäkter</span>
-                                                  <span className={(() => {
-                                                    const actualEndBalance = accountEndBalances[account] || 0;
-                                                    const difference = actualEndBalance - finalBalance;
-                                                    return difference >= 0 ? 'text-green-600' : 'text-red-600';
-                                                  })()}>
-                                                    {(() => {
-                                                      const actualEndBalance = accountEndBalances[account] || 0;
-                                                      const difference = actualEndBalance - finalBalance;
-                                                      return formatCurrency(difference);
-                                                    })()}
-                                                  </span>
-                                                </div>
-
-                                                {/* Faktiskt Slutsaldo */}
-                                                <div className="flex justify-between text-sm font-medium mt-1">
-                                                  <span className="text-gray-800">Faktiskt Slutsaldo</span>
-                                                  <span className={(() => {
-                                                    const actualEndBalance = accountEndBalances[account] || 0;
-                                                    return actualEndBalance >= 0 ? 'text-green-600' : 'text-red-600';
-                                                  })()}>
-                                                    {formatCurrency(accountEndBalances[account] || 0)}
-                                                  </span>
-                                                </div>
-                                              </>
-                                            ) : (
-                                              <div className="flex flex-col items-center text-center p-4 bg-gray-50 rounded-lg border">
-                                                <div className="text-gray-600 text-sm mb-2">
-                                                  <span className="font-medium">Ingående kontosaldo ej ifyllt för {getNextMonthName()}.</span>
-                                                </div>
-                                                <div className="text-gray-500 text-xs">
-                                                  Fyll i för att se faktiskt slutsaldo.
-                                                </div>
-                                              </div>
-                                            )}
-                                          </div>
-                                       </div>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                             })}
-                             
-                             {/* Andreas konto final balance */}
-                             <div className="p-3 bg-white rounded border">
-                               <div className="flex justify-between items-center">
-                                 <span className="font-medium">Andreas konto</span>
-                                 <div className="font-semibold text-purple-600">
-                                   {results ? formatCurrency(results.andreasShare) : 'Beräknar...'}
-                                 </div>
-                               </div>
-                             </div>
-                             
-                             {/* Susannas konto final balance */}
-                             <div className="p-3 bg-white rounded border">
-                               <div className="flex justify-between items-center">
-                                 <span className="font-medium">Susannas konto</span>
-                                 <div className="font-semibold text-purple-600">
-                                   {results ? formatCurrency(results.susannaShare) : 'Beräknar...'}
-                                 </div>
-                               </div>
-                             </div>
-                           </div>
-                         </div>
-                       )}
-                     </div>
-
-                    {/* Remaining Daily Budget */}
-                   <div className="p-4 bg-amber-50 rounded-lg">
-                     <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('remainingDailyBudgetDistribution')}>
-                       <div>
-                         <div className="text-sm text-muted-foreground">Återstående daglig budget</div>
-                         <div className="text-2xl font-bold text-amber-600">
-                           {results ? formatCurrency(results.remainingDailyBudget) : 'Beräknar...'}
-                         </div>
-                       </div>
-                       {expandedSections.remainingDailyBudgetDistribution ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                     </div>
-                     
-                     {expandedSections.remainingDailyBudgetDistribution && (
-                       <div className="mt-4 space-y-4">
-                         {results && (
-                           <div className="space-y-4">
-                             <div className="p-4 bg-amber-100 rounded-lg border border-amber-200">
-                               <div className="text-sm text-amber-700 font-medium mb-2">Beräkning återstående daglig budget:</div>
-                               <div className="space-y-1 pl-2">
-                                 <div className="flex justify-between">
-                                   <span>• Återstående vardagar: {results.remainingWeekdayCount || 0} × {formatCurrency(dailyTransfer)} =</span>
-                                   <span className="font-medium">{formatCurrency((results.remainingWeekdayCount || 0) * dailyTransfer)}</span>
-                                 </div>
-                                 <div className="flex justify-between">
-                                   <span>• Återstående helgdagar: {results.remainingFridayCount || 0} × {formatCurrency(weekendTransfer)} =</span>
-                                   <span className="font-medium">{formatCurrency((results.remainingFridayCount || 0) * weekendTransfer)}</span>
-                                 </div>
-                                 <div className="flex justify-between pt-2 border-t">
-                                   <span className="font-medium text-amber-800">Återstående daglig budget:</span>
-                                   <span className="font-semibold text-amber-800">{formatCurrency(results.remainingDailyBudget || 0)}</span>
-                                 </div>
-                               </div>
-                             </div>
-                           </div>
-                         )}
-                       </div>
-                     )}
-                   </div>
-
-                   {/* Budget Not Transferred (Red Days) */}
-                   <div className="p-4 bg-red-50 rounded-lg">
-                     <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('redDays')}>
-                       <div>
-                         <div className="text-sm text-muted-foreground">Budget som ej överförs (röda dagar)</div>
-                         <div className="text-2xl font-bold text-red-600">
-                           {results ? formatCurrency(results.holidayDaysBudget) : 'Beräknar...'}
-                         </div>
-                       </div>
-                       {expandedSections.redDays ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                     </div>
-                    
-                    {expandedSections.redDays && (
-                      <div className="mt-4 space-y-4">
-                        <div className="flex justify-between items-center">
-                          <h4 className="font-semibold">Svenska röda dagar</h4>
-                          <Button size="sm" onClick={() => setIsEditingHolidays(!isEditingHolidays)}>
-                            {isEditingHolidays ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
-                          </Button>
-                        </div>
-                        
-                        {results && (
-                          <div className="text-sm space-y-3">
-                            <div>
-                              <div>Röda dagar till 25:e: {results.holidaysUntil25th.length} st</div>
-                              <div className="text-xs text-muted-foreground">
-                                {results.holidaysUntil25th.join(', ')}
-                              </div>
-                            </div>
-                            <div>
-                              <div>Nästkommande 10 röda dagar:</div>
-                              <div className="text-xs text-muted-foreground">
-                                {results.nextTenHolidays.join(', ')}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {isEditingHolidays && (
-                          <div className="space-y-2">
-                            <div className="flex justify-between items-center">
-                              <h5 className="font-medium">Anpassade helgdagar</h5>
-                              <Button size="sm" onClick={addCustomHoliday}>
-                                <Plus className="w-4 h-4" />
-                              </Button>
-                            </div>
-                            
-                            {customHolidays.map((holiday, index) => (
-                              <div key={index} className="flex gap-2 items-center">
-                                <Input
-                                  type="date"
-                                  value={holiday.date}
-                                  onChange={(e) => updateCustomHoliday(index, 'date', e.target.value)}
-                                  className="flex-1"
-                                />
-                                <Input
-                                  value={holiday.name}
-                                  onChange={(e) => updateCustomHoliday(index, 'name', e.target.value)}
-                                  className="flex-1"
-                                  placeholder="Namn på helgdag"
-                                />
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => removeCustomHoliday(index)}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                </CardContent>
-              </Card>
-
-              {/* Individual Shares */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Individuell Fördelning & Bidrag</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {/* Individual Breakdown - Expandable Tabs */}
-                  <div className="space-y-4">
-                    {/* Andreas Expandable Tab */}
-                    <div className="border rounded-lg">
-                      <div className="flex items-center justify-between cursor-pointer p-4 bg-purple-50 hover:bg-purple-100 rounded-t-lg" onClick={() => toggleSection('andreasDetails')}>
-                        <div>
-                          <h5 className="font-medium text-lg">{userName1}</h5>
-                          <div className="text-sm text-muted-foreground">
-                            {(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                              ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1)
-                              : '0'}% fördelning
-                          </div>
-                        </div>
-                        <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.andreasDetails ? 'rotate-180' : ''}`} />
-                      </div>
-                      
-                      {expandedSections.andreasDetails && (
-                        <div className="p-4 border-t space-y-3">
-                          <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
-                            <div className="text-sm text-muted-foreground">Procentuell fördelning</div>
-                            <div className="text-xl font-bold text-purple-600">
-                              {(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                                ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1)
-                                : '0'}%
-                            </div>
-                          </div>
-                          <div className="p-3 bg-red-50 rounded-lg border border-red-200">
-                            <div className="text-sm text-muted-foreground">Andel av gemensamma kostnader/sparande</div>
-                            <div className="text-xl font-bold text-red-600">
-                              {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                                ? ((results ? results.totalDailyBudget : 0) +
-                                  costGroups.reduce((sum, group) => {
-                                    const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                    return sum + subCategoriesTotal;
-                                  }, 0) +
-                                  savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
-                                : 0)}
-                            </div>
-                          </div>
-                          <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                            <div className="text-sm text-muted-foreground">Kvar efter gemensamma kostnader/sparande</div>
-                            <div className="text-xl font-bold text-green-600">
-                              {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) - 
-                                ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                                  ? ((results ? results.totalDailyBudget : 0) +
-                                    costGroups.reduce((sum, group) => {
-                                      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                      return sum + subCategoriesTotal;
-                                    }, 0) +
-                                    savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
-                                  : 0))}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Susanna Expandable Tab */}
-                    <div className="border rounded-lg">
-                      <div className="flex items-center justify-between cursor-pointer p-4 bg-blue-50 hover:bg-blue-100 rounded-t-lg" onClick={() => toggleSection('susannaDetails')}>
-                        <div>
-                          <h5 className="font-medium text-lg">{userName2}</h5>
-                          <div className="text-sm text-muted-foreground">
-                            {(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                              ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1)
-                              : '0'}% fördelning
-                          </div>
-                        </div>
-                        <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.susannaDetails ? 'rotate-180' : ''}`} />
-                      </div>
-                      
-                      {expandedSections.susannaDetails && (
-                        <div className="p-4 border-t space-y-3">
-                          <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
-                            <div className="text-sm text-muted-foreground">Procentuell fördelning</div>
-                            <div className="text-xl font-bold text-purple-600">
-                              {(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                                ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1)
-                                : '0'}%
-                            </div>
-                          </div>
-                          <div className="p-3 bg-red-50 rounded-lg border border-red-200">
-                            <div className="text-sm text-muted-foreground">Andel av gemensamma kostnader/sparande</div>
-                            <div className="text-xl font-bold text-red-600">
-                              {formatCurrency((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                                ? ((results ? results.totalDailyBudget : 0) +
-                                  costGroups.reduce((sum, group) => {
-                                    const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                    return sum + subCategoriesTotal;
-                                  }, 0) +
-                                  savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
-                                : 0)}
-                            </div>
-                          </div>
-                          <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                            <div className="text-sm text-muted-foreground">Kvar efter gemensamma kostnader/sparande</div>
-                            <div className="text-xl font-bold text-green-600">
-                              {formatCurrency((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) - 
-                                ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                                  ? ((results ? results.totalDailyBudget : 0) +
-                                    costGroups.reduce((sum, group) => {
-                                      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                      return sum + subCategoriesTotal;
-                                    }, 0) +
-                                    savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
-                                  : 0))}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Combined Chart Section */}
-                  <div className="mt-8">
-                    <h5 className="font-medium text-lg mb-4">Ekonomisk fördelning</h5>
-                    <div className="h-80">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          data={[
-                            {
-                              name: userName1,
-                              andel: (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                                ? ((results ? results.totalDailyBudget : 0) +
-                                  costGroups.reduce((sum, group) => {
-                                    const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                    return sum + subCategoriesTotal;
-                                  }, 0) +
-                                  savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
-                                : 0,
-                              kvar: (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) - 
-                                ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                                  ? ((results ? results.totalDailyBudget : 0) +
-                                    costGroups.reduce((sum, group) => {
-                                      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                      return sum + subCategoriesTotal;
-                                    }, 0) +
-                                    savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
-                                  : 0)
-                            },
-                            {
-                              name: userName2,
-                              andel: (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                                ? ((results ? results.totalDailyBudget : 0) +
-                                  costGroups.reduce((sum, group) => {
-                                    const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                    return sum + subCategoriesTotal;
-                                  }, 0) +
-                                  savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
-                                : 0,
-                              kvar: (susannaSalary + susannaförsäkringskassan + susannabarnbidrag) - 
-                                ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0
-                                  ? ((results ? results.totalDailyBudget : 0) +
-                                    costGroups.reduce((sum, group) => {
-                                      const subCategoriesTotal = group.subCategories?.reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                      return sum + subCategoriesTotal;
-                                    }, 0) +
-                                    savingsGroups.reduce((sum, group) => sum + group.amount, 0)) * ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag))
-                                  : 0)
-                            }
-                          ]}
-                          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="name" />
-                          <YAxis tickFormatter={(value) => formatCurrency(value)} />
-                          <Tooltip 
-                            formatter={(value, name) => [
-                              formatCurrency(Number(value)), 
-                              name === 'andel' ? 'Andel av gemensamma kostnader/sparande' : 'Kvar efter gemensamma kostnader/sparande'
-                            ]}
-                          />
-                          <Legend 
-                            formatter={(value) => 
-                              value === 'andel' ? 'Andel av gemensamma kostnader/sparande' : 'Kvar efter gemensamma kostnader/sparande'
-                            }
-                          />
-                          <Bar dataKey="andel" fill="#ef4444" name="andel" />
-                          <Bar dataKey="kvar" fill="#16a34a" name="kvar" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Transfer Plan & Next Salary - Only show for current month */}
-              {(() => {
-                const currentDate = new Date();
-                const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-                const isCurrentMonth = selectedBudgetMonth === currentMonthKey;
-                
-                if (!isCurrentMonth) return null;
-                
-                return (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Överföringsplan & Nästa Lön</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {results && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div className="p-3 bg-muted rounded-lg">
-                            <div className="text-sm text-muted-foreground">Dagar kvar till 25:e</div>
-                            <div className="text-xl font-semibold">{results.daysUntil25th} dagar</div>
-                          </div>
-                          <div className="p-3 bg-muted rounded-lg">
-                            <div className="text-sm text-muted-foreground">Vardagar</div>
-                            <div className="text-xl font-semibold">{results.weekdayCount} dagar</div>
-                          </div>
-                          <div className="p-3 bg-muted rounded-lg">
-                            <div className="text-sm text-muted-foreground">Helgdagar</div>
-                            <div className="text-xl font-semibold">{results.fridayCount} dagar</div>
-                          </div>
-                        </div>
-                      )}
-                      
-                      <div className="pt-4 border-t">
-                        <Button 
-                          onClick={() => setActiveTab("overforing")} 
-                          className="w-full"
-                          variant="outline"
-                        >
-                          Se överföringsplan
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })()}
-              </div>
-            </div>
-          </TabsContent>
-
-          {/* Tab 3: Överföring */}
-          <TabsContent value="overforing" className="mt-0">
-            <div className={`relative overflow-hidden ${
-              isAnimating && previousTab === "overforing" 
-                ? swipeDirection === "left" 
-                  ? "animate-slide-out-left" 
-                  : "animate-slide-out-right"
-                : isAnimating && activeTab === "overforing"
-                  ? swipeDirection === "left"
-                    ? "animate-slide-in-right"
-                    : "animate-slide-in-left"
-                  : ""
-            }`}>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5 text-primary" />
-                    Överföringar
-                  </CardTitle>
-                  <CardDescription>
-                    Hantera överföringar till konton och daglig budget
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Tabs defaultValue="account-transfers" className="w-full">
-                    <TabsList className="grid w-full grid-cols-1">
-                      <TabsTrigger value="account-transfers">Överföring till konton</TabsTrigger>
-                    </TabsList>
-                    
-                    <TabsContent value="account-transfers" className="space-y-6 mt-6">
-                 <div className="space-y-2">
-                   <Label htmlFor="transfer-account">Överföringskonto saldo</Label>
-                   <Input
-                     id="transfer-account"
-                     type="number"
-                     placeholder="Ange nuvarande saldo"
-                     value={transferAccount || ''}
-                     onChange={(e) => setTransferAccount(Number(e.target.value))}
-                     className="text-lg"
-                   />
-                 </div>
-
-                 {/* Överföring till gemensamma konton section - copied from Sammanställning */}
-                 <div className="p-4 bg-indigo-50 rounded-lg">
-                   <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('accountSummary')}>
-                     <div>
-                        <div className="text-sm text-muted-foreground">Överföring till gemensamma konton</div>
-                        <div className="text-lg font-bold text-indigo-600">
-                          {accounts.length} konton
-                        </div>
-                     </div>
-                     {expandedSections.accountSummary ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                   </div>
-                   
-                   {expandedSections.accountSummary && (
-                     <div className="mt-4 space-y-4">
-                        {/* Account Summary List */}
-                        <div className="space-y-3">
-                          {accounts.map(account => {
-                              // Calculate savings for this account
-                              const accountSavings = allSavingsItems
-                                .filter(group => group.account === account)
-                                .reduce((sum, group) => sum + group.amount, 0);
-                             
-                             // Calculate costs for this account
-                             const accountCosts = costGroups.reduce((sum, group) => {
-                               const groupCosts = group.subCategories
-                                 ?.filter(sub => sub.account === account)
-                                 .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                               return sum + groupCosts;
-                             }, 0);
-                             
-                             // Calculate total amount as sum of absolute values (what needs to be transferred)
-                             const totalAmount = accountSavings + accountCosts;
-                             const netAmount = accountSavings - accountCosts;
-                             const hasDetails = accountSavings > 0 || accountCosts > 0;
-                             
-                             // Hide accounts with 0 balance since no transfer occurs to these
-                             if (totalAmount === 0) return null;
-                            
-                            return (
-                              <div key={account} className="p-3 bg-white rounded border">
-                                <div className="flex justify-between items-center">
-                                  <div className="flex items-center gap-3">
-                                    <Checkbox
-                                      checked={transferChecks[account] || false}
-                                      onCheckedChange={(checked) => setTransferChecks(prev => ({...prev, [account]: checked as boolean}))}
-                                    />
-                                    <span className="font-medium">{account}</span>
-                                    {hasDetails && (
-                                      <button
-                                        onClick={() => toggleAccountDetails(account)}
-                                        className="text-gray-400 hover:text-gray-600"
-                                      >
-                                        {expandedAccounts[account] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                      </button>
-                                    )}
-                                  </div>
-                                   <div className={`font-semibold ${netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                     {formatCurrency(totalAmount)}
-                                   </div>
-                                </div>
-                               
-                               {/* Expandable breakdown */}
-                               {expandedAccounts[account] && hasDetails && (
-                                 <div className="mt-3 pt-3 border-t space-y-2">
-                                   {/* Savings breakdown */}
-                                   {savingsGroups
-                                     .filter(group => group.account === account)
-                                     .map(group => (
-                                        <div key={`savings-${group.id}`} className="flex justify-between text-sm">
-                                          <span className="text-gray-600">{group.name} (Sparande)</span>
-                                          <span className="text-green-600">{formatCurrency(group.amount)}</span>
-                                        </div>
-                                     ))}
-                                   
-                                   {/* Costs breakdown */}
-                                   {costGroups.map(group => 
-                                     group.subCategories
-                                       ?.filter(sub => sub.account === account)
-                                       .map(sub => (
-                                          <div key={`cost-${sub.id}`} className="flex justify-between text-sm">
-                                            <span className="text-gray-600">{sub.name} (Kostnad)</span>
-                                            <span className="text-red-600">{formatCurrency(sub.amount)}</span>
-                                          </div>
-                                       ))
-                                   )}
-                                 </div>
-                               )}
-                             </div>
-                           );
-                          })}
-                        </div>
-                       
-                        {/* Account Management Section */}
-                        <div className="p-4 bg-gray-50 rounded-lg">
-                          <div className="flex justify-center mb-4">
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              onClick={() => setIsEditingAccounts(!isEditingAccounts)}
-                            >
-                              {isEditingAccounts ? 'Stäng' : 'Redigera konton'}
-                            </Button>
-                          </div>
-                         
-                         {isEditingAccounts && (
-                           <div className="space-y-4">
-                             <div className="flex gap-2">
-                               <Input
-                                 placeholder="Nytt kontonamn"
-                                 value={newAccountName}
-                                 onChange={(e) => setNewAccountName(e.target.value)}
-                                 className="flex-1"
-                               />
-                               <Button onClick={addAccount} disabled={!newAccountName.trim()}>
-                                 <Plus className="w-4 h-4 mr-1" />
-                                 Lägg till
-                               </Button>
-                             </div>
-                             
-                             <div className="space-y-2">
-                               <h5 className="text-sm font-medium">Befintliga konton:</h5>
-                               {accounts.map((account) => (
-                                 <div key={account} className="flex justify-between items-center p-2 bg-white rounded border">
-                                   <span>{account}</span>
-                                   <Button
-                                     size="sm"
-                                     variant="destructive"
-                                     onClick={() => removeAccount(account)}
-                                   >
-                                     <Trash2 className="w-4 h-4" />
-                                   </Button>
-                                 </div>
-                               ))}
-                             </div>
-                           </div>
-                         )}
-                       </div>
-                     </div>
-                   )}
-                 </div>
-
-                 {results && (
-                   <div className="space-y-4">
-                      {/* Fördelning av återstående belopp - Collapsible Section */}
-                      <div className="p-4 bg-purple-50 rounded-lg">
-                        <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('remainingAmountDistribution')}>
-                          <div>
-                            <div className="text-sm text-muted-foreground">Fördelning av återstående belopp</div>
-                            <div className="text-lg font-bold text-purple-600">
-                              {formatCurrency(results.andreasShare + results.susannaShare + results.remainingDailyBudget)}
-                            </div>
-                          </div>
-                          {expandedSections.remainingAmountDistribution ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                        </div>
-                       
-                        {expandedSections.remainingAmountDistribution && (
-                          <div className="mt-4 space-y-4">
-                             <div className="space-y-2">
-                               
-                               {/* Individual Shares - moved out of collapsible section */}
-                               <div className="space-y-3 mt-4">
-                                 <div className="p-3 bg-white rounded border">
-                                   <div className="flex justify-between items-center">
-                                     <div className="flex items-center gap-3">
-                                       <Checkbox
-                                         checked={andreasShareChecked}
-                                         onCheckedChange={(checked) => setAndreasShareChecked(checked as boolean)}
-                                       />
-                                       <span className="font-medium">{userName1}s konto ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%)</span>
-                                     </div>
-                                     <div className={`font-semibold ${results.andreasShare >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                       {formatCurrency(Math.abs(results.andreasShare))}
-                                     </div>
-                                   </div>
-                                 </div>
-                                 
-                                 <div className="p-3 bg-white rounded border">
-                                   <div className="flex justify-between items-center">
-                                     <div className="flex items-center gap-3">
-                                       <Checkbox
-                                         checked={susannaShareChecked}
-                                         onCheckedChange={(checked) => setSusannaShareChecked(checked as boolean)}
-                                       />
-                                       <span className="font-medium">{userName2}s konto ({((andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) > 0 ? ((susannaSalary + susannaförsäkringskassan + susannabarnbidrag) / (andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag) * 100).toFixed(1) : '0')}%)</span>
-                                     </div>
-                                     <div className={`font-semibold ${results.susannaShare >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                       {formatCurrency(Math.abs(results.susannaShare))}
-                                     </div>
-                                   </div>
-                                 </div>
-                                 
-                                 <div className="p-3 bg-gray-50 rounded border">
-                                   <div className="flex justify-between items-center">
-                                     <span className="font-medium">Totalt att fördela:</span>
-                                     <span className="font-semibold text-blue-800">{formatCurrency(Math.abs(results.andreasShare) + Math.abs(results.susannaShare) + results.remainingDailyBudget)}</span>
-                                   </div>
-                                 </div>
-                               </div>
-                              
-                              
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                     {/* Återstående daglig överföring - Collapsible Section */}
-                     <div className="p-4 bg-amber-50 rounded-lg">
-                       <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('remainingDailyTransfer')}>
-                         <div>
-                           <div className="text-sm text-muted-foreground">Återstående daglig överföring</div>
-                           <div className="text-lg font-bold text-amber-600">
-                             {formatCurrency(results.remainingDailyBudget)}
-                           </div>
-                         </div>
-                         {expandedSections.remainingDailyTransfer ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                       </div>
-                      
-                       {expandedSections.remainingDailyTransfer && (
-                         <div className="mt-4 space-y-4">
-                           <div className="space-y-4">
-                             <div className="p-4 bg-amber-100 rounded-lg border border-amber-200">
-                               <div className="text-sm text-amber-700 font-medium mb-2">Beräkning återstående daglig överföring:</div>
-                               <div className="space-y-1 pl-2">
-                                 <div className="flex justify-between">
-                                   <span>• Återstående vardagar: {results.remainingWeekdayCount || 0} × {formatCurrency(dailyTransfer)} =</span>
-                                   <span className="font-medium">{formatCurrency((results.remainingWeekdayCount || 0) * dailyTransfer)}</span>
-                                 </div>
-                                 <div className="flex justify-between">
-                                   <span>• Återstående helgdagar: {results.remainingFridayCount || 0} × {formatCurrency(weekendTransfer)} =</span>
-                                   <span className="font-medium">{formatCurrency((results.remainingFridayCount || 0) * weekendTransfer)}</span>
-                                 </div>
-                                 <div className="flex justify-between pt-2 border-t">
-                                   <span className="font-medium text-amber-800">Återstående daglig överföring:</span>
-                                   <span className="font-semibold text-amber-800">{formatCurrency(results.remainingDailyBudget || 0)}</span>
-                                 </div>
-                               </div>
-                             </div>
-                           </div>
-                         </div>
-                       )}
-                     </div>
-
-                     {/* Verifiering section - renamed from "Kvar att fördela" */}
-                    <div className="p-4 bg-purple-50 rounded-lg">
-                      <h4 className="font-medium mb-3">Verifiering</h4>
-                      <div className="space-y-3">
-                         <div className="flex justify-between pt-2 border-t">
-                           <span>Differens:</span>
-                           <span className={`font-semibold ${(() => {
-                             // Calculate unchecked accounts total
-                              const uncheckedAccountsTotal = accounts.reduce((sum, account) => {
-                                if (transferChecks[account]) return sum; // Skip checked accounts
-                                const accountSavings = allSavingsItems
-                                  .filter(group => group.account === account)
-                                  .reduce((sum, group) => sum + group.amount, 0);
-                               const accountCosts = costGroups.reduce((sum, group) => {
-                                 const groupCosts = group.subCategories
-                                   ?.filter(sub => sub.account === account)
-                                   .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                 return sum + groupCosts;
-                               }, 0);
-                               return sum + accountSavings + accountCosts;
-                             }, 0);
-                             
-                              // Calculate unchecked individual shares
-                              const uncheckedSharesTotal = 
-                                (!andreasShareChecked ? results.andreasShare : 0) +
-                                (!susannaShareChecked ? results.susannaShare : 0);
-                              
-                              const totalUnchecked = uncheckedAccountsTotal + uncheckedSharesTotal + results.remainingDailyBudget;
-                             const difference = transferAccount - totalUnchecked;
-                             return difference >= 0 ? 'text-green-600' : 'text-red-600';
-                           })()}`}>
-                             {(() => {
-                               // Calculate unchecked accounts total
-                                const uncheckedAccountsTotal = accounts.reduce((sum, account) => {
-                                  if (transferChecks[account]) return sum; // Skip checked accounts
-                                  const accountSavings = allSavingsItems
-                                    .filter(group => group.account === account)
-                                    .reduce((sum, group) => sum + group.amount, 0);
-                                 const accountCosts = costGroups.reduce((sum, group) => {
-                                   const groupCosts = group.subCategories
-                                     ?.filter(sub => sub.account === account)
-                                     .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                   return sum + groupCosts;
-                                 }, 0);
-                                 return sum + accountSavings + accountCosts;
-                               }, 0);
-                               
-                                // Calculate unchecked individual shares
-                                const uncheckedSharesTotal = 
-                                  (!andreasShareChecked ? results.andreasShare : 0) +
-                                  (!susannaShareChecked ? results.susannaShare : 0);
-                                
-                                const totalUnchecked = uncheckedAccountsTotal + uncheckedSharesTotal + results.remainingDailyBudget;
-                               return formatCurrency(transferAccount - totalUnchecked);
-                             })()}
-                           </span>
-                         </div>
-                         <div className="flex justify-between">
-                           <span>Kvar på överföringskonto:</span>
-                           <span className="font-medium">{(() => {
-                             // Calculate unchecked accounts total
-                                const uncheckedAccountsTotal = accounts.reduce((sum, account) => {
-                                  if (transferChecks[account]) return sum; // Skip checked accounts
-                                  const accountSavings = allSavingsItems
-                                    .filter(group => group.account === account)
-                                    .reduce((sum, group) => sum + group.amount, 0);
-                               const accountCosts = costGroups.reduce((sum, group) => {
-                                 const groupCosts = group.subCategories
-                                   ?.filter(sub => sub.account === account)
-                                   .reduce((subSum, sub) => subSum + sub.amount, 0) || 0;
-                                 return sum + groupCosts;
-                               }, 0);
-                               return sum + accountSavings + accountCosts;
-                             }, 0);
-                             
-                              // Calculate unchecked individual shares
-                              const uncheckedSharesTotal = 
-                                (!andreasShareChecked ? results.andreasShare : 0) +
-                                (!susannaShareChecked ? results.susannaShare : 0);
-                              
-                              const totalUnchecked = uncheckedAccountsTotal + uncheckedSharesTotal + results.remainingDailyBudget;
-                             return formatCurrency(transferAccount - totalUnchecked);
-                           })()}</span>
-                         </div>
-                      </div>
-                    </div>
-                  </div>
-                 )}
-                    </TabsContent>
-                    
-                  </Tabs>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          {/* Tab 4: Egen Budget */}
-          <TabsContent value="egen-budget" className="mt-0">
-            <div className={`relative overflow-hidden ${
-              isAnimating && previousTab === "egen-budget" 
-                ? swipeDirection === "left" 
-                  ? "animate-slide-out-left" 
-                  : "animate-slide-out-right"
-                : isAnimating && activeTab === "egen-budget"
-                  ? swipeDirection === "left"
-                    ? "animate-slide-in-right"
-                    : "animate-slide-in-left"
-                  : ""
-            }`}>
-              <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-primary" />
-                  Min Budget
-                </CardTitle>
-                <CardDescription>
-                  Hantera personlig budget för Andreas och Susanna
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Person Selection */}
-                <div className="space-y-3">
-                  <Label>Välj person</Label>
-                  <RadioGroup value={selectedPerson} onValueChange={(value) => setSelectedPerson(value as 'andreas' | 'susanna')}>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="andreas" id="andreas-radio" />
-                      <Label htmlFor="andreas-radio">Andreas</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="susanna" id="susanna-radio" />
-                      <Label htmlFor="susanna-radio">Susanna</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                {/* Personal Budget Controls */}
-                <div className="flex justify-between items-center">
-                  <h4 className="font-medium">Budget för {selectedPerson === 'andreas' ? 'Andreas' : 'Susanna'}</h4>
-                  <Button size="sm" onClick={() => setIsEditingPersonalBudget(!isEditingPersonalBudget)}>
-                    {isEditingPersonalBudget ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
-                  </Button>
-                </div>
-
-                {/* Personal Costs */}
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h5 className="font-medium">Personliga kostnader</h5>
-                  </div>
-                  
-                  <div className="flex gap-2 items-center">
-                    <span className="flex-1">Totala personliga kostnader:</span>
-                    {isEditingPersonalBudget ? (
-                      <Input
-                        type="number"
-                        value={getCurrentPersonalCosts() === 0 ? '' : getCurrentPersonalCosts()}
-                        onChange={(e) => {
-                          const value = Number(e.target.value) || 0;
-                          if (selectedPerson === 'andreas') {
-                            setAndreasPersonalCosts(value);
-                          } else {
-                            setSusannaPersonalCosts(value);
-                          }
-                        }}
-                        className="w-32"
-                        placeholder="0"
-                      />
-                    ) : (
-                      <span className="w-32 text-right font-medium text-destructive">
-                        -{formatCurrency(getCurrentPersonalCosts())}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Personal Savings */}
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h5 className="font-medium">Personligt sparande</h5>
-                  </div>
-                  
-                  <div className="flex gap-2 items-center">
-                    <span className="flex-1">Totalt personligt sparande:</span>
-                    {isEditingPersonalBudget ? (
-                      <Input
-                        type="number"
-                        value={getCurrentPersonalSavings() === 0 ? '' : getCurrentPersonalSavings()}
-                        onChange={(e) => {
-                          const value = Number(e.target.value) || 0;
-                          if (selectedPerson === 'andreas') {
-                            setAndreasPersonalSavings(value);
-                          } else {
-                            setSusannaPersonalSavings(value);
-                          }
-                        }}
-                        className="w-32"
-                        placeholder="0"
-                      />
-                    ) : (
-                      <span className="w-32 text-right font-medium text-green-600">
-                        -{formatCurrency(getCurrentPersonalSavings())}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Personal Budget Summary */}
-                <div className="p-4 bg-muted rounded-lg">
-                  <h5 className="font-medium mb-3">Sammanfattning - {selectedPerson === 'andreas' ? 'Andreas' : 'Susanna'}</h5>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Total andel:</span>
-                      <span className="font-medium">
-                        {results ? formatCurrency(getCurrentPersonIncome()) : 'Beräknar...'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-destructive">
-                      <span>Totala kostnader:</span>
-                      <span className="font-medium">
-                        -{formatCurrency(getCurrentPersonalCosts())}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-green-600">
-                      <span>Totalt sparande:</span>
-                      <span className="font-medium">
-                        -{formatCurrency(getCurrentPersonalSavings())}
-                      </span>
-                    </div>
-                    <div className="flex justify-between pt-2 border-t font-semibold">
-                      <span>Kvar att spendera:</span>
-                      <span className={`font-semibold ${
-                        (getCurrentPersonIncome() - 
-                         getCurrentPersonalCosts() - 
-                         getCurrentPersonalSavings()) >= 0
-                        ? 'text-green-600' : 'text-destructive'
-                      }`}>
-                        {results ? formatCurrency(
-                          getCurrentPersonIncome() - 
-                          getCurrentPersonalCosts() - 
-                          getCurrentPersonalSavings()
-                        ) : 'Beräknar...'}
-                      </span>
-                    </div>
-                    {/* Daily Budget Fields for Personal Budget */}
-                    {results && (
-                      <>
-                        <div className="flex justify-between border-t pt-2">
-                          <span>Kvar per dag till den 25e ({results.daysUntil25th} dagar):</span>
-                          <span className="font-medium">
-                            {formatCurrency((getCurrentPersonIncome() - 
-                              getCurrentPersonalCosts() - 
-                              getCurrentPersonalSavings()) / results.daysUntil25th)}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            </div>
-          </TabsContent>
-
-          {/* Tab 5: Historia */}
-          <TabsContent value="historia" className="mt-0">
-            <div className={`relative overflow-hidden ${
-              isAnimating && previousTab === "historia" 
-                ? swipeDirection === "left" 
-                  ? "animate-slide-out-left" 
-                  : "animate-slide-out-right"
-                : isAnimating && activeTab === "historia"
-                  ? swipeDirection === "left"
-                    ? "animate-slide-in-right"
-                    : "animate-slide-in-left"
-                  : ""
-            }`}>
-              <div className={`space-y-4 sm:space-y-6 ${isMobile ? 'px-1' : 'px-2 sm:px-4'}`}>
-              {/* Charts Section */}
-              <Card className={isMobile ? 'mx-1' : ''}>
-                <CardHeader className={isMobile ? 'px-3 py-4' : ''}>
-                  <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-base' : ''}`}>
-                    <History className="h-5 w-5 text-primary" />
-                    Historisk Översikt
-                  </CardTitle>
-                  <CardDescription className={isMobile ? 'text-sm' : ''}>
-                    Visa utvecklingen av intäkter, kostnader och sparande över tid
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className={isMobile ? 'px-3 pb-4' : ''}>
-                  {renderHistoricalCharts()}
-                </CardContent>
-              </Card>
-
-              {/* Update All Months Button */}
-              <Card className={isMobile ? 'mx-1' : ''}>
-                <CardHeader className={isMobile ? 'px-3 py-4' : ''}>
-                  <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-base' : ''}`}>
-                    <Calendar className="h-5 w-5 text-primary" />
-                    Uppdatera alla månader
-                  </CardTitle>
-                  <CardDescription className={isMobile ? 'text-sm' : ''}>
-                    Gå igenom alla månader automatiskt för att uppdatera tabellen och grafen
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className={isMobile ? 'px-3 pb-4' : ''}>
-                  {!isUpdatingAllMonths ? (
-                    <Button 
-                      onClick={() => {
-                        const monthsToUpdate = getMonthsToUpdate();
-                        if (monthsToUpdate.length === 0) return;
-                        
-                        // Show progress and hide button
-                        setIsUpdatingAllMonths(true);
-                        setUpdateProgress(0);
-                        
-                        console.log('🔄 Starting update from first month with false flag:', monthsToUpdate);
-                        
-                        let currentIndex = 0;
-                         // Store original month to return to after processing
-                         const originalMonth = selectedBudgetMonth;
-                        
-                        const updateAllMonths = async () => {
-                          if (currentIndex < monthsToUpdate.length) {
-                            const monthKey = monthsToUpdate[currentIndex];
-                            console.log(`🔄 Processing month ${currentIndex + 1}/${monthsToUpdate.length}: ${monthKey}`);
-                            
-                            // Update progress
-                            const progress = Math.round((currentIndex / monthsToUpdate.length) * 100);
-                            setUpdateProgress(progress);
-                            
-                            console.log(`📂 Using exact manual month change process for: ${monthKey}`);
-                            
-                            // Create a promise that resolves when the month change is completely done
-                            const processMonth = new Promise<void>((resolve) => {
-                              // Use handleBudgetMonthChange but wait for it to complete properly
-                              console.log(`🔄 Starting handleBudgetMonthChange for ${monthKey}`);
-                              
-                              // Set up a completion detector
-                              let checkCount = 0;
-                              const maxChecks = 50; // Maximum 5 seconds
-                              
-                              // Start the month change process
-                              handleBudgetMonthChange(monthKey);
-                              
-                              // Check periodically if the month change is complete
-                              const checkCompletion = () => {
-                                checkCount++;
-                                
-                                // Check if the month has been properly set and data loaded
-                                if (selectedBudgetMonth === monthKey && historicalData[monthKey]) {
-                                  console.log(`✅ Month change completed for ${monthKey} after ${checkCount * 100}ms`);
-                                  
-                                  // Set the flag for this month
-                                  setMonthFinalBalances(prev => ({
-                                    ...prev,
-                                    [monthKey]: true
-                                  }));
-                                  
-                                  resolve();
-                                } else if (checkCount >= maxChecks) {
-                                  console.warn(`⚠️ Month change timeout for ${monthKey}, proceeding anyway`);
-                                  resolve();
-                                } else {
-                                  // Continue checking
-                                  setTimeout(checkCompletion, 100);
-                                }
-                              };
-                              
-                              // Start checking after a brief delay
-                              setTimeout(checkCompletion, 200);
-                            });
-                            
-                            // Wait for the month processing to complete
-                            await processMonth;
-                            
-                            // Wait a bit more to ensure all state updates are settled
-                            await new Promise(resolve => setTimeout(resolve, 200));
-                            
-                            console.log(`✅ Month ${monthKey} fully processed`);
-                            
-                            currentIndex++;
-                            
-                            // Continue with next month
-                            setTimeout(updateAllMonths, 100);
-                          } else {
-                            console.log('✅ All months updated successfully');
-                            // Set progress to 100%
-                            setUpdateProgress(100);
-                            
-                            // Wait a moment to show 100% completion
-                            await new Promise(resolve => setTimeout(resolve, 1000));
-                            
-                            // Hide progress and show button again
-                            setIsUpdatingAllMonths(false);
-                            setUpdateProgress(0);
-                            
-                            // Return to the originally selected month without triggering full recalculation
-                            if (originalMonth && historicalData[originalMonth]) {
-                              console.log(`🔄 Returning to original month ${originalMonth}`);
-                              
-                              // Simply set the month and load its data
-                              setSelectedBudgetMonth(originalMonth);
-                              
-                // Data läses nu automatiskt från central state när selectedBudgetMonth ändras
-                              
-                              // Force a final chart update with the loaded data
-                              setTimeout(() => {
-                                console.log(`📊 Final chart update for original month ${originalMonth}`);
-                                calculateBudget();
-                              }, 300);
-                            }
-                          }
-                        };
-                        
-                        updateAllMonths();
-                      }}
-                      disabled={getMonthsToUpdate().length === 0}
-                      className="w-full"
-                      size={isMobile ? "sm" : "default"}
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      Uppdatera alla månader
-                    </Button>
-                  ) : (
-                    <div className="w-full space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className={`font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>Uppdaterar månader...</span>
-                        <span className={`text-muted-foreground ${isMobile ? 'text-xs' : 'text-sm'}`}>{updateProgress}%</span>
-                      </div>
-                      <Progress value={updateProgress} className="w-full" />
-                    </div>
-                  )}
-                  {getMonthsToUpdate().length > 0 && (
-                    <p className={`text-muted-foreground mt-2 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                      Kommer att gå igenom {getMonthsToUpdate().length} månader från första månad med flagga falsk: {getMonthsToUpdate().join(', ')}
-                    </p>
-                  )}
-                  {getMonthsToUpdate().length === 0 && (
-                    <p className={`text-muted-foreground mt-2 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                      Alla månader är redan uppdaterade (alla flaggor är sanna)
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Account Balance History and Forecast */}
-              <Card className={isMobile ? 'mx-1' : ''}>
-                <CardHeader className={isMobile ? 'px-3 py-4' : ''}>
-                  <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-base' : ''}`}>
-                    <TrendingUp className="h-5 w-5 text-primary" />
-                    Historik och Prognos på konton
-                  </CardTitle>
-                  <CardDescription className={isMobile ? 'text-sm' : ''}>
-                    Visa utvecklingen av kontosaldon med historiska data och prognoser
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className={isMobile ? 'px-3 pb-4' : ''}>
-                  {renderAccountBalanceChart()}
-                </CardContent>
-              </Card>
-
-              {/* Monthly Account Balances */}
-              <MonthlyAccountBalances 
-                selectedMonthKey={selectedBudgetMonth || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
-                accounts={accountsFromAPI}
-                className={isMobile ? 'mx-1' : ''}
-              />
-
-              {/* Account Data Table */}
-              <Card className={isMobile ? 'mx-1' : ''}>
-                <CardHeader className={isMobile ? 'px-3 py-4' : ''}>
-                  <CardTitle className={`${isMobile ? 'text-base' : ''}`}>Kontosaldon Historik</CardTitle>
-                  <CardDescription className={isMobile ? 'text-sm' : ''}>
-                    Detaljerad tabell över alla kontosaldon
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className={isMobile ? 'px-1 pb-4' : ''}>
-                  <div className={`${isMobile ? 'overflow-x-auto -mx-1' : 'overflow-x-auto'}`}>
-                    <AccountDataTable 
-                      data={accountDataRows}
-                      className={`${isMobile ? 'min-w-[280px] text-xs' : 'w-full min-w-[640px]'}`}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Month Selector and Data Display */}
-              <Card className={isMobile ? 'mx-1' : ''}>
-                <CardHeader className={isMobile ? 'px-3 py-4' : ''}>
-                  <CardTitle className={isMobile ? 'text-base' : ''}>Välj Månad</CardTitle>
-                  <CardDescription className={isMobile ? 'text-sm' : ''}>
-                    Visa detaljerad information för en specifik månad
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className={isMobile ? 'px-3 pb-4' : ''}>
-                  {renderMonthSelector()}
-                  {renderHistoricalData()}
-                </CardContent>
-              </Card>
-              </div>
-            </div>
-          </TabsContent>
-
-          {/* Sparmål Tab */}
-          <TabsContent value="sparmal" className="mt-0">
-            <div className={`relative overflow-hidden ${
-              isAnimating && previousTab === "sparmal" 
-                ? swipeDirection === "left" 
-                  ? "animate-slide-out-left" 
-                  : "animate-slide-out-right"
-                : isAnimating && activeTab === "sparmal"
-                  ? swipeDirection === "left"
-                    ? "animate-slide-in-right"
-                    : "animate-slide-in-left"
-                  : ""
-            } `}>
-              <div className="container mx-auto p-6 space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-muted-foreground">
-                      Skapa och följ upp dina långsiktiga sparmål
-                    </p>
-                  </div>
-                  
-                  <Dialog open={isCreateSavingsGoalDialogOpen} onOpenChange={setIsCreateSavingsGoalDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Skapa sparmål
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
-                      <DialogHeader>
-                        <DialogTitle>Skapa nytt sparmål</DialogTitle>
-                        <DialogDescription>
-                          Ange information för ditt nya sparmål
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                          <Label htmlFor="savings-name">Namn</Label>
-                          <Input
-                            id="savings-name"
-                            placeholder="t.ex. Thailandresa"
-                            value={newSavingsGoalName}
-                            onChange={(e) => setNewSavingsGoalName(e.target.value)}
-                          />
-                        </div>
-                        
-                        <div className="grid gap-2">
-                          <Label htmlFor="savings-account">Konto</Label>
-                          <Select value={newSavingsGoalAccount} onValueChange={setNewSavingsGoalAccount}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Välj konto" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {(accountsFromAPI || []).map(account => (
-                                <SelectItem key={account.id} value={account.id}>
-                                  {account.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        <div className="grid gap-2">
-                          <Label htmlFor="savings-target">Målbelopp (kr)</Label>
-                          <Input
-                            id="savings-target"
-                            type="number"
-                            placeholder="50000"
-                            value={newSavingsGoalTarget}
-                            onChange={(e) => setNewSavingsGoalTarget(e.target.value)}
-                          />
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="grid gap-2">
-                            <Label htmlFor="savings-start">Startdatum</Label>
-                            <Input
-                              id="savings-start"
-                              type="month"
-                              value={newSavingsGoalStartDate}
-                              onChange={(e) => setNewSavingsGoalStartDate(e.target.value)}
-                            />
-                          </div>
-                          
-                          <div className="grid gap-2">
-                            <Label htmlFor="savings-end">Måldatum</Label>
-                            <Input
-                              id="savings-end"
-                              type="month"
-                              value={newSavingsGoalEndDate}
-                              onChange={(e) => setNewSavingsGoalEndDate(e.target.value)}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button onClick={handleCreateSavingsGoal}>Skapa sparmål</Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-
-                {budgetState.savingsGoals.length === 0 ? (
-                  <Card className="text-center py-12">
-                    <CardContent>
-                      <Target className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-                      <CardTitle className="mb-2">Inga sparmål ännu</CardTitle>
-                      <CardDescription className="mb-6">
-                        Skapa ditt första sparmål för att börja spåra dina framsteg
-                      </CardDescription>
-                      <Dialog open={isCreateSavingsGoalDialogOpen} onOpenChange={setIsCreateSavingsGoalDialogOpen}>
-                        <DialogTrigger asChild>
-                          <Button>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Skapa ditt första sparmål
-                          </Button>
-                        </DialogTrigger>
-                      </Dialog>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {budgetState.savingsGoals.map(goal => {
-                      // Beräkna faktiskt sparat för detta sparmål
-                      let actualSaved = 0;
-                      Object.values(budgetState.historicalData).forEach(monthData => {
-                        if (monthData.transactions) {
-                          monthData.transactions.forEach(transaction => {
-                            if (transaction.type === 'Savings' && 
-                                transaction.accountId === goal.accountId &&
-                                transaction.savingsTargetId === goal.id) {
-                              actualSaved += Math.abs(transaction.amount);
-                            }
-                          });
-                        }
-                      });
-                      
-                      const progress = Math.min((actualSaved / goal.targetAmount) * 100, 100);
-                      const start = new Date(goal.startDate + '-01');
-                      const end = new Date(goal.endDate + '-01');
-                      const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
-                                         (end.getMonth() - start.getMonth()) + 1;
-                      const monthlyAmount = goal.targetAmount / monthsDiff;
-                      const accountName = (accountsFromAPI || []).find(acc => acc.id === goal.accountId)?.name || 'Okänt konto';
-                      
-                      return (
-                        <Card key={goal.id} className="hover:shadow-lg transition-shadow">
-                          <CardHeader>
-                            <div className="flex items-center justify-between">
-                              <CardTitle className="text-xl">{goal.name}</CardTitle>
-                              <Badge variant="outline">
-                                {accountName}
-                              </Badge>
-                            </div>
-                            <CardDescription>
-                              {goal.startDate} till {goal.endDate}
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                              <div className="flex justify-between text-sm">
-                                <span>Framsteg</span>
-                                <span>{progress.toFixed(1)}%</span>
-                              </div>
-                              <Progress value={progress} className="h-2" />
-                              <div className="flex justify-between text-sm text-muted-foreground">
-                                <span>{actualSaved.toLocaleString()} kr</span>
-                                <span>{goal.targetAmount.toLocaleString()} kr</span>
-                              </div>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                              <div className="text-center">
-                                <div className="text-2xl font-bold text-primary">
-                                  {(goal.targetAmount - actualSaved).toLocaleString()}
-                                </div>
-                                <div className="text-xs text-muted-foreground">kr kvar</div>
-                              </div>
-                              <div className="text-center">
-                                <div className="text-2xl font-bold flex items-center justify-center">
-                                  <TrendingUp className="h-4 w-4 mr-1" />
-                                  {Math.round(monthlyAmount).toLocaleString()}
-                                </div>
-                                <div className="text-xs text-muted-foreground">kr/månad</div>
-                              </div>
-                            </div>
-                            
-                            {progress >= 100 && (
-                              <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg text-center">
-                                <div className="text-green-700 dark:text-green-300 font-medium">
-                                  🎉 Sparmål uppnått!
-                                </div>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          </TabsContent>
-
-          {/* Transaction Import Tab */}
-          <TabsContent value="transaktioner" className="mt-0">
-            <div className={`relative overflow-hidden ${
-              isAnimating && previousTab === "transaktioner" 
-                ? swipeDirection === "left" 
-                  ? "animate-slide-out-left" 
-                  : "animate-slide-out-right"
-                : isAnimating && activeTab === "transaktioner"
-                  ? swipeDirection === "left"
-                    ? "animate-slide-in-right"
-                    : "animate-slide-in-left"
-                  : ""
-            }`}>
-              <TransactionImportEnhanced />
-            </div>
-          </TabsContent>
-
-          {/* Settings Tab */}
-          <TabsContent value="installningar" className="mt-0">
-            <div className={`relative overflow-hidden ${
-              isAnimating && previousTab === "installningar" 
-                ? swipeDirection === "left" 
-                  ? "animate-slide-out-left" 
-                  : "animate-slide-out-right"
-                : isAnimating && activeTab === "installningar"
-                  ? swipeDirection === "left"
-                    ? "animate-slide-in-right"
-                    : "animate-slide-in-left"
-                  : ""
-            }`}>
-              <div className="space-y-6">
-              {/* Admin Mode Toggle */}
-              <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5 text-primary" />
-                    Admin läge
-                  </CardTitle>
-                  <CardDescription>
-                    Aktivera administratörsfunktioner
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ToggleGroup 
-                    type="single" 
-                    value={isAdminMode ? 'admin' : ''}
-                    onValueChange={(value) => setIsAdminMode(value === 'admin')}
-                    className="grid grid-cols-1 gap-2"
-                  >
-                    <ToggleGroupItem 
-                      value="admin" 
-                      className="text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                    >
-                      Admin
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-                </CardContent>
-              </Card>
-
-              {/* Payday Settings */}
-              <PaydaySettings 
-                currentPayday={budgetState.settings?.payday || 25}
-                onPaydayChange={(newPayday) => updatePaydaySetting(newPayday)}
-              />
-
-              {/* Main Categories Settings */}
-              <MainCategoriesSettings 
-                mainCategories={budgetState.mainCategories || []} 
-              />
-
-              {/* User Names Settings */}
-              <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5 text-primary" />
-                    Användarnamn
-                  </CardTitle>
-                  <CardDescription>
-                    Anpassa namnen som visas i systemet
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="user1-name">Första användaren</Label>
-                      <Input
-                        id="user1-name"
-                        value={userName1}
-                        onChange={(e) => setUserName1(e.target.value)}
-                        placeholder="Ange namn för första användaren"
-                        className="text-lg"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="user2-name">Andra användaren</Label>
-                      <Input
-                        id="user2-name"
-                        value={userName2}
-                        onChange={(e) => setUserName2(e.target.value)}
-                        placeholder="Ange namn för andra användaren"
-                        className="text-lg"
-                      />
-                    </div>
-                  </div>
-                  <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                    <p className="font-medium mb-2">Dessa namn används:</p>
-                    <ul className="space-y-1 text-muted-foreground">
-                      <li>• I inkomstfälten</li>
-                      <li>• I budgetfördelningen</li>
-                      <li>• I den personliga budgeten</li>
-                      <li>• I alla rapporter och sammanställningar</li>
-                    </ul>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Backup Section */}
-              <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Save className="h-5 w-5 text-primary" />
-                    Backup
-                  </CardTitle>
-                  <CardDescription>
-                    Spara och ladda backup med all historisk data
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex flex-col gap-2">
-                    <Button onClick={saveBackup} className="w-full">
-                      <Save className="mr-2 h-4 w-4" />
-                      Spara backup
-                    </Button>
-                    <Button 
-                      onClick={loadBackup} 
-                      variant="outline" 
-                      className="w-full"
-                      disabled={!standardValues}
-                    >
-                      Ladda backup
-                    </Button>
-                  </div>
-                  
-                  {standardValues && (
-                    <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                      <p className="font-medium mb-2">Backup innehåller:</p>
-                      <ul className="space-y-1 text-muted-foreground">
-                        <li>• Alla inkomster och kategorier</li>
-                        <li>• All historisk data för alla månader</li>
-                        <li>• Personliga budgetar</li>
-                        <li>• Överföringsinställningar</li>
-                        <li>• Anpassade helgdagar</li>
-                        <li>• Användarnamn</li>
-                      </ul>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Advanced Month Options */}
-              <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5 text-primary" />
-                    Avancerade månadsalternativ
-                  </CardTitle>
-                  <CardDescription>
-                    Hantera månader och historiska data
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Copy from month section */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Kopiera från månad till en ny månad</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="copy-source-month">Kopiera från månad</Label>
-                        <select
-                          id="copy-source-month"
-                          value={selectedSourceMonth}
-                          onChange={(e) => setSelectedSourceMonth(e.target.value)}
-                          className="w-full p-2 border rounded-md"
-                        >
-                          <option value="">Välj källmånad</option>
-                          {[...availableMonths].sort().reverse().map(month => (
-                            <option key={month} value={month}>{month}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="copy-new-month">Ny månad</Label>
-                        <Input
-                          id="copy-new-month"
-                          type="month"
-                          value={newMonthFromCopy}
-                          onChange={(e) => setNewMonthFromCopy(e.target.value)}
-                          className="text-lg"
-                          placeholder="Ny månad"
-                        />
-                      </div>
-                      <div className="flex items-end">
-                        <Button 
-                          onClick={() => {
-                            if (selectedSourceMonth && newMonthFromCopy && !historicalData[newMonthFromCopy]) {
-                              const sourceData = historicalData[selectedSourceMonth];
-                              const newMonthData = {
-                                ...sourceData,
-                                month: newMonthFromCopy,
-                                date: new Date().toISOString()
-                              };
-                              updateHistoricalDataSingle(newMonthFromCopy, newMonthData);
-                              setNewMonthFromCopy('');
-                              setSelectedSourceMonth('');
-                            }
-                          }}
-                          disabled={!selectedSourceMonth || !newMonthFromCopy}
-                          className="w-full"
-                        >
-                          Kopiera månad
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Delete month section */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Ta bort månad</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="delete-month-selector">Välj månad att ta bort</Label>
-                        <select
-                          id="delete-month-selector"
-                          value={selectedHistoricalMonth}
-                          onChange={(e) => setSelectedHistoricalMonth(e.target.value)}
-                          className="w-full p-2 border rounded-md"
-                        >
-                          <option value="">Välj en månad</option>
-                          {[...availableMonths].sort().reverse().map(month => (
-                            <option key={month} value={month}>{month}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="flex items-end">
-                        <Button 
-                          onClick={() => {
-                            if (selectedHistoricalMonth && historicalData[selectedHistoricalMonth]) {
-                              const monthToDelete = selectedHistoricalMonth;
-                              
-                              // Create updated historical data without the deleted month
-                              const newHistoricalData = { ...historicalData };
-                              delete newHistoricalData[monthToDelete];
-                              
-                              // Update state
-                              setHistoricalData(newHistoricalData);
-                              
-                              // Reset selection after deletion
-                              setSelectedHistoricalMonth('');
-                              
-                              // Save directly to localStorage with updated data
-                              const dataToSave = {
-                                andreasSalary,
-                                andreasförsäkringskassan,
-                                andreasbarnbidrag,
-                                susannaSalary,
-                                susannaförsäkringskassan,
-                                susannabarnbidrag,
-                                costGroups,
-                                savingsGroups,
-                                dailyTransfer,
-                                weekendTransfer,
-                                customHolidays,
-                                selectedPerson,
-                                andreasPersonalCosts,
-                                andreasPersonalSavings,
-                                susannaPersonalCosts,
-                                susannaPersonalSavings,
-                                historicalData: newHistoricalData, // Use the updated data
-                                accounts,
-                                budgetTemplates,
-                                selectedBudgetMonth,
-                                userName1,
-                                userName2,
-                                transferChecks,
-                                andreasShareChecked,
-                                susannaShareChecked,
-                                showIndividualCostsOutsideBudget,
-                                showSavingsSeparately
-                              };
-                              localStorage.setItem('budgetCalculatorData', JSON.stringify(dataToSave));
-                              
-                              // If the deleted month was the currently selected budget month, reset to current month
-                              if (selectedBudgetMonth === monthToDelete) {
-                                const currentDate = new Date();
-                                const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-                                setSelectedBudgetMonth(currentMonthKey);
-                                
-                                // Load current month data if it exists, otherwise create it with current form values
-                                if (historicalData[currentMonthKey]) {
-                                  loadDataFromSelectedMonth(currentMonthKey);
-                                }
-                              }
-                            }
-                          }}
-                          disabled={!selectedHistoricalMonth}
-                          variant="destructive"
-                          className="w-full"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Ta bort månad
-                        </Button>
-                      </div>
-                    </div>
-                    {selectedHistoricalMonth && (
-                      <div className="text-sm text-muted-foreground">
-                        Vald månad: <strong>{selectedHistoricalMonth}</strong>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-               {/* Budget Templates */}
-               <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
-                 <CardHeader>
-                   <CardTitle className="flex items-center gap-2">
-                     <History className="h-5 w-5 text-primary" />
-                     Budgetmallar
-                   </CardTitle>
-                   <CardDescription>
-                     Skapa och hantera budgetmallar från befintliga månader
-                   </CardDescription>
-                 </CardHeader>
-                 <CardContent className="space-y-6">
-                   {/* Copy Template to Month Section */}
-                   <div className="space-y-4 p-4 border-2 border-primary/20 rounded-lg bg-primary/5">
-                     <h3 className="text-lg font-semibold text-primary">Kopiera Budgetmall till Månad</h3>
-                     <p className="text-sm text-muted-foreground">
-                       Välj en budgetmall att kopiera till Min Månadsbudget för en specifik månad
-                     </p>
-                     
-                     {Object.keys(budgetTemplates).length > 0 ? (
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                         <div className="space-y-2">
-                           <Label htmlFor="template-to-copy">Välj budgetmall</Label>
-                           <Select value={selectedTemplateToCopy} onValueChange={setSelectedTemplateToCopy}>
-                             <SelectTrigger>
-                               <SelectValue placeholder="Välj en budgetmall att kopiera" />
-                             </SelectTrigger>
-                             <SelectContent>
-                               {Object.keys(budgetTemplates).sort().map(templateName => (
-                                 <SelectItem key={templateName} value={templateName}>
-                                   {templateName}
-                                 </SelectItem>
-                               ))}
-                             </SelectContent>
-                           </Select>
-                         </div>
-                         
-                         <div className="space-y-2">
-                           <Label htmlFor="target-month">Månad att kopiera till</Label>
-                           <Input
-                             id="target-month"
-                             type="month"
-                             value={targetCopyMonth}
-                             onChange={(e) => setTargetCopyMonth(e.target.value)}
-                             className="text-lg"
-                             placeholder="Välj månad"
-                           />
-                         </div>
-                       </div>
-                     ) : (
-                       <div className="text-center py-4 text-muted-foreground">
-                         <p>Inga budgetmallar skapade än. Skapa en mall först nedan.</p>
-                       </div>
-                     )}
-                     
-                     {selectedTemplateToCopy && Object.keys(budgetTemplates).length > 0 && (
-                       <div className="space-y-4">
-                         {/* Template Details */}
-                         <div className="p-3 bg-muted/50 rounded-lg">
-                           <div className="flex items-center justify-between mb-3">
-                             <h4 className="font-medium">Detaljer för: {selectedTemplateToCopy}</h4>
-                             <Button
-                               onClick={() => setShowTemplateDetails(!showTemplateDetails)}
-                               variant="outline"
-                               size="sm"
-                             >
-                               {showTemplateDetails ? 'Dölj detaljer' : 'Visa detaljer'}
-                             </Button>
-                           </div>
-                           
-                           {budgetTemplates[selectedTemplateToCopy] && (
-                             <div className="grid grid-cols-2 gap-4 text-sm">
-                               <div>
-                                 <span className="text-muted-foreground">Skapad:</span>
-                                 <p className="font-medium">
-                                   {new Date(budgetTemplates[selectedTemplateToCopy].created).toLocaleDateString('sv-SE')}
-                                 </p>
-                               </div>
-                               <div>
-                                 <span className="text-muted-foreground">Från månad:</span>
-                                 <p className="font-medium">
-                                   {budgetTemplates[selectedTemplateToCopy].sourceMonth === 'current' 
-                                     ? 'Aktuell månad' 
-                                     : budgetTemplates[selectedTemplateToCopy].sourceMonth}
-                                 </p>
-                               </div>
-                             </div>
-                           )}
-                           
-                           {showTemplateDetails && budgetTemplates[selectedTemplateToCopy] && (
-                             <div className="mt-4 space-y-3">
-                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                                 <div>
-                                   <h5 className="font-medium text-green-600 mb-2">Inkomster</h5>
-                                   <div className="space-y-1">
-                                     <div className="flex justify-between">
-                                       <span>{userName1}:</span>
-                                       <span>{formatCurrency(budgetTemplates[selectedTemplateToCopy].andreasSalary + budgetTemplates[selectedTemplateToCopy].andreasförsäkringskassan + budgetTemplates[selectedTemplateToCopy].andreasbarnbidrag)}</span>
-                                     </div>
-                                     <div className="flex justify-between">
-                                       <span>{userName2}:</span>
-                                       <span>{formatCurrency(budgetTemplates[selectedTemplateToCopy].susannaSalary + budgetTemplates[selectedTemplateToCopy].susannaförsäkringskassan + budgetTemplates[selectedTemplateToCopy].susannabarnbidrag)}</span>
-                                     </div>
-                                   </div>
-                                 </div>
-                                 <div>
-                                   <h5 className="font-medium text-red-600 mb-2">Kostnader</h5>
-                                   <div className="space-y-1">
-                                     {budgetTemplates[selectedTemplateToCopy].costGroups?.slice(0, 3).map((group: any) => (
-                                       <div key={group.id} className="flex justify-between">
-                                         <span>{group.name}:</span>
-                                         <span>{formatCurrency(group.amount)}</span>
-                                       </div>
-                                     ))}
-                                     {budgetTemplates[selectedTemplateToCopy].costGroups?.length > 3 && (
-                                       <div className="text-muted-foreground">
-                                         +{budgetTemplates[selectedTemplateToCopy].costGroups.length - 3} fler kategorier...
-                                       </div>
-                                     )}
-                                   </div>
-                                 </div>
-                               </div>
-                             </div>
-                           )}
-                         </div>
-                         
-                         {/* Copy Action */}
-                         <div className="flex flex-col gap-2">
-                            <Button
-                              onClick={() => copyTemplateToMonth()}
-                              disabled={!selectedTemplateToCopy || !targetCopyMonth}
-                              className="w-full bg-primary hover:bg-primary/90"
-                              size="lg"
-                            >
-                             <Plus className="mr-2 h-4 w-4" />
-                             Kopiera "{selectedTemplateToCopy}" till {targetCopyMonth}
-                           </Button>
-                           {targetCopyMonth && historicalData[targetCopyMonth] && (
-                             <p className="text-sm text-amber-600 text-center">
-                               ⚠️ Denna månad har redan data. Kopieringen kommer att ersätta befintlig data.
-                             </p>
-                           )}
-                         </div>
-                       </div>
-                     )}
-                   </div>
-
-                   {/* Create new template */}
-                   <div className="space-y-4">
-                     <h3 className="text-lg font-semibold">Skapa ny budgetmall</h3>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                       <div className="space-y-2">
-                         <Label htmlFor="template-name">Mallnamn</Label>
-                         <Input
-                           id="template-name"
-                           value={newTemplateName}
-                           onChange={(e) => setNewTemplateName(e.target.value)}
-                           placeholder="Ange namn för budgetmall"
-                           className="text-lg"
-                         />
-                       </div>
-                       <div className="space-y-2">
-                         <Label htmlFor="template-source">Skapa från månad</Label>
-                         <Select value={selectedTemplateSourceMonth} onValueChange={setSelectedTemplateSourceMonth}>
-                           <SelectTrigger>
-                             <SelectValue placeholder="Välj månad" />
-                           </SelectTrigger>
-                           <SelectContent>
-                             <SelectItem value="current">Aktuell månad</SelectItem>
-                              {[...availableMonths].sort().reverse().map(month => (
-                                <SelectItem key={month} value={month}>{month}</SelectItem>
-                              ))}
-                           </SelectContent>
-                         </Select>
-                       </div>
-                     </div>
-                     
-                     <Button
-                       onClick={() => {
-                         if (newTemplateName && selectedTemplateSourceMonth) {
-                           const sourceData = selectedTemplateSourceMonth === 'current' 
-                             ? {
-                                 andreasSalary,
-                                 andreasförsäkringskassan,
-                                 andreasbarnbidrag,
-                                 susannaSalary,
-                                 susannaförsäkringskassan,
-                                 susannabarnbidrag,
-                                 costGroups,
-                                 savingsGroups,
-                                 dailyTransfer,
-                                 weekendTransfer,
-                                 customHolidays,
-                                 andreasPersonalCosts,
-                                 andreasPersonalSavings,
-                                 susannaPersonalCosts,
-                                 susannaPersonalSavings,
-                                 accounts
-                               }
-                             : historicalData[selectedTemplateSourceMonth];
-                           
-                           const templateData = {
-                             name: newTemplateName.trim(),
-                             created: new Date().toISOString(),
-                             sourceMonth: selectedTemplateSourceMonth,
-                             andreasSalary: sourceData.andreasSalary || 0,
-                             andreasförsäkringskassan: sourceData.andreasförsäkringskassan || 0,
-                             andreasbarnbidrag: sourceData.andreasbarnbidrag || 0,
-                             susannaSalary: sourceData.susannaSalary || 0,
-                             susannaförsäkringskassan: sourceData.susannaförsäkringskassan || 0,
-                             susannabarnbidrag: sourceData.susannabarnbidrag || 0,
-                             costGroups: JSON.parse(JSON.stringify(sourceData.costGroups || [])),
-                             savingsGroups: JSON.parse(JSON.stringify(sourceData.savingsGroups || [])),
-                             dailyTransfer: sourceData.dailyTransfer || 300,
-                             weekendTransfer: sourceData.weekendTransfer || 540,
-                             customHolidays: JSON.parse(JSON.stringify(sourceData.customHolidays || [])),
-                             andreasPersonalCosts: JSON.parse(JSON.stringify(sourceData.andreasPersonalCosts || [])),
-                             andreasPersonalSavings: JSON.parse(JSON.stringify(sourceData.andreasPersonalSavings || [])),
-                             susannaPersonalCosts: JSON.parse(JSON.stringify(sourceData.susannaPersonalCosts || [])),
-                             susannaPersonalSavings: JSON.parse(JSON.stringify(sourceData.susannaPersonalSavings || [])),
-                             accounts: JSON.parse(JSON.stringify(budgetState.accounts.map(acc => acc.name))),
-                             date: new Date().toISOString()
-                           };
-                           
-                           const updatedTemplates = {
-                             ...budgetTemplates,
-                             [newTemplateName.trim()]: templateData
-                           };
-                           
-                           setBudgetTemplates(updatedTemplates);
-                           setNewTemplateName('');
-                           setSelectedTemplateSourceMonth('');
-                         }
-                       }}
-                       disabled={!newTemplateName || !selectedTemplateSourceMonth}
-                       className="w-full"
-                     >
-                       <Plus className="mr-2 h-4 w-4" />
-                       Skapa budgetmall
-                     </Button>
-                   </div>
-
-                    {/* Existing Templates Management */}
-                    {Object.keys(budgetTemplates).length > 0 && (
-                      <div className="space-y-4">
-                        <h3 className="text-lg font-semibold">Hantera befintliga mallar</h3>
-                        <div className="space-y-2">
-                          {Object.keys(budgetTemplates).sort().map(templateName => (
-                            <Collapsible key={templateName} open={expandedTemplates[templateName]}>
-                              <div className="border rounded-lg">
-                                <CollapsibleTrigger asChild>
-                                  <button 
-                                    className="w-full flex items-center justify-between p-3 hover:bg-muted/50"
-                                    onClick={() => setExpandedTemplates(prev => ({
-                                      ...prev,
-                                      [templateName]: !prev[templateName]
-                                    }))}
-                                  >
-                                    <div className="flex items-center justify-between w-full">
-                                      <div>
-                                        <span className="font-medium">{templateName}</span>
-                                        <p className="text-sm text-muted-foreground">
-                                          Skapad: {new Date(budgetTemplates[templateName].created).toLocaleDateString('sv-SE')}
-                                        </p>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <div className="flex gap-2">
-                                          <Button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              startEditingTemplate(templateName);
-                                            }}
-                                            size="sm"
-                                            variant="outline"
-                                          >
-                                            <Edit className="w-4 h-4 mr-1" />
-                                            Redigera
-                                          </Button>
-                                          <Button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              const updatedTemplates = { ...budgetTemplates };
-                                              delete updatedTemplates[templateName];
-                                              setBudgetTemplates(updatedTemplates);
-                                            }}
-                                            size="sm"
-                                            variant="destructive"
-                                          >
-                                            <Trash2 className="w-4 h-4" />
-                                          </Button>
-                                        </div>
-                                        <ChevronDown className={`h-4 w-4 transition-transform ${expandedTemplates[templateName] ? 'rotate-180' : ''}`} />
-                                      </div>
-                                    </div>
-                                  </button>
-                                </CollapsibleTrigger>
-                                <CollapsibleContent>
-                                  <div className="p-3 pt-0 border-t">
-                                    {(() => {
-                                      const template = budgetTemplates[templateName];
-                                      if (!template) return null;
-                                      
-                                      const totalCosts = template.costGroups?.reduce((sum: number, group: any) => {
-                                        const subTotal = group.subCategories?.reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-                                        return sum + subTotal;
-                                      }, 0) || 0;
-                                      
-                                      const totalSavings = template.savingsGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0;
-                                      
-                                      // Check if this template is being edited
-                                      if (editingTemplate === templateName && editingTemplateData) {
-                                        return (
-                                          <div className="space-y-4">
-                                            {/* Edit Mode Header with totals */}
-                                             <div className="mb-4 p-3 bg-muted/50 rounded-lg space-y-3">
-                                               <div className="grid grid-cols-2 gap-4">
-                                                 <div>
-                                                   <span className="font-medium">Totala kostnader:</span>
-                                                   <div className="text-destructive">
-                                                     {formatCurrency(editingTemplateData.costGroups?.reduce((sum: number, group: any) => {
-                                                       const subTotal = group.subCategories?.reduce((subSum: number, sub: any) => subSum + sub.amount, 0) || 0;
-                                                       return sum + subTotal;
-                                                     }, 0) || 0)}
-                                                   </div>
-                                                 </div>
-                                                 <div>
-                                                   <span className="font-medium">Total daglig budget:</span>
-                                                   <div className="text-destructive">
-                                                     {editingTemplateData.dailyTransfer && editingTemplateData.weekendTransfer ? formatCurrency(
-                                                       (() => {
-                                                         const [year, month] = selectedBudgetMonth.split('-').map(Number);
-                                                         const { weekdayCount, fridayCount } = calculateDaysForMonth(year, month - 1);
-                                                         return (weekdayCount * editingTemplateData.dailyTransfer) + (fridayCount * editingTemplateData.weekendTransfer);
-                                                       })()
-                                                     ) : '0 kr'}
-                                                   </div>
-                                                 </div>
-                                               </div>
-                                               <div>
-                                                 <span className="font-medium">Totalt sparande:</span>
-                                                 <div className="text-green-600">
-                                                   {formatCurrency(editingTemplateData.savingsGroups?.reduce((sum: number, group: any) => sum + group.amount, 0) || 0)}
-                                                 </div>
-                                               </div>
-                                             </div>
-
-                                            {/* Transfer Settings */}
-                                            <div className="space-y-3 p-3 border rounded-lg bg-blue-50/50">
-                                              <h4 className="font-medium text-blue-800">Överföringsinställningar</h4>
-                                              <div className="grid grid-cols-2 gap-3">
-                                                <div>
-                                                  <Label className="text-xs">Daglig överföring (måndag-torsdag)</Label>
-                                                  <Input
-                                                    type="number"
-                                                    value={editingTemplateData.dailyTransfer || 0}
-                                                    onChange={(e) => updateEditingTemplateTransfer('dailyTransfer', parseFloat(e.target.value) || 0)}
-                                                    className="h-8"
-                                                  />
-                                                </div>
-                                                <div>
-                                                  <Label className="text-xs">Helgöverföring (fredag-söndag)</Label>
-                                                  <Input
-                                                    type="number"
-                                                    value={editingTemplateData.weekendTransfer || 0}
-                                                    onChange={(e) => updateEditingTemplateTransfer('weekendTransfer', parseFloat(e.target.value) || 0)}
-                                                    className="h-8"
-                                                  />
-                                                </div>
-                                              </div>
-                                              {editingTemplateData.dailyTransfer && editingTemplateData.weekendTransfer && (
-                                                <div className="text-xs text-muted-foreground">
-                                                  Total daglig budget: {formatCurrency(
-                                                    (() => {
-                                                      const [year, month] = selectedBudgetMonth.split('-').map(Number);
-                                                      const { weekdayCount, fridayCount } = calculateDaysForMonth(year, month - 1);
-                                                      return (weekdayCount * editingTemplateData.dailyTransfer) + (fridayCount * editingTemplateData.weekendTransfer);
-                                                    })()
-                                                  )}
-                                                </div>
-                                              )}
-                                            </div>
-
-                                            {/* Cost Categories */}
-                                            <div>
-                                              <h4 className="font-medium mb-2">Kostnadskategorier</h4>
-                                              {editingTemplateData.costGroups?.map((group: any) => (
-                                                <div key={group.id} className="mb-4 p-3 border rounded-md">
-                                                  <div className="grid grid-cols-3 gap-2 mb-2">
-                                                     <div>
-                                                       <Label className="text-xs">Huvudkategori</Label>
-                                                       <Select 
-                                                         value={group.name} 
-                                                         onValueChange={(value) => updateEditingTemplateGroup(group.id, 'name', value)}
-                                                       >
-                                                         <SelectTrigger className="h-8">
-                                                           <SelectValue placeholder="Välj huvudkategori" />
-                                                         </SelectTrigger>
-                                                         <SelectContent className="bg-popover border border-border shadow-lg z-50">
-                                                           {(budgetState.mainCategories || []).map((category) => (
-                                                             <SelectItem key={category} value={category}>
-                                                               {category}
-                                                             </SelectItem>
-                                                           ))}
-                                                         </SelectContent>
-                                                       </Select>
-                                                      </div>
-                                                     <div>
-                                                       <Label className="text-xs">Konto</Label>
-                                                       <Select 
-                                                         value={group.account || ''} 
-                                                         onValueChange={(value) => updateEditingTemplateGroup(group.id, 'account', value)}
-                                                       >
-                                                         <SelectTrigger className="h-8">
-                                                           <SelectValue placeholder="Välj konto" />
-                                                         </SelectTrigger>
-                                                         <SelectContent>
-                                                           {accounts.map(account => (
-                                                             <SelectItem key={account} value={account}>{account}</SelectItem>
-                                                           ))}
-                                                         </SelectContent>
-                                                       </Select>
-                                                     </div>
-                                                     <div>
-                                                       <Label className="text-xs">Finansieras ifrån</Label>
-                                                       <Select 
-                                                         value={group.financedFrom || 'Löpande kostnad'} 
-                                                         onValueChange={(value) => updateEditingTemplateGroup(group.id, 'financedFrom', value)}
-                                                       >
-                                                         <SelectTrigger className="h-8">
-                                                           <SelectValue />
-                                                         </SelectTrigger>
-                                                         <SelectContent>
-                                                           <SelectItem value="Löpande kostnad">Löpande kostnad</SelectItem>
-                                                           <SelectItem value="Enskild kostnad">Enskild kostnad</SelectItem>
-                                                         </SelectContent>
-                                                       </Select>
-                                                     </div>
-                                                    {(!group.subCategories || group.subCategories.length === 0) && (
-                                                      <div>
-                                                        <Label className="text-xs">Belopp</Label>
-                                                        <Input
-                                                          type="number"
-                                                          value={group.amount}
-                                                          onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', parseFloat(e.target.value) || 0)}
-                                                          className="h-8"
-                                                        />
-                                                      </div>
-                                                    )}
-                                                  </div>
-                                                  
-                                                  {/* Subcategories */}
-                                                  {group.subCategories && group.subCategories.length > 0 && (
-                                                    <div className="ml-4 space-y-2">
-                                                      <Label className="text-xs text-muted-foreground">Kostnadsposter:</Label>
-                                                       {group.subCategories.map((sub: any) => (
-                                                         <div key={sub.id} className="grid grid-cols-4 gap-2">
-                                                           <Input
-                                                             value={sub.name}
-                                                             onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value, true, sub.id)}
-                                                             className="h-7 text-xs"
-                                                             placeholder="Kostnadspost"
-                                                           />
-                                                           <Select 
-                                                             value={sub.account || ''} 
-                                                             onValueChange={(value) => updateEditingTemplateGroup(group.id, 'account', value, true, sub.id)}
-                                                           >
-                                                             <SelectTrigger className="h-7 text-xs">
-                                                               <SelectValue placeholder="Konto" />
-                                                             </SelectTrigger>
-                                                             <SelectContent>
-                                                               {accounts.map(account => (
-                                                                 <SelectItem key={account} value={account}>{account}</SelectItem>
-                                                               ))}
-                                                             </SelectContent>
-                                                           </Select>
-                                                           <Select 
-                                                             value={sub.financedFrom || 'Löpande kostnad'} 
-                                                             onValueChange={(value) => updateEditingTemplateGroup(group.id, 'financedFrom', value, true, sub.id)}
-                                                           >
-                                                             <SelectTrigger className="h-7 text-xs">
-                                                               <SelectValue placeholder="Finansieras" />
-                                                             </SelectTrigger>
-                                                             <SelectContent>
-                                                               <SelectItem value="Löpande kostnad">Löpande kostnad</SelectItem>
-                                                               <SelectItem value="Enskild kostnad">Enskild kostnad</SelectItem>
-                                                             </SelectContent>
-                                                           </Select>
-                                                           <Input
-                                                             type="number"
-                                                             value={sub.amount}
-                                                             onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', parseFloat(e.target.value) || 0, true, sub.id)}
-                                                             className="h-7 text-xs"
-                                                             placeholder="Belopp"
-                                                           />
-                                                         </div>
-                                                       ))}
-                                                    </div>
-                                                  )}
-                                                </div>
-                                              ))}
-                                            </div>
-
-                                            {/* Savings Categories */}
-                                            <div>
-                                              <h4 className="font-medium mb-2">Sparandekategorier</h4>
-                                              {editingTemplateData.savingsGroups?.map((group: any) => (
-                                                 <div key={group.id} className="mb-4 p-3 border rounded-md">
-                                                   <div className="grid grid-cols-3 gap-2">
-                                                     <div>
-                                                       <Label className="text-xs">Kategori</Label>
-                                                       <Input
-                                                         value={group.name}
-                                                         onChange={(e) => updateEditingTemplateGroup(group.id, 'name', e.target.value)}
-                                                         className="h-8"
-                                                       />
-                                                     </div>
-                                                     <div>
-                                                       <Label className="text-xs">Konto</Label>
-                                                       <Select 
-                                                         value={group.account || ''} 
-                                                         onValueChange={(value) => updateEditingTemplateGroup(group.id, 'account', value)}
-                                                       >
-                                                         <SelectTrigger className="h-8">
-                                                           <SelectValue placeholder="Välj konto" />
-                                                         </SelectTrigger>
-                                                         <SelectContent>
-                                                           {accounts.map(account => (
-                                                             <SelectItem key={account} value={account}>{account}</SelectItem>
-                                                           ))}
-                                                         </SelectContent>
-                                                       </Select>
-                                                     </div>
-                                                     <div>
-                                                       <Label className="text-xs">Belopp</Label>
-                                                       <Input
-                                                         type="number"
-                                                         value={group.amount}
-                                                         onChange={(e) => updateEditingTemplateGroup(group.id, 'amount', parseFloat(e.target.value) || 0)}
-                                                         className="h-8"
-                                                       />
-                                                     </div>
-                                                   </div>
-                                                 </div>
-                                              ))}
-                                            </div>
-
-                                            {/* Action Buttons */}
-                                            <div className="flex gap-2 pt-4 border-t">
-                                              <Button onClick={saveEditedTemplate} className="flex-1">
-                                                <Save className="w-4 h-4 mr-2" />
-                                                Spara
-                                              </Button>
-                                              <Button onClick={cancelEditingTemplate} variant="outline" className="flex-1">
-                                                Avbryt
-                                              </Button>
-                                            </div>
-                                          </div>
-                                        );
-                                      }
-
-                                      // View Mode
-                                      return (
-                                        <div className="space-y-3 text-sm">
-                                           <div className="space-y-3">
-                                             <div className="grid grid-cols-2 gap-4">
-                                               <div>
-                                                 <span className="font-medium">Totala kostnader:</span>
-                                                 <div className="text-destructive">{formatCurrency(totalCosts)}</div>
-                                               </div>
-                                               <div>
-                                                 <span className="font-medium">Total daglig budget:</span>
-                                                 <div className="text-destructive">
-                                                   {template.dailyTransfer && template.weekendTransfer ? formatCurrency(
-                                                     (() => {
-                                                       const [year, month] = selectedBudgetMonth.split('-').map(Number);
-                                                       const { weekdayCount, fridayCount } = calculateDaysForMonth(year, month - 1);
-                                                       return (weekdayCount * template.dailyTransfer) + (fridayCount * template.weekendTransfer);
-                                                     })()
-                                                   ) : '0 kr'}
-                                                 </div>
-                                               </div>
-                                             </div>
-                                             <div>
-                                               <span className="font-medium">Totalt sparande:</span>
-                                               <div className="text-green-600">{formatCurrency(totalSavings)}</div>
-                                             </div>
-                                           </div>
-                                          
-                                          {/* Daily Budget Summary with updated layout */}
-                                           {template.dailyTransfer && template.weekendTransfer && (
-                                             <div className="border-t pt-3">
-                                               <div className="font-medium text-base mb-2">
-                                                  Total daglig budget
-                                               </div>
-                                               <div className="ml-4 space-y-1 text-xs text-muted-foreground">
-                                                 <div>Totalt belopp: {formatCurrency(
-                                                    (() => {
-                                                      const [year, month] = selectedBudgetMonth.split('-').map(Number);
-                                                      const { weekdayCount, fridayCount } = calculateDaysForMonth(year, month - 1);
-                                                      return (weekdayCount * template.dailyTransfer) + (fridayCount * template.weekendTransfer);
-                                                    })()
-                                                  )}</div>
-                                                 <div>• Daglig överföring (måndag-torsdag): {template.dailyTransfer}</div>
-                                                 <div>• Helgöverföring (fredag): {template.weekendTransfer}</div>
-                                                  {(() => {
-                                                    const [year, month] = selectedBudgetMonth.split('-').map(Number);
-                                                    const { weekdayCount, fridayCount } = calculateDaysForMonth(year, month - 1);
-                                                    const weekdaysExcludingFridays = weekdayCount - fridayCount;
-                                                    return (
-                                                      <>
-                                                        <div>• Vardagar: {weekdaysExcludingFridays} × {template.dailyTransfer} kr = {formatCurrency(weekdaysExcludingFridays * template.dailyTransfer)}</div>
-                                                        <div>• Helgdagar: {fridayCount} × {template.weekendTransfer} kr = {formatCurrency(fridayCount * template.weekendTransfer)}</div>
-                                                      </>
-                                                    );
-                                                  })()}
-                                               </div>
-                                             </div>
-                                           )}
-                                         
-                                         {template.costGroups && template.costGroups.length > 0 && (
-                                           <div>
-                                             <span className="font-medium">Kostnadskategorier:</span>
-                                             <ul className="ml-4 mt-1 space-y-1">
-                                               {template.costGroups.map((group: any) => {
-                                                 const groupTotal = group.subCategories?.reduce((sum: number, sub: any) => sum + sub.amount, 0) || 0;
-                                                 return (
-                                                   <li key={group.id} className="text-xs">
-                                                     <div className="font-medium">{group.name}: {formatCurrency(groupTotal)}</div>
-                                                     {group.subCategories && group.subCategories.length > 0 && (
-                                                       <ul className="ml-4 mt-1 space-y-1">
-                                                         {group.subCategories.map((sub: any, index: number) => (
-                                                           <li key={index} className="text-xs text-muted-foreground">
-                                                             • {sub.name}: {formatCurrency(sub.amount)}{sub.account ? ` (${sub.account})` : ''}
-                                                           </li>
-                                                         ))}
-                                                       </ul>
-                                                     )}
-                                                   </li>
-                                                 );
-                                               })}
-                                             </ul>
-                                           </div>
-                                         )}
-                                         
-                                         {template.savingsGroups && template.savingsGroups.length > 0 && (
-                                           <div>
-                                             <span className="font-medium">Sparandekategorier:</span>
-                                             <ul className="ml-4 mt-1 space-y-1">
-                                               {template.savingsGroups.map((group: any) => (
-                                                 <li key={group.id} className="text-xs">
-                                                   {group.name}: {formatCurrency(group.amount)}
-                                                 </li>
-                                               ))}
-                                             </ul>
-                                           </div>
-                                         )}
-                                        </div>
-                                      );
-                                    })()}
-                                  </div>
-                                </CollapsibleContent>
-                              </div>
-                            </Collapsible>
-                          ))}
-                        </div>
-                      </div>
-                     )}
-                 </CardContent>
-               </Card>
-
-               {/* Account Management Section */}
-               <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
-                 <CardHeader>
-                   <CardTitle className="flex items-center gap-2">
-                     <DollarSign className="h-5 w-5 text-primary" />
-                     Ändra konton
-                   </CardTitle>
-                   <CardDescription>
-                     Hantera konton och kontokategorier
-                   </CardDescription>
-                 </CardHeader>
-                 <CardContent className="space-y-6">
-                   {/* Account Categories Management */}
-                   <div className="space-y-4">
-                     <div className="flex items-center justify-between">
-                       <h3 className="text-lg font-semibold">Kontokategorier</h3>
-                       <Button 
-                         size="sm" 
-                         variant="outline" 
-                         onClick={() => setIsEditingAccountCategories(!isEditingAccountCategories)}
-                       >
-                         {isEditingAccountCategories ? 'Stäng' : 'Redigera kategorier'}
-                       </Button>
-                     </div>
-
-                     {isEditingAccountCategories && (
-                       <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
-                         <div className="flex gap-2">
-                           <Input
-                             placeholder="Ny kontokategori"
-                             value={newCategoryName}
-                             onChange={(e) => setNewCategoryName(e.target.value)}
-                             className="flex-1"
-                           />
-                           <Button onClick={addAccountCategory} disabled={!newCategoryName.trim()}>
-                             <Plus className="h-4 w-4" />
-                           </Button>
-                         </div>
-                         
-                         <div className="space-y-2">
-                           <h4 className="font-medium">Befintliga kategorier:</h4>
-                           {accountCategories.map((category) => (
-                             <div key={category} className="flex justify-between items-center p-2 bg-white rounded border">
-                               <span className="font-medium">{category}</span>
-                               <Button
-                                 size="sm"
-                                 variant="ghost"
-                                 onClick={() => removeAccountCategory(category)}
-                                 className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                               >
-                                 <Trash2 className="h-4 w-4" />
-                               </Button>
-                             </div>
-                           ))}
-                         </div>
-                       </div>
-                     )}
-                   </div>
-
-                   {/* Account Management */}
-                   <div className="space-y-4">
-                     <div className="flex items-center justify-between">
-                       <h3 className="text-lg font-semibold">Konton</h3>
-                       <Button 
-                         size="sm" 
-                         variant="outline" 
-                         onClick={() => setIsEditingAccounts(!isEditingAccounts)}
-                       >
-                         {isEditingAccounts ? 'Stäng' : 'Redigera konton'}
-                       </Button>
-                     </div>
-
-                     {isEditingAccounts && (
-                       <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
-                         <div className="flex gap-2">
-                           <Input
-                             placeholder="Nytt kontonamn"
-                             value={newAccountName}
-                             onChange={(e) => setNewAccountName(e.target.value)}
-                             className="flex-1"
-                           />
-                           <Button onClick={addAccount} disabled={!newAccountName.trim()}>
-                             <Plus className="h-4 w-4" />
-                           </Button>
-                         </div>
-                         
-                         <div className="space-y-2">
-                           <h4 className="font-medium">Befintliga konton:</h4>
-                           {accounts.map((account, index) => {
-                             const accountName = typeof account === 'string' ? account : (account as any).name || '';
-                             return (
-                               <div key={accountName} className="flex justify-between items-center p-2 bg-white rounded border">
-                                 <span className="font-medium">{accountName}</span>
-                                 <Button
-                                   size="sm"
-                                   variant="ghost"
-                                   onClick={() => removeAccount(accountName)}
-                                   className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                                 >
-                                   <Trash2 className="h-4 w-4" />
-                                 </Button>
-                               </div>
-                             );
-                           })}
-                         </div>
-                       </div>
-                     )}
-                   </div>
-
-                   {/* Account Category Mapping */}
-                   <div className="space-y-4">
-                     <h3 className="text-lg font-semibold">Kategorimappning</h3>
-                     <p className="text-sm text-muted-foreground">
-                       Koppla varje konto till en kontokategori för bättre organisation
-                     </p>
-                     
-                     <div className="space-y-3">
-                       {accounts.map((account) => {
-                         const accountName = typeof account === 'string' ? account : (account as any).name || '';
-                         return (
-                           <div key={accountName} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                             <span className="font-medium">{accountName}</span>
-                             <Select
-                               value={accountCategoryMapping[accountName] || 'none'}
-                               onValueChange={(value) => updateAccountCategory(accountName, value)}
-                             >
-                               <SelectTrigger className="w-48">
-                                 <SelectValue placeholder="Välj kategori" />
-                               </SelectTrigger>
-                               <SelectContent>
-                                 <SelectItem value="none">Ingen kategori</SelectItem>
-                                 {accountCategories.map((category) => (
-                                   <SelectItem key={category} value={category}>
-                                     {category}
-                                   </SelectItem>
-                                 ))}
-                               </SelectContent>
-                             </Select>
-                           </div>
-                         );
-                       })}
-                     </div>
-
-                     {Object.keys(accountCategoryMapping).length > 0 && (
-                       <div className="mt-4 p-3 bg-muted/50 rounded-lg">
-                         <h4 className="font-medium mb-2">Kategorimappning översikt:</h4>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                           {Object.entries(accountCategoryMapping).map(([account, category]) => (
-                             <div key={account} className="flex justify-between">
-                               <span className="text-muted-foreground">{account}:</span>
-                               <span className="font-medium">{category}</span>
-                             </div>
-                           ))}
-                         </div>
-                       </div>
-                     )}
-                   </div>
-                 </CardContent>
-               </Card>
-              </div>
-            </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+        </TabsContent>
+      </Tabs>
       </div>
 
       {/* Create Month Dialog */}
@@ -10995,6 +7358,7 @@ const BudgetCalculator = () => {
         onClose={() => setShowAddBudgetDialog({ isOpen: false, type: 'cost' })}
         onSave={handleAddBudgetItem}
         type={showAddBudgetDialog.type}
+        monthKey={selectedBudgetMonth || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
       />
       
       {/* Transaction Drill Down Dialog */}

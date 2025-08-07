@@ -86,9 +86,75 @@ class ApiStore {
   }
 
   async getOrCreateMonthlyBudget(monthKey: string): Promise<any> {
-    // No-op for now - placeholder for compatibility
-    console.log(`[API Store] getOrCreateMonthlyBudget called for ${monthKey}`);
-    return null;
+    try {
+      const response = await fetch(`/api/monthly-budgets/${monthKey}`, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        return await response.json();
+      } else if (response.status === 404) {
+        // Budget doesn't exist, create a new one
+        return await this.createMonthlyBudget(monthKey);
+      } else {
+        throw new Error(`Failed to get monthly budget: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('[API Store] Error in getOrCreateMonthlyBudget:', error);
+      throw error;
+    }
+  }
+
+  async createMonthlyBudget(monthKey: string): Promise<any> {
+    try {
+      const response = await fetch('/api/monthly-budgets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          monthKey,
+          andreasSalary: 0,
+          andreasförsäkringskassan: 0,
+          andreasbarnbidrag: 0,
+          susannaSalary: 0,
+          susannaförsäkringskassan: 0,
+          susannabarnbidrag: 0,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create monthly budget: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('[API Store] Error in createMonthlyBudget:', error);
+      throw error;
+    }
+  }
+
+  async updateMonthlyBudget(monthKey: string, updates: any): Promise<any> {
+    try {
+      const response = await fetch(`/api/monthly-budgets/${monthKey}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update monthly budget: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('[API Store] Error in updateMonthlyBudget:', error);
+      throw error;
+    }
   }
 
   async syncFromDatabase(): Promise<any> {

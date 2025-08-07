@@ -109,19 +109,41 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
       // For savings groups, check subcategories for account information
       if (group.subCategories && group.subCategories.length > 0) {
         group.subCategories.forEach(sub => {
-          const accountName = sub.accountId ? accounts.find(acc => acc.id === sub.accountId)?.name || 'Inget konto' : 'Inget konto';
-          
-          // Create a virtual group for each subcategory with account info
-          const virtualGroup = {
-            ...group,
-            amount: sub.amount,
-            subCategories: [sub]
-          };
-          
-          if (!grouped[accountName]) {
-            grouped[accountName] = [];
+          // Check for new hierarchical structure with nested budget posts
+          if (sub.budgetPosts && sub.budgetPosts.length > 0) {
+            sub.budgetPosts.forEach((post: any) => {
+              const accountName = post.accountId ? accounts.find(acc => acc.id === post.accountId)?.name || 'Inget konto' : 'Inget konto';
+              
+              // Create a virtual group for each budget post with account info
+              const virtualGroup = {
+                ...group,
+                amount: post.amount,
+                subCategories: [{
+                  ...post,
+                  account: post.account
+                }]
+              };
+              
+              if (!grouped[accountName]) {
+                grouped[accountName] = [];
+              }
+              grouped[accountName].push(virtualGroup);
+            });
+          } else {
+            // Fallback for legacy structure
+            const accountName = sub.accountId ? accounts.find(acc => acc.id === sub.accountId)?.name || 'Inget konto' : 'Inget konto';
+            
+            const virtualGroup = {
+              ...group,
+              amount: sub.amount,
+              subCategories: [sub]
+            };
+            
+            if (!grouped[accountName]) {
+              grouped[accountName] = [];
+            }
+            grouped[accountName].push(virtualGroup);
           }
-          grouped[accountName].push(virtualGroup);
         });
       } else {
         // Fallback for groups without subcategories
@@ -163,17 +185,37 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
   };
 
   const renderCategoryView = () => {
-    // Flatten all savings subcategories into a single list
-    const allSavingsItems: { id: string; name: string; amount: number; account?: string; groupId: string }[] = [];
+    console.log('🔍 [SavingsSection] renderCategoryView - savingsGroups received:', savingsGroups);
+    
+    // Flatten all savings subcategories and budget posts into a single list
+    const allSavingsItems: { id: string; name: string; amount: number; account?: string; accountId?: string; groupId: string }[] = [];
     
     savingsGroups.forEach((group) => {
       group.subCategories?.forEach((sub) => {
-        allSavingsItems.push({
-          ...sub,
-          groupId: group.id
-        });
+        // Check if this subcategory has nested budget posts (new hierarchical structure)
+        if (sub.budgetPosts && sub.budgetPosts.length > 0) {
+          // Extract budget posts (actual savings items)
+          sub.budgetPosts.forEach((post: any) => {
+            allSavingsItems.push({
+              id: post.id,
+              name: post.name,
+              amount: post.amount,
+              account: post.account || '',
+              accountId: post.accountId,
+              groupId: group.id
+            });
+          });
+        } else {
+          // Fallback for legacy structure without nested budget posts
+          allSavingsItems.push({
+            ...sub,
+            groupId: group.id
+          });
+        }
       });
     });
+    
+    console.log('🔍 [SavingsSection] allSavingsItems after processing:', allSavingsItems);
     
     return (
       <div className="space-y-4">
@@ -412,9 +454,21 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
           
           // Get savings items for this account
           const savingsItemsForAccount = savingsGroups.flatMap(group => 
-            (group.subCategories || [])
-              .filter(sub => sub.accountId === account.id)
-              .map(sub => ({ ...sub, groupName: group.name, groupId: group.id }))
+            (group.subCategories || []).flatMap(sub => {
+              // Check for new hierarchical structure with nested budget posts
+              if (sub.budgetPosts && sub.budgetPosts.length > 0) {
+                return sub.budgetPosts
+                  .filter((post: any) => post.accountId === account.id)
+                  .map((post: any) => ({ 
+                    ...post, 
+                    groupName: group.name, 
+                    groupId: group.id 
+                  }));
+              } else {
+                // Fallback for legacy structure
+                return sub.accountId === account.id ? [{ ...sub, groupName: group.name, groupId: group.id }] : [];
+              }
+            })
           );
           
           // Get savings goals for this account
