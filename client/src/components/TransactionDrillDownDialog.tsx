@@ -32,7 +32,7 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
   const isMobile = useIsMobile();
   const { data: accounts = [] } = useAccounts();
   
-  const difference = budgetAmount - actualAmount;
+  const difference = budgetAmount - Math.abs(actualAmount);
 
   // Group transactions by date
   const groupedTransactions = useMemo(() => {

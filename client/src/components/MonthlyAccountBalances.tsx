@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { addMobileDebugLog } from '@/utils/mobileDebugLogger';
 
 interface MonthlyAccountBalance {
   id: string;
@@ -72,7 +73,9 @@ export const MonthlyAccountBalances: React.FC<MonthlyAccountBalancesProps> = ({
       if (!response.ok) throw new Error('Failed to update faktiskt kontosaldo');
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Mutation successful, invalidating queries. Response data:', data);
+      addMobileDebugLog(`🔄 Mutation success, refetching data. Response: ${JSON.stringify(data)}`);
       queryClient.invalidateQueries({ queryKey: ['monthly-account-balances', selectedMonthKey] });
     }
   });
@@ -80,13 +83,20 @@ export const MonthlyAccountBalances: React.FC<MonthlyAccountBalancesProps> = ({
   // Initialize input values when data loads
   useEffect(() => {
     if (monthlyBalances && accounts) {
+      console.log('Updating input values from server data:', monthlyBalances);
+      addMobileDebugLog(`📊 Updating input values from server data`);
       const newInputValues: {[accountId: string]: string} = {};
       accounts.forEach(account => {
         const balance = monthlyBalances.find(b => b.accountId === account.id);
+        console.log(`Account ${account.id} balance:`, balance);
         if (balance?.faktisktKontosaldo !== null && balance?.faktisktKontosaldo !== undefined) {
           newInputValues[account.id] = (balance.faktisktKontosaldo / 100).toString();
+          console.log(`Setting account ${account.id} to:`, newInputValues[account.id]);
+          addMobileDebugLog(`💰 Account ${account.name || account.id}: ${newInputValues[account.id]} kr (from ${balance.faktisktKontosaldo} öre)`);
         } else {
           newInputValues[account.id] = '';
+          console.log(`Setting account ${account.id} to empty (null/undefined value)`);
+          addMobileDebugLog(`🔍 Account ${account.name || account.id}: null/empty (faktisktKontosaldo: ${balance?.faktisktKontosaldo})`);
         }
       });
       setInputValues(newInputValues);
@@ -110,20 +120,35 @@ export const MonthlyAccountBalances: React.FC<MonthlyAccountBalancesProps> = ({
   }, [isPaydayOrAfter, monthlyBalances, accounts, selectedMonthKey]);
 
   const handleInputChange = (accountId: string, value: string) => {
+    addMobileDebugLog(`📱 Input change: account ${accountId}, value: "${value}"`);
     setInputValues(prev => ({ ...prev, [accountId]: value }));
+    
+    // If the field is cleared, immediately save null to database
+    if (value === '') {
+      console.log('Field cleared, saving null for account:', accountId);
+      addMobileDebugLog(`🗑️ Field cleared for account ${accountId}, saving null to DB`);
+      updateFaktisktKontosaldoMutation.mutate({
+        accountId,
+        faktisktKontosaldo: null
+      }, {
+        onSuccess: () => {
+          addMobileDebugLog(`✅ Successfully saved null for account ${accountId}`);
+          // Ensure the input stays empty after successful save
+          setInputValues(prev => ({ ...prev, [accountId]: '' }));
+        }
+      });
+    }
   };
 
   const handleInputBlur = (accountId: string) => {
     const value = inputValues[accountId];
-    if (value === '') {
-      // Clear the field - set to null
-      updateFaktisktKontosaldoMutation.mutate({
-        accountId,
-        faktisktKontosaldo: null
-      });
-    } else {
+    addMobileDebugLog(`👁️ Input blur: account ${accountId}, value: "${value}"`);
+    // Only handle non-empty values here, empty values are handled in onChange
+    if (value !== '') {
       const numericValue = parseFloat(value);
       if (!isNaN(numericValue)) {
+        console.log('Saving numeric value for account:', accountId, 'value:', numericValue);
+        addMobileDebugLog(`💾 Saving numeric value for account ${accountId}: ${numericValue} (${Math.round(numericValue * 100)} öre)`);
         // Save as öre (multiply by 100)
         updateFaktisktKontosaldoMutation.mutate({
           accountId,
@@ -224,22 +249,16 @@ export const MonthlyAccountBalances: React.FC<MonthlyAccountBalancesProps> = ({
                         <div className="flex justify-between items-center">
                           <Label className="text-sm text-blue-600">Faktiskt kontosaldo</Label>
                           <div className="flex items-center gap-2">
-                            {showEjIfyllt ? (
-                              <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                                Ej ifyllt
-                              </span>
-                            ) : (
-                              <Input
-                                type="number"
-                                step="0.01"
-                                value={inputValues[account.id] || ''}
-                                onChange={(e) => handleInputChange(account.id, e.target.value)}
-                                onBlur={() => handleInputBlur(account.id)}
-                                className="w-24 text-right text-sm"
-                                placeholder="kr"
-                                disabled={isPaydayOrAfter}
-                              />
-                            )}
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={inputValues[account.id] || ''}
+                              onChange={(e) => handleInputChange(account.id, e.target.value)}
+                              onBlur={() => handleInputBlur(account.id)}
+                              className="w-24 text-right text-sm"
+                              placeholder={showEjIfyllt ? "Ej ifyllt" : "kr"}
+                              disabled={isPaydayOrAfter}
+                            />
                             <span className="text-sm">kr</span>
                           </div>
                         </div>

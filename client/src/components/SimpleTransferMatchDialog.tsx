@@ -12,6 +12,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Transaction } from '@/types/budget';
 import { matchInternalTransfer, updateTransaction, getAccountNameById } from '../orchestrator/budgetOrchestrator';
+import { formatOrenAsCurrency } from '@/utils/currencyUtils';
 
 interface SimpleTransferMatchDialogProps {
   isOpen: boolean;
@@ -69,14 +70,8 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
     }
   }, [filteredSuggestions, transaction]);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('sv-SE', {
-      style: 'currency',
-      currency: 'SEK',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
+  // Remove custom formatCurrency - use formatOrenAsCurrency instead
+  // The transaction amounts are stored in öre in the database
 
   const handleMatch = () => {
     if (transaction && selectedMatch) {
@@ -110,7 +105,7 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
         <DialogHeader>
           <DialogTitle>Matcha överföring</DialogTitle>
           <DialogDescription>
-            Matcha denna transaktion på {formatCurrency(Math.abs(transaction.amount))} kr från {getAccountNameById(transaction.accountId)}
+            Matcha denna transaktion på {formatOrenAsCurrency(Math.abs(transaction.amount))} från {getAccountNameById(transaction.accountId)}
             med en motsvarande transaktion. Båda transaktionerna kommer att konverteras till interna överföringar och länkas.
           </DialogDescription>
         </DialogHeader>
@@ -120,7 +115,7 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
             <h4 className="font-medium text-blue-900">Transaktion att matcha:</h4>
             <div className="text-sm text-blue-700 mt-1">
               <div className="font-medium">{getAccountNameById(transaction.accountId)}</div>
-              <div>{transaction.date}: {transaction.description} ({formatCurrency(transaction.amount)})</div>
+              <div>{transaction.date}: {transaction.description} ({formatOrenAsCurrency(transaction.amount)})</div>
             </div>
           </div>
 
@@ -158,7 +153,7 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
                             <div className="text-sm text-gray-700">{suggestion.date}: {suggestion.description}</div>
                           </div>
                           <span className={`font-medium ml-4 ${suggestion.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {formatCurrency(suggestion.amount)}
+                            {formatOrenAsCurrency(suggestion.amount)}
                           </span>
                         </div>
                         <div className="text-xs text-blue-600 mt-1">

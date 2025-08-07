@@ -428,92 +428,23 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                 {/* Huvudkategori */}
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Huvudkategori</label>
-                  <Select
-                    value={(() => {
-                      if (transaction.appCategoryId) {
-                        if (mainCategories.includes(transaction.appCategoryId)) {
-                          return transaction.appCategoryId;
-                        }
-                        const costGroup = costGroups.find(group => group.id === transaction.appCategoryId);
-                        return costGroup ? costGroup.name : '';
-                      }
-                      return '';
-                    })()}
-                    onValueChange={(value) => onUpdateCategory(transaction.id, value)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Välj kategori" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border border-border shadow-lg z-50">
-                      {mainCategories.map(category => (
-                        <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="w-full p-2 bg-muted/50 rounded text-sm">
+                    {transaction.appCategoryId 
+                      ? (categoryNames.getHuvudkategoriName(transaction.appCategoryId) || transaction.appCategoryId)
+                      : 'Ingen kategori vald'
+                    }
+                  </div>
                 </div>
 
                 {/* Underkategori */}
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Underkategori</label>
-                  {(() => {
-                    const selectedCategoryName = (() => {
-                      if (transaction.appCategoryId) {
-                        if (mainCategories.includes(transaction.appCategoryId)) {
-                          return transaction.appCategoryId;
-                        }
-                        const costGroup = costGroups.find(group => group.id === transaction.appCategoryId);
-                        return costGroup ? costGroup.name : '';
-                      }
-                      return '';
-                    })();
-
-                    const availableSubcategories = subcategoriesData[selectedCategoryName] || [];
-
-                    if (selectedCategoryName && availableSubcategories.length > 0) {
-                      return (
-                        <Select
-                          value={(() => {
-                            if (transaction.appSubCategoryId) {
-                              if (availableSubcategories.includes(transaction.appSubCategoryId)) {
-                                return transaction.appSubCategoryId;
-                              }
-                              if (selectedCategoryName === 'Transport') {
-                                const transportGroup = costGroups.find(group => group.name === 'Transport');
-                                const subcategory = transportGroup?.subCategories?.find(sub => sub.id === transaction.appSubCategoryId);
-                                return subcategory ? subcategory.name : '';
-                              }
-                            }
-                            return '';
-                          })()}
-                          onValueChange={(subCategoryName) => {
-                            if (selectedCategoryName === 'Transport') {
-                              const transportGroup = costGroups.find(group => group.name === 'Transport');
-                              const subcategory = transportGroup?.subCategories?.find(sub => sub.name === subCategoryName);
-                              if (subcategory) {
-                                onUpdateCategory(transaction.id, selectedCategoryName, subcategory.id);
-                              }
-                            } else {
-                              onUpdateCategory(transaction.id, selectedCategoryName, subCategoryName);
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Välj underkategori" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-background border border-border shadow-lg z-50">
-                            {availableSubcategories.map(subcategory => (
-                              <SelectItem key={subcategory} value={subcategory}>
-                                {subcategory}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      );
+                  <div className="w-full p-2 bg-muted/50 rounded text-sm">
+                    {transaction.appSubCategoryId 
+                      ? (categoryNames.getUnderkategoriName(transaction.appSubCategoryId) || transaction.appSubCategoryId)
+                      : 'Ingen underkategori vald'
                     }
-                    return <p className="text-sm text-muted-foreground">-</p>;
-                  })()}
+                  </div>
                 </div>
 
                 {/* Status */}

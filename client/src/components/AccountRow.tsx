@@ -2,20 +2,24 @@ import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, ChevronRight } from 'lucide-react';
 import { BudgetState, PlannedTransfer, BudgetItem, Account } from '@/types/budget';
 import { NewTransferForm } from './NewTransferForm';
 import { createPlannedTransfer } from '../orchestrator/budgetOrchestrator';
-import { getInternalTransferSummary } from '../services/calculationService';
+import { getInternalTransferSummary, getDateRangeForMonth } from '../services/calculationService';
 import { useAccounts } from '@/hooks/useAccounts';
+import { useCategoriesHierarchy } from '@/hooks/useCategories';
+import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 
 interface AccountRowData {
   account: Account;
   totalBudgeted: number;
-  totalTransferredIn: number;
+  totalPlannedIn: number;
+  totalPlannedOut: number;
   actualTransferredIn: number;
   budgetItems: BudgetItem[];
-  transfersOut: PlannedTransfer[];
+  plannedTransfersIn: any[];
+  plannedTransfersOut: any[];
 }
 
 interface AccountRowProps {
@@ -38,12 +42,24 @@ export const AccountRow: React.FC<AccountRowProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showNewTransferForm, setShowNewTransferForm] = useState(false);
+  const [expandedBudgetItems, setExpandedBudgetItems] = useState<Set<string>>(new Set());
+  const [expandedTransfers, setExpandedTransfers] = useState<Set<string>>(new Set());
   
   // Use API accounts instead of budgetState.accounts
   const { data: accountsFromAPI = [] } = useAccounts();
+  const { categories } = useCategoriesHierarchy();
 
   // Data från props
-  const { account, totalBudgeted, totalTransferredIn, actualTransferredIn, budgetItems, transfersOut } = data;
+  const { account, totalBudgeted, totalPlannedIn, totalPlannedOut, actualTransferredIn, budgetItems, plannedTransfersIn, plannedTransfersOut } = data;
+  
+  // Debug logging
+  addMobileDebugLog(`[AccountRow] Budget items count: ${budgetItems.length}`);
+  addMobileDebugLog(`[AccountRow] Budget items: ${JSON.stringify(budgetItems.map(item => ({id: item.id, desc: item.description, type: item.transferType})))}`);
+  addMobileDebugLog(`[AccountRow] Planned transfers in count: ${plannedTransfersIn.length}`);
+  addMobileDebugLog(`[AccountRow] Planned transfers out count: ${plannedTransfersOut.length}`);
+  
+  // Calculate net planned transfers
+  const netPlanned = totalPlannedIn - totalPlannedOut;
 
   // Hämta interna överföringar för detta konto
   const allInternalTransfers = getInternalTransferSummary(budgetState, selectedMonth);
@@ -60,7 +76,7 @@ export const AccountRow: React.FC<AccountRowProps> = ({
     hasOutgoingTransfers: accountInternalTransfers?.outgoingTransfers?.length || 0
   });
 
-  const handleCreateTransfer = (transfer: {
+  const handleCreateTransfer = async (transfer: {
     fromAccountId: string;
     toAccountId: string;
     amount: number;
@@ -68,8 +84,10 @@ export const AccountRow: React.FC<AccountRowProps> = ({
     transferType: 'monthly' | 'daily';
     dailyAmount?: number;
     transferDays?: number[];
+    huvudkategoriId?: string;
+    underkategoriId?: string;
   }) => {
-    createPlannedTransfer({
+    await createPlannedTransfer({
       fromAccountId: transfer.fromAccountId,
       toAccountId: transfer.toAccountId,
       amount: transfer.amount,
@@ -77,7 +95,9 @@ export const AccountRow: React.FC<AccountRowProps> = ({
       description: transfer.description,
       transferType: transfer.transferType,
       dailyAmount: transfer.dailyAmount,
-      transferDays: transfer.transferDays
+      transferDays: transfer.transferDays,
+      huvudkategoriId: transfer.huvudkategoriId,
+      underkategoriId: transfer.underkategoriId
     });
     setShowNewTransferForm(false);
   };
@@ -85,6 +105,47 @@ export const AccountRow: React.FC<AccountRowProps> = ({
   const getAccountNameById = (accountId: string): string => {
     const foundAccount = accountsFromAPI.find(acc => acc.id === accountId);
     return foundAccount?.name || 'Okänt konto';
+  };
+
+  const getCategoryName = (categoryId: string | undefined): string => {
+    if (!categoryId) return '-';
+    const category = categories.find(cat => cat.id === categoryId);
+    return category?.name || '-';
+  };
+
+  const getSubCategoryName = (huvudkategoriId: string | undefined, underkategoriId: string | undefined): string => {
+    if (!huvudkategoriId || !underkategoriId) return '-';
+    const category = categories.find(cat => cat.id === huvudkategoriId);
+    const subCategory = category?.underkategorier?.find(sub => sub.id === underkategoriId);
+    return subCategory?.name || '-';
+  };
+
+  const toggleBudgetItemExpanded = (itemId: string) => {
+    addMobileDebugLog(`[AccountRow] Toggling budget item: ${itemId}`);
+    addMobileDebugLog(`[AccountRow] Current expanded budget items: ${Array.from(expandedBudgetItems).join(', ')}`);
+    const newExpanded = new Set(expandedBudgetItems);
+    if (newExpanded.has(itemId)) {
+      newExpanded.delete(itemId);
+      addMobileDebugLog(`[AccountRow] Collapsing item: ${itemId}`);
+    } else {
+      newExpanded.add(itemId);
+      addMobileDebugLog(`[AccountRow] Expanding item: ${itemId}`);
+    }
+    setExpandedBudgetItems(newExpanded);
+  };
+
+  const toggleTransferExpanded = (transferId: string) => {
+    addMobileDebugLog(`[AccountRow] Toggling transfer: ${transferId}`);
+    addMobileDebugLog(`[AccountRow] Current expanded transfers: ${Array.from(expandedTransfers).join(', ')}`);
+    const newExpanded = new Set(expandedTransfers);
+    if (newExpanded.has(transferId)) {
+      newExpanded.delete(transferId);
+      addMobileDebugLog(`[AccountRow] Collapsing transfer: ${transferId}`);
+    } else {
+      newExpanded.add(transferId);
+      addMobileDebugLog(`[AccountRow] Expanding transfer: ${transferId}`);
+    }
+    setExpandedTransfers(newExpanded);
   };
 
   return (
@@ -101,8 +162,10 @@ export const AccountRow: React.FC<AccountRowProps> = ({
             <span className="font-medium">{formatCurrency(totalBudgeted)}</span>
           </div>
           <div className="flex flex-col items-end">
-            <span className="text-muted-foreground text-xs">Planerat In</span>
-            <span className="font-medium">{formatCurrency(totalTransferredIn)}</span>
+            <span className="text-muted-foreground text-xs">Planerat</span>
+            <span className={`font-medium ${netPlanned >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {netPlanned >= 0 ? '+' : ''}{formatCurrency(netPlanned)}
+            </span>
           </div>
           <div className="flex flex-col items-end">
             <span className="text-muted-foreground text-xs">Faktiskt Överfört</span>
@@ -131,32 +194,282 @@ export const AccountRow: React.FC<AccountRowProps> = ({
             {budgetItems.length > 0 && (
               <div className="bg-muted/30 rounded-lg p-3">
                 <h4 className="font-semibold mb-3 text-sm text-muted-foreground uppercase tracking-wide">
-                  Budgeterade Poster ({budgetItems.length})
+                  Budgeterade Kostnader ({budgetItems.length})
                 </h4>
                 <div className="space-y-2">
-                  {budgetItems.map(item => (
-                    <div key={item.id} className="flex justify-between items-center py-1 px-2 rounded bg-background/50">
-                      <span className="text-sm">{item.description}</span>
-                      <span className="font-medium text-sm">{formatCurrency(item.amount)}</span>
-                    </div>
-                  ))}
+                  {budgetItems.map(item => {
+                    const isItemExpanded = expandedBudgetItems.has(item.id);
+                    const isDailyTransfer = item.transferType === 'daily';
+                    return (
+                      <div key={item.id} className="bg-background/50 rounded">
+                        <div 
+                          className="flex justify-between items-center py-2 px-3 cursor-pointer hover:bg-muted/50 transition-colors border border-transparent hover:border-muted active:bg-muted/70"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addMobileDebugLog(`[AccountRow] Budget item clicked: ${item.id} - ${item.description}`);
+                            toggleBudgetItemExpanded(item.id);
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            {isItemExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                            <span className="text-sm">
+                              {item.description}
+                              {isDailyTransfer && <span className="text-muted-foreground ml-1">(Daglig)</span>}
+                            </span>
+                          </div>
+                          <span className="font-medium text-sm">{formatCurrency(item.amount)}</span>
+                        </div>
+                        {isItemExpanded && (
+                          <div className="px-6 py-2 bg-muted/10 text-xs space-y-1">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Huvudkategori:</span>
+                              <span>{getCategoryName(item.mainCategoryId)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Underkategori:</span>
+                              <span>{getSubCategoryName(item.mainCategoryId, item.subCategoryId)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Överföringstyp:</span>
+                              <span>{item.transferType === 'daily' ? 'Daglig' : 'Månadsvis'}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Finansieras från:</span>
+                              <span>{item.financedFrom || 'Löpande kostnad'}</span>
+                            </div>
+                            {item.transferType !== 'daily' && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Belopp:</span>
+                                <span>{formatCurrency(item.amount)}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
             
-            {transfersOut.length > 0 && (
-              <div className="bg-red-50 dark:bg-red-950/30 rounded-lg p-3">
+            {/* Planned Transfers Section */}
+            {(plannedTransfersIn.length > 0 || plannedTransfersOut.length > 0) && (
+              <div className="bg-yellow-50 dark:bg-yellow-950/30 rounded-lg p-3">
                 <h4 className="font-semibold mb-3 text-sm text-muted-foreground uppercase tracking-wide">
-                  Planerade Överföringar Ut ({transfersOut.length})
+                  Planerade Överföringar
                 </h4>
-                <div className="space-y-2">
-                  {transfersOut.map(t => (
-                    <div key={t.id} className="flex justify-between items-center py-1 px-2 rounded bg-background/50">
-                      <span className="text-sm">Till {getAccountNameById(t.toAccountId)}</span>
-                      <span className="font-medium text-sm text-destructive">- {formatCurrency(t.amount)}</span>
+                
+                {/* Incoming planned transfers */}
+                {plannedTransfersIn.length > 0 && (
+                  <div className="mb-3">
+                    <h5 className="text-xs font-medium text-green-700 mb-2">Inkommande:</h5>
+                    <div className="space-y-2">
+                      {plannedTransfersIn.map(t => {
+                        const isTransferExpanded = expandedTransfers.has(t.id);
+                        const payday = budgetState.settings?.payday || 25;
+                        const { startDate, endDate } = getDateRangeForMonth(selectedMonth, payday);
+                        
+                        // Calculate days for daily transfers
+                        let transferDayCount = 0;
+                        if (t.transferType === 'daily' && t.transferDays) {
+                          const transferDaysArray = typeof t.transferDays === 'string' ? JSON.parse(t.transferDays) : t.transferDays;
+                          const start = new Date(startDate);
+                          const end = new Date(endDate);
+                          while (start <= end) {
+                            if (transferDaysArray.includes(start.getDay())) {
+                              transferDayCount++;
+                            }
+                            start.setDate(start.getDate() + 1);
+                          }
+                        }
+                        
+                        return (
+                          <div key={t.id} className="bg-background/50 rounded">
+                            <div 
+                              className="flex justify-between items-center py-2 px-3 cursor-pointer hover:bg-muted/50 transition-colors border border-transparent hover:border-muted active:bg-muted/70"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addMobileDebugLog(`[AccountRow] Transfer clicked: ${t.id} - ${t.description || 'No description'}`);
+                                toggleTransferExpanded(t.id);
+                              }}
+                            >
+                              <div className="flex items-center gap-2">
+                                {isTransferExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                <span className="text-sm">
+                                  Från {getAccountNameById(t.accountIdFrom || t.fromAccountId)}
+                                  {t.description && <span className="text-muted-foreground ml-2">({t.description})</span>}
+                                </span>
+                              </div>
+                              <span className="font-medium text-sm text-green-600">+ {formatCurrency(t.amount)}</span>
+                            </div>
+                            {isTransferExpanded && (
+                              <div className="px-6 py-2 bg-muted/10 text-xs space-y-1">
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Huvudkategori:</span>
+                                  <span>{getCategoryName(t.huvudkategoriId)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Underkategori:</span>
+                                  <span>{getSubCategoryName(t.huvudkategoriId, t.underkategoriId)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Överföringstyp:</span>
+                                  <span>{t.transferType === 'daily' ? 'Daglig' : 'Månadsvis'}</span>
+                                </div>
+                                {t.transferType === 'daily' && (
+                                  <>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Valda dagar:</span>
+                                      <span>{t.transferDays ? (typeof t.transferDays === 'string' ? JSON.parse(t.transferDays) : t.transferDays).length : 0} dagar/vecka</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Period:</span>
+                                      <span>{startDate} till {endDate}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Antal överföringsdagar:</span>
+                                      <span>{transferDayCount} dagar</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Belopp per dag:</span>
+                                      <span>{formatCurrency(t.dailyAmount || 0)}</span>
+                                    </div>
+                                    <div className="flex justify-between font-medium">
+                                      <span className="text-muted-foreground">Total månadsbelopp:</span>
+                                      <span>{formatCurrency(t.amount)}</span>
+                                    </div>
+                                  </>
+                                )}
+                                {t.transferType === 'monthly' && (
+                                  <>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Från Konto:</span>
+                                      <span>{getAccountNameById(t.accountIdFrom || t.fromAccountId)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Till Konto:</span>
+                                      <span>{getAccountNameById(t.accountId || t.toAccountId)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Belopp:</span>
+                                      <span>{formatCurrency(t.amount)}</span>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
+                
+                {/* Outgoing planned transfers */}
+                {plannedTransfersOut.length > 0 && (
+                  <div>
+                    <h5 className="text-xs font-medium text-red-700 mb-2">Utgående:</h5>
+                    <div className="space-y-2">
+                      {plannedTransfersOut.map(t => {
+                        const isTransferExpanded = expandedTransfers.has(t.id);
+                        const payday = budgetState.settings?.payday || 25;
+                        const { startDate, endDate } = getDateRangeForMonth(selectedMonth, payday);
+                        
+                        // Calculate days for daily transfers
+                        let transferDayCount = 0;
+                        if (t.transferType === 'daily' && t.transferDays) {
+                          const transferDaysArray = typeof t.transferDays === 'string' ? JSON.parse(t.transferDays) : t.transferDays;
+                          const start = new Date(startDate);
+                          const end = new Date(endDate);
+                          while (start <= end) {
+                            if (transferDaysArray.includes(start.getDay())) {
+                              transferDayCount++;
+                            }
+                            start.setDate(start.getDate() + 1);
+                          }
+                        }
+                        
+                        return (
+                          <div key={t.id} className="bg-background/50 rounded">
+                            <div 
+                              className="flex justify-between items-center py-2 px-3 cursor-pointer hover:bg-muted/50 transition-colors border border-transparent hover:border-muted active:bg-muted/70"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addMobileDebugLog(`[AccountRow] Transfer clicked: ${t.id} - ${t.description || 'No description'}`);
+                                toggleTransferExpanded(t.id);
+                              }}
+                            >
+                              <div className="flex items-center gap-2">
+                                {isTransferExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                <span className="text-sm">
+                                  Till {getAccountNameById(t.accountId || t.toAccountId)}
+                                  {t.description && <span className="text-muted-foreground ml-2">({t.description})</span>}
+                                </span>
+                              </div>
+                              <span className="font-medium text-sm text-red-600">- {formatCurrency(t.amount)}</span>
+                            </div>
+                            {isTransferExpanded && (
+                              <div className="px-6 py-2 bg-muted/10 text-xs space-y-1">
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Huvudkategori:</span>
+                                  <span>{getCategoryName(t.huvudkategoriId)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Underkategori:</span>
+                                  <span>{getSubCategoryName(t.huvudkategoriId, t.underkategoriId)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Överföringstyp:</span>
+                                  <span>{t.transferType === 'daily' ? 'Daglig' : 'Månadsvis'}</span>
+                                </div>
+                                {t.transferType === 'daily' && (
+                                  <>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Valda dagar:</span>
+                                      <span>{t.transferDays ? (typeof t.transferDays === 'string' ? JSON.parse(t.transferDays) : t.transferDays).length : 0} dagar/vecka</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Period:</span>
+                                      <span>{startDate} till {endDate}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Antal överföringsdagar:</span>
+                                      <span>{transferDayCount} dagar</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Belopp per dag:</span>
+                                      <span>{formatCurrency(t.dailyAmount || 0)}</span>
+                                    </div>
+                                    <div className="flex justify-between font-medium">
+                                      <span className="text-muted-foreground">Total månadsbelopp:</span>
+                                      <span>{formatCurrency(t.amount)}</span>
+                                    </div>
+                                  </>
+                                )}
+                                {t.transferType === 'monthly' && (
+                                  <>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Från Konto:</span>
+                                      <span>{getAccountNameById(t.accountIdFrom || t.fromAccountId)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Till Konto:</span>
+                                      <span>{getAccountNameById(t.accountId || t.toAccountId)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Belopp:</span>
+                                      <span>{formatCurrency(t.amount)}</span>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -231,7 +544,7 @@ export const AccountRow: React.FC<AccountRowProps> = ({
               </div>
             )}
 
-            {budgetItems.length === 0 && transfersOut.length === 0 && !accountInternalTransfers && (
+            {budgetItems.length === 0 && !accountInternalTransfers && (
               <div className="text-center py-4 text-muted-foreground text-sm">
                 Inga budgetposter eller överföringar för detta konto
               </div>

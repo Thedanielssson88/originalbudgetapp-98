@@ -15,7 +15,17 @@ import NotFound from "./pages/NotFound";
 import ImportPage from "./pages/ImportPage";
 import { useInitializeApiStore } from "./hooks/useApiStore";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // Data is fresh for 5 minutes
+      gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+      retry: 3,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+    },
+  },
+});
 
 const AppContent = () => {
   // Initialize the API store when the app starts

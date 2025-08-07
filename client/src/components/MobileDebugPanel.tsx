@@ -48,6 +48,7 @@ export const MobileDebugPanel: React.FC = () => {
 
   const formatLogMessage = (message: string) => {
     // Color-code different types of messages
+    if (message.includes('🚗') || message.includes('TRANSPORT')) return 'text-purple-600';
     if (message.includes('📅')) return 'text-blue-600';
     if (message.includes('🔍')) return 'text-green-600';
     if (message.includes('REMOVE')) return 'text-red-600';

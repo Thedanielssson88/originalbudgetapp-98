@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Account } from '@/types/budget';
+import { Account, BudgetState } from '@/types/budget';
+import { getDateRangeForMonth } from '@/services/calculationService';
+import { useCategoriesHierarchy } from '@/hooks/useCategories';
 
 interface NewTransferFormProps {
   targetAccountId?: string;
@@ -14,6 +16,8 @@ interface NewTransferFormProps {
   preselectedFromAccountId?: string;
   preselectedFromAccountName?: string;
   availableAccounts: Account[];
+  selectedMonth?: string;
+  budgetState?: BudgetState;
   onSubmit: (transfer: {
     fromAccountId: string;
     toAccountId: string;
@@ -22,6 +26,8 @@ interface NewTransferFormProps {
     transferType: 'monthly' | 'daily';
     dailyAmount?: number;
     transferDays?: number[];
+    huvudkategoriId?: string;
+    underkategoriId?: string;
   }) => void;
   onCancel: () => void;
 }
@@ -32,9 +38,13 @@ export const NewTransferForm: React.FC<NewTransferFormProps> = ({
   preselectedFromAccountId,
   preselectedFromAccountName,
   availableAccounts,
+  selectedMonth,
+  budgetState,
   onSubmit,
   onCancel
 }) => {
+  const { categories, isLoading: categoriesLoading } = useCategoriesHierarchy();
+  
   const [fromAccountId, setFromAccountId] = useState<string>(preselectedFromAccountId || '');
   const [toAccountId, setToAccountId] = useState<string>(targetAccountId || '');
   const [amount, setAmount] = useState<string>('');
@@ -42,6 +52,67 @@ export const NewTransferForm: React.FC<NewTransferFormProps> = ({
   const [transferType, setTransferType] = useState<'monthly' | 'daily'>('monthly');
   const [dailyAmount, setDailyAmount] = useState<string>('');
   const [transferDays, setTransferDays] = useState<number[]>([1, 2, 3, 4]); // Default Monday-Thursday
+  const [huvudkategoriId, setHuvudkategoriId] = useState<string>('');
+  const [underkategoriId, setUnderkategoriId] = useState<string>('');
+  const [availableUnderkategorier, setAvailableUnderkategorier] = useState<Array<{id: string, name: string}>>([]);
+  const [previousHuvudkategoriId, setPreviousHuvudkategoriId] = useState<string>('');
+
+  // Update available subcategories when main category changes
+  useEffect(() => {
+    if (huvudkategoriId && categories.length > 0) {
+      const selectedCategory = categories.find(cat => cat.id === huvudkategoriId);
+      const newUnderkategorier = selectedCategory?.underkategorier || [];
+      setAvailableUnderkategorier(newUnderkategorier);
+      
+      // Only reset subcategory if huvudkategoriId actually changed
+      if (huvudkategoriId !== previousHuvudkategoriId) {
+        setUnderkategoriId('');
+        setPreviousHuvudkategoriId(huvudkategoriId);
+      }
+    } else if (!huvudkategoriId) {
+      setAvailableUnderkategorier([]);
+      if (huvudkategoriId !== previousHuvudkategoriId) {
+        setUnderkategoriId('');
+        setPreviousHuvudkategoriId(huvudkategoriId);
+      }
+    }
+  }, [huvudkategoriId, categories, previousHuvudkategoriId]);
+
+  // Count specific weekdays in a date range (payday-based)
+  const countWeekdaysInMonth = (monthKey: string, selectedWeekdays: number[], payday: number = 25): number => {
+    const { startDate, endDate } = getDateRangeForMonth(monthKey, payday);
+    
+    let count = 0;
+    const currentDate = new Date(startDate);
+    const lastDate = new Date(endDate);
+    
+    // Iterate through each day in the range
+    while (currentDate <= lastDate) {
+      const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      
+      // Check if this day is in our selected weekdays
+      if (selectedWeekdays.includes(dayOfWeek)) {
+        count++;
+      }
+      
+      // Move to next day
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    return count;
+  };
+
+  // Calculate total monthly amount for daily transfers
+  const calculateTotalMonthlyAmount = (): number => {
+    if (transferType === 'daily' && dailyAmount && transferDays.length > 0 && selectedMonth && budgetState) {
+      const payday = budgetState.settings?.payday || 25;
+      const weekdayCount = countWeekdaysInMonth(selectedMonth, transferDays, payday);
+      return parseFloat(dailyAmount) * weekdayCount;
+    }
+    return 0;
+  };
+
+  const totalMonthlyAmount = calculateTotalMonthlyAmount();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +132,9 @@ export const NewTransferForm: React.FC<NewTransferFormProps> = ({
         toAccountId,
         amount: numericAmount,
         description: description || undefined,
-        transferType: 'monthly'
+        transferType: 'monthly',
+        huvudkategoriId: huvudkategoriId || undefined,
+        underkategoriId: underkategoriId || undefined
       });
     } else if (transferType === 'daily') {
       const numericDailyAmount = parseFloat(dailyAmount);
@@ -80,7 +153,9 @@ export const NewTransferForm: React.FC<NewTransferFormProps> = ({
         description: description || undefined,
         transferType: 'daily',
         dailyAmount: numericDailyAmount,
-        transferDays
+        transferDays,
+        huvudkategoriId: huvudkategoriId || undefined,
+        underkategoriId: underkategoriId || undefined
       });
     }
   };
@@ -111,6 +186,42 @@ export const NewTransferForm: React.FC<NewTransferFormProps> = ({
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="huvudkategori">Huvudkategori</Label>
+            <Select value={huvudkategoriId} onValueChange={setHuvudkategoriId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Välj huvudkategori" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map(category => (
+                  <SelectItem key={category.id} value={category.id}>
+                    {category.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="underkategori">Underkategori</Label>
+            <Select 
+              value={underkategoriId} 
+              onValueChange={setUnderkategoriId}
+              disabled={!huvudkategoriId}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={huvudkategoriId ? "Välj underkategori" : "Välj huvudkategori först"} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableUnderkategorier.map(subCategory => (
+                  <SelectItem key={subCategory.id} value={subCategory.id}>
+                    {subCategory.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div>
             <Label htmlFor="from-account">
               Från konto
@@ -201,6 +312,30 @@ export const NewTransferForm: React.FC<NewTransferFormProps> = ({
                   min="0"
                   step="0.01"
                 />
+                {selectedMonth && budgetState && dailyAmount && transferDays.length > 0 && (
+                  <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <div className="text-sm text-blue-800">
+                      <div className="font-medium">Beräkning för {selectedMonth}:</div>
+                      <div className="text-xs space-y-1 mt-1">
+                        <div>Valda dagar: {transferDays.length} dagar/vecka</div>
+                        <div>Period: {(() => {
+                          const payday = budgetState.settings?.payday || 25;
+                          const { startDate, endDate } = getDateRangeForMonth(selectedMonth, payday);
+                          return `${startDate} till ${endDate}`;
+                        })()}</div>
+                        <div>Antal överföringsdagar: {countWeekdaysInMonth(selectedMonth, transferDays, budgetState.settings?.payday || 25)} dagar</div>
+                        <div className="font-semibold border-t pt-1 mt-1">
+                          Total månadsbelopp: {new Intl.NumberFormat('sv-SE', {
+                            style: 'currency',
+                            currency: 'SEK',
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0
+                          }).format(totalMonthlyAmount)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div>

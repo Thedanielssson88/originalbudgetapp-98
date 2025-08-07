@@ -2,37 +2,39 @@ import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, ChevronUp, ArrowLeftRight, Plus, Edit3, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, ChevronRight, ArrowLeftRight, Plus, Edit3, Trash2, DollarSign } from 'lucide-react';
 import { BudgetState, PlannedTransfer, BudgetItem, Account, MonthData, Transaction } from '@/types/budget';
 import { getAccountNameById } from '../orchestrator/budgetOrchestrator';
 import { getDateRangeForMonth, getInternalTransferSummary } from '../services/calculationService';
 import { useAccounts } from '@/hooks/useAccounts';
+import { useBudgetPosts } from '@/hooks/useBudgetPosts';
+import { useHuvudkategorier, useUnderkategorier, useCategoriesHierarchy } from '@/hooks/useCategories';
+import { formatOrenAsCurrency, kronoraToOren } from '@/utils/currencyUtils';
 import { SimpleTransferMatchDialog } from './SimpleTransferMatchDialog';
 import { NewTransferForm } from './NewTransferForm';
+import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 
 interface TransfersAnalysisProps {
   budgetState: BudgetState;
   selectedMonth: string;
 }
 
-interface AccountAnalysisData {
-  account: Account;
-  totalBudgeted: number;
-  totalTransferredIn: number;
-  actualTransferredIn: number;
-  budgetItems: BudgetItem[];
-  transfersOut: PlannedTransfer[];
-  transfersIn: PlannedTransfer[];
-}
-
-export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({ 
-  budgetState, 
-  selectedMonth 
+export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
+  budgetState,
+  selectedMonth
 }) => {
   console.log('🔄 [TRANSFERS COMPONENT] Component rendered with month:', selectedMonth);
   const { data: accountsFromAPI = [], isLoading: accountsLoading } = useAccounts();
+  const { data: budgetPosts = [], isLoading: budgetPostsLoading, refetch: refetchBudgetPosts } = useBudgetPosts(selectedMonth);
+  const { data: huvudkategorier = [] } = useHuvudkategorier();
+  const { data: underkategorier = [] } = useUnderkategorier();
+  const { categories } = useCategoriesHierarchy();
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
+  const [expandedKontoAccounts, setExpandedKontoAccounts] = useState<Set<string>>(new Set());
+  const [expandedKontoDailyTransfers, setExpandedKontoDailyTransfers] = useState<Set<string>>(new Set());
+  const [expandedBudgetCosts, setExpandedBudgetCosts] = useState<Set<string>>(new Set());
+  const [expandedKontoSections, setExpandedKontoSections] = useState<Set<string>>(new Set(['budgetCosts', 'plannedTransfers', 'actualTransfers']));
   const [transferMatchDialog, setTransferMatchDialog] = useState<{
     isOpen: boolean;
     transaction?: Transaction;
@@ -44,6 +46,20 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
   const [expandedDailyTransfers, setExpandedDailyTransfers] = useState<Set<string>>(new Set());
   const [editMode, setEditMode] = useState(false);
 
+  // Helper functions for getting category names - memoized to prevent re-renders
+  const getCategoryName = React.useCallback((categoryId: string | undefined): string => {
+    if (!categoryId || !categories.length) return '-';
+    const category = categories.find(cat => cat.id === categoryId);
+    return category?.name || '-';
+  }, [categories]);
+
+  const getSubCategoryName = React.useCallback((huvudkategoriId: string | undefined, underkategoriId: string | undefined): string => {
+    if (!huvudkategoriId || !underkategoriId || !categories.length) return '-';
+    const category = categories.find(cat => cat.id === huvudkategoriId);
+    const subCategory = category?.underkategorier?.find(sub => sub.id === underkategoriId);
+    return subCategory?.name || '-';
+  }, [categories]);
+
   // Toggle account expansion
   const toggleAccount = (accountId: string) => {
     const newExpanded = new Set(expandedAccounts);
@@ -53,6 +69,72 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
       newExpanded.add(accountId);
     }
     setExpandedAccounts(newExpanded);
+  };
+
+  // Toggle kontoöversikt account expansion
+  const toggleKontoAccount = (accountId: string) => {
+    const newExpanded = new Set(expandedKontoAccounts);
+    if (newExpanded.has(accountId)) {
+      newExpanded.delete(accountId);
+    } else {
+      newExpanded.add(accountId);
+    }
+    setExpandedKontoAccounts(newExpanded);
+  };
+
+  // Toggle daily transfer expansion in kontoöversikt
+  const toggleKontoDailyTransfer = (transferId: string) => {
+    const newExpanded = new Set(expandedKontoDailyTransfers);
+    if (newExpanded.has(transferId)) {
+      newExpanded.delete(transferId);
+    } else {
+      newExpanded.add(transferId);
+    }
+    setExpandedKontoDailyTransfers(newExpanded);
+  };
+
+  // Toggle budget cost expansion
+  const toggleBudgetCost = React.useCallback((costId: string) => {
+    try {
+      addMobileDebugLog(`[TransfersAnalysis] Toggling budget cost: ${costId}`);
+      setExpandedBudgetCosts(prev => {
+        const newExpanded = new Set(prev);
+        if (newExpanded.has(costId)) {
+          newExpanded.delete(costId);
+          addMobileDebugLog(`[TransfersAnalysis] Collapsing cost: ${costId}`);
+        } else {
+          newExpanded.add(costId);
+          addMobileDebugLog(`[TransfersAnalysis] Expanding cost: ${costId}`);
+        }
+        return newExpanded;
+      });
+    } catch (error) {
+      addMobileDebugLog(`[TransfersAnalysis] Error toggling cost: ${error}`);
+    }
+  }, []);
+
+  // Toggle main section expansion in kontoöversikt
+  const toggleKontoSection = (sectionId: string) => {
+    const newExpanded = new Set(expandedKontoSections);
+    if (newExpanded.has(sectionId)) {
+      newExpanded.delete(sectionId);
+    } else {
+      newExpanded.add(sectionId);
+    }
+    setExpandedKontoSections(newExpanded);
+  };
+
+  // Get category name by ID
+  const getHuvudkategoriName = (id: string | null): string => {
+    if (!id) return 'Ingen kategori';
+    const kategori = huvudkategorier.find(k => k.id === id);
+    return kategori?.name || 'Okänd kategori';
+  };
+
+  const getUnderkategoriName = (id: string | null): string => {
+    if (!id) return 'Ingen underkategori';
+    const kategori = underkategorier.find(k => k.id === id);
+    return kategori?.name || 'Okänd underkategori';
   };
 
   // Toggle daily transfer expansion
@@ -82,13 +164,38 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
     return days.map(d => dayNames[d]).join(', ');
   };
 
+  // Count specific weekdays in a date range (payday-based)
+  const countWeekdaysInMonth = (monthKey: string, selectedWeekdays: number[], payday: number = 25): number => {
+    const { startDate, endDate } = getDateRangeForMonth(monthKey, payday);
+    
+    let count = 0;
+    const currentDate = new Date(startDate);
+    const lastDate = new Date(endDate);
+    
+    // Iterate through each day in the range
+    while (currentDate <= lastDate) {
+      const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      
+      // Check if this day is in our selected weekdays
+      if (selectedWeekdays.includes(dayOfWeek)) {
+        count++;
+      }
+      
+      // Move to next day
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    return count;
+  };
+
   // Handle new transfer form
   const openNewTransferForm = (fromAccountId?: string) => {
     setSelectedFromAccountId(fromAccountId || '');
     setShowNewTransferForm(true);
   };
 
-  const handleCreateTransfer = (transfer: {
+  // Handle transfer creation
+  const handleCreateTransfer = async (transfer: {
     fromAccountId: string;
     toAccountId: string;
     amount: number;
@@ -96,29 +203,99 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
     transferType: 'monthly' | 'daily';
     dailyAmount?: number;
     transferDays?: number[];
+    huvudkategoriId?: string;
+    underkategoriId?: string;
   }) => {
-    // Import the orchestrator function to create planned transfers
-    import('../orchestrator/budgetOrchestrator').then(({ createPlannedTransfer }) => {
-      createPlannedTransfer({
-        fromAccountId: transfer.fromAccountId,
-        toAccountId: transfer.toAccountId,
-        amount: transfer.amount,
-        month: selectedMonth,
-        description: transfer.description,
+    try {
+      console.log('🔄 [TRANSFER CREATION] Starting transfer creation');
+      console.log('🔄 [TRANSFER CREATION] Transfer data:', transfer);
+      console.log('🔄 [TRANSFER CREATION] Selected month:', selectedMonth);
+      console.log('🔄 [TRANSFER CREATION] From account ID:', transfer.fromAccountId);
+      console.log('🔄 [TRANSFER CREATION] To account ID:', transfer.toAccountId);
+
+      // Calculate total monthly amount for daily transfers
+      let totalMonthlyAmount = transfer.amount;
+      
+      if (transfer.transferType === 'daily' && transfer.dailyAmount && transfer.transferDays && transfer.transferDays.length > 0) {
+        const payday = budgetState.settings?.payday || 25;
+        const weekdayCount = countWeekdaysInMonth(selectedMonth, transfer.transferDays, payday);
+        totalMonthlyAmount = transfer.dailyAmount * weekdayCount;
+        
+        console.log('🔄 [TRANSFER CREATION] Daily transfer calculation:');
+        console.log('  - Daily amount:', transfer.dailyAmount);
+        console.log('  - Transfer days:', transfer.transferDays);
+        console.log('  - Weekday count for month:', weekdayCount);
+        console.log('  - Total monthly amount:', totalMonthlyAmount);
+      }
+
+      // Create budget post for the transfer
+      const budgetPostData = {
+        monthKey: selectedMonth,
+        huvudkategoriId: transfer.huvudkategoriId || null,
+        underkategoriId: transfer.underkategoriId || null,
+        description: transfer.description || 'Planerad överföring',
+        amount: kronoraToOren(totalMonthlyAmount), // Convert calculated total to öre
+        accountId: transfer.toAccountId, // To account
+        accountIdFrom: transfer.fromAccountId, // From account
+        financedFrom: `Från ${accountsFromAPI.find(acc => acc.id === transfer.fromAccountId)?.name || 'okänt konto'}`,
         transferType: transfer.transferType,
-        dailyAmount: transfer.dailyAmount,
-        transferDays: transfer.transferDays
+        dailyAmount: transfer.dailyAmount ? kronoraToOren(transfer.dailyAmount) : null, // Convert to öre
+        transferDays: transfer.transferDays ? JSON.stringify(transfer.transferDays) : null,
+        type: 'transfer',
+        userId: 'dev-user-123'
+      };
+
+      console.log('🔄 [TRANSFER CREATION] Budget post data to send:', budgetPostData);
+
+      const response = await fetch('/api/budget-posts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(budgetPostData),
       });
-    });
-    
-    console.log('Creating planned transfer:', transfer);
-    setShowNewTransferForm(false);
-    setSelectedFromAccountId('');
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const createdTransfer = await response.json();
+      console.log('Transfer created successfully:', createdTransfer);
+      
+      // Refresh budget posts to show the new transfer
+      await refetchBudgetPosts();
+      
+    } catch (error) {
+      console.error('Error creating transfer:', error);
+      // TODO: Show error message to user
+    } finally {
+      setShowNewTransferForm(false);
+      setSelectedFromAccountId('');
+    }
   };
 
+  // Handle deleting planned transfers
   const handleDeletePlannedTransfer = async (transferId: string) => {
-    // TODO: Implement delete functionality through orchestrator
-    console.log('Delete planned transfer:', transferId);
+    console.log('🔄 [TRANSFER DELETION] Attempting to delete transfer with ID:', transferId);
+
+    try {
+      const response = await fetch(`/api/budget-posts/${transferId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      console.log('Transfer deleted successfully');
+      
+      // Refresh budget posts to update the UI
+      await refetchBudgetPosts();
+      
+    } catch (error) {
+      console.error('Error deleting transfer:', error);
+      // TODO: Show error message to user
+    }
   };
 
   // Handle clicking on "Ej matchad" badge to match transfers
@@ -127,7 +304,8 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
     const { startDate, endDate } = getDateRangeForMonth(selectedMonth, budgetState.settings?.payday || 25);
     const allTransactions = budgetState.allTransactions || [];
     const transactionsForPeriod = allTransactions.filter(t => {
-      return t.date >= startDate && t.date <= endDate;
+      const transactionDate = new Date(t.date);
+      return transactionDate >= new Date(startDate) && transactionDate <= new Date(endDate);
     });
 
     // Find potential matches - ALL transactions with opposite sign within 7 days from OTHER accounts
@@ -140,13 +318,15 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
       Math.abs(new Date(t.date).getTime() - new Date(transaction.date).getTime()) <= 7 * 24 * 60 * 60 * 1000 // Within 7 days
     );
 
+    console.log('🔍 [TRANSFER MATCH] Looking for matches for transaction:', transaction);
+    console.log('🔍 [TRANSFER MATCH] Found potential matches:', potentialMatches);
+
     setTransferMatchDialog({
       isOpen: true,
       transaction,
-      suggestions: potentialMatches,
+      suggestions: potentialMatches
     });
   };
-
 
 
   // Hämta interna överföringar för varje konto (outside useMemo so it can be used in render)
@@ -154,179 +334,30 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
   // Pass accounts from API to transfer calculation
   const budgetStateWithAPIAccounts = {
     ...budgetState,
-    accounts: accountsFromAPI.map(acc => ({ id: acc.id, name: acc.name, startBalance: acc.balance || 0 }))
+    accounts: accountsFromAPI
   };
   const allInternalTransfers = getInternalTransferSummary(budgetStateWithAPIAccounts, selectedMonth);
   console.log('🔄 [TRANSFERS COMPONENT] Internal transfers result:', allInternalTransfers);
 
-  // Använd useMemo för prestanda! Dessa beräkningar kan vara tunga.
-  const analysisData = useMemo(() => {
-    console.log('🔄 [TRANSFERS] Computing analysis data for month:', selectedMonth);
-    
-    // 1. Hämta månadsdata för den valda månaden
-    const monthData: MonthData = budgetState.historicalData[selectedMonth];
-    if (!monthData) {
-      console.log('🔄 [TRANSFERS] No month data found for:', selectedMonth);
-      return [];
-    }
-
-    // 1.5. Hämta alla transaktioner för beräkning av faktiska överföringar
-    const { startDate, endDate } = getDateRangeForMonth(selectedMonth, budgetState.settings?.payday || 25);
-    const allTransactions = budgetState.allTransactions || [];
-    const transactionsForPeriod = allTransactions.filter(t => {
-      return t.date >= startDate && t.date <= endDate;
-    });
-
-    console.log('🔄 [TRANSFERS] Date filtering details:', {
-      selectedMonth,
-      payday: budgetState.settings?.payday || 25,
-      startDate,
-      endDate,
-      totalTransactions: allTransactions.length,
-      filteredTransactions: transactionsForPeriod.length,
-      exampleFilteredDates: transactionsForPeriod.slice(0, 5).map(t => ({ date: t.date, amount: t.amount, account: t.accountId }))
-    });
-
-    // Internal transfers already calculated outside useMemo
-    
-    // 2. Extrahera cost items från costGroups struktur
-    const costItems: BudgetItem[] = [];
-    
-    // Loopa igenom alla costGroups och extrahera subCategories
-    if (monthData.costGroups) {
-      monthData.costGroups.forEach(group => {
-        if (group.subCategories) {
-          group.subCategories.forEach(subCat => {
-            costItems.push({
-              id: subCat.id,
-              mainCategoryId: group.id || '',
-              subCategoryId: subCat.id,
-              description: subCat.name,
-              amount: subCat.amount,
-              accountId: subCat.accountId || '',
-              financedFrom: subCat.financedFrom,
-              transferType: subCat.transferType
-            });
-          });
-        }
-      });
-    }
-    
-    // Extrahera savings items från savingsGroups struktur
-    const savingsItems: BudgetItem[] = [];
-    if (monthData.savingsGroups) {
-      monthData.savingsGroups.forEach(group => {
-        if (group.subCategories) {
-          group.subCategories.forEach(subCat => {
-            savingsItems.push({
-              id: subCat.id,
-              mainCategoryId: group.id || '',
-              subCategoryId: subCat.id,
-              description: subCat.name,
-              amount: subCat.amount,
-              accountId: subCat.accountId || ''
-            });
-          });
-        }
-      });
-    }
-    
-    const allBudgetItems = [...costItems, ...savingsItems];
-    const monthlyTransfers = budgetState.plannedTransfers?.filter(pt => pt.month === selectedMonth) || [];
-    
-    console.log('🔄 [TRANSFERS] Extracted cost items:', costItems);
-    console.log('🔄 [TRANSFERS] Available accounts (from API):', accountsFromAPI);
-    console.log('🔄 [TRANSFERS] Accounts type check:', accountsFromAPI.map(acc => ({ type: typeof acc, value: acc })));
-    
-    // 3. Skapa en lookup-map för kategorier för snabb åtkomst (för framtida användning)
-    const categoryMap = new Map(budgetState.mainCategories?.map(c => [c, c]) || []);
-    // 4. Use ALL accounts from API, not just those with budget items
-    console.log('🔄 [TRANSFERS] All available accounts:', accountsFromAPI);
-    // Create Account objects for ALL accounts from API
-    const relevantAccounts: Account[] = accountsFromAPI.map(account => ({
-      id: account.id,
-      name: account.name,
-      startBalance: account.balance || 0
-    }));
-    console.log('🔄 [TRANSFERS] Showing all accounts:', relevantAccounts);
-    // 5. Loopa igenom varje relevant konto och aggregera data
-    return relevantAccounts.map(account => {
-      // Hitta alla budgetposter som hör till detta konto
-      const budgetedItemsForAccount = allBudgetItems.filter(item => {
-        // För nu använder vi accountId direkt från budgetItem
-        // I framtiden kan vi använda category.defaultAccountId när det implementeras
-        return item.accountId === account.id;
-      });
-
-      // Hitta endast kostnadsposter för kontot (för budgeterat belopp)
-      const costItemsForAccount = costItems.filter(item => item.accountId === account.id);
-      
-      console.log(`🔄 [TRANSFERS] Account ${account.name} (ID: ${account.id}):`, {
-        totalCostItems: costItems.length,
-        costItemsForAccount: costItemsForAccount.length,
-        costItemsForAccountDetails: costItemsForAccount
-      });
-
-      // Summera total budgeterad kostnad för kontot (endast kostnadsposter)
-      const totalBudgeted = costItemsForAccount.reduce((sum, item) => sum + item.amount, 0);
-
-      // Summera totala planerade överföringar TILL kontot
-      const totalTransferredIn = monthlyTransfers
-        .filter(t => t.toAccountId === account.id)
-        .reduce((sum, t) => sum + t.amount, 0);
-      
-      // Summera totala planerade överföringar FRÅN kontot
-      const totalTransferredOut = monthlyTransfers
-        .filter(t => t.fromAccountId === account.id)
-        .reduce((sum, t) => sum + t.amount, 0);
-      
-      // Netto planerat: in minus out
-      const netPlannedTransfers = totalTransferredIn - totalTransferredOut;
-
-      // Hitta alla överföringar FRÅN kontot (för detaljvyn)
-      const transfersOut = monthlyTransfers.filter(t => t.fromAccountId === account.id);
-      
-      // Hitta alla överföringar TILL kontot (för detaljvyn)
-      const transfersIn = monthlyTransfers.filter(t => t.toAccountId === account.id);
-
-      // Beräkna faktiska överföringar från transaktioner (net transfer för kontot)
-      const accountTransfers = allInternalTransfers.find(t => t.accountId === account.id);
-      const actualTransferredIn = accountTransfers ? accountTransfers.totalIn - accountTransfers.totalOut : 0;
-
-      return {
-        account,
-        totalBudgeted,
-        totalTransferredIn: netPlannedTransfers, // Use net amount instead of just incoming
-        actualTransferredIn,
-        budgetItems: budgetedItemsForAccount,
-        transfersOut,
-        transfersIn,
-      };
-    });
-  }, [budgetState.accounts, budgetState.mainCategories, budgetState.historicalData, budgetState.plannedTransfers, selectedMonth, allInternalTransfers]);
-
-  // Beräkna totala överföringar för CardDescription (nu använder vi redan netto per konto)
-  const totalTransfers = analysisData.reduce((sum, data) => sum + data.totalTransferredIn, 0);
-  const totalActualTransfers = analysisData.reduce((sum, data) => sum + data.actualTransferredIn, 0);
+  // Helper function to get account name by ID
+  const getAccountNameByIdHelper = (accountId: string): string => {
+    const account = accountsFromAPI.find(acc => acc.id === accountId);
+    return account?.name || 'Okänt konto';
+  };
 
   return (
-    <Card className="shadow-lg border-0 bg-blue-50/50 backdrop-blur-sm">
-      <CardHeader>
-        <div className="flex items-center justify-between cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
-          <div>
-            <CardTitle className="flex items-center gap-2 text-blue-800">
-              <ArrowLeftRight className="h-5 w-5" />
-              Överföringar
-            </CardTitle>
-            <CardDescription className="text-blue-700">
-              Planerat: {formatCurrency(totalTransfers)} • Faktiskt: {formatCurrency(totalActualTransfers)}
-            </CardDescription>
-          </div>
-          <ChevronDown className={`h-4 w-4 transition-transform text-blue-800 ${isExpanded ? 'rotate-180' : ''}`} />
-        </div>
-      </CardHeader>
-
-      {isExpanded && (
+    <div className="space-y-6">
+      {/* Kontoöversikt Section - Matching Detaljvy Design */}
+      <Card className="shadow-lg border-0 bg-blue-50/50 backdrop-blur-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-blue-800">
+            <ArrowLeftRight className="h-5 w-5" />
+            Kontoöversikt
+          </CardTitle>
+          <CardDescription className="text-blue-700">
+            Översikt av alla konton med planerade och faktiska överföringar
+          </CardDescription>
+        </CardHeader>
         <CardContent className="space-y-4">
           <div className="p-4 bg-blue-100/50 rounded-lg border border-blue-200">
             <div className="flex items-center justify-between mb-4">
@@ -346,43 +377,76 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
             </div>
             
             <div className="space-y-3">
-              {analysisData.length === 0 ? (
+              {accountsFromAPI.length === 0 ? (
                 <div className="text-center py-8 text-blue-700">
-                  <ArrowLeftRight className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg font-medium mb-2">Inga överföringar planerade</p>
-                  <p className="text-sm opacity-75">Lägg till överföringar för att se en översikt här</p>
+                  <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg font-medium mb-2">Inga konton tillgängliga</p>
+                  <p className="text-sm opacity-75">Lägg till konton för att se en översikt här</p>
                 </div>
               ) : (
-                analysisData.map(data => {
-                  const isAccountExpanded = expandedAccounts.has(data.account.id);
-                  const accountInternalTransfers = allInternalTransfers.find(t => t.accountId === data.account.id);
+                accountsFromAPI.map(account => {
+                  // Get planned transfers for this account from budget posts
+                  const transferPosts = budgetPosts.filter((post: any) => 
+                    post.type === 'transfer' && 
+                    (post.accountId === account.id || post.accountIdFrom === account.id)
+                  );
                   
+                  // Calculate incoming planned transfers
+                  const plannedIncoming = transferPosts
+                    .filter((post: any) => post.accountId === account.id)
+                    .reduce((sum: number, post: any) => sum + (post.amount || 0), 0);
+                  
+                  // Calculate outgoing planned transfers
+                  const plannedOutgoing = transferPosts
+                    .filter((post: any) => post.accountIdFrom === account.id)
+                    .reduce((sum: number, post: any) => sum + (post.amount || 0), 0);
+                  
+                  // Calculate net planned transfers
+                  const netPlanned = plannedIncoming - plannedOutgoing;
+                  
+                  // Get budget posts for this account (costs)
+                  const costPosts = budgetPosts.filter((post: any) => 
+                    post.type === 'cost' && post.accountId === account.id
+                  );
+                  const totalBudgeted = costPosts.reduce((sum: number, post: any) => sum + (post.amount || 0), 0);
+                  
+                  // Get internal transfers for this account from our calculation
+                  const accountInternalTransfers = allInternalTransfers.find(t => t.accountId === account.id);
+                  const actualTransferredIn = accountInternalTransfers?.totalIn || 0;
+                  
+                  // Only show accounts that have some activity
+                  if (costPosts.length === 0 && transferPosts.length === 0 && actualTransferredIn === 0) {
+                    return null;
+                  }
+
+                  const isAccountExpanded = expandedKontoAccounts.has(account.id);
+
                   return (
-                    <div key={data.account.id} className="bg-white rounded-lg border border-blue-200 overflow-hidden">
+                    <div key={account.id} className="bg-white rounded-lg border border-blue-200 overflow-hidden">
                       {/* Account Header - Klickbar för expansion */}
                       <div 
                         className="p-4 cursor-pointer hover:bg-blue-50/50 transition-colors"
-                        onClick={() => toggleAccount(data.account.id)}
+                        onClick={() => toggleKontoAccount(account.id)}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <div className="flex items-center justify-between mb-3">
-                              <h4 className="font-semibold text-blue-900 text-lg">{data.account.name}</h4>
+                              <h4 className="font-semibold text-blue-900 text-lg">{account.name}</h4>
                               <ChevronDown className={`h-4 w-4 text-blue-600 transition-transform ${isAccountExpanded ? 'rotate-180' : ''}`} />
                             </div>
                             
                             <div className="grid grid-cols-3 gap-4 text-sm">
                               <div className="text-center">
                                 <div className="text-red-700 font-medium">Budgeterade kostnader</div>
-                                <div className="font-semibold text-red-900">{formatCurrency(data.totalBudgeted)}</div>
+                                <div className="font-semibold text-red-900">{formatOrenAsCurrency(totalBudgeted)}</div>
                               </div>
                               <div className="text-center">
                                 <div className="text-blue-700 font-medium">Planerat</div>
-                                <div className="font-semibold text-blue-900">{formatCurrency(data.totalTransferredIn)}</div>
+                                <div className="font-semibold text-blue-900">{formatOrenAsCurrency(netPlanned)}</div>
                               </div>
                               <div className="text-center">
                                 <div className="text-green-600 font-medium">Faktiskt</div>
-                                <div className="font-semibold text-green-600">{formatCurrency(data.actualTransferredIn)}</div>
+                                <div className="font-semibold text-green-600">{formatOrenAsCurrency(actualTransferredIn)}</div>
                               </div>
                             </div>
                             
@@ -391,8 +455,8 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                               <div 
                                 className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
                                 style={{ 
-                                  width: data.totalTransferredIn > 0 
-                                    ? `${Math.min((data.actualTransferredIn / data.totalTransferredIn) * 100, 100)}%` 
+                                  width: netPlanned > 0 
+                                    ? `${Math.min((actualTransferredIn / netPlanned) * 100, 100)}%` 
                                     : '0%' 
                                 }}
                               />
@@ -406,30 +470,156 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                         <div className="border-t border-blue-200 bg-blue-25/25">
                           <div className="p-4 space-y-4">
                             
-                            {/* Budgeterade överföringar */}
-                            {data.budgetItems.length > 0 && (
+                            {/* Budgeterade kostnader */}
+                            {costPosts.length > 0 && (
                               <div className="bg-red-50 rounded-lg p-3 border border-red-200">
-                                <h4 className="font-semibold mb-3 text-sm text-red-800 uppercase tracking-wide">
-                                  Budgeterade Kostnader ({data.budgetItems.length})
-                                </h4>
-                                <div className="space-y-2">
-                                  {data.budgetItems.map(item => (
-                                    <div key={item.id} className="flex justify-between items-center py-2 px-3 rounded bg-white border border-red-100">
-                                      <span className="text-sm text-red-900">{item.description}</span>
-                                      <span className="font-medium text-sm text-red-800">{formatCurrency(item.amount)}</span>
-                                    </div>
-                                  ))}
+                                <div 
+                                  className="flex items-center gap-2 mb-3 cursor-pointer hover:bg-red-100/50 rounded p-2 -m-2 transition-colors"
+                                  onClick={() => toggleKontoSection('budgetCosts')}
+                                >
+                                  <h4 className="font-semibold text-sm text-red-800 uppercase tracking-wide">
+                                    Budgeterade Kostnader ({costPosts.length})
+                                  </h4>
+                                  <ChevronDown className={`h-4 w-4 text-red-600 transition-transform ml-auto ${expandedKontoSections.has('budgetCosts') ? 'rotate-180' : ''}`} />
+                                  <Badge className="bg-red-100 text-red-800 border-red-200 hover:bg-red-100">
+                                    Ut: {formatOrenAsCurrency(totalBudgeted)}
+                                  </Badge>
                                 </div>
+                                
+                                {expandedKontoSections.has('budgetCosts') && (
+                                  <div className="space-y-2">
+                                    {costPosts.map(item => {
+                                      const isDaily = item.transferType === 'daily';
+                                      const isExpanded = expandedBudgetCosts.has(item.id);
+                                      
+                                      return (
+                                        <div key={item.id}>
+                                          <div className="flex justify-between items-center py-2 px-3 rounded bg-white border border-red-100">
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-sm text-red-900">
+                                                {item.description}
+                                                {isDaily && (
+                                                  <span className="ml-2 text-xs text-red-600">
+                                                    (Daglig)
+                                                  </span>
+                                                )}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              <span className="font-medium text-sm text-red-800">
+                                                {isDaily ? (() => {
+                                                  const payday = budgetState.settings?.payday || 25;
+                                                  const selectedDays = item.transferDays ? JSON.parse(item.transferDays) : [];
+                                                  const transferDayCount = countWeekdaysInMonth(selectedMonth, selectedDays, payday);
+                                                  const calculatedTotal = (item.dailyAmount || 0) * transferDayCount;
+                                                  return formatOrenAsCurrency(calculatedTotal);
+                                                })() : formatOrenAsCurrency(item.amount)}
+                                              </span>
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="h-6 w-6 p-0 text-red-600 hover:bg-red-100"
+                                                onClick={() => toggleBudgetCost(item.id)}
+                                              >
+                                                {isExpanded ? 
+                                                  <ChevronUp className="h-4 w-4" /> : 
+                                                  <ChevronDown className="h-4 w-4" />
+                                                }
+                                              </Button>
+                                            </div>
+                                          </div>
+                                          
+                                          {/* Expandable budget cost details */}
+                                          {isExpanded && (
+                                            <div className="mt-2 ml-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                                              <div className="text-xs text-red-700 space-y-1">
+                                                <div className="flex justify-between">
+                                                  <span className="text-muted-foreground">Huvudkategori:</span>
+                                                  <span>{getCategoryName(item.huvudkategoriId)}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-muted-foreground">Underkategori:</span>
+                                                  <span>{getSubCategoryName(item.huvudkategoriId, item.underkategoriId)}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-muted-foreground">Överföringstyp:</span>
+                                                  <span>{isDaily ? 'Daglig' : 'Månadsvis'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-muted-foreground">Finansieras från:</span>
+                                                  <span>{item.financedFrom || 'Löpande kostnad'}</span>
+                                                </div>
+                                                {isDaily && (
+                                                  <>
+                                                    <div className="flex justify-between">
+                                                      <span className="text-muted-foreground">Valda dagar:</span>
+                                                      <span>{item.transferDays ? JSON.parse(item.transferDays).length : 0} dagar/vecka</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                      <span className="text-muted-foreground">Period:</span>
+                                                      <span>{(() => {
+                                                        const payday = budgetState.settings?.payday || 25;
+                                                        const { startDate, endDate } = getDateRangeForMonth(selectedMonth, payday);
+                                                        return `${startDate} till ${endDate}`;
+                                                      })()}</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                      <span className="text-muted-foreground">Antal överföringsdagar:</span>
+                                                      <span>{(() => {
+                                                        const payday = budgetState.settings?.payday || 25;
+                                                        const selectedDays = item.transferDays ? JSON.parse(item.transferDays) : [];
+                                                        return countWeekdaysInMonth(selectedMonth, selectedDays, payday);
+                                                      })()} dagar</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                      <span className="text-muted-foreground">Belopp per dag:</span>
+                                                      <span>{new Intl.NumberFormat('sv-SE', {
+                                                        style: 'currency',
+                                                        currency: 'SEK',
+                                                        minimumFractionDigits: 2,
+                                                        maximumFractionDigits: 2
+                                                      }).format((item.dailyAmount || 0) / 100)}</span>
+                                                    </div>
+                                                    <div className="flex justify-between font-medium">
+                                                      <span className="text-muted-foreground">Total månadsbelopp:</span>
+                                                      <span>{(() => {
+                                                        const payday = budgetState.settings?.payday || 25;
+                                                        const selectedDays = item.transferDays ? JSON.parse(item.transferDays) : [];
+                                                        const transferDayCount = countWeekdaysInMonth(selectedMonth, selectedDays, payday);
+                                                        const calculatedTotal = (item.dailyAmount || 0) * transferDayCount;
+                                                        return formatOrenAsCurrency(calculatedTotal);
+                                                      })()}</span>
+                                                    </div>
+                                                  </>
+                                                )}
+                                                {!isDaily && (
+                                                  <div className="flex justify-between">
+                                                    <span className="text-muted-foreground">Belopp:</span>
+                                                    <span>{formatOrenAsCurrency(item.amount)}</span>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
                               </div>
                             )}
                             
-                            {/* Planerade överföringar sektion */}
-                            {(data.transfersIn.length > 0 || data.transfersOut.length > 0) && (
+                            {/* Planerade överföringar sektion - same style as detaljvy */}
+                            {transferPosts.length > 0 && (
                               <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
-                                <div className="flex items-center gap-2 mb-3">
+                                <div 
+                                  className="flex items-center gap-2 mb-3 cursor-pointer hover:bg-yellow-100/50 rounded p-2 -m-2 transition-colors"
+                                  onClick={() => toggleKontoSection('plannedTransfers')}
+                                >
                                   <h4 className="font-semibold text-sm text-yellow-800 uppercase tracking-wide">
-                                    Planerade Överföringar
+                                    Planerade Överföringar ({transferPosts.length})
                                   </h4>
+                                  <ChevronDown className={`h-4 w-4 text-yellow-600 transition-transform ml-auto ${expandedKontoSections.has('plannedTransfers') ? 'rotate-180' : ''}`} />
                                   <Button
                                     size="sm"
                                     variant="ghost"
@@ -438,161 +628,314 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                                   >
                                     <Edit3 className="h-4 w-4" />
                                   </Button>
-                                  {editMode && (
-                                    <span className="text-xs text-yellow-700 ml-2">Redigera läge aktivt</span>
-                                  )}
-                                  {data.transfersIn.length > 0 && (
-                                    <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-100">
-                                      In: {data.transfersIn.length}
+                                  {plannedIncoming > 0 && (
+                                    <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100">
+                                      In: {formatOrenAsCurrency(plannedIncoming)}
                                     </Badge>
                                   )}
-                                  {data.transfersOut.length > 0 && (
-                                    <Badge variant="outline" className="border-yellow-300 text-yellow-800">
-                                      Ut: {data.transfersOut.length}
+                                  {plannedOutgoing > 0 && (
+                                    <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200">
+                                      Ut: {formatOrenAsCurrency(plannedOutgoing)}
                                     </Badge>
                                   )}
                                 </div>
                                 
-                                {data.transfersIn.length > 0 && (
-                                  <div className="mb-3">
-                                    <h5 className="text-xs font-medium text-yellow-700 mb-2">Inkommande:</h5>
-                                    <div className="space-y-1">
-                                      {data.transfersIn.map((t) => (
-                                        <div key={t.id}>
-                                          <div className="flex justify-between items-center py-2 px-3 rounded bg-white border border-yellow-100">
-                                            <span className="text-sm text-yellow-900">
-                                              {formatCurrency(t.amount)} från {getAccountNameById(t.fromAccountId)}
-                                              {t.transferType === 'daily' && t.transferDays && (
-                                                <span className="ml-2 text-xs text-yellow-600">
-                                                  ({t.transferDays.length} dagar/vecka)
-                                                </span>
-                                              )}
-                                              {t.description && (
-                                                <span className="ml-2 text-xs text-yellow-600">
-                                                  - {t.description}
-                                                </span>
-                                              )}
-                                            </span>
-                                            <div className="flex items-center gap-2">
-                                              <span className="font-medium text-sm text-yellow-600">
-                                                + {formatCurrency(t.amount)}
-                                              </span>
-                                              {editMode && (
-                                                <Button
-                                                  size="sm"
-                                                  variant="ghost"
-                                                  className="h-6 w-6 p-0 text-red-600 hover:bg-red-100"
-                                                  onClick={() => handleDeletePlannedTransfer(t.id)}
-                                                >
-                                                  <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                              )}
-                                              {t.transferType === 'daily' && (
-                                                <Button
-                                                  size="sm"
-                                                  variant="ghost"
-                                                  className="h-6 w-6 p-0 text-yellow-600 hover:bg-yellow-100"
-                                                  onClick={() => toggleDailyTransfer(t.id)}
-                                                >
-                                                  {expandedDailyTransfers.has(t.id) ? 
-                                                    <ChevronUp className="h-4 w-4" /> : 
-                                                    <ChevronDown className="h-4 w-4" />
-                                                  }
-                                                </Button>
-                                              )}
-                                            </div>
-                                          </div>
-                                          {/* Expandable daily transfer details for incoming */}
-                                          {t.transferType === 'daily' && expandedDailyTransfers.has(t.id) && (
-                                            <div className="mt-2 pl-4 border-l-2 border-yellow-200">
-                                              <div className="text-xs text-yellow-700 mb-1">
-                                                <strong>Detaljer för daglig överföring:</strong>
-                                              </div>
-                                              <div className="text-xs text-yellow-600 space-y-1">
-                                                <div>Belopp per dag: <strong>{formatCurrency(t.dailyAmount || 0)}</strong></div>
-                                                <div>Dagar: <strong>{getDayNames(t.transferDays || [])}</strong></div>
-                                                <div>Totalt per månad: <strong>{formatCurrency(t.amount)}</strong></div>
-                                                {t.description && (
-                                                  <div>Beskrivning: <strong>{t.description}</strong></div>
-                                                )}
-                                              </div>
-                                            </div>
-                                          )}
+                                {expandedKontoSections.has('plannedTransfers') && (
+                                  <>
+                                    {/* Incoming transfers */}
+                                    {plannedIncoming > 0 && (
+                                      <div className="mb-3">
+                                        <h5 className="text-xs font-medium text-green-700 mb-2">Inkommande:</h5>
+                                        <div className="space-y-1">
+                                          {transferPosts
+                                            .filter((post: any) => post.accountId === account.id)
+                                            .map((post: any) => {
+                                              const isDaily = post.transferType === 'daily';
+                                              const isExpanded = expandedKontoDailyTransfers.has(post.id);
+                                              
+                                              return (
+                                                <div key={post.id}>
+                                                  <div 
+                                                    className="flex justify-between items-center py-2 px-3 rounded bg-green-50 border border-green-100 cursor-pointer hover:bg-green-100/50 transition-colors"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      addMobileDebugLog(`[TransfersAnalysis] Planned transfer clicked: ${post.id} - ${post.description || 'No description'}`);
+                                                      toggleKontoDailyTransfer(post.id);
+                                                    }}
+                                                  >
+                                                    <div className="flex items-center gap-2">
+                                                      <span className={`h-4 w-4 text-green-600 ${isExpanded ? 'rotate-90' : ''} transition-transform`}>
+                                                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                                      </span>
+                                                      <span className="text-sm text-green-900">
+                                                        {formatOrenAsCurrency(post.amount)} från {getAccountNameByIdHelper(post.accountIdFrom)}
+                                                        {post.description && (
+                                                          <span className="ml-2 text-xs text-green-600">
+                                                            - {post.description}
+                                                          </span>
+                                                        )}
+                                                      </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                      <span className="font-medium text-sm text-green-600">
+                                                        + {formatOrenAsCurrency(post.amount)}
+                                                      </span>
+                                                      {editMode && (
+                                                        <Button
+                                                          size="sm"
+                                                          variant="ghost"
+                                                          className="h-6 w-6 p-0 text-red-600 hover:bg-red-100"
+                                                          onClick={() => handleDeletePlannedTransfer(post.id)}
+                                                        >
+                                                          <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                      )}
+                                                      {isDaily && (
+                                                        <Button
+                                                          size="sm"
+                                                          variant="ghost"
+                                                          className="h-6 w-6 p-0 text-green-600 hover:bg-green-100"
+                                                          onClick={() => toggleKontoDailyTransfer(post.id)}
+                                                        >
+                                                          {isExpanded ? 
+                                                            <ChevronUp className="h-4 w-4" /> : 
+                                                            <ChevronDown className="h-4 w-4" />
+                                                          }
+                                                        </Button>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                  {/* Expandable daily transfer details for incoming */}
+                                                  {isExpanded && (
+                                                    <div className="mt-2 ml-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                                                      <div className="text-xs text-green-700 space-y-1">
+                                                        <div className="flex justify-between">
+                                                          <span className="text-muted-foreground">Huvudkategori:</span>
+                                                          <span>{getCategoryName(post.huvudkategoriId)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                          <span className="text-muted-foreground">Underkategori:</span>
+                                                          <span>{getSubCategoryName(post.huvudkategoriId, post.underkategoriId)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                          <span className="text-muted-foreground">Överföringstyp:</span>
+                                                          <span>{isDaily ? 'Daglig' : 'Månadsvis'}</span>
+                                                        </div>
+                                                        {isDaily && (
+                                                          <>
+                                                            <div className="flex justify-between">
+                                                              <span className="text-muted-foreground">Valda dagar:</span>
+                                                              <span>{post.transferDays ? JSON.parse(post.transferDays).length : 0} dagar/vecka</span>
+                                                            </div>
+                                                            <div className="flex justify-between">
+                                                              <span className="text-muted-foreground">Period:</span>
+                                                              <span>{(() => {
+                                                                const payday = budgetState.settings?.payday || 25;
+                                                                const { startDate, endDate } = getDateRangeForMonth(selectedMonth, payday);
+                                                                return `${startDate} till ${endDate}`;
+                                                              })()}</span>
+                                                            </div>
+                                                            <div className="flex justify-between">
+                                                              <span className="text-muted-foreground">Antal överföringsdagar:</span>
+                                                              <span>{(() => {
+                                                                const payday = budgetState.settings?.payday || 25;
+                                                                const selectedDays = post.transferDays ? JSON.parse(post.transferDays) : [];
+                                                                return countWeekdaysInMonth(selectedMonth, selectedDays, payday);
+                                                              })()} dagar</span>
+                                                            </div>
+                                                            <div className="flex justify-between">
+                                                              <span className="text-muted-foreground">Belopp per dag:</span>
+                                                              <span>{new Intl.NumberFormat('sv-SE', {
+                                                                style: 'currency',
+                                                                currency: 'SEK',
+                                                                minimumFractionDigits: 2,
+                                                                maximumFractionDigits: 2
+                                                              }).format((post.dailyAmount || 0) / 100)}</span>
+                                                            </div>
+                                                            <div className="flex justify-between font-medium">
+                                                              <span className="text-muted-foreground">Total månadsbelopp:</span>
+                                                              <span>{new Intl.NumberFormat('sv-SE', {
+                                                                style: 'currency',
+                                                                currency: 'SEK',
+                                                                minimumFractionDigits: 0,
+                                                                maximumFractionDigits: 0
+                                                              }).format(post.amount / 100)}</span>
+                                                            </div>
+                                                          </>
+                                                        )}
+                                                        {!isDaily && (
+                                                          <>
+                                                            <div className="flex justify-between">
+                                                              <span className="text-muted-foreground">Från Konto:</span>
+                                                              <span>{getAccountNameByIdHelper(post.accountIdFrom)}</span>
+                                                            </div>
+                                                            <div className="flex justify-between">
+                                                              <span className="text-muted-foreground">Till Konto:</span>
+                                                              <span>{getAccountNameByIdHelper(post.accountId)}</span>
+                                                            </div>
+                                                            <div className="flex justify-between">
+                                                              <span className="text-muted-foreground">Belopp:</span>
+                                                              <span>{formatOrenAsCurrency(post.amount)}</span>
+                                                            </div>
+                                                          </>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              );
+                                            })}
                                         </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {data.transfersOut.length > 0 && (
-                                  <div>
-                                    <h5 className="text-xs font-medium text-yellow-700 mb-2">Utgående:</h5>
-                                    <div className="space-y-1">
-                                      {data.transfersOut.map((t) => (
-                                        <div key={t.id}>
-                                          <div className="flex justify-between items-center py-2 px-3 rounded bg-white border border-yellow-100">
-                                            <span className="text-sm text-yellow-900">
-                                              {formatCurrency(t.amount)} till {getAccountNameById(t.toAccountId)}
-                                              {t.transferType === 'daily' && t.transferDays && (
-                                                <span className="ml-2 text-xs text-yellow-600">
-                                                  ({t.transferDays.length} dagar/vecka)
-                                                </span>
-                                              )}
-                                              {t.description && (
-                                                <span className="ml-2 text-xs text-yellow-600">
-                                                  - {t.description}
-                                                </span>
-                                              )}
-                                            </span>
-                                            <div className="flex items-center gap-2">
-                                              <span className="font-medium text-sm text-yellow-600">
-                                                - {formatCurrency(t.amount)}
-                                              </span>
-                                              {editMode && (
-                                                <Button
-                                                  size="sm"
-                                                  variant="ghost"
-                                                  className="h-6 w-6 p-0 text-red-600 hover:bg-red-100"
-                                                  onClick={() => handleDeletePlannedTransfer(t.id)}
-                                                >
-                                                  <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                              )}
-                                              {t.transferType === 'daily' && (
-                                                <Button
-                                                  size="sm"
-                                                  variant="ghost"
-                                                  className="h-6 w-6 p-0 text-yellow-600 hover:bg-yellow-100"
-                                                  onClick={() => toggleDailyTransfer(t.id)}
-                                                >
-                                                  {expandedDailyTransfers.has(t.id) ? 
-                                                    <ChevronUp className="h-4 w-4" /> : 
-                                                    <ChevronDown className="h-4 w-4" />
-                                                  }
-                                                </Button>
-                                              )}
-                                            </div>
-                                          </div>
-                                          {/* Expandable daily transfer details for outgoing */}
-                                          {t.transferType === 'daily' && expandedDailyTransfers.has(t.id) && (
-                                            <div className="mt-2 pl-4 border-l-2 border-yellow-200">
-                                              <div className="text-xs text-yellow-700 mb-1">
-                                                <strong>Detaljer för daglig överföring:</strong>
-                                              </div>
-                                              <div className="text-xs text-yellow-600 space-y-1">
-                                                <div>Belopp per dag: <strong>{formatCurrency(t.dailyAmount || 0)}</strong></div>
-                                                <div>Dagar: <strong>{getDayNames(t.transferDays || [])}</strong></div>
-                                                <div>Totalt per månad: <strong>{formatCurrency(t.amount)}</strong></div>
-                                                {t.description && (
-                                                  <div>Beskrivning: <strong>{t.description}</strong></div>
-                                                )}
-                                              </div>
-                                            </div>
-                                          )}
+                                      </div>
+                                    )}
+                                    
+                                    {/* Outgoing transfers */}
+                                    {plannedOutgoing > 0 && (
+                                      <div>
+                                        <h5 className="text-xs font-medium text-red-700 mb-2">Utgående:</h5>
+                                        <div className="space-y-1">
+                                          {transferPosts
+                                            .filter((post: any) => post.accountIdFrom === account.id)
+                                            .map((post: any) => {
+                                              const isDaily = post.transferType === 'daily';
+                                              const isExpanded = expandedKontoDailyTransfers.has(post.id);
+                                              
+                                              return (
+                                                <div key={post.id}>
+                                                  <div 
+                                                    className="flex justify-between items-center py-2 px-3 rounded bg-red-50 border border-red-100 cursor-pointer hover:bg-red-100/50 transition-colors"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      addMobileDebugLog(`[TransfersAnalysis] Planned outgoing transfer clicked: ${post.id} - ${post.description || 'No description'}`);
+                                                      toggleKontoDailyTransfer(post.id);
+                                                    }}
+                                                  >
+                                                    <div className="flex items-center gap-2">
+                                                      <span className={`h-4 w-4 text-red-600 ${isExpanded ? 'rotate-90' : ''} transition-transform`}>
+                                                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                                      </span>
+                                                      <span className="text-sm text-red-900">
+                                                        {formatOrenAsCurrency(post.amount)} till {getAccountNameByIdHelper(post.accountId)}
+                                                        {post.description && (
+                                                          <span className="ml-2 text-xs text-red-600">
+                                                            - {post.description}
+                                                          </span>
+                                                        )}
+                                                      </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                      <span className="font-medium text-sm text-red-600">
+                                                        - {formatOrenAsCurrency(post.amount)}
+                                                      </span>
+                                                      {editMode && (
+                                                        <Button
+                                                          size="sm"
+                                                          variant="ghost"
+                                                          className="h-6 w-6 p-0 text-red-600 hover:bg-red-100"
+                                                          onClick={() => handleDeletePlannedTransfer(post.id)}
+                                                        >
+                                                          <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                      )}
+                                                      {isDaily && (
+                                                        <Button
+                                                          size="sm"
+                                                          variant="ghost"
+                                                          className="h-6 w-6 p-0 text-red-600 hover:bg-red-100"
+                                                          onClick={() => toggleKontoDailyTransfer(post.id)}
+                                                        >
+                                                          {isExpanded ? 
+                                                            <ChevronUp className="h-4 w-4" /> : 
+                                                            <ChevronDown className="h-4 w-4" />
+                                                          }
+                                                        </Button>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                  {/* Expandable daily transfer details for outgoing */}
+                                                  {isExpanded && (
+                                                    <div className="mt-2 ml-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                                                      <div className="text-xs text-red-700 space-y-1">
+                                                        <div className="flex justify-between">
+                                                          <span className="text-muted-foreground">Huvudkategori:</span>
+                                                          <span>{getCategoryName(post.huvudkategoriId)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                          <span className="text-muted-foreground">Underkategori:</span>
+                                                          <span>{getSubCategoryName(post.huvudkategoriId, post.underkategoriId)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                          <span className="text-muted-foreground">Överföringstyp:</span>
+                                                          <span>{isDaily ? 'Daglig' : 'Månadsvis'}</span>
+                                                        </div>
+                                                        {isDaily && (
+                                                          <>
+                                                            <div className="flex justify-between">
+                                                              <span className="text-muted-foreground">Valda dagar:</span>
+                                                              <span>{post.transferDays ? JSON.parse(post.transferDays).length : 0} dagar/vecka</span>
+                                                            </div>
+                                                            <div className="flex justify-between">
+                                                              <span className="text-muted-foreground">Period:</span>
+                                                              <span>{(() => {
+                                                                const payday = budgetState.settings?.payday || 25;
+                                                                const { startDate, endDate } = getDateRangeForMonth(selectedMonth, payday);
+                                                                return `${startDate} till ${endDate}`;
+                                                              })()}</span>
+                                                            </div>
+                                                            <div className="flex justify-between">
+                                                              <span className="text-muted-foreground">Antal överföringsdagar:</span>
+                                                              <span>{(() => {
+                                                                const payday = budgetState.settings?.payday || 25;
+                                                                const selectedDays = post.transferDays ? JSON.parse(post.transferDays) : [];
+                                                                return countWeekdaysInMonth(selectedMonth, selectedDays, payday);
+                                                              })()} dagar</span>
+                                                            </div>
+                                                            <div className="flex justify-between">
+                                                              <span className="text-muted-foreground">Belopp per dag:</span>
+                                                              <span>{new Intl.NumberFormat('sv-SE', {
+                                                                style: 'currency',
+                                                                currency: 'SEK',
+                                                                minimumFractionDigits: 2,
+                                                                maximumFractionDigits: 2
+                                                              }).format((post.dailyAmount || 0) / 100)}</span>
+                                                            </div>
+                                                            <div className="flex justify-between font-medium">
+                                                              <span className="text-muted-foreground">Total månadsbelopp:</span>
+                                                              <span>{new Intl.NumberFormat('sv-SE', {
+                                                                style: 'currency',
+                                                                currency: 'SEK',
+                                                                minimumFractionDigits: 0,
+                                                                maximumFractionDigits: 0
+                                                              }).format(post.amount / 100)}</span>
+                                                            </div>
+                                                          </>
+                                                        )}
+                                                        {!isDaily && (
+                                                          <>
+                                                            <div className="flex justify-between">
+                                                              <span className="text-muted-foreground">Från Konto:</span>
+                                                              <span>{getAccountNameByIdHelper(post.accountIdFrom)}</span>
+                                                            </div>
+                                                            <div className="flex justify-between">
+                                                              <span className="text-muted-foreground">Till Konto:</span>
+                                                              <span>{getAccountNameByIdHelper(post.accountId)}</span>
+                                                            </div>
+                                                            <div className="flex justify-between">
+                                                              <span className="text-muted-foreground">Belopp:</span>
+                                                              <span>{formatOrenAsCurrency(post.amount)}</span>
+                                                            </div>
+                                                          </>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              );
+                                            })}
                                         </div>
-                                      ))}
-                                    </div>
-                                  </div>
+                                      </div>
+                                    )}
+                                  </>
                                 )}
                               </div>
                             )}
@@ -600,98 +943,93 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                             {/* Faktiska överföringar sektion */}
                             {accountInternalTransfers && (accountInternalTransfers.incomingTransfers.length > 0 || accountInternalTransfers.outgoingTransfers.length > 0) && (
                               <div className="bg-green-50 rounded-lg p-3 border border-green-200">
-                                <div className="flex items-center gap-2 mb-3">
+                                <div 
+                                  className="flex items-center gap-2 mb-3 cursor-pointer hover:bg-green-100/50 rounded p-2 -m-2 transition-colors"
+                                  onClick={() => toggleKontoSection('actualTransfers')}
+                                >
                                   <h4 className="font-semibold text-sm text-green-800 uppercase tracking-wide">
-                                    Faktiska Överföringar
+                                    Faktiska Överföringar ({accountInternalTransfers.incomingTransfers.length + accountInternalTransfers.outgoingTransfers.length})
                                   </h4>
+                                  <ChevronDown className={`h-4 w-4 text-green-600 transition-transform ml-auto ${expandedKontoSections.has('actualTransfers') ? 'rotate-180' : ''}`} />
                                   {accountInternalTransfers.totalIn > 0 && (
                                     <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100">
-                                      In: {formatCurrency(accountInternalTransfers.totalIn)}
+                                      In: {formatOrenAsCurrency(accountInternalTransfers.totalIn)}
                                     </Badge>
                                   )}
                                   {accountInternalTransfers.totalOut > 0 && (
                                     <Badge variant="destructive">
-                                      Ut: {formatCurrency(accountInternalTransfers.totalOut)}
+                                      Ut: {formatOrenAsCurrency(accountInternalTransfers.totalOut)}
                                     </Badge>
                                   )}
                                 </div>
                                 
-                                {accountInternalTransfers.incomingTransfers.length > 0 && (
-                                  <div className="mb-3">
-                                    <h5 className="text-xs font-medium text-green-700 mb-2">Inkommande:</h5>
-                                    <div className="space-y-1">
-                                      {accountInternalTransfers.incomingTransfers.map((t, index) => (
-                                        <div key={index} className="flex justify-between items-center py-2 px-3 rounded bg-white border border-green-100">
-                                           <span className="text-sm text-green-900">
-                                             {formatCurrency(t.amount)} från {t.fromAccountName}
-                                             {t.linked ? (
-                                               <span className="ml-2 text-xs text-green-600 font-medium">
-                                                 ({t.fromAccountName}, {t.transaction.date}) - {t.transaction.description || 'Överföring'}, {t.transaction.date}
+                                {expandedKontoSections.has('actualTransfers') && (
+                                  <>
+                                    {accountInternalTransfers.incomingTransfers.length > 0 && (
+                                      <div className="mb-3">
+                                        <h5 className="text-xs font-medium text-green-700 mb-2">Inkommande:</h5>
+                                        <div className="space-y-1">
+                                          {accountInternalTransfers.incomingTransfers.map((t, index) => (
+                                            <div key={index} className="flex justify-between items-center py-2 px-3 rounded bg-white border border-green-100">
+                                               <span className="text-sm text-green-900">
+                                                 {formatOrenAsCurrency(t.amount)} från {t.fromAccountName}
+                                                 {t.linked ? (
+                                                   <span className="ml-2 text-xs text-green-600 font-medium">
+                                                     ({t.fromAccountName}, {t.transaction.date}) - {t.transaction.description || 'Överföring'}, {t.transaction.date}
+                                                   </span>
+                                                 ) : (
+                                                   <Badge 
+                                                     variant="outline" 
+                                                     className="ml-2 text-xs text-orange-600 border-orange-200 cursor-pointer hover:bg-orange-50"
+                                                     onClick={(e) => {
+                                                       e.stopPropagation();
+                                                       handleMatchTransfer(t.transaction);
+                                                     }}
+                                                   >
+                                                     Ej matchad
+                                                   </Badge>
+                                                 )}
                                                </span>
-                                             ) : (
-                                               <Badge 
-                                                 variant="outline" 
-                                                 className="ml-2 text-xs text-orange-600 border-orange-200 cursor-pointer hover:bg-orange-50"
-                                                 onClick={(e) => {
-                                                   e.stopPropagation();
-                                                   handleMatchTransfer(t.transaction);
-                                                 }}
-                                               >
-                                                 Ej matchad
-                                               </Badge>
-                                             )}
-                                           </span>
+                                            </div>
+                                          ))}
                                         </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
+                                      </div>
+                                    )}
 
-                                {accountInternalTransfers.outgoingTransfers.length > 0 && (
-                                  <div>
-                                    <h5 className="text-xs font-medium text-green-700 mb-2">Utgående:</h5>
-                                    <div className="space-y-1">
-                                      {accountInternalTransfers.outgoingTransfers.map((t, index) => (
-                                        <div key={index} className="flex justify-between items-center py-2 px-3 rounded bg-white border border-green-100">
-                                           <span className="text-sm text-green-900">
-                                             {formatCurrency(t.amount)} till {t.toAccountName}
-                                             {t.linked ? (
-                                               <span className="ml-2 text-xs text-green-600 font-medium">
-                                                 ({t.toAccountName}, {t.transaction.date}) - {t.transaction.description || 'Överföring'}, {t.transaction.date}
+                                    {accountInternalTransfers.outgoingTransfers.length > 0 && (
+                                      <div>
+                                        <h5 className="text-xs font-medium text-green-700 mb-2">Utgående:</h5>
+                                        <div className="space-y-1">
+                                          {accountInternalTransfers.outgoingTransfers.map((t, index) => (
+                                            <div key={index} className="flex justify-between items-center py-2 px-3 rounded bg-white border border-green-100">
+                                               <span className="text-sm text-green-900">
+                                                 {formatOrenAsCurrency(t.amount)} till {t.toAccountName}
+                                                 {t.linked ? (
+                                                   <span className="ml-2 text-xs text-green-600 font-medium">
+                                                     ({t.toAccountName}, {t.transaction.date}) - {t.transaction.description || 'Överföring'}, {t.transaction.date}
+                                                   </span>
+                                                 ) : (
+                                                   <Badge 
+                                                     variant="outline" 
+                                                     className="ml-2 text-xs text-orange-600 border-orange-200 cursor-pointer hover:bg-orange-50"
+                                                     onClick={(e) => {
+                                                       e.stopPropagation();
+                                                       handleMatchTransfer(t.transaction);
+                                                     }}
+                                                   >
+                                                     Ej matchad
+                                                   </Badge>
+                                                 )}
                                                </span>
-                                             ) : (
-                                               <Badge 
-                                                 variant="outline" 
-                                                 className="ml-2 text-xs text-orange-600 border-orange-200 cursor-pointer hover:bg-orange-50"
-                                                 onClick={(e) => {
-                                                   e.stopPropagation();
-                                                   handleMatchTransfer(t.transaction);
-                                                 }}
-                                               >
-                                                 Ej matchad
-                                               </Badge>
-                                             )}
-                                           </span>
+                                            </div>
+                                          ))}
                                         </div>
-                                      ))}
-                                    </div>
-                                  </div>
+                                      </div>
+                                    )}
+                                  </>
                                 )}
                               </div>
                             )}
-
-                            {/* Action buttons */}
-                            <div className="flex gap-2 pt-2">
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                className="border-blue-300 text-blue-800 hover:bg-blue-200"
-                                onClick={() => openNewTransferForm(data.account.id)}
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                Ny Överföring
-                              </Button>
-                            </div>
                           </div>
                         </div>
                       )}
@@ -702,32 +1040,34 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
             </div>
           </div>
         </CardContent>
-      )}
-
-      {/* Transfer Match Dialog */}
-      <SimpleTransferMatchDialog
-        isOpen={transferMatchDialog.isOpen}
-        onClose={() => setTransferMatchDialog({ isOpen: false })}
-        transaction={transferMatchDialog.transaction}
-        suggestions={transferMatchDialog.suggestions || []}
+      </Card>
+    
+    {/* Transfer Match Dialog */}
+    <SimpleTransferMatchDialog
+      isOpen={transferMatchDialog.isOpen}
+      onClose={() => setTransferMatchDialog({ isOpen: false })}
+      transaction={transferMatchDialog.transaction}
+      suggestions={transferMatchDialog.suggestions || []}
+    />
+    
+    {/* New Transfer Form Modal */}
+    {showNewTransferForm && (
+      <NewTransferForm
+        preselectedFromAccountId={selectedFromAccountId}
+        preselectedFromAccountName={selectedFromAccountId ? 
+          accountsFromAPI.find(acc => acc.id === selectedFromAccountId)?.name || 'Välj konto' : 
+          'Välj konto'
+        }
+        availableAccounts={accountsFromAPI}
+        selectedMonth={selectedMonth}
+        budgetState={budgetState}
+        onSubmit={handleCreateTransfer}
+        onCancel={() => {
+          setShowNewTransferForm(false);
+          setSelectedFromAccountId('');
+        }}
       />
-
-      {/* New Transfer Form Modal */}
-      {showNewTransferForm && (
-        <NewTransferForm
-          preselectedFromAccountId={selectedFromAccountId}
-          preselectedFromAccountName={selectedFromAccountId ? 
-            budgetState.accounts.find(acc => acc.id === selectedFromAccountId)?.name || 'Välj konto' : 
-            'Välj konto'
-          }
-          availableAccounts={budgetState.accounts}
-          onSubmit={handleCreateTransfer}
-          onCancel={() => {
-            setShowNewTransferForm(false);
-            setSelectedFromAccountId('');
-          }}
-        />
-      )}
-    </Card>
+    )}
+    </div>
   );
 };
