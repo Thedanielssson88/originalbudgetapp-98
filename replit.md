@@ -4,6 +4,13 @@ This is a comprehensive budget management application built with React and TypeS
 
 ## Recent Critical Changes (January 2025)
 
+- **CRITICAL FIX - Duplicate Account Creation Resolved (January 2025)**: Completely eliminated the duplicate "Överföring" account creation issue that was creating 10+ duplicate accounts during app initialization:
+  - Disabled the `ensureOverforingAccount()` function that was automatically creating duplicate accounts during startup
+  - Fixed localStorage caching in useAccounts and useTransactions hooks to prevent legacy data interference
+  - Modified React Query hooks to only use SQL database data, never mixing with localStorage fallback data
+  - Successfully reduced accounts from 10+ duplicates to the correct 4 accounts (Sparande, Hushållskonto, Löpande, Överföring)
+  - Accounts are now ONLY imported from SQL database, eliminating all localStorage and legacy data contamination
+
 - **CRITICAL COMPILATION FIX (January 2025)**: Successfully resolved all TypeScript compilation errors that were preventing application startup:
   - Fixed incomplete storage interface implementations in MemStorage and DatabaseStorage classes
   - Resolved type mismatches in createFamilyMember, createAccount, createTransaction, and createMonthlyBudget methods

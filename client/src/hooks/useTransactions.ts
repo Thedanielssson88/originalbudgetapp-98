@@ -34,34 +34,27 @@ function cacheTransactions(transactions: Transaction[]): void {
 }
 
 export function useTransactions() {
-  // Get cached transactions immediately on hook initialization
-  const cachedTransactions = getCachedTransactions();
-  
   const query = useQuery<Transaction[]>({
     queryKey: ['/api/transactions'],
     queryFn: async () => {
       const data = await apiRequest('/api/transactions');
-      // Cache the fresh data immediately
-      if (data && data.length > 0) {
+      // Cache the fresh SQL data only after successful fetch
+      if (data && Array.isArray(data)) {
         cacheTransactions(data);
       }
       return data;
     },
-    // Use cached data as initial data
-    initialData: cachedTransactions.length > 0 ? cachedTransactions : undefined,
-    staleTime: 0, // Always refetch to get fresh data
+    // CRITICAL FIX: Don't use localStorage as initial data to prevent legacy data interference
+    // Always fetch fresh data from SQL first, then use cache only for performance
+    staleTime: 5000, // Cache for 5 seconds to reduce API calls
   });
   
-  // Always prefer fresh data, but fallback to cache if needed
-  const effectiveData = (query.data && query.data.length > 0) 
-    ? query.data 
-    : cachedTransactions;
-  
+  // FIXED: Only return SQL data, never mix with localStorage fallback
+  // This ensures all transaction data comes from SQL database
   return {
     ...query,
-    data: effectiveData,
-    // Show as loading only if we don't have any data at all
-    isLoading: query.isLoading && effectiveData.length === 0,
+    data: query.data || [], // Always return SQL data or empty array
+    isLoading: query.isLoading,
   };
 }
 

@@ -35,34 +35,27 @@ function cacheAccounts(accounts: Account[]): void {
 }
 
 export function useAccounts() {
-  // Get cached accounts immediately on hook initialization
-  const cachedAccounts = getCachedAccounts();
-  
   const query = useQuery<Account[]>({
     queryKey: ['/api/accounts'],
     queryFn: async () => {
       const data = await apiRequest('/api/accounts');
-      // Cache the fresh data immediately
-      if (data && data.length > 0) {
+      // Cache the fresh SQL data only after successful fetch
+      if (data && Array.isArray(data)) {
         cacheAccounts(data);
       }
       return data;
     },
-    // Use cached data as initial data
-    initialData: cachedAccounts.length > 0 ? cachedAccounts : undefined,
-    staleTime: 0, // Always refetch to get fresh data
+    // CRITICAL FIX: Don't use localStorage as initial data to prevent legacy data interference
+    // Always fetch fresh data from SQL first, then use cache only for subsequent renders
+    staleTime: 5000, // Cache for 5 seconds to reduce API calls
   });
   
-  // Always prefer fresh data, but fallback to cache if needed
-  const effectiveData = (query.data && query.data.length > 0) 
-    ? query.data 
-    : cachedAccounts;
-  
+  // FIXED: Only return SQL data, never mix with localStorage fallback
+  // This prevents duplicate accounts from localStorage interfering with SQL data
   return {
     ...query,
-    data: effectiveData,
-    // Show as loading only if we don't have any data at all
-    isLoading: query.isLoading && effectiveData.length === 0,
+    data: query.data || [], // Always return SQL data or empty array
+    isLoading: query.isLoading,
   };
 }
 
