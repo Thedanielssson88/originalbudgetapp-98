@@ -7,6 +7,7 @@ import { BudgetState, PlannedTransfer, BudgetItem, Account, MonthData, Transacti
 import { getAccountNameById } from '../orchestrator/budgetOrchestrator';
 import { getDateRangeForMonth, getInternalTransferSummary } from '../services/calculationService';
 import { useAccounts } from '@/hooks/useAccounts';
+import { useTransactions } from '@/hooks/useTransactions';
 import { useBudgetPosts } from '@/hooks/useBudgetPosts';
 import { useHuvudkategorier, useUnderkategorier, useCategoriesHierarchy } from '@/hooks/useCategories';
 import { formatOrenAsCurrency, kronoraToOren } from '@/utils/currencyUtils';
@@ -23,8 +24,8 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
   budgetState,
   selectedMonth
 }) => {
-  console.log('🔄 [TRANSFERS COMPONENT] Component rendered with month:', selectedMonth);
   const { data: accountsFromAPI = [], isLoading: accountsLoading } = useAccounts();
+  const { data: transactionsFromAPI = [] } = useTransactions();
   const { data: budgetPosts = [], isLoading: budgetPostsLoading, refetch: refetchBudgetPosts } = useBudgetPosts(selectedMonth);
   const { data: huvudkategorier = [] } = useHuvudkategorier();
   const { data: underkategorier = [] } = useUnderkategorier();
@@ -330,14 +331,13 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
 
 
   // Hämta interna överföringar för varje konto (outside useMemo so it can be used in render)
-  console.log('🔄 [TRANSFERS COMPONENT] Calling getInternalTransferSummary for month:', selectedMonth);
+  // CRITICAL FIX: Use SQL transactions instead of localStorage budgetState
   // Pass accounts from API to transfer calculation
   const budgetStateWithAPIAccounts = {
     ...budgetState,
     accounts: accountsFromAPI
   };
-  const allInternalTransfers = getInternalTransferSummary(budgetStateWithAPIAccounts, selectedMonth);
-  console.log('🔄 [TRANSFERS COMPONENT] Internal transfers result:', allInternalTransfers);
+  const allInternalTransfers = getInternalTransferSummary(budgetStateWithAPIAccounts, selectedMonth, transactionsFromAPI);
 
   // Helper function to get account name by ID
   const getAccountNameByIdHelper = (accountId: string): string => {

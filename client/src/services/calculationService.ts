@@ -522,14 +522,20 @@ function getNextTenHolidays(fromDate: Date, customHolidays: {date: string, name:
  */
 export function getTransactionsForPeriod(
   budgetState: BudgetState,
-  selectedMonthKey: string
+  selectedMonthKey: string,
+  sqlTransactions?: any[]
 ): any[] {
   console.log(`[getTransactionsForPeriod] Looking for transactions in period for month: ${selectedMonthKey}`);
   console.log(`[getTransactionsForPeriod] PURE STRING COMPARISON - Starting transaction search...`);
   
+  // CRITICAL FIX: Use SQL transactions as primary source instead of localStorage budgetState
   // Hämta start- och slutdatum som STRÄNGAR
   const { startDate, endDate } = getDateRangeForMonth(selectedMonthKey, budgetState.settings?.payday || 25);
-  const allTransactions = budgetState.allTransactions || [];
+  const allTransactions = sqlTransactions && sqlTransactions.length > 0 
+    ? sqlTransactions 
+    : (budgetState.allTransactions || []);
+  
+  console.log(`[getTransactionsForPeriod] 🔄 Using ${sqlTransactions && sqlTransactions.length > 0 ? 'SQL' : 'localStorage'} data source: ${allTransactions.length} transactions`);
   
   console.log(`[getTransactionsForPeriod] Period: ${startDate} to ${endDate} (pure strings)`);
   console.log(`[getTransactionsForPeriod] Available transactions:`, allTransactions.length);
@@ -560,14 +566,24 @@ export function getTransactionsForPeriod(
 }
 
 // NEW: Central date logic for payday-based months - now returns string dates
+// Simple cache for date range calculations
+const dateRangeCache = new Map<string, { startDate: string, endDate: string }>();
+
 export function getDateRangeForMonth(monthKey: string, payday: number): { startDate: string, endDate: string } {
+  const cacheKey = `${monthKey}-${payday}`;
+  if (dateRangeCache.has(cacheKey)) {
+    return dateRangeCache.get(cacheKey)!;
+  }
+  
   const [year, month] = monthKey.split('-').map(Number);
 
+  let result: { startDate: string, endDate: string };
+  
   if (payday === 1) {
     // Calendar month
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0); // Last day of month
-    return { startDate: formatDateToString(startDate), endDate: formatDateToString(endDate) };
+    result = { startDate: formatDateToString(startDate), endDate: formatDateToString(endDate) };
   } else {
     // Payday month (e.g., 25th to 24th)
     let prevMonth = month - 1;
@@ -579,8 +595,12 @@ export function getDateRangeForMonth(monthKey: string, payday: number): { startD
     
     const startDate = new Date(prevYear, prevMonth - 1, payday);
     const endDate = new Date(year, month - 1, payday - 1);
-    return { startDate: formatDateToString(startDate), endDate: formatDateToString(endDate) };
+    result = { startDate: formatDateToString(startDate), endDate: formatDateToString(endDate) };
   }
+  
+  // Cache the result
+  dateRangeCache.set(cacheKey, result);
+  return result;
 }
 
 // NEW: Central business logic function that replaces the complex useMemo in BudgetCalculator
@@ -774,27 +794,18 @@ export interface TransferSummary {
 
 export function getInternalTransferSummary(
   budgetState: BudgetState, 
-  selectedMonthKey: string
+  selectedMonthKey: string,
+  sqlTransactions?: any[]
 ): TransferSummary[] {
-  console.log('🔍 [INTERNAL TRANSFERS CALCULATION] Starting calculation', {
-    selectedMonthKey,
-    paydaySetting: budgetState.settings?.payday || 25,
-    accountsCount: budgetState.accounts.length,
-    historicalDataKeys: Object.keys(budgetState.historicalData),
-    plannedTransfersCount: budgetState.plannedTransfers?.length || 0
-  });
 
   // 1. Hämta det korrekta datumintervallet baserat på payday-inställningen
   const { startDate, endDate } = getDateRangeForMonth(selectedMonthKey, budgetState.settings?.payday || 25);
-  // CRITICAL: Use centralized transaction storage
-  const allTransactions = budgetState.allTransactions || [];
+  // CRITICAL FIX: Use SQL transactions as primary source instead of localStorage budgetState
+  const allTransactions = sqlTransactions && sqlTransactions.length > 0 
+    ? sqlTransactions 
+    : (budgetState.allTransactions || []);
   
-  console.log('🔍 [INTERNAL TRANSFERS CALCULATION] Date range and transactions (string dates)', {
-    startDate,
-    endDate,
-    totalTransactions: allTransactions.length,
-    internalTransferTransactions: allTransactions.filter(t => t.type === 'InternalTransfer').length
-  });
+  
   
   // Debug: Show all transaction types in the period
   const transactionTypesInPeriod = allTransactions
@@ -804,7 +815,6 @@ export function getInternalTransferSummary(
       return acc;
     }, {});
   
-  console.log('🔍 [INTERNAL TRANSFERS CALCULATION] Transaction types in period:', transactionTypesInPeriod);
   
   // Debug: Show sample transactions for the Överföring account
   const overforingAccountId = 'aa9d996d-1baf-4c34-91bb-02f82b51aab6';
@@ -812,25 +822,16 @@ export function getInternalTransferSummary(
     .filter(t => t.accountId === overforingAccountId && t.date >= startDate && t.date <= endDate)
     .slice(0, 5); // Show first 5
     
-  console.log('🔍 [INTERNAL TRANSFERS CALCULATION] Sample Överföring account transactions:', overforingTransactions);
   
   // 2. Filtrera ut alla interna överföringar inom den korrekta perioden - ren strängjämförelse
   const transfersForPeriod = allTransactions.filter(t => {
     return t.type === 'InternalTransfer' && t.date >= startDate && t.date <= endDate;
   });
 
-  console.log('🔍 [INTERNAL TRANSFERS CALCULATION] Filtered transfers', {
-    transfersForPeriod: transfersForPeriod.length,
-    transfers: transfersForPeriod
-  });
 
   // 3. Get planned transfers for this month
   const plannedTransfersForMonth = budgetState.plannedTransfers?.filter(pt => pt.month === selectedMonthKey) || [];
   
-  console.log('🔍 [INTERNAL TRANSFERS CALCULATION] Planned transfers for month', {
-    plannedTransfersForMonth: plannedTransfersForMonth.length,
-    transfers: plannedTransfersForMonth
-  });
 
   const allAccounts = budgetState.accounts;
 
@@ -925,10 +926,6 @@ export function getInternalTransferSummary(
     return summary;
   }).filter(s => s.totalIn > 0 || s.totalOut > 0); // Visa bara konton med överföringar
   
-  console.log('🔍 [INTERNAL TRANSFERS CALCULATION] Final result (with planned transfers)', {
-    summariesWithTransfers: result.length,
-    result
-  });
   
   return result;
 }

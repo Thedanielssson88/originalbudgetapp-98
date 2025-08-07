@@ -60,14 +60,6 @@ class ApiStore {
   }
 
   async updateTransaction(id: string, data: any): Promise<any> {
-    // Debug logging for savingsTargetId
-    if (data.savingsTargetId !== undefined) {
-      console.log(`🔄 [API STORE] Updating transaction ${id} with data:`, data);
-      // Also log to mobile debug
-      import('../utils/mobileDebugLogger').then(({ addMobileDebugLog }) => {
-        addMobileDebugLog(`🔄 [API STORE] Updating transaction ${id} with savingsTargetId=${data.savingsTargetId}`);
-      });
-    }
     
     const response = await fetch(`/api/transactions/${id}`, {
       method: 'PUT',
@@ -83,30 +75,34 @@ class ApiStore {
 
     const result = await response.json();
     
-    // Debug logging for response
-    if (data.savingsTargetId !== undefined) {
-      console.log(`✅ [API STORE] Response from server:`, { 
-        id: result.id, 
-        savingsTargetId: result.savingsTargetId,
-        savings_target_id: result.savings_target_id 
-      });
-      // Also log to mobile debug
-      import('../utils/mobileDebugLogger').then(({ addMobileDebugLog }) => {
-        addMobileDebugLog(`✅ [API STORE] Server response savingsTargetId=${result.savingsTargetId}, snake_case=${result.savings_target_id}`);
-      });
-    }
-
     return result;
   }
 
   async getTransactions(): Promise<any[]> {
-    const response = await fetch('/api/transactions');
+    try {
+      const response = await fetch('/api/transactions', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-    if (!response.ok) {
-      throw new Error(`Failed to get transactions: ${response.statusText}`);
+      if (!response.ok) {
+        throw new Error(`Failed to get transactions: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('❌ [ApiStore] Failed to fetch transactions:', error);
+      
+      // If it's a network error, try to provide helpful context
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.error('🌐 [ApiStore] Network error - server might be down or unreachable');
+        console.error('💡 [ApiStore] Try refreshing the page or check server status');
+      }
+      
+      throw error;
     }
-
-    return response.json();
   }
 
   async getOrCreateMonthlyBudget(monthKey: string): Promise<any> {
@@ -183,7 +179,6 @@ class ApiStore {
 
   async syncFromDatabase(): Promise<any> {
     // No-op for now - placeholder for compatibility
-    console.log('[API Store] syncFromDatabase called');
     return {};
   }
 }

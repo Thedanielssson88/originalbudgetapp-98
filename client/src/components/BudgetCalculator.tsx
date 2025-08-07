@@ -49,10 +49,11 @@ import { useMonthlyBudget } from '@/hooks/useMonthlyBudget';
 import { useFamilyMembers } from '@/hooks/useFamilyMembers';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
-import { useBudgetPosts } from '@/hooks/useBudgetPosts';
+import { useBudgetPosts, useDeleteBudgetPost } from '@/hooks/useBudgetPosts';
 import { useMonthlyAccountBalances, useUpdateFaktisktKontosaldo } from '@/hooks/useMonthlyAccountBalances';
 import { 
   createSavingsGoal,
+  deleteSavingsGoal,
   updateCostGroups,
   updateSavingsGroups,
   updateAccountBalance,
@@ -124,15 +125,14 @@ interface BudgetGroup {
 }
 
 const BudgetCalculator = () => {
-  console.log('🔥 [COMPONENT] BudgetCalculator component is starting!');
-  console.log('🔥 [COMPONENT] BudgetCalculator component is starting!'); // Duplicate for visibility
-  console.log('🔥🔥🔥 FORCING BUDGET CALCULATOR TO LOG 🔥🔥🔥');
+  // BudgetCalculator component starting
   // Use the original useBudget hook - fix hook ordering instead
   const { isLoading, budgetState, calculated } = useBudget();
   const { data: familyMembers } = useFamilyMembers();
   const { data: accountsFromAPI = [], isLoading: accountsLoading, error: accountsError } = useAccounts();
   const { data: transactionsFromAPI = [], isLoading: transactionsLoading } = useTransactions();
   const { data: budgetPostsFromAPI = [], isLoading: budgetPostsLoading } = useBudgetPosts(budgetState.selectedMonthKey);
+  const deleteBudgetPostMutation = useDeleteBudgetPost();
   const currentMonthlyBudget = useMonthlyBudget(budgetState.selectedMonthKey);
   const { toast } = useToast();
   
@@ -142,18 +142,10 @@ const BudgetCalculator = () => {
 
   // Convert PostgreSQL budget posts to legacy format for display with proper hierarchy
   const budgetPostsAsLegacyGroups = useMemo(() => {
-    console.log('🔍 [DEBUG] Converting budget posts to legacy format with hierarchy');
-    console.log('🔍 [DEBUG] Budget posts data:', budgetPostsFromAPI);
-    console.log('🔍 [DEBUG] Available huvudkategorier:', huvudkategorier);
-    console.log('🔍 [DEBUG] Available underkategorier:', underkategorier);
-    
-    // Debug: Show all budget posts with their types
+    // Filter budget posts by types
     const savingsTypePosts = budgetPostsFromAPI.filter((post: any) => post.type === 'savings');
-    console.log('🔍 [DEBUG] Budget posts with type=savings:', savingsTypePosts.length, savingsTypePosts);
     const costTypePosts = budgetPostsFromAPI.filter((post: any) => post.type === 'cost');
-    console.log('🔍 [DEBUG] Budget posts with type=cost:', costTypePosts.length, costTypePosts);
     const otherTypePosts = budgetPostsFromAPI.filter((post: any) => post.type !== 'savings' && post.type !== 'cost');
-    console.log('🔍 [DEBUG] Budget posts with other types:', otherTypePosts.length, otherTypePosts);
 
     const costGroups: any[] = [];
     const savingsGroups: any[] = [];
@@ -207,7 +199,6 @@ const BudgetCalculator = () => {
         // Get all underkategorier for this huvudkategori
         const relevantUnderkategorier = underkategorier.filter(u => u.huvudkategoriId === huvudkategoriId);
         
-        console.log('🔍 [DEBUG] Processing huvudkategori:', huvudkategori.name, 'with underkategorier:', relevantUnderkategorier.length);
 
         const huvudkategoriGroup = {
           id: huvudkategori.id,
@@ -229,7 +220,6 @@ const BudgetCalculator = () => {
             (type === 'savings' ? post.type === 'savings' : post.type !== 'savings')
           );
 
-          console.log('🔍 [DEBUG] Found', postsForUnderkategori.length, `budget posts for underkategori: ${underkategori.name} (type: ${type})`);
 
           // Calculate total for this underkategori
           const underkategoriTotal = postsForUnderkategori.reduce((sum, post) => sum + ((post.amount || 0) / 100), 0);
@@ -276,18 +266,6 @@ const BudgetCalculator = () => {
       }
     }
 
-    console.log('🔍 [DEBUG] Final hierarchical structure:');
-    console.log('🔍 [DEBUG] Cost groups:', costGroups.length, costGroups);
-    console.log('🔍 [DEBUG] Savings groups (FILTERED for type=savings only):', savingsGroups.length, savingsGroups);
-    
-    // Debug the structure of subCategories to see what's happening
-    costGroups.forEach(group => {
-      console.log(`🔍 [DEBUG] Group "${group.name}" has ${group.subCategories.length} subCategories:`);
-      group.subCategories.forEach(sub => {
-        console.log(`🔍 [DEBUG]   - ${sub.name} (isUnderkategori: ${sub.isUnderkategori}, budgetPosts: ${sub.budgetPosts?.length || 0})`);
-      });
-    });
-
     return { costGroups, savingsGroups };
   }, [budgetPostsFromAPI, huvudkategorier, underkategorier, accountsFromAPI]);
 
@@ -299,12 +277,10 @@ const BudgetCalculator = () => {
   const { resolveHuvudkategoriName, resolveUnderkategoriName, isLoading: categoriesLoading } = useCategoryResolver();
   const { migrateBudgetData, needsMigration } = useUuidCategoryBridge();
   
-  console.log('🔍 [DEBUG] BudgetCalculator component rendering - start');
   
   // Auto-migrate budget data to UUID categories if needed
   useEffect(() => {
     if (!categoriesLoading && needsMigration) {
-      console.log('🔄 [UUID MIGRATION] Auto-migrating budget data to UUID categories...');
       migrateBudgetData();
     }
   }, [categoriesLoading, needsMigration, migrateBudgetData]);
@@ -330,7 +306,7 @@ const BudgetCalculator = () => {
   };
   
   // ALL HOOKS MUST BE DECLARED FIRST - BEFORE ANY CONDITIONAL LOGIC
-  const [isEditingCategories, setIsEditingCategories] = useState<boolean>(false);
+  const [isEditingCategories, setIsEditingCategories] = useState<boolean>(false); // Edit mode disabled
   const [isEditingTransfers, setIsEditingTransfers] = useState<boolean>(false);
   const [isEditingHolidays, setIsEditingHolidays] = useState<boolean>(false);
   const [newHistoricalMonth, setNewHistoricalMonth] = useState<string>(''); // State for new month input
@@ -629,13 +605,6 @@ const BudgetCalculator = () => {
     updateIncome('susannabarnbidrag', value);
   };
   
-  // CRITICAL DEBUG: Log what data is actually available
-  console.log(`🔍 [DATA LOADING] selectedMonthKey: ${selectedMonthKey}`);
-  console.log(`🔍 [DATA LOADING] appHistoricalData keys:`, Object.keys(appHistoricalData));
-  console.log(`🔍 [DATA LOADING] currentMonthData:`, currentMonthData);
-  console.log(`🔍 [DATA LOADING] monthlyBudget from database:`, monthlyBudget);
-  console.log(`🔍 [DATA LOADING] currentMonthData.accountBalances:`, (currentMonthData as any).accountBalances);
-  console.log(`🔍 [DATA LOADING] currentMonthData.accountBalancesSet:`, (currentMonthData as any).accountBalancesSet);
   
   // Data från den enda källan till sanning - DATABASE FIRST, then fallback to legacy
   // Convert from öre (database) to SEK (for calculations and display)
@@ -654,18 +623,6 @@ const BudgetCalculator = () => {
   const costGroups = budgetPostsAsLegacyGroups.costGroups;
   const savingsGroups = budgetPostsAsLegacyGroups.savingsGroups;
   
-  console.log('🔍 [DEBUG] FORCED PostgreSQL usage - ignoring localStorage budget posts');
-  console.log('🔍 [DEBUG] PostgreSQL costGroups:', costGroups);
-  console.log('🔍 [DEBUG] localStorage costGroups (IGNORED):', localStorageCostGroups);
-    
-  console.log('🔍 [DEBUG] Merged groups:', {
-    pgCostGroups: budgetPostsAsLegacyGroups.costGroups.length,
-    localCostGroups: localStorageCostGroups.length,
-    totalCostGroups: costGroups.length,
-    pgSavingsGroups: budgetPostsAsLegacyGroups.savingsGroups.length,
-    localSavingsGroups: localStorageSavingsGroups.length,
-    totalSavingsGroups: savingsGroups.length
-  });
   const dailyTransfer = (currentMonthData as any).dailyTransfer || 300;
   const weekendTransfer = (currentMonthData as any).weekendTransfer || 540;
   const customHolidays = (currentMonthData as any).customHolidays || [];
@@ -686,17 +643,11 @@ const BudgetCalculator = () => {
   
   // Create unified savings items list that combines savingsGroups with active savings goals
   const allSavingsItems = useMemo(() => {
-    console.log('🔍 [DEBUG] allSavingsItems - building list...');
-    console.log('🔍 [DEBUG] savingsGroups input (should be SQL-only with savings type):', savingsGroups);
-    console.log('🔍 [DEBUG] allSavingsItems - budgetPostsFromAPI length:', budgetPostsFromAPI.length);
-    
     // Debug: Check if we're getting any localStorage interference
     const localStorageSavingsGroups = (currentMonthData as any).savingsGroups || [];
-    console.log('🔍 [DEBUG] localStorage savingsGroups (should be ignored):', localStorageSavingsGroups.length, localStorageSavingsGroups);
     
     // 1. Start with regular, general savings
     const generalSavings = savingsGroups || [];
-    console.log('🔍 [DEBUG] generalSavings processed:', generalSavings);
 
     // 2. Get all savings goals from global state
      const savingsGoals = budgetState.savingsGoals || [];
@@ -707,11 +658,36 @@ const BudgetCalculator = () => {
 
     // 4. Return only the regular savings categories (no savings goals)
     const combined = [...generalSavings]; // Only include regular savings, not goals
-    console.log('🔍 [DEBUG] allSavingsItems - final combined result (no savings goals):', combined);
-    console.log('🔍 [DEBUG] allSavingsItems - includes "Semester"?', combined?.some(item => item.name === 'Semester'));
     return combined;
 
   }, [savingsGroups, budgetState.savingsGoals, selectedBudgetMonth, accountsFromAPI]);
+
+  // CRITICAL FIX: Combine SQL savings goals with localStorage savings goals
+  const allSavingsGoals = useMemo(() => {
+    // Convert budget posts with type='sparmål' to SavingsGoal format (same logic as SavingsGoalsPage)
+    const savingsGoalsFromSQL = budgetPostsFromAPI
+      .filter(post => post.type === 'sparmål')
+      .map(post => {
+        const goalName = post.name || post.description?.replace('Sparmål: ', '') || 'Unnamed Goal';
+        
+        return {
+          id: post.id,
+          name: goalName,
+          accountId: post.accountId || '',
+          targetAmount: post.amount / 100, // Convert from öre to kronor
+          startDate: post.startDate || '',
+          endDate: post.endDate || ''
+        };
+      });
+
+    // Combine SQL savings goals with legacy savings goals (during transition period)
+    const legacyGoals = budgetState.savingsGoals || [];
+    
+    // Prioritize SQL goals over legacy goals
+    const combined = [...savingsGoalsFromSQL, ...legacyGoals];
+    
+    return combined;
+  }, [budgetPostsFromAPI, budgetState.savingsGoals]);
 
   // CENTRALIZED LOGIC: Use single function call to replace complex logic
   const activeContent = useMemo(() => {
@@ -818,7 +794,6 @@ const BudgetCalculator = () => {
   // --- SLUT PÅ NY LOGIK ---
   
   // CRITICAL DEBUG: Log the exact data being used
-  console.log(`🚨 [RENDER] budgetState.historicalData:`, budgetState.historicalData);
   console.log(`🚨 [RENDER] selectedMonthKey:`, selectedMonthKey);
   console.log(`🚨 [RENDER] currentMonthData:`, currentMonthData);
 
@@ -993,92 +968,52 @@ const BudgetCalculator = () => {
   };
 
   // MODERN: Function that uses accountId directly (more reliable)
-  const getTransactionsForAccountId = (accountId: string): Transaction[] => {
+  const getTransactionsForAccountId = React.useCallback((accountId: string): Transaction[] => {
     const allPeriodTransactions = activeContent.transactionsForPeriod || [];
-    console.log(`🔍 [DEBUG] ============= getTransactionsForAccountId START =============`);
-    console.log(`🔍 [DEBUG] Looking for accountId: "${accountId}"`);
-    console.log(`🔍 [DEBUG] Total transactions in period: ${allPeriodTransactions.length}`);
-    console.log(`🔍 [DEBUG] activeContent.transactionsForPeriod:`, (allPeriodTransactions || []).slice(0, 5).map(t => ({ 
-      id: t.id, 
-      accountId: t.accountId, 
-      date: t.date, 
-      amount: t.amount, 
-      description: t.description 
-    })));
     
-    // Direct filtering by accountId - much cleaner, and only Transaction and ExpenseClaim types
     const accountTransactions = (allPeriodTransactions || []).filter((t: Transaction) => 
-      t.accountId === accountId && (t.type === 'Transaction' || t.type === 'ExpenseClaim') // Include Transaction and ExpenseClaim (Utlägg), exclude InternalTransfers etc.
+      t.accountId === accountId && (t.type === 'Transaction' || t.type === 'ExpenseClaim')
     );
-    console.log(`🔍 [DEBUG] Found ${accountTransactions.length} transactions for accountId ${accountId}:`, 
-      (accountTransactions || []).map(t => ({ id: t.id, amount: t.amount, description: t.description, date: t.date })));
-    console.log(`🔍 [DEBUG] ============= getTransactionsForAccountId END =============`);
     
     return accountTransactions;
-  };
+  }, [activeContent.transactionsForPeriod]);
 
   // LEGACY: Function that uses accountName (kept for backward compatibility)
-  const getTransactionsForAccount = (accountName: string): Transaction[] => {
-    // FIXED: Use correctly filtered transactions according to PaydaySettings
+  const getTransactionsForAccount = React.useCallback((accountName: string): Transaction[] => {
     const allPeriodTransactions = activeContent.transactionsForPeriod || [];
-    console.log(`🔍 [DEBUG] ============= getTransactionsForAccount START =============`);
-    console.log(`🔍 [DEBUG] Looking for account: "${accountName}"`);
-    console.log(`🔍 [DEBUG] Total transactions in period: ${allPeriodTransactions.length}`);
-    console.log(`🔍 [DEBUG] Available accounts:`, accountsFromAPI);
-    
-    // Log all transactions with their account info
-    console.log(`🔍 [DEBUG] ALL TRANSACTIONS WITH ACCOUNT INFO:`);
-    (allPeriodTransactions || []).forEach((t: Transaction, index: number) => {
-      const account = (accountsFromAPI || []).find(acc => acc.id === t.accountId);
-      console.log(`🔍 [DEBUG] Transaction ${index}: id=${t.id}, accountId=${t.accountId}, resolved account name="${account?.name}", amount=${t.amount}, description="${t.description}", status=${t.status}, appCategoryId=${t.appCategoryId}, date=${t.date}`);
-    });
     
     // Method 1: Find transactions directly by accountId
     const directAccountTransactions = (allPeriodTransactions || []).filter((t: Transaction) => {
       const account = (accountsFromAPI || []).find(acc => acc.id === t.accountId);
       const matchesDirect = account?.name === accountName;
-      const isTransactionOrExpense = t.type === 'Transaction' || t.type === 'ExpenseClaim'; // Include Transaction and ExpenseClaim (Utlägg), exclude InternalTransfers etc.
-      if (matchesDirect) {
-        console.log(`🔍 [DEBUG] ✅ DIRECT MATCH - Transaction ${t.id}: accountId=${t.accountId}, resolved name=${account?.name}, amount=${t.amount}, date=${t.date}, type=${t.type}, isTransactionOrExpense=${isTransactionOrExpense}`);
-      }
+      const isTransactionOrExpense = t.type === 'Transaction' || t.type === 'ExpenseClaim';
       return matchesDirect && isTransactionOrExpense;
     });
     
     // Method 2: Also check for transactions that might have accountId directly matching the account name
     const nameMatchTransactions = allPeriodTransactions.filter((t: Transaction) => {
       const matchesName = t.accountId === accountName;
-      const isTransactionOrExpense = t.type === 'Transaction' || t.type === 'ExpenseClaim'; // Include Transaction and ExpenseClaim (Utlägg), exclude InternalTransfers etc.
-      if (matchesName) {
-        console.log(`🔍 [DEBUG] ✅ NAME MATCH - Transaction ${t.id}: accountId=${t.accountId} matches account name directly, date=${t.date}, type=${t.type}, isTransactionOrExpense=${isTransactionOrExpense}`);
-      }
+      const isTransactionOrExpense = t.type === 'Transaction' || t.type === 'ExpenseClaim';
       return matchesName && isTransactionOrExpense;
     });
-    
-    console.log(`🔍 [DEBUG] Direct account transactions (${directAccountTransactions.length}):`, directAccountTransactions.map(t => ({ id: t.id, amount: t.amount, description: t.description })));
-    console.log(`🔍 [DEBUG] Name match transactions (${nameMatchTransactions.length}):`, nameMatchTransactions.map(t => ({ id: t.id, amount: t.amount, description: t.description })));
     
     // Method 3: For budget accounts, also find transactions that belong to subcategories in this account
     const accountSubcategories: string[] = [];
     costGroups.forEach(group => {
       group.subCategories?.forEach(sub => {
-        // Check both legacy account name and new accountId structure
         const matchesLegacy = sub.account === accountName;
         const account = (accountsFromAPI || []).find(acc => acc.id === sub.accountId);
         const matchesNew = account?.name === accountName;
         
         if (matchesLegacy || matchesNew) {
           accountSubcategories.push(group.id);
-          console.log(`🔍 [DEBUG] ✅ SUBCATEGORY MATCH - Added group ID ${group.id} for account ${accountName} via subcategory "${sub.name}"`);
         }
       });
     });
     
-    // Filter transactions by category ID (appCategoryId) that belong to this account through subcategories
     const categoryBasedTransactions = allPeriodTransactions.filter((t: Transaction) => 
       accountSubcategories.includes(t.appCategoryId || '')
     );
-    
-    console.log(`🔍 [DEBUG] Category-based transactions (${categoryBasedTransactions.length}):`, categoryBasedTransactions.map(t => ({ id: t.id, amount: t.amount, description: t.description, appCategoryId: t.appCategoryId })));
     
     // Combine all methods and remove duplicates
     const allTransactions = [...directAccountTransactions, ...nameMatchTransactions];
@@ -1088,14 +1023,8 @@ const BudgetCalculator = () => {
       }
     });
     
-    console.log(`🔍 [DEBUG] ============= FINAL RESULT =============`);
-    console.log(`🔍 [DEBUG] Combined transactions for account "${accountName}": ${allTransactions.length} transactions`);
-    console.log(`🔍 [DEBUG] Final transactions:`, allTransactions.map(t => ({ id: t.id, amount: t.amount, description: t.description, status: t.status })));
-    console.log(`🔍 [DEBUG] ============= getTransactionsForAccount END =============`);
-    
-    // IMPORTANT: Include ALL transactions regardless of approval status (red/yellow/green)
     return allTransactions;
-  };
+  }, [activeContent.transactionsForPeriod, accountsFromAPI, costGroups]);
 
   const openDrillDownDialog = (categoryName: string, categoryId: string, budgetAmount: number) => {
     const transactions = getTransactionsForCategory(categoryId);
@@ -1394,7 +1323,7 @@ const BudgetCalculator = () => {
         return sum + group.amount + subCategoriesTotal;
       }, 0);
       
-      const savingsGoalsMonthlyTotal = budgetState.savingsGoals.reduce((sum, goal) => {
+      const savingsGoalsMonthlyTotal = allSavingsGoals.reduce((sum, goal) => {
         const start = new Date(goal.startDate + '-01');
         const end = new Date(goal.endDate + '-01');
         const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
@@ -1776,21 +1705,19 @@ const BudgetCalculator = () => {
       return;
     }
 
-    const newGoal = {
-      name: newSavingsGoalName,
-      accountId: newSavingsGoalAccount,
-      targetAmount: parseFloat(newSavingsGoalTarget),
-      startDate: newSavingsGoalStartDate,
-      endDate: newSavingsGoalEndDate
-    };
-
-    createSavingsGoal(newGoal);
+    // DEPRECATED: Redirect users to the dedicated SavingsGoalsPage instead of using old localStorage method
+    console.log('🚨 [DEPRECATED] BudgetCalculator savings goal creation is deprecated - redirecting to SavingsGoalsPage');
     setIsCreateSavingsGoalDialogOpen(false);
+    
+    // Clear form
     setNewSavingsGoalName('');
     setNewSavingsGoalAccount('');
     setNewSavingsGoalTarget('');
     setNewSavingsGoalStartDate('');
     setNewSavingsGoalEndDate('');
+    
+    // TODO: Consider redirecting to /sparmal page or showing a message
+    alert('Använd "Sparmål" sidan i navigationen för att skapa nya sparmål.');
   };
 
   // Handler för BudgetItem struktur
@@ -1828,6 +1755,33 @@ const BudgetCalculator = () => {
     console.log('🔍 [DEBUG] Legacy mainCategory:', legacyItem.mainCategory);
     console.log('🔍 [DEBUG] Legacy subcategory:', legacyItem.subcategory);
     handleAddCostItem(legacyItem);
+  };
+
+  // Delete savings group function
+  const deleteSavingsGroup = async (id: string) => {
+    console.log('🔍 [DEBUG] deleteSavingsGroup called with id:', id);
+    
+    // Check if this is a savings goal (sparmål) from SQL
+    const sqlSavingsGoal = budgetPostsFromAPI.find(post => post.id === id && post.type === 'sparmål');
+    
+    if (sqlSavingsGoal) {
+      console.log('🔍 [DEBUG] Deleting SQL savings goal (sparmål) with id:', id);
+      
+      if (!confirm('Är du säker på att du vill ta bort detta sparmål?')) {
+        return;
+      }
+      
+      try {
+        await deleteBudgetPostMutation.mutateAsync(id);
+        console.log('🔍 [DEBUG] Savings goal deleted successfully');
+      } catch (error) {
+        console.error('🔍 [ERROR] Failed to delete savings goal:', error);
+      }
+    } else {
+      // Handle legacy savings groups if needed
+      console.log('🔍 [DEBUG] Attempting to delete legacy savings group with id:', id);
+      deleteSavingsGoal(id); // Use orchestrator for legacy goals
+    }
   };
   
   // Tab navigation helper functions
@@ -3034,12 +2988,6 @@ const BudgetCalculator = () => {
       monthKey: `${prevYear}-${String(adjustedPrevMonth + 1).padStart(2, '0')}`
     };
     
-    console.log(`=== GET PREVIOUS MONTH INFO DEBUG ===`);
-    console.log(`selectedBudgetMonth: ${selectedBudgetMonth}`);
-    console.log(`selectedYear: ${selectedYear}, selectedMonth: ${selectedMonth}`);
-    console.log(`prevYear: ${prevYear}, adjustedPrevMonth: ${adjustedPrevMonth}`);
-    console.log(`Previous month key: ${result.monthKey}`);
-    console.log(`=== END GET PREVIOUS MONTH INFO DEBUG ===`);
     
     return result;
   };
@@ -3049,73 +2997,34 @@ const BudgetCalculator = () => {
     const prevMonthInfo = getPreviousMonthInfo();
     const prevMonthData = historicalData[prevMonthInfo.monthKey];
     
-    console.log(`=== GET ESTIMATED OPENING BALANCES DEBUG ===`);
-    console.log(`🔍 BERÄKNAR ESTIMERAD INGÅENDE BALANS FÖR: ${selectedBudgetMonth || 'Aktuell månad'}`);
-    console.log(`📅 ANVÄNDER DATA FRÅN FÖREGÅENDE MÅNAD: ${prevMonthInfo.monthKey}`);
-    console.log(`📊 Föregående månads data finns:`, !!prevMonthData);
-    console.log(`📋 Tillgängliga historiska månader:`, Object.keys(historicalData));
-    console.log(`💰 Föregående månads slutsaldon:`, prevMonthData?.accountEstimatedFinalBalances);
-    console.log(`🆕 Nya slutsaldon medskickade:`, freshFinalBalances);
-    if (prevMonthData) {
-      console.log(`Previous month data structure:`, {
-        accountBalances: prevMonthData.accountBalances,
-        accountEstimatedFinalBalances: prevMonthData.accountEstimatedFinalBalances,
-        hasAccountEstimatedFinalBalances: !!prevMonthData.accountEstimatedFinalBalances,
-        accountEstimatedFinalBalancesKeys: Object.keys(prevMonthData.accountEstimatedFinalBalances || {}),
-        buffertEstimatedFinalBalance: prevMonthData.accountEstimatedFinalBalances?.['Buffert']
-      });
-    }
     
     if (!prevMonthData) {
-      console.log(`❌ INGEN DATA HITTADES FÖR FÖREGÅENDE MÅNAD: ${prevMonthInfo.monthKey}`);
-      console.log(`   Detta betyder att estimerad ingående balans inte kan beräknas.`);
-      console.log(`   För Juni skulle vi behöva data från Maj för att beräkna.`);
       return null;
     }
     
     const estimatedOpeningBalances: {[key: string]: number} = {};
     
-    console.log('Previous month data found:', prevMonthInfo.monthKey, prevMonthData);
     
     // Calculate estimated opening balances for current month
     // This should load the specific "AccountName.Year.Month.Endbalance" value from previous month
     accounts.forEach(account => {
-        console.log(`🔍 === DEBUGGING ${account} FOR ${selectedBudgetMonth} ===`);
-        console.log(`🎯 Looking for previous month's ending balance...`);
-        
         const [prevYear, prevMonth] = prevMonthInfo.monthKey.split('-');
         const endingBalanceKey = `${account}.${prevYear}.${prevMonth}.Endbalance`;
         
-        console.log(`🔑 Looking for ending balance key: "${endingBalanceKey}"`);
-        console.log(`📊 Previous month data ALL KEYS:`, Object.keys(prevMonthData));
-        console.log(`💾 accountEndingBalances FULL OBJECT:`, prevMonthData.accountEndingBalances);
-        console.log(`💾 accountEndingBalances keys:`, prevMonthData.accountEndingBalances ? Object.keys(prevMonthData.accountEndingBalances) : 'undefined');
-        console.log(`💰 accountEstimatedFinalBalances FULL OBJECT:`, prevMonthData.accountEstimatedFinalBalances);
-        console.log(`💰 accountEstimatedFinalBalances keys:`, prevMonthData.accountEstimatedFinalBalances ? Object.keys(prevMonthData.accountEstimatedFinalBalances) : 'undefined');
-        
         // Use accountEstimatedFinalBalances as the single source of truth
         let openingBalance = prevMonthData.accountEstimatedFinalBalances?.[account];
-        console.log(`🔍 accountEstimatedFinalBalances lookup for "${account}": ${openingBalance}`);
         
         // Final fallback to accountEndingBalances with specific key format
         if (openingBalance === undefined || openingBalance === null) {
           const [prevYear, prevMonth] = prevMonthInfo.monthKey.split('-');
           const endingBalanceKey = `${account}.${prevYear}.${prevMonth}.Endbalance`;
           openingBalance = prevMonthData.accountEndingBalances?.[endingBalanceKey];
-          console.log(`🔍 accountEndingBalances fallback for "${endingBalanceKey}": ${openingBalance}`);
         }
         
-        console.log(`🔍 DETAILED DEBUG FOR ${account}:`);
-        console.log(`   - prevMonthData.accountEstimatedFinalBalances:`, prevMonthData.accountEstimatedFinalBalances);
-        console.log(`   - Looking in month: ${prevMonthInfo.monthKey}`);
-        console.log(`   - Final openingBalance: ${openingBalance}`);
         
         // If still not found, use 0 as default
         if (openingBalance === undefined || openingBalance === null) {
           openingBalance = 0;
-          console.log(`❌ NO DATA FOUND: Using 0 for ${account} in ${prevMonthInfo.monthKey}`);
-        } else {
-          console.log(`✅ FOUND DATA: Using ${openingBalance} for ${account} from ${prevMonthInfo.monthKey}`);
         }
         
         // The estimated opening balance is the previous month's ending balance
@@ -3130,22 +3039,8 @@ const BudgetCalculator = () => {
            console.log(`🚨🚨🚨 END CRITICAL DEBUG 🚨🚨🚨`);
          }
         
-        console.log(`=== 📊 ESTIMATED OPENING BALANCE FOR ${account.toUpperCase()} ===`);
-        console.log(`📈 Previous month ending balance (${endingBalanceKey}): ${openingBalance || 0} kr`);
-        console.log(`✅ ESTIMATED OPENING BALANCE: ${estimatedOpeningBalances[account]} kr`);
-        console.log(`=== 🏁 END ===`);
     });
     
-    // CRITICAL DEBUG: Check if December Löpande is in the final result
-    if (selectedBudgetMonth?.includes('12') && estimatedOpeningBalances['Löpande']) {
-      console.log(`🚨🚨🚨 FINAL ESTIMATED OPENING BALANCES CHECK 🚨🚨🚨`);
-      console.log(`🔢 Löpande in final result: ${estimatedOpeningBalances['Löpande']}`);
-      console.log(`🔢 All estimated opening balances:`, estimatedOpeningBalances);
-      console.log(`🚨🚨🚨 THIS IS WHAT GETS RETURNED FOR OPENING BALANCES 🚨🚨🚨`);
-    }
-    
-    console.log('All estimated opening balances:', estimatedOpeningBalances);
-    console.log(`=== END GET ESTIMATED OPENING BALANCES DEBUG ===`);
     return estimatedOpeningBalances;
   };
 
@@ -3162,49 +3057,26 @@ const BudgetCalculator = () => {
 
   // Helper function to get account balance with fallback to estimated
   const getAccountBalanceWithFallback = (account: string) => {
-    console.log(`=== DEBUG getAccountBalanceWithFallback FOR ${account} ===`);
     const currentBalance = accountBalances[account] || 0;
-    console.log(`currentBalance from accountBalances[${account}]: ${currentBalance}`);
-    
-    // CRITICAL FIX: Check if this account balance has been explicitly set by the user
     const isExplicitlySet = accountBalancesSet[account] === true;
-    console.log(`accountBalancesSet[${account}]: ${isExplicitlySet}`);
     
-    // If user has explicitly set the balance (even to 0), ALWAYS use that value
     if (isExplicitlySet) {
-      console.log(`✅ Balance explicitly set by user: ${currentBalance}`);
-      console.log(`=== END DEBUG getAccountBalanceWithFallback ===`);
       return currentBalance;
     }
     
-    // If not explicitly set, "Faktiskt kontosaldo" should ALWAYS show 0 or "Ej ifyllt"
-    // NEVER use estimated values for "Faktiskt kontosaldo"
-    console.log(`🚨 CORRECTED: Faktiskt kontosaldo when not set should be 0 (Ej ifyllt)`);
-    console.log(`=== END DEBUG getAccountBalanceWithFallback ===`);
-    return currentBalance;
+    return 0;
   };
 
   // Helper function to get Calc.Kontosaldo for same month (for Ursprungligt saldo)
   const getCalcKontosaldoSameMonth = (account: string) => {
-    console.log(`=== DEBUG getCalcKontosaldoSameMonth FOR ${account} ===`);
-    console.log(`Current month: ${selectedBudgetMonth}`);
-    
     const hasActualBalance = accountBalancesSet[account] === true;
     const currentBalance = accountBalances?.[account] || 0;
     
-    // Calculate estimated balance using the same logic as the main calculation
     const freshBalances = (window as any).__freshFinalBalances;
     const estimatedResult = getEstimatedOpeningBalances(freshBalances);
     const estimatedBalance = estimatedResult?.[account] || 0;
     
-    // When "Ej ifyllt" (hasActualBalance = false), use estimated balance
-    // When filled with actual value, use that value
     const calcBalance = hasActualBalance ? currentBalance : estimatedBalance;
-    
-    console.log(`hasActualBalance: ${hasActualBalance}`);
-    console.log(`currentBalance: ${currentBalance}`);
-    console.log(`estimatedBalance: ${estimatedBalance}`);
-    console.log(`calcBalance (FINAL): ${calcBalance}`);
     
     return calcBalance;
   };
@@ -6670,14 +6542,6 @@ const BudgetCalculator = () => {
                               <Button size="sm" onClick={() => setShowAddBudgetDialog({ isOpen: true, type: 'cost' })}>
                                 <Plus className="w-4 h-4" />
                               </Button>
-                              <Button size="sm" onClick={() => setIsEditingCategories(!isEditingCategories)}>
-                                {isEditingCategories ? <X className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
-                              </Button>
-                              {isEditingCategories && (
-                                <Button size="sm" onClick={addCostGroup}>
-                                  <Plus className="w-4 h-4" />
-                                </Button>
-                              )}
                             </div>
                           </div>
                           
@@ -6871,20 +6735,6 @@ const BudgetCalculator = () => {
                                          </div>
                                        </div>
                                      </div>
-                                     
-                                     {isEditingCategories && (
-                                       <Button
-                                         size="sm"
-                                         variant="destructive"
-                                         onClick={() => {
-                                           const groupsToRemove = costGroups.filter(group => group.name === categoryName);
-                                           groupsToRemove.forEach(group => removeCostGroup(group.id));
-                                         }}
-                                         className="h-10 w-10 rounded-full hover:scale-110 transition-all duration-200"
-                                       >
-                                         <Trash2 className="w-4 h-4" />
-                                       </Button>
-                                     )}
                                    </div>
                                    
                                    {/* Enhanced Progress Section */}
@@ -6916,33 +6766,7 @@ const BudgetCalculator = () => {
                                        <div className="mt-4 pl-8 space-y-3 border-l-4 border-primary/30 bg-gradient-to-r from-muted/20 to-transparent rounded-r-lg pr-4 py-3">
                                          {data.subcategories.map((sub) => (
                                            <div key={sub.id} className="space-y-2">
-                                             {isEditingCategories ? (
-                                               <div className="space-y-2 p-3 bg-gradient-to-r from-muted/50 to-muted/30 rounded-lg border border-border/30">
-                                                 <div className="flex gap-2 items-center">
-                                                   <Input
-                                                     value={sub.name}
-                                                     onChange={(e) => updateSubCategory(sub.groupId, sub.id, 'name', e.target.value)}
-                                                     className="flex-1"
-                                                     placeholder="Kostnadspost namn"
-                                                   />
-                                                   <Input
-                                                     type="number"
-                                                     value={sub.amount === 0 ? '' : sub.amount}
-                                                     onChange={(e) => updateSubCategory(sub.groupId, sub.id, 'amount', Number(e.target.value) || 0)}
-                                                     className="w-32"
-                                                     placeholder="Belopp"
-                                                   />
-                                                   <Button
-                                                     size="sm"
-                                                     variant="destructive"
-                                                     onClick={() => removeSubCategory(sub.groupId, sub.id)}
-                                                     className="hover:scale-110 transition-all duration-200"
-                                                   >
-                                                     <Trash2 className="w-4 h-4" />
-                                                   </Button>
-                                                 </div>
-                                               </div>
-                                             ) : sub.isUnderkategori ? (
+                                             {sub.isUnderkategori ? (
                                                // Render underkategori container with nested budget posts
                                                <div className="space-y-2">
                                                  <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border border-primary/20 p-3">
@@ -7209,21 +7033,6 @@ const BudgetCalculator = () => {
                                              )}
                                            </div>
                                          ))}
-                                         
-                                         {isEditingCategories && (
-                                           <Button
-                                             size="sm"
-                                             variant="outline"
-                                             onClick={() => {
-                                               // Open the proper dialog with huvudkategori/underkategori selection
-                                               setShowAddBudgetDialog({ isOpen: true, type: 'cost' });
-                                             }}
-                                             className="w-full bg-gradient-to-r from-primary/5 to-primary/10 hover:from-primary/10 hover:to-primary/20 transition-all duration-200"
-                                           >
-                                             <Plus className="w-4 h-4 mr-1" />
-                                             Lägg till kostnadspost
-                                           </Button>
-                                         )}
                                        </div>
                                      </div>
                                    )}
@@ -7538,54 +7347,94 @@ const BudgetCalculator = () => {
                                 console.log('🔍 [COST ALL POSTS] All cost items:', allCostItems);
                                 
                                 return (
-                                  <div className="space-y-4">
-                                    <div className="space-y-3">
-                                      <h5 className="font-medium text-sm text-blue-700">Alla Kostnadsposter</h5>
+                                  <div className="space-y-6">
+                                    {/* Beautiful Header Section */}
+                                    <div className="relative">
+                                      <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-2xl transform rotate-1"></div>
+                                      <div className="relative bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 rounded-2xl p-6 border-2 border-blue-200/50 dark:border-blue-700/50 shadow-lg">
+                                        <div className="flex items-center gap-4">
+                                          <div className="p-3 bg-white dark:bg-gray-800 rounded-xl shadow-md">
+                                            <Receipt className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                                          </div>
+                                          <div>
+                                            <h5 className="font-bold text-xl text-blue-900 dark:text-blue-100">Alla Kostnadsposter</h5>
+                                            <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                                              {allCostItems.length} {allCostItems.length === 1 ? 'post' : 'poster'} totalt
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Items Grid */}
+                                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                                       {allCostItems.length > 0 ? (
                                         allCostItems.map((item) => {
-                                          const itemActual = item.underkategoriId 
-                                            ? calculateActualAmountForUnderkategori(item.underkategoriId)
-                                            : 0;
-                                          const itemDifference = item.amount - itemActual;
-                                          
                                           return (
-                                            <div key={item.id} className="p-3 bg-white border border-blue-200 rounded-lg">
-                                              <div className="flex justify-between items-start mb-2">
-                                                <div className="flex-1">
-                                                  <h6 className="font-medium text-sm">{item.name || item.description}</h6>
-                                                  <p className="text-xs text-muted-foreground">
-                                                    Kategori: {item.groupName}
-                                                    {item.subCategoryName && item.subCategoryName !== item.name && ` / ${item.subCategoryName}`}
-                                                  </p>
-                                                  <p className="text-xs text-muted-foreground">
-                                                    Konto: {item.accountName}
-                                                  </p>
-                                                </div>
-                                                <div className="text-right text-xs">
-                                                  <div>Budget: {formatCurrency(item.amount / 100)}</div>
-                                                  <div>
-                                                    Faktiskt: 
-                                                    <button
-                                                      className="font-bold text-blue-600 hover:text-blue-500 underline decoration-2 underline-offset-2 hover:scale-105 transition-all duration-200 ml-1"
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onSubCategoryDrillDown && onSubCategoryDrillDown(item.name, item.amount);
-                                                      }}
-                                                    >
-                                                      {formatCurrency(itemActual)}
-                                                    </button>
+                                            <div key={item.id} className="group relative bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 border-2 border-gray-200/60 dark:border-gray-700/60 rounded-xl p-5 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] animate-fade-in">
+                                              {/* Decorative Corner */}
+                                              <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-100/50 to-indigo-100/50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-bl-full opacity-60"></div>
+                                              
+                                              {/* Content */}
+                                              <div className="relative space-y-4">
+                                                {/* Title Section */}
+                                                <div className="space-y-2">
+                                                  <h6 className="font-bold text-lg text-gray-900 dark:text-gray-100 leading-tight">
+                                                    {item.name || item.description}
+                                                  </h6>
+                                                  <div className="space-y-1">
+                                                    <div className="flex items-center gap-2">
+                                                      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                                        {item.groupName}
+                                                        {item.subCategoryName && item.subCategoryName !== item.name && ` • ${item.subCategoryName}`}
+                                                      </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                                        {item.accountName}
+                                                      </span>
+                                                    </div>
                                                   </div>
-                                                  <div className={`font-medium ${itemDifference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                    Diff: {itemDifference >= 0 ? '+' : ''}{formatCurrency(Math.abs(itemDifference))}
+                                                </div>
+                                                
+                                                {/* Budget Display */}
+                                                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50 rounded-xl p-4 border border-blue-200/50 dark:border-blue-800/50">
+                                                  <div className="flex items-center justify-between">
+                                                    <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+                                                      Budget
+                                                    </span>
+                                                    <div className="text-right">
+                                                      <div className="text-xl font-bold text-blue-900 dark:text-blue-100">
+                                                        {formatCurrency(item.amount / 100)}
+                                                      </div>
+                                                      <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                                        kr
+                                                      </div>
+                                                    </div>
                                                   </div>
                                                 </div>
                                               </div>
+                                              
+                                              {/* Hover Effect Overlay */}
+                                              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-indigo-500/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
                                             </div>
                                           );
                                         })
                                       ) : (
-                                        <div className="text-center text-muted-foreground py-8">
-                                          <p>Inga kostnadsposter hittades</p>
+                                        <div className="col-span-full">
+                                          <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-12 text-center border-2 border-dashed border-gray-300 dark:border-gray-600">
+                                            <div className="w-16 h-16 mx-auto mb-4 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                                              <Receipt className="w-8 h-8 text-gray-400" />
+                                            </div>
+                                            <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                                              Inga kostnadsposter hittades
+                                            </h3>
+                                            <p className="text-sm text-gray-500 dark:text-gray-500">
+                                              Lägg till kostnadsposter för att se dem här
+                                            </p>
+                                          </div>
                                         </div>
                                       )}
                                     </div>
@@ -7609,7 +7458,7 @@ const BudgetCalculator = () => {
                                   return sum + group.amount + subCategoriesTotal;
                                 }, 0);
                                 
-                                const savingsGoalsMonthlyTotal = budgetState.savingsGoals.reduce((sum, goal) => {
+                                const savingsGoalsMonthlyTotal = allSavingsGoals.reduce((sum, goal) => {
                                   const start = new Date(goal.startDate + '-01');
                                   const end = new Date(goal.endDate + '-01');
                                   const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
@@ -7675,7 +7524,7 @@ const BudgetCalculator = () => {
                             
                             <SavingsSection
                               savingsGroups={allSavingsItems}
-                              savingsGoals={budgetState.savingsGoals}
+                              savingsGoals={allSavingsGoals}
                               accounts={accountsFromAPI}
                               mainCategories={budgetState.mainCategories || []}
                               transactionsForPeriod={activeContent.transactionsForPeriod}

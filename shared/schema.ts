@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, timestamp, integer, unique } from 'drizzle-orm/pg-core';
+import { pgTable, text, uuid, timestamp, integer, boolean, unique } from 'drizzle-orm/pg-core';
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -14,6 +14,8 @@ export const familyMembers = pgTable('family_members', {
     id: uuid('id').defaultRandom().primaryKey(),
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
+    role: text('role', { enum: ['adult', 'child'] }).default('adult').notNull(), // 'adult' = Vuxen, 'child' = Barn
+    contributesToBudget: boolean('contributes_to_budget').default(true).notNull(), // true = Ja, false = Nej
     createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

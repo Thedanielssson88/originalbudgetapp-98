@@ -71,9 +71,7 @@ export function useAllBudgetPosts() {
   return useQuery<BudgetPost[]>({
     queryKey: ['/api/budget-posts', 'all'],
     queryFn: async () => {
-      console.log('🔄 [useAllBudgetPosts] Fetching ALL budget posts for linked transactions');
       const data = await apiRequest('/api/budget-posts');
-      console.log('✅ [useAllBudgetPosts] Fetched budget posts:', data.length);
       return data;
     },
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes

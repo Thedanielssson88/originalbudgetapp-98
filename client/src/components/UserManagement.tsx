@@ -38,7 +38,8 @@ export function UserManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<any>(null);
   const [newMemberName, setNewMemberName] = useState('');
-  const [newMemberRole, setNewMemberRole] = useState('');
+  const [newMemberRole, setNewMemberRole] = useState<'adult' | 'child'>('adult');
+  const [newMemberContributesToBudget, setNewMemberContributesToBudget] = useState<boolean>(true);
 
   // Hooks
   const { data: familyMembers, isLoading: familyMembersLoading } = useFamilyMembers();
@@ -61,7 +62,9 @@ export function UserManagement() {
 
     try {
       await createFamilyMemberMutation.mutateAsync({
-        name: newMemberName.trim()
+        name: newMemberName.trim(),
+        role: newMemberRole,
+        contributesToBudget: newMemberContributesToBudget
       });
       
       toast({
@@ -70,7 +73,8 @@ export function UserManagement() {
       });
       
       setNewMemberName('');
-      setNewMemberRole('');
+      setNewMemberRole('adult');
+      setNewMemberContributesToBudget(true);
       setIsAddDialogOpen(false);
     } catch (error) {
       toast({
@@ -270,7 +274,32 @@ export function UserManagement() {
                       placeholder="T.ex. Andreas, Susanna, Alicia"
                     />
                   </div>
-
+                  
+                  <div>
+                    <Label htmlFor="role">Roll</Label>
+                    <Select value={newMemberRole} onValueChange={(value: 'adult' | 'child') => setNewMemberRole(value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Välj roll" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="adult">Vuxen</SelectItem>
+                        <SelectItem value="child">Barn</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="contributesToBudget">Bidrar till budgeten</Label>
+                    <Select value={newMemberContributesToBudget ? 'yes' : 'no'} onValueChange={(value) => setNewMemberContributesToBudget(value === 'yes')}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Välj bidrag" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="yes">Ja</SelectItem>
+                        <SelectItem value="no">Nej</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
@@ -287,10 +316,18 @@ export function UserManagement() {
             {familyMembers && familyMembers.length > 0 ? (
               <div className="grid gap-3">
                 {familyMembers.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div>
-                        <div className="font-medium">{member.name}</div>
+                  <div key={member.id} className="flex items-center justify-between p-4 border rounded-lg bg-card">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <div className="font-medium text-lg">{member.name}</div>
+                        <div className="flex items-center gap-3 mt-2">
+                          <Badge variant={member.role === 'adult' ? 'default' : 'secondary'}>
+                            {member.role === 'adult' ? 'Vuxen' : 'Barn'}
+                          </Badge>
+                          <Badge variant={member.contributesToBudget ? 'default' : 'outline'}>
+                            {member.contributesToBudget ? 'Bidrar till budgeten' : 'Bidrar ej till budgeten'}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -327,88 +364,6 @@ export function UserManagement() {
         </CardContent>
       </Card>
 
-      {/* Primary/Secondary User Selection */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Användare 1 & Användare 2</CardTitle>
-          <CardDescription>
-            Välj vilka familjemedlemmar som representerar Användare 1 och Användare 2 för inkomstberäkningar.
-            Dessa används för "Andreas Inkomst" och "Susanna Inkomst" i budgeten.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!monthlyBudgetLoading && monthlyBudget ? (
-            <div className="grid gap-4">
-              {/* Primary User Selection */}
-              <div className="space-y-2">
-                <Label>Användare 1</Label>
-                <Select
-                  value={monthlyBudget.primaryUserId || 'none'}
-                  onValueChange={(value) => handlePrimaryUserSelection(value === 'none' ? null : value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Välj användare 1" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Ingen vald</SelectItem>
-                    {familyMembers?.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
-                        {member.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Secondary User Selection */}
-              <div className="space-y-2">
-                <Label>Användare 2</Label>
-                <Select
-                  value={monthlyBudget.secondaryUserId || 'none'}
-                  onValueChange={(value) => handleSecondaryUserSelection(value === 'none' ? null : value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Välj användare 2" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Ingen vald</SelectItem>
-                    {familyMembers?.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
-                        {member.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Current Selections Display */}
-              {(monthlyBudget.primaryUserId || monthlyBudget.secondaryUserId) && (
-                <div className="mt-4 p-3 bg-muted rounded-lg">
-                  <h4 className="font-medium mb-2">Aktuella val:</h4>
-                  <div className="space-y-1 text-sm">
-                    <div>
-                      <span className="font-medium">Användare 1:</span>{' '}
-                      {monthlyBudget.primaryUserId 
-                        ? familyMembers?.find(m => m.id === monthlyBudget.primaryUserId)?.name || 'Okänd' 
-                        : 'Ingen vald'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Användare 2:</span>{' '}
-                      {monthlyBudget.secondaryUserId 
-                        ? familyMembers?.find(m => m.id === monthlyBudget.secondaryUserId)?.name || 'Okänd' 
-                        : 'Ingen vald'}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center text-muted-foreground py-4">
-              Laddar budgetdata...
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Account Assignment Section */}
       <Card>

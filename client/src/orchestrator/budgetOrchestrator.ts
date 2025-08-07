@@ -645,9 +645,10 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
         nextMonthData.accountBalances = nextMonthData.accountBalances || {};
         nextMonthData.accountBalancesSet = nextMonthData.accountBalancesSet || {};
         
-        // Get account name for the balance setting
+        // Get account name for the balance setting - TODO: Pass sqlAccounts parameter
         const account = state.budgetState.accounts?.find(acc => acc.id === accountId);
         const accountName = account?.name || accountId;
+        console.log('⚠️ [ORCHESTRATOR] Using legacy budgetState.accounts lookup - should pass sqlAccounts parameter');
         
         nextMonthData.accountBalances[accountName] = lastTransactionBeforePayday.balanceAfter / 100; // Convert from öre to kronor
         nextMonthData.accountBalancesSet[accountName] = true;
@@ -915,9 +916,10 @@ export function deleteCategoryRule(ruleId: string): void {
 function parseCSVContentWithMapping(csvContent: string, accountId: string, fileName: string): { transactions: ImportedTransaction[], mapping: CsvMapping | undefined } {
   const transactions = parseCSVContent(csvContent, accountId, fileName);
   
-  // Get the mapping that was used
+  // Get the mapping that was used - TODO: Pass sqlAccounts parameter
   const account = state.budgetState.accounts?.find(acc => acc.id === accountId);
   let savedMapping: CsvMapping | undefined;
+  console.log('⚠️ [ORCHESTRATOR] Using legacy budgetState.accounts lookup - should pass sqlAccounts parameter');
   
   if (account?.bankTemplateId) {
     const cleanedContent = csvContent.replace(/�/g, '');
@@ -950,9 +952,10 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
   const headers = lines[0].split(';').map(h => h.trim());
   console.log(`[ORCHESTRATOR] 🔍 CSV headers:`, headers);
   
-  // NEW: Hämta bankmallen från kontot och använd dess mappning
+  // NEW: Hämta bankmallen från kontot och använd dess mappning - TODO: Pass sqlAccounts parameter
   const account = state.budgetState.accounts?.find(acc => acc.id === accountId);
   let savedMapping: CsvMapping | undefined;
+  console.log('⚠️ [ORCHESTRATOR] Using legacy budgetState.accounts lookup - should pass sqlAccounts parameter');
   
   if (account?.bankTemplateId) {
     console.log(`[ORCHESTRATOR] 🔍 Account has bank template: ${account.bankTemplateId}`);
@@ -1218,12 +1221,14 @@ function parseCSVContent(csvContent: string, accountId: string, fileName: string
 function updateAccountBalancesUsingWorkingLogic(allTransactions: ImportedTransaction[], accountId: string): void {
   console.log(`[ORCHESTRATOR] 💰 Starting account balance updates using working logic for account ${accountId}`);
   
-  // Get account name from account ID
+  // Get account name from account ID - TODO: Pass sqlAccounts parameter
   const account = state.budgetState.accounts?.find(acc => acc.id === accountId);
   if (!account) {
     console.log(`[ORCHESTRATOR] ⚠️ Could not find account name for ID ${accountId}`);
+    console.log('⚠️ [ORCHESTRATOR] Using legacy budgetState.accounts lookup - should pass sqlAccounts parameter');
     return;
   }
+  console.log('⚠️ [ORCHESTRATOR] Using legacy budgetState.accounts lookup - should pass sqlAccounts parameter');
   
   console.log(`[ORCHESTRATOR] 💰 Found account: ${account.name} (${accountId})`);
   
@@ -1646,7 +1651,6 @@ export function getCurrentState() {
       transactionCount: currentTransactionCount
     });
   } else {
-    console.log(`[ORCHESTRATOR] getCurrentState() returning state with ${currentTransactionCount} transactions`);
   }
   
   return state;
@@ -1837,8 +1841,9 @@ export function addSavingsItem(item: {
     savingsGroups.push(categoryGroup);
   }
   
-  // Find the account ID from the account name
+  // Find the account ID from the account name - TODO: Pass sqlAccounts parameter
   const accountId = state.budgetState.accounts.find(acc => acc.name === item.account)?.id || '';
+  console.log('⚠️ [ORCHESTRATOR] Using legacy budgetState.accounts lookup - should pass sqlAccounts parameter');
   
   // Add the subcategory
   if (!categoryGroup.subCategories) {
@@ -2078,66 +2083,61 @@ export async function loadMonthlyAccountBalancesFromDatabase(): Promise<void> {
 // This function is removed to prevent apiStore.getAccounts() error
 
 export function setAccounts(accounts: any[]): void {
-  if (Array.isArray(accounts) && accounts.length > 0) {
-    if (typeof accounts[0] === 'string') {
-      // Convert string array to Account objects
-      state.budgetState.accounts = accounts.map((name, index) => ({
-        id: (index + 1).toString(),
-        name: name,
-        startBalance: 0
-      }));
-    } else {
-      // Already Account objects
-      state.budgetState.accounts = accounts;
-    }
-  }
-  saveStateToStorage();
+  console.log('🚫 [ORCHESTRATOR] setAccounts is deprecated - use SQL API via useAccounts hook instead');
+  console.log('🔄 [ORCHESTRATOR] Legacy setAccounts call attempted with:', accounts);
+  // This function is now deprecated - accounts should be managed through SQL API
+  // Components should use useCreateAccount, useUpdateAccount, useDeleteAccount hooks
   triggerUIRefresh();
 }
 
 export function addAccount(account: { name: string; startBalance: number }): void {
-  console.log('🔄 [ORCHESTRATOR] Adding new account:', account);
-  
-  const newAccount = {
-    id: uuidv4(),
-    name: account.name,
-    startBalance: account.startBalance
-  };
-  
-  // Add to existing accounts
-  state.budgetState.accounts = [...state.budgetState.accounts, newAccount];
-  
-  saveStateToStorage();
+  console.log('🚫 [ORCHESTRATOR] addAccount is deprecated - use SQL API via useCreateAccount hook instead');
+  console.log('🔄 [ORCHESTRATOR] Legacy addAccount call attempted with:', account);
+  // This function is now deprecated - accounts should be created through SQL API
+  // Components should use the useCreateAccount hook from useAccounts.ts
   triggerUIRefresh();
-  
-  console.log('✅ [ORCHESTRATOR] Account added successfully:', newAccount);
 }
 
 // Helper function to add the Överföring account if it doesn't exist
-export function ensureOverforingAccount(): void {
-  const overforingExists = state.budgetState.accounts.some(acc => acc.name === "Överföring");
+export async function ensureOverforingAccount(sqlAccounts?: any[]): Promise<void> {
+  console.log('🔄 [ORCHESTRATOR] Checking for Överföring account in SQL data');
+  
+  // Use provided SQL accounts or fetch from API
+  const accountsToCheck = sqlAccounts || [];
+  const overforingExists = accountsToCheck.some((acc: any) => acc.name === "Överföring");
+  
   if (!overforingExists) {
-    const overforingAccount = {
-      id: "aa9d996d-1baf-4c34-91bb-02f82b51aab6",
-      name: "Överföring",
-      startBalance: 0
-    };
-    state.budgetState.accounts = [...state.budgetState.accounts, overforingAccount];
-    console.log('✅ [ORCHESTRATOR] Added missing Överföring account:', overforingAccount);
-    saveStateToStorage();
+    try {
+      const overforingAccount = {
+        id: "aa9d996d-1baf-4c34-91bb-02f82b51aab6",
+        name: "Överföring",
+        startBalance: 0
+      };
+      
+      // Create account via SQL API
+      const response = await fetch('/api/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(overforingAccount)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to create Överföring account: ${response.statusText}`);
+      }
+      
+      console.log('✅ [ORCHESTRATOR] Added missing Överföring account via SQL:', overforingAccount);
+    } catch (error) {
+      console.error('❌ [ORCHESTRATOR] Failed to create Överföring account:', error);
+    }
   }
 }
 
 export function removeAccount(accountId: string): void {
-  console.log('🔄 [ORCHESTRATOR] Removing account:', accountId);
-  
-  // Remove from accounts
-  state.budgetState.accounts = state.budgetState.accounts.filter(acc => acc.id !== accountId);
-  
-  saveStateToStorage();
+  console.log('🚫 [ORCHESTRATOR] removeAccount is deprecated - use SQL API via useDeleteAccount hook instead');
+  console.log('🔄 [ORCHESTRATOR] Legacy removeAccount call attempted with:', accountId);
+  // This function is now deprecated - accounts should be deleted through SQL API
+  // Components should use the useDeleteAccount hook from useAccounts.ts
   triggerUIRefresh();
-  
-  console.log('✅ [ORCHESTRATOR] Account removed successfully');
 }
 
 // ===== BANK TEMPLATE MANAGEMENT =====
@@ -2561,8 +2561,10 @@ export function matchInternalTransfer(t1Id: string, t2Id: string): void {
   
   console.log(`✅ [ORCHESTRATOR] Found transactions in months: t1=${t1MonthKey}, t2=${t2MonthKey}`);
   
+  // TODO: Pass sqlAccounts parameter to avoid legacy budgetState lookup
   const account1Name = state.budgetState.accounts.find(a => a.id === t1.accountId)?.name || t1.accountId;
   const account2Name = state.budgetState.accounts.find(a => a.id === t2.accountId)?.name || t2.accountId;
+  console.log('⚠️ [ORCHESTRATOR] Using legacy budgetState.accounts lookup - should pass sqlAccounts parameter');
   
   console.log(`🔄 [ORCHESTRATOR] Matching ${account1Name} transaction "${t1.description}" with ${account2Name} transaction "${t2.description}"`);
   
@@ -2675,9 +2677,10 @@ function cleanupInvalidTransferLinks(): void {
     if (transaction.linkedTransactionId) {
       const linkedTx = state.budgetState.allTransactions.find(t => t.id === transaction.linkedTransactionId);
       
-      // Check if either account doesn't exist
+      // Check if either account doesn't exist - TODO: Pass sqlAccounts parameter
       const transactionAccount = state.budgetState.accounts.find(acc => acc.id === transaction.accountId);
       const linkedAccount = linkedTx ? state.budgetState.accounts.find(acc => acc.id === linkedTx.accountId) : null;
+      console.log('⚠️ [ORCHESTRATOR] Using legacy budgetState.accounts lookup - should pass sqlAccounts parameter');
       
       if (!transactionAccount || !linkedAccount || !linkedTx) {
         console.log(`[ORCHESTRATOR] Removing invalid link: transaction ${transaction.id} (account ${transaction.accountId}) -> ${transaction.linkedTransactionId}`);
@@ -2773,20 +2776,23 @@ function performAutomaticTransferMatching(): void {
   console.log(`[ORCHESTRATOR] Found ${unmatchedTransfers.length} unmatched internal transfers`);
   
   unmatchedTransfers.forEach(transaction => {
-    // Skip transactions from accounts that don't exist (would show as "Okänt konto")
+    // Skip transactions from accounts that don't exist (would show as "Okänt konto") - TODO: Pass sqlAccounts parameter
     const transactionAccount = state.budgetState.accounts.find(acc => acc.id === transaction.accountId);
     if (!transactionAccount) {
       console.log(`[ORCHESTRATOR] Skipping transaction ${transaction.id} - account ${transaction.accountId} not found`);
+      console.log('⚠️ [ORCHESTRATOR] Using legacy budgetState.accounts lookup - should pass sqlAccounts parameter');
       return;
     }
+    console.log('⚠️ [ORCHESTRATOR] Using legacy budgetState.accounts lookup - should pass sqlAccounts parameter');
     
     // Find potential matches on the same date with opposite signs on different accounts
     const potentialMatches = state.budgetState.allTransactions.filter(t => {
-      // Skip transactions from accounts that don't exist
+      // Skip transactions from accounts that don't exist - TODO: Pass sqlAccounts parameter
       const targetAccount = state.budgetState.accounts.find(acc => acc.id === t.accountId);
       if (!targetAccount) {
         return false;
       }
+      console.log('⚠️ [ORCHESTRATOR] Using legacy budgetState.accounts lookup - should pass sqlAccounts parameter');
       
       return t.id !== transaction.id &&
         t.accountId !== transaction.accountId && // Different account
@@ -2999,21 +3005,28 @@ export function getCsvMapping(fileFingerprint: string): CsvMapping | undefined {
 
 // ===== ACCOUNT HELPER FUNCTIONS =====
 
-export function getAccountNameById(accountId: string): string {
+export function getAccountNameById(accountId: string, sqlAccounts?: any[]): string {
+  // CRITICAL FIX: Use SQL accounts as primary source instead of localStorage budgetState
+  const accounts = sqlAccounts && sqlAccounts.length > 0 
+    ? sqlAccounts 
+    : (state.budgetState.accounts || []);
+  
+  console.log(`[ORCHESTRATOR] getAccountNameById using ${sqlAccounts && sqlAccounts.length > 0 ? 'SQL' : 'localStorage'} accounts: ${accounts.length} total`);
+  
   // Safety check: ensure accounts array exists
-  if (!state.budgetState.accounts || !Array.isArray(state.budgetState.accounts)) {
+  if (!accounts || !Array.isArray(accounts)) {
     console.warn(`[ORCHESTRATOR] getAccountNameById called but accounts not loaded yet, returning accountId: ${accountId}`);
     return accountId;
   }
   
   // First check if the accountId is already a name (like "Bil")
-  const accountByName = state.budgetState.accounts.find(acc => acc.name === accountId);
+  const accountByName = accounts.find(acc => acc.name === accountId);
   if (accountByName) {
     return accountId; // It's already a name
   }
   
   // Otherwise, look up by ID
-  const accountById = state.budgetState.accounts.find(acc => acc.id === accountId);
+  const accountById = accounts.find(acc => acc.id === accountId);
   return accountById?.name || accountId; // Return name if found, otherwise return the original ID
 }
 // Categories are now directly managed through mainCategories and subcategories
@@ -3179,8 +3192,20 @@ async function loadTransactionsFromDatabase(): Promise<void> {
   } catch (error) {
     console.error('❌ [ORCHESTRATOR] Failed to load transactions from PostgreSQL:', error);
     addMobileDebugLog(`❌ [ORCHESTRATOR] Failed to load transactions: ${error}`);
-    // Initialize with empty array as fallback
+    
+    // Provide detailed error information
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.error('🌐 [ORCHESTRATOR] Network error - server may be unreachable');
+      addMobileDebugLog('🌐 Server connection failed - check if server is running');
+    } else if (error instanceof Error) {
+      console.error('📋 [ORCHESTRATOR] Error details:', error.message);
+      addMobileDebugLog(`📋 Error: ${error.message}`);
+    }
+    
+    // Initialize with empty array as fallback - app should still work
     state.budgetState.allTransactions = [];
+    console.log('🔄 [ORCHESTRATOR] Initialized with empty transactions array as fallback');
+    addMobileDebugLog('🔄 Using offline mode - transactions will load from localStorage if available');
   }
 }
 

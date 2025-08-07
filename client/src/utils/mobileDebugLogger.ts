@@ -10,13 +10,18 @@ class MobileDebugLogger {
   private listeners: ((logs: DebugLog[]) => void)[] = [];
 
   addLog(message: string) {
+    // Skip logging in production for performance
+    if (process.env.NODE_ENV === 'production') {
+      return;
+    }
+    
     const timestamp = new Date().toLocaleTimeString();
     const logEntry: DebugLog = { timestamp, message };
     
     // Keep only last 50 messages to prevent memory issues
     this.logs = [...this.logs.slice(-49), logEntry];
     
-    // Also log to console
+    // Also log to console (only in development)
     console.log(`${timestamp}: ${message}`);
     
     // Notify all listeners

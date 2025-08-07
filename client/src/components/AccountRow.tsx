@@ -8,6 +8,7 @@ import { NewTransferForm } from './NewTransferForm';
 import { createPlannedTransfer } from '../orchestrator/budgetOrchestrator';
 import { getInternalTransferSummary, getDateRangeForMonth } from '../services/calculationService';
 import { useAccounts } from '@/hooks/useAccounts';
+import { useTransactions } from '@/hooks/useTransactions';
 import { useCategoriesHierarchy } from '@/hooks/useCategories';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 
@@ -47,6 +48,7 @@ export const AccountRow: React.FC<AccountRowProps> = ({
   
   // Use API accounts instead of budgetState.accounts
   const { data: accountsFromAPI = [] } = useAccounts();
+  const { data: transactionsFromAPI = [] } = useTransactions();
   const { categories } = useCategoriesHierarchy();
 
   // Data från props
@@ -61,8 +63,9 @@ export const AccountRow: React.FC<AccountRowProps> = ({
   // Calculate net planned transfers
   const netPlanned = totalPlannedIn - totalPlannedOut;
 
+  // CRITICAL FIX: Use SQL transactions instead of localStorage budgetState
   // Hämta interna överföringar för detta konto
-  const allInternalTransfers = getInternalTransferSummary(budgetState, selectedMonth);
+  const allInternalTransfers = getInternalTransferSummary(budgetState, selectedMonth, transactionsFromAPI);
   const accountInternalTransfers = allInternalTransfers.find(summary => summary.accountId === account.id);
   
   // Debug loggar
