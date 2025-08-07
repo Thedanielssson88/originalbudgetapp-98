@@ -5,118 +5,127 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ```bash
-npm run dev       # Start development server (port 5000)
-npm run build     # Build for production (Vite + esbuild)
-npm run start     # Start production server
+npm run dev       # Start development server with tsx (port 5000)
+npm run build     # Build for production (Vite frontend + esbuild backend)
+npm run start     # Start production server from dist/
 npm run check     # TypeScript type checking
 npm run db:push   # Push Drizzle schema changes to PostgreSQL
 ```
 
 ## Architecture Overview
 
-Full-stack budget management app with PostgreSQL, Express.js backend, and React frontend.
+Full-stack Swedish budget management application with PostgreSQL backend and React frontend.
 
 ### Tech Stack
-- **Database**: PostgreSQL with Drizzle ORM (Neon serverless)
-- **Backend**: Express.js with TypeScript, mock auth (dev-user-123)
-- **Frontend**: React + TypeScript + TanStack Query + shadcn/ui
+- **Database**: PostgreSQL with Drizzle ORM (Neon serverless), schema in `shared/schema.ts`
+- **Backend**: Express.js + TypeScript, mock auth (`dev-user-123`)
+- **Frontend**: React + TypeScript + TanStack Query + shadcn/ui + Wouter routing
 - **Build**: Vite (frontend) + esbuild (backend)
+- **State**: Orchestrator pattern + TanStack Query for server state
 
 ### Key Directories
-- `server/` - Express backend with API routes
-- `client/` - React frontend application
-- `shared/` - Shared schemas and types (Drizzle + Zod)
+- `server/` - Express backend (`index.ts`, `routes.ts`, `dbStorage.ts`)
+- `client/src/` - React frontend application
+- `shared/` - Drizzle schemas and Zod validators
+- `client/src/orchestrator/` - Core state management logic
+- `client/src/hooks/` - TanStack Query hooks for API operations
 
 ## Database Architecture
 
-All entities use UUID primary keys. Key tables:
-- `users`, `familyMembers` - User management
-- `accounts` - Financial accounts with bank mapping
-- `transactions` - UUID-categorized transactions
-- `huvudkategorier`, `underkategorier` - Category hierarchy
-- `categoryRules` - Auto-categorization rules
-- `monthlyBudgets`, `budgetPosts` - Budget configs
-- `monthlyAccountBalances` - Payday-based balances (25th)
+UUID-based entities with Drizzle ORM. Critical tables:
+- `users`, `familyMembers` - Multi-user household support
+- `accounts` - Bank accounts with CSV import mappings
+- `transactions` - Central transaction storage with UUID categories
+- `huvudkategorier`, `underkategorier` - Swedish category hierarchy
+- `categoryRules` - Auto-categorization engine
+- `monthlyBudgets`, `budgetPosts` - Monthly budget configurations
+- `monthlyAccountBalances` - Payday-calculated balances (25th monthly)
+- `bankCsvMappings` - Persistent column mappings for bank imports
 
 ## Core Systems
 
-### State Management
-- **Orchestrator Pattern**: `client/src/orchestrator/budgetOrchestrator.ts` manages all state mutations
-- **Single Source of Truth**: `budgetState.allTransactions` stores all transactions
-- **TanStack Query**: Server state management with React hooks in `client/src/hooks/`
+### State Management Architecture
+- **Orchestrator Pattern**: `client/src/orchestrator/budgetOrchestrator.ts` - Central state mutations
+- **Budget State**: `client/src/state/budgetState.ts` - Single source of truth with `allTransactions`
+- **TanStack Query**: Server state with React hooks in `client/src/hooks/`
+- **API Store**: `client/src/store/apiStore.ts` - API operation coordination
 
-### Transaction Import Flow
-1. CSV/XLSX parsed via `importAndReconcileFile()`
-2. Column mapping stored in `bankCsvMappings`
-3. Smart merge prevents duplicates
-4. Balance calculation (25th payday logic)
-5. UUID-based categorization applied
-6. PostgreSQL persistence with audit trail
+### Transaction Import System
+1. **File Processing**: CSV/XLSX via `TransactionImportEnhanced.tsx`
+2. **Column Mapping**: Stored in `bankCsvMappings` table per bank
+3. **Smart Reconciliation**: Duplicate detection and merge logic
+4. **Balance Calculation**: Swedish payday logic (25th of month)
+5. **Auto-Categorization**: UUID-based rules via `categoryRules`
+6. **Persistence**: PostgreSQL with full audit trail
 
-### Category System
-- UUID-based to eliminate naming conflicts
-- Migration service converts legacy string categories
-- Hierarchical: huvudkategorier → underkategorier
-- Full CRUD operations via `/kategorier` route
+### Category Management
+- **UUID-Based**: Eliminates naming conflicts, full migration from legacy strings
+- **Hierarchical**: `huvudkategorier` → `underkategorier` structure  
+- **Migration Service**: `categoryMigrationService.ts` handles legacy upgrades
+- **CRUD Operations**: Full management via `/api/huvudkategorier` routes
 
-## API Endpoints
+## API Routes (`server/routes.ts`)
 
-All routes in `server/routes.ts` with mock auth middleware:
-- Categories: `/api/huvudkategorier`, `/api/underkategorier`
-- Accounts: `/api/accounts`
-- Transactions: `/api/transactions`
-- Rules: `/api/category-rules`
-- Budgets: `/api/monthly-budgets`, `/api/budget-posts`
-- Balances: `/api/monthly-account-balances`
+Mock auth middleware injects `dev-user-123` for all routes:
+- **Bootstrap**: `/api/bootstrap` - Initial app data load
+- **Categories**: `/api/huvudkategorier`, `/api/underkategorier` 
+- **Accounts**: `/api/accounts` - Bank account management
+- **Transactions**: `/api/transactions`, `/api/transactions/synchronize`
+- **Rules**: `/api/category-rules` - Auto-categorization rules
+- **Budgets**: `/api/monthly-budgets`, `/api/budget-posts`
+- **Balances**: `/api/monthly-account-balances` - Payday balance tracking
+- **Import**: `/api/banks`, `/api/bank-csv-mappings`
 
-## Environment Variables
+## Environment Setup
 
 ```bash
-DATABASE_URL  # PostgreSQL connection (falls back to in-memory if not set)
+DATABASE_URL  # PostgreSQL connection (required for production)
 PORT         # Server port (default: 5000)
+NODE_ENV     # development/production
 ```
 
-## Critical Implementation Notes
+## Critical Implementation Details
 
-### UUID Migration (January 2025)
-- All entities migrated from string to UUID identifiers
-- Category migration dialog guides users through upgrade
-- Backward compatibility maintained during transition
+### UUID Migration (2025)
+- Complete migration from string-based to UUID identifiers
+- `CategoryMigrationDialog.tsx` guides users through upgrade
+- Backward compatibility during transition period
 
-### Monthly Balance Persistence
-- Balances calculated on 25th (payday)
-- Stored in PostgreSQL with month-key format (YYYY-MM)
-- Auto-loaded on app startup for cross-device sync
+### Swedish Payday Logic
+- Monthly balances calculated on 25th (Swedish payday standard)
+- `monthlyAccountBalances` table stores calculated vs actual vs bank balances
+- Month keys format: `YYYY-MM`
 
-### Import System
-- Supports CSV/XLSX with encoding cleanup
-- Bank-specific column mappings persisted
-- Intelligent reconciliation prevents duplicates
+### Intelligent Import System
+- Multi-format support (CSV/XLSX) with encoding detection
+- Bank-specific column mappings with persistent storage
+- Reconciliation prevents duplicate transactions
+- Real-time balance calculation and verification
 
 ## Adding New Features
 
-### New Database Table
-1. Define schema in `shared/schema.ts`
-2. Add Zod validators
-3. Implement CRUD in `server/dbStorage.ts`
-4. Create routes in `server/routes.ts`
-5. Build React hook in `client/src/hooks/`
+### Database Changes
+1. Add table schema in `shared/schema.ts` with UUID primary key
+2. Create Zod insert/select schemas with proper validation
+3. Implement CRUD operations in `server/dbStorage.ts`
+4. Add API routes in `server/routes.ts` with mock auth
+5. Create TanStack Query hook in `client/src/hooks/`
 
-### New Page
+### Frontend Pages
 1. Create component in `client/src/pages/`
-2. Add route in `client/src/App.tsx`
-3. Add nav item in `client/src/components/AppSidebar.tsx`
+2. Add route to `client/src/App.tsx` Switch component
+3. Add navigation item in `client/src/components/AppSidebar.tsx`
 
 ### Transaction Processing
-- Core logic: `client/src/orchestrator/budgetOrchestrator.ts`
-- Import UI: `client/src/components/TransactionImportEnhanced.tsx`
-- Calculations: `client/src/services/calculationService.ts`
+- **Core Logic**: `budgetOrchestrator.ts` - All state mutations
+- **Import UI**: `TransactionImportEnhanced.tsx` - File upload and mapping
+- **Calculations**: `client/src/services/calculationService.ts` - Balance logic
 
-## Development Guidelines
+## Development Best Practices
 
-- Always use UUID operations, never string-based lookups
-- All mutations through orchestrator pattern
-- Test imports with real bank CSV/XLSX files
-- Validate payday calculations (25th of month)
-- Use TanStack Query for server state
-- Mock userId: `dev-user-123` injected automatically
+- **Always use UUIDs**: Never string-based entity lookups
+- **Orchestrator Pattern**: All mutations through `budgetOrchestrator.ts`
+- **Real Data Testing**: Test imports with actual Swedish bank CSV/XLSX files
+- **Payday Validation**: Verify 25th-of-month balance calculations
+- **TanStack Query**: Use for all server state management
+- **Mock Auth**: `dev-user-123` automatically injected in development

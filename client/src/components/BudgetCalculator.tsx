@@ -730,6 +730,42 @@ const BudgetCalculator = () => {
       ? transactionsFromAPI 
       : (budgetState.allTransactions || []);
     console.log(`🔍 [DEBUG] activeContent - using ${allTransactions.length} transactions (${transactionsFromAPI.length} from API cache, ${(budgetState.allTransactions || []).length} from budgetState)`);
+    
+    // CRITICAL DEBUG: Check savingsTargetId in both data sources for LÖN transactions
+    const lonTransactionsFromAPI = transactionsFromAPI.filter(t => t.description === 'LÖN');
+    const lonTransactionsFromState = (budgetState.allTransactions || []).filter(t => t.description === 'LÖN');
+    const apiDebugData = lonTransactionsFromAPI.map(t => ({
+      id: t.id,
+      savingsTargetId: t.savingsTargetId,
+      hasProperty: 'savingsTargetId' in t,
+      allKeys: Object.keys(t)
+    }));
+    const stateDebugData = lonTransactionsFromState.map(t => ({
+      id: t.id,
+      savingsTargetId: t.savingsTargetId,
+      hasProperty: 'savingsTargetId' in t,
+      allKeys: Object.keys(t)
+    }));
+    const selectedSource = transactionsFromAPI.length > 0 ? 'transactionsFromAPI' : 'budgetState.allTransactions';
+    
+    console.log('🚨 [DATA SOURCE DEBUG] LÖN transactions from API:', apiDebugData);
+    console.log('🚨 [DATA SOURCE DEBUG] LÖN transactions from budgetState:', stateDebugData);
+    console.log('🚨 [DATA SOURCE DEBUG] Selected data source:', selectedSource);
+    
+    // Add to mobile debug log (only once per data change)
+    if (lonTransactionsFromAPI.length > 0 || lonTransactionsFromState.length > 0) {
+      setTimeout(() => {
+        addMobileDebugLog(`🚨 [DATA SOURCE] LÖN from API: ${lonTransactionsFromAPI.length} transactions`);
+        apiDebugData.forEach(t => {
+          addMobileDebugLog(`  API: ${t.id.slice(-8)} savingsTargetId=${t.savingsTargetId ? t.savingsTargetId.slice(-8) : 'MISSING'} hasProperty=${t.hasProperty}`);
+        });
+        addMobileDebugLog(`🚨 [DATA SOURCE] LÖN from budgetState: ${lonTransactionsFromState.length} transactions`);
+        stateDebugData.forEach(t => {
+          addMobileDebugLog(`  State: ${t.id.slice(-8)} savingsTargetId=${t.savingsTargetId ? t.savingsTargetId.slice(-8) : 'MISSING'} hasProperty=${t.hasProperty}`);
+        });
+        addMobileDebugLog(`🚨 [DATA SOURCE] Selected: ${selectedSource}`);
+      }, 0);
+    }
     const processedData = getProcessedBudgetDataForMonth(
       budgetState, 
       selectedMonthKey, 
@@ -1976,13 +2012,17 @@ const BudgetCalculator = () => {
         const savedSelectedMonth = parsed.selectedBudgetMonth || currentMonthKey;
         setSelectedBudgetMonth(savedSelectedMonth);
         
-        // Load data for the selected month from historical data
-        if (parsed.historicalData && parsed.historicalData[savedSelectedMonth]) {
-          // Use setTimeout to ensure state is set before loading data
-          setTimeout(() => {
-            loadDataFromSelectedMonth(savedSelectedMonth);
-          }, 0);
-        }
+        // CRITICAL FIX: Do NOT load old localStorage historicalData as it overwrites SQL data
+        // All transaction data including savingsTargetId now comes from SQL via useBudget hook
+        console.log(`🚫 [LOCALSTORAGE FIX] Skipping old localStorage historicalData load for ${savedSelectedMonth} to prevent SQL data override`);
+        
+        // Load data for the selected month from historical data - DISABLED
+        // The old localStorage historicalData doesn't have savingsTargetId field and overwrites SQL data
+        // if (parsed.historicalData && parsed.historicalData[savedSelectedMonth]) {
+        //   setTimeout(() => {
+        //     loadDataFromSelectedMonth(savedSelectedMonth);
+        //   }, 0);
+        // }
         
       } catch (error) {
         console.error('Error loading saved data:', error);
@@ -4391,18 +4431,17 @@ const BudgetCalculator = () => {
       return null;
     }
 
-    // Get all transactions for the month
-    const allTransactions: any[] = [];
-    Object.values(appHistoricalData).forEach(monthData => {
-      if (monthData.transactions) {
-        allTransactions.push(...monthData.transactions);
-      }
-    });
+    // CRITICAL FIX: Use centralized SQL transactions instead of old localStorage historicalData
+    // Old historicalData doesn't have savingsTargetId field and overwrites correct SQL data
+    const allTransactions = budgetState.allTransactions || [];
+    console.log(`🔍 [BANK BALANCE FIXED] Using ${allTransactions.length} transactions from centralized SQL storage instead of localStorage historicalData`);
 
-    console.log(`🔍 [BANK BALANCE] Total transactions found across all months: ${allTransactions.length}`);
-    console.log(`🔍 [BANK BALANCE] Sample transactions:`, allTransactions.slice(0, 3));
-    console.log(`🔍 [BANK BALANCE] Historical data keys:`, Object.keys(appHistoricalData));
-    console.log(`🔍 [BANK BALANCE] Current month data transactions:`, (currentMonthData as any)?.transactions || 'undefined');
+    // DEBUG: Verify that SQL transactions have savingsTargetId field
+    const savingsTransactions = allTransactions.filter(t => t.savingsTargetId);
+    console.log(`🎯 [SAVINGS DEBUG] Found ${savingsTransactions.length} transactions with savingsTargetId in centralized storage`);
+    savingsTransactions.forEach(t => {
+      console.log(`  - Transaction ${t.id}: savingsTargetId=${t.savingsTargetId}, description="${t.description}"`);
+    });
 
     console.log(`🔍 [BANK BALANCE] Finding bank balance for account ${accountName} (${accountId}) in month ${monthKey}`);
     

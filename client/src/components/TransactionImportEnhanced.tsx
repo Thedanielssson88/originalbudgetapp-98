@@ -63,6 +63,7 @@ import { UncategorizedBankCategories } from './UncategorizedBankCategories';
 import { CategorySelectionDialog } from './CategorySelectionDialog';
 import { useBudget } from '@/hooks/useBudget';
 import { useAccounts } from '@/hooks/useAccounts';
+import { useTransactions } from '@/hooks/useTransactions';
 import { useCategoryRules } from '@/hooks/useCategoryRules';
 import { useCategoryNames, useHuvudkategorier, useUnderkategorier } from '@/hooks/useCategories';
 import { useBanks, useCreateBank, useBankCsvMappings } from '@/hooks/useBanks';
@@ -338,6 +339,16 @@ const CategoryManagementSection: React.FC<CategoryManagementSectionProps> = ({ c
 type Account = import('@shared/schema').Account;
 
 export const TransactionImportEnhanced: React.FC = () => {
+  // CRITICAL DEBUG: Log component render
+  console.log('[TX IMPORT] 🔥 TransactionImportEnhanced component rendering');
+  
+  // Force mobile debug log immediately
+  try {
+    addMobileDebugLog('🔥 [TX IMPORT] Component rendering...');
+  } catch (error) {
+    console.error('Mobile debug log error:', error);
+  }
+  
   const [currentStep, setCurrentStep] = useState<'upload' | 'mapping' | 'categorization'>('upload');
   // NO MORE LOCAL STATE FOR FILES OR MAPPINGS - reading everything from central state
   const [fileStructures, setFileStructures] = useState<FileStructure[]>([]);
@@ -414,6 +425,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   
   // Get budget data from central state (SINGLE SOURCE OF TRUTH)
   const { budgetState } = useBudget();
+  const { data: transactionsFromAPI = [], isLoading: transactionsLoading } = useTransactions();
   const { getHuvudkategoriName, getUnderkategoriName } = useCategoryNames();
   
   // Get category data for bank matching
@@ -505,9 +517,21 @@ export const TransactionImportEnhanced: React.FC = () => {
       console.log(`  - BalanceAfter: ${firstTx.balanceAfter} (type: ${typeof firstTx.balanceAfter})`);
     }
     
-  // Convert Transaction[] to ImportedTransaction[] format - Make it reactive to budgetState changes
+  // Convert Transaction[] to ImportedTransaction[] format - Use SQL data as primary source
   const transactions = useMemo(() => {
-    return (budgetState?.allTransactions || []).map((t, index) => {
+    // CRITICAL FIX: Use transactionsFromAPI (SQL data) instead of budgetState (old localStorage data)
+    const sourceTransactions = transactionsFromAPI.length > 0 ? transactionsFromAPI : (budgetState?.allTransactions || []);
+    console.log(`[TX IMPORT] 🔄 Using ${transactionsFromAPI.length > 0 ? 'SQL' : 'budgetState'} data source: ${sourceTransactions.length} transactions`);
+    addMobileDebugLog(`🔄 [TX IMPORT] Using ${transactionsFromAPI.length > 0 ? 'SQL' : 'budgetState'} data: ${sourceTransactions.length} transactions`);
+    
+    // Debug savingsTargetId in source data
+    const lonTransactions = sourceTransactions.filter(t => t.description === 'LÖN');
+    lonTransactions.forEach(t => {
+      console.log(`[TX IMPORT] LÖN transaction ${t.id}: savingsTargetId=${t.savingsTargetId}`);
+      addMobileDebugLog(`💰 LÖN ${t.id.slice(-8)}: savingsTargetId=${t.savingsTargetId ? t.savingsTargetId.slice(-8) : 'MISSING'}`);
+    });
+    
+    return sourceTransactions.map((t, index) => {
       // CRITICAL DEBUG: Log first few amounts to see conversion issue
       if (index < 3) {
         console.log(`[TX IMPORT] AMOUNT DEBUG ${index}: "${t.description}"`);
@@ -532,6 +556,9 @@ export const TransactionImportEnhanced: React.FC = () => {
         isManuallyChanged: t.isManuallyChanged,
         appCategoryId: t.appCategoryId,
         appSubCategoryId: t.appSubCategoryId,
+        savingsTargetId: t.savingsTargetId, // CRITICAL FIX: Include savingsTargetId from SQL data
+        huvudkategoriId: (t as any).huvudkategoriId, // Legacy field for backwards compatibility
+        underkategoriId: (t as any).underkategoriId, // Legacy field for backwards compatibility
         importedAt: (t as any).importedAt || new Date().toISOString(),
         fileSource: (t as any).fileSource || 'budgetState'
       } as ImportedTransaction;
@@ -542,9 +569,18 @@ export const TransactionImportEnhanced: React.FC = () => {
         console.log(`  - Converted balanceAfter: ${converted.balanceAfter} (type: ${typeof converted.balanceAfter})`);
       }
       
+      // CRITICAL DEBUG: Check if savingsTargetId is preserved for LÖN transactions
+      if (t.description === 'LÖN' && t.savingsTargetId) {
+        console.log(`[TX IMPORT] ✅ CONVERTED LÖN transaction ${t.id}: savingsTargetId=${converted.savingsTargetId}`);
+        console.log(`[TX IMPORT] ✅ LEGACY FIELDS: huvudkategoriId=${t.huvudkategoriId}, underkategoriId=${t.underkategoriId}`);
+        console.log(`[TX IMPORT] ✅ NEWER FIELDS: appCategoryId=${t.appCategoryId}, appSubCategoryId=${t.appSubCategoryId}`);
+        addMobileDebugLog(`✅ CONVERTED LÖN ${t.id.slice(-8)}: savingsTargetId=${converted.savingsTargetId ? converted.savingsTargetId.slice(-8) : 'LOST!'}`);
+        addMobileDebugLog(`🏷️ Categories: legacy(${(t as any).huvudkategoriId ? 'SET' : 'NULL'}), newer(${t.appCategoryId ? 'SET' : 'NULL'})`);
+      }
+      
       return converted;
     });
-  }, [budgetState?.allTransactions, budgetState?.allTransactions?.length]); // Re-run when budgetState.allTransactions changes
+  }, [transactionsFromAPI, transactionsFromAPI.length, budgetState?.allTransactions, budgetState?.allTransactions?.length]); // Re-run when SQL data changes
     
     console.log('[TX IMPORT] 📊 Converted transactions:', transactions.length);
     

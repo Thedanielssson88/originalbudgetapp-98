@@ -3044,7 +3044,7 @@ export async function getAllTransactionsFromDatabase(): Promise<ImportedTransact
       savingsTargetId: tx.savingsTargetId || tx.savings_target_id, // CRITICAL FIX: Include savingsTargetId field (handle both field names)
       correctedAmount: tx.correctedAmount,
       isManuallyChanged: tx.isManuallyChanged || false,
-      appCategoryId: tx.hoofdkategoriId,
+      appCategoryId: tx.huvudkategoriId, // CRITICAL FIX: Corrected typo from 'hoofdkategoriId' to 'huvudkategoriId'
       appSubCategoryId: tx.underkategoriId,
       bankCategory: tx.bankCategory || '',
       bankSubCategory: tx.bankSubCategory || '',
