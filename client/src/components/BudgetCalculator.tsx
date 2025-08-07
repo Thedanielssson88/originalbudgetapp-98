@@ -750,6 +750,22 @@ const BudgetCalculator = () => {
       description: t.description 
     })));
     
+    // CRITICAL DEBUG: Check if the target LÖN transaction has savingsTargetId
+    const targetTransaction = (processedData.transactionsForPeriod || []).find(t => 
+      t.id === 'edece0e6-59d1-4967-a90b-28ef3c4bfc2f'
+    );
+    if (targetTransaction) {
+      console.log('🚨 [BUDGET CALCULATOR] Target LÖN transaction in transactionsForPeriod:', {
+        id: targetTransaction.id,
+        description: targetTransaction.description,
+        savingsTargetId: targetTransaction.savingsTargetId,
+        hasProperty: 'savingsTargetId' in targetTransaction,
+        allKeys: Object.keys(targetTransaction)
+      });
+    } else {
+      console.log('🚨 [BUDGET CALCULATOR] Target LÖN transaction NOT FOUND in transactionsForPeriod');
+    }
+    
     return {
       activeCategories: processedData.activeCategories,
       activeAccounts: processedData.activeAccounts,

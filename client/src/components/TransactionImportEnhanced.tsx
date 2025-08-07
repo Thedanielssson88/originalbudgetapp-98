@@ -505,8 +505,9 @@ export const TransactionImportEnhanced: React.FC = () => {
       console.log(`  - BalanceAfter: ${firstTx.balanceAfter} (type: ${typeof firstTx.balanceAfter})`);
     }
     
-    // Convert Transaction[] to ImportedTransaction[] format
-    const transactions = (budgetState?.allTransactions || []).map((t, index) => {
+  // Convert Transaction[] to ImportedTransaction[] format - Make it reactive to budgetState changes
+  const transactions = useMemo(() => {
+    return (budgetState?.allTransactions || []).map((t, index) => {
       // CRITICAL DEBUG: Log first few amounts to see conversion issue
       if (index < 3) {
         console.log(`[TX IMPORT] AMOUNT DEBUG ${index}: "${t.description}"`);
@@ -543,6 +544,7 @@ export const TransactionImportEnhanced: React.FC = () => {
       
       return converted;
     });
+  }, [budgetState?.allTransactions, budgetState?.allTransactions?.length]); // Re-run when budgetState.allTransactions changes
     
     console.log('[TX IMPORT] 📊 Converted transactions:', transactions.length);
     

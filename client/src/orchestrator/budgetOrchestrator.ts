@@ -1420,12 +1420,44 @@ export function resetInitialization(): void {
 export async function forceReloadTransactions(): Promise<void> {
   console.log('🔄 [ORCHESTRATOR] FORCE RELOAD: Loading transactions from PostgreSQL...');
   
+  // Also log to mobile debug logger
+  const { addMobileDebugLog } = await import('../utils/mobileDebugLogger');
+  addMobileDebugLog('🔄 [FORCE RELOAD] Starting transaction reload...');
+  
   try {
     const { apiStore } = await import('../store/apiStore');
     const dbTransactions = await apiStore.getTransactions();
     
     console.log(`✅ [ORCHESTRATOR] FORCE RELOAD: Found ${dbTransactions.length} transactions in database`);
+    addMobileDebugLog(`✅ [FORCE RELOAD] Found ${dbTransactions.length} transactions in database`);
     
+    // DEBUG: Check the first few transactions to see field names
+    if (dbTransactions && dbTransactions.length > 0) {
+      const sampleTx = dbTransactions[0];
+      const fieldNames = Object.keys(sampleTx);
+      console.log('🔍 [FORCE RELOAD DEBUG] Sample transaction field names:', fieldNames);
+      addMobileDebugLog(`🔍 [FORCE RELOAD] Sample fields: ${fieldNames.join(', ')}`);
+      
+      const savingsValues = {
+        savingsTargetId: sampleTx.savingsTargetId,
+        savings_target_id: (sampleTx as any).savings_target_id
+      };
+      console.log('🔍 [FORCE RELOAD DEBUG] Sample savingsTargetId values:', savingsValues);
+      addMobileDebugLog(`🔍 [FORCE RELOAD] Sample values: camelCase=${savingsValues.savingsTargetId}, snake_case=${savingsValues.savings_target_id}`);
+      
+      // Check specifically for LÖN transactions
+      const lonTransactions = dbTransactions.filter(tx => tx.description === 'LÖN');
+      console.log(`🔍 [FORCE RELOAD DEBUG] Found ${lonTransactions.length} LÖN transactions`);
+      addMobileDebugLog(`🔍 [FORCE RELOAD] Found ${lonTransactions.length} LÖN transactions`);
+      
+      lonTransactions.forEach((tx, i) => {
+        if (i < 3) { // Log first 3
+          console.log(`🔍 [FORCE RELOAD DEBUG] LÖN tx ${i}: id=${tx.id}, savingsTargetId=${tx.savingsTargetId}, savings_target_id=${(tx as any).savings_target_id}`);
+          addMobileDebugLog(`🔍 [FORCE RELOAD] LÖN ${i}: id=${tx.id}, camelCase=${tx.savingsTargetId}, snake_case=${(tx as any).savings_target_id}`);
+        }
+      });
+    }
+
     // Convert and store transactions
     const convertedTransactions = (dbTransactions || []).map((tx, index) => {
       // CRITICAL DEBUG: Log what we're converting for first few transactions
@@ -1434,6 +1466,7 @@ export async function forceReloadTransactions(): Promise<void> {
         console.log(`  - TX ID: ${tx.id}`);
         console.log(`  - TX amount from DB: ${tx.amount} (type: ${typeof tx.amount})`);
         console.log(`  - TX description: "${tx.description}"`);
+        console.log(`  - TX savingsTargetId: ${tx.savingsTargetId} / ${(tx as any).savings_target_id}`);
       }
       
       const converted = {
@@ -1447,7 +1480,7 @@ export async function forceReloadTransactions(): Promise<void> {
         type: tx.type || 'Transaction',
         status: tx.status || 'red',
         linkedTransactionId: tx.linkedTransactionId,
-        savingsTargetId: tx.savingsTargetId, // CRITICAL FIX: Include savingsTargetId field
+        savingsTargetId: tx.savingsTargetId || tx.savings_target_id, // CRITICAL FIX: Include savingsTargetId field (handle both field names)
         correctedAmount: tx.correctedAmount,
         isManuallyChanged: tx.isManuallyChanged === 'true',
         appCategoryId: tx.appCategoryId,
@@ -1467,13 +1500,33 @@ export async function forceReloadTransactions(): Promise<void> {
       return converted;
     });
     
+    // DEBUG: Check what we're about to store
+    const convertedLonTransactions = convertedTransactions.filter(tx => tx.description === 'LÖN');
+    addMobileDebugLog(`🔍 [FORCE RELOAD] About to store ${convertedLonTransactions.length} converted LÖN transactions`);
+    convertedLonTransactions.forEach((tx, i) => {
+      if (i < 3) {
+        addMobileDebugLog(`🔍 [FORCE RELOAD] Converted LÖN ${i}: id=${tx.id}, savingsTargetId=${tx.savingsTargetId}`);
+      }
+    });
+    
     // Store in centralized transaction storage
     state.budgetState.allTransactions = convertedTransactions;
     
+    // DEBUG: Check what was actually stored
+    const storedLonTransactions = state.budgetState.allTransactions.filter(tx => tx.description === 'LÖN');
+    addMobileDebugLog(`🔍 [FORCE RELOAD] Stored ${storedLonTransactions.length} LÖN transactions in budgetState`);
+    storedLonTransactions.forEach((tx, i) => {
+      if (i < 3) {
+        addMobileDebugLog(`🔍 [FORCE RELOAD] Stored LÖN ${i}: id=${tx.id}, savingsTargetId=${tx.savingsTargetId}`);
+      }
+    });
+    
     console.log(`✅ [ORCHESTRATOR] FORCE RELOAD: Stored ${convertedTransactions.length} transactions in state`);
+    addMobileDebugLog(`✅ [FORCE RELOAD] Updated budget state with ${convertedTransactions.length} transactions`);
     
     // Trigger UI refresh to show the transactions
     triggerUIRefresh();
+    addMobileDebugLog(`✅ [FORCE RELOAD] Triggered UI refresh`);
     
   } catch (error) {
     console.error('❌ [ORCHESTRATOR] FORCE RELOAD failed:', error);
@@ -2988,7 +3041,7 @@ export async function getAllTransactionsFromDatabase(): Promise<ImportedTransact
       type: (tx.type as ImportedTransaction['type']) || 'Transaction',
       status: (tx.status as ImportedTransaction['status']) || 'red',
       linkedTransactionId: tx.linkedTransactionId,
-      savingsTargetId: tx.savingsTargetId, // CRITICAL FIX: Include savingsTargetId field
+      savingsTargetId: tx.savingsTargetId || tx.savings_target_id, // CRITICAL FIX: Include savingsTargetId field (handle both field names)
       correctedAmount: tx.correctedAmount,
       isManuallyChanged: tx.isManuallyChanged || false,
       appCategoryId: tx.hoofdkategoriId,
@@ -3054,6 +3107,25 @@ async function loadTransactionsFromDatabase(): Promise<void> {
       addMobileDebugLog(`🔍 [LOAD] No transactions found with savingsTargetId in database response`);
     }
     
+    // DEBUG: Check the first few transactions to see field names
+    if (dbTransactions && dbTransactions.length > 0) {
+      const sampleTx = dbTransactions[0];
+      console.log('🔍 [LOAD DEBUG] Sample transaction field names:', Object.keys(sampleTx));
+      console.log('🔍 [LOAD DEBUG] Sample savingsTargetId values:', {
+        savingsTargetId: sampleTx.savingsTargetId,
+        savings_target_id: (sampleTx as any).savings_target_id
+      });
+      
+      // Check specifically for LÖN transactions
+      const lonTransactions = dbTransactions.filter(tx => tx.description === 'LÖN');
+      console.log(`🔍 [LOAD DEBUG] Found ${lonTransactions.length} LÖN transactions`);
+      lonTransactions.forEach((tx, i) => {
+        if (i < 3) { // Log first 3
+          console.log(`🔍 [LOAD DEBUG] LÖN tx ${i}: id=${tx.id}, savingsTargetId=${tx.savingsTargetId}, savings_target_id=${(tx as any).savings_target_id}`);
+        }
+      });
+    }
+
     // Convert database transactions to the format expected by budgetState
     const convertedTransactions = (dbTransactions || []).map(tx => ({
       id: tx.id,
@@ -3066,7 +3138,7 @@ async function loadTransactionsFromDatabase(): Promise<void> {
       type: tx.type || 'Transaction',
       status: tx.status || 'red',
       linkedTransactionId: tx.linkedTransactionId,
-      savingsTargetId: tx.savingsTargetId, // This maps directly from the database column
+      savingsTargetId: tx.savingsTargetId || tx.savings_target_id, // Handle both camelCase and snake_case from database
       correctedAmount: tx.correctedAmount,
       isManuallyChanged: tx.isManuallyChanged === 'true',
       appCategoryId: tx.appCategoryId,

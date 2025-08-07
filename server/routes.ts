@@ -691,6 +691,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Debug endpoint to trigger transaction reload in frontend
+  app.post("/api/debug/trigger-reload", async (req, res) => {
+    try {
+      console.log('🔄 [DEBUG] Trigger reload endpoint called');
+      res.json({ success: true, message: 'Reload triggered - check frontend logs' });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to trigger reload' });
+    }
+  });
+
   app.delete("/api/transactions/:id", async (req, res) => {
     try {
       const deleted = await storage.deleteTransaction(req.params.id);

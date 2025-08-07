@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { mobileDebugLogger } from '@/utils/mobileDebugLogger';
-import { X, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { X, Trash2, ChevronUp, ChevronDown, RefreshCw } from 'lucide-react';
 
 interface DebugLog {
   timestamp: string;
@@ -28,6 +28,20 @@ export const MobileDebugPanel: React.FC = () => {
 
   const handleClearLogs = () => {
     mobileDebugLogger.clearLogs();
+  };
+
+  const handleForceReloadTransactions = async () => {
+    try {
+      // Import the forceReloadTransactions function directly
+      const { forceReloadTransactions } = await import('@/orchestrator/budgetOrchestrator');
+      mobileDebugLogger.addLog('🔄 [DEBUG] Triggering transaction reload...');
+      
+      // Force reload transactions
+      await forceReloadTransactions();
+      mobileDebugLogger.addLog('✅ [DEBUG] Transaction reload completed');
+    } catch (error) {
+      mobileDebugLogger.addLog(`❌ [DEBUG] Transaction reload failed: ${error}`);
+    }
   };
 
   const handleCopyLogs = () => {
@@ -100,6 +114,15 @@ export const MobileDebugPanel: React.FC = () => {
             title="Kopiera alla loggar"
           >
             📋
+          </Button>
+          <Button
+            onClick={handleForceReloadTransactions}
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0"
+            title="Ladda om transaktioner"
+          >
+            <RefreshCw className="h-3 w-3" />
           </Button>
           <Button
             onClick={() => setIsMinimized(!isMinimized)}
