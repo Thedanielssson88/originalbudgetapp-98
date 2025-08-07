@@ -2098,37 +2098,28 @@ export function addAccount(account: { name: string; startBalance: number }): voi
   triggerUIRefresh();
 }
 
-// Helper function to add the Överföring account if it doesn't exist
+// DISABLED: Prevent duplicate account creation
 export async function ensureOverforingAccount(sqlAccounts?: any[]): Promise<void> {
-  console.log('🔄 [ORCHESTRATOR] Checking for Överföring account in SQL data');
+  console.log('🚫 [ORCHESTRATOR] ensureOverforingAccount is DISABLED to prevent duplicates');
+  console.log('🔍 [ORCHESTRATOR] Överföring accounts should be created manually when needed');
   
-  // Use provided SQL accounts or fetch from API
-  const accountsToCheck = sqlAccounts || [];
-  const overforingExists = accountsToCheck.some((acc: any) => acc.name === "Överföring");
+  // CRITICAL FIX: This function was causing multiple duplicate "Överföring" accounts
+  // to be created during app initialization. We disable it completely.
+  // Users can create transfer accounts manually through the UI when needed.
   
-  if (!overforingExists) {
-    try {
-      const overforingAccount = {
-        id: "aa9d996d-1baf-4c34-91bb-02f82b51aab6",
-        name: "Överföring",
-        startBalance: 0
-      };
-      
-      // Create account via SQL API
-      const response = await fetch('/api/accounts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(overforingAccount)
+  // Optional: Log existing Överföring accounts for debugging
+  try {
+    const response = await fetch('/api/accounts');
+    if (response.ok) {
+      const allAccounts = await response.json();
+      const overforingAccounts = allAccounts.filter((acc: any) => acc.name === "Överföring");
+      console.log(`🔍 [ORCHESTRATOR] Found ${overforingAccounts.length} existing Överföring accounts`);
+      overforingAccounts.forEach((acc: any, idx: number) => {
+        console.log(`  - Account ${idx + 1}: id=${acc.id}, assigned_to=${acc.assignedTo}, bank_template_id=${acc.bankTemplateId}`);
       });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to create Överföring account: ${response.statusText}`);
-      }
-      
-      console.log('✅ [ORCHESTRATOR] Added missing Överföring account via SQL:', overforingAccount);
-    } catch (error) {
-      console.error('❌ [ORCHESTRATOR] Failed to create Överföring account:', error);
     }
+  } catch (error) {
+    console.error('❌ [ORCHESTRATOR] Error checking existing accounts:', error);
   }
 }
 
