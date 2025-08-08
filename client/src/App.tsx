@@ -53,6 +53,7 @@ const AppContent = () => {
             <Route path="/transaktioner" component={TransactionsPage} />
             <Route path="/kategorier" component={CategoryManagement} />
             <Route path="/import" component={ImportPage} />
+            <Route path="/ladda-upp-filer" component={ImportPage} />
             <Route path="/installningar" component={SettingsPage} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route component={NotFound} />

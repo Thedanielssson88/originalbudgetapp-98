@@ -595,7 +595,7 @@ export const TransactionImportEnhanced: React.FC = () => {
       
       return converted;
     });
-  }, [transactionsFromAPI, transactionsFromAPI.length, budgetState?.allTransactions, budgetState?.allTransactions?.length]); // Re-run when SQL data changes
+  }, [transactionsFromAPI]); // FIXED: Only depend on transactionsFromAPI to prevent infinite loop
     
     console.log('[TX IMPORT] 📊 Converted transactions:', transactions.length);
     

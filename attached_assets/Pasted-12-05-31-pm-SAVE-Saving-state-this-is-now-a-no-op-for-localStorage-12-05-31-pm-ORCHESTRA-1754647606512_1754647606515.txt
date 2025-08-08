@@ -1,0 +1,407 @@
+12:05:31 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:31 pm: ✅ [ORCHESTRATOR] Loaded 0 transactions from database
+12:05:31 pm: 🔍 [LOAD] No transactions found with savingsTargetId in database response
+12:05:31 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 0 transactions
+12:05:31 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:31 pm: ✅ [ORCHESTRATOR] Loaded 0 transactions from database
+12:05:31 pm: 🔍 [LOAD] No transactions found with savingsTargetId in database response
+12:05:31 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 0 transactions
+12:05:31 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:31 pm: ✅ [ORCHESTRATOR] Loaded 0 transactions from database
+12:05:31 pm: 🔍 [LOAD] No transactions found with savingsTargetId in database response
+12:05:31 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 0 transactions
+12:05:31 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:31 pm: ✅ [ORCHESTRATOR] Loaded 0 transactions from database
+12:05:31 pm: 🔍 [LOAD] No transactions found with savingsTargetId in database response
+12:05:31 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 0 transactions
+12:05:31 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:31 pm: ✅ [ORCHESTRATOR] Loaded 0 transactions from database
+12:05:31 pm: 🔍 [LOAD] No transactions found with savingsTargetId in database response
+12:05:31 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 0 transactions
+12:05:31 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:31 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:31 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:32 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:32 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:32 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:32 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:32 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:32 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:32 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:32 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:32 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:32 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:32 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:32 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:05:32 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:05:32 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:05:32 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:32 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:05:32 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:05:32 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:05:32 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:32 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:05:32 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:05:32 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:05:32 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:32 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:05:32 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:05:32 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:05:32 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+
+12:05:36 pm: ✅ CONVERTED LÖN 3733e19f: savingsTargetId=d711fe16
+12:05:36 pm: 🏷️ Categories: legacy(NULL), newer(SET)
+12:05:36 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:36 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:36 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:36 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:36 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:36 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:36 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:36 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:36 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:36 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:36 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:36 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:38 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:05:38 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:05:38 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:05:38 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:38 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:05:38 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:05:38 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:05:38 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:38 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:05:38 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:05:38 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:05:38 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:38 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:05:38 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:05:38 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:05:38 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:38 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:05:38 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:05:38 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:05:38 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:39 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:05:39 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:05:39 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:05:39 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:39 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:05:39 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:05:39 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:05:39 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:39 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:05:39 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:05:39 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:05:39 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:39 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:05:39 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:05:39 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:05:39 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+
+12:05:46 pm: ✅ [ORCHESTRATOR] Loaded 0 transactions from database
+12:05:46 pm: 🔍 [LOAD] No transactions found with savingsTargetId in database response
+12:05:46 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 0 transactions
+12:05:46 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:46 pm: ✅ [ORCHESTRATOR] Loaded 0 transactions from database
+12:05:46 pm: 🔍 [LOAD] No transactions found with savingsTargetId in database response
+12:05:46 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 0 transactions
+12:05:46 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:46 pm: ✅ [ORCHESTRATOR] Loaded 0 transactions from database
+12:05:46 pm: 🔍 [LOAD] No transactions found with savingsTargetId in database response
+12:05:46 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 0 transactions
+12:05:46 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:46 pm: ✅ [ORCHESTRATOR] Loaded 0 transactions from database
+12:05:46 pm: 🔍 [LOAD] No transactions found with savingsTargetId in database response
+12:05:46 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 0 transactions
+12:05:46 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:46 pm: ✅ [ORCHESTRATOR] Loaded 0 transactions from database
+12:05:46 pm: 🔍 [LOAD] No transactions found with savingsTargetId in database response
+12:05:46 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 0 transactions
+12:05:46 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:46 pm: ✅ [ORCHESTRATOR] Loaded 0 transactions from database
+12:05:46 pm: 🔍 [LOAD] No transactions found with savingsTargetId in database response
+12:05:46 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 0 transactions
+12:05:46 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:46 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:46 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:46 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:46 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:46 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:46 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:46 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:46 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:46 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:46 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:46 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:46 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:46 pm: 🔥 [TX IMPORT] Component rendering...
+12:05:46 pm: 🔄 [TX IMPORT] Using SQL data: 1577 transactions
+12:05:46 pm: 💰 LÖN 83102126: savingsTargetId=d711fe16
+12:05:46 pm: 💰 LÖN 3733e19f: savingsTargetId=d711fe16
+12:05:46 pm: 💰 LÖN 6c7cfa99: savingsTargetId=MISSING
+12:05:46 pm: 💰 LÖN d7fa261f: savingsTargetId=MISSING
+12:05:46 pm: 💰 LÖN 0f00330b: savingsTargetId=MISSING
+12:05:46 pm: 💰 LÖN d40e3c8d: savingsTargetId=MISSING
+12:05:46 pm: 💰 LÖN 86ebf9f9: savingsTargetId=MISSING
+12:05:46 pm: 💰 LÖN 05ff8653: savingsTargetId=MISSING
+12:05:46 pm: ✅ CONVERTED LÖN 83102126: savingsTargetId=d711fe16
+12:05:46 pm: 🏷️ Categories: legacy(NULL), newer(SET)
+12:05:46 pm: ✅ CONVERTED LÖN 3733e19f: savingsTargetId=d711fe16
+12:05:46 pm: 🏷️ Categories: legacy(NULL), newer(SET)
+
+12:05:55 pm: ✅ CONVERTED LÖN 83102126: savingsTargetId=d711fe16
+12:05:55 pm: 🏷️ Categories: legacy(NULL), newer(SET)
+12:05:55 pm: ✅ CONVERTED LÖN 3733e19f: savingsTargetId=d711fe16
+12:05:55 pm: 🏷️ Categories: legacy(NULL), newer(SET)
+12:05:55 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:55 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:55 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:55 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:55 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:55 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:55 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:55 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:55 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:55 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:55 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:55 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:55 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:05:55 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:05:55 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:05:55 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:56 pm: 🔥 [TX IMPORT] Component rendering...
+12:05:56 pm: 🔄 [TX IMPORT] Using SQL data: 1577 transactions
+12:05:56 pm: 💰 LÖN 83102126: savingsTargetId=d711fe16
+12:05:56 pm: 💰 LÖN 3733e19f: savingsTargetId=d711fe16
+12:05:56 pm: 💰 LÖN 6c7cfa99: savingsTargetId=MISSING
+12:05:56 pm: 💰 LÖN d7fa261f: savingsTargetId=MISSING
+12:05:56 pm: 💰 LÖN 0f00330b: savingsTargetId=MISSING
+12:05:56 pm: 💰 LÖN d40e3c8d: savingsTargetId=MISSING
+12:05:56 pm: 💰 LÖN 86ebf9f9: savingsTargetId=MISSING
+12:05:56 pm: 💰 LÖN 05ff8653: savingsTargetId=MISSING
+12:05:56 pm: ✅ CONVERTED LÖN 83102126: savingsTargetId=d711fe16
+12:05:56 pm: 🏷️ Categories: legacy(NULL), newer(SET)
+12:05:56 pm: ✅ CONVERTED LÖN 3733e19f: savingsTargetId=d711fe16
+12:05:56 pm: 🏷️ Categories: legacy(NULL), newer(SET)
+12:05:56 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:56 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:56 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:56 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:56 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:56 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:56 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:56 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:56 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:56 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:56 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:56 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:05:56 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:05:56 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:05:56 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:05:56 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+
+12:06:00 pm: 💰 LÖN 0f00330b: savingsTargetId=MISSING
+12:06:00 pm: 💰 LÖN d40e3c8d: savingsTargetId=MISSING
+12:06:00 pm: 💰 LÖN 86ebf9f9: savingsTargetId=MISSING
+12:06:00 pm: 💰 LÖN 05ff8653: savingsTargetId=MISSING
+12:06:00 pm: ✅ CONVERTED LÖN 83102126: savingsTargetId=d711fe16
+12:06:00 pm: 🏷️ Categories: legacy(NULL), newer(SET)
+12:06:00 pm: ✅ CONVERTED LÖN 3733e19f: savingsTargetId=d711fe16
+12:06:00 pm: 🏷️ Categories: legacy(NULL), newer(SET)
+12:06:00 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:00 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:00 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:00 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:00 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:00 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:00 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:00 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:00 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:00 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:00 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:00 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:02 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:06:02 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:06:02 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:06:02 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:02 pm: 🔥 [TX IMPORT] Component rendering...
+12:06:02 pm: 🔄 [TX IMPORT] Using SQL data: 1577 transactions
+12:06:02 pm: 💰 LÖN 83102126: savingsTargetId=d711fe16
+12:06:02 pm: 💰 LÖN 3733e19f: savingsTargetId=d711fe16
+12:06:02 pm: 💰 LÖN 6c7cfa99: savingsTargetId=MISSING
+12:06:02 pm: 💰 LÖN d7fa261f: savingsTargetId=MISSING
+12:06:02 pm: 💰 LÖN 0f00330b: savingsTargetId=MISSING
+12:06:02 pm: 💰 LÖN d40e3c8d: savingsTargetId=MISSING
+12:06:02 pm: 💰 LÖN 86ebf9f9: savingsTargetId=MISSING
+12:06:02 pm: 💰 LÖN 05ff8653: savingsTargetId=MISSING
+12:06:02 pm: ✅ CONVERTED LÖN 83102126: savingsTargetId=d711fe16
+12:06:02 pm: 🏷️ Categories: legacy(NULL), newer(SET)
+12:06:02 pm: ✅ CONVERTED LÖN 3733e19f: savingsTargetId=d711fe16
+12:06:02 pm: 🏷️ Categories: legacy(NULL), newer(SET)
+12:06:02 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:02 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:02 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:02 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:02 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:02 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:02 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:02 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:02 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:02 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:02 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:02 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+
+12:06:07 pm: 💰 LÖN 6c7cfa99: savingsTargetId=MISSING
+12:06:07 pm: 💰 LÖN d7fa261f: savingsTargetId=MISSING
+12:06:07 pm: 💰 LÖN 0f00330b: savingsTargetId=MISSING
+12:06:07 pm: 💰 LÖN d40e3c8d: savingsTargetId=MISSING
+12:06:07 pm: 💰 LÖN 86ebf9f9: savingsTargetId=MISSING
+12:06:07 pm: 💰 LÖN 05ff8653: savingsTargetId=MISSING
+12:06:07 pm: ✅ CONVERTED LÖN 83102126: savingsTargetId=d711fe16
+12:06:07 pm: 🏷️ Categories: legacy(NULL), newer(SET)
+12:06:07 pm: ✅ CONVERTED LÖN 3733e19f: savingsTargetId=d711fe16
+12:06:07 pm: 🏷️ Categories: legacy(NULL), newer(SET)
+12:06:07 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:07 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:07 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:07 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:07 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:07 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:07 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:07 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:07 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:07 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:07 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:07 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:07 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:06:07 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:06:07 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:06:07 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:07 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:06:07 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:06:07 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:06:07 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:07 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:06:07 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:06:07 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:06:07 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:07 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:06:07 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:06:07 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:06:07 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:07 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:06:07 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:06:07 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:06:07 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:07 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:06:07 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:06:07 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:06:07 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:07 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:06:07 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:06:07 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:06:07 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+
+12:06:15 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:15 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:15 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:15 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:15 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:15 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:15 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:15 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:15 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:15 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:15 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:15 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:15 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:06:15 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:06:15 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:06:15 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:15 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:06:15 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:06:15 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:06:15 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:15 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:06:15 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:06:15 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:06:15 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:16 pm: 🔥 [TX IMPORT] Component rendering...
+12:06:16 pm: 🔄 [TX IMPORT] Using SQL data: 1577 transactions
+12:06:16 pm: 💰 LÖN 83102126: savingsTargetId=d711fe16
+12:06:16 pm: 💰 LÖN 3733e19f: savingsTargetId=d711fe16
+12:06:16 pm: 💰 LÖN 6c7cfa99: savingsTargetId=MISSING
+12:06:16 pm: 💰 LÖN d7fa261f: savingsTargetId=MISSING
+12:06:16 pm: 💰 LÖN 0f00330b: savingsTargetId=MISSING
+12:06:16 pm: 💰 LÖN d40e3c8d: savingsTargetId=MISSING
+12:06:16 pm: 💰 LÖN 86ebf9f9: savingsTargetId=MISSING
+12:06:16 pm: 💰 LÖN 05ff8653: savingsTargetId=MISSING
+12:06:16 pm: ✅ CONVERTED LÖN 83102126: savingsTargetId=d711fe16
+12:06:16 pm: 🏷️ Categories: legacy(NULL), newer(SET)
+12:06:16 pm: ✅ CONVERTED LÖN 3733e19f: savingsTargetId=d711fe16
+12:06:16 pm: 🏷️ Categories: legacy(NULL), newer(SET)
+12:06:16 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:16 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:16 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:16 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:16 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:16 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:16 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:16 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:16 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:16 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:16 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:16 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+
+12:06:21 pm: 💰 LÖN 6c7cfa99: savingsTargetId=MISSING
+12:06:21 pm: 💰 LÖN d7fa261f: savingsTargetId=MISSING
+12:06:21 pm: 💰 LÖN 0f00330b: savingsTargetId=MISSING
+12:06:21 pm: 💰 LÖN d40e3c8d: savingsTargetId=MISSING
+12:06:21 pm: 💰 LÖN 86ebf9f9: savingsTargetId=MISSING
+12:06:21 pm: 💰 LÖN 05ff8653: savingsTargetId=MISSING
+12:06:21 pm: ✅ CONVERTED LÖN 83102126: savingsTargetId=d711fe16
+12:06:21 pm: 🏷️ Categories: legacy(NULL), newer(SET)
+12:06:21 pm: ✅ CONVERTED LÖN 3733e19f: savingsTargetId=d711fe16
+12:06:21 pm: 🏷️ Categories: legacy(NULL), newer(SET)
+12:06:22 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:22 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:22 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:22 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:22 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:22 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:22 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:22 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:22 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:22 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:22 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:22 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:22 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:06:22 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:06:22 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:06:22 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:22 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:06:22 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:06:22 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:06:22 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:22 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:06:22 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:06:22 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:06:22 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:22 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:06:22 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:06:22 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:06:22 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:23 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:06:23 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:06:23 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:06:23 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:23 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:06:23 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:06:23 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:06:23 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
+12:06:23 pm: ✅ [ORCHESTRATOR] Loaded 1577 transactions from database
+12:06:23 pm: 🔍 [LOAD] Found 9 transactions with savingsTargetId in database response
+12:06:23 pm: ✅ [ORCHESTRATOR] Centralized storage updated with 1577 transactions
+12:06:23 pm: [SAVE] ⏳ Saving state - this is now a no-op for localStorage
