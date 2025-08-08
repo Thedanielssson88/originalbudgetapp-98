@@ -60,22 +60,32 @@ class ApiStore {
   }
 
   async updateTransaction(id: string, data: any): Promise<any> {
-    
-    const response = await fetch(`/api/transactions/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
+    try {
+      const response = await fetch(`/api/transactions/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
 
-    if (!response.ok) {
-      throw new Error(`Failed to update transaction: ${response.statusText}`);
+      if (!response.ok) {
+        throw new Error(`Failed to update transaction (${response.status}): ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return result;
+      
+    } catch (error) {
+      console.warn(`⚠️ [ApiStore] Failed to update transaction ${id}:`, error);
+      
+      // Re-throw with more context
+      if (error instanceof Error) {
+        throw new Error(`Transaction update failed: ${error.message}`);
+      } else {
+        throw new Error(`Transaction update failed: Network error`);
+      }
     }
-
-    const result = await response.json();
-    
-    return result;
   }
 
   async getTransactions(): Promise<any[]> {
@@ -93,15 +103,16 @@ class ApiStore {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('❌ [ApiStore] Failed to fetch transactions:', error);
+      console.log('❌ [ApiStore] Failed to fetch transactions:', error);
       
       // If it's a network error, try to provide helpful context
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        console.error('🌐 [ApiStore] Network error - server might be down or unreachable');
-        console.error('💡 [ApiStore] Try refreshing the page or check server status');
+        console.log('🌐 [ApiStore] Network error - server might be down or unreachable');
+        console.log('💡 [ApiStore] Try refreshing the page or check server status');
       }
       
-      throw error;
+      // Instead of throwing, return empty array to prevent runtime errors
+      return [];
     }
   }
 

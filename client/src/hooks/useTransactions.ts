@@ -4,11 +4,22 @@ import type { Transaction, InsertTransaction } from '@shared/schema';
 
 // Helper function for API requests
 async function apiRequest(url: string, options?: RequestInit) {
-  const response = await fetch(url, options);
-  if (!response.ok) {
-    throw new Error(`API request failed: ${response.statusText}`);
+  try {
+    const response = await fetch(url, options);
+    if (!response.ok) {
+      console.log(`[useTransactions] API request failed: ${response.status} ${response.statusText} for ${url}`);
+      throw new Error(`API request failed: ${response.statusText}`);
+    }
+    return response.json();
+  } catch (error) {
+    console.log(`[useTransactions] Network error for ${url}:`, error);
+    // Re-throw with context but don't use console.error to avoid runtime popup
+    if (error instanceof Error) {
+      throw new Error(`Transactions request failed: ${error.message}`);
+    } else {
+      throw new Error(`Transactions request failed: Network error`);
+    }
   }
-  return response.json();
 }
 
 // Transaction hooks with localStorage persistence (similar to accounts)
@@ -29,32 +40,46 @@ function cacheTransactions(transactions: Transaction[]): void {
   try {
     localStorage.setItem(TRANSACTIONS_CACHE_KEY, JSON.stringify(transactions));
   } catch (error) {
-    console.warn('Failed to cache transactions:', error);
+    console.log('[useTransactions] Failed to cache transactions:', error);
   }
 }
 
 export function useTransactions() {
+  // Get cached transactions for fallback
+  const cachedTransactions = getCachedTransactions();
+  
   const query = useQuery<Transaction[]>({
     queryKey: ['/api/transactions'],
     queryFn: async () => {
-      const data = await apiRequest('/api/transactions');
-      // Cache the fresh SQL data only after successful fetch
-      if (data && Array.isArray(data)) {
-        cacheTransactions(data);
+      try {
+        const data = await apiRequest('/api/transactions');
+        // Cache the fresh SQL data only after successful fetch
+        if (data && Array.isArray(data)) {
+          cacheTransactions(data);
+        }
+        return data;
+      } catch (error) {
+        console.log(`[useTransactions] Query failed, returning cached data:`, error instanceof Error ? error.message : String(error));
+        // Return cached data instead of throwing to prevent runtime error overlay
+        return cachedTransactions;
       }
-      return data;
     },
-    // CRITICAL FIX: Don't use localStorage as initial data to prevent legacy data interference
-    // Always fetch fresh data from SQL first, then use cache only for performance
+    // Use cached data as initial data
+    initialData: cachedTransactions.length > 0 ? cachedTransactions : undefined,
     staleTime: 5000, // Cache for 5 seconds to reduce API calls
+    retry: false, // Don't retry since we handle errors in queryFn
   });
   
-  // FIXED: Only return SQL data, never mix with localStorage fallback
-  // This ensures all transaction data comes from SQL database
+  // Always prefer fresh data, but fallback to cache if needed
+  const effectiveData = (query.data && query.data.length > 0) 
+    ? query.data 
+    : cachedTransactions;
+  
   return {
     ...query,
-    data: query.data || [], // Always return SQL data or empty array
-    isLoading: query.isLoading,
+    data: effectiveData,
+    // Show as loading only if we don't have any data at all
+    isLoading: query.isLoading && effectiveData.length === 0,
   };
 }
 

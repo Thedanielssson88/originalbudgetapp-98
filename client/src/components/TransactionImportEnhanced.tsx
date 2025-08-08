@@ -395,6 +395,21 @@ export const TransactionImportEnhanced: React.FC = () => {
   }>({ isOpen: false });
   const [refreshKey, setRefreshKey] = useState(0);
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
+  
+  // Import progress tracking
+  const [importProgress, setImportProgress] = useState<{
+    isImporting: boolean;
+    currentStep: string;
+    progress: number;
+    totalTransactions: number;
+    processedTransactions: number;
+  }>({
+    isImporting: false,
+    currentStep: '',
+    progress: 0,
+    totalTransactions: 0,
+    processedTransactions: 0
+  });
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
   const [dateRangeDialog, setDateRangeDialog] = useState<{
     isOpen: boolean;
@@ -621,7 +636,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [subcategoriesFromStorage, setSubcategoriesFromStorage] = useState<Record<string, string[]>>({});
   
   // Read category rules from PostgreSQL using the hook
-  const { data: postgresqlRules = [], isLoading: rulesLoading } = useCategoryRules();
+  const { data: postgresqlRules = [], isLoading: rulesLoading, error: rulesError } = useCategoryRules();
   
   // Use PostgreSQL rules instead of local state rules
   const categoryRules = postgresqlRules.map(rule => ({
@@ -642,6 +657,17 @@ export const TransactionImportEnhanced: React.FC = () => {
     },
     isActive: rule.isActive === 'true'
   }));
+
+  // Log category rules loading state
+  useEffect(() => {
+    if (!rulesLoading && !rulesError && postgresqlRules.length > 0) {
+      console.log(`✅ [CATEGORY RULES] Successfully loaded ${postgresqlRules.length} category rules`);
+    } else if (rulesError) {
+      console.log(`❌ [CATEGORY RULES] Failed to load category rules:`, rulesError);
+    } else if (rulesLoading) {
+      console.log(`⏳ [CATEGORY RULES] Loading category rules...`);
+    }
+  }, [rulesLoading, rulesError, postgresqlRules.length]);
 
   // Check if CSV contains transactions on/after 24th for balance correction
   const hasTransactionsOnOrAfter24th = useMemo(() => {
@@ -1057,12 +1083,29 @@ export const TransactionImportEnhanced: React.FC = () => {
       console.log(`🚀 [IMPORT] About to call importAndReconcileFile...`);
       console.log(`🚀 [IMPORT] File import targeting account: ${accountName} (${accountId})`);
       
+      // Initialize progress tracking
+      setImportProgress({
+        isImporting: true,
+        currentStep: 'Förbereder import...',
+        progress: 5,
+        totalTransactions: 0,
+        processedTransactions: 0
+      });
+      
       // Use smart parser for both CSV and XLSX files to ensure consistent processing
       let parseResult: any = null;
       try {
         parseResult = smartParse(csvContent);
         console.log(`🎯 [IMPORT] Smart parser found ${parseResult.headers.length} headers and ${parseResult.dataRows.length} data rows`);
         addMobileDebugLog(`🎯 FINAL PARSE: ${parseResult.headers.length} headers, ${parseResult.dataRows.length} rows`);
+        
+        // Update progress with transaction count
+        setImportProgress(prev => ({
+          ...prev,
+          currentStep: `Bearbetar ${parseResult.dataRows.length} transaktioner...`,
+          progress: 10,
+          totalTransactions: parseResult.dataRows.length,
+        }));
         
         // Debug category data one more time
         const kategoriIndex = parseResult.headers.findIndex((h: string) => h.toLowerCase().includes('kategori') && !h.toLowerCase().includes('under'));
@@ -1074,11 +1117,68 @@ export const TransactionImportEnhanced: React.FC = () => {
           addMobileDebugLog(`🎯 Categories found: ${sampleCategories.join(', ')}`);
         }
         
-        await importAndReconcileFile(parseResult.cleanCsv, accountId, postgresqlRules);
+        setImportProgress(prev => ({
+          ...prev,
+          currentStep: 'Synkroniserar transaktioner...',
+          progress: 50
+        }));
+        
+        // Use OPTIMIZED IMPORT for better performance and targeted updates
+        const { optimizedImportAndReconcileFile } = await import('../orchestrator/optimizedImport');
+        const budgetState = (window as any).budgetState || {};
+        const existingTransactions = budgetState.allTransactions || [];
+        
+        console.log(`🚀 [OPTIMIZED] Using optimized import with ${existingTransactions.length} existing transactions in memory`);
+        addMobileDebugLog(`🚀 OPTIMIZED: ${existingTransactions.length} existing transactions loaded`);
+        
+        const optimizedResult = await optimizedImportAndReconcileFile(
+          parseResult.cleanCsv, 
+          accountId, 
+          accountName, 
+          existingTransactions
+        );
+        
+        if (!optimizedResult.success) {
+          console.log(`⚠️ [OPTIMIZED] Optimized import failed, falling back to standard import...`);
+          addMobileDebugLog(`⚠️ Optimized import failed, using fallback`);
+          await importAndReconcileFile(parseResult.cleanCsv, accountId, postgresqlRules);
+        } else {
+          console.log(`✅ [OPTIMIZED] Import successful:`, optimizedResult.stats);
+          addMobileDebugLog(`✅ Optimized: ${optimizedResult.stats.created} new, ${optimizedResult.stats.removed} replaced`);
+        }
       } catch (error) {
         console.warn(`🔍 [IMPORT] Smart parser failed, using original CSV:`, error);
         addMobileDebugLog(`⚠️ Smart parser failed: ${error}`);
-        await importAndReconcileFile(csvContent, accountId, postgresqlRules);
+        
+        setImportProgress(prev => ({
+          ...prev,
+          currentStep: 'Synkroniserar transaktioner (reservlösning)...',
+          progress: 50
+        }));
+        
+        // Use OPTIMIZED IMPORT for fallback case too
+        const { optimizedImportAndReconcileFile } = await import('../orchestrator/optimizedImport');
+        const budgetState = (window as any).budgetState || {};
+        const existingTransactions = budgetState.allTransactions || [];
+        
+        console.log(`🚀 [OPTIMIZED FALLBACK] Using optimized import fallback with ${existingTransactions.length} existing transactions`);
+        addMobileDebugLog(`🚀 FALLBACK: Using optimized import with ${existingTransactions.length} transactions`);
+        
+        const optimizedResult = await optimizedImportAndReconcileFile(
+          csvContent, 
+          accountId, 
+          accountName, 
+          existingTransactions
+        );
+        
+        if (!optimizedResult.success) {
+          console.log(`⚠️ [OPTIMIZED FALLBACK] Both optimized and fallback failed, using legacy import...`);
+          addMobileDebugLog(`⚠️ All optimized methods failed, using legacy import`);
+          await importAndReconcileFile(csvContent, accountId, postgresqlRules);
+        } else {
+          console.log(`✅ [OPTIMIZED FALLBACK] Import successful:`, optimizedResult.stats);
+          addMobileDebugLog(`✅ Fallback success: ${optimizedResult.stats.created} new, ${optimizedResult.stats.removed} replaced`);
+        }
         
         // Fallback: Create parseResult from raw CSV for Settings2 button
         const lines = csvContent.split('\n').filter(line => line.trim());
@@ -1086,6 +1186,14 @@ export const TransactionImportEnhanced: React.FC = () => {
         const dataRows = lines.slice(1).map(line => line.split(';').map(cell => cell.trim()));
         parseResult = { headers, dataRows };
       }
+      
+      // Update progress for balance processing
+      setImportProgress(prev => ({
+        ...prev,
+        currentStep: 'Uppdaterar kontosaldon...',
+        progress: 85
+      }));
+      
       console.log(`🚀 [IMPORT] importAndReconcileFile call completed for account: ${accountName}`);
       
       console.log('🔄 [DEBUG] After importAndReconcileFile - checking budgetState...');
@@ -1107,14 +1215,36 @@ export const TransactionImportEnhanced: React.FC = () => {
         setRefreshKey(prev => prev + 1);
         console.log('🔄 [DEBUG] Triggered UI refresh after file import');
         
+        // Complete progress
+        setImportProgress(prev => ({
+          ...prev,
+          currentStep: 'Import färdig!',
+          progress: 100,
+          processedTransactions: prev.totalTransactions
+        }));
+        
         // Allow toast to show (balance updates should be complete by now)
         setIsWaitingForBalanceUpdates(false);
+        
+        // Reset progress after a brief delay
+        setTimeout(() => {
+          setImportProgress(prev => ({ ...prev, isImporting: false }));
+        }, 2000);
       }, 500); // Increased delay to ensure balance updates are processed
         
     } catch (error) {
       console.error('Error uploading file:', error);
       addMobileDebugLog(`❌ FILE UPLOAD ERROR: ${error instanceof Error ? error.message : String(error)}`);
       addMobileDebugLog(`❌ Error stack: ${error instanceof Error ? error.stack : 'No stack trace'}`);
+      
+      // Reset progress on error
+      setImportProgress(prev => ({
+        ...prev,
+        isImporting: false,
+        currentStep: 'Import misslyckades',
+        progress: 0
+      }));
+      
       setIsWaitingForBalanceUpdates(false);
       setPendingToast(null);
       toast({
@@ -1909,6 +2039,26 @@ export const TransactionImportEnhanced: React.FC = () => {
                       <CardDescription className="text-sm">
                         Balance: {(account.balance || 0).toLocaleString('sv-SE')} kr
                       </CardDescription>
+                      {/* Progress bar for import */}
+                      {importProgress.isImporting && (
+                        <div className="mt-2 space-y-1">
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>{importProgress.currentStep}</span>
+                            <span>{Math.round(importProgress.progress)}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                              style={{ width: `${importProgress.progress}%` }}
+                            />
+                          </div>
+                          {importProgress.totalTransactions > 0 && (
+                            <div className="text-xs text-muted-foreground">
+                              {importProgress.processedTransactions}/{importProgress.totalTransactions} transaktioner
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {hasTransactions && (
@@ -1933,10 +2083,10 @@ export const TransactionImportEnhanced: React.FC = () => {
                         size="sm"
                         variant={hasTransactions ? "outline" : "default"}
                         className="text-xs sm:text-sm"
-                        disabled={!account.bankTemplateId && !selectedBanks[account.id]}
+                        disabled={(!account.bankTemplateId && !selectedBanks[account.id]) || importProgress.isImporting}
                       >
                         <Upload className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                        {hasTransactions ? "Ändra fil" : "Ladda upp CSV/XLSX"}
+                        {importProgress.isImporting ? "Importerar..." : (hasTransactions ? "Ändra fil" : "Ladda upp CSV/XLSX")}
                       </Button>
                       {rawCsvData[account.id]?.headers && (
                         <Button
@@ -2536,6 +2686,9 @@ export const TransactionImportEnhanced: React.FC = () => {
                 console.log(`🔍 [APPLY RULES] Button clicked - postgresqlRules: ${postgresqlRules.length}, filteredTransactions: ${filteredTransactions.length}`);
                 console.log(`🔍 [APPLY RULES] PostgreSQL rules:`, postgresqlRules);
                 console.log(`🔍 [APPLY RULES] PostgreSQL rules loading:`, rulesLoading);
+                if (rulesError) {
+                  console.log(`🔍 [APPLY RULES] PostgreSQL rules error:`, rulesError);
+                }
                 applyRulesToFilteredTransactions();
               }}
               disabled={postgresqlRules.length === 0 || filteredTransactions.length === 0}

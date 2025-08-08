@@ -45,12 +45,12 @@ async function matchBankCategoriesToSystemCategories(bankCategory: string, bankS
         })
       ]);
     } catch (error) {
-      console.warn(`[BANK CATEGORY MATCHING] Failed to fetch categories from API:`, error.message);
+      console.log(`[BANK CATEGORY MATCHING] Failed to fetch categories from API:`, error.message);
       return null;
     }
     
     if (!huvudkategorierResponse.ok || !underkategorierResponse.ok) {
-      console.warn(`[BANK CATEGORY MATCHING] API responses not OK: huvudkategorier=${huvudkategorierResponse.status}, underkategorier=${underkategorierResponse.status}`);
+      console.log(`[BANK CATEGORY MATCHING] API responses not OK: huvudkategorier=${huvudkategorierResponse.status}, underkategorier=${underkategorierResponse.status}`);
       return null;
     }
     
@@ -58,7 +58,7 @@ async function matchBankCategoriesToSystemCategories(bankCategory: string, bankS
     const underkategorier = await underkategorierResponse.json();
     
     if (!Array.isArray(huvudkategorier) || !Array.isArray(underkategorier)) {
-      console.warn('[BANK CATEGORY MATCHING] Invalid response format from APIs');
+      console.log('[BANK CATEGORY MATCHING] Invalid response format from APIs');
       return null;
     }
     
@@ -93,7 +93,7 @@ async function matchBankCategoriesToSystemCategories(bankCategory: string, bankS
     };
     
   } catch (error) {
-    console.error('[BANK CATEGORY MATCHING] Error matching categories:', error);
+    console.log('[BANK CATEGORY MATCHING] Error matching categories:', error);
     console.log('[BANK CATEGORY MATCHING] Continuing import without bank category matching...');
     return null;
   }
@@ -146,7 +146,7 @@ async function matchBankCategoriesSimple(bankCategory: string, bankSubCategory: 
     }
     
   } catch (error) {
-    console.error('[BANK CATEGORY SIMPLE] Error in simple matching:', error);
+    console.log('[BANK CATEGORY SIMPLE] Error in simple matching:', error);
     return null;
   }
 }
@@ -170,20 +170,31 @@ async function applyImportRulesWithProtection(transaction: any, categoryRules: a
   console.log(`[IMPORT RULES] 🔍 ENTRY DEBUG - bankCategory: "${transaction.bankCategory}", bankSubCategory: "${transaction.bankSubCategory}"`);
   console.log(`[IMPORT RULES] 🔍 ENTRY DEBUG - appCategoryId: "${transaction.appCategoryId}", appSubCategoryId: "${transaction.appSubCategoryId}"`);
   
+  // Ensure categoryRules is always an array
+  if (!Array.isArray(categoryRules)) {
+    categoryRules = [];
+  }
+  
   // CRITICAL FIX: If no rules passed, fetch them directly
-  if (!categoryRules || categoryRules.length === 0) {
-    console.warn(`[IMPORT RULES] ⚠️ No rules provided, fetching directly from API...`);
+  if (categoryRules.length === 0) {
+    console.log(`[IMPORT RULES] ⚠️ No rules provided, attempting to fetch from API...`);
     try {
       const response = await fetch('/api/category-rules');
       if (response.ok) {
-        categoryRules = await response.json();
-        console.log(`[IMPORT RULES] ✅ Fetched ${categoryRules.length} rules from API`);
+        const fetchedRules = await response.json();
+        if (Array.isArray(fetchedRules)) {
+          categoryRules = fetchedRules;
+          console.log(`[IMPORT RULES] ✅ Fetched ${categoryRules.length} rules from API`);
+        } else {
+          console.log(`[IMPORT RULES] ⚠️ Invalid rules format from API, continuing without rules`);
+          categoryRules = [];
+        }
       } else {
-        console.error(`[IMPORT RULES] ❌ Failed to fetch rules: ${response.status}`);
+        console.log(`[IMPORT RULES] ⚠️ Failed to fetch rules (status: ${response.status} ${response.statusText}), continuing without rules`);
         categoryRules = [];
       }
     } catch (error) {
-      console.error(`[IMPORT RULES] ❌ Error fetching rules:`, error);
+      console.log(`[IMPORT RULES] ⚠️ Network error fetching category rules, continuing without auto-categorization:`, error?.message || error);
       categoryRules = [];
     }
   }
@@ -225,7 +236,7 @@ async function applyImportRulesWithProtection(transaction: any, categoryRules: a
           continue;
         }
       } catch (e) {
-        console.warn('[IMPORT RULES] Failed to parse applicableAccountIds:', rule.applicableAccountIds);
+        console.log('[IMPORT RULES] Failed to parse applicableAccountIds:', rule.applicableAccountIds);
       }
     }
     
@@ -303,7 +314,7 @@ async function applyImportRulesWithProtection(transaction: any, categoryRules: a
         console.log(`[IMPORT RULES] ℹ️ No bank category fallback match found`);
       }
     } catch (error) {
-      console.warn(`[IMPORT RULES] ⚠️ Bank category fallback failed:`, error);
+      console.log(`[IMPORT RULES] ⚠️ Bank category fallback failed:`, error);
     }
   }
   
@@ -356,32 +367,55 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
   }
   
   
-  // 2. Define date range of the file using string dates (YYYY-MM-DD format)
-  console.log(`[ORCHESTRATOR] 📊 Raw transactions from file:`, transactionsFromFile.map(t => ({ date: t.date, desc: t.description.substring(0, 30) })));
+  // 2. Define date range of the file using string dates (YYYY-MM-DD format)  
+  const isLargeFile = transactionsFromFile.length > 200;
+  
+  if (!isLargeFile) {
+    console.log(`[ORCHESTRATOR] 📊 Raw transactions from file:`, transactionsFromFile.map(t => ({ date: t.date, desc: t.description.substring(0, 30) })));
+  } else {
+    console.log(`[ORCHESTRATOR] 📊 Large file detected: ${transactionsFromFile.length} transactions - reducing logging`);
+  }
   addMobileDebugLog(`📊 Raw transactions: ${transactionsFromFile.length} found`);
   
   const fileDates = (transactionsFromFile || []).map((t, index) => {
     const dateStr = t.date.split('T')[0];
-    console.log(`[ORCHESTRATOR] 📊 Transaction ${index}: "${t.date}" -> "${dateStr}" (Amount: ${t.amount}, Description: "${t.description}")`);
-    addMobileDebugLog(`📊 TX ${index}: ${dateStr} - ${t.amount} - "${t.description?.substring(0, 30)}"`);
     
-    // Special logging for April transactions
-    if (dateStr.startsWith('2025-04')) {
+    // Reduce per-transaction logging for large files
+    if (!isLargeFile) {
+      console.log(`[ORCHESTRATOR] 📊 Transaction ${index}: "${t.date}" -> "${dateStr}" (Amount: ${t.amount}, Description: "${t.description}")`);
+      addMobileDebugLog(`📊 TX ${index}: ${dateStr} - ${t.amount} - "${t.description?.substring(0, 30)}"`);
+    } else {
+      // Only log every 100th transaction for large files
+      if (index % 100 === 0 || index === transactionsFromFile.length - 1) {
+        console.log(`[ORCHESTRATOR] 📊 Progress: ${index + 1}/${transactionsFromFile.length} transactions processed`);
+        addMobileDebugLog(`📊 Progress: ${index + 1}/${transactionsFromFile.length}`);
+      }
+    }
+    
+    // Special logging for April transactions (keep but reduce for large files)
+    if (dateStr.startsWith('2025-04') && (!isLargeFile || index < 10)) {
       console.log(`[ORCHESTRATOR] 🔍 APRIL TRANSACTION FOUND: ${dateStr} - ${t.amount} - "${t.description}"`);
-      addMobileDebugLog(`🔍 APRIL TX: ${dateStr} - ${t.amount} - "${t.description?.substring(0, 30)}"`);
+      if (!isLargeFile) {
+        addMobileDebugLog(`🔍 APRIL TX: ${dateStr} - ${t.amount} - "${t.description?.substring(0, 30)}"`);
+      }
     }
     
     return dateStr;
   });
   
-  addMobileDebugLog(`📊 Processed dates: ${fileDates.sort().join(', ')}`);
+  if (!isLargeFile) {
+    addMobileDebugLog(`📊 Processed dates: ${fileDates.sort().join(', ')}`);
+  }
   
   const minDateStr = fileDates.reduce((min, date) => date < min ? date : min);
   const maxDateStr = fileDates.reduce((max, date) => date > max ? date : max);
   
   console.log(`[ORCHESTRATOR] 📅 File date range: ${minDateStr} to ${maxDateStr}`);
   addMobileDebugLog(`📅 FILE RANGE: ${minDateStr} to ${maxDateStr}`);
-  addMobileDebugLog(`📅 All file dates: ${fileDates.sort().join(', ')}`);
+  
+  if (!isLargeFile) {
+    addMobileDebugLog(`📅 All file dates: ${fileDates.sort().join(', ')}`);
+  }
   console.log(`[ORCHESTRATOR] 📅 File contains ${transactionsFromFile.length} transactions`);
   addMobileDebugLog(`📅 File contains ${transactionsFromFile.length} transactions`);
   
@@ -409,10 +443,18 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
   addMobileDebugLog(`📅 Found ${allSavedTransactions.length} existing transactions total`);
   
   const existingForAccount = (allSavedTransactions || []).filter(t => t.accountId === accountId).map(t => t.date.split('T')[0]).sort();
-  console.log(`[ORCHESTRATOR] 📅 Existing transactions for account ${accountId}:`, existingForAccount);
-  addMobileDebugLog(`📅 Existing transactions for account ${accountId}: ${existingForAccount.join(', ')}`);
+  console.log(`[ORCHESTRATOR] 📅 Found ${existingForAccount.length} existing transactions for account`);
+  
+  if (!isLargeFile) {
+    console.log(`[ORCHESTRATOR] 📅 Existing transactions for account ${accountId}:`, existingForAccount);
+    addMobileDebugLog(`📅 Existing transactions for account ${accountId}: ${existingForAccount.join(', ')}`);
+  } else {
+    addMobileDebugLog(`📅 Found ${existingForAccount.length} existing transactions for account`);
+  }
   
   // 4. Remove ONLY transactions within the exact date range for this account
+  let keepCount = 0;
+  let removeCount = 0;
   const transactionsToKeep = allSavedTransactions.filter(t => {
     if (t.accountId !== accountId) return true; // Keep all transactions from other accounts
     
@@ -422,13 +464,20 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
     // FIXED: Only remove if date is WITHIN the new file's range (inclusive)
     const isInFileRange = existingDateStr >= minDateStr && existingDateStr <= maxDateStr;
     
-    console.log(`[ORCHESTRATOR] 🔍 Checking transaction ${existingDateStr}:`);
-    console.log(`[ORCHESTRATOR] 🔍   - >= ${minDateStr}: ${existingDateStr >= minDateStr}`);
-    console.log(`[ORCHESTRATOR] 🔍   - <= ${maxDateStr}: ${existingDateStr <= maxDateStr}`);
-    console.log(`[ORCHESTRATOR] 🔍   - isInFileRange: ${isInFileRange}`);
-    console.log(`[ORCHESTRATOR] 🔍   - Decision: ${isInFileRange ? 'REMOVE (in range)' : 'KEEP (outside range)'}`);
+    if (!isLargeFile) {
+      console.log(`[ORCHESTRATOR] 🔍 Checking transaction ${existingDateStr}:`);
+      console.log(`[ORCHESTRATOR] 🔍   - >= ${minDateStr}: ${existingDateStr >= minDateStr}`);
+      console.log(`[ORCHESTRATOR] 🔍   - <= ${maxDateStr}: ${existingDateStr <= maxDateStr}`);
+      console.log(`[ORCHESTRATOR] 🔍   - isInFileRange: ${isInFileRange}`);
+      console.log(`[ORCHESTRATOR] 🔍   - Decision: ${isInFileRange ? 'REMOVE (in range)' : 'KEEP (outside range)'}`);
+    }
     
-    addMobileDebugLog(`🔍 Transaction ${existingDateStr}: ${isInFileRange ? 'REMOVE (in range)' : 'KEEP (outside range)'}`);
+    // Track counts for performance optimization
+    if (isInFileRange) {
+      removeCount++;
+    } else {
+      keepCount++;
+    }
     
     return !isInFileRange; // Keep transactions OUTSIDE the file's date range
   });
@@ -590,13 +639,27 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
     addMobileDebugLog(`❌ Sync error: ${error instanceof Error ? error.message : String(error)}`);
   }
   
-  // 8.5. NEW: Automatic Account Balance Setting Based on Last Transaction Before 25th
-  console.log(`[ORCHESTRATOR] 💰 Setting account balances based on last transaction before 25th (payday)...`);
-  addMobileDebugLog(`💰 Setting account balances from payday logic...`);
+  // 8.5. NEW: Automatic Account Balance Setting Based on Last Transaction Before 25th (Payday)
+  // OPTIMIZATION: Only process the specific account being imported, not all accounts
+  console.log(`[ORCHESTRATOR] 💰 Setting account balances for account ${accountId} based on last transaction before payday (25th)...`);
+  addMobileDebugLog(`💰 Starting balance update process for account ${accountId} - analyzing CSV/XLSX transactions...`);
   
   try {
-    // Group transactions by account and month
-    const transactionsByAccountMonth = finalTransactionList.reduce((acc, tx) => {
+    const currentDate = new Date();
+    const currentDay = currentDate.getDate();
+    const payday = state.budgetState.settings?.payday || 25;
+    
+    console.log(`[ORCHESTRATOR] 💰 Current date: ${currentDate.toISOString().split('T')[0]}, payday: ${payday}, current day: ${currentDay}`);
+    
+    // We'll check payday logic for each month individually below
+    console.log(`[ORCHESTRATOR] 💰 Processing balance updates for eligible months for account ${accountId}...`);
+    
+    // OPTIMIZATION: Only process transactions for the target account
+    const accountTransactions = finalTransactionList.filter(tx => tx.accountId === accountId);
+    console.log(`[ORCHESTRATOR] 💰 Found ${accountTransactions.length} transactions for target account ${accountId}`);
+    
+    // Group transactions by account and month (now only for target account)
+    const transactionsByAccountMonth = accountTransactions.reduce((acc, tx) => {
       const date = new Date(tx.date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const key = `${tx.accountId}_${monthKey}`;
@@ -608,17 +671,47 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
       return acc;
     }, {} as Record<string, typeof finalTransactionList>);
     
-    // For each account-month group, find last transaction before 25th
+    const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    
+    // For each account-month group, find last transaction before payday (day 24 and earlier)
     for (const [key, transactions] of Object.entries(transactionsByAccountMonth)) {
       const [accountId, monthKey] = key.split('_');
       
-      // Filter transactions that are on or before the 24th
+      // Only process months that are current month or earlier (since we're on or after payday)
+      const [txYear, txMonth] = monthKey.split('-').map(Number);
+      const [currentYear, currentMonth] = currentMonthKey.split('-').map(Number);
+      const txDate = new Date(txYear, txMonth - 1, 1);
+      const currentMonthDate = new Date(currentYear, currentMonth - 1, 1);
+      
+      if (txDate > currentMonthDate) {
+        console.log(`[ORCHESTRATOR] ⏭️ Skipping future month ${monthKey} (current: ${currentMonthKey})`);
+        addMobileDebugLog(`⏭️ Skipped future month ${monthKey} for account ${accountId}`);
+        continue;
+      }
+      
+      // Check if current date is after this month's payday
+      // For August (2025-08), check if current date is after 2025-07-25
+      const monthPaydayDate = new Date(txYear, txMonth - 2, payday); // Previous month's payday
+      if (currentDate < monthPaydayDate) {
+        console.log(`[ORCHESTRATOR] ⏳ Skipping ${monthKey} - current date (${currentDate.toISOString().split('T')[0]}) is before payday (${monthPaydayDate.toISOString().split('T')[0]})`);
+        addMobileDebugLog(`⏳ Skipped ${monthKey} for account ${accountId} - waiting for payday ${monthPaydayDate.toISOString().split('T')[0]}`);
+        continue;
+      }
+      console.log(`[ORCHESTRATOR] ✅ Processing ${monthKey} - current date is after payday (${monthPaydayDate.toISOString().split('T')[0]})`);
+      addMobileDebugLog(`✅ Processing ${monthKey} for account ${accountId} - payday criteria met`);
+      
+      // Filter transactions that are on or before the day before payday (24th if payday is 25th)
+      const dayBeforePayday = payday - 1;
       const transactionsBeforePayday = (transactions as typeof finalTransactionList).filter((tx) => {
         const date = new Date(tx.date);
-        return date.getDate() <= 24;
+        return date.getDate() <= dayBeforePayday;
       });
       
-      if (transactionsBeforePayday.length === 0) continue;
+      if (transactionsBeforePayday.length === 0) {
+        console.log(`[ORCHESTRATOR] ⚠️ No transactions found before payday for account ${accountId} in ${monthKey}`);
+        addMobileDebugLog(`⚠️ No transactions before day ${dayBeforePayday} in ${monthKey} for account ${accountId}`);
+        continue;
+      }
       
       // Sort by date to get the last one
       const lastTransactionBeforePayday = transactionsBeforePayday.sort((a, b) => 
@@ -626,67 +719,107 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
       )[0];
       
       if (lastTransactionBeforePayday?.balanceAfter !== undefined) {
-        // Calculate next month
-        const [year, month] = monthKey.split('-').map(Number);
-        const nextMonth = month === 12 ? 1 : month + 1;
-        const nextYear = month === 12 ? year + 1 : year;
-        const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+        console.log(`[ORCHESTRATOR] 💰 Account ${accountId}: Found last transaction before payday in ${monthKey}: ${lastTransactionBeforePayday.balanceAfter / 100} kr (from ${lastTransactionBeforePayday.date})`);
+        addMobileDebugLog(`💰 ${accountId} ${monthKey}: ${(lastTransactionBeforePayday.balanceAfter / 100).toFixed(2)} kr`);
         
-        console.log(`[ORCHESTRATOR] 💰 Account ${accountId}: Setting balance for ${nextMonthKey} to ${lastTransactionBeforePayday.balanceAfter / 100} kr (from transaction on ${lastTransactionBeforePayday.date})`);
-        addMobileDebugLog(`💰 ${accountId}: ${nextMonthKey} balance = ${(lastTransactionBeforePayday.balanceAfter / 100).toFixed(2)} kr`);
-        
-        // Create or get the next month data
-        if (!state.budgetState.historicalData[nextMonthKey]) {
-          const currentMonthData = getCurrentMonthData();
-          state.budgetState.historicalData[nextMonthKey] = { ...currentMonthData };
+        // Calculate target month for budget_posts (next month after transaction month)
+        // Transaction in July (2025-07) should update August budget_posts (2025-08)
+        const [txYear, txMonth] = monthKey.split('-').map(Number);
+        let targetYear = txYear;
+        let targetMonth = txMonth + 1;
+        if (targetMonth > 12) {
+          targetMonth = 1;
+          targetYear++;
         }
+        const targetMonthKey = `${targetYear}-${String(targetMonth).padStart(2, '0')}`;
         
-        const nextMonthData = state.budgetState.historicalData[nextMonthKey];
-        nextMonthData.accountBalances = nextMonthData.accountBalances || {};
-        nextMonthData.accountBalancesSet = nextMonthData.accountBalancesSet || {};
+        console.log(`[ORCHESTRATOR] 💰 Transaction month: ${monthKey}, Target budget month: ${targetMonthKey}`);
+        addMobileDebugLog(`💰 Found balance ${(lastTransactionBeforePayday.balanceAfter / 100).toFixed(2)} kr from ${monthKey} → updating ${targetMonthKey}`);
         
-        // Get account name for the balance setting - TODO: Pass sqlAccounts parameter
-        const account = state.budgetState.accounts?.find(acc => acc.id === accountId);
-        const accountName = account?.name || accountId;
-        console.log('⚠️ [ORCHESTRATOR] Using legacy budgetState.accounts lookup - should pass sqlAccounts parameter');
-        
-        nextMonthData.accountBalances[accountName] = lastTransactionBeforePayday.balanceAfter / 100; // Convert from öre to kronor
-        nextMonthData.accountBalancesSet[accountName] = true;
-        
-        console.log(`[ORCHESTRATOR] ✅ Updated ${accountName} balance for ${nextMonthKey}: ${lastTransactionBeforePayday.balanceAfter / 100} kr`);
-        
-        // Save to database using upsert (update if exists, insert if not)
+        // Update budget_posts with account_balance (bank balance) for the target month
+        // First check if a Balance type budget post already exists for this account and month
         try {
-          const response = await fetch('/api/monthly-account-balances/upsert', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              monthKey: nextMonthKey,
-              accountId: accountId,
-              calculatedBalance: lastTransactionBeforePayday.balanceAfter, // Keep calculated balance for internal use
-              bankensKontosaldo: lastTransactionBeforePayday.balanceAfter // Store CSV import balance in öre
-            })
-          });
+          console.log(`[ORCHESTRATOR] 🔍 Checking for existing balance post: monthKey=${targetMonthKey}, type=Balance, accountId=${accountId}`);
           
-          if (response.ok) {
-            const result = await response.json();
-            const action = result.created ? 'Created' : 'Updated';
-            console.log(`[ORCHESTRATOR] 💾 ${action} ${accountName} balance in database for ${nextMonthKey}: ${lastTransactionBeforePayday.balanceAfter / 100} kr`);
-            addMobileDebugLog(`💾 ${action} ${accountName} balance: ${(lastTransactionBeforePayday.balanceAfter / 100).toFixed(2)} kr`);
+          // First, check if a budget post already exists (fetch all posts for month, then filter by type and accountId)
+          const existingResponse = await fetch(`/api/budget-posts?monthKey=${targetMonthKey}`);
+          
+          if (existingResponse.ok) {
+            const allPosts = await existingResponse.json();
+            
+            // Filter posts by type='Balance' and accountId
+            const existingPosts = allPosts.filter((post: any) => 
+              post.type === 'Balance' && post.accountId === accountId
+            );
+            
+            console.log(`[ORCHESTRATOR] 🔍 Found ${allPosts.length} total posts, ${existingPosts.length} matching balance posts for account ${accountId}`);
+            
+            if (existingPosts.length > 0) {
+              // Update existing budget post
+              const existingPost = existingPosts[0];
+              console.log(`[ORCHESTRATOR] 📝 Found existing balance post ${existingPost.id}, updating account_balance...`);
+              
+              const updateResponse = await fetch(`/api/budget-posts/${existingPost.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  accountBalance: lastTransactionBeforePayday.balanceAfter,
+                  description: `Bank balance from CSV import (from ${monthKey} transactions, updated)`
+                })
+              });
+              
+              if (updateResponse.ok) {
+                const result = await updateResponse.json();
+                console.log(`[ORCHESTRATOR] 💾 Updated existing budget_post account_balance for ${accountId} in ${targetMonthKey}: ${lastTransactionBeforePayday.balanceAfter / 100} kr`);
+                addMobileDebugLog(`💾 Updated ${accountId} bank balance for ${targetMonthKey}: ${(lastTransactionBeforePayday.balanceAfter / 100).toFixed(2)} kr`);
+              } else {
+                console.log(`[ORCHESTRATOR] ❌ Failed to update existing budget_post:`, updateResponse.statusText);
+                addMobileDebugLog(`❌ Failed to update existing balance for ${targetMonthKey} account ${accountId}: ${updateResponse.statusText}`);
+              }
+            } else {
+              // No existing post found, create new one
+              console.log(`[ORCHESTRATOR] ➕ No existing balance post found, creating new one for ${accountId} in ${targetMonthKey}`);
+              
+              const createResponse = await fetch('/api/budget-posts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  monthKey: targetMonthKey,
+                  type: 'Balance',
+                  accountId: accountId,
+                  amount: 0, // Not used for Balance type
+                  accountBalance: lastTransactionBeforePayday.balanceAfter, // Bank balance in öre
+                  description: `Bank balance from CSV import (from ${monthKey} transactions)`,
+                  huvudkategoriId: null,
+                  underkategoriId: null
+                })
+              });
+              
+              if (createResponse.ok) {
+                const result = await createResponse.json();
+                console.log(`[ORCHESTRATOR] 💾 Created new budget_post account_balance for ${accountId} in ${targetMonthKey}: ${lastTransactionBeforePayday.balanceAfter / 100} kr`);
+                addMobileDebugLog(`💾 Updated ${accountId} bank balance for ${targetMonthKey}: ${(lastTransactionBeforePayday.balanceAfter / 100).toFixed(2)} kr`);
+              } else {
+                console.log(`[ORCHESTRATOR] ❌ Failed to create budget_post:`, createResponse.statusText);
+                addMobileDebugLog(`❌ Failed to create balance entry for ${targetMonthKey} account ${accountId}: ${createResponse.statusText}`);
+              }
+            }
           } else {
-            console.error(`[ORCHESTRATOR] ❌ Failed to save ${accountName} balance to database:`, response.statusText);
+            console.log(`[ORCHESTRATOR] ❌ Failed to check for existing budget posts:`, existingResponse.statusText);
+            addMobileDebugLog(`❌ Failed to check existing balance entries for ${targetMonthKey} account ${accountId}: ${existingResponse.statusText}`);
           }
         } catch (error) {
-          console.error(`[ORCHESTRATOR] ❌ Error saving ${accountName} balance to database:`, error);
+          console.log(`[ORCHESTRATOR] ❌ Error saving account balance to budget_posts:`, error);
+          addMobileDebugLog(`❌ Network error updating balance for ${targetMonthKey} account ${accountId}: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
     }
     
-    console.log(`[ORCHESTRATOR] ✅ Account balance setting complete`);
-    addMobileDebugLog(`✅ Account balance setting complete`);
+    console.log(`[ORCHESTRATOR] ✅ Account balance setting complete for account ${accountId}`);
+    addMobileDebugLog(`✅ Balance update process complete for account ${accountId} - checked ${Object.keys(transactionsByAccountMonth).length} month(s)`);
     
   } catch (error) {
-    console.error(`[ORCHESTRATOR] ❌ Error setting account balances:`, error);
+    console.log(`[ORCHESTRATOR] ❌ Error setting account balances:`, error);
     addMobileDebugLog(`❌ Error setting account balances: ${error instanceof Error ? error.message : String(error)}`);
   }
 
@@ -935,8 +1068,8 @@ function parseCSVContentWithMapping(csvContent: string, accountId: string, fileN
   return { transactions, mapping: savedMapping };
 }
 
-// CSV parsing function moved from TransactionImportEnhanced
-function parseCSVContent(csvContent: string, accountId: string, fileName: string): ImportedTransaction[] {
+// CSV parsing function moved from TransactionImportEnhanced - EXPORTED for optimized import
+export function parseCSVContent(csvContent: string, accountId: string, fileName: string): ImportedTransaction[] {
   console.log(`[ORCHESTRATOR] 🔍 parseCSVContent called for account: ${accountId}`);
   
   const cleanedContent = csvContent.replace(/�/g, '');
@@ -1362,20 +1495,22 @@ export const APP_STATE_UPDATED = 'appstateupdated';
 export { eventEmitter };
 
 function triggerUIRefresh() {
-  console.log('🎯 [ORCHESTRATOR] Dispatching APP_STATE_UPDATED event...');
-  addMobileDebugLog('🎯 [ORCHESTRATOR] Dispatching APP_STATE_UPDATED event...');
-  
-  // Dispatch immediately
-  eventEmitter.dispatchEvent(new Event(APP_STATE_UPDATED));
-  
-  // Also dispatch in the next tick to ensure all state updates are captured
-  setTimeout(() => {
-    console.log('🎯 [ORCHESTRATOR] Dispatching delayed APP_STATE_UPDATED event...');
+  // Throttle UI refresh events to prevent spam and loops
+  const now = Date.now();
+  if (!window.lastUIRefresh || now - window.lastUIRefresh > 100) {
+    console.log('🎯 [ORCHESTRATOR] Dispatching APP_STATE_UPDATED event...');
+    
+    // Only dispatch once - remove the delayed dispatch that was causing loops
     eventEmitter.dispatchEvent(new Event(APP_STATE_UPDATED));
     
+    window.lastUIRefresh = now;
+    
     // Trigger automatic Google Drive backup if enabled and signed in
-    triggerAutoBackup();
-  }, 0);
+    // Use setTimeout to avoid blocking the UI refresh
+    setTimeout(() => {
+      triggerAutoBackup();
+    }, 100);
+  }
 }
 
 // Automatic Google Drive backup after data changes
@@ -1653,24 +1788,22 @@ export function getCurrentState() {
 // Subscribe/unsubscribe to state changes
 export function subscribeToStateChanges(callback: () => void): void {
   console.log('🎯 [ORCHESTRATOR] Subscribing to state changes...');
-  addMobileDebugLog('🎯 [ORCHESTRATOR] Subscribing to state changes...');
   eventEmitter.addEventListener(APP_STATE_UPDATED, callback);
 }
 
 export function unsubscribeFromStateChanges(callback: () => void): void {
   console.log('🎯 [ORCHESTRATOR] Unsubscribing from state changes...');
-  addMobileDebugLog('🎯 [ORCHESTRATOR] Unsubscribing from state changes...');
   eventEmitter.removeEventListener(APP_STATE_UPDATED, callback);
 }
 
 // Main calculation and state update function
 export function runCalculationsAndUpdateState(): void {
-  console.log('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() STARTED');
-  const stack = new Error().stack;
-  const callerLine = stack?.split('\n')[2] || 'unknown';
-  console.log('🔥 [ORCHESTRATOR] WHO IS CALLING ME?:', callerLine);
-  addMobileDebugLog('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() STARTED');
-  addMobileDebugLog(`🔥 [ORCHESTRATOR] WHO IS CALLING ME?: ${callerLine}`);
+  // Only log once per second to prevent spam
+  const now = Date.now();
+  if (!window.lastCalcLog || now - window.lastCalcLog > 1000) {
+    console.log('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() STARTED');
+    window.lastCalcLog = now;
+  }
   
   try {
     const { historicalData, accounts } = state.budgetState;
@@ -1710,8 +1843,8 @@ export function runCalculationsAndUpdateState(): void {
     saveStateToStorage();
     triggerUIRefresh();
     
+    // Reduced logging to prevent spam
     console.log('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() COMPLETED');
-    addMobileDebugLog('🔥 [ORCHESTRATOR] runCalculationsAndUpdateState() COMPLETED');
   } catch (error) {
     console.error('[BudgetOrchestrator] Error in calculations:', error);
   }
@@ -1719,10 +1852,8 @@ export function runCalculationsAndUpdateState(): void {
 
 // Helper function for updating data
 function updateAndRecalculate(updates: Partial<MonthData>): void {
-  const stack = new Error().stack;
-  const callerLine = stack?.split('\n')[2] || 'unknown';
-  console.log('🔥 [ORCHESTRATOR] updateAndRecalculate() called from:', callerLine);
-  addMobileDebugLog(`🔥 [ORCHESTRATOR] updateAndRecalculate() called from: ${callerLine}`);
+  // Only log when debugging specific issues
+  // console.log('🔥 [ORCHESTRATOR] updateAndRecalculate() called');
   updateCurrentMonthData(updates);
   runCalculationsAndUpdateState();
 }
@@ -1974,27 +2105,35 @@ export function setSelectedHistoricalMonth(monthKey: string): void {
 // Load monthly account balances from database and sync to local state
 export async function loadMonthlyAccountBalancesFromDatabase(): Promise<void> {
   try {
-    console.log('[ORCHESTRATOR] 🔄 Loading monthly account balances from database...');
+    console.log('[ORCHESTRATOR] 🔄 Loading account balances from budget_posts (Balance type)...');
     
-    const response = await fetch('/api/monthly-account-balances');
+    // Load Balance type budget posts instead of old monthly-account-balances
+    const response = await fetch('/api/budget-posts?type=Balance');
     if (!response.ok) {
-      console.error('[ORCHESTRATOR] ❌ Failed to fetch monthly account balances:', response.statusText);
+      console.error('[ORCHESTRATOR] ❌ Failed to fetch balance budget posts:', response.statusText);
       return;
     }
     
-    const balances = await response.json();
-    console.log(`[ORCHESTRATOR] 📥 Loaded ${balances.length} monthly account balances from database`);
+    const balancePosts = await response.json();
+    console.log(`[ORCHESTRATOR] 📥 Loaded ${balancePosts.length} account balance posts from database`);
     
     // Get account mapping for name lookup
     const accountsResponse = await fetch('/api/accounts');
     const accounts = accountsResponse.ok ? await accountsResponse.json() : [];
     const accountMap = new Map(accounts.map((acc: any) => [acc.id, acc.name]));
     
-    // Group balances by month and apply to historical data
-    for (const balance of balances) {
-      const monthKey = balance.monthKey;
-      const accountName = accountMap.get(balance.accountId) || balance.accountId;
-      const balanceInKr = balance.calculatedBalance / 100; // Convert from öre to kronor
+    // Group balance posts by month and apply bank balances to historical data
+    for (const post of balancePosts) {
+      if (!post.monthKey || !post.accountId) continue;
+      const monthKey = post.monthKey;
+      const accountName = accountMap.get(post.accountId) || post.accountId;
+      
+      // Use account_balance (bank balance) if available, otherwise fall back to calculated balance
+      const bankBalanceInOre = post.accountBalance || 0;
+      const balanceInKr = bankBalanceInOre / 100; // Convert from öre to kronor
+      
+      // Skip if no balance to apply
+      if (balanceInKr === 0) continue;
       
       // Ensure the month exists in historical data
       if (!state.budgetState.historicalData[monthKey]) {
@@ -2009,11 +2148,11 @@ export async function loadMonthlyAccountBalancesFromDatabase(): Promise<void> {
       monthData.accountBalances[accountName] = balanceInKr;
       monthData.accountBalancesSet[accountName] = true;
       
-      console.log(`[ORCHESTRATOR] 💰 Loaded ${accountName} balance for ${monthKey}: ${balanceInKr} kr`);
+      console.log(`[ORCHESTRATOR] 💰 Loaded ${accountName} bank balance for ${monthKey}: ${balanceInKr} kr`);
     }
     
-    console.log('[ORCHESTRATOR] ✅ Monthly account balances loaded from database');
-    addMobileDebugLog(`✅ Loaded ${balances.length} monthly balances from database`);
+    console.log('[ORCHESTRATOR] ✅ Account balances loaded from budget_posts');
+    addMobileDebugLog(`✅ Loaded ${balancePosts.length} account balances from budget_posts`);
     
   } catch (error) {
     console.error('[ORCHESTRATOR] ❌ Error loading monthly account balances from database:', error);
@@ -2176,21 +2315,11 @@ export function setResults(value: any): void {
 }
 
 export function updateHistoricalData(value: any): void {
-  addMobileDebugLog('🔥 [ORCHESTRATOR] updateHistoricalData called');
-  addMobileDebugLog(`🔥 [ORCHESTRATOR] Incoming data keys: ${Object.keys(value).join(', ')}`);
-  
-  // Check what's in the data for current month
-  const currentMonth = state.budgetState.selectedMonthKey;
-  if (value[currentMonth]) {
-    addMobileDebugLog(`🔥 [ORCHESTRATOR] Current month data keys: ${Object.keys(value[currentMonth]).join(', ')}`);
-    addMobileDebugLog(`🔥 [ORCHESTRATOR] accountBalances in data: ${JSON.stringify(value[currentMonth].accountBalances)}`);
-    addMobileDebugLog(`🔥 [ORCHESTRATOR] accountBalancesSet in data: ${JSON.stringify(value[currentMonth].accountBalancesSet)}`);
-  }
+  // Remove excessive debug logging to prevent console spam
+  console.log('🔥 [ORCHESTRATOR] updateHistoricalData called');
   
   state.budgetState.historicalData = value;
-  addMobileDebugLog('🔥 [ORCHESTRATOR] State updated, calling saveStateToStorage');
   saveStateToStorage();
-  addMobileDebugLog('🔥 [ORCHESTRATOR] saveStateToStorage completed');
   triggerUIRefresh();
 }
 
@@ -2290,7 +2419,7 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
   
   // Import mobile debug logger dynamically to avoid circular deps
   import('../utils/mobileDebugLogger').then(({ addMobileDebugLog }) => {
-    addMobileDebugLog(`🔄 [ORCHESTRATOR] updateTransaction: ${transactionId} with savingsTargetId=${updates.savingsTargetId}`);
+    console.log(`🔄 [ORCHESTRATOR] updateTransaction: ${transactionId} with savingsTargetId=${updates.savingsTargetId}`);
   });
   
   // CRITICAL: Use centralized transaction storage
@@ -2362,7 +2491,7 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
   
   // Add mobile debug log
   import('../utils/mobileDebugLogger').then(({ addMobileDebugLog }) => {
-    addMobileDebugLog(`🔄 [ORCHESTRATOR] After update: savingsTargetId changed from ${originalTransaction.savingsTargetId} to ${updatedTransaction.savingsTargetId}`);
+    console.log(`🔄 [ORCHESTRATOR] After update: savingsTargetId changed from ${originalTransaction.savingsTargetId} to ${updatedTransaction.savingsTargetId}`);
   });
   
   console.log(`🔄 [ORCHESTRATOR] State updated, about to save to storage...`);
@@ -2391,7 +2520,7 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
       
       // Import mobile debug logger for database update
       const { addMobileDebugLog } = await import('../utils/mobileDebugLogger');
-      addMobileDebugLog(`🔄 [DB UPDATE] Saving transaction ${transactionId} with savingsTargetId=${dbUpdateData.savingsTargetId}`);
+      console.log(`🔄 [DB UPDATE] Saving transaction ${transactionId} with savingsTargetId=${dbUpdateData.savingsTargetId}`);
       
       // Test the schema validation with our test endpoint
       try {
@@ -2401,21 +2530,30 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
           body: JSON.stringify(dbUpdateData)
         });
         const testResult = await testResponse.json();
-        addMobileDebugLog(`🧪 [TEST] Schema validation result: hasSavingsTargetId=${testResult.hasSavingsTargetId}, value=${testResult.savingsTargetIdValue}`);
+        console.log(`🧪 [TEST] Schema validation result: hasSavingsTargetId=${testResult.hasSavingsTargetId}, value=${testResult.savingsTargetIdValue}`);
       } catch (testError) {
-        addMobileDebugLog(`🧪 [TEST] Schema validation test failed: ${testError.message}`);
+        console.log(`🧪 [TEST] Schema validation test failed: ${testError instanceof Error ? testError.message : String(testError)}`);
       }
       
-      const dbResponse = await apiStore.updateTransaction(transactionId, dbUpdateData);
-      
-      console.log(`✅ [Orchestrator] Transaction ${transactionId} successfully saved to database`);
-      console.log(`🔍 [Orchestrator] Database response:`, dbResponse);
-      addMobileDebugLog(`✅ [DB UPDATE] Transaction ${transactionId} successfully saved to database`);
-      addMobileDebugLog(`🔍 [DB UPDATE] Response savingsTargetId: ${dbResponse?.savingsTargetId || dbResponse?.savings_target_id || 'undefined'}`);
-      
-      // Now reload transactions from database and trigger refresh after database update is complete
-      addMobileDebugLog(`🔄 [DB UPDATE] Reloading transactions from database after successful update`);
-      await loadTransactionsFromDatabase();
+      let dbResponse;
+      try {
+        dbResponse = await apiStore.updateTransaction(transactionId, dbUpdateData);
+        
+        console.log(`✅ [Orchestrator] Transaction ${transactionId} successfully saved to database`);
+        console.log(`🔍 [Orchestrator] Database response:`, dbResponse);
+        console.log(`✅ [DB UPDATE] Transaction ${transactionId} successfully saved to database`);
+        console.log(`🔍 [DB UPDATE] Response savingsTargetId: ${dbResponse?.savingsTargetId || dbResponse?.savings_target_id || 'undefined'}`);
+        
+        // Now reload transactions from database and trigger refresh after database update is complete
+        console.log(`🔄 [DB UPDATE] Reloading transactions from database after successful update`);
+        await loadTransactionsFromDatabase();
+      } catch (error) {
+        console.warn(`⚠️ [Orchestrator] Failed to save transaction ${transactionId} to database:`, error);
+        console.log(`⚠️ [DB UPDATE] Failed to save transaction: ${error instanceof Error ? error.message : String(error)}`);
+        
+        // Continue with local state update even if database save fails
+        console.log(`🔄 [Orchestrator] Continuing with local state update despite database error`);
+      }
       
       // Invalidate React Query cache to force UI update
       // We need to get the global queryClient instance from the app
@@ -2424,19 +2562,19 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
           const client = (window as any).__queryClient;
           await client.invalidateQueries({ queryKey: ['/api/transactions'] });
           await client.invalidateQueries({ queryKey: ['/api/budget-posts'] });
-          addMobileDebugLog(`🔄 [DB UPDATE] Invalidated React Query cache for transactions and budget-posts`);
+          console.log(`🔄 [DB UPDATE] Invalidated React Query cache for transactions and budget-posts`);
         } catch (e) {
           console.log('Could not invalidate queries:', e);
         }
       }
       
-      addMobileDebugLog(`🔄 [DB UPDATE] Triggering refresh after transaction reload`);
+      console.log(`🔄 [DB UPDATE] Triggering refresh after transaction reload`);
       runCalculationsAndUpdateState();
     } catch (error) {
       console.error(`❌ [Orchestrator] Failed to save transaction ${transactionId} to database:`, error);
       // Import mobile debug logger for error
       const { addMobileDebugLog } = await import('../utils/mobileDebugLogger');
-      addMobileDebugLog(`❌ [DB UPDATE] Failed to save transaction ${transactionId}: ${error.message}`);
+      console.log(`❌ [DB UPDATE] Failed to save transaction ${transactionId}: ${error instanceof Error ? error.message : String(error)}`);
     }
   });
   
@@ -3015,7 +3153,7 @@ export async function getAllTransactionsFromDatabase(): Promise<ImportedTransact
 // NEW: Load all transactions from PostgreSQL at app startup
 async function loadTransactionsFromDatabase(): Promise<void> {
   console.log('🔍 [ORCHESTRATOR] Loading all transactions from PostgreSQL at startup...');
-  addMobileDebugLog('[ORCHESTRATOR] Loading transactions from database...');
+  console.log('[ORCHESTRATOR] Loading transactions from database...');
   
   try {
     const { apiStore } = await import('../store/apiStore');

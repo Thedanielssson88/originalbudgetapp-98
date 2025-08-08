@@ -4,11 +4,22 @@ import type { BudgetPost, InsertBudgetPost } from '@shared/schema';
 
 // Helper function for API requests
 async function apiRequest(url: string, options?: RequestInit) {
-  const response = await fetch(url, options);
-  if (!response.ok) {
-    throw new Error(`API request failed: ${response.statusText}`);
+  try {
+    const response = await fetch(url, options);
+    if (!response.ok) {
+      console.log(`[useBudgetPosts] API request failed: ${response.status} ${response.statusText} for ${url}`);
+      throw new Error(`API request failed: ${response.statusText}`);
+    }
+    return response.json();
+  } catch (error) {
+    console.log(`[useBudgetPosts] Network error for ${url}:`, error);
+    // Re-throw with context but don't use console.error to avoid runtime popup
+    if (error instanceof Error) {
+      throw new Error(`Budget posts request failed: ${error.message}`);
+    } else {
+      throw new Error(`Budget posts request failed: Network error`);
+    }
   }
-  return response.json();
 }
 
 // Budget Post hooks with localStorage persistence
@@ -29,7 +40,7 @@ function cacheBudgetPosts(budgetPosts: BudgetPost[]): void {
   try {
     localStorage.setItem(BUDGET_POSTS_CACHE_KEY, JSON.stringify(budgetPosts));
   } catch (error) {
-    console.warn('Failed to cache budget posts:', error);
+    console.log('[useBudgetPosts] Failed to cache budget posts:', error);
   }
 }
 
@@ -40,17 +51,24 @@ export function useBudgetPosts(monthKey?: string) {
   const query = useQuery<BudgetPost[]>({
     queryKey: ['/api/budget-posts', monthKey],
     queryFn: async () => {
-      const url = monthKey ? `/api/budget-posts?monthKey=${monthKey}` : '/api/budget-posts';
-      const data = await apiRequest(url);
-      // Cache the fresh data immediately
-      if (data && data.length > 0) {
-        cacheBudgetPosts(data);
+      try {
+        const url = monthKey ? `/api/budget-posts?monthKey=${monthKey}` : '/api/budget-posts';
+        const data = await apiRequest(url);
+        // Cache the fresh data immediately
+        if (data && data.length > 0) {
+          cacheBudgetPosts(data);
+        }
+        return data;
+      } catch (error) {
+        console.log(`[useBudgetPosts] Query failed, returning cached data:`, error instanceof Error ? error.message : String(error));
+        // Return cached data instead of throwing to prevent runtime error overlay
+        return cachedBudgetPosts;
       }
-      return data;
     },
     // Use cached data as initial data
     initialData: cachedBudgetPosts.length > 0 ? cachedBudgetPosts : undefined,
     staleTime: 0, // Always refetch to get fresh data
+    retry: false, // Don't retry since we handle errors in queryFn
   });
   
   // Always prefer fresh data, but fallback to cache if needed

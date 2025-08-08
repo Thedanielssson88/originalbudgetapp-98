@@ -49,9 +49,7 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
         });
         
         // Then, override with actual values from budget posts (only if different)
-        console.log('Budget posts to load from:', budgetPosts);
         budgetPosts.forEach(post => {
-          console.log(`Checking post:`, post);
           if (post.type === 'Balance' && post.accountId) {
             if (post.accountUserBalance !== null && post.accountUserBalance !== undefined) {
               const valueInKronor = post.accountUserBalance / 100;
@@ -74,7 +72,6 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
         );
         
         if (hasChanges) {
-          console.log('Updating balances from DB:', newBalances);
           return newBalances;
         }
         
@@ -92,29 +89,19 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
   };
   
   const handleBalanceChange = (accountId: string, value: string) => {
-    console.log(`handleBalanceChange called for ${accountId} with value: "${value}"`);
-    
     // Allow empty string (set to null) and numbers
     if (value === '' || value === 'Ej ifyllt') {
-      setLocalBalances(prev => {
-        const newBalances = {
-          ...prev,
-          [accountId]: null
-        };
-        console.log('New balances after empty (Ej ifyllt):', newBalances);
-        return newBalances;
-      });
+      setLocalBalances(prev => ({
+        ...prev,
+        [accountId]: null
+      }));
     } else {
       const numericValue = parseFloat(value);
       if (!isNaN(numericValue)) {
-        setLocalBalances(prev => {
-          const newBalances = {
-            ...prev,
-            [accountId]: numericValue
-          };
-          console.log('New balances after update:', newBalances);
-          return newBalances;
-        });
+        setLocalBalances(prev => ({
+          ...prev,
+          [accountId]: numericValue
+        }));
       }
     }
   };

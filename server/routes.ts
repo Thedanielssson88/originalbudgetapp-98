@@ -814,7 +814,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.log('🧪 [TEST] Validation error:', error);
-      res.status(400).json({ error: error.message, details: error });
+      res.status(400).json({ 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
