@@ -356,6 +356,23 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async getTransactionsInDateRangeByAccount(userId: string, accountId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
+    console.log(`Getting transactions for userId: ${userId}, accountId: ${accountId} between ${startDate.toISOString()} and ${endDate.toISOString()}`);
+    const result = await db
+      .select()
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.userId, userId),
+          eq(transactions.accountId, accountId),
+          gte(transactions.date, startDate),
+          lte(transactions.date, endDate)
+        )
+      );
+    console.log(`Found ${result.length} transactions for account in date range`);
+    return result;
+  }
+
   // Monthly Budget methods
   async getMonthlyBudgets(userId: string): Promise<MonthlyBudget[]> {
     return await db.select().from(monthlyBudgets).where(eq(monthlyBudgets.userId, userId));

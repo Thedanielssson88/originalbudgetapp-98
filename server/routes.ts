@@ -844,6 +844,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk delete transactions by account and date range
+  app.post("/api/transactions/bulk-delete", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const { accountId, startDate, endDate } = req.body;
+      
+      if (!accountId || !startDate || !endDate) {
+        return res.status(400).json({ error: 'accountId, startDate, and endDate are required' });
+      }
+      
+      console.log(`[BULK DELETE] Deleting transactions for account ${accountId} from ${startDate} to ${endDate}`);
+      
+      // Get transactions to delete first
+      const transactionsToDelete = await storage.getTransactionsInDateRangeByAccount(userId, accountId, new Date(startDate), new Date(endDate));
+      
+      let deletedCount = 0;
+      for (const tx of transactionsToDelete) {
+        const deleted = await storage.deleteTransaction(tx.id);
+        if (deleted) deletedCount++;
+      }
+      
+      console.log(`[BULK DELETE] Successfully deleted ${deletedCount} transactions`);
+      res.json({ deletedCount });
+    } catch (error) {
+      console.error('Error bulk deleting transactions:', error);
+      res.status(500).json({ error: 'Failed to bulk delete transactions' });
+    }
+  });
+
+  // Bulk create transactions
+  app.post("/api/transactions/bulk-create", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const { transactions } = req.body;
+      
+      if (!transactions || !Array.isArray(transactions)) {
+        return res.status(400).json({ error: 'transactions array is required' });
+      }
+      
+      console.log(`[BULK CREATE] Creating ${transactions.length} transactions`);
+      
+      let createdCount = 0;
+      const createdTransactions = [];
+      
+      for (const txData of transactions) {
+        try {
+          const validatedData = insertTransactionSchema.parse({
+            ...txData,
+            userId,
+            date: new Date(txData.date)
+          });
+          
+          const transaction = await storage.createTransaction(validatedData);
+          createdTransactions.push(transaction);
+          createdCount++;
+        } catch (error) {
+          console.warn(`[BULK CREATE] Failed to create transaction:`, error);
+        }
+      }
+      
+      console.log(`[BULK CREATE] Successfully created ${createdCount}/${transactions.length} transactions`);
+      res.json({ createdCount, transactions: createdTransactions });
+    } catch (error) {
+      console.error('Error bulk creating transactions:', error);
+      res.status(500).json({ error: 'Failed to bulk create transactions' });
+    }
+  });
+
   // Monthly Budget routes
   app.get("/api/monthly-budgets", async (req, res) => {
     try {

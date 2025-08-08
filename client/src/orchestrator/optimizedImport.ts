@@ -137,65 +137,82 @@ export async function optimizedImportAndReconcileFile(
   console.log(`📊 [OPTIMIZED IMPORT] Stats: ${convertedNewTransactions.length} new, ${transactionsToRemove.length} replaced, ${otherAccountTransactions.length} from other accounts`);
   addMobileDebugLog(`✅ Final: ${finalTransactionList.length} total transactions`);
   
-  // 8. FIRST: Delete old transactions in date range for this account ONLY
-  console.log(`🗑️ [OPTIMIZED IMPORT] Deleting ${transactionsToRemove.length} old transactions for account ${accountName}...`);
+  // 8. BULK DELETE: Remove all existing transactions for this account in the date range
+  console.log(`🗑️ [OPTIMIZED IMPORT] Bulk deleting ${transactionsToRemove.length} old transactions for account ${accountName}...`);
   
-  for (const txToDelete of transactionsToRemove) {
-    try {
-      const deleteResponse = await fetch(`/api/transactions/${txToDelete.id}`, {
-        method: 'DELETE'
-      });
-      
-      if (!deleteResponse.ok) {
-        console.warn(`⚠️ [OPTIMIZED IMPORT] Failed to delete transaction ${txToDelete.id}: ${deleteResponse.status}`);
-      }
-    } catch (error) {
-      console.warn(`⚠️ [OPTIMIZED IMPORT] Error deleting transaction ${txToDelete.id}:`, error);
+  try {
+    const deleteResponse = await fetch(`/api/transactions/bulk-delete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        accountId: accountId,
+        startDate: minDate,
+        endDate: maxDate
+      })
+    });
+    
+    if (deleteResponse.ok) {
+      const deleteResult = await deleteResponse.json();
+      console.log(`✅ [OPTIMIZED IMPORT] Bulk delete successful: ${deleteResult.deletedCount} transactions removed`);
+      addMobileDebugLog(`🗑️ Deleted ${deleteResult.deletedCount} old transactions`);
+    } else {
+      console.warn(`⚠️ [OPTIMIZED IMPORT] Bulk delete failed: ${deleteResponse.status}`);
+      addMobileDebugLog(`⚠️ Bulk delete failed: ${deleteResponse.status}`);
     }
+  } catch (error) {
+    console.warn(`⚠️ [OPTIMIZED IMPORT] Error during bulk delete:`, error);
+    addMobileDebugLog(`⚠️ Bulk delete error: ${error}`);
   }
   
-  // 9. SECOND: Create new transactions individually (SAFE APPROACH)
-  console.log(`🔄 [OPTIMIZED IMPORT] Creating ${convertedNewTransactions.length} new transactions individually...`);
+  // 9. BULK INSERT: Create all new transactions at once
+  console.log(`🔄 [OPTIMIZED IMPORT] Bulk creating ${convertedNewTransactions.length} new transactions...`);
+  
+  const transactionsToCreate = convertedNewTransactions.map(tx => ({
+    id: tx.id,
+    accountId: tx.accountId,
+    date: tx.date,
+    amount: Math.round(tx.amount),
+    balanceAfter: Math.round(tx.balanceAfter || 0),
+    description: tx.description,
+    userDescription: tx.userDescription || '',
+    bankCategory: tx.bankCategory || '',
+    bankSubCategory: tx.bankSubCategory || '',
+    type: tx.type || 'Transaction',
+    status: tx.status || 'yellow',
+    linkedTransactionId: tx.linkedTransactionId || null,
+    correctedAmount: tx.correctedAmount ? Math.round(tx.correctedAmount) : null,
+    isManuallyChanged: tx.isManuallyChanged ? 'true' : 'false',
+    appCategoryId: tx.appCategoryId || null,
+    appSubCategoryId: tx.appSubCategoryId || null
+  }));
   
   let createdCount = 0;
   
-  for (const tx of convertedNewTransactions) {
-    try {
-      const createData = {
-        id: tx.id,
-        accountId: tx.accountId,
-        date: tx.date,
-        amount: Math.round(tx.amount),
-        balanceAfter: Math.round(tx.balanceAfter || 0),
-        description: tx.description,
-        userDescription: tx.userDescription || '',
-        bankCategory: tx.bankCategory || '',
-        bankSubCategory: tx.bankSubCategory || '',
-        type: tx.type || 'Transaction',
-        status: tx.status || 'yellow',
-        linkedTransactionId: tx.linkedTransactionId || null,
-        correctedAmount: tx.correctedAmount ? Math.round(tx.correctedAmount) : null,
-        isManuallyChanged: tx.isManuallyChanged ? 'true' : 'false',
-        appCategoryId: tx.appCategoryId || null,
-        appSubCategoryId: tx.appSubCategoryId || null
-      };
-      
-      const response = await fetch('/api/transactions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(createData)
-      });
-      
-      if (response.ok) {
-        createdCount++;
-      } else {
-        console.warn(`⚠️ [OPTIMIZED IMPORT] Failed to create transaction ${tx.id}: ${response.status}`);
-      }
-    } catch (error) {
-      console.warn(`⚠️ [OPTIMIZED IMPORT] Error creating transaction ${tx.id}:`, error);
+  try {
+    const createResponse = await fetch('/api/transactions/bulk-create', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        transactions: transactionsToCreate
+      })
+    });
+    
+    if (createResponse.ok) {
+      const createResult = await createResponse.json();
+      createdCount = createResult.createdCount || transactionsToCreate.length;
+      console.log(`✅ [OPTIMIZED IMPORT] Bulk create successful: ${createdCount} transactions created`);
+      addMobileDebugLog(`✅ Created ${createdCount} new transactions`);
+    } else {
+      console.warn(`⚠️ [OPTIMIZED IMPORT] Bulk create failed: ${createResponse.status}`);
+      addMobileDebugLog(`⚠️ Bulk create failed: ${createResponse.status}`);
     }
+  } catch (error) {
+    console.warn(`⚠️ [OPTIMIZED IMPORT] Error during bulk create:`, error);
+    addMobileDebugLog(`⚠️ Bulk create error: ${error}`);
   }
   
   console.log(`✅ [OPTIMIZED IMPORT] Individual transaction creation complete: ${createdCount}/${convertedNewTransactions.length} successful`);
