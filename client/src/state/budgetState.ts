@@ -148,12 +148,6 @@ export function saveStateToStorage(): void {
 // Function to create empty month data
 function createEmptyMonthData(): MonthData {
   return {
-    andreasSalary: 0,
-    andreasförsäkringskassan: 0,
-    andreasbarnbidrag: 0,
-    susannaSalary: 0,
-    susannaförsäkringskassan: 0,
-    susannabarnbidrag: 0,
     costGroups: [
       { id: '1', name: 'Hyra', amount: 15000, type: 'cost' },
       { id: '2', name: 'Mat & Kläder', amount: 8000, type: 'cost' },

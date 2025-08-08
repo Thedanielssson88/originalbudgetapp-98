@@ -10,6 +10,8 @@ import {
   monthlyBudgets,
   banks,
   bankCsvMappings,
+  inkomstkallor,
+  inkomstkallorMedlem,
   type User, 
   type InsertUser,
   type FamilyMember,
@@ -27,7 +29,11 @@ import {
   type BudgetPost,
   type InsertBudgetPost,
   type MonthlyBudget,
-  type InsertMonthlyBudget
+  type InsertMonthlyBudget,
+  type Inkomstkall,
+  type InsertInkomstkall,
+  type InkomstkallorMedlem,
+  type InsertInkomstkallorMedlem
 } from "@shared/schema";
 
 // Add the missing types that aren't auto-generated yet
@@ -50,6 +56,20 @@ export interface IStorage {
   createFamilyMember(member: InsertFamilyMember): Promise<FamilyMember>;
   updateFamilyMember(id: string, member: Partial<InsertFamilyMember>): Promise<FamilyMember | undefined>;
   deleteFamilyMember(id: string): Promise<boolean>;
+  
+  // Income sources (Inkomstkällor) CRUD
+  getInkomstkallor(userId: string): Promise<any[]>;
+  getInkomstkall(id: string): Promise<any | undefined>;
+  createInkomstkall(inkomstkall: any): Promise<any>;
+  updateInkomstkall(id: string, inkomstkall: any): Promise<any | undefined>;
+  deleteInkomstkall(id: string): Promise<boolean>;
+  
+  // Income source member assignments CRUD
+  getInkomstkallorMedlem(userId: string): Promise<any[]>;
+  createInkomstkallorMedlem(assignment: any): Promise<any>;
+  updateInkomstkallorMedlem(id: string, assignment: any): Promise<any | undefined>;
+  deleteInkomstkallorMedlem(id: string): Promise<boolean>;
+  deleteInkomstkallorMedlemByMemberAndSource(userId: string, familjemedlemId: string, idInkomstkalla: string): Promise<boolean>;
   
   // Account CRUD
   getAccounts(userId: string): Promise<Account[]>;
@@ -159,6 +179,8 @@ export class MemStorage implements IStorage {
 
   private monthlyAccountBalances: Map<string, any>;
   private plannedTransfers: Map<string, any>;
+  private inkomstkallor: Map<string, Inkomstkall>;
+  private inkomstkallorMedlem: Map<string, InkomstkallorMedlem>;
 
   constructor() {
     this.users = new Map();
@@ -174,6 +196,8 @@ export class MemStorage implements IStorage {
     this.bankCsvMappings = new Map();
     this.monthlyAccountBalances = new Map();
     this.plannedTransfers = new Map();
+    this.inkomstkallor = new Map();
+    this.inkomstkallorMedlem = new Map();
   }
 
   // Bootstrap method
@@ -246,6 +270,80 @@ export class MemStorage implements IStorage {
 
   async deleteFamilyMember(id: string): Promise<boolean> {
     return this.familyMembers.delete(id);
+  }
+
+  // Income sources methods
+  async getInkomstkallor(userId: string): Promise<Inkomstkall[]> {
+    return Array.from(this.inkomstkallor.values()).filter(source => source.userId === userId);
+  }
+
+  async getInkomstkall(id: string): Promise<Inkomstkall | undefined> {
+    return this.inkomstkallor.get(id);
+  }
+
+  async createInkomstkall(inkomstkall: InsertInkomstkall): Promise<Inkomstkall> {
+    const id = crypto.randomUUID();
+    const newSource: Inkomstkall = {
+      id,
+      ...inkomstkall,
+      createdAt: new Date(),
+    };
+    this.inkomstkallor.set(id, newSource);
+    return newSource;
+  }
+
+  async updateInkomstkall(id: string, inkomstkall: Partial<InsertInkomstkall>): Promise<Inkomstkall | undefined> {
+    const existing = this.inkomstkallor.get(id);
+    if (!existing) return undefined;
+    
+    const updated: Inkomstkall = { ...existing, ...inkomstkall };
+    this.inkomstkallor.set(id, updated);
+    return updated;
+  }
+
+  async deleteInkomstkall(id: string): Promise<boolean> {
+    return this.inkomstkallor.delete(id);
+  }
+
+  // Income source member assignments methods
+  async getInkomstkallorMedlem(userId: string): Promise<InkomstkallorMedlem[]> {
+    return Array.from(this.inkomstkallorMedlem.values()).filter(assignment => assignment.userId === userId);
+  }
+
+  async createInkomstkallorMedlem(assignment: InsertInkomstkallorMedlem): Promise<InkomstkallorMedlem> {
+    const id = crypto.randomUUID();
+    const newAssignment: InkomstkallorMedlem = {
+      id,
+      ...assignment,
+      createdAt: new Date(),
+    };
+    this.inkomstkallorMedlem.set(id, newAssignment);
+    return newAssignment;
+  }
+
+  async updateInkomstkallorMedlem(id: string, assignment: Partial<InsertInkomstkallorMedlem>): Promise<InkomstkallorMedlem | undefined> {
+    const existing = this.inkomstkallorMedlem.get(id);
+    if (!existing) return undefined;
+    
+    const updated: InkomstkallorMedlem = { ...existing, ...assignment };
+    this.inkomstkallorMedlem.set(id, updated);
+    return updated;
+  }
+
+  async deleteInkomstkallorMedlem(id: string): Promise<boolean> {
+    return this.inkomstkallorMedlem.delete(id);
+  }
+
+  async deleteInkomstkallorMedlemByMemberAndSource(userId: string, familjemedlemId: string, idInkomstkalla: string): Promise<boolean> {
+    const assignments = Array.from(this.inkomstkallorMedlem.entries());
+    for (const [id, assignment] of assignments) {
+      if (assignment.userId === userId && 
+          assignment.familjemedlemId === familjemedlemId && 
+          assignment.idInkomstkalla === idInkomstkalla) {
+        return this.inkomstkallorMedlem.delete(id);
+      }
+    }
+    return false;
   }
 
   // Account methods
@@ -565,12 +663,6 @@ export class MemStorage implements IStorage {
       primaryUserPersonalSavings: budget.primaryUserPersonalSavings ?? 0,
       secondaryUserPersonalCosts: budget.secondaryUserPersonalCosts ?? 0,
       secondaryUserPersonalSavings: budget.secondaryUserPersonalSavings ?? 0,
-      andreasSalary: budget.andreasSalary ?? 0,
-      andreasförsäkringskassan: budget.andreasförsäkringskassan ?? 0,
-      andreasbarnbidrag: budget.andreasbarnbidrag ?? 0,
-      susannaSalary: budget.susannaSalary ?? 0,
-      susannaförsäkringskassan: budget.susannaförsäkringskassan ?? 0,
-      susannabarnbidrag: budget.susannabarnbidrag ?? 0,
       andreasPersonalCosts: budget.andreasPersonalCosts ?? 0,
       andreasPersonalSavings: budget.andreasPersonalSavings ?? 0,
       susannaPersonalCosts: budget.susannaPersonalCosts ?? 0,

@@ -706,12 +706,6 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
 // Helper function to create empty month data for import
 function createEmptyMonthDataForImport() {
   return {
-    andreasSalary: 0,
-    andreasförsäkringskassan: 0,
-    andreasbarnbidrag: 0,
-    susannaSalary: 0,
-    susannaförsäkringskassan: 0,
-    susannabarnbidrag: 0,
     costGroups: [],
     savingsGroups: [],
     costItems: [],
@@ -1754,59 +1748,7 @@ export function updateSavingsGroups(value: BudgetGroup[]): void {
   updateAndRecalculate({ savingsGroups: value });
 }
 
-export function setAndreasSalary(value: number): void {
-  updateAndRecalculate({ andreasSalary: value });
-  // Also persist to database
-  const monthKey = state.budgetState.selectedMonthKey;
-  monthlyBudgetService.updateMonthlyBudgetField(monthKey, 'andreasSalary', value).catch(error => {
-    console.error('Failed to update Andreas salary in database:', error);
-  });
-}
 
-export function setAndreasförsäkringskassan(value: number): void {
-  updateAndRecalculate({ andreasförsäkringskassan: value });
-  // Also persist to database
-  const monthKey = state.budgetState.selectedMonthKey;
-  monthlyBudgetService.updateMonthlyBudgetField(monthKey, 'andreasförsäkringskassan', value).catch(error => {
-    console.error('Failed to update Andreas försäkringskassan in database:', error);
-  });
-}
-
-export function setAndreasbarnbidrag(value: number): void {
-  updateAndRecalculate({ andreasbarnbidrag: value });
-  // Also persist to database
-  const monthKey = state.budgetState.selectedMonthKey;
-  monthlyBudgetService.updateMonthlyBudgetField(monthKey, 'andreasbarnbidrag', value).catch(error => {
-    console.error('Failed to update Andreas barnbidrag in database:', error);
-  });
-}
-
-export function setSusannaSalary(value: number): void {
-  updateAndRecalculate({ susannaSalary: value });
-  // Also persist to database
-  const monthKey = state.budgetState.selectedMonthKey;
-  monthlyBudgetService.updateMonthlyBudgetField(monthKey, 'susannaSalary', value).catch(error => {
-    console.error('Failed to update Susanna salary in database:', error);
-  });
-}
-
-export function setSusannaförsäkringskassan(value: number): void {
-  updateAndRecalculate({ susannaförsäkringskassan: value });
-  // Also persist to database
-  const monthKey = state.budgetState.selectedMonthKey;
-  monthlyBudgetService.updateMonthlyBudgetField(monthKey, 'susannaförsäkringskassan', value).catch(error => {
-    console.error('Failed to update Susanna försäkringskassan in database:', error);
-  });
-}
-
-export function setSusannabarnbidrag(value: number): void {
-  updateAndRecalculate({ susannabarnbidrag: value });
-  // Also persist to database
-  const monthKey = state.budgetState.selectedMonthKey;
-  monthlyBudgetService.updateMonthlyBudgetField(monthKey, 'susannabarnbidrag', value).catch(error => {
-    console.error('Failed to update Susanna barnbidrag in database:', error);
-  });
-}
 
 export function setCostGroups(value: BudgetGroup[]): void {
   updateAndRecalculate({ costGroups: value });
@@ -2161,12 +2103,6 @@ export async function linkAccountToBankTemplate(accountId: string, templateId: s
 
 function createEmptyMonthData(): MonthData {
   return {
-    andreasSalary: 0,
-    andreasförsäkringskassan: 0,
-    andreasbarnbidrag: 0,
-    susannaSalary: 0,
-    susannaförsäkringskassan: 0,
-    susannabarnbidrag: 0,
     costGroups: [
       { id: '1', name: 'Hyra', amount: 15000, type: 'cost' },
       { id: '2', name: 'Mat & Kläder', amount: 8000, type: 'cost' },
@@ -2717,16 +2653,10 @@ async function loadMonthlyBudgetFromDatabase(): Promise<void> {
     
     if (budget) {
       console.log('✅ [ORCHESTRATOR] Loaded monthly budget from database:', budget);
-      addMobileDebugLog(`✅ [ORCHESTRATOR] Loaded monthly budget from database - Andreas: ${budget.andreasSalary}, Susanna: ${budget.susannaSalary}`);
+      addMobileDebugLog(`✅ [ORCHESTRATOR] Loaded monthly budget from database`);
       
       // Update current month data with database values
       const updates = {
-        andreasSalary: budget.andreasSalary,
-        andreasförsäkringskassan: budget.andreasförsäkringskassan,
-        andreasbarnbidrag: budget.andreasbarnbidrag,
-        susannaSalary: budget.susannaSalary,
-        susannaförsäkringskassan: budget.susannaförsäkringskassan,
-        susannabarnbidrag: budget.susannabarnbidrag,
         dailyTransfer: budget.dailyTransfer,
         weekendTransfer: budget.weekendTransfer,
         andreasPersonalCosts: budget.andreasPersonalCosts,

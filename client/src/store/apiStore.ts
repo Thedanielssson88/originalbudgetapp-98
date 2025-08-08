@@ -136,12 +136,6 @@ class ApiStore {
         },
         body: JSON.stringify({
           monthKey,
-          andreasSalary: 0,
-          andreasförsäkringskassan: 0,
-          andreasbarnbidrag: 0,
-          susannaSalary: 0,
-          susannaförsäkringskassan: 0,
-          susannabarnbidrag: 0,
         }),
       });
 

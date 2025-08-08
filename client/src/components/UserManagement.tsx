@@ -24,7 +24,6 @@ import { Trash2, UserPlus, Edit, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 import { useFamilyMembers, useCreateFamilyMember, useUpdateFamilyMember, useDeleteFamilyMember } from '@/hooks/useFamilyMembers';
-import { useAccounts, useUpdateAccount } from '@/hooks/useAccounts';
 import { useMonthlyBudget } from '@/hooks/useMonthlyBudget';
 import { useBudget } from '@/hooks/useBudget';
 import { apiStore } from '@/store/apiStore';
@@ -43,12 +42,10 @@ export function UserManagement() {
 
   // Hooks
   const { data: familyMembers, isLoading: familyMembersLoading } = useFamilyMembers();
-  const { data: accounts, isLoading: accountsLoading } = useAccounts();
   const { monthlyBudget, isLoading: monthlyBudgetLoading, updateIncome } = useMonthlyBudget(budgetState.selectedMonthKey);
   const createFamilyMemberMutation = useCreateFamilyMember();
   const updateFamilyMemberMutation = useUpdateFamilyMember();
   const deleteFamilyMemberMutation = useDeleteFamilyMember();
-  const updateAccountMutation = useUpdateAccount();
 
   const handleCreateFamilyMember = async () => {
     if (!newMemberName.trim()) {
@@ -99,7 +96,9 @@ export function UserManagement() {
       await updateFamilyMemberMutation.mutateAsync({
         id: editingMember.id,
         data: {
-          name: editingMember.name.trim()
+          name: editingMember.name.trim(),
+          role: editingMember.role,
+          contributesToBudget: editingMember.contributesToBudget
         }
       });
       
@@ -140,25 +139,6 @@ export function UserManagement() {
     }
   };
 
-  const handleAccountAssignment = async (accountId: string, assignedTo: string) => {
-    try {
-      await updateAccountMutation.mutateAsync({
-        id: accountId,
-        data: { assignedTo: assignedTo === 'Gemensamt' ? null : assignedTo }
-      });
-      
-      toast({
-        title: "Framgång",
-        description: "Kontotilldelning har uppdaterats"
-      });
-    } catch (error) {
-      toast({
-        title: "Fel",
-        description: "Kunde inte uppdatera kontotilldelning",
-        variant: "destructive"
-      });
-    }
-  };
 
   const handlePrimaryUserSelection = async (familyMemberId: string | null) => {
     if (!monthlyBudget) return;
@@ -218,7 +198,7 @@ export function UserManagement() {
     }
   };
 
-  if (familyMembersLoading || accountsLoading) {
+  if (familyMembersLoading) {
     return (
       <Card>
         <CardHeader>
@@ -365,53 +345,6 @@ export function UserManagement() {
       </Card>
 
 
-      {/* Account Assignment Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Kontotilldelning</CardTitle>
-          <CardDescription>
-            Tilldela konton till specifika familjemedlemmar eller markera som gemensamma.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {accounts && accounts.length > 0 ? (
-            <div className="space-y-4">
-              {accounts.map((account) => (
-                <div key={account.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <div className="font-medium">{account.name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      Saldo: {account.balance?.toLocaleString('sv-SE') || 0} kr
-                    </div>
-                  </div>
-                  <div className="w-48">
-                    <Select
-                      value={account.assignedTo || 'Gemensamt'}
-                      onValueChange={(value) => handleAccountAssignment(account.id, value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Gemensamt">Gemensamt</SelectItem>
-                        {familyMembers?.map((member) => (
-                          <SelectItem key={member.id} value={member.id}>
-                            {member.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center text-muted-foreground py-8">
-              <p>Inga konton har skapats ännu.</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Edit Family Member Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -432,7 +365,32 @@ export function UserManagement() {
                   onChange={(e) => setEditingMember({ ...editingMember, name: e.target.value })}
                 />
               </div>
-
+              
+              <div>
+                <Label htmlFor="edit-role">Roll</Label>
+                <Select value={editingMember.role} onValueChange={(value: 'adult' | 'child') => setEditingMember({ ...editingMember, role: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Välj roll" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="adult">Vuxen</SelectItem>
+                    <SelectItem value="child">Barn</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="edit-contributesToBudget">Bidrar till budgeten</Label>
+                <Select value={editingMember.contributesToBudget ? 'yes' : 'no'} onValueChange={(value) => setEditingMember({ ...editingMember, contributesToBudget: value === 'yes' })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Välj bidrag" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="yes">Ja</SelectItem>
+                    <SelectItem value="no">Nej</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           )}
           <DialogFooter>

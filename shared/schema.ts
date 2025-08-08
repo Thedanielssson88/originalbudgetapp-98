@@ -17,15 +17,38 @@ export const familyMembers = pgTable('family_members', {
     role: text('role', { enum: ['adult', 'child'] }).default('adult').notNull(), // 'adult' = Vuxen, 'child' = Barn
     contributesToBudget: boolean('contributes_to_budget').default(true).notNull(), // true = Ja, false = Nej
     createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// Income sources table (Inkomstkällor)
+export const inkomstkallor = pgTable('inkomstkallor', {
+    id: uuid('id_inkomstkalla').defaultRandom().primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    text: text('text').notNull(), // e.g. "Lön", "Försäkringskassan", "Barnbidrag"
+    isDefault: boolean('is_default').default(false).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Income source member assignments (which income sources are enabled for which family members)
+export const inkomstkallorMedlem = pgTable('inkomstkallor_medlem', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    familjemedlemId: uuid('familjemedlem_id').notNull().references(() => familyMembers.id, { onDelete: 'cascade' }),
+    idInkomstkalla: uuid('id_inkomstkalla').notNull().references(() => inkomstkallor.id, { onDelete: 'cascade' }),
+    isEnabled: boolean('is_enabled').default(true).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+    // Ensure unique member-income source combinations per user
+    uniqueMemberIncomeSource: unique().on(table.userId, table.familjemedlemId, table.idInkomstkalla),
+}));
 
 export const accounts = pgTable('accounts', {
     id: uuid('id').defaultRandom().primaryKey(),
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     balance: integer('balance').default(0).notNull(),
-    // Account ownership: either 'gemensamt' or a family member ID
-    assignedTo: text('assigned_to').default('gemensamt'), // 'gemensamt' or familyMember.id
+    // Account ownership: either null/'gemensamt' or a family member UUID string
+    assignedTo: text('assigned_to'), // null/'gemensamt' = shared, UUID string = specific family member
     // Bank template ID for CSV import mapping  
     bankTemplateId: text('bank_template_id'),
 });
@@ -163,9 +186,15 @@ export const budgetPosts = pgTable('budget_posts', {
     transferType: text('transfer_type').default('monthly').notNull(), // 'monthly' or 'daily'
     dailyAmount: integer('daily_amount'), // For daily transfers
     transferDays: text('transfer_days'), // JSON array of weekday numbers [0-6] for daily transfers
-    type: text('type').notNull(), // 'cost', 'savings', 'sparmål', or 'transfer'
+    type: text('type').notNull(), // 'cost', 'savings', 'sparmål', 'transfer', 'Inkomst', or 'Balance'
     transactionType: text('transaction_type').default('Kostnadspost'), // Transaction type label
     budgetType: text('budget_type').default('Kostnadspost'), // Budget type label
+    // New fields for income tracking
+    idInkomstkalla: uuid('id_inkomstkalla').references(() => inkomstkallor.id, { onDelete: 'cascade' }), // Reference to income source
+    familjemedlemId: uuid('familjemedlem_id').references(() => familyMembers.id, { onDelete: 'cascade' }), // Reference to family member
+    // New fields for Balance type (Kontosaldo Kopia)
+    accountUserBalance: integer('account_user_balance'), // User-entered balance (Faktiskt Kontosaldo) in öre
+    accountBalance: integer('account_balance'), // Bank balance (Bankens Kontosaldo) in öre
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -189,13 +218,6 @@ export const monthlyBudgets = pgTable('monthly_budgets', {
     primaryUserPersonalSavings: integer('primary_user_personal_savings').default(0).notNull(),
     secondaryUserPersonalCosts: integer('secondary_user_personal_costs').default(0).notNull(),
     secondaryUserPersonalSavings: integer('secondary_user_personal_savings').default(0).notNull(),
-    // Keep legacy fields for backward compatibility during migration
-    andreasSalary: integer('andreas_salary').default(0).notNull(),
-    andreasförsäkringskassan: integer('andreas_forsakringskassan').default(0).notNull(),
-    andreasbarnbidrag: integer('andreas_barnbidrag').default(0).notNull(),
-    susannaSalary: integer('susanna_salary').default(0).notNull(),
-    susannaförsäkringskassan: integer('susanna_forsakringskassan').default(0).notNull(),
-    susannabarnbidrag: integer('susanna_barnbidrag').default(0).notNull(),
     andreasPersonalCosts: integer('andreas_personal_costs').default(0).notNull(),
     andreasPersonalSavings: integer('andreas_personal_savings').default(0).notNull(),
     susannaPersonalCosts: integer('susanna_personal_costs').default(0).notNull(),
@@ -210,6 +232,17 @@ export const monthlyBudgets = pgTable('monthly_budgets', {
 export const insertUserSchema = createInsertSchema(users);
 
 export const insertFamilyMemberSchema = createInsertSchema(familyMembers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertInkomstkallSchema = createInsertSchema(inkomstkallor).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertInkomstkallorMedlemSchema = createInsertSchema(inkomstkallorMedlem).omit({
   id: true,
   createdAt: true,
 });
@@ -274,6 +307,12 @@ export type User = typeof users.$inferSelect;
 
 export type InsertFamilyMember = z.infer<typeof insertFamilyMemberSchema>;
 export type FamilyMember = typeof familyMembers.$inferSelect;
+
+export type InsertInkomstkall = z.infer<typeof insertInkomstkallSchema>;
+export type Inkomstkall = typeof inkomstkallor.$inferSelect;
+
+export type InsertInkomstkallorMedlem = z.infer<typeof insertInkomstkallorMedlemSchema>;
+export type InkomstkallorMedlem = typeof inkomstkallorMedlem.$inferSelect;
 
 export type InsertAccount = z.infer<typeof insertAccountSchema>;
 export type Account = typeof accounts.$inferSelect;

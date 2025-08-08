@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Info } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { IncomeSourcesManagement } from './IncomeSourcesManagement';
 
 interface PaydaySettingsProps {
   currentPayday: number;
@@ -55,11 +56,12 @@ export const PaydaySettings: React.FC<PaydaySettingsProps> = ({
   const description = getPaydayDescription(selectedPayday);
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Calendar className="h-5 w-5" />
-          Lönedatum & Månadsperiod
+          Utbetalning & Månadsperiod
         </CardTitle>
         <CardDescription>
           Välj vilken dag som definierar början och slutet av din budgetmånad
@@ -123,5 +125,8 @@ export const PaydaySettings: React.FC<PaydaySettingsProps> = ({
         )}
       </CardContent>
     </Card>
+    
+    <IncomeSourcesManagement />
+    </>
   );
 };

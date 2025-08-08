@@ -10,13 +10,6 @@ interface AppState {
 
 export const state: AppState = {
   rawData: {
-    // Income data
-    andreasSalary: 0,
-    andreasförsäkringskassan: 0,
-    andreasbarnbidrag: 0,
-    susannaSalary: 0,
-    susannaförsäkringskassan: 0,
-    susannabarnbidrag: 0,
     
     // Budget groups
     costGroups: [

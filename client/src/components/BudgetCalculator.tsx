@@ -35,6 +35,8 @@ import { TransactionImportEnhanced } from '@/components/TransactionImportEnhance
 import { TransactionDrillDownDialog } from '@/components/TransactionDrillDownDialog';
 import { SavingsSection } from '@/components/SavingsSection';
 import { TransfersAnalysis } from '@/components/TransfersAnalysis';
+import { DynamicIncomeSection } from '@/components/DynamicIncomeSection';
+import { KontosaldoKopia } from '@/components/KontosaldoKopia';
 import { 
   calculateAccountEndBalances, 
   getTransactionsForPeriod, 
@@ -48,6 +50,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMonthlyBudget } from '@/hooks/useMonthlyBudget';
 import { useFamilyMembers } from '@/hooks/useFamilyMembers';
 import { useAccounts } from '@/hooks/useAccounts';
+import { useInkomstkallor, useInkomstkallorMedlem } from '@/hooks/useInkomstkallor';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useBudgetPosts, useDeleteBudgetPost } from '@/hooks/useBudgetPosts';
 import { useMonthlyAccountBalances, useUpdateFaktisktKontosaldo } from '@/hooks/useMonthlyAccountBalances';
@@ -129,6 +132,8 @@ const BudgetCalculator = () => {
   // Use the original useBudget hook - fix hook ordering instead
   const { isLoading, budgetState, calculated } = useBudget();
   const { data: familyMembers } = useFamilyMembers();
+  const { data: inkomstkallor } = useInkomstkallor();
+  const { data: inkomstkallorMedlem } = useInkomstkallorMedlem();
   const { data: accountsFromAPI = [], isLoading: accountsLoading, error: accountsError } = useAccounts();
   const { data: transactionsFromAPI = [], isLoading: transactionsLoading } = useTransactions();
   const { data: budgetPostsFromAPI = [], isLoading: budgetPostsLoading } = useBudgetPosts(budgetState.selectedMonthKey);
@@ -392,6 +397,7 @@ const BudgetCalculator = () => {
     budgetTransfers: false,
     redDays: false,
     editMonths: false,
+    accountBalancesCopy: false,
     monthSelector: false,
     accountSummary: false,
     budgetTemplates: false,
@@ -542,78 +548,14 @@ const BudgetCalculator = () => {
   // DATABASE-BACKED MONTHLY BUDGET DATA
   const { monthlyBudget, isLoading: isBudgetLoading, updateIncome } = useMonthlyBudget(selectedMonthKey);
   
-  // LOCAL STATE FOR INCOME FIELDS (to prevent saving on every keystroke)
-  const [localIncomeValues, setLocalIncomeValues] = useState<{
-    andreasSalary: string;
-    andreasförsäkringskassan: string;
-    andreasbarnbidrag: string;
-    susannaSalary: string;
-    susannaförsäkringskassan: string;
-    susannabarnbidrag: string;
-  }>({
-    andreasSalary: '',
-    andreasförsäkringskassan: '',
-    andreasbarnbidrag: '',
-    susannaSalary: '',
-    susannaförsäkringskassan: '',
-    susannabarnbidrag: ''
-  });
+  // Legacy income fields removed - now using DynamicIncomeSection with PostgreSQL
 
-  // Update local state when database data changes
-  // Convert from öre (database) to SEK (display)
-  useEffect(() => {
-    if (monthlyBudget) {
-      setLocalIncomeValues({
-        andreasSalary: orenToKronor(monthlyBudget.andreasSalary || 0).toString(),
-        andreasförsäkringskassan: orenToKronor(monthlyBudget.andreasförsäkringskassan || 0).toString(),
-        andreasbarnbidrag: orenToKronor(monthlyBudget.andreasbarnbidrag || 0).toString(),
-        susannaSalary: orenToKronor(monthlyBudget.susannaSalary || 0).toString(),
-        susannaförsäkringskassan: orenToKronor(monthlyBudget.susannaförsäkringskassan || 0).toString(),
-        susannabarnbidrag: orenToKronor(monthlyBudget.susannabarnbidrag || 0).toString()
-      });
-    }
-  }, [monthlyBudget]);
+  // Legacy useEffect removed - income now managed by DynamicIncomeSection
 
-  // Individual setters for income values (for backward compatibility)
-  const setAndreasSalary = (value: number) => {
-    setLocalIncomeValues(prev => ({ ...prev, andreasSalary: value.toString() }));
-    updateIncome('andreasSalary', value);
-  };
-
-  const setAndreasförsäkringskassan = (value: number) => {
-    setLocalIncomeValues(prev => ({ ...prev, andreasförsäkringskassan: value.toString() }));
-    updateIncome('andreasförsäkringskassan', value);
-  };
-
-  const setAndreasbarnbidrag = (value: number) => {
-    setLocalIncomeValues(prev => ({ ...prev, andreasbarnbidrag: value.toString() }));
-    updateIncome('andreasbarnbidrag', value);
-  };
-
-  const setSusannaSalary = (value: number) => {
-    setLocalIncomeValues(prev => ({ ...prev, susannaSalary: value.toString() }));
-    updateIncome('susannaSalary', value);
-  };
-
-  const setSusannaförsäkringskassan = (value: number) => {
-    setLocalIncomeValues(prev => ({ ...prev, susannaförsäkringskassan: value.toString() }));
-    updateIncome('susannaförsäkringskassan', value);
-  };
-
-  const setSusannabarnbidrag = (value: number) => {
-    setLocalIncomeValues(prev => ({ ...prev, susannabarnbidrag: value.toString() }));
-    updateIncome('susannabarnbidrag', value);
-  };
+  // Legacy salary setter functions removed
   
   
-  // Data från den enda källan till sanning - DATABASE FIRST, then fallback to legacy
-  // Convert from öre (database) to SEK (for calculations and display)
-  const andreasSalary = orenToKronor(monthlyBudget?.andreasSalary ?? (currentMonthData as any).andreasSalary ?? 0);
-  const andreasförsäkringskassan = orenToKronor(monthlyBudget?.andreasförsäkringskassan ?? (currentMonthData as any).andreasförsäkringskassan ?? 0);
-  const andreasbarnbidrag = orenToKronor(monthlyBudget?.andreasbarnbidrag ?? (currentMonthData as any).andreasbarnbidrag ?? 0);
-  const susannaSalary = orenToKronor(monthlyBudget?.susannaSalary ?? (currentMonthData as any).susannaSalary ?? 0);
-  const susannaförsäkringskassan = orenToKronor(monthlyBudget?.susannaförsäkringskassan ?? (currentMonthData as any).susannaförsäkringskassan ?? 0);
-  const susannabarnbidrag = orenToKronor(monthlyBudget?.susannabarnbidrag ?? (currentMonthData as any).susannabarnbidrag ?? 0);
+  // Legacy salary variables removed - now handled via budget posts
   // CRITICAL FIX: Merge localStorage data with PostgreSQL budget posts
   const localStorageCostGroups = (currentMonthData as any).costGroups || [];
   const localStorageSavingsGroups = (currentMonthData as any).savingsGroups || [];
@@ -793,9 +735,7 @@ const BudgetCalculator = () => {
 
   // --- SLUT PÅ NY LOGIK ---
   
-  // CRITICAL DEBUG: Log the exact data being used
-  console.log(`🚨 [RENDER] selectedMonthKey:`, selectedMonthKey);
-  console.log(`🚨 [RENDER] currentMonthData:`, currentMonthData);
+  // Debug logging removed - old salary fields no longer used
 
   // Account balances - LÄS DIREKT FRÅN CENTRAL STATE (inga lokala useState längre)
   const accountBalances = (currentMonthData as any).accountBalances || {};
@@ -1359,11 +1299,33 @@ const BudgetCalculator = () => {
     return subcategory.amount;
   };
 
+  // Calculate total income from budget posts with type 'Inkomst'
+  const calculateTotalIncomeFromBudgetPosts = (): number => {
+    if (!budgetPostsFromAPI) return 0;
+    
+    const incomePosts = budgetPostsFromAPI.filter(post => 
+      post.type === 'Inkomst' && 
+      post.monthKey === budgetState.selectedMonthKey
+    );
+    
+    const incomeFromPosts = incomePosts.reduce((total, post) => total + (post.amount || 0), 0);
+    
+    // Legacy fallback removed - income now only comes from budget posts
+    
+    // Income from posts is stored in öre, but formatCurrency expects SEK
+    // Convert from öre to SEK by dividing by 100
+    return incomeFromPosts / 100;
+  };
+
   // FUNCTION DEFINITIONS (must come before useEffect hooks that call them)
   const calculateBudget = () => {
-    const andreasTotalIncome = andreasSalary + andreasförsäkringskassan + andreasbarnbidrag;
-    const susannaTotalIncome = susannaSalary + susannaförsäkringskassan + susannabarnbidrag;
-    const totalSalary = andreasTotalIncome + susannaTotalIncome;
+    // Use new dynamic income calculation (returns in SEK for display)
+    const totalSalaryFromPosts = calculateTotalIncomeFromBudgetPosts();
+    
+    // Legacy salary calculation removed - use budget posts only
+    const andreasTotalIncome = 0;
+    const susannaTotalIncome = 0;
+    const totalSalary = totalSalaryFromPosts * 100; // Convert SEK to öre for calculations
     const budgetData = calculateDailyBudget();
     
     // Calculate total costs using centralized logic
@@ -1643,12 +1605,6 @@ const BudgetCalculator = () => {
 
     // Samla ihop all data från de nuvarande state-variablerna
     const currentMonthDataToSave = {
-      andreasSalary,
-      andreasförsäkringskassan,
-      andreasbarnbidrag,
-      susannaSalary,
-      susannaförsäkringskassan,
-      susannabarnbidrag,
       costGroups,
       savingsGroups,
       dailyTransfer,
@@ -1674,8 +1630,7 @@ const BudgetCalculator = () => {
       createdAt: new Date().toISOString()
     };
 
-    addDebugLog(`🎯 SAVE BUTTON: andreasSalary: ${currentMonthDataToSave.andreasSalary}`);
-    addDebugLog(`🎯 SAVE BUTTON: susannaSalary: ${currentMonthDataToSave.susannaSalary}`);
+    addDebugLog(`🎯 SAVE BUTTON: Legacy salary debug logging removed`);
     addDebugLog(`🎯 SAVE BUTTON: accountBalances: ${JSON.stringify(currentMonthDataToSave.accountBalances)}`);
     addDebugLog(`🎯 SAVE BUTTON: accountBalancesSet: ${JSON.stringify(currentMonthDataToSave.accountBalancesSet)}`);
 
@@ -2037,12 +1992,6 @@ const BudgetCalculator = () => {
     
     // Use explicit data if provided, otherwise use current state
     const dataToSave = explicitData || {
-      andreasSalary,
-      andreasförsäkringskassan,
-      andreasbarnbidrag,
-      susannaSalary,
-      susannaförsäkringskassan,
-      susannabarnbidrag,
       costGroups,
       savingsGroups,
       dailyTransfer,
@@ -2061,8 +2010,7 @@ const BudgetCalculator = () => {
     
     console.log(`📝 Saving month data to ${monthKey}`);
     console.log(`📝 Current historicalData keys BEFORE save:`, Object.keys(historicalData));
-    console.log(`📝 DEBUG: andreasSalary value being saved:`, dataToSave.andreasSalary);
-    console.log(`📝 DEBUG: susannaSalary value being saved:`, dataToSave.susannaSalary);
+    console.log(`📝 DEBUG: Legacy salary logging removed`);
     
     // Final balances are now calculated and saved directly in calculateBudget()
     
@@ -2081,13 +2029,7 @@ const BudgetCalculator = () => {
     const monthSnapshot = {
       month: monthKey,
       date: currentDate.toISOString(),
-      andreasSalary: dataToSave.andreasSalary,
-      andreasförsäkringskassan: dataToSave.andreasförsäkringskassan,
-      andreasbarnbidrag: dataToSave.andreasbarnbidrag,
-      susannaSalary: dataToSave.susannaSalary,
-      susannaförsäkringskassan: dataToSave.susannaförsäkringskassan,
-      susannabarnbidrag: dataToSave.susannabarnbidrag,
-      totalSalary: dataToSave.andreasSalary + dataToSave.andreasförsäkringskassan + dataToSave.andreasbarnbidrag + dataToSave.susannaSalary + dataToSave.susannaförsäkringskassan + dataToSave.susannabarnbidrag,
+      totalSalary: 0, // Legacy salary fields removed
       costGroups: JSON.parse(JSON.stringify(dataToSave.costGroups)),
       savingsGroups: JSON.parse(JSON.stringify(dataToSave.savingsGroups)),
       dailyTransfer: dataToSave.dailyTransfer,
@@ -2876,12 +2818,6 @@ const BudgetCalculator = () => {
       const newMonthData = {
         month: monthKey,
         date: new Date().toISOString(),
-        andreasSalary: 0,
-        andreasförsäkringskassan: 0,
-        andreasbarnbidrag: 0,
-        susannaSalary: 0,
-        susannaförsäkringskassan: 0,
-        susannabarnbidrag: 0,
         totalSalary: 0,
         costGroups: [],
         savingsGroups: [],
@@ -2925,13 +2861,7 @@ const BudgetCalculator = () => {
       newMonthData = {
         month: monthKey,
         date: new Date().toISOString(),
-        andreasSalary,
-        andreasförsäkringskassan,
-        andreasbarnbidrag,
-        susannaSalary,
-        susannaförsäkringskassan,
-        susannabarnbidrag,
-        totalSalary: andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag,
+        totalSalary: calculateTotalIncomeFromBudgetPosts() * 100,
         costGroups: JSON.parse(JSON.stringify(costGroups)),
         savingsGroups: JSON.parse(JSON.stringify(savingsGroups)),
         // Removed old calculated fields - now calculated on-demand
@@ -3296,12 +3226,6 @@ const BudgetCalculator = () => {
       const newMonthData = {
         ...currentMonthData,
         // Reset all income values to 0
-        andreasSalary: 0,
-        andreasförsäkringskassan: 0,
-        andreasbarnbidrag: 0,
-        susannaSalary: 0,
-        susannaförsäkringskassan: 0,
-        susannabarnbidrag: 0,
         // Update any date-specific properties if needed
         createdAt: new Date().toISOString()
       };
@@ -3357,12 +3281,6 @@ const BudgetCalculator = () => {
       const newMonthData = {
         ...currentMonthData,
         // Reset all income values to 0
-        andreasSalary: 0,
-        andreasförsäkringskassan: 0,
-        andreasbarnbidrag: 0,
-        susannaSalary: 0,
-        susannaförsäkringskassan: 0,
-        susannabarnbidrag: 0,
         // Update any date-specific properties if needed
         createdAt: new Date().toISOString()
       };
@@ -3457,12 +3375,6 @@ const BudgetCalculator = () => {
         month: targetMonthKey,
         date: new Date().toISOString(),
         // Reset all income values to 0
-        andreasSalary: 0,
-        andreasförsäkringskassan: 0,
-        andreasbarnbidrag: 0,
-        susannaSalary: 0,
-        susannaförsäkringskassan: 0,
-        susannabarnbidrag: 0,
         // Reset all category amounts to 0, but exclude "Enskilda kostnader"
         costGroups: costGroups.map((group: any) => ({
           ...group,
@@ -3501,11 +3413,6 @@ const BudgetCalculator = () => {
       const template = budgetTemplates[templateName];
       newMonthData = {
         date: new Date().toISOString(),
-        andreasSalary: template.andreasSalary || 0,
-        andreasförsäkringskassan: template.andreasförsäkringskassan || 0,
-        andreasbarnbidrag: template.andreasbarnbidrag || 0,
-        susannaSalary: template.susannaSalary || 0,
-        susannaförsäkringskassan: template.susannaförsäkringskassan || 0,
         susannabarnbidrag: template.susannabarnbidrag || 0,
         costGroups: JSON.parse(JSON.stringify(template.costGroups || [])).map((group: any) => ({
           ...group,
@@ -3539,12 +3446,6 @@ const BudgetCalculator = () => {
         sourceMonthData = {
           month: selectedBudgetMonth,
           date: new Date().toISOString(),
-          andreasSalary,
-          andreasförsäkringskassan,
-          andreasbarnbidrag,
-          susannaSalary,
-          susannaförsäkringskassan,
-          susannabarnbidrag,
           costGroups: JSON.parse(JSON.stringify(costGroups)),
           savingsGroups: JSON.parse(JSON.stringify(savingsGroups)),
           dailyTransfer,
@@ -3618,17 +3519,10 @@ const BudgetCalculator = () => {
     
     // IMMEDIATE save of current month data before switching
     console.log(`💾 Final save before month switch...`);
-    console.log(`💾 DEBUG: Before switch - andreasSalary:`, andreasSalary);
-    console.log(`💾 DEBUG: Before switch - susannaSalary:`, susannaSalary);
+    console.log(`💾 DEBUG: Legacy salary logging removed`);
     
     // Create explicit data snapshot to ensure we save current state values
     const currentDataSnapshot = {
-      andreasSalary,
-      andreasförsäkringskassan,
-      andreasbarnbidrag,
-      susannaSalary,
-      susannaförsäkringskassan,
-      susannabarnbidrag,
       costGroups,
       savingsGroups,
       dailyTransfer,
@@ -5216,14 +5110,8 @@ const BudgetCalculator = () => {
                         weekendTransfer: currentMonthData.weekendTransfer || weekendTransfer
                       }
                     : {
-                        // Use current form values if current month doesn't exist in historical data
-                        andreasSalary,
-                        andreasförsäkringskassan,
-                        andreasbarnbidrag,
-                        susannaSalary,
-                        susannaförsäkringskassan,
-                        susannabarnbidrag,
-                        totalSalary: andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag,
+                        // Use budget posts for income calculation
+                        totalSalary: calculateTotalIncomeFromBudgetPosts() * 100,
                         costGroups: JSON.parse(JSON.stringify(costGroups)),
                         savingsGroups: JSON.parse(JSON.stringify(savingsGroups)),
                         dailyTransfer,
@@ -5639,7 +5527,7 @@ const BudgetCalculator = () => {
                         Intäkter
                       </CardTitle>
                       <CardDescription className="text-green-700">
-                        {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
+                        {formatCurrency(calculateTotalIncomeFromBudgetPosts())}
                       </CardDescription>
                     </div>
                     <ChevronDown className={`h-4 w-4 transition-transform text-green-800 ${expandedSections.incomeDetails ? 'rotate-180' : ''}`} />
@@ -5647,158 +5535,69 @@ const BudgetCalculator = () => {
                 </CardHeader>
                 {expandedSections.incomeDetails && (
                   <CardContent className="space-y-6 bg-green-50/30">
-                    {/* First User Income Section */}
-                    <div className="p-4 bg-green-100/50 rounded-lg border border-green-200">
-                      <h3 className="text-lg font-semibold mb-3 text-green-800">{displayUserName1} Inkomst</h3>
-                      <div className="space-y-3">
-                        <div className="space-y-2">
-                          <Label htmlFor="andreas" className="text-green-700">Lön</Label>
-                           <Input
-                            id="andreas"
-                            type="number"
-                            placeholder="Ange månadslön"
-                            value={localIncomeValues.andreasSalary}
-                            onChange={(e) => {
-                              setLocalIncomeValues(prev => ({
-                                ...prev,
-                                andreasSalary: e.target.value
-                              }));
-                            }}
-                            onBlur={(e) => {
-                              // Convert SEK input to öre for storage
-                              const sekValue = Number(e.target.value) || 0;
-                              const oreValue = kronoraToOren(sekValue);
-                              updateIncome('andreasSalary', oreValue);
-                              const currentDate = new Date();
-                              const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-                              resetMonthFinalBalancesFlag(currentMonthKey);
-                            }}
-                            className="text-lg bg-white/70"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="andreas-forsakringskassan" className="text-green-700">Försäkringskassan</Label>
-                           <Input
-                            id="andreas-forsakringskassan"
-                            type="number"
-                            placeholder="Ange försäkringskassan"
-                            value={localIncomeValues.andreasförsäkringskassan}
-                            onChange={(e) => {
-                              setLocalIncomeValues(prev => ({
-                                ...prev,
-                                andreasförsäkringskassan: e.target.value
-                              }));
-                            }}
-                            onBlur={(e) => {
-                              const sekValue = Number(e.target.value) || 0;
-                              const oreValue = kronoraToOren(sekValue);
-                              updateIncome('andreasförsäkringskassan', oreValue);
-                            }}
-                            className="text-lg bg-white/70"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="andreas-barnbidrag" className="text-green-700">Barnbidrag</Label>
-                           <Input
-                            id="andreas-barnbidrag"
-                            type="number"
-                            placeholder="Ange barnbidrag"
-                            value={localIncomeValues.andreasbarnbidrag}
-                            onChange={(e) => {
-                              setLocalIncomeValues(prev => ({
-                                ...prev,
-                                andreasbarnbidrag: e.target.value
-                              }));
-                            }}
-                            onBlur={(e) => {
-                              const sekValue = Number(e.target.value) || 0;
-                              const oreValue = kronoraToOren(sekValue);
-                              updateIncome('andreasbarnbidrag', oreValue);
-                            }}
-                            className="text-lg bg-white/70"
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    <DynamicIncomeSection 
+                      monthKey={budgetState.selectedMonthKey}
+                      onIncomeUpdate={() => {
+                        // Trigger any necessary updates after income change
+                        const currentDate = new Date();
+                        const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                        resetMonthFinalBalancesFlag(currentMonthKey);
+                      }}
+                    />
 
-                    {/* Second User Income Section */}
-                    <div className="p-4 bg-green-100/50 rounded-lg border border-green-200">
-                      <h3 className="text-lg font-semibold mb-3 text-green-800">{displayUserName2} Inkomst</h3>
-                      <div className="space-y-3">
-                        <div className="space-y-2">
-                          <Label htmlFor="susanna" className="text-green-700">Lön</Label>
-                           <Input
-                            id="susanna"
-                            type="number"
-                            placeholder="Ange månadslön"
-                            value={localIncomeValues.susannaSalary}
-                            onChange={(e) => {
-                              setLocalIncomeValues(prev => ({
-                                ...prev,
-                                susannaSalary: e.target.value
-                              }));
-                            }}
-                            onBlur={(e) => {
-                              // Convert SEK input to öre for storage
-                              const sekValue = Number(e.target.value) || 0;
-                              const oreValue = kronoraToOren(sekValue);
-                              updateIncome('susannaSalary', oreValue);
-                              const currentDate = new Date();
-                              const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-                              resetMonthFinalBalancesFlag(currentMonthKey);
-                            }}
-                            className="text-lg bg-white/70"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="susanna-forsakringskassan" className="text-green-700">Försäkringskassan</Label>
-                           <Input
-                            id="susanna-forsakringskassan"
-                            type="number"
-                            placeholder="Ange försäkringskassan"
-                            value={localIncomeValues.susannaförsäkringskassan}
-                            onChange={(e) => {
-                              setLocalIncomeValues(prev => ({
-                                ...prev,
-                                susannaförsäkringskassan: e.target.value
-                              }));
-                            }}
-                            onBlur={(e) => {
-                              const sekValue = Number(e.target.value) || 0;
-                              const oreValue = kronoraToOren(sekValue);
-                              updateIncome('susannaförsäkringskassan', oreValue);
-                            }}
-                            className="text-lg bg-white/70"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="susanna-barnbidrag" className="text-green-700">Barnbidrag</Label>
-                           <Input
-                            id="susanna-barnbidrag"
-                            type="number"
-                            placeholder="Ange barnbidrag"
-                            value={localIncomeValues.susannabarnbidrag}
-                            onChange={(e) => {
-                              setLocalIncomeValues(prev => ({
-                                ...prev,
-                                susannabarnbidrag: e.target.value
-                              }));
-                            }}
-                            onBlur={(e) => {
-                              const sekValue = Number(e.target.value) || 0;
-                              const oreValue = kronoraToOren(sekValue);
-                              updateIncome('susannabarnbidrag', oreValue);
-                            }}
-                            className="text-lg bg-white/70"
-                          />
-                        </div>
-                      </div>
-                    </div>
+                  </CardContent>
+                )}
+              </Card>
 
+              {/* Kontosaldo Kopia Section */}
+              <Card className="shadow-lg border-0 bg-indigo-50/50 backdrop-blur-sm">
+                <CardHeader>
+                  <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('accountBalancesCopy')}>
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-indigo-800">
+                        <TrendingUp className="h-5 w-5" />
+                        Kontosaldo Kopia
+                      </CardTitle>
+                      <CardDescription className="text-indigo-700">
+                        {(() => {
+                          if (!budgetState.selectedMonthKey) return 'Dagen före lönedatum';
+                          
+                          const [year, month] = budgetState.selectedMonthKey.split('-').map(Number);
+                          const payday = budgetState?.payday || 25;
+                          
+                          const monthNames = [
+                            'januari', 'februari', 'mars', 'april', 'maj', 'juni',
+                            'juli', 'augusti', 'september', 'oktober', 'november', 'december'
+                          ];
+                          
+                          // For the payday date, we show the payday of the PREVIOUS month
+                          let payYear = year;
+                          let payMonth = month - 1;
+                          
+                          if (payMonth === 0) {
+                            payMonth = 12;
+                            payYear = year - 1;
+                          }
+                          
+                          // Calculate total from budget posts with Balance type or use 0 if none exist
+                          const balancePosts = budgetPostsFromAPI.filter((post: any) => post.type === 'Balance');
+                          const total = balancePosts.reduce((sum: number, post: any) => {
+                            if (post.accountUserBalance !== null && post.accountUserBalance !== undefined) {
+                              return sum + (post.accountUserBalance / 100); // Convert from öre to kronor
+                            }
+                            return sum;
+                          }, 0);
+                          
+                          return `Totalt saldo den ${payday} ${monthNames[payMonth - 1]}: ${formatCurrency(total)}`;
+                        })()}
+                      </CardDescription>
+                    </div>
+                    <ChevronDown className={`h-4 w-4 transition-transform text-indigo-800 ${expandedSections.accountBalancesCopy ? 'rotate-180' : ''}`} />
+                  </div>
+                </CardHeader>
+                {expandedSections.accountBalancesCopy && (
+                  <CardContent className="space-y-4">
+                    <KontosaldoKopia monthKey={budgetState.selectedMonthKey} />
                   </CardContent>
                 )}
               </Card>
@@ -7572,7 +7371,7 @@ const BudgetCalculator = () => {
                         Budgetsummering
                       </CardTitle>
                       <CardDescription>
-                        {formatCurrency(andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + susannaSalary + susannaförsäkringskassan + susannabarnbidrag)}
+                        {formatCurrency(calculateTotalIncomeFromBudgetPosts() * 100)}
                       </CardDescription>
                     </div>
                     <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.budgetSummary ? 'rotate-180' : ''}`} />

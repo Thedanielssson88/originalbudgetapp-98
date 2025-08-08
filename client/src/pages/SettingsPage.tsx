@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +13,8 @@ import { MainCategoriesSettings } from "@/components/MainCategoriesSettings";
 import { PaydaySettings } from "@/components/PaydaySettings";
 import { UserManagement } from "@/components/UserManagement";
 import { useBudget } from "@/hooks/useBudget";
-import { useAccounts, useCreateAccount, useDeleteAccount } from "@/hooks/useAccounts";
+import { useAccounts, useCreateAccount, useDeleteAccount, useUpdateAccount } from "@/hooks/useAccounts";
+import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { getCurrentState, updateSelectedBudgetMonth } from "@/orchestrator/budgetOrchestrator";
 import { apiStore } from "@/store/apiStore";
 import { simpleGoogleDriveService } from "@/services/simpleGoogleDriveService";
@@ -24,9 +25,12 @@ const SettingsPage = () => {
   
   // Use API accounts instead of budgetState.accounts
   const { data: accountsFromAPI = [] } = useAccounts();
+  const { data: familyMembers } = useFamilyMembers();
   const createAccountMutation = useCreateAccount();
   const deleteAccountMutation = useDeleteAccount();
+  const updateAccountMutation = useUpdateAccount();
   const [currentPayday, setCurrentPayday] = useState(25);
+  const [newAccountOwner, setNewAccountOwner] = useState("gemensamt");
 
   // Month navigation functions
   const navigateToPreviousMonth = () => {
@@ -214,16 +218,29 @@ const SettingsPage = () => {
         await createAccountMutation.mutateAsync({
           name: newAccountName.trim(),
           balance: 0, // balance field, not startBalance
-          assignedTo: null,
+          assignedTo: newAccountOwner === 'gemensamt' ? null : newAccountOwner,
           bankTemplateId: null
         });
         
         setNewAccountName('');
+        setNewAccountOwner('gemensamt');
         console.log('Account added successfully via API');
       } catch (error) {
         console.error('Failed to create account:', error);
         // You could show a toast notification here
       }
+    }
+  };
+
+  const handleAccountAssignment = async (accountId: string, assignedTo: string) => {
+    try {
+      await updateAccountMutation.mutateAsync({
+        id: accountId,
+        data: { assignedTo: assignedTo === 'gemensamt' ? null : assignedTo }
+      });
+      console.log('Account assignment updated successfully');
+    } catch (error) {
+      console.error('Failed to update account assignment:', error);
     }
   };
 
@@ -520,7 +537,7 @@ Kontrollera att filen är en giltig JSON-fil som exporterats från denna app.`);
           <TabsList className="grid w-full grid-cols-5 lg:grid-cols-8">
             <TabsTrigger value="payday" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              <span className="hidden sm:inline">Lönedatum</span>
+              <span className="hidden sm:inline">Utbetalning</span>
             </TabsTrigger>
             <TabsTrigger value="categories" className="flex items-center gap-2">
               <FolderOpen className="h-4 w-4" />
@@ -557,7 +574,7 @@ Kontrollera att filen är en giltig JSON-fil som exporterats från denna app.`);
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Calendar className="h-5 w-5" />
-                  Lönedatum & Månadsperiod
+                  Utbetalning & Månadsperiod
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -907,8 +924,11 @@ Kontrollera att filen är en giltig JSON-fil som exporterats från denna app.`);
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <DollarSign className="h-5 w-5" />
-                  Ändra konton
+                  Hantera konton
                 </CardTitle>
+                <CardDescription>
+                  Skapa och hantera konton samt tilldela ägare till varje konto
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
@@ -917,7 +937,21 @@ Kontrollera att filen är en giltig JSON-fil som exporterats från denna app.`);
                       value={newAccountName}
                       onChange={(e) => setNewAccountName(e.target.value)}
                       placeholder="Namn på nytt konto"
+                      className="flex-1"
                     />
+                    <Select value={newAccountOwner} onValueChange={setNewAccountOwner}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Välj ägare" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gemensamt">Gemensamt</SelectItem>
+                        {familyMembers?.map((member) => (
+                          <SelectItem key={member.id} value={member.id}>
+                            {member.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Button onClick={addAccountHandler}>
                       Lägg till konto
                     </Button>
@@ -925,18 +959,41 @@ Kontrollera att filen är en giltig JSON-fil som exporterats från denna app.`);
                 </div>
 
                 <div className="space-y-3">
-                  <h3 className="text-lg font-semibold">Aktuella konton</h3>
+                  <h3 className="text-lg font-semibold">Konton och tilldelning</h3>
                   <div className="space-y-2">
                     {accounts.map(account => (
                       <div key={account.id || account.name} className="flex items-center justify-between p-3 border rounded">
-                        <span>{account.name}</span>
-                        <Button 
-                          size="sm" 
-                          variant="destructive"
-                          onClick={() => removeAccountHandler(account.name)}
-                        >
-                          Ta bort
-                        </Button>
+                        <div className="flex-1">
+                          <div className="font-medium">{account.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            Saldo: {(account.balance || 0).toLocaleString('sv-SE')} kr
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Select
+                            value={account.assignedTo || 'gemensamt'}
+                            onValueChange={(value) => handleAccountAssignment(account.id, value)}
+                          >
+                            <SelectTrigger className="w-48">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="gemensamt">Gemensamt</SelectItem>
+                              {familyMembers?.map((member) => (
+                                <SelectItem key={member.id} value={member.id}>
+                                  {member.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button 
+                            size="sm" 
+                            variant="destructive"
+                            onClick={() => removeAccountHandler(account.name)}
+                          >
+                            Ta bort
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>

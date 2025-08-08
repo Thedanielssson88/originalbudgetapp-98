@@ -13,7 +13,9 @@ import {
   insertBudgetPostSchema,
   insertBankSchema,
   insertBankCsvMappingSchema,
-  insertPlannedTransferSchema
+  insertPlannedTransferSchema,
+  insertInkomstkallSchema,
+  insertInkomstkallorMedlemSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -199,6 +201,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting family member:', error);
       res.status(500).json({ error: 'Failed to delete family member' });
+    }
+  });
+
+  // Income sources (Inkomstkällor) routes
+  app.get("/api/inkomstkallor", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const inkomstkallor = await storage.getInkomstkallor(userId);
+      res.json(inkomstkallor);
+    } catch (error) {
+      console.error('Error fetching inkomstkällor:', error);
+      res.status(500).json({ error: 'Failed to fetch inkomstkällor' });
+    }
+  });
+
+  app.get("/api/inkomstkallor/:id", async (req, res) => {
+    try {
+      const inkomstkall = await storage.getInkomstkall(req.params.id);
+      if (!inkomstkall) {
+        return res.status(404).json({ error: 'Inkomstkälla not found' });
+      }
+      res.json(inkomstkall);
+    } catch (error) {
+      console.error('Error fetching inkomstkälla:', error);
+      res.status(500).json({ error: 'Failed to fetch inkomstkälla' });
+    }
+  });
+
+  app.post("/api/inkomstkallor", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const validatedData = insertInkomstkallSchema.parse({
+        ...req.body,
+        userId
+      });
+      const inkomstkall = await storage.createInkomstkall(validatedData);
+      res.status(201).json(inkomstkall);
+    } catch (error) {
+      console.error('Error creating inkomstkälla:', error);
+      res.status(400).json({ error: 'Failed to create inkomstkälla' });
+    }
+  });
+
+  app.patch("/api/inkomstkallor/:id", async (req, res) => {
+    try {
+      const updateData = insertInkomstkallSchema.partial().parse(req.body);
+      const inkomstkall = await storage.updateInkomstkall(req.params.id, updateData);
+      if (!inkomstkall) {
+        return res.status(404).json({ error: 'Inkomstkälla not found' });
+      }
+      res.json(inkomstkall);
+    } catch (error) {
+      console.error('Error updating inkomstkälla:', error);
+      res.status(400).json({ error: 'Failed to update inkomstkälla' });
+    }
+  });
+
+  app.delete("/api/inkomstkallor/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteInkomstkall(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Inkomstkälla not found' });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting inkomstkälla:', error);
+      res.status(500).json({ error: 'Failed to delete inkomstkälla' });
+    }
+  });
+
+  // Income source member assignments routes
+  app.get("/api/inkomstkallor-medlem", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const assignments = await storage.getInkomstkallorMedlem(userId);
+      res.json(assignments);
+    } catch (error) {
+      console.error('Error fetching inkomstkällor medlem:', error);
+      res.status(500).json({ error: 'Failed to fetch inkomstkällor medlem' });
+    }
+  });
+
+  app.post("/api/inkomstkallor-medlem", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const validatedData = insertInkomstkallorMedlemSchema.parse({
+        ...req.body,
+        userId
+      });
+      const assignment = await storage.createInkomstkallorMedlem(validatedData);
+      res.status(201).json(assignment);
+    } catch (error) {
+      console.error('Error creating inkomstkällor medlem:', error);
+      res.status(400).json({ error: 'Failed to create inkomstkällor medlem' });
+    }
+  });
+
+  app.patch("/api/inkomstkallor-medlem/:id", async (req, res) => {
+    try {
+      const updateData = insertInkomstkallorMedlemSchema.partial().parse(req.body);
+      const assignment = await storage.updateInkomstkallorMedlem(req.params.id, updateData);
+      if (!assignment) {
+        return res.status(404).json({ error: 'Assignment not found' });
+      }
+      res.json(assignment);
+    } catch (error) {
+      console.error('Error updating inkomstkällor medlem:', error);
+      res.status(400).json({ error: 'Failed to update inkomstkällor medlem' });
+    }
+  });
+
+  app.delete("/api/inkomstkallor-medlem/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteInkomstkallorMedlem(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Assignment not found' });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting inkomstkällor medlem:', error);
+      res.status(500).json({ error: 'Failed to delete inkomstkällor medlem' });
     }
   });
 
@@ -826,11 +953,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // @ts-ignore
       const userId = req.userId;
+      console.log('POST /api/budget-posts - Request body:', JSON.stringify(req.body, null, 2));
       const validatedData = insertBudgetPostSchema.parse({
         ...req.body,
         userId
       });
+      console.log('POST /api/budget-posts - Validated data:', JSON.stringify(validatedData, null, 2));
       const budgetPost = await storage.createBudgetPost(validatedData);
+      console.log('POST /api/budget-posts - Created budget post:', JSON.stringify({
+        id: budgetPost.id,
+        type: budgetPost.type,
+        accountUserBalance: budgetPost.accountUserBalance,
+        accountBalance: budgetPost.accountBalance
+      }, null, 2));
       res.status(201).json(budgetPost);
     } catch (error) {
       console.error('Error creating budget post:', error);
@@ -843,11 +978,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // @ts-ignore
       const userId = req.userId;
       const { id } = req.params;
+      console.log('PATCH /api/budget-posts/:id - Request body:', JSON.stringify(req.body, null, 2));
       const updateData = insertBudgetPostSchema.partial().parse(req.body);
+      console.log('PATCH /api/budget-posts/:id - Parsed update data:', JSON.stringify(updateData, null, 2));
       const budgetPost = await storage.updateBudgetPost(userId, id, updateData);
       if (!budgetPost) {
         return res.status(404).json({ error: 'Budget post not found' });
       }
+      console.log('PATCH /api/budget-posts/:id - Updated budget post:', JSON.stringify({
+        id: budgetPost.id,
+        type: budgetPost.type,
+        accountUserBalance: budgetPost.accountUserBalance,
+        accountBalance: budgetPost.accountBalance
+      }, null, 2));
       res.json(budgetPost);
     } catch (error) {
       console.error('Error updating budget post:', error);

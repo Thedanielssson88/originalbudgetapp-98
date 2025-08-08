@@ -14,6 +14,8 @@ import {
   banks,
   bankCsvMappings,
   plannedTransfers,
+  inkomstkallor,
+  inkomstkallorMedlem,
   type User,
   type InsertUser,
   type FamilyMember,
@@ -33,7 +35,11 @@ import {
   type MonthlyAccountBalance,
   type InsertMonthlyAccountBalance,
   type PlannedTransfer,
-  type InsertPlannedTransfer
+  type InsertPlannedTransfer,
+  type Inkomstkall,
+  type InsertInkomstkall,
+  type InkomstkallorMedlem,
+  type InsertInkomstkallorMedlem
 } from "@shared/schema";
 
 // Add the missing types that aren't auto-generated yet
@@ -116,6 +122,68 @@ export class DatabaseStorage implements IStorage {
 
   async deleteFamilyMember(id: string): Promise<boolean> {
     const result = await db.delete(familyMembers).where(eq(familyMembers.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Income sources (Inkomstkällor) methods
+  async getInkomstkallor(userId: string): Promise<Inkomstkall[]> {
+    return await db.select().from(inkomstkallor).where(eq(inkomstkallor.userId, userId));
+  }
+
+  async getInkomstkall(id: string): Promise<Inkomstkall | undefined> {
+    const result = await db.select().from(inkomstkallor).where(eq(inkomstkallor.id, id));
+    return result[0];
+  }
+
+  async createInkomstkall(inkomstkall: InsertInkomstkall): Promise<Inkomstkall> {
+    const result = await db.insert(inkomstkallor).values(inkomstkall).returning();
+    return result[0];
+  }
+
+  async updateInkomstkall(id: string, inkomstkall: Partial<InsertInkomstkall>): Promise<Inkomstkall | undefined> {
+    const result = await db.update(inkomstkallor)
+      .set(inkomstkall)
+      .where(eq(inkomstkallor.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteInkomstkall(id: string): Promise<boolean> {
+    const result = await db.delete(inkomstkallor).where(eq(inkomstkallor.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Income source member assignments methods
+  async getInkomstkallorMedlem(userId: string): Promise<InkomstkallorMedlem[]> {
+    return await db.select().from(inkomstkallorMedlem).where(eq(inkomstkallorMedlem.userId, userId));
+  }
+
+  async createInkomstkallorMedlem(assignment: InsertInkomstkallorMedlem): Promise<InkomstkallorMedlem> {
+    const result = await db.insert(inkomstkallorMedlem).values(assignment).returning();
+    return result[0];
+  }
+
+  async updateInkomstkallorMedlem(id: string, assignment: Partial<InsertInkomstkallorMedlem>): Promise<InkomstkallorMedlem | undefined> {
+    const result = await db.update(inkomstkallorMedlem)
+      .set(assignment)
+      .where(eq(inkomstkallorMedlem.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteInkomstkallorMedlem(id: string): Promise<boolean> {
+    const result = await db.delete(inkomstkallorMedlem).where(eq(inkomstkallorMedlem.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async deleteInkomstkallorMedlemByMemberAndSource(userId: string, familjemedlemId: string, idInkomstkalla: string): Promise<boolean> {
+    const result = await db.delete(inkomstkallorMedlem)
+      .where(and(
+        eq(inkomstkallorMedlem.userId, userId),
+        eq(inkomstkallorMedlem.familjemedlemId, familjemedlemId),
+        eq(inkomstkallorMedlem.idInkomstkalla, idInkomstkalla)
+      ))
+      .returning();
     return result.length > 0;
   }
 
@@ -463,6 +531,10 @@ export class DatabaseStorage implements IStorage {
         .returning();
       
       console.log('Updated budget post:', result.length > 0 ? result[0] : 'not found');
+      if (result.length > 0) {
+        console.log('Updated budget post accountUserBalance:', result[0].accountUserBalance);
+        console.log('Updated budget post accountBalance:', result[0].accountBalance);
+      }
       return result.length > 0 ? result[0] : undefined;
     } catch (error) {
       console.error('Error updating budget post:', error);

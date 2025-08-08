@@ -122,13 +122,6 @@ export interface BudgetResults {
 
 // MonthData innehåller all data för en specifik månad
 export interface MonthData {
-  // Salary information
-  andreasSalary: number;
-  andreasförsäkringskassan: number;
-  andreasbarnbidrag: number;
-  susannaSalary: number;
-  susannaförsäkringskassan: number;
-  susannabarnbidrag: number;
   
   // Budget groups (tidigare top-level i rawData) - LEGACY
   costGroups: BudgetGroup[];
@@ -263,13 +256,6 @@ export interface BudgetState {
 
 // Legacy interface för bakåtkompatibilitet under övergången
 export interface RawDataState {
-  // Income data
-  andreasSalary: number;
-  andreasförsäkringskassan: number;
-  andreasbarnbidrag: number;
-  susannaSalary: number;
-  susannaförsäkringskassan: number;
-  susannabarnbidrag: number;
   
   // Budget groups
   costGroups: BudgetGroup[];

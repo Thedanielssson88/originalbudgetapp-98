@@ -47,14 +47,8 @@ export function calculateTotalBudgetedSavings(savingsItems: BudgetItem[], monthK
 export function calculateTotalIncome(monthData: MonthData): number {
   if (!monthData) return 0;
   
-  // Summera alla relevanta inkomstfält från rådatan
-  const total = 
-    (monthData.andreasSalary || 0) +
-    (monthData.andreasförsäkringskassan || 0) +
-    (monthData.andreasbarnbidrag || 0) +
-    (monthData.susannaSalary || 0) +
-    (monthData.susannaförsäkringskassan || 0) +
-    (monthData.susannabarnbidrag || 0);
+  // Legacy salary fields removed - income now handled via budget posts
+  const total = 0;
     
   return total;
 }
@@ -209,12 +203,6 @@ export function calculateFullPrognosis(
 
 export function calculateBudgetResults(monthData: MonthData): BudgetResults {
   const {
-    andreasSalary,
-    andreasförsäkringskassan,
-    andreasbarnbidrag,
-    susannaSalary,
-    susannaförsäkringskassan,
-    susannabarnbidrag,
     costGroups,
     savingsGroups,
     dailyTransfer,
@@ -222,9 +210,8 @@ export function calculateBudgetResults(monthData: MonthData): BudgetResults {
     customHolidays
   } = monthData;
 
-  // Calculate total salary
-  const totalSalary = andreasSalary + andreasförsäkringskassan + andreasbarnbidrag + 
-                     susannaSalary + susannaförsäkringskassan + susannabarnbidrag;
+  // Legacy salary calculation removed - now handled via budget posts
+  const totalSalary = 0;
 
   // Calculate total monthly expenses
   const totalMonthlyCosts = costGroups.reduce((total, group) => total + group.amount, 0);
@@ -234,9 +221,9 @@ export function calculateBudgetResults(monthData: MonthData): BudgetResults {
   // Calculate balance left
   const balanceLeft = totalSalary - totalMonthlyExpenses;
 
-  // Calculate individual shares
-  const andreasTotal = andreasSalary + andreasförsäkringskassan + andreasbarnbidrag;
-  const susannaTotal = susannaSalary + susannaförsäkringskassan + susannabarnbidrag;
+  // Calculate individual shares - legacy calculation removed
+  const andreasTotal = 0;
+  const susannaTotal = 0;
   
   const andreasPercentage = totalSalary > 0 ? (andreasTotal / totalSalary) * 100 : 50;
   const susannaPercentage = totalSalary > 0 ? (susannaTotal / totalSalary) * 100 : 50;
