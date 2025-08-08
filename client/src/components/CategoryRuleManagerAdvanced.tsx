@@ -8,12 +8,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Trash2, Plus, Edit } from 'lucide-react';
-import { CategoryRule, RuleCondition } from '@/types/budget';
+import { RuleCondition } from '@/types/budget';
 import { v4 as uuidv4 } from 'uuid';
 import { get, StorageKey } from '@/services/storageService';
 import { useHuvudkategorier, useUnderkategorier, useCategoryNames } from '@/hooks/useCategories';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { CategoryRule as PostgreSQLCategoryRule } from '@shared/schema';
+import type { CategoryRule } from '@shared/schema';
 
 interface CategoryRuleManagerAdvancedProps {
   rules: CategoryRule[];
@@ -42,7 +42,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
   const queryClient = useQueryClient();
   
   // Load PostgreSQL category rules
-  const { data: postgresqlRules = [], refetch: refetchRules } = useQuery<PostgreSQLCategoryRule[]>({
+  const { data: postgresqlRules = [], refetch: refetchRules } = useQuery<CategoryRule[]>({
     queryKey: ['/api/category-rules'],
     queryFn: async () => {
       const response = await fetch('/api/category-rules');
@@ -79,7 +79,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
   const [availableSubcategories, setAvailableSubcategories] = useState<string[]>([]);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [editingRule, setEditingRule] = useState<CategoryRule | null>(null);
-  const [newRule, setNewRule] = useState<Partial<CategoryRule>>({
+  const [newRule, setNewRule] = useState<Partial<CategoryRule & { condition: RuleCondition; action: any }>>({
     condition: { type: 'textContains', value: '' },
     action: { 
       appMainCategoryId: '', 
@@ -88,8 +88,9 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
       negativeTransactionType: 'Transaction',
       applicableAccountIds: []
     },
+    transactionDirection: 'all' as 'all' | 'positive' | 'negative',
     priority: 100,
-    isActive: true
+    isActive: 'true'
   });
 
   // Update available subcategories when main category changes (UUID-based)
@@ -132,6 +133,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
             bankCategory: (newRule.condition as any).bankCategory,
             bankSubCategory: (newRule.condition as any).bankSubCategory
           } : {}),
+          transactionDirection: newRule.transactionDirection || 'all',
           huvudkategoriId: newRule.action.appMainCategoryId,
           underkategoriId: newRule.action.appSubCategoryId,
           positiveTransactionType: newRule.action.positiveTransactionType || 'Transaction',
@@ -142,7 +144,9 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
           userId: 'dev-user-123'
         };
         
-        console.log('🔍 [RULE MANAGER] Saving new manual rule to PostgreSQL with all fields:', rulePayload);
+        console.log('🔍 [RULE MANAGER] newRule.transactionDirection before payload:', newRule.transactionDirection);
+        console.log('🔍 [RULE MANAGER] Saving new manual rule with transactionDirection:', newRule.transactionDirection);
+        console.log('🔍 [RULE MANAGER] Full rulePayload before sending:', JSON.stringify(rulePayload, null, 2));
 
         // Save rule directly to PostgreSQL with all fields
         const response = await fetch('/api/category-rules', {
@@ -159,6 +163,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
 
         const savedRule = await response.json();
         console.log('✅ [RULE MANAGER] Manual rule saved to PostgreSQL:', savedRule);
+        console.log('✅ [RULE MANAGER] Saved rule transactionDirection:', savedRule.transactionDirection);
         
         // Reset form
         setSelectedAccountIds([]);
@@ -171,8 +176,9 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
             negativeTransactionType: 'Transaction',
             applicableAccountIds: []
           },
+          transactionDirection: 'all' as 'all' | 'positive' | 'negative',
           priority: 100,
-          isActive: true
+          isActive: 'true'
         });
         setIsAddingRule(false);
         
@@ -242,10 +248,53 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
         {/* Add Rule Button */}
         <div className="flex justify-between items-center">
           <h3 className="text-sm font-medium">Aktiva regler</h3>
-          <Button size="sm" onClick={() => setIsAddingRule(true)} disabled={isAddingRule}>
-            <Plus className="h-3 w-3 mr-1" />
-            Ny regel
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={async () => {
+              try {
+                console.log('🔄 [MIGRATION] Starting migration of existing rules...');
+                
+                // Get current rules
+                const currentRules = postgresqlRules;
+                let updatedCount = 0;
+                
+                // Update rules that don't have transactionDirection set (but only process a few at a time to avoid spam)
+                const rulesToUpdate = currentRules.filter(rule => 
+                  !rule.transactionDirection || rule.transactionDirection === null || rule.transactionDirection === undefined
+                ).slice(0, 5); // Limit to 5 rules at a time
+                
+                for (const rule of rulesToUpdate) {
+                  console.log(`🔄 [MIGRATION] Updating rule ${rule.id} to add transactionDirection: 'all'`);
+                  
+                  // Update the rule via PATCH API
+                  const response = await fetch(`/api/category-rules/${rule.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ transactionDirection: 'all' })
+                  });
+                  
+                  if (response.ok) {
+                    updatedCount++;
+                    console.log(`✅ [MIGRATION] Updated rule ${rule.id}`);
+                  } else {
+                    console.error(`❌ [MIGRATION] Failed to update rule ${rule.id}:`, response.statusText);
+                  }
+                }
+                
+                console.log(`✅ [MIGRATION] Migration complete. Updated ${updatedCount} rules`);
+                await refetchRules();
+                alert(`Migration completed successfully! Updated ${updatedCount} rules.`);
+              } catch (error) {
+                console.error('❌ [MIGRATION] Failed:', error);
+                alert('Migration failed. Check console for details.');
+              }
+            }}>
+              Fix Old Rules
+            </Button>
+            <Button size="sm" onClick={() => setIsAddingRule(true)} disabled={isAddingRule}>
+              <Plus className="h-3 w-3 mr-1" />
+              Ny regel
+            </Button>
+          </div>
         </div>
 
         {/* Add Rule Form - Mobile Optimized */}
@@ -276,9 +325,9 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                 <Label className="text-xs">Villkor</Label>
                 <Input
                   placeholder={
-                    newRule.condition?.type === 'textContains' ? 'Text som ska sökas efter' :
-                    newRule.condition?.type === 'textStartsWith' ? 'Text som transaktionen börjar med' :
-                    'Bankens kategorinamn'
+                    newRule.condition?.type === 'textContains' ? 'Text som ska sökas efter (eller * för alla)' :
+                    newRule.condition?.type === 'textStartsWith' ? 'Text som transaktionen börjar med (eller * för alla)' :
+                    'Bankens kategorinamn (eller * för alla)'
                   }
                   value={(newRule.condition as any)?.value || ''}
                   onChange={(e) => setNewRule({
@@ -287,6 +336,29 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                   })}
                   className="h-8"
                 />
+                <div className="text-xs text-muted-foreground mt-1">
+                  Använd * som wildcard för att matcha alla transaktioner
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs">Transaktion</Label>
+                <Select
+                  value={newRule.transactionDirection || 'all'}
+                  onValueChange={(value: 'all' | 'positive' | 'negative') => setNewRule({
+                    ...newRule,
+                    transactionDirection: value
+                  })}
+                >
+                  <SelectTrigger className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alla transaktioner</SelectItem>
+                    <SelectItem value="positive">Positiva transaktioner</SelectItem>
+                    <SelectItem value="negative">Negativa transaktioner</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
@@ -503,6 +575,23 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                       <span className="font-medium">Bankunderkategori:</span> 
                       <span className="ml-1 bg-blue-100 px-2 py-0.5 rounded text-blue-800">
                         {rule.bankSubCategory || 'Alla Bankunderkategorier'}
+                      </span>
+                    </div>
+                    <div className="text-xs">
+                      <span className="font-medium">Transaktion:</span> 
+                      <span className="ml-1 bg-purple-100 px-2 py-0.5 rounded text-purple-800">
+                        {(() => {
+                          console.log('🔍 [RULE DISPLAY DEBUG] Rule:', rule.id, 'Full rule object:', JSON.stringify(rule, null, 2));
+                          console.log('🔍 [RULE DISPLAY DEBUG] Rule transactionDirection type:', typeof rule.transactionDirection);
+                          console.log('🔍 [RULE DISPLAY DEBUG] Rule transactionDirection value:', rule.transactionDirection);
+                          console.log('🔍 [RULE DISPLAY DEBUG] Direct comparison - all?', rule.transactionDirection === 'all');
+                          console.log('🔍 [RULE DISPLAY DEBUG] Direct comparison - positive?', rule.transactionDirection === 'positive');
+                          console.log('🔍 [RULE DISPLAY DEBUG] Direct comparison - negative?', rule.transactionDirection === 'negative');
+                          return rule.transactionDirection === 'all' ? 'Alla transaktioner' :
+                                 rule.transactionDirection === 'positive' ? 'Positiva transaktioner' :
+                                 rule.transactionDirection === 'negative' ? 'Negativa transaktioner' :
+                                 `Alla transaktioner (fallback: '${rule.transactionDirection}')`;
+                        })()}
                       </span>
                     </div>
                     <div className="text-xs border-t pt-1 mt-2">

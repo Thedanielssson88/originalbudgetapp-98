@@ -475,6 +475,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
   // Category Rules routes
   app.get("/api/category-rules", async (req, res) => {
     try {
@@ -492,10 +493,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // @ts-ignore
       const userId = req.userId;
+      console.log('🔍 [SERVER ROUTE] Received rule data with transactionDirection:', req.body.transactionDirection);
       const validatedData = insertCategoryRuleSchema.parse({
         ...req.body,
         userId
       });
+      console.log('🔍 [SERVER ROUTE] Validated rule data with transactionDirection:', validatedData.transactionDirection);
       const rule = await storage.createCategoryRule(validatedData);
       res.status(201).json(rule);
     } catch (error) {
@@ -506,15 +509,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/category-rules/:id", async (req, res) => {
     try {
+      console.log(`🔍 [PATCH RULE] Updating rule ${req.params.id} with data:`, req.body);
       const updateData = insertCategoryRuleSchema.partial().parse(req.body);
+      console.log(`🔍 [PATCH RULE] Validated update data:`, updateData);
       const rule = await storage.updateCategoryRule(req.params.id, updateData);
       if (!rule) {
         return res.status(404).json({ error: 'Category rule not found' });
       }
       res.json(rule);
     } catch (error) {
-      console.error('Error updating category rule:', error);
-      res.status(400).json({ error: 'Failed to update category rule' });
+      console.error('❌ [PATCH RULE] Error updating category rule:', error);
+      console.error('❌ [PATCH RULE] Request body was:', req.body);
+      console.error('❌ [PATCH RULE] Rule ID was:', req.params.id);
+      res.status(400).json({ error: 'Failed to update category rule', details: error.message });
     }
   });
 
@@ -911,6 +918,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error bulk creating transactions:', error);
       res.status(500).json({ error: 'Failed to bulk create transactions' });
+    }
+  });
+
+  // Bulk delete transactions by IDs
+  app.post("/api/transactions/bulk-delete-by-ids", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const { ids } = req.body;
+      
+      if (!ids || !Array.isArray(ids)) {
+        return res.status(400).json({ error: 'ids array is required' });
+      }
+      
+      console.log(`[BULK DELETE BY IDS] Deleting ${ids.length} transactions by IDs`);
+      
+      let deletedCount = 0;
+      
+      for (const id of ids) {
+        try {
+          const success = await storage.deleteTransaction(id);
+          if (success) deletedCount++;
+        } catch (error) {
+          console.warn(`[BULK DELETE BY IDS] Failed to delete transaction ${id}:`, error);
+        }
+      }
+      
+      console.log(`[BULK DELETE BY IDS] Successfully deleted ${deletedCount}/${ids.length} transactions`);
+      res.json({ deletedCount });
+    } catch (error) {
+      console.error('Error bulk deleting transactions by IDs:', error);
+      res.status(500).json({ error: 'Failed to bulk delete transactions by IDs' });
+    }
+  });
+
+  // Bulk update transactions
+  app.post("/api/transactions/bulk-update", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const { transactions } = req.body;
+      
+      if (!transactions || !Array.isArray(transactions)) {
+        return res.status(400).json({ error: 'transactions array is required' });
+      }
+      
+      console.log(`[BULK UPDATE] Updating ${transactions.length} transactions`);
+      
+      let updatedCount = 0;
+      const updatedTransactions = [];
+      
+      for (const txData of transactions) {
+        try {
+          if (!txData.id) {
+            console.warn(`[BULK UPDATE] Skipping transaction without ID`);
+            continue;
+          }
+          
+          const { id, ...updateData } = txData;
+          
+          // Parse the update data
+          const validatedData = insertTransactionSchema.partial().parse({
+            ...updateData,
+            date: updateData.date ? new Date(updateData.date) : undefined
+          });
+          
+          const transaction = await storage.updateTransaction(id, validatedData);
+          if (transaction) {
+            updatedTransactions.push(transaction);
+            updatedCount++;
+          }
+        } catch (error) {
+          console.warn(`[BULK UPDATE] Failed to update transaction:`, error);
+        }
+      }
+      
+      console.log(`[BULK UPDATE] Successfully updated ${updatedCount}/${transactions.length} transactions`);
+      res.json({ updatedCount, transactions: updatedTransactions });
+    } catch (error) {
+      console.error('Error bulk updating transactions:', error);
+      res.status(500).json({ error: 'Failed to bulk update transactions' });
     }
   });
 

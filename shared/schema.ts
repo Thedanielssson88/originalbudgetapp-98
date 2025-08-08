@@ -115,6 +115,7 @@ export const categoryRules = pgTable('category_rules', {
     transactionName: text('transaction_name').notNull(),
     bankCategory: text('bank_category'), // Optional - only for exact bank category matching rules
     bankSubCategory: text('bank_sub_category'), // Optional - only for exact bank category matching rules
+    transactionDirection: text('transaction_direction', { enum: ['all', 'positive', 'negative'] }).default('all'), // NEW: Filter by transaction amount direction (nullable for migration)
     huvudkategoriId: uuid('huvudkategori_id').references(() => huvudkategorier.id, { onDelete: 'cascade' }),
     underkategoriId: uuid('underkategori_id').references(() => underkategorier.id, { onDelete: 'cascade' }),
     // Additional fields for complete rule management

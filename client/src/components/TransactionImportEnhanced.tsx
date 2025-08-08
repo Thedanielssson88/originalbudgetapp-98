@@ -42,7 +42,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, CheckCircle, XCircle, FileText, Settings, Settings2, AlertCircle, Circle, CheckSquare, AlertTriangle, ChevronDown, ChevronUp, Trash2, Plus, Edit, Save, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Upload, CheckCircle, XCircle, FileText, Settings, Settings2, AlertCircle, Circle, CheckSquare, AlertTriangle, ChevronDown, ChevronUp, Trash2, Plus, Edit, Save, X, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 import { Bank, BankCSVMapping } from '@/types/bank';
@@ -64,13 +64,15 @@ import { CategorySelectionDialog } from './CategorySelectionDialog';
 import { useBudget } from '@/hooks/useBudget';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
-import { useCategoryRules } from '@/hooks/useCategoryRules';
+import { useCategoryRules, useCreateCategoryRule } from '@/hooks/useCategoryRules';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCategoryNames, useHuvudkategorier, useUnderkategorier } from '@/hooks/useCategories';
 import { useBanks, useCreateBank, useBankCsvMappings } from '@/hooks/useBanks';
 import { formatOrenAsCurrency } from '@/utils/currencyUtils';
 import { ColumnMappingDialog } from './ColumnMappingDialog';
 import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping, linkAccountToBankTemplate, matchInternalTransfer } from '../orchestrator/budgetOrchestrator';
-import { optimizedImportAndReconcileFile } from '../orchestrator/optimizedImport';
+import { improvedImportAndReconcileFile } from '../orchestrator/improvedImport';
+import { applyRulesToTransactionsBatch } from '../orchestrator/batchRuleApplication';
 import { getCurrentState, setMainCategories, updateSelectedBudgetMonth } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
@@ -361,8 +363,14 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'red' | 'yellow' | 'green' | 'red-yellow'>('all');
   const [monthFilter, setMonthFilter] = useState<string>('current'); // 'all' or 'YYYY-MM' or 'current'
   const [accountFilter, setAccountFilter] = useState<string>('all'); // 'all' or account ID
+  const [transactionTypeFilter, setTransactionTypeFilter] = useState<string>('all'); // 'all' or transaction type
+  const [bankCategoryFilter, setBankCategoryFilter] = useState<string>('all'); // Bank category filter
+  const [bankSubCategoryFilter, setBankSubCategoryFilter] = useState<string>('all'); // Bank subcategory filter
+  const [appCategoryFilter, setAppCategoryFilter] = useState<string>('all'); // App hovedkategori filter
+  const [appSubCategoryFilter, setAppSubCategoryFilter] = useState<string>('all'); // App underkategori filter
   const [descriptionFilter, setDescriptionFilter] = useState<string>(''); // Description search text
   const [tempDescriptionFilter, setTempDescriptionFilter] = useState<string>(''); // Temporary input value
+  const [filtersExpanded, setFiltersExpanded] = useState<boolean>(false); // Filter card expansion state
   const [currentPage, setCurrentPage] = useState(1);
   const transactionsPerPage = 50; // Show 50 transactions per page for better performance
   
@@ -443,6 +451,9 @@ export const TransactionImportEnhanced: React.FC = () => {
   const { budgetState } = useBudget();
   const { data: transactionsFromAPI = [], isLoading: transactionsLoading } = useTransactions();
   const { getHuvudkategoriName, getUnderkategoriName } = useCategoryNames();
+  const queryClient = useQueryClient();
+  const { data: categoryRules = [] } = useCategoryRules();
+  const createCategoryRuleMutation = useCreateCategoryRule();
   
   // Get category data for bank matching
   const { data: huvudkategorier = [] } = useHuvudkategorier();
@@ -617,6 +628,12 @@ export const TransactionImportEnhanced: React.FC = () => {
   
   const allTransactions: ImportedTransaction[] = transactions;
   
+  // Create a ref to store the current transactions for import operations
+  const allTransactionsRef = useRef<ImportedTransaction[]>(allTransactions);
+  useEffect(() => {
+    allTransactionsRef.current = allTransactions;
+  }, [allTransactions]);
+  
   // CRITICAL DEBUG: Force log every render to understand why useMemo doesn't trigger
   console.log('[TX IMPORT] 🚨 RENDER DEBUG:');
   console.log('[TX IMPORT] 🚨 budgetState?.allTransactions length:', budgetState?.allTransactions?.length || 0);
@@ -636,11 +653,13 @@ export const TransactionImportEnhanced: React.FC = () => {
   // Get subcategories from storage
   const [subcategoriesFromStorage, setSubcategoriesFromStorage] = useState<Record<string, string[]>>({});
   
-  // Read category rules from PostgreSQL using the hook
-  const { data: postgresqlRules = [], isLoading: rulesLoading, error: rulesError } = useCategoryRules();
+  // PostgreSQL rules are already loaded above as categoryRules
+  const postgresqlRules = categoryRules;
+  const rulesLoading = false;
+  const rulesError = null;
   
   // Use PostgreSQL rules instead of local state rules
-  const categoryRules = postgresqlRules.map(rule => ({
+  const formattedCategoryRules = postgresqlRules.map(rule => ({
     id: rule.id,
     priority: 100, // Default priority since PostgreSQL rules don't have this field yet
     condition: {
@@ -1124,27 +1143,35 @@ export const TransactionImportEnhanced: React.FC = () => {
           progress: 50
         }));
         
-        // Use OPTIMIZED IMPORT for better performance and targeted updates
-        const budgetState = (window as any).budgetState || {};
-        const existingTransactions = budgetState.allTransactions || [];
+        // Use IMPROVED IMPORT for better performance and targeted updates
+        const existingTransactions = allTransactionsRef.current || [];
         
-        console.log(`🚀 [OPTIMIZED] Using optimized import with ${existingTransactions.length} existing transactions in memory`);
-        addMobileDebugLog(`🚀 OPTIMIZED: ${existingTransactions.length} existing transactions loaded`);
+        console.log(`🚀 [IMPROVED] Using improved import with ${existingTransactions.length} existing transactions in memory`);
+        addMobileDebugLog(`🚀 IMPROVED: ${existingTransactions.length} existing transactions loaded`);
         
-        const optimizedResult = await optimizedImportAndReconcileFile(
+        const improvedResult = await improvedImportAndReconcileFile(
           parseResult.cleanCsv, 
           accountId, 
           accountName, 
-          existingTransactions
+          existingTransactions,
+          categoryRules
         );
         
-        if (!optimizedResult.success) {
-          console.log(`⚠️ [OPTIMIZED] Optimized import failed, falling back to standard import...`);
-          addMobileDebugLog(`⚠️ Optimized import failed, using fallback`);
+        if (!improvedResult.success) {
+          console.log(`⚠️ [IMPROVED] Improved import failed, falling back to standard import...`);
+          addMobileDebugLog(`⚠️ Improved import failed, using fallback`);
           await importAndReconcileFile(parseResult.cleanCsv, accountId, postgresqlRules);
         } else {
-          console.log(`✅ [OPTIMIZED] Import successful:`, optimizedResult.stats);
-          addMobileDebugLog(`✅ Optimized: ${optimizedResult.stats.created} new, ${optimizedResult.stats.removed} replaced`);
+          console.log(`✅ [IMPROVED] Import successful:`, improvedResult.stats);
+          addMobileDebugLog(`✅ Improved: ${improvedResult.stats.created} new, ${improvedResult.stats.updated} updated, ${improvedResult.stats.removed} removed`);
+          
+          // Update local state immediately with new transactions
+          if (improvedResult.finalTransactions) {
+            allTransactionsRef.current = improvedResult.finalTransactions;
+            // Trigger UI update
+            await queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
+            await queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
+          }
         }
       } catch (error) {
         console.warn(`🔍 [IMPORT] Smart parser failed, using original CSV:`, error);
@@ -1156,27 +1183,35 @@ export const TransactionImportEnhanced: React.FC = () => {
           progress: 50
         }));
         
-        // Use OPTIMIZED IMPORT for fallback case too
-        const budgetState = (window as any).budgetState || {};
-        const existingTransactions = budgetState.allTransactions || [];
+        // Use IMPROVED IMPORT for fallback case too
+        const existingTransactions = allTransactionsRef.current || [];
         
-        console.log(`🚀 [OPTIMIZED FALLBACK] Using optimized import fallback with ${existingTransactions.length} existing transactions`);
-        addMobileDebugLog(`🚀 FALLBACK: Using optimized import with ${existingTransactions.length} transactions`);
+        console.log(`🚀 [IMPROVED FALLBACK] Using improved import fallback with ${existingTransactions.length} existing transactions`);
+        addMobileDebugLog(`🚀 FALLBACK: Using improved import with ${existingTransactions.length} transactions`);
         
-        const optimizedResult = await optimizedImportAndReconcileFile(
+        const improvedResult = await improvedImportAndReconcileFile(
           csvContent, 
           accountId, 
           accountName, 
-          existingTransactions
+          existingTransactions,
+          categoryRules
         );
         
-        if (!optimizedResult.success) {
-          console.log(`⚠️ [OPTIMIZED FALLBACK] Both optimized and fallback failed, using legacy import...`);
-          addMobileDebugLog(`⚠️ All optimized methods failed, using legacy import`);
+        if (!improvedResult.success) {
+          console.log(`⚠️ [IMPROVED FALLBACK] Both improved and fallback failed, using legacy import...`);
+          addMobileDebugLog(`⚠️ All improved methods failed, using legacy import`);
           await importAndReconcileFile(csvContent, accountId, postgresqlRules);
         } else {
-          console.log(`✅ [OPTIMIZED FALLBACK] Import successful:`, optimizedResult.stats);
-          addMobileDebugLog(`✅ Fallback success: ${optimizedResult.stats.created} new, ${optimizedResult.stats.removed} replaced`);
+          console.log(`✅ [IMPROVED FALLBACK] Import successful:`, improvedResult.stats);
+          addMobileDebugLog(`✅ Fallback success: ${improvedResult.stats.created} new, ${improvedResult.stats.updated} updated, ${improvedResult.stats.removed} removed`);
+          
+          // Update local state immediately with new transactions
+          if (improvedResult.finalTransactions) {
+            allTransactionsRef.current = improvedResult.finalTransactions;
+            // Trigger UI update
+            await queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
+            await queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
+          }
         }
         
         // Fallback: Create parseResult from raw CSV for Settings2 button
@@ -1685,324 +1720,50 @@ export const TransactionImportEnhanced: React.FC = () => {
     return false; // No unique match found
   };
 
-  // Apply all rules to filtered transactions - use PostgreSQL rules directly instead of mapped rules
-  const applyRulesToFilteredTransactions = () => {
-    console.log(`🚀 [APPLY RULES] Starting with ${postgresqlRules.length} PostgreSQL rules and ${filteredTransactions.length} transactions`);
-    let updatedCount = 0;
-    let autoMatchedCount = 0;
-    let autoApprovedCount = 0;
-    let bankMatchedCount = 0;
+  // OPTIMIZED: Apply all rules to filtered transactions using batch processing
+  const applyRulesToFilteredTransactions = async () => {
+    console.log(`🚀 [OPTIMIZED RULES] Starting batch processing: ${postgresqlRules.length} rules, ${filteredTransactions.length} transactions`);
     
-    filteredTransactions.forEach(transaction => {
-      console.log(`🔍 [APPLY RULES] Processing transaction: "${transaction.description}" (${transaction.amount} kr)`);
-      addMobileDebugLog(`📝 === PROCESSING TRANSACTION ===`);
-      addMobileDebugLog(`📝 Description: "${transaction.description}"`);
-      addMobileDebugLog(`📝 Amount: ${transaction.amount} kr`);
-      addMobileDebugLog(`📝 Status: ${transaction.status}`);
-      addMobileDebugLog(`📝 Account: ${transaction.accountId}`);
+    try {
+      // Use the optimized batch rule application
+      const result = await applyRulesToTransactionsBatch(
+        filteredTransactions,
+        postgresqlRules,
+        huvudkategorier,
+        underkategorier
+      );
       
-      // Skip if status is green (but allow rules to override manually changed transactions)
-      if (transaction.status === 'green') {
-        console.log(`⏭️ [APPLY RULES] Skipping transaction with green status: "${transaction.description}"`);
-        addMobileDebugLog(`⏭️ SKIPPING - Green status: "${transaction.description}"`);
-        return;
-      }
-      
-      // Note: Removed isManuallyChanged check - rules should be able to override manually changed transactions
-      if (transaction.isManuallyChanged === true || transaction.isManuallyChanged === 'true') {
-        console.log(`⚠️ [APPLY RULES] Processing manually changed transaction (rules can override): "${transaction.description}"`);
-        addMobileDebugLog(`⚠️ Processing manually changed transaction (rules can override): "${transaction.description}"`);
-      }
-      
-      // STEP 1: Check each PostgreSQL rule first (rules have priority over bank matching)
-      let ruleMatched = false;
-      console.log(`🔍 [APPLY RULES] Processing transaction: "${transaction.description}", account: ${transaction.accountId}, status: ${transaction.status}`);
-      console.log(`🔍 [APPLY RULES] Available rules: ${postgresqlRules.length}`);
-      addMobileDebugLog(`🔍 [APPLY RULES] Processing: "${transaction.description}", account: ${transaction.accountId}, status: ${transaction.status}`);
-      addMobileDebugLog(`🔍 [APPLY RULES] Available rules: ${postgresqlRules.length}`);
-      
-      for (const rule of postgresqlRules) {
-        console.log(`🔍 [APPLY RULES] === DETAILED RULE CHECK ===`);
-        console.log(`🔍 [APPLY RULES] Rule: "${rule.ruleName}"`);
-        console.log(`🔍 [APPLY RULES] Rule transactionName: "${rule.transactionName}"`);
-        console.log(`🔍 [APPLY RULES] Rule bankCategory: "${rule.bankCategory}"`);
-        console.log(`🔍 [APPLY RULES] Rule bankSubCategory: "${rule.bankSubCategory}"`);
-        console.log(`🔍 [APPLY RULES] Rule isActive: "${rule.isActive}"`);
-        console.log(`🔍 [APPLY RULES] Rule applicableAccountIds: "${rule.applicableAccountIds}"`);
-        
-        addMobileDebugLog(`🔍 === RULE CHECK ===`);
-        addMobileDebugLog(`🔍 Rule: "${rule.ruleName}"`);
-        addMobileDebugLog(`🔍 transactionName: "${rule.transactionName}"`);
-        addMobileDebugLog(`🔍 bankCategory: "${rule.bankCategory}"`);
-        addMobileDebugLog(`🔍 bankSubCategory: "${rule.bankSubCategory}"`);
-        addMobileDebugLog(`🔍 isActive: "${rule.isActive}"`);
-        addMobileDebugLog(`🔍 applicableAccountIds: "${rule.applicableAccountIds}"`);
-        
-        // Check if rule is active (handle both string and boolean)
-        const isActive = rule.isActive === 'true';
-        if (!isActive) {
-          console.log(`⏭️ [APPLY RULES] Rule "${rule.ruleName}" is inactive, skipping`);
-          addMobileDebugLog(`⏭️ Rule "${rule.ruleName}" is INACTIVE, skipping`);
-          continue;
+      if (result.success) {
+        // Update local transaction state
+        if (result.updatedTransactions) {
+          allTransactionsRef.current = result.updatedTransactions;
         }
         
-        let matchFound = false;
+        // Show success toast with stats
+        toast({
+          title: "Regler applicerade!",
+          description: `${result.stats.updated} transaktioner uppdaterade (${result.stats.rulesApplied} regeltrĂ¤ffar, ${result.stats.bankMatched} banktrĂ¤ffar, ${result.stats.autoApproved} auto-godkända)`,
+        });
         
-        console.log(`🔍 [APPLY RULES] Checking rule "${rule.ruleName}" - bankCategory: "${rule.bankCategory}", bankSubCategory: "${rule.bankSubCategory}"`);
+        console.log(`✅ [OPTIMIZED RULES] Batch processing successful:`, result.stats);
         
-        // Check if applicable accounts match (if specified)
-        if (rule.applicableAccountIds && rule.applicableAccountIds !== '[]') {
-          try {
-            const applicableAccounts = JSON.parse(rule.applicableAccountIds);
-            console.log(`🔍 [APPLY RULES] Rule applicable accounts:`, applicableAccounts);
-            console.log(`🔍 [APPLY RULES] Transaction account ID: ${transaction.accountId}`);
-            addMobileDebugLog(`🔍 Rule applicable accounts: ${applicableAccounts.join(', ')}`);
-            addMobileDebugLog(`🔍 Transaction account ID: ${transaction.accountId}`);
-            
-            // Find account names for debugging
-            const ruleAccountNames = applicableAccounts.map(accountId => {
-              const account = accountsFromAPI.find(acc => acc.id === accountId);
-              return account ? account.name : `Unknown(${accountId})`;
-            });
-            const transactionAccountName = accountsFromAPI.find(acc => acc.id === transaction.accountId)?.name || `Unknown(${transaction.accountId})`;
-            
-            addMobileDebugLog(`🔍 Rule applies to accounts: ${ruleAccountNames.join(', ')}`);
-            addMobileDebugLog(`🔍 Transaction is in account: ${transactionAccountName}`);
-            
-            if (applicableAccounts.length > 0 && !applicableAccounts.includes(transaction.accountId)) {
-              console.log(`⏭️ [APPLY RULES] Rule "${rule.ruleName}" skipped - account ${transaction.accountId} not in applicable accounts: ${applicableAccounts.join(', ')}`);
-              addMobileDebugLog(`⏭️ Rule SKIPPED - account mismatch: "${transactionAccountName}" not in rule accounts: ${ruleAccountNames.join(', ')}`);
-              continue;
-            } else {
-              console.log(`✅ [APPLY RULES] Account matches or no account restriction`);
-              addMobileDebugLog(`✅ Account matches or no restriction`);
-            }
-          } catch (e) {
-            console.warn('Failed to parse applicableAccountIds:', rule.applicableAccountIds);
-            addMobileDebugLog(`⚠️ Failed to parse applicableAccountIds: ${rule.applicableAccountIds}`);
-          }
-        } else {
-          console.log(`🔍 [APPLY RULES] No account restrictions for rule "${rule.ruleName}"`);
-          addMobileDebugLog(`🔍 No account restrictions`);
-        }
-        
-        // PostgreSQL rule structure - check for exact bank category matching
-        // Special case: "Alla Bankkategorier" means apply to all categories (use text matching)
-        const isAllBankCategories = rule.bankCategory === 'Alla Bankkategorier' || rule.bankSubCategory === 'Alla Bankunderkategorier';
-        
-        if (rule.bankCategory && rule.bankSubCategory && !isAllBankCategories) {
-          // Exact bank category + subcategory match
-          if (transaction.bankCategory === rule.bankCategory && 
-              transaction.bankSubCategory === rule.bankSubCategory) {
-            matchFound = true;
-            console.log(`✅ [APPLY RULES] Exact bank category match: ${rule.bankCategory} → ${rule.bankSubCategory}`);
-          }
-        } else if (rule.bankCategory && !rule.bankSubCategory && !isAllBankCategories) {
-          // Exact bank category match (any subcategory)
-          if (transaction.bankCategory === rule.bankCategory) {
-            matchFound = true;
-            console.log(`✅ [APPLY RULES] Bank category match: ${rule.bankCategory}`);
-          }
-        } else {
-          // Text-based matching (rules without specific bank categories OR "Alla Bankkategorier")
-          const transactionText = transaction.description?.toLowerCase() || '';
-          const ruleText = rule.transactionName?.toLowerCase() || '';
-          
-          console.log(`🔍 [APPLY RULES] Text matching (${isAllBankCategories ? 'All categories rule' : 'No bank category'}) - Transaction: "${transactionText}", Rule: "${ruleText}"`);
-          addMobileDebugLog(`🔍 Text matching (${isAllBankCategories ? 'All categories rule' : 'No bank category'})`);
-          addMobileDebugLog(`🔍 Transaction text: "${transactionText}"`);
-          addMobileDebugLog(`🔍 Rule text: "${ruleText}"`);
-          
-          if (ruleText && transactionText.includes(ruleText)) {
-            matchFound = true;
-            console.log(`✅ [APPLY RULES] Text contains match: "${ruleText}" in "${transactionText}"`);
-            addMobileDebugLog(`✅ TEXT MATCH FOUND: "${ruleText}" in "${transactionText}"`);
-          } else {
-            console.log(`❌ [APPLY RULES] No text match: "${ruleText}" not found in "${transactionText}"`);
-            addMobileDebugLog(`❌ NO TEXT MATCH: "${ruleText}" not found in "${transactionText}"`);
-          }
-        }
-        
-        if (matchFound) {
-          console.log(`🎯 [APPLY RULES] Rule "${rule.ruleName}" matched transaction "${transaction.description}"`);
-          addMobileDebugLog(`🎯 RULE MATCHED: "${rule.ruleName}" for "${transaction.description}"`);
-          
-          // Apply the rule - update category
-          console.log(`🔄 [APPLY RULES] Applying categories: ${rule.huvudkategoriId} / ${rule.underkategoriId}`);
-          addMobileDebugLog(`🔄 Applying categories: ${rule.huvudkategoriId} / ${rule.underkategoriId}`);
-          updateTransactionCategory(transaction.id, rule.huvudkategoriId || '', rule.underkategoriId || '');
-          
-          // Apply the rule - update transaction type based on amount
-          const isPositive = transaction.amount >= 0;
-          let newTransactionType = isPositive ? 
-            (rule.positiveTransactionType || 'Transaction') : 
-            (rule.negativeTransactionType || 'Transaction');
-          
-          console.log(`🔄 [APPLY RULES] Setting transaction type: ${newTransactionType} (amount: ${transaction.amount})`);
-          addMobileDebugLog(`🔄 Setting transaction type: ${newTransactionType} (amount: ${transaction.amount})`);
-          
-          // Update transaction type using handleTransactionUpdate
-          handleTransactionUpdate(transaction.id, { 
-            type: newTransactionType as 'Transaction' | 'InternalTransfer' | 'Savings' | 'CostCoverage' | 'ExpenseClaim'
-          });
-          
-          // If the rule sets transaction type to InternalTransfer, try to auto-match
-          if (newTransactionType === 'InternalTransfer') {
-            console.log(`🔗 [APPLY RULES] Attempting to auto-match InternalTransfer: ${transaction.description}`);
-            addMobileDebugLog(`🔗 Attempting to auto-match InternalTransfer: ${transaction.description}`);
-            const wasMatched = findAndMatchTransfer(transaction);
-            if (wasMatched) {
-              autoMatchedCount++;
-              console.log(`✅ [APPLY RULES] Successfully auto-matched transfer: ${transaction.description}`);
-              addMobileDebugLog(`✅ Successfully auto-matched transfer: ${transaction.description}`);
-            }
-          }
-          
-          // If both category and subcategory are set, auto-approve the transaction
-          if (rule.huvudkategoriId && rule.underkategoriId) {
-            handleTransactionUpdate(transaction.id, { status: 'green' as const });
-            autoApprovedCount++;
-            console.log(`✅ [APPLY RULES] Auto-approved transaction: ${transaction.description}`);
-            addMobileDebugLog(`✅ Auto-approved transaction: ${transaction.description}`);
-          }
-          
-          updatedCount++;
-          ruleMatched = true;
-          addMobileDebugLog(`✅ RULE APPLIED SUCCESSFULLY - stopping rule checking for this transaction`);
-          break; // Stop checking other rules for this transaction
-        }
-      }
-      
-      // STEP 2: If no rule matched, try bank category matching as fallback
-      if (!ruleMatched && transaction.bankCategory && transaction.bankSubCategory) {
-        console.log(`🏦 [BANK MATCH] No rules matched, attempting bank category fallback for: "${transaction.bankCategory}" / "${transaction.bankSubCategory}"`);
-        addMobileDebugLog(`🏦 No rules matched, attempting bank category fallback for: "${transaction.bankCategory}" / "${transaction.bankSubCategory}"`);
-        
-        // Find matching huvudkategori by name
-        const matchingHuvudkategori = huvudkategorier.find(hk => 
-          hk.name.trim().toLowerCase() === transaction.bankCategory.trim().toLowerCase()
-        );
-        
-        if (matchingHuvudkategori) {
-          // Find matching underkategori by name within the huvudkategori
-          const matchingUnderkategori = underkategorier.find(uk => 
-            uk.huvudkategoriId === matchingHuvudkategori.id &&
-            uk.name.trim().toLowerCase() === transaction.bankSubCategory.trim().toLowerCase()
-          );
-          
-          if (matchingUnderkategori) {
-            console.log(`✅ [BANK MATCH] Found fallback match: "${transaction.bankCategory}" -> "${matchingHuvudkategori.name}", "${transaction.bankSubCategory}" -> "${matchingUnderkategori.name}"`);
-            addMobileDebugLog(`✅ Bank fallback match found: "${transaction.bankCategory}" -> "${matchingHuvudkategori.name}"`);
-            
-            // Update the transaction with matched categories
-            updateTransactionCategory(transaction.id, matchingHuvudkategori.id, matchingUnderkategori.id);
-            bankMatchedCount++;
-            updatedCount++;
-          } else {
-            console.log(`❌ [BANK MATCH] No matching underkategori found for: "${transaction.bankSubCategory}" under "${transaction.bankCategory}"`);
-            addMobileDebugLog(`❌ No matching underkategori found for: "${transaction.bankSubCategory}"`);
-          }
-        } else {
-          console.log(`❌ [BANK MATCH] No matching huvudkategori found for: "${transaction.bankCategory}"`);
-          addMobileDebugLog(`❌ No matching huvudkategori found for: "${transaction.bankCategory}"`);
-        }
-      } else if (ruleMatched) {
-        console.log(`⏭️ [BANK MATCH] Skipping bank matching - rule already applied to: "${transaction.description}"`);
-        addMobileDebugLog(`⏭️ Skipping bank matching - rule already applied`);
-      } else {
-        addMobileDebugLog(`⏭️ No rule matched and no bank categories available for fallback`);
-      }
-    });
-    
-    // After applying rules, also try to auto-match any unmatched InternalTransfer transactions
-    // This includes existing InternalTransfer transactions that weren't covered by rules
-    // Also check any Transaction that could potentially be a transfer (to catch cases like the user's example)
-    const unmatchedTransfers = filteredTransactions.filter(t => 
-      (t.type === 'InternalTransfer' || t.type === 'Transaction') && !t.linkedTransactionId
-    );
-    
-    console.log(`🔄 [AUTO TRANSFER MATCH] Found ${unmatchedTransfers.length} unmatched transactions to process for transfer matching:`);
-    unmatchedTransfers.forEach((transfer, index) => {
-      console.log(`  ${index + 1}. ${transfer.id}: ${transfer.description} (${transfer.amount} kr, ${transfer.date}, type: ${transfer.type}, account: ${transfer.accountId})`);
-    });
-    
-    // Store matching results for detailed feedback
-    const matchingResults: string[] = [];
-    
-    unmatchedTransfers.forEach(transfer => {
-      const wasMatched = findAndMatchTransfer(transfer);
-      if (wasMatched) {
-        autoMatchedCount++;
-        matchingResults.push(`✓ ${transfer.description} (${transfer.amount} kr, ${transfer.date})`);
-      } else {
-        // Find potential matches to explain why it didn't work
-        const potentialMatches = allTransactions.filter(t => 
-          t.id !== transfer.id &&
-          t.accountId !== transfer.accountId &&
-          t.date === transfer.date &&
-          ((transfer.amount > 0 && t.amount < 0) || (transfer.amount < 0 && t.amount > 0)) &&
-          Math.abs(Math.abs(t.amount) - Math.abs(transfer.amount)) < 0.01 &&
-          !t.linkedTransactionId
-        );
-        
-        if (potentialMatches.length === 0) {
-          matchingResults.push(`✗ ${transfer.description} (${transfer.amount} kr, ${transfer.date}) - Ingen matchning hittad`);
-        } else if (potentialMatches.length > 1) {
-          matchingResults.push(`✗ ${transfer.description} (${transfer.amount} kr, ${transfer.date}) - ${potentialMatches.length} möjliga matchningar (tvetydig)`);
-        } else {
-          const match = potentialMatches[0];
-          matchingResults.push(`✗ ${transfer.description} (${transfer.amount} kr, ${transfer.date}) - Hittade match: ${match.description} men kunde inte länka`);
-        }
-      }
-    });
-    
-    if (updatedCount > 0 || autoMatchedCount > 0 || bankMatchedCount > 0) {
-      let description = '';
-      if (bankMatchedCount > 0) {
-        description += `${bankMatchedCount} transaktioner matchades via bankkategorier.`;
-      }
-      if (updatedCount > bankMatchedCount) {
-        if (description) description += ' ';
-        description += `${updatedCount - bankMatchedCount} transaktioner uppdaterades enligt reglerna.`;
-      }
-      if (autoMatchedCount > 0) {
-        if (description) description += ' ';
-        description += `${autoMatchedCount} interna överföringar matchades automatiskt.`;
-      }
-      if (autoApprovedCount > 0) {
-        if (description) description += ' ';
-        description += `${autoApprovedCount} transaktioner godkändes automatiskt.`;
-      }
-      
-      toast({
-        title: "Regler tillämpade",
-        description: description
-      });
-      
-      // Show detailed matching results if there were any transfer attempts
-      if (matchingResults.length > 0) {
-        setTimeout(() => {
-          toast({
-            title: "Automatisk matchningsdetaljer",
-            description: matchingResults.slice(0, 2).join(' | ') + (matchingResults.length > 2 ? ` | ...och ${matchingResults.length - 2} till` : ''),
-            duration: 8000, // Show longer to read the details
-          });
-        }, 1500);
-      }
-      // Force refresh after applying rules
-      setRefreshKey(prev => prev + 1);
-      
-      // Recalculate all transaction statuses to apply new business rules
-      recalculateAllTransactionStatuses();
-      
-      // Additional force refresh for UI consistency 
-      setTimeout(() => {
+        // Refresh UI
+        await queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
         setRefreshKey(prev => prev + 1);
-      }, 100);
-    } else {
+        
+      } else {
+        toast({
+          title: "Fel vid regelapplikation",
+          description: "Något gick fel vid applicering av regler",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('❌ [OPTIMIZED RULES] Error applying rules:', error);
       toast({
-        title: "Inga ändringar",
-        description: "Inga transaktioner matchade reglerna."
+        title: "Fel vid regelapplikation",
+        description: "Ett oväntat fel inträffade",
+        variant: "destructive"
       });
     }
   };
@@ -2523,6 +2284,31 @@ export const TransactionImportEnhanced: React.FC = () => {
       baseTransactions = baseTransactions.filter(t => t.accountId === accountFilter);
     }
     
+    // Filter by transaction type
+    if (transactionTypeFilter !== 'all') {
+      baseTransactions = baseTransactions.filter(t => t.type === transactionTypeFilter);
+    }
+    
+    // Filter by bank category
+    if (bankCategoryFilter !== 'all') {
+      baseTransactions = baseTransactions.filter(t => t.bankCategory === bankCategoryFilter);
+    }
+    
+    // Filter by bank subcategory
+    if (bankSubCategoryFilter !== 'all') {
+      baseTransactions = baseTransactions.filter(t => t.bankSubCategory === bankSubCategoryFilter);
+    }
+    
+    // Filter by app category (huvudkategori)
+    if (appCategoryFilter !== 'all') {
+      baseTransactions = baseTransactions.filter(t => t.appCategoryId === appCategoryFilter);
+    }
+    
+    // Filter by app subcategory (underkategori)
+    if (appSubCategoryFilter !== 'all') {
+      baseTransactions = baseTransactions.filter(t => t.appSubCategoryId === appSubCategoryFilter);
+    }
+    
     // Filter by description (case insensitive search)
     if (descriptionFilter.trim()) {
       baseTransactions = baseTransactions.filter(t => 
@@ -2533,7 +2319,23 @@ export const TransactionImportEnhanced: React.FC = () => {
     return hideGreenTransactions 
       ? baseTransactions.filter(t => t.status !== 'green')
       : baseTransactions;
-  }, [allTransactions, monthFilter, statusFilter, accountFilter, descriptionFilter, hideGreenTransactions, budgetState?.settings?.payday, budgetState.selectedMonthKey]);
+  }, [allTransactions, monthFilter, statusFilter, accountFilter, transactionTypeFilter, bankCategoryFilter, bankSubCategoryFilter, appCategoryFilter, appSubCategoryFilter, descriptionFilter, hideGreenTransactions, budgetState?.settings?.payday, budgetState.selectedMonthKey]);
+
+  // Helper functions to get unique values for filter dropdowns
+  const uniqueTransactionTypes = useMemo(() => {
+    const types = [...new Set(allTransactions.map(t => t.type).filter(Boolean))];
+    return types.sort();
+  }, [allTransactions]);
+
+  const uniqueBankCategories = useMemo(() => {
+    const categories = [...new Set(allTransactions.map(t => t.bankCategory).filter(Boolean))];
+    return categories.sort();
+  }, [allTransactions]);
+
+  const uniqueBankSubCategories = useMemo(() => {
+    const subCategories = [...new Set(allTransactions.map(t => t.bankSubCategory).filter(Boolean))];
+    return subCategories.sort();
+  }, [allTransactions]);
 
   const renderCategorizationStep = () => {
 
@@ -2546,160 +2348,280 @@ export const TransactionImportEnhanced: React.FC = () => {
           </p>
         </div>
 
-        {/* Mobile-optimized controls */}
-        <div className="space-y-3 sm:space-y-0 sm:flex sm:items-center sm:gap-4 p-3 sm:p-4 bg-muted/30 rounded-lg">
-          <div className="flex items-center space-x-2">
-            <Label htmlFor="statusFilter" className="text-sm">Visa bara status:</Label>
-            <Select value={statusFilter} onValueChange={(value: 'all' | 'red' | 'yellow' | 'green' | 'red-yellow') => setStatusFilter(value)}>
-              <SelectTrigger className="w-36">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Alla</SelectItem>
-                <SelectItem value="red">Röd</SelectItem>
-                <SelectItem value="yellow">Gul</SelectItem>
-                <SelectItem value="green">Grön</SelectItem>
-                <SelectItem value="red-yellow">Röd + Gul</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        {/* Expandable Filter Card */}
+        <Card>
+          <CardHeader 
+            className="cursor-pointer hover:bg-muted/50 transition-colors p-3"
+            onClick={() => setFiltersExpanded(!filtersExpanded)}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                <CardTitle className="text-base">Filter</CardTitle>
+                <Badge variant="secondary" className="text-xs">
+                  {filteredTransactions.length} / {allTransactions.length}
+                </Badge>
+              </div>
+              {filtersExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </div>
+          </CardHeader>
           
-          <div className="flex items-center space-x-2">
-            <Label htmlFor="accountFilter" className="text-sm">Konto:</Label>
-            <Select value={accountFilter} onValueChange={setAccountFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Alla</SelectItem>
-                {accountsFromAPI.map(account => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <Label htmlFor="monthFilter" className="text-sm">Månad:</Label>
-            <Select value={monthFilter} onValueChange={setMonthFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Visa alla</SelectItem>
-                <SelectItem value="current">Aktuell månad</SelectItem>
-                {/* Generate available months from historical data */}
-                {Object.keys(budgetState?.historicalData || {}).sort().reverse().map(monthKey => (
-                  <SelectItem key={monthKey} value={monthKey}>
-                    {new Date(monthKey + '-01').toLocaleDateString('sv-SE', { year: 'numeric', month: 'long' })}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <Label htmlFor="descriptionFilter" className="text-sm">Beskrivning:</Label>
-            <Input
-              id="descriptionFilter"
-              value={tempDescriptionFilter}
-              onChange={(e) => setTempDescriptionFilter(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  setDescriptionFilter(tempDescriptionFilter);
-                }
-              }}
-              placeholder="Sök i beskrivning..."
-              className="w-32"
-            />
-            <Button
-              size="sm"
-              onClick={() => setDescriptionFilter(tempDescriptionFilter)}
-              variant="secondary"
-              className="text-xs"
-            >
-              Filtrera
-            </Button>
-            {descriptionFilter && (
-              <Button
-                size="sm"
-                onClick={() => {
-                  setDescriptionFilter('');
-                  setTempDescriptionFilter('');
-                }}
-                variant="outline"
-                className="text-xs"
-              >
-                Ta bort filter
-              </Button>
-            )}
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="hideGreen"
-              checked={hideGreenTransactions}
-              onCheckedChange={(checked) => setHideGreenTransactions(checked === true)}
-            />
-            <Label htmlFor="hideGreen" className="text-sm">Dölj godkända transaktioner</Label>
-          </div>
-          
-          <div className="text-xs sm:text-sm text-muted-foreground">
-            Visar {filteredTransactions.length} av {allTransactions.length} transaktioner
-          </div>
-          
-          <div className="flex flex-col sm:flex-row sm:ml-auto gap-2">
-            <Button
-              onClick={handleApproveSelected}
-              disabled={selectedTransactions.length === 0}
-              size="sm"
-              variant="default"
-              className="text-xs sm:text-sm"
-            >
-              <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-              Godkänn valda ({selectedTransactions.length})
-            </Button>
-            <Button
-              onClick={handleUnapproveSelected}
-              disabled={selectedTransactions.length === 0}
-              size="sm"
-              variant="secondary"
-              className="text-xs sm:text-sm"
-            >
-              <XCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-              Ta bort godkännande ({selectedTransactions.length})
-            </Button>
-            <Button
-              onClick={() => setSelectedTransactions([])}
-              disabled={selectedTransactions.length === 0}
-              size="sm"
-              variant="outline"
-              className="text-xs sm:text-sm"
-            >
-              Rensa urval
-            </Button>
-            <Button
-              onClick={() => {
-                console.log(`🔍 [APPLY RULES] Button clicked - postgresqlRules: ${postgresqlRules.length}, filteredTransactions: ${filteredTransactions.length}`);
-                console.log(`🔍 [APPLY RULES] PostgreSQL rules:`, postgresqlRules);
-                console.log(`🔍 [APPLY RULES] PostgreSQL rules loading:`, rulesLoading);
-                if (rulesError) {
-                  console.log(`🔍 [APPLY RULES] PostgreSQL rules error:`, rulesError);
-                }
-                applyRulesToFilteredTransactions();
-              }}
-              disabled={postgresqlRules.length === 0 || filteredTransactions.length === 0}
-              size="sm"
-              variant="secondary"
-              className="text-xs sm:text-sm"
-            >
-              <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-              Applicera regler på filtrerade transaktioner ({postgresqlRules.length} regler)
-            </Button>
-          </div>
-        </div>
+          <Collapsible open={filtersExpanded}>
+            <CollapsibleContent>
+              <CardContent className="space-y-4 p-3 pt-0">
+                {/* First row: Konto, Transaktionstyp, Månad, Visa bara status */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="flex items-center space-x-2">
+                    <Label className="text-sm whitespace-nowrap">Konto:</Label>
+                    <Select value={accountFilter} onValueChange={setAccountFilter}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Alla</SelectItem>
+                        {accountsFromAPI.map(account => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Label className="text-sm whitespace-nowrap">Transaktionstyp:</Label>
+                    <Select value={transactionTypeFilter} onValueChange={setTransactionTypeFilter}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Alla</SelectItem>
+                        {uniqueTransactionTypes.map(type => (
+                          <SelectItem key={type} value={type}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Label className="text-sm whitespace-nowrap">Månad:</Label>
+                    <Select value={monthFilter} onValueChange={setMonthFilter}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Visa alla</SelectItem>
+                        <SelectItem value="current">Aktuell månad</SelectItem>
+                        {Object.keys(budgetState?.historicalData || {}).sort().reverse().map(monthKey => (
+                          <SelectItem key={monthKey} value={monthKey}>
+                            {new Date(monthKey + '-01').toLocaleDateString('sv-SE', { year: 'numeric', month: 'long' })}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Label className="text-sm whitespace-nowrap">Visa bara status:</Label>
+                    <Select value={statusFilter} onValueChange={(value: 'all' | 'red' | 'yellow' | 'green' | 'red-yellow') => setStatusFilter(value)}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Alla</SelectItem>
+                        <SelectItem value="red">Röd</SelectItem>
+                        <SelectItem value="yellow">Gul</SelectItem>
+                        <SelectItem value="green">Grön</SelectItem>
+                        <SelectItem value="red-yellow">Röd + Gul</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Second row: Bankkategori, Bankunderkategori, Huvudkategori (App), Underkategori (App) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="flex items-center space-x-2">
+                    <Label className="text-sm whitespace-nowrap">Bankkategori:</Label>
+                    <Select value={bankCategoryFilter} onValueChange={setBankCategoryFilter}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Alla</SelectItem>
+                        {uniqueBankCategories.map(category => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Label className="text-sm whitespace-nowrap">Bankunderkategori:</Label>
+                    <Select value={bankSubCategoryFilter} onValueChange={setBankSubCategoryFilter}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Alla</SelectItem>
+                        {uniqueBankSubCategories.map(subCategory => (
+                          <SelectItem key={subCategory} value={subCategory}>
+                            {subCategory}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Label className="text-sm whitespace-nowrap">Huvudkategori (App):</Label>
+                    <Select value={appCategoryFilter} onValueChange={setAppCategoryFilter}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Alla</SelectItem>
+                        {huvudkategorier.map(category => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Label className="text-sm whitespace-nowrap">Underkategori (App):</Label>
+                    <Select value={appSubCategoryFilter} onValueChange={setAppSubCategoryFilter}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Alla</SelectItem>
+                        {underkategorier.map(subCategory => (
+                          <SelectItem key={subCategory.id} value={subCategory.id}>
+                            {subCategory.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Third row: Beskrivning, Filtrera */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                  <div className="flex items-center space-x-2 sm:col-span-2">
+                    <Label className="text-sm whitespace-nowrap">Beskrivning:</Label>
+                    <Input
+                      value={tempDescriptionFilter}
+                      onChange={(e) => setTempDescriptionFilter(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          setDescriptionFilter(tempDescriptionFilter);
+                        }
+                      }}
+                      placeholder="Sök i beskrivning..."
+                      className="h-8"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => setDescriptionFilter(tempDescriptionFilter)}
+                      variant="secondary"
+                      className="h-8"
+                    >
+                      Filtrera
+                    </Button>
+                    {descriptionFilter && (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setDescriptionFilter('');
+                          setTempDescriptionFilter('');
+                        }}
+                        variant="outline"
+                        className="h-8"
+                      >
+                        Rensa
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Fourth row: Statistics, Hide approved, Action buttons */}
+                <div className="flex flex-wrap items-center gap-3 pt-2 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    Visar {filteredTransactions.length} av {allTransactions.length} transaktioner
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="hideGreen"
+                      checked={hideGreenTransactions}
+                      onCheckedChange={(checked) => setHideGreenTransactions(checked === true)}
+                    />
+                    <Label htmlFor="hideGreen" className="text-sm">Dölj godkända transaktioner</Label>
+                  </div>
+                  
+                  <div className="flex gap-2 ml-auto">
+                    <Button
+                      onClick={handleApproveSelected}
+                      disabled={selectedTransactions.length === 0}
+                      size="sm"
+                      variant="default"
+                      className="text-xs"
+                    >
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Godkänn valda ({selectedTransactions.length})
+                    </Button>
+                    <Button
+                      onClick={handleUnapproveSelected}
+                      disabled={selectedTransactions.length === 0}
+                      size="sm"
+                      variant="secondary"
+                      className="text-xs"
+                    >
+                      <XCircle className="w-3 h-3 mr-1" />
+                      Ta bort godkännande ({selectedTransactions.length})
+                    </Button>
+                    <Button
+                      onClick={() => setSelectedTransactions([])}
+                      disabled={selectedTransactions.length === 0}
+                      size="sm"
+                      variant="outline"
+                      className="text-xs"
+                    >
+                      Rensa urval
+                    </Button>
+                  </div>
+                  
+                  <div className="w-full">
+                    <Button
+                      onClick={() => {
+                        console.log(`🔍 [APPLY RULES] Button clicked - postgresqlRules: ${postgresqlRules.length}, filteredTransactions: ${filteredTransactions.length}`);
+                        console.log(`🔍 [APPLY RULES] PostgreSQL rules:`, postgresqlRules);
+                        console.log(`🔍 [APPLY RULES] PostgreSQL rules loading:`, rulesLoading);
+                        if (rulesError) {
+                          console.log(`🔍 [APPLY RULES] PostgreSQL rules error:`, rulesError);
+                        }
+                        applyRulesToFilteredTransactions();
+                      }}
+                      disabled={postgresqlRules.length === 0 || filteredTransactions.length === 0}
+                      size="sm"
+                      variant="default"
+                      className="w-full text-sm font-medium"
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Applicera regler på filtrerade transaktioner ({postgresqlRules.length} regler)
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
 
         <Tabs value={activeTransactionTab} onValueChange={(value) => setActiveTransactionTab(value as 'all' | 'account' | 'rules')}>
           <TabsList className="grid w-full grid-cols-3 text-xs sm:text-sm">
@@ -2746,6 +2668,8 @@ export const TransactionImportEnhanced: React.FC = () => {
                     setSelectedBankSubCategory(bankSubCategory);
                     setCategoryDialogOpen(true);
                   }}
+                  huvudkategorier={huvudkategorier}
+                  underkategorier={underkategorier}
                 />
               </CardContent>
             </Card>
@@ -3462,37 +3386,25 @@ export const TransactionImportEnhanced: React.FC = () => {
               bankSubCategory: selectedBankSubCategory
             });
 
-            // Save rule directly to PostgreSQL using new UUID-based system with all fields
-            const response = await fetch('/api/category-rules', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                ruleName: `${selectedBankCategory}${selectedBankSubCategory ? ` → ${selectedBankSubCategory}` : ''}`,
-                transactionName: selectedBankSubCategory || selectedBankCategory,
-                bankCategory: selectedBankCategory,
-                bankSubCategory: selectedBankSubCategory,
-                huvudkategoriId: huvudkategoriId,
-                underkategoriId: underkategoriId,
-                positiveTransactionType: positiveTransactionType || 'Transaction',
-                negativeTransactionType: negativeTransactionType || 'Transaction',
-                applicableAccountIds: JSON.stringify(applicableAccountIds || []),
-                priority: 100,
-                isActive: 'true',
-                userId: 'dev-user-123'
-              }),
+            // Save rule using TanStack Query mutation hook for automatic cache invalidation
+            const savedRule = await createCategoryRuleMutation.mutateAsync({
+              ruleName: `${selectedBankCategory}${selectedBankSubCategory ? ` → ${selectedBankSubCategory}` : ''}`,
+              transactionName: selectedBankSubCategory || selectedBankCategory,
+              bankCategory: selectedBankCategory,
+              bankSubCategory: selectedBankSubCategory,
+              transactionDirection: 'all', // Default to all transactions for bank category rules
+              huvudkategoriId: huvudkategoriId,
+              underkategoriId: underkategoriId,
+              positiveTransactionType: positiveTransactionType || 'Transaction',
+              negativeTransactionType: negativeTransactionType || 'Transaction',
+              applicableAccountIds: JSON.stringify(applicableAccountIds || []),
+              priority: 100,
+              isActive: 'true',
+              userId: 'dev-user-123'
             });
 
-            if (!response.ok) {
-              throw new Error(`Failed to create category rule: ${response.statusText}`);
-            }
-
-            const savedRule = await response.json();
             console.log('✅ [CATEGORY DIALOG] Rule saved to PostgreSQL:', savedRule);
             addMobileDebugLog(`✅ [CATEGORY DIALOG] Rule saved: ${savedRule.ruleName}`);
-            
-            triggerRefresh();
           } catch (error) {
             console.error('❌ [CATEGORY DIALOG] Failed to save rule:', error);
             addMobileDebugLog(`❌ [CATEGORY DIALOG] Failed to save rule: ${error}`);
