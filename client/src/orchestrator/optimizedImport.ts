@@ -137,69 +137,76 @@ export async function optimizedImportAndReconcileFile(
   console.log(`📊 [OPTIMIZED IMPORT] Stats: ${convertedNewTransactions.length} new, ${transactionsToRemove.length} replaced, ${otherAccountTransactions.length} from other accounts`);
   addMobileDebugLog(`✅ Final: ${finalTransactionList.length} total transactions`);
   
-  // 8. Sync new transactions to database (only the CSV transactions)
-  try {
-    console.log(`🔄 [OPTIMIZED IMPORT] Syncing ${convertedNewTransactions.length} new transactions to database...`);
-    
-    const transactionsToSync = convertedNewTransactions.map(tx => ({
-      id: tx.id,
-      accountId: tx.accountId,
-      date: tx.date,
-      amount: Math.round(tx.amount),
-      balanceAfter: Math.round(tx.balanceAfter || 0),
-      description: tx.description,
-      userDescription: tx.userDescription || '',
-      bankCategory: tx.bankCategory || '',
-      bankSubCategory: tx.bankSubCategory || '',
-      type: tx.type || 'Transaction',
-      status: tx.status || 'yellow',
-      linkedTransactionId: tx.linkedTransactionId || null,
-      correctedAmount: tx.correctedAmount ? Math.round(tx.correctedAmount) : null,
-      isManuallyChanged: tx.isManuallyChanged ? 'true' : 'false',
-      appCategoryId: tx.appCategoryId || null,
-      appSubCategoryId: tx.appSubCategoryId || null,
-      fileSource: 'optimized-import'
-    }));
-    
-    // Use the existing synchronize endpoint
-    const response = await fetch('/api/transactions/synchronize', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        transactions: transactionsToSync
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Database sync failed: ${response.status} ${response.statusText}`);
+  // 8. FIRST: Delete old transactions in date range for this account ONLY
+  console.log(`🗑️ [OPTIMIZED IMPORT] Deleting ${transactionsToRemove.length} old transactions for account ${accountName}...`);
+  
+  for (const txToDelete of transactionsToRemove) {
+    try {
+      const deleteResponse = await fetch(`/api/transactions/${txToDelete.id}`, {
+        method: 'DELETE'
+      });
+      
+      if (!deleteResponse.ok) {
+        console.warn(`⚠️ [OPTIMIZED IMPORT] Failed to delete transaction ${txToDelete.id}: ${deleteResponse.status}`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ [OPTIMIZED IMPORT] Error deleting transaction ${txToDelete.id}:`, error);
     }
-    
-    const result = await response.json();
-    console.log(`✅ [OPTIMIZED IMPORT] Database sync complete:`, result.stats);
-    addMobileDebugLog(`✅ DB sync: ${result.stats.created} created, ${result.stats.updated} updated`);
-    
-    return {
-      success: true, 
-      stats: {
-        created: convertedNewTransactions.length,
-        updated: 0, // This is new transactions, not updates
-        removed: transactionsToRemove.length
-      }
-    };
-    
-  } catch (error) {
-    console.error(`❌ [OPTIMIZED IMPORT] Database sync failed:`, error);
-    addMobileDebugLog(`❌ DB sync failed: ${error}`);
-    
-    return {
-      success: false, 
-      stats: {
-        created: 0,
-        updated: 0, 
-        removed: 0
-      }
-    };
   }
+  
+  // 9. SECOND: Create new transactions individually (SAFE APPROACH)
+  console.log(`🔄 [OPTIMIZED IMPORT] Creating ${convertedNewTransactions.length} new transactions individually...`);
+  
+  let createdCount = 0;
+  
+  for (const tx of convertedNewTransactions) {
+    try {
+      const createData = {
+        id: tx.id,
+        accountId: tx.accountId,
+        date: tx.date,
+        amount: Math.round(tx.amount),
+        balanceAfter: Math.round(tx.balanceAfter || 0),
+        description: tx.description,
+        userDescription: tx.userDescription || '',
+        bankCategory: tx.bankCategory || '',
+        bankSubCategory: tx.bankSubCategory || '',
+        type: tx.type || 'Transaction',
+        status: tx.status || 'yellow',
+        linkedTransactionId: tx.linkedTransactionId || null,
+        correctedAmount: tx.correctedAmount ? Math.round(tx.correctedAmount) : null,
+        isManuallyChanged: tx.isManuallyChanged ? 'true' : 'false',
+        appCategoryId: tx.appCategoryId || null,
+        appSubCategoryId: tx.appSubCategoryId || null
+      };
+      
+      const response = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(createData)
+      });
+      
+      if (response.ok) {
+        createdCount++;
+      } else {
+        console.warn(`⚠️ [OPTIMIZED IMPORT] Failed to create transaction ${tx.id}: ${response.status}`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ [OPTIMIZED IMPORT] Error creating transaction ${tx.id}:`, error);
+    }
+  }
+  
+  console.log(`✅ [OPTIMIZED IMPORT] Individual transaction creation complete: ${createdCount}/${convertedNewTransactions.length} successful`);
+  addMobileDebugLog(`✅ Created ${createdCount}/${convertedNewTransactions.length} transactions`);
+  
+  return {
+    success: true, 
+    stats: {
+      created: createdCount,
+      updated: 0,
+      removed: transactionsToRemove.length
+    }
+  };
 }
