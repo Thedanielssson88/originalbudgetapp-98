@@ -70,6 +70,7 @@ import { useBanks, useCreateBank, useBankCsvMappings } from '@/hooks/useBanks';
 import { formatOrenAsCurrency } from '@/utils/currencyUtils';
 import { ColumnMappingDialog } from './ColumnMappingDialog';
 import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping, linkAccountToBankTemplate, matchInternalTransfer } from '../orchestrator/budgetOrchestrator';
+import { optimizedImportAndReconcileFile } from '../orchestrator/optimizedImport';
 import { getCurrentState, setMainCategories, updateSelectedBudgetMonth } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
@@ -1124,7 +1125,6 @@ export const TransactionImportEnhanced: React.FC = () => {
         }));
         
         // Use OPTIMIZED IMPORT for better performance and targeted updates
-        const { optimizedImportAndReconcileFile } = await import('../orchestrator/optimizedImport');
         const budgetState = (window as any).budgetState || {};
         const existingTransactions = budgetState.allTransactions || [];
         
@@ -1157,7 +1157,6 @@ export const TransactionImportEnhanced: React.FC = () => {
         }));
         
         // Use OPTIMIZED IMPORT for fallback case too
-        const { optimizedImportAndReconcileFile } = await import('../orchestrator/optimizedImport');
         const budgetState = (window as any).budgetState || {};
         const existingTransactions = budgetState.allTransactions || [];
         

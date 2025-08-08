@@ -11,6 +11,7 @@ import { ImportedTransaction } from '@/types/transaction';
 import { Transaction } from '@/types/budget';
 import { determineTransactionStatus } from '@/services/calculationService';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
+import { parseCSVContent } from './budgetOrchestrator';
 
 /**
  * OPTIMIZED IMPORT FUNCTION
@@ -65,8 +66,6 @@ export async function optimizedImportAndReconcileFile(
   // 2. Use the EXISTING parseCSVContent function from budgetOrchestrator
   console.log(`🔍 [OPTIMIZED IMPORT] Using parseCSVContent from budgetOrchestrator for ${accountName}...`);
   
-  // Import the existing parseCSVContent function dynamically
-  const { parseCSVContent } = await import('./budgetOrchestrator');
   const newTransactions = parseCSVContent(csvContent, accountId, 'optimized-import');
   
   if (newTransactions.length === 0) {
