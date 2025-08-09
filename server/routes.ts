@@ -140,7 +140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error('Error restoring backup:', error);
-      res.status(500).json({ error: 'Failed to restore backup: ' + error.message });
+      res.status(500).json({ error: 'Failed to restore backup: ' + (error instanceof Error ? error.message : String(error)) });
     }
   });
 
@@ -671,7 +671,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('❌ [PATCH RULE] Error updating category rule:', error);
       console.error('❌ [PATCH RULE] Request body was:', req.body);
       console.error('❌ [PATCH RULE] Rule ID was:', req.params.id);
-      res.status(400).json({ error: 'Failed to update category rule', details: error.message });
+      res.status(400).json({ error: 'Failed to update category rule', details: error instanceof Error ? error.message : String(error) });
     }
   });
 

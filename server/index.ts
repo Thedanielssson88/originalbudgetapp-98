@@ -58,12 +58,21 @@ app.use((req, res, next) => {
   }
 
   // Use environment variable or default to 5000
-  const port = process.env.PORT || 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
+  const port = parseInt(process.env.PORT || '5000');
+  
+  // Handle port conflicts gracefully
+  server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
+  });
+  
+  server.on('error', (err: any) => {
+    if (err.code === 'EADDRINUSE') {
+      log(`Port ${port} is in use, trying ${port + 1}`);
+      server.listen(port + 1, "0.0.0.0", () => {
+        log(`serving on port ${port + 1}`);
+      });
+    } else {
+      throw err;
+    }
   });
 })();
