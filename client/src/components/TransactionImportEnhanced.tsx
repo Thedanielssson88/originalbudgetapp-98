@@ -372,7 +372,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [appSubCategoryFilter, setAppSubCategoryFilter] = useState<string>('all'); // App underkategori filter
   const [descriptionFilter, setDescriptionFilter] = useState<string>(''); // Description search text
   const [tempDescriptionFilter, setTempDescriptionFilter] = useState<string>(''); // Temporary input value
-  const [ruleFilter, setRuleFilter] = useState<'all' | 'yes'>('all'); // Rule filter: all transactions or only those with rules
+  const [ruleFilter, setRuleFilter] = useState<'all' | 'with-rules' | 'without-rules'>('all'); // Rule filter: all, with rules, or without rules
   const [filtersExpanded, setFiltersExpanded] = useState<boolean>(false); // Filter card expansion state
   const [currentPage, setCurrentPage] = useState(1);
   const transactionsPerPage = 50; // Show 50 transactions per page for better performance
@@ -2429,10 +2429,60 @@ export const TransactionImportEnhanced: React.FC = () => {
       );
     }
     
+    // Filter by rule existence
+    if (ruleFilter !== 'all') {
+      baseTransactions = baseTransactions.filter(t => {
+        const hasMatchingRule = categoryRules.some(rule => {
+          // Skip inactive rules
+          if (rule.isActive !== 'true') return false;
+          
+          // Check rule type and transaction name match
+          if (!rule.transactionName) return false;
+          
+          let matches = false;
+          
+          switch (rule.ruleType) {
+            case 'textStartsWith':
+              matches = t.description.toLowerCase().startsWith(rule.transactionName.toLowerCase());
+              break;
+            case 'textContains':
+              matches = t.description.toLowerCase().includes(rule.transactionName.toLowerCase());
+              break;
+            case 'exactText':
+              matches = t.description.toLowerCase() === rule.transactionName.toLowerCase();
+              break;
+            case 'categoryMatch':
+              // Match by bank category and subcategory
+              matches = (rule.bankCategory === t.bankCategory && rule.bankSubCategory === t.bankSubCategory);
+              break;
+            default:
+              matches = false;
+          }
+          
+          // Additional filters if rule matches basic criteria
+          if (matches) {
+            // Check transaction direction
+            if (rule.transactionDirection === 'positive' && t.amount <= 0) matches = false;
+            if (rule.transactionDirection === 'negative' && t.amount >= 0) matches = false;
+            
+            // Check applicable account IDs
+            if (rule.applicableAccountIds && rule.applicableAccountIds !== '[]') {
+              const accountIds = JSON.parse(rule.applicableAccountIds);
+              if (!accountIds.includes(t.accountId)) matches = false;
+            }
+          }
+          
+          return matches;
+        });
+        
+        return ruleFilter === 'with-rules' ? hasMatchingRule : !hasMatchingRule;
+      });
+    }
+    
     return hideGreenTransactions 
       ? baseTransactions.filter(t => t.status !== 'green')
       : baseTransactions;
-  }, [allTransactions, monthFilter, statusFilter, accountFilter, transactionTypeFilter, amountFilter, bankCategoryFilter, bankSubCategoryFilter, appCategoryFilter, appSubCategoryFilter, descriptionFilter, hideGreenTransactions, budgetState?.settings?.payday, budgetState.selectedMonthKey]);
+  }, [allTransactions, monthFilter, statusFilter, accountFilter, transactionTypeFilter, amountFilter, bankCategoryFilter, bankSubCategoryFilter, appCategoryFilter, appSubCategoryFilter, descriptionFilter, ruleFilter, categoryRules, hideGreenTransactions, budgetState?.settings?.payday, budgetState.selectedMonthKey]);
 
   // Helper functions to get unique values for filter dropdowns
   const uniqueTransactionTypes = useMemo(() => {
@@ -2568,13 +2618,14 @@ export const TransactionImportEnhanced: React.FC = () => {
                   
                   <div className="flex items-center space-x-2">
                     <Label className="text-sm whitespace-nowrap">Visa bara regler:</Label>
-                    <Select value={ruleFilter} onValueChange={(value: 'all' | 'yes') => setRuleFilter(value)}>
+                    <Select value={ruleFilter} onValueChange={(value: 'all' | 'with-rules' | 'without-rules') => setRuleFilter(value)}>
                       <SelectTrigger className="h-8">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Alla transaktioner</SelectItem>
-                        <SelectItem value="yes">Ja - Transaktioner med regler</SelectItem>
+                        <SelectItem value="with-rules">Transaktioner med regler</SelectItem>
+                        <SelectItem value="without-rules">Transaktioner utan regler</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
