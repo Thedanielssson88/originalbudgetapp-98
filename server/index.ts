@@ -60,22 +60,17 @@ app.use((req, res, next) => {
   // Use environment variable or default to 5000
   const port = parseInt(process.env.PORT || '5000');
   
-  // Find available port
-  function tryListen(portToTry: number) {
-    server.listen(portToTry, "0.0.0.0", () => {
-      log(`serving on port ${portToTry}`);
-    });
-    
-    server.on('error', (err: any) => {
-      if (err.code === 'EADDRINUSE') {
-        log(`Port ${portToTry} is in use, trying ${portToTry + 1}`);
-        server.removeAllListeners('error');
-        tryListen(portToTry + 1);
-      } else {
-        throw err;
-      }
-    });
-  }
+  server.listen(port, "0.0.0.0", () => {
+    log(`serving on port ${port}`);
+  });
   
-  tryListen(port);
+  server.on('error', (err: any) => {
+    if (err.code === 'EADDRINUSE') {
+      log(`Port ${port} is in use`);
+      process.exit(1);
+    } else {
+      console.error('Server error:', err);
+      process.exit(1);
+    }
+  });
 })();

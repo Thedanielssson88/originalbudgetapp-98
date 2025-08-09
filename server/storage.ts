@@ -557,6 +557,8 @@ export class MemStorage implements IStorage {
       transactionName: rule.transactionName ?? null,
       ruleType: rule.ruleType ?? null,
       autoApproval: rule.autoApproval ?? false,
+      bankCategory: rule.bankCategory ?? null,
+      bankSubCategory: rule.bankSubCategory ?? null,
     };
     console.log('🔍 [SERVER STORAGE] Created rule with final transactionDirection:', newRule.transactionDirection);
     this.categoryRules.set(id, newRule);
