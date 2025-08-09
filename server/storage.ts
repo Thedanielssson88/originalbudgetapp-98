@@ -34,7 +34,9 @@ import {
   type Inkomstkall,
   type InsertInkomstkall,
   type InkomstkallorMedlem,
-  type InsertInkomstkallorMedlem
+  type InsertInkomstkallorMedlem,
+  type UserSetting,
+  type InsertUserSetting
 } from "@shared/schema";
 
 // Add the missing types that aren't auto-generated yet
@@ -158,6 +160,14 @@ export interface IStorage {
   createPlannedTransfer(transfer: any): Promise<any>;
   updatePlannedTransfer(id: string, transfer: any): Promise<any>;
   deletePlannedTransfer(id: string): Promise<void>;
+
+  // User Settings CRUD
+  getUserSettings(userId: string): Promise<UserSetting[]>;
+  getUserSetting(userId: string, settingKey: string): Promise<UserSetting | undefined>;
+  createUserSetting(setting: InsertUserSetting): Promise<UserSetting>;
+  updateUserSetting(userId: string, settingKey: string, settingValue: string): Promise<UserSetting | undefined>;
+  upsertUserSetting(userId: string, settingKey: string, settingValue: string): Promise<UserSetting>;
+  deleteUserSetting(userId: string, settingKey: string): Promise<boolean>;
 
   // Bootstrap method to get all data at once
   bootstrap(userId: string): Promise<{
@@ -883,6 +893,43 @@ export class MemStorage implements IStorage {
   }
 
   async deleteBudgetPost(userId: string, id: string): Promise<boolean> {
+    return false;
+  }
+
+  // User Settings methods - stub implementations for development
+  async getUserSettings(userId: string): Promise<UserSetting[]> {
+    // Stub implementation - would use database in production
+    return [];
+  }
+
+  async getUserSetting(userId: string, settingKey: string): Promise<UserSetting | undefined> {
+    // Stub implementation - would use database in production
+    return undefined;
+  }
+
+  async createUserSetting(setting: InsertUserSetting): Promise<UserSetting> {
+    // Stub implementation - would use database in production
+    const userSetting: UserSetting = {
+      id: uuidv4(),
+      ...setting,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    return userSetting;
+  }
+
+  async updateUserSetting(userId: string, settingKey: string, settingValue: string): Promise<UserSetting | undefined> {
+    // Stub implementation - would use database in production
+    return undefined;
+  }
+
+  async upsertUserSetting(userId: string, settingKey: string, settingValue: string): Promise<UserSetting> {
+    // Stub implementation - would use database in production
+    return await this.createUserSetting({ userId, settingKey, settingValue });
+  }
+
+  async deleteUserSetting(userId: string, settingKey: string): Promise<boolean> {
+    // Stub implementation - would use database in production
     return false;
   }
 }

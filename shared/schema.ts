@@ -124,7 +124,7 @@ export const categoryRules = pgTable('category_rules', {
     id: uuid('id').defaultRandom().primaryKey(),
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     ruleName: text('rule_name').notNull(),
-    transactionName: text('transaction_name').notNull(),
+    transactionName: text('transaction_name'), // Nullable for optional rule types (treated as wildcard when null)
     ruleType: text('rule_type', { enum: ['textContains', 'textStartsWith', 'exactText', 'categoryMatch'] }), // Rule type for matching logic (nullable for existing rules)
     bankCategory: text('bank_category'), // Optional - only for exact bank category matching rules
     bankSubCategory: text('bank_sub_category'), // Optional - only for exact bank category matching rules
@@ -325,6 +325,25 @@ export const insertPlannedTransferSchema = createInsertSchema(plannedTransfers).
   createdAt: true,
 });
 
+// User settings table for storing application preferences
+export const userSettings = pgTable('user_settings', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  settingKey: text('setting_key').notNull(),
+  settingValue: text('setting_value').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  // Ensure unique setting keys per user
+  uniqueUserSettingKey: unique().on(table.userId, table.settingKey),
+}));
+
+export const insertUserSettingSchema = createInsertSchema(userSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Type exports
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -367,3 +386,6 @@ export type MonthlyAccountBalance = typeof monthlyAccountBalances.$inferSelect;
 
 export type InsertPlannedTransfer = z.infer<typeof insertPlannedTransferSchema>;
 export type PlannedTransfer = typeof plannedTransfers.$inferSelect;
+
+export type InsertUserSetting = z.infer<typeof insertUserSettingSchema>;
+export type UserSetting = typeof userSettings.$inferSelect;

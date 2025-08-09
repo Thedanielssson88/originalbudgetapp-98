@@ -16,7 +16,8 @@ import {
   insertBankCsvMappingSchema,
   insertPlannedTransferSchema,
   insertInkomstkallSchema,
-  insertInkomstkallorMedlemSchema
+  insertInkomstkallorMedlemSchema,
+  insertUserSettingSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1598,6 +1599,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting planned transfer:', error);
       res.status(400).json({ error: 'Failed to delete planned transfer' });
+    }
+  });
+
+  // User settings routes
+  app.get("/api/user-settings", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const settings = await storage.getUserSettings(userId);
+      res.json(settings);
+    } catch (error) {
+      console.error('Error fetching user settings:', error);
+      res.status(500).json({ error: 'Failed to fetch user settings' });
+    }
+  });
+
+  app.get("/api/user-settings/:settingKey", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const { settingKey } = req.params;
+      const setting = await storage.getUserSetting(userId, settingKey);
+      if (setting) {
+        res.json(setting);
+      } else {
+        res.status(404).json({ error: 'Setting not found' });
+      }
+    } catch (error) {
+      console.error('Error fetching user setting:', error);
+      res.status(500).json({ error: 'Failed to fetch user setting' });
+    }
+  });
+
+  app.post("/api/user-settings", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const validatedData = insertUserSettingSchema.parse({
+        ...req.body,
+        userId
+      });
+      const setting = await storage.createUserSetting(validatedData);
+      res.status(201).json(setting);
+    } catch (error) {
+      console.error('Error creating user setting:', error);
+      res.status(400).json({ error: 'Failed to create user setting' });
+    }
+  });
+
+  app.put("/api/user-settings/:settingKey", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const { settingKey } = req.params;
+      const { settingValue } = req.body;
+      
+      const setting = await storage.upsertUserSetting(userId, settingKey, settingValue);
+      res.json(setting);
+    } catch (error) {
+      console.error('Error updating user setting:', error);
+      res.status(400).json({ error: 'Failed to update user setting' });
+    }
+  });
+
+  app.delete("/api/user-settings/:settingKey", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const { settingKey } = req.params;
+      const deleted = await storage.deleteUserSetting(userId, settingKey);
+      if (deleted) {
+        res.status(204).send();
+      } else {
+        res.status(404).json({ error: 'Setting not found' });
+      }
+    } catch (error) {
+      console.error('Error deleting user setting:', error);
+      res.status(500).json({ error: 'Failed to delete user setting' });
     }
   });
 

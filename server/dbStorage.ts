@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, and, gte, lte } from "drizzle-orm";
+import { eq, and, gte, lte, like, sql, or } from "drizzle-orm";
 import {
   users,
   familyMembers,
@@ -17,6 +17,7 @@ import {
   plannedTransfers,
   inkomstkallor,
   inkomstkallorMedlem,
+  userSettings,
   type User,
   type InsertUser,
   type FamilyMember,
@@ -42,7 +43,9 @@ import {
   type Inkomstkall,
   type InsertInkomstkall,
   type InkomstkallorMedlem,
-  type InsertInkomstkallorMedlem
+  type InsertInkomstkallorMedlem,
+  type UserSetting,
+  type InsertUserSetting
 } from "@shared/schema";
 
 // Add the missing types that aren't auto-generated yet
@@ -783,6 +786,66 @@ export class DatabaseStorage implements IStorage {
           eq(monthlyAccountBalances.accountId, accountId)
         )
       )
+      .returning();
+    return result.length > 0;
+  }
+
+  // User settings methods
+  async getUserSettings(userId: string): Promise<UserSetting[]> {
+    return await db.select().from(userSettings).where(eq(userSettings.userId, userId));
+  }
+
+  async getUserSetting(userId: string, settingKey: string): Promise<UserSetting | undefined> {
+    const result = await db.select().from(userSettings)
+      .where(and(
+        eq(userSettings.userId, userId),
+        eq(userSettings.settingKey, settingKey)
+      ));
+    return result[0];
+  }
+
+  async createUserSetting(setting: InsertUserSetting): Promise<UserSetting> {
+    const result = await db.insert(userSettings).values({
+      ...setting,
+      updatedAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateUserSetting(userId: string, settingKey: string, settingValue: string): Promise<UserSetting | undefined> {
+    const result = await db.update(userSettings)
+      .set({
+        settingValue,
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(userSettings.userId, userId),
+        eq(userSettings.settingKey, settingKey)
+      ))
+      .returning();
+    return result[0];
+  }
+
+  async upsertUserSetting(userId: string, settingKey: string, settingValue: string): Promise<UserSetting> {
+    const existing = await this.getUserSetting(userId, settingKey);
+    
+    if (existing) {
+      return await this.updateUserSetting(userId, settingKey, settingValue) as UserSetting;
+    } else {
+      return await this.createUserSetting({
+        userId,
+        settingKey,
+        settingValue
+      });
+    }
+  }
+
+  async deleteUserSetting(userId: string, settingKey: string): Promise<boolean> {
+    const result = await db.delete(userSettings)
+      .where(and(
+        eq(userSettings.userId, userId),
+        eq(userSettings.settingKey, settingKey)
+      ))
       .returning();
     return result.length > 0;
   }

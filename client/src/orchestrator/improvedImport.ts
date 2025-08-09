@@ -357,6 +357,163 @@ export async function improvedImportAndReconcileFile(
   console.log(`✅ [IMPROVED IMPORT] Import complete! Final count: ${finalTransactions.length} transactions`);
   addMobileDebugLog(`✅ Import complete: ${stats.created} created, ${stats.updated} updated, ${stats.removed} removed`);
   
+  // 10. AUTOMATIC ACCOUNT BALANCE SETTING (same as original orchestrator)
+  
+  try {
+    const currentDate = new Date();
+    const payday = 25; // Use default payday
+    
+    // Only process transactions for the target account
+    const accountTransactions = finalTransactions.filter(tx => tx.accountId === accountId);
+    
+    // Group transactions by month
+    const transactionsByMonth = accountTransactions.reduce((acc, tx) => {
+      const date = new Date(tx.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (!acc[monthKey]) {
+        acc[monthKey] = [];
+      }
+      acc[monthKey].push(tx);
+      return acc;
+    }, {} as Record<string, typeof finalTransactions>);
+    
+    const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    
+    // Process each month
+    for (const [monthKey, transactions] of Object.entries(transactionsByMonth)) {
+      const [txYear, txMonth] = monthKey.split('-').map(Number);
+      const [currentYear, currentMonth] = currentMonthKey.split('-').map(Number);
+      const txDate = new Date(txYear, txMonth - 1, 1);
+      const currentMonthDate = new Date(currentYear, currentMonth - 1, 1);
+      
+      if (txDate > currentMonthDate) {
+        continue;
+      }
+      
+      // Check payday logic
+      const monthPaydayDate = new Date(txYear, txMonth - 2, payday);
+      if (currentDate < monthPaydayDate) {
+        continue;
+      }
+      
+      // Find last transaction before payday
+      const dayBeforePayday = payday - 1;
+      
+      const transactionsBeforePayday = transactions.filter((tx) => {
+        const date = new Date(tx.date);
+        return date.getDate() <= dayBeforePayday;
+      });
+      
+      if (transactionsBeforePayday.length === 0) {
+        continue;
+      }
+      
+      const lastTransactionBeforePayday = transactionsBeforePayday.sort((a, b) => 
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      )[0];
+      
+      if (lastTransactionBeforePayday?.balanceAfter !== undefined) {
+        // SWEDISH PAYDAY LOGIC: Transactions before 25th set balance for NEXT month
+        // Example: July transactions before July 25th set August balance
+        const [year, month] = monthKey.split('-').map(Number);
+        const nextMonth = month === 12 ? 1 : month + 1;
+        const nextYear = month === 12 ? year + 1 : year;
+        const targetMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+        
+        
+        // Create/update budget post
+        try {
+          
+          const existingResponse = await fetch(`/api/budget-posts?monthKey=${targetMonthKey}`);
+          
+          if (existingResponse.ok) {
+            const allPosts = await existingResponse.json();
+            const existingPosts = allPosts.filter((post: any) => 
+              post.type === 'Balance' && post.accountId === accountId
+            );
+            
+            
+            // Create budget post payload with auto-sync logic
+            const createBudgetPostPayload = async (basePayload: any) => {
+              try {
+                const settingsResponse = await fetch('/api/user-settings/autoUpdateBalance');
+                let autoUpdateEnabled = true;
+                
+                if (settingsResponse.ok) {
+                  const autoUpdateSetting = await settingsResponse.json();
+                  autoUpdateEnabled = autoUpdateSetting?.settingValue === 'true';
+                }
+                
+                const payload = { ...basePayload };
+                
+                if (autoUpdateEnabled && basePayload.accountBalance !== undefined) {
+                  payload.accountUserBalance = basePayload.accountBalance;
+                }
+                
+                return payload;
+              } catch (error) {
+                const payload = { ...basePayload };
+                if (basePayload.accountBalance !== undefined) {
+                  payload.accountUserBalance = basePayload.accountBalance;
+                }
+                return payload;
+              }
+            };
+            
+            if (existingPosts.length > 0) {
+              // Update existing
+              const existingPost = existingPosts[0];
+              
+              const baseUpdatePayload = {
+                accountBalance: lastTransactionBeforePayday.balanceAfter,
+                description: `Bank balance from CSV import (from ${monthKey} transactions, updated)`
+              };
+              
+              const updatePayload = await createBudgetPostPayload(baseUpdatePayload);
+              
+              const updateResponse = await fetch(`/api/budget-posts/${existingPost.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatePayload)
+              });
+              
+              // Silently handle the response
+            } else {
+              // Create new
+              
+              const baseCreatePayload = {
+                monthKey: targetMonthKey,
+                type: 'Balance',
+                accountId: accountId,
+                amount: 0,
+                accountBalance: lastTransactionBeforePayday.balanceAfter,
+                description: `Bank balance from CSV import (from ${monthKey} transactions)`,
+                huvudkategoriId: null,
+                underkategoriId: null
+              };
+              
+              const createPayload = await createBudgetPostPayload(baseCreatePayload);
+              
+              const createResponse = await fetch('/api/budget-posts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(createPayload)
+              });
+              
+              // Silently handle the response
+            }
+          }
+        } catch (error) {
+          // Silently handle errors
+        }
+      }
+    }
+    
+  } catch (error) {
+    // Silently handle errors
+  }
+  
   return {
     success: true,
     stats,

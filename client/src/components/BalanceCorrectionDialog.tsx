@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { X } from 'lucide-react';
 import { ImportedTransaction } from '@/types/transaction';
-import { updateAccountBalanceForMonth, getAccountNameById } from '@/orchestrator/budgetOrchestrator';
+import { getAccountNameById } from '@/orchestrator/budgetOrchestrator';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -202,14 +202,12 @@ export const BalanceCorrectionDialog: React.FC<BalanceCorrectionDialogProps> = (
 
     try {
       const accountName = getAccountNameById(monthData.accountId);
-      console.log(`🔄 [BALANCE CORRECTION] Updating balance for ${monthData.accountId} (${accountName}) in ${monthData.monthKey} to ${monthData.bankBalance}`);
-      
-      // Update the account balance for this specific month using the resolved account name
-      updateAccountBalanceForMonth(monthData.monthKey, accountName, monthData.bankBalance);
+      console.log(`🔄 [BALANCE CORRECTION] Legacy balance correction removed - use CSV/XLSX import instead`);
       
       toast({
-        title: "Saldo uppdaterat",
-        description: `Kontosaldo för ${getAccountNameById(monthData.accountId)} har uppdaterats till ${monthData.bankBalance.toLocaleString('sv-SE')} kr`,
+        title: "Balance update disabled",
+        description: `Legacy balance updates have been removed. Please use CSV/XLSX import to update account balances.`,
+        variant: "destructive"
       });
     } catch (error) {
       console.error('Error updating balance:', error);

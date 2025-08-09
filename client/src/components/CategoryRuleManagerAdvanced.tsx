@@ -1,13 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Trash2, Plus, Edit } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { 
+  Trash2, 
+  Plus, 
+  Edit, 
+  ChevronDown, 
+  ChevronUp,
+  Filter,
+  Settings,
+  Target,
+  Users,
+  Tag,
+  ToggleLeft,
+  ToggleRight,
+  Search,
+  SortDesc,
+  Eye,
+  EyeOff,
+  CheckCircle,
+  XCircle
+} from 'lucide-react';
 import { RuleCondition } from '@/types/budget';
 import { v4 as uuidv4 } from 'uuid';
 import { get, StorageKey } from '@/services/storageService';
@@ -15,6 +36,8 @@ import { useHuvudkategorier, useUnderkategorier, useCategoryNames } from '@/hook
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { CategoryRule } from '@shared/schema';
 import { BankCategorySelector } from './BankCategorySelector';
+import { CreateRuleDialog } from './CreateRuleDialog';
+import { useBudget } from '@/hooks/useBudget';
 
 interface CategoryRuleManagerAdvancedProps {
   rules: CategoryRule[];
@@ -33,6 +56,30 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
   const { data: huvudkategorier = [] } = useHuvudkategorier();
   const { data: allUnderkategorier = [] } = useUnderkategorier();
   const { getHuvudkategoriName, getUnderkategoriName, getCategoryPath } = useCategoryNames();
+  const { budgetState } = useBudget();
+  
+  // Extract available bank categories from transactions
+  const availableBankCategories = React.useMemo(() => {
+    const categories = new Set<string>();
+    const allTransactions = budgetState?.allTransactions || [];
+    allTransactions.forEach(tx => {
+      if (tx.bankCategory && tx.bankCategory.trim() && tx.bankCategory !== '-') {
+        categories.add(tx.bankCategory);
+      }
+    });
+    return Array.from(categories).sort();
+  }, [budgetState?.allTransactions]);
+  
+  const availableBankSubCategories = React.useMemo(() => {
+    const subcategories = new Set<string>();
+    const allTransactions = budgetState?.allTransactions || [];
+    allTransactions.forEach(tx => {
+      if (tx.bankSubCategory && tx.bankSubCategory.trim() && tx.bankSubCategory !== '-') {
+        subcategories.add(tx.bankSubCategory);
+      }
+    });
+    return Array.from(subcategories).sort();
+  }, [budgetState?.allTransactions]);
   
   // Helper function to get account name by ID
   const getAccountName = (accountId: string) => {
@@ -42,350 +89,357 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
   
   const queryClient = useQueryClient();
 
-  // Reset form function
-  const resetForm = () => {
-    setNewRule({
-      condition: { type: 'textContains', value: '' },
-      action: { 
-        appMainCategoryId: '', 
-        appSubCategoryId: '', 
-        positiveTransactionType: 'Transaction',
-        negativeTransactionType: 'Transaction',
-        applicableAccountIds: []
-      },
-      transactionDirection: 'all' as 'all' | 'positive' | 'negative',
-      priority: 100,
-      isActive: 'true',
-      bankhuvudkategori: 'Alla Bankkategorier',
-      bankunderkategori: 'Alla Bankunderkategorier'
-    });
-    setSelectedAccountIds([]);
-  };
-  
-  // Load PostgreSQL category rules
-  const { data: postgresqlRules = [], refetch: refetchRules } = useQuery({
+  // State for filters and UI
+  const [isCreateRuleDialogOpen, setIsCreateRuleDialogOpen] = useState(false);
+  const [expandedRules, setExpandedRules] = useState<Set<string>>(new Set());
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterAccount, setFilterAccount] = useState<string>('all');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [filterActive, setFilterActive] = useState<string>('all');
+  const [showInactive, setShowInactive] = useState(false);
+
+  // Fetch PostgreSQL rules
+  const { data: postgresqlRules = [], isLoading, error, refetch: refetchRules } = useQuery<CategoryRule[]>({
     queryKey: ['/api/category-rules'],
     queryFn: async () => {
       const response = await fetch('/api/category-rules');
-      if (!response.ok) throw new Error('Failed to fetch category rules');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch rules: ${response.status}`);
+      }
       return response.json();
     }
   });
 
-
-  // Delete rule mutation
+  // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (ruleId: string) => {
+      console.log(`🗑️ [DELETE RULE] Attempting to delete rule: ${ruleId}`);
       const response = await fetch(`/api/category-rules/${ruleId}`, {
         method: 'DELETE'
       });
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Failed to delete rule: ${response.status} ${errorText}`);
+        console.error(`❌ [DELETE RULE] Failed with status ${response.status}:`, errorText);
+        throw new Error(`Failed to delete rule: ${response.status} - ${errorText}`);
       }
-      // DELETE returns status 204 with no content, don't try to parse JSON
-      return { success: true };
+      console.log(`✅ [DELETE RULE] Successfully deleted rule: ${ruleId}`);
+      // Handle 204 No Content response - don't try to parse JSON
+      if (response.status === 204) {
+        return { success: true };
+      }
+      return response.json();
     },
     onSuccess: () => {
-      console.log('✅ [RULE MANAGER] Rule deleted successfully');
-      queryClient.invalidateQueries({ queryKey: ['/api/category-rules'] });
-      refetchRules();
-    },
-    onError: (error) => {
-      console.error('❌ [RULE MANAGER] Failed to delete rule:', error);
+      console.log(`🔄 [DELETE RULE] Refreshing rules list...`);
+      // Force refetch immediately 
+      queryClient.refetchQueries({ queryKey: ['/api/category-rules'] });
     }
   });
-  
-  const [isAddingRule, setIsAddingRule] = useState(false);
-  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
-  const [availableSubcategories, setAvailableSubcategories] = useState<string[]>([]);
-  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
-  const [editingRule, setEditingRule] = useState<CategoryRule | null>(null);
-  const [newRule, setNewRule] = useState<Partial<CategoryRule & { condition: RuleCondition; action: any }>>({
-    condition: { type: 'textContains', value: '' },
-    action: { 
-      appMainCategoryId: '', 
-      appSubCategoryId: '', 
-      positiveTransactionType: 'Transaction',
-      negativeTransactionType: 'Transaction',
-      applicableAccountIds: []
+
+  // Toggle rule active status
+  const toggleRuleMutation = useMutation({
+    mutationFn: async ({ ruleId, isActive }: { ruleId: string, isActive: boolean }) => {
+      const response = await fetch(`/api/category-rules/${ruleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: isActive ? 'true' : 'false' })
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to toggle rule: ${response.status}`);
+      }
+      return response.json();
     },
-    transactionDirection: 'all' as 'all' | 'positive' | 'negative',
-    priority: 100,
-    isActive: 'true',
-    bankhuvudkategori: 'Alla Bankkategorier',
-    bankunderkategori: 'Alla Bankunderkategorier'
+    onSuccess: () => {
+      queryClient.refetchQueries({ queryKey: ['/api/category-rules'] });
+    }
   });
 
-  // Update available subcategories when main category changes (UUID-based)
-  useEffect(() => {
-    if (newRule.action?.appMainCategoryId) {
-      const subcatsForCategory = allUnderkategorier.filter(
-        sub => sub.huvudkategoriId === newRule.action?.appMainCategoryId
-      );
-      setAvailableSubcategories(subcatsForCategory.map(sub => sub.id));
-      // Reset subcategory when main category changes
-      setNewRule(prev => ({
-        ...prev,
-        action: { ...prev.action!, appSubCategoryId: '' }
-      }));
-    } else {
-      setAvailableSubcategories([]);
+  // Toggle rule auto approval
+  const toggleAutoApprovalMutation = useMutation({
+    mutationFn: async ({ ruleId, autoApproval }: { ruleId: string, autoApproval: boolean }) => {
+      const response = await fetch(`/api/category-rules/${ruleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ autoApproval })
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to toggle auto approval: ${response.status}`);
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.refetchQueries({ queryKey: ['/api/category-rules'] });
     }
-  }, [newRule.action?.appMainCategoryId, allUnderkategorier]);
+  });
 
-  const handleAddRule = async () => {
-    // Validate required fields
-    const hasConditionValue = newRule.condition?.type === 'categoryMatch' ? 
-      !!(newRule.condition as any).bankCategory : 
-      !!(newRule.condition as any).value;
-    
-    const hasMainCategory = !!newRule.action?.appMainCategoryId;
-    const hasSubCategory = !!newRule.action?.appSubCategoryId;
-    
-    if (newRule.condition && newRule.action && hasConditionValue && hasMainCategory && hasSubCategory) {
+  const handleDeleteRule = async (ruleId: string) => {
+    if (confirm('Är du säker på att du vill ta bort denna regel?')) {
       try {
-        const rulePayload = {
-          ruleName: newRule.condition.type === 'categoryMatch' ? 
-            (newRule.condition as any).bankCategory : 
-            `${newRule.condition.type}: ${(newRule.condition as any).value}`,
-          transactionName: newRule.condition.type === 'categoryMatch' ? 
-            (newRule.condition as any).bankCategory : 
-            (newRule.condition as any).value,
-          ruleType: newRule.condition.type,
-          // Only include bankCategory/bankSubCategory for categoryMatch rules, not for text-based rules
-          ...(newRule.condition.type === 'categoryMatch' ? {
-            bankCategory: (newRule.condition as any).bankCategory,
-            bankSubCategory: (newRule.condition as any).bankSubCategory
-          } : {}),
-          transactionDirection: newRule.transactionDirection || 'all',
-          // NEW: Bank category filters
-          bankhuvudkategori: newRule.bankhuvudkategori === 'Alla Bankkategorier' ? null : newRule.bankhuvudkategori,
-          bankunderkategori: newRule.bankunderkategori === 'Alla Bankunderkategorier' ? null : newRule.bankunderkategori,
-          huvudkategoriId: newRule.action.appMainCategoryId,
-          underkategoriId: newRule.action.appSubCategoryId,
-          positiveTransactionType: newRule.action.positiveTransactionType || 'Transaction',
-          negativeTransactionType: newRule.action.negativeTransactionType || 'Transaction',
-          applicableAccountIds: JSON.stringify(newRule.action.applicableAccountIds || []),
-          priority: newRule.priority || 100,
-          isActive: 'true',
-          autoApproval: newRule.action.autoApproval || false,
-          userId: 'dev-user-123'
-        };
-
-        // Save rule directly to PostgreSQL with all fields
-        const response = await fetch('/api/category-rules', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(rulePayload),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to create category rule: ${response.statusText}`);
-        }
-
-        await response.json();
-        
-        // Reset form
-        resetForm();
-        setIsAddingRule(false);
-        
-        // Refresh the rules list
-        queryClient.invalidateQueries({ queryKey: ['/api/category-rules'] });
-        refetchRules();
-        
+        await deleteMutation.mutateAsync(ruleId);
       } catch (error) {
-        console.error('❌ [RULE MANAGER] Failed to save manual rule:', error);
+        console.error('❌ [RULE MANAGER] Failed to delete rule:', error);
       }
     }
   };
 
-  const handleDeleteRule = async (ruleId: string) => {
-    console.log('🗑️ [RULE MANAGER] Deleting rule:', ruleId);
+  const handleToggleRule = async (rule: CategoryRule) => {
     try {
-      await deleteMutation.mutateAsync(ruleId);
-      console.log('✅ [RULE MANAGER] Rule deleted successfully');
+      const newActiveStatus = !(rule.isActive === 'true' || rule.isActive === true);
+      await toggleRuleMutation.mutateAsync({ 
+        ruleId: rule.id, 
+        isActive: newActiveStatus 
+      });
     } catch (error) {
-      console.error('❌ [RULE MANAGER] Failed to delete rule:', error);
+      console.error('❌ [RULE MANAGER] Failed to toggle rule:', error);
     }
   };
 
-  const handleEditRule = (rule: CategoryRule) => {
-    setEditingRuleId(rule.id);
-    setEditingRule({ ...rule });
-    // Set available subcategories for the rule being edited (UUID-based)
-    if (rule.action.appMainCategoryId) {
-      const subcatsForCategory = allUnderkategorier.filter(
-        sub => sub.huvudkategoriId === rule.action.appMainCategoryId
-      );
-      setAvailableSubcategories(subcatsForCategory.map(sub => sub.id));
+  const handleToggleAutoApproval = async (rule: CategoryRule) => {
+    try {
+      const newAutoApprovalStatus = !rule.autoApproval;
+      await toggleAutoApprovalMutation.mutateAsync({ 
+        ruleId: rule.id, 
+        autoApproval: newAutoApprovalStatus 
+      });
+    } catch (error) {
+      console.error('❌ [RULE MANAGER] Failed to toggle auto approval:', error);
     }
   };
 
-  const handleSaveEdit = () => {
-    if (!editingRule) return;
+  const toggleRuleExpansion = (ruleId: string) => {
+    setExpandedRules(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(ruleId)) {
+        newSet.delete(ruleId);
+      } else {
+        newSet.add(ruleId);
+      }
+      return newSet;
+    });
+  };
+
+  // Filter and sort rules
+  const filteredAndSortedRules = useMemo(() => {
+    let filtered = postgresqlRules.filter(rule => {
+      // Search filter
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch = 
+          rule.ruleName?.toLowerCase().includes(searchLower) ||
+          rule.transactionName?.toLowerCase().includes(searchLower) ||
+          getHuvudkategoriName(rule.huvudkategoriId)?.toLowerCase().includes(searchLower) ||
+          getUnderkategoriName(rule.underkategoriId)?.toLowerCase().includes(searchLower);
+        if (!matchesSearch) return false;
+      }
+
+      // Active filter
+      if (filterActive !== 'all') {
+        const isActive = rule.isActive === 'true' || rule.isActive === true;
+        if (filterActive === 'active' && !isActive) return false;
+        if (filterActive === 'inactive' && isActive) return false;
+      }
+
+      // Account filter
+      if (filterAccount !== 'all') {
+        try {
+          const applicableAccounts = rule.applicableAccountIds ? JSON.parse(rule.applicableAccountIds) : [];
+          if (applicableAccounts.length > 0 && !applicableAccounts.includes(filterAccount)) {
+            return false;
+          }
+        } catch (e) {
+          // If parsing fails, assume it applies to all accounts
+        }
+      }
+
+      // Category filter
+      if (filterCategory !== 'all') {
+        if (rule.huvudkategoriId !== filterCategory) return false;
+      }
+
+      return true;
+    });
+
+    // Sort by priority (lower number = higher priority)
+    filtered.sort((a, b) => {
+      const priorityA = a.priority || 100;
+      const priorityB = b.priority || 100;
+      return priorityA - priorityB;
+    });
+
+    return filtered;
+  }, [postgresqlRules, searchTerm, filterActive, filterAccount, filterCategory, getHuvudkategoriName, getUnderkategoriName]);
+
+  // Helper function to format rule title
+  const formatRuleTitle = (rule: CategoryRule) => {
+    const huvudkategori = getHuvudkategoriName(rule.huvudkategoriId) || 'Okänd kategori';
+    const underkategori = getUnderkategoriName(rule.underkategoriId) || 'Okänd underkategori';
+
+    // Check if both text condition (villkor) and bank categories are present
+    const hasTextCondition = rule.ruleType && rule.transactionName && rule.transactionName !== '*';
+    const hasBankCategories = rule.bankhuvudkategori && rule.bankhuvudkategori !== 'Alla Bankkategorier';
+
+    if (hasTextCondition && hasBankCategories) {
+      // Both villkor and bank categories present
+      const typeMap = {
+        'textContains': 'Innehåller',
+        'textStartsWith': 'Börjar med', 
+        'exactText': 'Exakt text',
+        'categoryMatch': 'Bankkategori'
+      };
+      const typeLabel = typeMap[rule.ruleType as keyof typeof typeMap] || rule.ruleType;
+      const bankCategoryPart = rule.bankunderkategori && rule.bankunderkategori !== 'Alla Bankunderkategorier' 
+        ? `${rule.bankhuvudkategori} / ${rule.bankunderkategori}`
+        : rule.bankhuvudkategori;
+      
+      return `${typeLabel} • "${rule.transactionName}" ${bankCategoryPart} → ${huvudkategori} / ${underkategori}`;
+    } else if (hasBankCategories) {
+      // Only bank categories
+      const bankCategoryPart = rule.bankunderkategori && rule.bankunderkategori !== 'Alla Bankunderkategorier'
+        ? `${rule.bankhuvudkategori} / ${rule.bankunderkategori}`
+        : rule.bankhuvudkategori;
+      return `${bankCategoryPart} → ${huvudkategori} / ${underkategori}`;
+    } else if (hasTextCondition) {
+      // Only text condition
+      const typeMap = {
+        'textContains': 'Innehåller',
+        'textStartsWith': 'Börjar med', 
+        'exactText': 'Exakt text',
+        'categoryMatch': 'Bankkategori'
+      };
+      const typeLabel = typeMap[rule.ruleType as keyof typeof typeMap] || rule.ruleType;
+      return `${typeLabel} • "${rule.transactionName}" → ${huvudkategori} / ${underkategori}`;
+    }
     
-    const updatedRules = rules.map(rule => 
-      rule.id === editingRuleId ? editingRule : rule
+    return `${rule.ruleName || 'Namnlös regel'} → ${huvudkategori} / ${underkategori}`;
+  };
+
+  // Helper function to format rule subtitle
+  const formatRuleSubtitle = (rule: CategoryRule) => {
+    const parts = [];
+    if (rule.positiveTransactionType && rule.positiveTransactionType !== 'Transaction') {
+      parts.push(`Pos: ${rule.positiveTransactionType}`);
+    }
+    if (rule.negativeTransactionType && rule.negativeTransactionType !== 'Transaction') {
+      parts.push(`Neg: ${rule.negativeTransactionType}`);
+    }
+    return parts.length > 0 ? parts.join(' • ') : 'Standard transaktionstyper';
+  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Regelmotor för Kategorisering</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground">
+            Laddar regler...
+          </div>
+        </CardContent>
+      </Card>
     );
-    onRulesChange(updatedRules);
-    setEditingRuleId(null);
-    setEditingRule(null);
-  };
+  }
 
-  const handleCancelEdit = () => {
-    setEditingRuleId(null);
-    setEditingRule(null);
-  };
-
-  const handleToggleRule = (ruleId: string) => {
-    onRulesChange(rules.map(rule => 
-      rule.id === ruleId ? { ...rule, isActive: !rule.isActive } : rule
-    ));
-  };
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Regelmotor för Kategorisering</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert>
+            <AlertDescription>
+              Kunde inte ladda regler. Försök igen senare.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
+    <>
     <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Regelmotor för Kategorisering</CardTitle>
-        <CardDescription className="text-sm">
-          Skapa regler för automatisk kategorisering av transaktioner.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Add Rule Button */}
-        <div className="flex justify-between items-center">
-          <h3 className="text-sm font-medium">Aktiva regler</h3>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={async () => {
-              try {
-                console.log('🔄 [MIGRATION] Starting migration of existing rules...');
-                
-                // Get current rules
-                const currentRules = postgresqlRules;
-                let updatedCount = 0;
-                
-                // Update rules that don't have transactionDirection set (but only process a few at a time to avoid spam)
-                const rulesToUpdate = currentRules.filter(rule => 
-                  !rule.transactionDirection || rule.transactionDirection === null || rule.transactionDirection === undefined
-                ).slice(0, 5); // Limit to 5 rules at a time
-                
-                for (const rule of rulesToUpdate) {
-                  console.log(`🔄 [MIGRATION] Updating rule ${rule.id} to add transactionDirection: 'all'`);
-                  
-                  // Update the rule via PATCH API
-                  const response = await fetch(`/api/category-rules/${rule.id}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ transactionDirection: 'all' })
-                  });
-                  
-                  if (response.ok) {
-                    updatedCount++;
-                    console.log(`✅ [MIGRATION] Updated rule ${rule.id}`);
-                  } else {
-                    console.error(`❌ [MIGRATION] Failed to update rule ${rule.id}:`, response.statusText);
-                  }
-                }
-                
-                console.log(`✅ [MIGRATION] Migration complete. Updated ${updatedCount} rules`);
-                await refetchRules();
-                alert(`Migration completed successfully! Updated ${updatedCount} rules.`);
-              } catch (error) {
-                console.error('❌ [MIGRATION] Failed:', error);
-                alert('Migration failed. Check console for details.');
-              }
-            }}>
-              Fix Old Rules
-            </Button>
-            <Button size="sm" onClick={() => setIsAddingRule(true)} disabled={isAddingRule}>
-              <Plus className="h-3 w-3 mr-1" />
-              Ny regel
-            </Button>
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-xl font-bold">Regelmotor för Kategorisering</CardTitle>
+            <CardDescription className="mt-1">
+              Hantera automatiska kategoriseringsregler för transaktioner
+            </CardDescription>
           </div>
+          <Button onClick={() => setIsCreateRuleDialogOpen(true)} className="shrink-0">
+            <Plus className="h-4 w-4 mr-2" />
+            Ny regel
+          </Button>
         </div>
+      </CardHeader>
 
-        {/* Add Rule Form - Mobile Optimized */}
-        {isAddingRule && (
-          <Card className="p-3 space-y-3 border-dashed">
-            <div className="space-y-3">
+      <CardContent className="space-y-6">
+        {/* Filters Section */}
+        <Card className="border-blue-200 bg-blue-50/30">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Filter className="h-5 w-5 text-blue-600" />
+              <CardTitle className="text-lg">Filter & Sök</CardTitle>
+              <Badge variant="secondary" className="ml-auto">
+                {filteredAndSortedRules.length} av {postgresqlRules.length} regler
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Sök efter regelnamn, villkor, kategorier..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Filter Row */}
+            <div className="grid gap-3 md:grid-cols-4">
               <div>
-                <Label className="text-xs">Regeltyp</Label>
-                <Select
-                  value={newRule.condition?.type || 'textContains'}
-                  onValueChange={(value) => setNewRule({
-                    ...newRule,
-                    condition: { type: value as any, value: '' }
-                  })}
-                >
-                  <SelectTrigger className="h-8">
+                <Label className="text-sm font-medium">Status</Label>
+                <Select value={filterActive} onValueChange={setFilterActive}>
+                  <SelectTrigger className="mt-1">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="textContains">Text innehåller</SelectItem>
-                    <SelectItem value="textStartsWith">Text börjar med</SelectItem>
-                    <SelectItem value="exactText">Exakt text</SelectItem>
-                    <SelectItem value="categoryMatch">Bankens kategori</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label className="text-xs">Villkor</Label>
-                <Input
-                  placeholder={
-                    newRule.condition?.type === 'textContains' ? 'Text som ska sökas efter (eller * för alla)' :
-                    newRule.condition?.type === 'textStartsWith' ? 'Text som transaktionen börjar med (eller * för alla)' :
-                    newRule.condition?.type === 'exactText' ? 'Exakt text som ska matchas (eller * för alla)' :
-                    'Bankens kategorinamn (eller * för alla)'
-                  }
-                  value={(newRule.condition as any)?.value || ''}
-                  onChange={(e) => setNewRule({
-                    ...newRule,
-                    condition: { ...newRule.condition!, value: e.target.value } as RuleCondition
-                  })}
-                  className="h-8"
-                />
-                <div className="text-xs text-muted-foreground mt-1">
-                  Använd * som wildcard för att matcha alla transaktioner
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-xs">Transaktion</Label>
-                <Select
-                  value={newRule.transactionDirection || 'all'}
-                  onValueChange={(value: 'all' | 'positive' | 'negative') => setNewRule({
-                    ...newRule,
-                    transactionDirection: value
-                  })}
-                >
-                  <SelectTrigger className="h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alla transaktioner</SelectItem>
-                    <SelectItem value="positive">Positiva transaktioner</SelectItem>
-                    <SelectItem value="negative">Negativa transaktioner</SelectItem>
+                    <SelectItem value="all">Alla regler</SelectItem>
+                    <SelectItem value="active">Endast aktiva</SelectItem>
+                    <SelectItem value="inactive">Endast inaktiva</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label className="text-xs">Huvudkategori</Label>
-                <Select
-                  value={newRule.action?.appMainCategoryId || ''}
-                  onValueChange={(value) => setNewRule({
-                    ...newRule,
-                    action: { ...newRule.action!, appMainCategoryId: value, appSubCategoryId: '' }
-                  })}
-                >
-                  <SelectTrigger className="h-8">
-                    <SelectValue placeholder="Välj huvudkategori" />
+                <Label className="text-sm font-medium">Konto</Label>
+                <Select value={filterAccount} onValueChange={setFilterAccount}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all">Alla konton</SelectItem>
+                    {accounts.map(account => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Huvudkategori</Label>
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alla kategorier</SelectItem>
                     {huvudkategorier.map(category => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.name}
@@ -395,317 +449,327 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                 </Select>
               </div>
 
-              <div>
-                <Label className="text-xs">Underkategori</Label>
-                <Select
-                  value={newRule.action?.appSubCategoryId || ''}
-                  onValueChange={(value) => setNewRule({
-                    ...newRule,
-                    action: { ...newRule.action!, appSubCategoryId: value }
-                  })}
-                  disabled={!newRule.action?.appMainCategoryId}
+              <div className="flex items-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setFilterAccount('all');
+                    setFilterCategory('all');
+                    setFilterActive('all');
+                  }}
+                  className="w-full"
                 >
-                  <SelectTrigger className="h-8">
-                    <SelectValue placeholder="Välj underkategori" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableSubcategories.map(subcategoryId => {
-                      const subcat = allUnderkategorier.find(s => s.id === subcategoryId);
-                      return (
-                        <SelectItem key={subcategoryId} value={subcategoryId}>
-                          {subcat?.name || subcategoryId}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
+                  Rensa filter
+                </Button>
               </div>
+            </div>
+          </CardContent>
+        </Card>
 
-              {/* Bank Category Selector */}
-              <div className="border-t pt-3">
-                <Label className="text-xs font-semibold mb-2 block">Bankens kategorier (filter)</Label>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Regeln gäller endast för transaktioner som matchar de valda bankkategorierna.
-                </p>
-                <BankCategorySelector
-                  selectedBankCategory={newRule.bankhuvudkategori || 'Alla Bankkategorier'}
-                  selectedBankSubCategory={newRule.bankunderkategori || 'Alla Bankunderkategorier'}
-                  onBankCategoryChange={(category) => setNewRule({
-                    ...newRule,
-                    bankhuvudkategori: category,
-                    bankunderkategori: 'Alla Bankunderkategorier' // Reset subcategory when main category changes
-                  })}
-                  onBankSubCategoryChange={(subcategory) => setNewRule({
-                    ...newRule,
-                    bankunderkategori: subcategory
-                  })}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs">Prioritet</Label>
-                  <Input
-                    type="number"
-                    value={newRule.priority || 100}
-                    onChange={(e) => setNewRule({
-                      ...newRule,
-                      priority: parseInt(e.target.value) || 100
-                    })}
-                    className="h-8"
-                  />
+        {/* Rules List */}
+        <div className="space-y-3">
+          {filteredAndSortedRules.length === 0 ? (
+            <Card className="text-center py-12">
+              <CardContent>
+                <div className="text-muted-foreground mb-4">
+                  {searchTerm || filterAccount !== 'all' || filterCategory !== 'all' || filterActive !== 'all' 
+                    ? 'Inga regler matchar dina filter'
+                    : 'Inga regler skapade än'
+                  }
                 </div>
-                
-                <div>
-                  <Label className="text-xs">Pos. belopp typ</Label>
-                  <Select
-                    value={newRule.action?.positiveTransactionType || 'Transaction'}
-                    onValueChange={(value) => setNewRule({
-                      ...newRule,
-                      action: { ...newRule.action!, positiveTransactionType: value as any }
-                    })}
+                {(searchTerm || filterAccount !== 'all' || filterCategory !== 'all' || filterActive !== 'all') && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchTerm('');
+                      setFilterAccount('all');
+                      setFilterCategory('all');
+                      setFilterActive('all');
+                    }}
                   >
-                    <SelectTrigger className="h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Transaction">Transaktion</SelectItem>
-                      <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
-                      <SelectItem value="Savings">Sparande</SelectItem>
-                      <SelectItem value="CostCoverage">Täck en kostnad</SelectItem>
-                      <SelectItem value="Inkomst">Inkomst</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+                    Rensa alla filter
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            filteredAndSortedRules.map((rule, index) => {
+              const isExpanded = expandedRules.has(rule.id);
+              const isActive = rule.isActive === 'true' || rule.isActive === true;
+              const applicableAccounts = rule.applicableAccountIds ? 
+                (JSON.parse(rule.applicableAccountIds || '[]').length === 0 ? 
+                  ['Alla konton'] : 
+                  JSON.parse(rule.applicableAccountIds).map((id: string) => getAccountName(id))
+                ) : ['Alla konton'];
 
-              <div>
-                <Label className="text-xs">Neg. belopp typ</Label>
-                <Select
-                  value={newRule.action?.negativeTransactionType || 'Transaction'}
-                  onValueChange={(value) => setNewRule({
-                    ...newRule,
-                    action: { ...newRule.action!, negativeTransactionType: value as any }
-                  })}
-                >
-                  <SelectTrigger className="h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Transaction">Transaktion</SelectItem>
-                    <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
-                    <SelectItem value="ExpenseClaim">Utlägg</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {/* Account Selection */}
-              <div>
-                <Label className="text-xs">Konton som regeln gäller för</Label>
-                <div className="space-y-2 mt-2">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="all-accounts"
-                      checked={selectedAccountIds.length === 0}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedAccountIds([]);
-                          setNewRule({
-                            ...newRule,
-                            action: { ...newRule.action!, applicableAccountIds: [] }
-                          });
-                        }
-                      }}
-                      className="rounded"
-                    />
-                    <label htmlFor="all-accounts" className="text-xs text-muted-foreground">
-                      Alla konton
-                    </label>
-                  </div>
-                  
-                  {accounts.map(account => (
-                    <div key={account.id} className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id={`account-${account.id}`}
-                        checked={selectedAccountIds.includes(account.id)}
-                        onChange={(e) => {
-                          let updatedAccountIds;
-                          if (e.target.checked) {
-                            updatedAccountIds = [...selectedAccountIds, account.id];
-                          } else {
-                            updatedAccountIds = selectedAccountIds.filter(id => id !== account.id);
-                          }
-                          setSelectedAccountIds(updatedAccountIds);
-                          setNewRule({
-                            ...newRule,
-                            action: { ...newRule.action!, applicableAccountIds: updatedAccountIds }
-                          });
-                        }}
-                        className="rounded"
-                      />
-                      <label htmlFor={`account-${account.id}`} className="text-xs">
-                        {account.name}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Auto-approval Option */}
-              <div>
-                <Label className="text-xs">Godkänn automatiskt</Label>
-                <Select
-                  value={newRule.action?.autoApproval ? 'ja' : 'nej'}
-                  onValueChange={(value) => setNewRule({
-                    ...newRule,
-                    action: { ...newRule.action!, autoApproval: value === 'ja' }
-                  })}
-                >
-                  <SelectTrigger className="h-8 mt-2">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ja">Ja</SelectItem>
-                    <SelectItem value="nej">Nej</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex gap-2 pt-2">
-              <Button size="sm" onClick={handleAddRule} className="flex-1">
-                Skapa regel
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => { resetForm(); setIsAddingRule(false); }} className="flex-1">
-                Avbryt
-              </Button>
-            </div>
-          </Card>
-        )}
-
-        {/* Rules List - Mobile Optimized */}
-        {postgresqlRules.length > 0 ? (
-          <div className="space-y-2">
-            <div className="text-xs text-muted-foreground mb-2">
-              {postgresqlRules.length} regler laddade från databasen (PostgreSQL)
-            </div>
-            {postgresqlRules
-              .sort((a, b) => 100 - 100) // PostgreSQL rules don't have priority field yet
-              .map((rule) => (
-              <Card key={rule.id} className="p-3">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        {rule.priority || 100}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {rule.ruleName}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDeleteRule(rule.id)}
-                        className="h-6 w-6 p-0"
-                        disabled={deleteMutation.isPending}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <div className="text-xs">
-                      <span className="font-medium">Bankhuvudkategori:</span> 
-                      <span className="ml-1 bg-blue-100 px-2 py-0.5 rounded text-blue-800">
-                        {rule.bankhuvudkategori || 'Alla Bankkategorier'}
-                      </span>
-                    </div>
-                    <div className="text-xs">
-                      <span className="font-medium">Bankunderkategori:</span> 
-                      <span className="ml-1 bg-blue-100 px-2 py-0.5 rounded text-blue-800">
-                        {rule.bankunderkategori || 'Alla Bankunderkategorier'}
-                      </span>
-                    </div>
-                    <div className="text-xs">
-                      <span className="font-medium">Transaktion:</span> 
-                      <span className="ml-1 bg-purple-100 px-2 py-0.5 rounded text-purple-800">
-                        {rule.transactionDirection === 'all' ? 'Alla transaktioner' :
-                         rule.transactionDirection === 'positive' ? 'Positiva transaktioner' :
-                         rule.transactionDirection === 'negative' ? 'Negativa transaktioner' :
-                         'Alla transaktioner'}
-                      </span>
-                    </div>
-                    <div className="text-xs border-t pt-1 mt-2">
-                      <span className="font-medium">App Huvudkategori:</span> {getHuvudkategoriName(rule.huvudkategoriId || '')}
-                    </div>
-                    <div className="text-xs">
-                      <span className="font-medium">App Underkategori:</span> {getUnderkategoriName(rule.underkategoriId || '')}
-                    </div>
-                    
-                    {/* Transaction Types */}
-                    <div className="text-xs border-t pt-1 mt-2">
-                      <div className="font-medium mb-1">Transaktionstyp:</div>
-                      <div className="ml-2 space-y-0.5">
-                        <div>
-                          <span className="text-green-600">Vid positiv:</span> {rule.positiveTransactionType || 'Transaction'}
-                        </div>
-                        <div>
-                          <span className="text-red-600">Vid negativ:</span> {rule.negativeTransactionType || 'Transaction'}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Applicable Accounts */}
-                    <div className="text-xs border-t pt-1 mt-2">
-                      <div className="font-medium mb-1">Gäller för konton:</div>
-                      <div className="ml-2">
-                        {(() => {
-                          try {
-                            const accountIds = JSON.parse(rule.applicableAccountIds || '[]');
-                            if (accountIds.length === 0) {
-                              return <span className="text-muted-foreground">Alla konton</span>;
-                            }
-                            return accountIds.map((accountId: string) => (
-                              <div key={accountId} className="text-blue-600">
-                                {getAccountName(accountId)}
+              return (
+                <Card key={rule.id} className={`transition-all duration-200 ${
+                  isActive ? 'border-green-200 bg-green-50/30' : 'border-gray-200 bg-gray-50/30'
+                }`}>
+                  <Collapsible open={isExpanded} onOpenChange={() => toggleRuleExpansion(rule.id)}>
+                    <CollapsibleTrigger className="w-full">
+                      <CardHeader className="pb-3 hover:bg-gray-50/50 transition-colors">
+                        <div className="flex items-start justify-between w-full">
+                          <div className="flex-1 text-left">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant={isActive ? "default" : "secondary"} className="shrink-0">
+                                #{rule.priority || 100}
+                              </Badge>
+                              {!isActive && (
+                                <Badge variant="outline" className="shrink-0 text-orange-600 border-orange-200">
+                                  Inaktiv
+                                </Badge>
+                              )}
+                              <h3 className="font-medium text-sm leading-tight">
+                                {formatRuleTitle(rule)}
+                              </h3>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {formatRuleSubtitle(rule)}
+                            </p>
+                            {applicableAccounts[0] !== 'Alla konton' && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {applicableAccounts.slice(0, 3).map((accountName, i) => (
+                                  <Badge key={i} variant="outline" className="text-xs">
+                                    {accountName}
+                                  </Badge>
+                                ))}
+                                {applicableAccounts.length > 3 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{applicableAccounts.length - 3} till
+                                  </Badge>
+                                )}
                               </div>
-                            ));
-                          } catch {
-                            return <span className="text-muted-foreground">Alla konton</span>;
-                          }
-                        })()}
-                      </div>
-                    </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 ml-4 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleRule(rule);
+                              }}
+                              className="h-8 w-8 p-0"
+                              disabled={toggleRuleMutation.isPending}
+                              title={isActive ? "Inaktivera regel" : "Aktivera regel"}
+                            >
+                              {isActive ? (
+                                <ToggleRight className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <ToggleLeft className="h-4 w-4 text-gray-400" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleAutoApproval(rule);
+                              }}
+                              className="h-8 w-8 p-0"
+                              disabled={toggleAutoApprovalMutation.isPending}
+                              title={rule.autoApproval ? "Inaktivera automatiskt godkännande" : "Aktivera automatiskt godkännande"}
+                            >
+                              {rule.autoApproval ? (
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <XCircle className="h-4 w-4 text-red-500" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteRule(rule.id);
+                              }}
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                              disabled={deleteMutation.isPending}
+                              title="Ta bort regel"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </div>
+                        </div>
+                      </CardHeader>
+                    </CollapsibleTrigger>
 
-                    {/* Auto-approval Status */}
-                    <div className="text-xs border-t pt-1 mt-2">
-                      <div className="font-medium mb-1">Auto-godkännande:</div>
-                      <div className="ml-2">
-                        <span className={`px-2 py-0.5 rounded text-xs ${
-                          rule.autoApproval 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {rule.autoApproval ? 'Ja' : 'Nej'}
-                        </span>
-                      </div>
-                    </div>
+                    <CollapsibleContent>
+                      <CardContent className="pt-0 space-y-4">
+                        <Separator />
+                        
+                        {/* Section 1: Regeln gäller för */}
+                        <Card className="border-blue-200 bg-blue-50/30">
+                          <CardHeader className="pb-2">
+                            <div className="flex items-center gap-2">
+                              <Filter className="h-4 w-4 text-blue-600" />
+                              <CardTitle className="text-sm">Regeln gäller för</CardTitle>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            <div className="grid gap-3 md:grid-cols-2 text-sm">
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Regeltyp</Label>
+                                <p className="font-medium">
+                                  {rule.ruleType === 'textContains' && 'Text innehåller'}
+                                  {rule.ruleType === 'textStartsWith' && 'Text börjar med'}
+                                  {rule.ruleType === 'exactText' && 'Exakt text'}
+                                  {rule.ruleType === 'categoryMatch' && 'Bankens kategori'}
+                                </p>
+                              </div>
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Villkor</Label>
+                                <p className="font-medium break-words">
+                                  {rule.transactionName || 'Inget villkor'}
+                                </p>
+                              </div>
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Transaktionsriktning</Label>
+                                <p className="font-medium">
+                                  {rule.transactionDirection === 'all' && 'Alla transaktioner'}
+                                  {rule.transactionDirection === 'positive' && 'Endast inkomster (+)'}
+                                  {rule.transactionDirection === 'negative' && 'Endast utgifter (-)'}
+                                </p>
+                              </div>
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Bankkategorier</Label>
+                                <p className="font-medium">
+                                  {rule.bankhuvudkategori && rule.bankhuvudkategori !== 'Alla Bankkategorier'
+                                    ? `${rule.bankhuvudkategori}${rule.bankunderkategori && rule.bankunderkategori !== 'Alla Bankunderkategorier' ? ` / ${rule.bankunderkategori}` : ''}`
+                                    : 'Alla bankkategorier'}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Section 2: Konton */}
+                        <Card className="border-green-200 bg-green-50/30">
+                          <CardHeader className="pb-2">
+                            <div className="flex items-center gap-2">
+                              <Users className="h-4 w-4 text-green-600" />
+                              <CardTitle className="text-sm">Konton som regeln gäller för</CardTitle>
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="flex flex-wrap gap-1">
+                              {applicableAccounts.map((accountName, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">
+                                  {accountName}
+                                </Badge>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Section 3: Kategorisering & Åtgärder */}
+                        <Card className="border-purple-200 bg-purple-50/30">
+                          <CardHeader className="pb-2">
+                            <div className="flex items-center gap-2">
+                              <Target className="h-4 w-4 text-purple-600" />
+                              <CardTitle className="text-sm">Kategorisering & Åtgärder</CardTitle>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            <div className="grid gap-3 md:grid-cols-2 text-sm">
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Huvudkategori</Label>
+                                <p className="font-medium">
+                                  {getHuvudkategoriName(rule.huvudkategoriId) || 'Okänd kategori'}
+                                </p>
+                              </div>
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Underkategori</Label>
+                                <p className="font-medium">
+                                  {getUnderkategoriName(rule.underkategoriId) || 'Okänd underkategori'}
+                                </p>
+                              </div>
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Positiva belopp</Label>
+                                <p className="font-medium">
+                                  {rule.positiveTransactionType || 'Transaction'}
+                                </p>
+                              </div>
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Negativa belopp</Label>
+                                <p className="font-medium">
+                                  {rule.negativeTransactionType || 'Transaction'}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            <Separator />
+                            
+                            <div className="grid gap-3 md:grid-cols-2 text-sm">
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Prioritet</Label>
+                                <p className="font-medium">
+                                  {rule.priority || 100} <span className="text-xs text-muted-foreground">(lägre = högre prioritet)</span>
+                                </p>
+                              </div>
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Automatiskt godkännande</Label>
+                                <p className="font-medium">
+                                  {rule.autoApproval ? 'Ja' : 'Nej'}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </Card>
+              );
+            })
+          )}
+        </div>
+
+        {/* Statistics */}
+        {postgresqlRules.length > 0 && (
+          <Card className="bg-gray-50/30">
+            <CardContent className="pt-6">
+              <div className="grid gap-4 md:grid-cols-3 text-center">
+                <div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {postgresqlRules.filter(r => r.isActive === 'true' || r.isActive === true).length}
                   </div>
+                  <div className="text-sm text-muted-foreground">Aktiva regler</div>
                 </div>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-8 text-muted-foreground text-sm">
-            Inga regler skapade än
-          </div>
+                <div>
+                  <div className="text-2xl font-bold text-orange-600">
+                    {postgresqlRules.filter(r => r.isActive === 'false' || r.isActive === false).length}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Inaktiva regler</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {filteredAndSortedRules.length}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Visas just nu</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </CardContent>
     </Card>
+    
+    {/* Create Rule Dialog */}
+    <CreateRuleDialog
+      open={isCreateRuleDialogOpen}
+      onOpenChange={setIsCreateRuleDialogOpen}
+      accounts={accounts}
+      availableBankCategories={availableBankCategories}
+      availableBankSubCategories={availableBankSubCategories}
+    />
+    </>
   );
 };

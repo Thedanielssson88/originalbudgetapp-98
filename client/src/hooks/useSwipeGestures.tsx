@@ -4,12 +4,14 @@ interface UseSwipeGesturesProps {
   onSwipeLeft: () => void;
   onSwipeRight: () => void;
   threshold?: number;
+  enabled?: boolean;
 }
 
 export const useSwipeGestures = ({ 
   onSwipeLeft, 
   onSwipeRight, 
-  threshold = 50 
+  threshold = 50,
+  enabled = true 
 }: UseSwipeGesturesProps) => {
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
@@ -59,6 +61,9 @@ export const useSwipeGestures = ({
   };
 
   const handleSwipeGesture = () => {
+    // Early return if swipe gestures are disabled
+    if (!enabled) return;
+    
     const horizontalDistance = touchStartX.current - touchEndX.current;
     const verticalDistance = Math.abs(touchStartY.current - touchEndY.current);
     

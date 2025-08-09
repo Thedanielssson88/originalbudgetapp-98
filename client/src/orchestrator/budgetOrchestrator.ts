@@ -3,7 +3,6 @@
 import { state, initializeStateFromStorage, saveStateToStorage, getCurrentMonthData, updateCurrentMonthData } from '../state/budgetState';
 import { calculateFullPrognosis, calculateBudgetResults, calculateAccountProgression, calculateMonthlyBreakdowns, calculateProjectedBalances, applyCategorizationRules, determineTransactionStatus } from '../services/calculationService';
 import { BudgetGroup, MonthData, SavingsGoal, CsvMapping, PlannedTransfer, Transaction } from '../types/budget';
-import { updateAccountBalanceFromBankData } from '../utils/bankBalanceUtils';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 import { v4 as uuidv4 } from 'uuid';
 import { ImportedTransaction } from '../types/transaction';
@@ -12,6 +11,52 @@ import { simpleGoogleDriveService } from '../services/simpleGoogleDriveService';
 import { monthlyBudgetService } from '../services/monthlyBudgetService';
 import { apiStore } from '../store/apiStore';
 import { parseInputToOren, kronoraToOren } from '../utils/currencyUtils';
+
+/**
+ * Creates a budget post payload with automatic accountUserBalance sync
+ * If autoUpdateBalance setting is true, sets accountUserBalance = accountBalance
+ */
+async function createBudgetPostPayload(basePayload: any): Promise<any> {
+  try {
+    const settingsResponse = await fetch('/api/user-settings/autoUpdateBalance');
+    let autoUpdateEnabled = true; // Default to true when setting doesn't exist
+    
+    if (settingsResponse.ok) {
+      const autoUpdateSetting = await settingsResponse.json();
+      autoUpdateEnabled = autoUpdateSetting?.settingValue === 'true';
+      console.log(`[ORCHESTRATOR] 🔍 Found auto-update setting: ${autoUpdateEnabled}`);
+    } else if (settingsResponse.status === 404) {
+      console.log(`[ORCHESTRATOR] ⚪ Auto-update setting not found, defaulting to enabled`);
+    } else {
+      console.log(`[ORCHESTRATOR] ⚠️ Failed to fetch auto-update setting, defaulting to enabled`);
+    }
+    
+    // Create the payload
+    const payload = { ...basePayload };
+    
+    // If auto-update is enabled AND accountBalance is being set, also set accountUserBalance
+    if (autoUpdateEnabled && basePayload.accountBalance !== undefined) {
+      payload.accountUserBalance = basePayload.accountBalance;
+      console.log(`[ORCHESTRATOR] 🔄 Auto-update enabled: setting both accountBalance and accountUserBalance to ${basePayload.accountBalance / 100} kr`);
+      addMobileDebugLog(`🔄 Auto-update enabled: syncing user balance to ${(basePayload.accountBalance / 100).toFixed(2)} kr`);
+    } else if (!autoUpdateEnabled) {
+      console.log(`[ORCHESTRATOR] ⚪ Auto-update disabled: only setting accountBalance`);
+    }
+    
+    return payload;
+    
+  } catch (error) {
+    console.log(`[ORCHESTRATOR] ⚠️ Failed to check auto-update setting, defaulting to enabled:`, error);
+    // Default to enabled when there's an error
+    const payload = { ...basePayload };
+    if (basePayload.accountBalance !== undefined) {
+      payload.accountUserBalance = basePayload.accountBalance;
+      console.log(`[ORCHESTRATOR] 🔄 Auto-update enabled (fallback): setting both accountBalance and accountUserBalance to ${basePayload.accountBalance / 100} kr`);
+      addMobileDebugLog(`🔄 Auto-update enabled (fallback): syncing user balance to ${(basePayload.accountBalance / 100).toFixed(2)} kr`);
+    }
+    return payload;
+  }
+}
 
 /**
  * Matches bank categories to system categories based on exact name matching
@@ -645,7 +690,6 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
   // 8.5. NEW: Automatic Account Balance Setting Based on Last Transaction Before 25th (Payday)
   // OPTIMIZATION: Only process the specific account being imported, not all accounts
   console.log(`[ORCHESTRATOR] 💰 Setting account balances for account ${accountId} based on last transaction before payday (25th)...`);
-  addMobileDebugLog(`💰 Starting balance update process for account ${accountId} - analyzing CSV/XLSX transactions...`);
   
   try {
     const currentDate = new Date();
@@ -660,6 +704,7 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
     // OPTIMIZATION: Only process transactions for the target account
     const accountTransactions = finalTransactionList.filter(tx => tx.accountId === accountId);
     console.log(`[ORCHESTRATOR] 💰 Found ${accountTransactions.length} transactions for target account ${accountId}`);
+    addMobileDebugLog(`🔍 Balance Update Debug: Found ${accountTransactions.length} transactions for account ${accountId}`);
     
     // Group transactions by account and month (now only for target account)
     const transactionsByAccountMonth = accountTransactions.reduce((acc, tx) => {
@@ -675,6 +720,9 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
     }, {} as Record<string, typeof finalTransactionList>);
     
     const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    
+    console.log(`[ORCHESTRATOR] 💰 Transaction groups by month:`, Object.keys(transactionsByAccountMonth));
+    addMobileDebugLog(`🔍 Balance Update Debug: Found transaction groups for months: ${Object.keys(transactionsByAccountMonth).join(', ')}`);
     
     // For each account-month group, find last transaction before payday (day 24 and earlier)
     for (const [key, transactions] of Object.entries(transactionsByAccountMonth)) {
@@ -705,14 +753,20 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
       
       // Filter transactions that are on or before the day before payday (24th if payday is 25th)
       const dayBeforePayday = payday - 1;
+      console.log(`[ORCHESTRATOR] 🔍 Looking for transactions before day ${dayBeforePayday} in ${monthKey}`);
+      addMobileDebugLog(`🔍 Balance Debug: Checking ${monthKey} - looking for transactions before day ${dayBeforePayday}`);
+      
       const transactionsBeforePayday = (transactions as typeof finalTransactionList).filter((tx) => {
         const date = new Date(tx.date);
         return date.getDate() <= dayBeforePayday;
       });
       
+      console.log(`[ORCHESTRATOR] 🔍 Found ${transactionsBeforePayday.length} transactions before payday in ${monthKey}`);
+      addMobileDebugLog(`🔍 Balance Debug: Found ${transactionsBeforePayday.length} transactions before payday in ${monthKey}`);
+      
       if (transactionsBeforePayday.length === 0) {
         console.log(`[ORCHESTRATOR] ⚠️ No transactions found before payday for account ${accountId} in ${monthKey}`);
-        addMobileDebugLog(`⚠️ No transactions before day ${dayBeforePayday} in ${monthKey} for account ${accountId}`);
+        addMobileDebugLog(`⚠️ Balance Debug: No transactions before day ${dayBeforePayday} in ${monthKey} for account ${accountId} - SKIPPING`);
         continue;
       }
       
@@ -721,20 +775,15 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
         new Date(b.date).getTime() - new Date(a.date).getTime()
       )[0];
       
+      console.log(`[ORCHESTRATOR] 🔍 Last transaction before payday: ${lastTransactionBeforePayday.date} - ${lastTransactionBeforePayday.description} - Balance: ${lastTransactionBeforePayday?.balanceAfter}`);
+      addMobileDebugLog(`🔍 Balance Debug: Last transaction before payday: ${lastTransactionBeforePayday.date} - Balance: ${lastTransactionBeforePayday?.balanceAfter || 'NONE'}`);
+      
       if (lastTransactionBeforePayday?.balanceAfter !== undefined) {
         console.log(`[ORCHESTRATOR] 💰 Account ${accountId}: Found last transaction before payday in ${monthKey}: ${lastTransactionBeforePayday.balanceAfter / 100} kr (from ${lastTransactionBeforePayday.date})`);
         addMobileDebugLog(`💰 ${accountId} ${monthKey}: ${(lastTransactionBeforePayday.balanceAfter / 100).toFixed(2)} kr`);
         
-        // Calculate target month for budget_posts (next month after transaction month)
-        // Transaction in July (2025-07) should update August budget_posts (2025-08)
-        const [txYear, txMonth] = monthKey.split('-').map(Number);
-        let targetYear = txYear;
-        let targetMonth = txMonth + 1;
-        if (targetMonth > 12) {
-          targetMonth = 1;
-          targetYear++;
-        }
-        const targetMonthKey = `${targetYear}-${String(targetMonth).padStart(2, '0')}`;
+        // Set balance for the same month as transactions (not next month)
+        const targetMonthKey = monthKey;
         
         console.log(`[ORCHESTRATOR] 💰 Transaction month: ${monthKey}, Target budget month: ${targetMonthKey}`);
         addMobileDebugLog(`💰 Found balance ${(lastTransactionBeforePayday.balanceAfter / 100).toFixed(2)} kr from ${monthKey} → updating ${targetMonthKey}`);
@@ -743,6 +792,7 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
         // First check if a Balance type budget post already exists for this account and month
         try {
           console.log(`[ORCHESTRATOR] 🔍 Checking for existing balance post: monthKey=${targetMonthKey}, type=Balance, accountId=${accountId}`);
+          addMobileDebugLog(`🔍 Balance Debug: Checking for existing Balance post for ${targetMonthKey}`);
           
           // First, check if a budget post already exists (fetch all posts for month, then filter by type and accountId)
           const existingResponse = await fetch(`/api/budget-posts?monthKey=${targetMonthKey}`);
@@ -756,55 +806,80 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
             );
             
             console.log(`[ORCHESTRATOR] 🔍 Found ${allPosts.length} total posts, ${existingPosts.length} matching balance posts for account ${accountId}`);
+            addMobileDebugLog(`🔍 Balance Debug: Found ${allPosts.length} total posts, ${existingPosts.length} Balance posts for this account`);
             
             if (existingPosts.length > 0) {
               // Update existing budget post
               const existingPost = existingPosts[0];
               console.log(`[ORCHESTRATOR] 📝 Found existing balance post ${existingPost.id}, updating account_balance...`);
+              addMobileDebugLog(`📝 Balance Debug: UPDATING existing Balance post ${existingPost.id}`);
+              
+              // Create update payload with automatic accountUserBalance sync
+              const baseUpdatePayload = {
+                accountBalance: lastTransactionBeforePayday.balanceAfter,
+                description: `Bank balance from CSV import (from ${monthKey} transactions, updated)`
+              };
+              
+              console.log(`[ORCHESTRATOR] 🔍 Creating update payload with balance: ${lastTransactionBeforePayday.balanceAfter}`);
+              addMobileDebugLog(`🔍 Balance Debug: Creating update payload with balance: ${(lastTransactionBeforePayday.balanceAfter / 100).toFixed(2)} kr`);
+              
+              const updatePayload = await createBudgetPostPayload(baseUpdatePayload);
+              
+              console.log(`[ORCHESTRATOR] 🔍 Final update payload:`, updatePayload);
+              addMobileDebugLog(`🔍 Balance Debug: Final update payload - accountBalance: ${updatePayload.accountBalance ? (updatePayload.accountBalance / 100).toFixed(2) + ' kr' : 'NONE'}, accountUserBalance: ${updatePayload.accountUserBalance ? (updatePayload.accountUserBalance / 100).toFixed(2) + ' kr' : 'NONE'}`);
               
               const updateResponse = await fetch(`/api/budget-posts/${existingPost.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  accountBalance: lastTransactionBeforePayday.balanceAfter,
-                  description: `Bank balance from CSV import (from ${monthKey} transactions, updated)`
-                })
+                body: JSON.stringify(updatePayload)
               });
               
               if (updateResponse.ok) {
                 const result = await updateResponse.json();
                 console.log(`[ORCHESTRATOR] 💾 Updated existing budget_post account_balance for ${accountId} in ${targetMonthKey}: ${lastTransactionBeforePayday.balanceAfter / 100} kr`);
-                addMobileDebugLog(`💾 Updated ${accountId} bank balance for ${targetMonthKey}: ${(lastTransactionBeforePayday.balanceAfter / 100).toFixed(2)} kr`);
+                addMobileDebugLog(`💾 ✅ SUCCESS: Updated ${accountId} balance for ${targetMonthKey}: Bank=${(result.accountBalance / 100).toFixed(2)} kr, User=${result.accountUserBalance ? (result.accountUserBalance / 100).toFixed(2) + ' kr' : 'NONE'}`);
               } else {
                 console.log(`[ORCHESTRATOR] ❌ Failed to update existing budget_post:`, updateResponse.statusText);
-                addMobileDebugLog(`❌ Failed to update existing balance for ${targetMonthKey} account ${accountId}: ${updateResponse.statusText}`);
+                addMobileDebugLog(`❌ FAILED to update existing balance for ${targetMonthKey} account ${accountId}: ${updateResponse.statusText}`);
               }
             } else {
               // No existing post found, create new one
               console.log(`[ORCHESTRATOR] ➕ No existing balance post found, creating new one for ${accountId} in ${targetMonthKey}`);
+              addMobileDebugLog(`➕ Balance Debug: CREATING new Balance post for ${accountId} in ${targetMonthKey}`);
+              
+              // Create new budget post payload with automatic accountUserBalance sync
+              const baseCreatePayload = {
+                monthKey: targetMonthKey,
+                type: 'Balance',
+                accountId: accountId,
+                amount: 0, // Not used for Balance type
+                accountBalance: lastTransactionBeforePayday.balanceAfter, // Bank balance in öre
+                description: `Bank balance from CSV import (from ${monthKey} transactions)`,
+                huvudkategoriId: null,
+                underkategoriId: null
+              };
+              
+              console.log(`[ORCHESTRATOR] 🔍 Creating new post payload with balance: ${lastTransactionBeforePayday.balanceAfter}`);
+              addMobileDebugLog(`🔍 Balance Debug: Creating new post payload with balance: ${(lastTransactionBeforePayday.balanceAfter / 100).toFixed(2)} kr`);
+              
+              const createPayload = await createBudgetPostPayload(baseCreatePayload);
+              
+              console.log(`[ORCHESTRATOR] 🔍 Final create payload:`, createPayload);
+              addMobileDebugLog(`🔍 Balance Debug: Final create payload - accountBalance: ${createPayload.accountBalance ? (createPayload.accountBalance / 100).toFixed(2) + ' kr' : 'NONE'}, accountUserBalance: ${createPayload.accountUserBalance ? (createPayload.accountUserBalance / 100).toFixed(2) + ' kr' : 'NONE'}`);
               
               const createResponse = await fetch('/api/budget-posts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  monthKey: targetMonthKey,
-                  type: 'Balance',
-                  accountId: accountId,
-                  amount: 0, // Not used for Balance type
-                  accountBalance: lastTransactionBeforePayday.balanceAfter, // Bank balance in öre
-                  description: `Bank balance from CSV import (from ${monthKey} transactions)`,
-                  huvudkategoriId: null,
-                  underkategoriId: null
-                })
+                body: JSON.stringify(createPayload)
               });
               
               if (createResponse.ok) {
                 const result = await createResponse.json();
                 console.log(`[ORCHESTRATOR] 💾 Created new budget_post account_balance for ${accountId} in ${targetMonthKey}: ${lastTransactionBeforePayday.balanceAfter / 100} kr`);
-                addMobileDebugLog(`💾 Updated ${accountId} bank balance for ${targetMonthKey}: ${(lastTransactionBeforePayday.balanceAfter / 100).toFixed(2)} kr`);
+                addMobileDebugLog(`💾 ✅ SUCCESS: Created new Balance post for ${accountId} in ${targetMonthKey}: Bank=${(result.accountBalance / 100).toFixed(2)} kr, User=${result.accountUserBalance ? (result.accountUserBalance / 100).toFixed(2) + ' kr' : 'NONE'}`);
               } else {
                 console.log(`[ORCHESTRATOR] ❌ Failed to create budget_post:`, createResponse.statusText);
-                addMobileDebugLog(`❌ Failed to create balance entry for ${targetMonthKey} account ${accountId}: ${createResponse.statusText}`);
+                addMobileDebugLog(`❌ FAILED to create balance entry for ${targetMonthKey} account ${accountId}: ${createResponse.statusText}`);
               }
             }
           } else {
@@ -813,13 +888,16 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
           }
         } catch (error) {
           console.log(`[ORCHESTRATOR] ❌ Error saving account balance to budget_posts:`, error);
-          addMobileDebugLog(`❌ Network error updating balance for ${targetMonthKey} account ${accountId}: ${error instanceof Error ? error.message : String(error)}`);
+          addMobileDebugLog(`❌ Balance Debug: Network/API error for ${targetMonthKey} account ${accountId}: ${error instanceof Error ? error.message : String(error)}`);
         }
+      } else {
+        console.log(`[ORCHESTRATOR] ⚠️ No balanceAfter found for last transaction in ${monthKey}`);
+        addMobileDebugLog(`⚠️ Balance Debug: No balanceAfter value found for last transaction in ${monthKey} - SKIPPING balance update`);
       }
     }
     
     console.log(`[ORCHESTRATOR] ✅ Account balance setting complete for account ${accountId}`);
-    addMobileDebugLog(`✅ Balance update process complete for account ${accountId} - checked ${Object.keys(transactionsByAccountMonth).length} month(s)`);
+    addMobileDebugLog(`✅ Balance Debug: Process complete for account ${accountId} - checked ${Object.keys(transactionsByAccountMonth).length} month(s). If no balances were created/updated, check the debug logs above for reasons.`);
     
   } catch (error) {
     console.log(`[ORCHESTRATOR] ❌ Error setting account balances:`, error);
@@ -829,8 +907,6 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
   // 8.6. Automatic transfer matching for InternalTransfer transactions
   performAutomaticTransferMatching();
   
-  // 9. Update account balances from saldo data using the SAME working logic as BudgetCalculator
-  updateAccountBalancesUsingWorkingLogic(finalTransactionList, accountId);
 
   // 10. Save and refresh UI
   saveStateToStorage();
@@ -1347,63 +1423,6 @@ export function parseCSVContent(csvContent: string, accountId: string, fileName:
   return transactions;
 }
 
-// NEW: Function to update account balances using the SAME working logic as BudgetCalculator.tsx
-function updateAccountBalancesUsingWorkingLogic(allTransactions: ImportedTransaction[], accountId: string): void {
-  console.log(`[ORCHESTRATOR] 💰 Starting account balance updates using working logic for account ${accountId}`);
-  
-  // Get account name from account ID - TODO: Pass sqlAccounts parameter
-  const account = state.budgetState.accounts?.find(acc => acc.id === accountId);
-  if (!account) {
-    console.log(`[ORCHESTRATOR] ⚠️ Could not find account name for ID ${accountId}`);
-    console.log('⚠️ [ORCHESTRATOR] Using legacy budgetState.accounts lookup - should pass sqlAccounts parameter');
-    return;
-  }
-  console.log('⚠️ [ORCHESTRATOR] Using legacy budgetState.accounts lookup - should pass sqlAccounts parameter');
-  
-  console.log(`[ORCHESTRATOR] 💰 Found account: ${account.name} (${accountId})`);
-  
-  // Check if we have any transactions with balance data
-  const transactionsWithBalance = allTransactions.filter(tx => 
-    tx.accountId === accountId && 
-    tx.balanceAfter !== undefined && 
-    tx.balanceAfter !== null
-  );
-  
-  console.log(`[ORCHESTRATOR] 💰 Found ${transactionsWithBalance.length} transactions with balance data`);
-  
-  if (transactionsWithBalance.length === 0) {
-    console.log(`[ORCHESTRATOR] 💰 No transactions with balance data found, skipping balance updates`);
-    return;
-  }
-  
-  // Group transactions by month and attempt to update balances for relevant months
-  const monthsWithTransactions = new Set<string>();
-  transactionsWithBalance.forEach(tx => {
-    const monthKey = tx.date.substring(0, 7); // Extract "YYYY-MM"
-    monthsWithTransactions.add(monthKey);
-  });
-  
-  console.log(`[ORCHESTRATOR] 💰 Found transactions in months: ${Array.from(monthsWithTransactions).join(', ')}`);
-  
-  // For each month, try to update the NEXT month's balance using the working logic
-  monthsWithTransactions.forEach(monthKey => {
-    const [year, month] = monthKey.split('-').map(Number);
-    const nextMonth = month === 12 ? 1 : month + 1;
-    const nextYear = month === 12 ? year + 1 : year;
-    const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
-    
-    console.log(`[ORCHESTRATOR] 💰 Attempting to update balance for ${account.name} in ${nextMonthKey} using data from ${monthKey}`);
-    
-    // Use the working logic from bankBalanceUtils
-    const updateSuccess = updateAccountBalanceFromBankData(allTransactions, accountId, account.name, nextMonthKey);
-    
-    if (updateSuccess) {
-      console.log(`[ORCHESTRATOR] ✅ Successfully updated balance for ${account.name} in ${nextMonthKey}`);
-    } else {
-      console.log(`[ORCHESTRATOR] ℹ️ No balance update needed for ${account.name} in ${nextMonthKey}`);
-    }
-  });
-}
 
 // Helper functions moved from TransactionImportEnhanced
 function parseSwedishDate(dateString: string): string | null {
@@ -1978,45 +1997,6 @@ export function setAccountBalancesSet(value: {[key: string]: boolean}): void {
   updateAndRecalculate({ accountBalancesSet: value });
 }
 
-export function updateAccountBalance(accountName: string, balance: number): void {
-  const currentMonthData = getCurrentMonthData();
-  const newBalances = { ...currentMonthData.accountBalances, [accountName]: balance };
-  const newBalancesSet = { ...currentMonthData.accountBalancesSet, [accountName]: true };
-  
-  // Update current month accountBalances and accountBalancesSet
-  updateAndRecalculate({ 
-    accountBalances: newBalances,
-    accountBalancesSet: newBalancesSet
-  });
-
-  // No need to update previous month's accountEndBalances anymore
-  // as they are now calculated from next month's accountBalances
-  console.log(`✅ Updated account balance for ${accountName}: ${balance} (accountEndBalances now calculated dynamically)`);
-}
-
-export function updateAccountBalanceForMonth(monthKey: string, accountName: string, balance: number): void {
-  // Ensure the month exists - CRITICAL FIX: Use preservation logic
-  if (!state.budgetState.historicalData[monthKey]) {
-    state.budgetState.historicalData[monthKey] = createEmptyMonthDataWithTransactionPreservation(monthKey);
-  }
-  
-  const monthData = state.budgetState.historicalData[monthKey];
-  const newBalances = { ...monthData.accountBalances, [accountName]: balance };
-  const newBalancesSet = { ...monthData.accountBalancesSet, [accountName]: true };
-  
-  // Update the specific month's account balances
-  state.budgetState.historicalData[monthKey] = {
-    ...monthData,
-    accountBalances: newBalances,
-    accountBalancesSet: newBalancesSet
-  };
-  
-  saveStateToStorage();
-  runCalculationsAndUpdateState();
-  triggerUIRefresh();
-  
-  console.log(`✅ Updated account balance for ${accountName} in ${monthKey}: ${balance}`);
-}
 
 export function unsetAccountBalance(accountName: string): void {
   const currentMonthData = getCurrentMonthData();

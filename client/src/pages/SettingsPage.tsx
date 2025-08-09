@@ -20,7 +20,71 @@ import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { getCurrentState, updateSelectedBudgetMonth } from "@/orchestrator/budgetOrchestrator";
 import { apiStore } from "@/store/apiStore";
 import { simpleGoogleDriveService } from "@/services/simpleGoogleDriveService";
+import { useBooleanSetting, useUpdateUserSetting } from "@/hooks/useUserSettings";
 import { Calendar, User, Shield, Database, Settings, DollarSign, FolderOpen, ChevronLeft, ChevronRight, Cloud, CloudOff } from "lucide-react";
+
+// Mobile Scrolling Settings Component
+const MobileScrollingSettings = () => {
+  const mobileScrollEnabled = useBooleanSetting('mobileScrollEnabled', true);
+  const updateSetting = useUpdateUserSetting();
+
+  const handleToggle = (enabled: boolean) => {
+    updateSetting.mutate({
+      settingKey: 'mobileScrollEnabled',
+      settingValue: enabled.toString()
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <Label className="text-base font-medium">Side-scrollning på mobile</Label>
+          <p className="text-sm text-muted-foreground">
+            Aktivera eller inaktivera swipe-gester för sidnavigering på mobila enheter
+          </p>
+        </div>
+        <Switch
+          checked={mobileScrollEnabled}
+          onCheckedChange={handleToggle}
+          disabled={updateSetting.isPending}
+        />
+      </div>
+    </div>
+  );
+};
+
+// Auto Update Balance Settings Component
+const AutoUpdateBalanceSettings = () => {
+  const autoUpdateEnabled = useBooleanSetting('autoUpdateBalance', true);
+  const updateSetting = useUpdateUserSetting();
+
+  const handleToggle = (enabled: boolean) => {
+    updateSetting.mutate({
+      settingKey: 'autoUpdateBalance',
+      settingValue: enabled.toString()
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <Label className="text-base font-medium">Uppdatera Faktiskt banksaldo automatiskt</Label>
+          <p className="text-sm text-muted-foreground">
+            Uppdaterar automatiskt "Faktiskt banksaldo" när CSV/XLSX-filer importeras, 
+            om "Bankens saldo" redan finns
+          </p>
+        </div>
+        <Switch
+          checked={autoUpdateEnabled}
+          onCheckedChange={handleToggle}
+          disabled={updateSetting.isPending}
+        />
+      </div>
+    </div>
+  );
+};
 
 const SettingsPage = () => {
   const { budgetState } = useBudget();
@@ -865,17 +929,25 @@ Kontrollera att filen är en giltig JSON-fil som exporterats från denna app.`);
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Settings className="h-5 w-5" />
-                  Avancerade Månadsalternativ
+                  Avancerade Inställningar
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <Alert>
-                  <AlertDescription>
-                    Avancerade månadsalternativ inkluderar automatisk månadsgenerering, 
-                    kopiering av budgetdata mellan månader, och hantering av historisk data.
-                    Dessa funktioner är tillgängliga i huvudbudgetvyn.
-                  </AlertDescription>
-                </Alert>
+              <CardContent className="space-y-6">
+                <MobileScrollingSettings />
+                <AutoUpdateBalanceSettings />
+                
+                <Separator />
+                
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold">Månadsalternativ</h3>
+                  <Alert>
+                    <AlertDescription>
+                      Avancerade månadsalternativ inkluderar automatisk månadsgenerering, 
+                      kopiering av budgetdata mellan månader, och hantering av historisk data.
+                      Dessa funktioner är tillgängliga i huvudbudgetvyn.
+                    </AlertDescription>
+                  </Alert>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

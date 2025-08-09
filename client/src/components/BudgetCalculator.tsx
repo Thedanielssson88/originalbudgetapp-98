@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { findBankBalanceForMonth } from '@/utils/bankBalanceUtils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -23,6 +22,7 @@ import { formatOrenAsCurrency, kronoraToOren, orenToKronor } from '@/utils/curre
 import { CostItemEditDialog } from './CostItemEditDialog';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useSwipeGestures } from '@/hooks/useSwipeGestures';
+import { useBooleanSetting } from '@/hooks/useUserSettings';
 import { AccountDataTable, AccountDataRow } from '@/components/AccountDataTable';
 import { MonthlyAccountBalances } from '@/components/MonthlyAccountBalances';
 import CreateMonthDialog from './CreateMonthDialog';
@@ -46,7 +46,7 @@ import {
   calculateTotalBudgetedSavings,
   calculateBalanceLeft
 } from '../services/calculationService';
-import { updateAccountBalanceForMonth, getAccountNameById } from '../orchestrator/budgetOrchestrator';
+import { getAccountNameById } from '../orchestrator/budgetOrchestrator';
 import { useToast } from '@/hooks/use-toast';
 import { useMonthlyBudget } from '@/hooks/useMonthlyBudget';
 import { useFamilyMembers } from '@/hooks/useFamilyMembers';
@@ -60,7 +60,6 @@ import {
   deleteSavingsGoal,
   updateCostGroups,
   updateSavingsGroups,
-  updateAccountBalance,
   unsetAccountBalance,
   forceRecalculation,
   addSavingsItem,
@@ -380,11 +379,15 @@ const BudgetCalculator = () => {
     }
   };
 
+  // Get mobile scrolling setting
+  const mobileScrollEnabled = useBooleanSetting('mobileScrollEnabled', true);
+  
   // Initialize swipe gestures
   useSwipeGestures({
     onSwipeLeft: goToNextTab,
     onSwipeRight: goToPreviousTab,
-    threshold: 50
+    threshold: 50,
+    enabled: mobileScrollEnabled
   });
   
   // Tab and expandable sections state
@@ -3037,9 +3040,8 @@ const BudgetCalculator = () => {
       console.error(`❌ Could not find account ${account} or selectedMonthKey missing`);
     }
     
-    // Keep existing localStorage logic for backward compatibility during transition
-    updateAccountBalance(account, balance);
-    addDebugLog(`✅ updateAccountBalance completed for ${account}`);
+    // Legacy balance update removed - only CSV/XLSX imports update balances
+    addDebugLog(`⚪ Legacy updateAccountBalance removed for ${account}`);
     
     // Reset MonthFinalBalances flag when manual values are changed
     const currentDate = new Date();
@@ -4212,21 +4214,49 @@ const BudgetCalculator = () => {
 
     console.log(`🔍 [BANK BALANCE] Finding bank balance for account ${accountName} (${accountId}) in month ${monthKey}`);
     
-    // Use the extracted utility function that contains the exact same working logic
-    return findBankBalanceForMonth(allTransactions, accountId, accountName, monthKey);
+    // Find transactions for this account in this month
+    const accountTransactions = allTransactions.filter(tx => tx.accountId === accountId);
+    
+    if (accountTransactions.length === 0) {
+      console.log(`🔍 [BANK BALANCE] No transactions found for account ${accountId} in month ${monthKey}`);
+      return null;
+    }
+    
+    // Parse month key to get year and month
+    const [year, month] = monthKey.split('-').map(Number);
+    const payday = 25;
+    
+    // Filter transactions for this month and before the payday (25th)
+    const monthTransactions = accountTransactions.filter(tx => {
+      const txDate = new Date(tx.date);
+      return txDate.getFullYear() === year && 
+             txDate.getMonth() === month - 1 && // month is 1-indexed in monthKey, 0-indexed in Date
+             txDate.getDate() <= payday - 1; // before payday (24th and earlier)
+    });
+    
+    if (monthTransactions.length === 0) {
+      console.log(`🔍 [BANK BALANCE] No transactions found before payday (${payday}) in ${monthKey}`);
+      return null;
+    }
+    
+    // Find the last transaction before payday
+    const lastTransaction = monthTransactions.sort((a, b) => 
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+    )[0];
+    
+    console.log(`🔍 [BANK BALANCE] Found balance ${lastTransaction.balanceAfter} from last transaction on ${lastTransaction.date}`);
+    return lastTransaction.balanceAfter;
   };
 
   // Function to handle bank balance correction
   const handleBankBalanceCorrection = async (accountName: string, bankBalance: number) => {
     try {
-      console.log(`🔄 [BANK BALANCE] Correcting balance for ${accountName} in ${selectedMonthKey} to ${bankBalance}`);
-      
-      // Update the account balance for the selected month
-      updateAccountBalanceForMonth(selectedMonthKey, accountName, bankBalance);
+      console.log(`🔄 [BANK BALANCE] Legacy balance correction removed - use CSV/XLSX import instead`);
       
       toast({
-        title: "Saldo uppdaterat",
-        description: `Kontosaldo för ${accountName} har uppdaterats till ${bankBalance.toLocaleString('sv-SE')} kr`,
+        title: "Balance update disabled",
+        description: `Legacy balance updates have been removed. Please use CSV/XLSX import to update account balances.`,
+        variant: "destructive"
       });
     } catch (error) {
       console.error('Error updating balance:', error);

@@ -61,6 +61,7 @@ import { BalanceCorrectionDialog } from './BalanceCorrectionDialog';
 import { CategoryRuleManagerAdvanced } from './CategoryRuleManagerAdvanced';
 import { UncategorizedBankCategories } from './UncategorizedBankCategories';
 import { CategorySelectionDialog } from './CategorySelectionDialog';
+import { CreateRuleDialog } from './CreateRuleDialog';
 import { useBudget } from '@/hooks/useBudget';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
@@ -379,6 +380,10 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [selectedBankCategory, setSelectedBankCategory] = useState('');
   const [selectedBankSubCategory, setSelectedBankSubCategory] = useState<string | undefined>(undefined);
+  
+  // State for CreateRuleDialog (for bank categories)
+  const [createRuleDialogOpen, setCreateRuleDialogOpen] = useState(false);
+  const [bankCategoryTransaction, setBankCategoryTransaction] = useState<ImportedTransaction | undefined>(undefined);
   const [transferMatchDialog, setTransferMatchDialog] = useState<{
     isOpen: boolean;
     transaction?: ImportedTransaction;
@@ -628,6 +633,27 @@ export const TransactionImportEnhanced: React.FC = () => {
     
   
   const allTransactions: ImportedTransaction[] = transactions;
+  
+  // Extract available bank categories from transactions for CreateRuleDialog
+  const availableBankCategories = React.useMemo(() => {
+    const categories = new Set<string>();
+    allTransactions.forEach(tx => {
+      if (tx.bankCategory && tx.bankCategory.trim() && tx.bankCategory !== '-') {
+        categories.add(tx.bankCategory);
+      }
+    });
+    return Array.from(categories).sort();
+  }, [allTransactions]);
+  
+  const availableBankSubCategories = React.useMemo(() => {
+    const subcategories = new Set<string>();
+    allTransactions.forEach(tx => {
+      if (tx.bankSubCategory && tx.bankSubCategory.trim() && tx.bankSubCategory !== '-') {
+        subcategories.add(tx.bankSubCategory);
+      }
+    });
+    return Array.from(subcategories).sort();
+  }, [allTransactions]);
   
   // Create a ref to store the current transactions for import operations
   const allTransactionsRef = useRef<ImportedTransaction[]>(allTransactions);
@@ -1613,8 +1639,8 @@ export const TransactionImportEnhanced: React.FC = () => {
   };
 
 
-  // Bulk approve transactions
-  const handleApproveSelected = () => {
+  // Bulk approve transactions - OPTIMISTIC UI UPDATE
+  const handleApproveSelected = async () => {
     if (selectedTransactions.length === 0) {
       toast({
         title: "Ingen transaktion vald",
@@ -1624,29 +1650,68 @@ export const TransactionImportEnhanced: React.FC = () => {
       return;
     }
 
-    selectedTransactions.forEach(transactionId => {
-      const transaction = allTransactions.find(t => t.id === transactionId);
-      if (transaction && transaction.status !== 'green') {
-        console.log(`🔄 [BULK APPROVE] Approving transaction ${transactionId} via handleTransactionUpdate`);
-        // Use handleTransactionUpdate instead of direct updateTransaction to get force refresh
-        handleTransactionUpdate(transactionId, { status: 'green' as const });
-      }
-    });
+    console.log(`🚀 [OPTIMISTIC APPROVE] Starting instant UI update for ${selectedTransactions.length} transactions`);
+    let approvedCount = 0;
+    
+    // STEP 1: UPDATE UI IMMEDIATELY (Optimistic Update)
+    // Direct state manipulation for instant UI response
+    const currentState = getCurrentState();
+    if (currentState?.budgetState?.allTransactions) {
+      selectedTransactions.forEach(transactionId => {
+        const transactionIndex = currentState.budgetState.allTransactions.findIndex(t => t.id === transactionId);
+        if (transactionIndex !== -1 && currentState.budgetState.allTransactions[transactionIndex].status !== 'green') {
+          console.log(`🚀 [OPTIMISTIC] Instantly updating UI: ${transactionId} -> green`);
+          // Directly mutate the state for immediate UI response
+          currentState.budgetState.allTransactions[transactionIndex] = {
+            ...currentState.budgetState.allTransactions[transactionIndex],
+            status: 'green',
+            isManuallyChanged: true
+          };
+          approvedCount++;
+        }
+      });
+    }
 
+    // STEP 2: IMMEDIATE UI REFRESH
     setSelectedTransactions([]);
+    setRefreshKey(prev => prev + 1); // Force immediate re-render
     
-    // Force immediate UI refresh
-    console.log(`🔄 [BULK APPROVE] Forcing refresh by updating refreshKey`);
-    setRefreshKey(prev => prev + 1);
-    
+    // Show success message immediately
     toast({
       title: "Transaktioner godkända",
-      description: `${selectedTransactions.length} transaktioner har godkänts.`,
+      description: `${approvedCount} transaktioner har godkänts.`,
     });
+
+    // STEP 3: SYNC TO DATABASE IN BACKGROUND (Non-blocking)
+    console.log(`🔄 [BACKGROUND SYNC] Starting database sync for ${approvedCount} approved transactions`);
+    setTimeout(async () => {
+      try {
+        // Sync each transaction to database without blocking UI
+        for (const transactionId of selectedTransactions) {
+          const transaction = allTransactions.find(t => t.id === transactionId);
+          if (transaction && transaction.status !== 'green') {
+            console.log(`🔄 [BACKGROUND SYNC] Syncing ${transactionId} to database`);
+            
+            // Find the transaction to get its date and derive monthKey
+            const monthKey = transaction.date.substring(0, 7);
+            
+            // Call orchestrator directly with minimal overhead
+            updateTransaction(transactionId, { 
+              status: 'green' as const,
+              isManuallyChanged: true 
+            }, monthKey);
+          }
+        }
+        console.log(`✅ [BACKGROUND SYNC] Database sync completed for all approved transactions`);
+      } catch (error) {
+        console.error('❌ [BACKGROUND SYNC] Error syncing to database:', error);
+        // Could show a warning toast here if desired
+      }
+    }, 10); // Very short delay to let UI update complete first
   };
 
-  // Bulk unapprove transactions (remove green status)
-  const handleUnapproveSelected = () => {
+  // Bulk unapprove transactions - OPTIMISTIC UI UPDATE
+  const handleUnapproveSelected = async () => {
     if (selectedTransactions.length === 0) {
       toast({
         title: "Ingen transaktion vald",
@@ -1656,27 +1721,64 @@ export const TransactionImportEnhanced: React.FC = () => {
       return;
     }
 
+    console.log(`🚀 [OPTIMISTIC UNAPPROVE] Starting instant UI update for ${selectedTransactions.length} transactions`);
     let unapprovedCount = 0;
-    selectedTransactions.forEach(transactionId => {
-      const transaction = allTransactions.find(t => t.id === transactionId);
-      if (transaction && transaction.status === 'green') {
-        console.log(`🔄 [BULK UNAPPROVE] Removing approval from transaction ${transactionId} via handleTransactionUpdate`);
-        // Change status back to red (default for unprocessed transactions)
-        handleTransactionUpdate(transactionId, { status: 'red' as const });
-        unapprovedCount++;
-      }
-    });
+    
+    // STEP 1: UPDATE UI IMMEDIATELY (Optimistic Update)
+    // Direct state manipulation for instant UI response
+    const currentState = getCurrentState();
+    if (currentState?.budgetState?.allTransactions) {
+      selectedTransactions.forEach(transactionId => {
+        const transactionIndex = currentState.budgetState.allTransactions.findIndex(t => t.id === transactionId);
+        if (transactionIndex !== -1 && currentState.budgetState.allTransactions[transactionIndex].status === 'green') {
+          console.log(`🚀 [OPTIMISTIC] Instantly updating UI: ${transactionId} -> red`);
+          // Directly mutate the state for immediate UI response
+          currentState.budgetState.allTransactions[transactionIndex] = {
+            ...currentState.budgetState.allTransactions[transactionIndex],
+            status: 'red',
+            isManuallyChanged: true
+          };
+          unapprovedCount++;
+        }
+      });
+    }
 
+    // STEP 2: IMMEDIATE UI REFRESH
     setSelectedTransactions([]);
+    setRefreshKey(prev => prev + 1); // Force immediate re-render
     
-    // Force immediate UI refresh
-    console.log(`🔄 [BULK UNAPPROVE] Forcing refresh by updating refreshKey`);
-    setRefreshKey(prev => prev + 1);
-    
+    // Show success message immediately
     toast({
       title: "Godkännande borttaget",
       description: `${unapprovedCount} transaktioner har fått sitt godkännande borttaget.`,
     });
+
+    // STEP 3: SYNC TO DATABASE IN BACKGROUND (Non-blocking)
+    console.log(`🔄 [BACKGROUND SYNC] Starting database sync for ${unapprovedCount} unapproved transactions`);
+    setTimeout(async () => {
+      try {
+        // Sync each transaction to database without blocking UI
+        for (const transactionId of selectedTransactions) {
+          const transaction = allTransactions.find(t => t.id === transactionId);
+          if (transaction && transaction.status === 'green') {
+            console.log(`🔄 [BACKGROUND SYNC] Syncing ${transactionId} to database`);
+            
+            // Find the transaction to get its date and derive monthKey
+            const monthKey = transaction.date.substring(0, 7);
+            
+            // Call orchestrator directly with minimal overhead
+            updateTransaction(transactionId, { 
+              status: 'red' as const,
+              isManuallyChanged: true 
+            }, monthKey);
+          }
+        }
+        console.log(`✅ [BACKGROUND SYNC] Database sync completed for all unapproved transactions`);
+      } catch (error) {
+        console.error('❌ [BACKGROUND SYNC] Error syncing to database:', error);
+        // Could show a warning toast here if desired
+      }
+    }, 10); // Very short delay to let UI update complete first
   };
   
   // Helper function to automatically find and match internal transfers
@@ -2688,9 +2790,22 @@ export const TransactionImportEnhanced: React.FC = () => {
                   transactions={allTransactions}
                   categoryRules={categoryRules}
                   onCreateRule={(bankCategory, bankSubCategory) => {
-                    setSelectedBankCategory(bankCategory);
-                    setSelectedBankSubCategory(bankSubCategory);
-                    setCategoryDialogOpen(true);
+                    // Create a mock transaction with bank category info - empty description so it doesn't affect condition
+                    const mockTransaction: ImportedTransaction = {
+                      id: uuidv4(),
+                      accountId: accounts[0]?.id || '', // Use first account as default
+                      date: new Date().toISOString().split('T')[0],
+                      amount: 0,
+                      balanceAfter: 0,
+                      description: '', // Empty description so CreateRuleDialog doesn't pre-fill condition
+                      userDescription: '',
+                      bankCategory: bankCategory,
+                      bankSubCategory: bankSubCategory || '',
+                      type: 'Transaction',
+                      status: 'pending'
+                    };
+                    setBankCategoryTransaction(mockTransaction);
+                    setCreateRuleDialogOpen(true);
                   }}
                   huvudkategorier={huvudkategorier}
                   underkategorier={underkategorier}
@@ -3442,6 +3557,16 @@ export const TransactionImportEnhanced: React.FC = () => {
         bankunderkategori={selectedBankSubCategory}
         mainCategories={mainCategories}
         accounts={accountsFromAPI}
+      />
+
+      {/* Create Rule Dialog (for bank categories) */}
+      <CreateRuleDialog
+        open={createRuleDialogOpen}
+        onOpenChange={setCreateRuleDialogOpen}
+        transaction={bankCategoryTransaction}
+        accounts={accountsFromAPI}
+        availableBankCategories={availableBankCategories}
+        availableBankSubCategories={availableBankSubCategories}
       />
 
       <ColumnMappingDialog
