@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { RuleCondition } from '@/types/budget';
 import { useHuvudkategorier, useUnderkategorier } from '@/hooks/useCategories';
 import { useQueryClient } from '@tanstack/react-query';
 import { ImportedTransaction } from '@/types/transaction';
 import { useBudget } from '@/hooks/useBudget';
+import { BankCategorySelector } from './BankCategorySelector';
 
 interface CreateRuleDialogProps {
   open: boolean;
@@ -60,6 +62,7 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
   
   const [availableSubcategories, setAvailableSubcategories] = useState<string[]>([]);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+  const [autoApprove, setAutoApprove] = useState(false);
   const [newRule, setNewRule] = useState<Partial<{
     condition: RuleCondition;
     action: any;
@@ -68,6 +71,8 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
     isActive: string;
     bankCategory: string;
     bankSubCategory: string;
+    bankhuvudkategori: string;
+    bankunderkategori: string;
   }>>({
     condition: { type: 'textContains', value: transaction?.description || '' },
     action: { 
@@ -81,7 +86,9 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
     priority: 100,
     isActive: 'true',
     bankCategory: 'Alla Bankkategorier',
-    bankSubCategory: 'Alla Bankunderkategorier'
+    bankSubCategory: 'Alla Bankunderkategorier',
+    bankhuvudkategori: 'Alla Bankkategorier',
+    bankunderkategori: 'Alla Bankunderkategorier'
   });
 
   // Update available subcategories when main category changes
@@ -91,35 +98,50 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
         sub => sub.huvudkategoriId === newRule.action?.appMainCategoryId
       );
       setAvailableSubcategories(subcatsForCategory.map(sub => sub.id));
-      // Reset subcategory when main category changes
-      setNewRule(prev => ({
-        ...prev,
-        action: { ...prev.action!, appSubCategoryId: '' }
-      }));
+      
+      // Only reset subcategory if it's not from the current category
+      const currentSubcat = allUnderkategorier.find(s => s.id === newRule.action?.appSubCategoryId);
+      if (currentSubcat && currentSubcat.huvudkategoriId !== newRule.action?.appMainCategoryId) {
+        setNewRule(prev => ({
+          ...prev,
+          action: { ...prev.action!, appSubCategoryId: '' }
+        }));
+      }
     } else {
       setAvailableSubcategories([]);
     }
   }, [newRule.action?.appMainCategoryId, allUnderkategorier]);
 
-  // Reset form when dialog opens
+  // Reset form when dialog opens with transaction data pre-filled
   useEffect(() => {
     if (open && transaction) {
+      // Determine transaction direction based on amount
+      const transactionDirection = transaction.amount > 0 ? 'positive' : 
+                                  transaction.amount < 0 ? 'negative' : 'all';
+      
+      // Pre-select the account from the transaction
+      const accountIds = transaction.accountId ? [transaction.accountId] : [];
+      setSelectedAccountIds(accountIds);
+      
       setNewRule({
-        condition: { type: 'textContains', value: transaction.description || '' },
+        condition: { type: 'exactText', value: transaction.description || '' },
         action: { 
-          appMainCategoryId: '', 
-          appSubCategoryId: '', 
-          positiveTransactionType: 'Transaction',
-          negativeTransactionType: 'Transaction',
-          applicableAccountIds: []
+          appMainCategoryId: transaction.appCategoryId || '', 
+          appSubCategoryId: transaction.appSubCategoryId || '', 
+          positiveTransactionType: transaction.amount > 0 ? 'Transaction' : 'Transaction',
+          negativeTransactionType: transaction.amount < 0 ? 'Transaction' : 'Transaction',
+          applicableAccountIds: accountIds
         },
-        transactionDirection: 'all',
+        transactionDirection: transactionDirection,
         priority: 100,
         isActive: 'true',
-        bankCategory: 'Alla Bankkategorier',
-        bankSubCategory: 'Alla Bankunderkategorier'
+        bankCategory: transaction.bankCategory || 'Alla Bankkategorier',
+        bankSubCategory: transaction.bankSubCategory || 'Alla Bankunderkategorier',
+        bankhuvudkategori: transaction.bankCategory || 'Alla Bankkategorier',
+        bankunderkategori: transaction.bankSubCategory || 'Alla Bankunderkategorier'
       });
-      setSelectedAccountIds([]);
+      
+      setAutoApprove(false);
     }
   }, [open, transaction]);
 
@@ -135,18 +157,9 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
     if (newRule.condition && newRule.action && hasConditionValue && hasMainCategory && hasSubCategory) {
       try {
         const rulePayload = {
-          ruleName: newRule.condition.type === 'categoryMatch' ? 
-            `${newRule.bankCategory}/${newRule.bankSubCategory}` : 
-            `${newRule.condition.type}: ${(newRule.condition as any).value}`,
-          transactionName: newRule.condition.type === 'categoryMatch' ? 
-            (newRule.condition as any).bankCategory || newRule.bankCategory : 
-            (newRule.condition as any).value,
+          ruleName: `Regel för ${(newRule.condition as any).value || 'transaktion'}`,
           ruleType: newRule.condition.type,
-          // Include bankCategory/bankSubCategory for categoryMatch rules
-          ...(newRule.condition.type === 'categoryMatch' ? {
-            bankCategory: newRule.bankCategory === 'Alla Bankkategorier' ? null : newRule.bankCategory,
-            bankSubCategory: newRule.bankSubCategory === 'Alla Bankunderkategorier' ? null : newRule.bankSubCategory
-          } : {}),
+          transactionName: (newRule.condition as any).value || '',
           transactionDirection: newRule.transactionDirection || 'all',
           huvudkategoriId: newRule.action.appMainCategoryId,
           underkategoriId: newRule.action.appSubCategoryId,
@@ -154,34 +167,28 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
           negativeTransactionType: newRule.action.negativeTransactionType || 'Transaction',
           applicableAccountIds: JSON.stringify(newRule.action.applicableAccountIds || []),
           priority: newRule.priority || 100,
-          isActive: 'true',
-          autoApproval: newRule.action.autoApproval || false,
-          userId: 'dev-user-123'
+          isActive: true,
+          bankhuvudkategori: newRule.bankhuvudkategori === 'Alla Bankkategorier' ? null : newRule.bankhuvudkategori,
+          bankunderkategori: newRule.bankunderkategori === 'Alla Bankunderkategorier' ? null : newRule.bankunderkategori,
+          autoApproval: autoApprove
         };
 
+        console.log('Creating rule with payload:', rulePayload);
+        
         const response = await fetch('/api/category-rules', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(rulePayload),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(rulePayload)
         });
 
-        if (!response.ok) {
-          throw new Error(`Failed to create category rule: ${response.statusText}`);
+        if (response.ok) {
+          await queryClient.invalidateQueries({ queryKey: ['/api/category-rules'] });
+          onOpenChange(false);
+        } else {
+          console.error('Failed to create rule:', response.status);
         }
-
-        await response.json();
-        
-        // Refresh the rules list
-        queryClient.invalidateQueries({ queryKey: ['/api/category-rules'] });
-        
-        // Close dialog
-        onOpenChange(false);
-        
-        console.log('✅ Rule created successfully');
       } catch (error) {
-        console.error('❌ Failed to save rule:', error);
+        console.error('Error creating rule:', error);
       }
     }
   };
@@ -192,18 +199,22 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
         <DialogHeader>
           <DialogTitle>Skapa ny regel</DialogTitle>
           <DialogDescription>
-            Skapa en automatisk regel för kategorisering av transaktioner.
+            Skapa en regel baserad på transaktionen
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4">
+          {/* Rule Type */}
           <div>
-            <Label className="text-sm">Regeltyp</Label>
+            <Label>Regeltyp</Label>
             <Select
               value={newRule.condition?.type || 'textContains'}
               onValueChange={(value) => setNewRule({
                 ...newRule,
-                condition: { type: value as any, value: transaction?.description || '' }
+                condition: { 
+                  type: value as any, 
+                  value: value === 'exactText' ? (transaction?.description || '') : '' 
+                }
               })}
             >
               <SelectTrigger>
@@ -217,93 +228,36 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
               </SelectContent>
             </Select>
           </div>
-          
-          {newRule.condition?.type !== 'categoryMatch' ? (
-            <div>
-              <Label className="text-sm">Villkor</Label>
-              <Input
-                placeholder={
-                  newRule.condition?.type === 'textContains' ? 'Text som ska sökas efter (eller * för alla)' :
-                  newRule.condition?.type === 'textStartsWith' ? 'Text som transaktionen börjar med (eller * för alla)' :
-                  newRule.condition?.type === 'exactText' ? 'Exakt text som ska matchas (eller * för alla)' :
-                  'Bankens kategorinamn (eller * för alla)'
-                }
-                value={(newRule.condition as any)?.value || ''}
-                onChange={(e) => setNewRule({
-                  ...newRule,
-                  condition: { ...newRule.condition!, value: e.target.value } as RuleCondition
-                })}
-              />
-            </div>
-          ) : (
-            <>
-              <div>
-                <Label className="text-sm">Bankhuvudkategori</Label>
-                <Select
-                  value={newRule.bankCategory || 'Alla Bankkategorier'}
-                  onValueChange={(value) => setNewRule({
-                    ...newRule,
-                    bankCategory: value,
-                    bankSubCategory: 'Alla Bankunderkategorier' // Reset subcategory
-                  })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Alla Bankkategorier">Alla Bankkategorier</SelectItem>
-                    {availableBankCategories.map(category => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label className="text-sm">Bankunderkategori</Label>
-                <Select
-                  value={newRule.bankSubCategory || 'Alla Bankunderkategorier'}
-                  onValueChange={(value) => setNewRule({
-                    ...newRule,
-                    bankSubCategory: value
-                  })}
-                  disabled={newRule.bankCategory === 'Alla Bankkategorier'}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Alla Bankunderkategorier">Alla Bankunderkategorier</SelectItem>
-                    {(() => {
-                      const bankCategory = newRule.bankCategory;
-                      if (bankCategory && bankCategory !== 'Alla Bankkategorier' && bankCategoryToSubCategories[bankCategory]) {
-                        return bankCategoryToSubCategories[bankCategory].map(subcategory => (
-                          <SelectItem key={subcategory} value={subcategory}>
-                            {subcategory}
-                          </SelectItem>
-                        ));
-                      }
-                      return availableBankSubCategories.map(subcategory => (
-                        <SelectItem key={subcategory} value={subcategory}>
-                          {subcategory}
-                        </SelectItem>
-                      ));
-                    })()}
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
-          )}
 
+          {/* Condition Value */}
           <div>
-            <Label className="text-sm">Transaktion</Label>
+            <Label>Villkor</Label>
+            <Input
+              placeholder={
+                newRule.condition?.type === 'textContains' ? 'Text som ska sökas efter (eller * för alla)' :
+                newRule.condition?.type === 'textStartsWith' ? 'Text som transaktionen börjar med (eller * för alla)' :
+                newRule.condition?.type === 'exactText' ? 'Exakt text som ska matchas (eller * för alla)' :
+                'Bankens kategorinamn (eller * för alla)'
+              }
+              value={(newRule.condition as any)?.value || ''}
+              onChange={(e) => setNewRule({
+                ...newRule,
+                condition: { ...newRule.condition!, value: e.target.value } as RuleCondition
+              })}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Använd * som wildcard för att matcha alla transaktioner
+            </p>
+          </div>
+
+          {/* Transaction Direction */}
+          <div>
+            <Label>Transaktion</Label>
             <Select
               value={newRule.transactionDirection || 'all'}
-              onValueChange={(value: 'all' | 'positive' | 'negative') => setNewRule({
+              onValueChange={(value) => setNewRule({
                 ...newRule,
-                transactionDirection: value
+                transactionDirection: value as 'all' | 'positive' | 'negative'
               })}
             >
               <SelectTrigger>
@@ -311,19 +265,20 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Alla transaktioner</SelectItem>
-                <SelectItem value="positive">Positiva transaktioner</SelectItem>
-                <SelectItem value="negative">Negativa transaktioner</SelectItem>
+                <SelectItem value="positive">Endast positiva belopp</SelectItem>
+                <SelectItem value="negative">Endast negativa belopp</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
+          {/* Main Category */}
           <div>
-            <Label className="text-sm">Huvudkategori</Label>
+            <Label>Huvudkategori</Label>
             <Select
               value={newRule.action?.appMainCategoryId || ''}
               onValueChange={(value) => setNewRule({
                 ...newRule,
-                action: { ...newRule.action!, appMainCategoryId: value, appSubCategoryId: '' }
+                action: { ...newRule.action!, appMainCategoryId: value }
               })}
             >
               <SelectTrigger>
@@ -339,8 +294,9 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
             </Select>
           </div>
 
+          {/* Subcategory */}
           <div>
-            <Label className="text-sm">Underkategori</Label>
+            <Label>Underkategori</Label>
             <Select
               value={newRule.action?.appSubCategoryId || ''}
               onValueChange={(value) => setNewRule({
@@ -365,9 +321,31 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
             </Select>
           </div>
 
+          {/* Bank Category Selector */}
+          <div className="border-t pt-4">
+            <Label className="font-semibold mb-2 block">Bankens kategorier (filter)</Label>
+            <p className="text-sm text-muted-foreground mb-3">
+              Regeln gäller endast för transaktioner som matchar de valda bankkategorierna.
+            </p>
+            <BankCategorySelector
+              selectedBankCategory={newRule.bankhuvudkategori || 'Alla Bankkategorier'}
+              selectedBankSubCategory={newRule.bankunderkategori || 'Alla Bankunderkategorier'}
+              onBankCategoryChange={(category) => setNewRule({
+                ...newRule,
+                bankhuvudkategori: category,
+                bankunderkategori: 'Alla Bankunderkategorier' // Reset subcategory when main category changes
+              })}
+              onBankSubCategoryChange={(subcategory) => setNewRule({
+                ...newRule,
+                bankunderkategori: subcategory
+              })}
+            />
+          </div>
+
+          {/* Priority and Transaction Types */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label className="text-sm">Prioritet</Label>
+              <Label>Prioritet</Label>
               <Input
                 type="number"
                 value={newRule.priority || 100}
@@ -379,33 +357,132 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
             </div>
             
             <div>
-              <Label className="text-sm">Auto-godkänn</Label>
+              <Label>Pos. belopp typ</Label>
               <Select
-                value={newRule.action?.autoApproval ? 'ja' : 'nej'}
+                value={newRule.action?.positiveTransactionType || 'Transaction'}
                 onValueChange={(value) => setNewRule({
                   ...newRule,
-                  action: { ...newRule.action!, autoApproval: value === 'ja' }
+                  action: { ...newRule.action!, positiveTransactionType: value as any }
                 })}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ja">Ja</SelectItem>
-                  <SelectItem value="nej">Nej</SelectItem>
+                  <SelectItem value="Transaction">Transaktion</SelectItem>
+                  <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
+                  <SelectItem value="Savings">Sparande</SelectItem>
+                  <SelectItem value="CostCoverage">Täck en kostnad</SelectItem>
+                  <SelectItem value="Inkomst">Inkomst</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
-        </div>
 
-        <div className="flex gap-2 pt-4">
-          <Button onClick={handleCreateRule} className="flex-1">
-            Skapa regel
-          </Button>
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
-            Avbryt
-          </Button>
+          <div>
+            <Label>Neg. belopp typ</Label>
+            <Select
+              value={newRule.action?.negativeTransactionType || 'Transaction'}
+              onValueChange={(value) => setNewRule({
+                ...newRule,
+                action: { ...newRule.action!, negativeTransactionType: value as any }
+              })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Transaction">Transaktion</SelectItem>
+                <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
+                <SelectItem value="ExpenseClaim">Utlägg</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Account Selection */}
+          <div>
+            <Label>Konton som regeln gäller för</Label>
+            <div className="space-y-2 mt-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="all-accounts"
+                  checked={selectedAccountIds.length === 0}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedAccountIds([]);
+                      setNewRule({
+                        ...newRule,
+                        action: { ...newRule.action!, applicableAccountIds: [] }
+                      });
+                    }
+                  }}
+                />
+                <label htmlFor="all-accounts" className="text-sm text-muted-foreground">
+                  Alla konton
+                </label>
+              </div>
+              
+              {accounts.map(account => (
+                <div key={account.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`account-${account.id}`}
+                    checked={selectedAccountIds.includes(account.id)}
+                    onCheckedChange={(checked) => {
+                      let updatedAccountIds;
+                      if (checked) {
+                        updatedAccountIds = [...selectedAccountIds, account.id];
+                      } else {
+                        updatedAccountIds = selectedAccountIds.filter(id => id !== account.id);
+                      }
+                      setSelectedAccountIds(updatedAccountIds);
+                      setNewRule({
+                        ...newRule,
+                        action: { ...newRule.action!, applicableAccountIds: updatedAccountIds }
+                      });
+                    }}
+                  />
+                  <label htmlFor={`account-${account.id}`} className="text-sm">
+                    {account.name}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Auto Approve */}
+          <div className="flex items-center space-x-2">
+            <Label>Godkänn automatiskt</Label>
+            <Select
+              value={autoApprove ? 'yes' : 'no'}
+              onValueChange={(value) => setAutoApprove(value === 'yes')}
+            >
+              <SelectTrigger className="w-24">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="yes">Ja</SelectItem>
+                <SelectItem value="no">Nej</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Avbryt
+            </Button>
+            <Button 
+              onClick={handleCreateRule}
+              disabled={
+                !newRule.condition || 
+                !newRule.action?.appMainCategoryId || 
+                !newRule.action?.appSubCategoryId ||
+                !(newRule.condition as any)?.value
+              }
+            >
+              Skapa regel
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

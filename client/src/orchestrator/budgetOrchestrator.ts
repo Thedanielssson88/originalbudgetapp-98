@@ -241,20 +241,20 @@ async function applyImportRulesWithProtection(transaction: any, categoryRules: a
     }
     
     // Rule matching logic (same as manual button)
-    const isAllBankCategories = rule.bankCategory === 'Alla Bankkategorier' || rule.bankSubCategory === 'Alla Bankunderkategorier';
+    const isAllBankCategories = rule.bankhuvudkategori === 'Alla Bankkategorier' || rule.bankunderkategori === 'Alla Bankunderkategorier';
     
-    if (rule.bankCategory && rule.bankSubCategory && !isAllBankCategories) {
+    if (rule.bankhuvudkategori && rule.bankunderkategori && !isAllBankCategories) {
       // Exact bank category + subcategory match
-      if (transaction.bankCategory === rule.bankCategory && 
-          transaction.bankSubCategory === rule.bankSubCategory) {
+      if (transaction.bankCategory === rule.bankhuvudkategori && 
+          transaction.bankSubCategory === rule.bankunderkategori) {
         matchFound = true;
-        console.log(`[IMPORT RULES] ✅ Exact bank category match: ${rule.bankCategory} → ${rule.bankSubCategory}`);
+        console.log(`[IMPORT RULES] ✅ Exact bank category match: ${rule.bankhuvudkategori} → ${rule.bankunderkategori}`);
       }
-    } else if (rule.bankCategory && !rule.bankSubCategory && !isAllBankCategories) {
+    } else if (rule.bankhuvudkategori && !rule.bankunderkategori && !isAllBankCategories) {
       // Exact bank category match (any subcategory)
-      if (transaction.bankCategory === rule.bankCategory) {
+      if (transaction.bankCategory === rule.bankhuvudkategori) {
         matchFound = true;
-        console.log(`[IMPORT RULES] ✅ Bank category match: ${rule.bankCategory}`);
+        console.log(`[IMPORT RULES] ✅ Bank category match: ${rule.bankhuvudkategori}`);
       }
     } else {
       // Text-based matching (same as manual button)

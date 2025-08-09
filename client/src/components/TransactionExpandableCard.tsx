@@ -143,11 +143,11 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
 
       // Bank category matching
       if (ruleType === 'categoryMatch') {
-        if (rule.bankCategory && rule.bankSubCategory) {
-          return transaction.bankCategory === rule.bankCategory && 
-                 transaction.bankSubCategory === rule.bankSubCategory;
-        } else if (rule.bankCategory) {
-          return transaction.bankCategory === rule.bankCategory;
+        if (rule.bankhuvudkategori && rule.bankunderkategori) {
+          return transaction.bankCategory === rule.bankhuvudkategori && 
+                 transaction.bankSubCategory === rule.bankunderkategori;
+        } else if (rule.bankhuvudkategori) {
+          return transaction.bankCategory === rule.bankhuvudkategori;
         }
         return false;
       }

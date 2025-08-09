@@ -43,6 +43,9 @@ export interface CategoryRule {
     autoApproval?: boolean; // Auto-approve transactions when rule is applied
   };
   transactionDirection?: 'all' | 'positive' | 'negative'; // Filter för transaktionsriktning
+  // NEW: Bank category filters for rule conditions
+  bankhuvudkategori?: string | null; // Filter by bank main category (null = "Alla Bankkategorier")
+  bankunderkategori?: string | null; // Filter by bank subcategory (null = "Alla Bankunderkategorier")
   isActive: boolean; // Om regeln är aktiv eller inte
 }
 

@@ -18,8 +18,8 @@ interface CategorySelectionDialogProps {
     applicableAccountIds: string[],
     autoApproval: boolean
   ) => void;
-  bankCategory: string;
-  bankSubCategory?: string;
+  bankhuvudkategori: string;
+  bankunderkategori?: string;
   mainCategories: string[];
   accounts: { id: string; name: string }[];
 }
@@ -28,8 +28,8 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
   isOpen,
   onClose,
   onConfirm,
-  bankCategory,
-  bankSubCategory,
+  bankhuvudkategori,
+  bankunderkategori,
   mainCategories,
   accounts
 }) => {
@@ -92,8 +92,8 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
         huvudkategoriName: selectedHuvudkategori?.name,
         underkategoriId: selectedSubCategory,
         underkategoriName: selectedUnderkategori?.name,
-        bankCategory,
-        bankSubCategory
+        bankhuvudkategori,
+        bankunderkategori
       });
       
       onConfirm(
@@ -123,8 +123,8 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
         <DialogHeader>
           <DialogTitle>Skapa kategoriregel</DialogTitle>
           <DialogDescription>
-            Välj vilken huvudkategori och underkategori som transaktioner med bankens kategori "{bankCategory}"
-            {bankSubCategory && ` (${bankSubCategory})`} ska mappas till.
+            Välj vilken huvudkategori och underkategori som transaktioner med bankens kategori "{bankhuvudkategori}"
+            {bankunderkategori && ` (${bankunderkategori})`} ska mappas till.
           </DialogDescription>
         </DialogHeader>
         

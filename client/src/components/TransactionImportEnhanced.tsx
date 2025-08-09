@@ -3410,16 +3410,16 @@ export const TransactionImportEnhanced: React.FC = () => {
               positiveTransactionType,
               negativeTransactionType,
               applicableAccountIds,
-              bankCategory: selectedBankCategory,
-              bankSubCategory: selectedBankSubCategory
+              bankhuvudkategori: selectedBankCategory,
+              bankunderkategori: selectedBankSubCategory
             });
 
             // Save rule using TanStack Query mutation hook for automatic cache invalidation
             const savedRule = await createCategoryRuleMutation.mutateAsync({
               ruleName: `${selectedBankCategory}${selectedBankSubCategory ? ` → ${selectedBankSubCategory}` : ''}`,
               transactionName: selectedBankSubCategory || selectedBankCategory,
-              bankCategory: selectedBankCategory,
-              bankSubCategory: selectedBankSubCategory,
+              bankhuvudkategori: selectedBankCategory,
+              bankunderkategori: selectedBankSubCategory,
               transactionDirection: 'all', // Default to all transactions for bank category rules
               huvudkategoriId: huvudkategoriId,
               underkategoriId: underkategoriId,
@@ -3438,8 +3438,8 @@ export const TransactionImportEnhanced: React.FC = () => {
             addMobileDebugLog(`❌ [CATEGORY DIALOG] Failed to save rule: ${error}`);
           }
         }}
-        bankCategory={selectedBankCategory}
-        bankSubCategory={selectedBankSubCategory}
+        bankhuvudkategori={selectedBankCategory}
+        bankunderkategori={selectedBankSubCategory}
         mainCategories={mainCategories}
         accounts={accountsFromAPI}
       />

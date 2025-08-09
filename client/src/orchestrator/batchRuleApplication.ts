@@ -29,8 +29,8 @@ interface OptimizedRule {
   ruleName: string;
   transactionName?: string;
   ruleType?: string;
-  bankCategory?: string;
-  bankSubCategory?: string;
+  bankhuvudkategori?: string;
+  bankunderkategori?: string;
   transactionDirection?: string;
   huvudkategoriId?: string;
   underkategoriId?: string;
@@ -64,8 +64,8 @@ function preprocessRules(rules: any[]): OptimizedRule[] {
       ruleName: rule.ruleName || rule.name,
       transactionName: rule.transactionName?.toLowerCase(),
       ruleType: rule.ruleType || 'textContains', // Default to textContains for legacy rules
-      bankCategory: rule.bankCategory,
-      bankSubCategory: rule.bankSubCategory,
+      bankhuvudkategori: rule.bankhuvudkategori,
+      bankunderkategori: rule.bankunderkategori,
       transactionDirection: rule.transactionDirection || 'all',
       huvudkategoriId: rule.huvudkategoriId,
       underkategoriId: rule.underkategoriId,
@@ -113,26 +113,26 @@ function findMatchingRule(transaction: ImportedTransaction, rules: OptimizedRule
       continue;
     }
     
-    const isAllBankCategories = rule.bankCategory === 'Alla Bankkategorier' || 
-                               rule.bankSubCategory === 'Alla Bankunderkategorier' ||
-                               rule.bankCategory === '*' || 
-                               rule.bankSubCategory === '*';
+    const isAllBankCategories = rule.bankhuvudkategori === 'Alla Bankkategorier' || 
+                               rule.bankunderkategori === 'Alla Bankunderkategorier' ||
+                               rule.bankhuvudkategori === '*' || 
+                               rule.bankunderkategori === '*';
     
     // Wildcard matching for bank categories
-    if (rule.bankCategory === '*' || rule.bankSubCategory === '*') {
+    if (rule.bankhuvudkategori === '*' || rule.bankunderkategori === '*') {
       return rule;
     }
     
     // Bank category + subcategory exact match
-    if (rule.bankCategory && rule.bankSubCategory && !isAllBankCategories) {
-      if (transaction.bankCategory === rule.bankCategory && 
-          transaction.bankSubCategory === rule.bankSubCategory) {
+    if (rule.bankhuvudkategori && rule.bankunderkategori && !isAllBankCategories) {
+      if (transaction.bankCategory === rule.bankhuvudkategori && 
+          transaction.bankSubCategory === rule.bankunderkategori) {
         return rule;
       }
     }
     // Bank category only match
-    else if (rule.bankCategory && !rule.bankSubCategory && !isAllBankCategories) {
-      if (transaction.bankCategory === rule.bankCategory) {
+    else if (rule.bankhuvudkategori && !rule.bankunderkategori && !isAllBankCategories) {
+      if (transaction.bankCategory === rule.bankhuvudkategori) {
         return rule;
       }
     }

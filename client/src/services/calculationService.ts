@@ -952,22 +952,38 @@ export function applyCategorizationRules(
       }
     }
     
-    // New PostgreSQL rule structure - check for exact bank category matching
-    if (rule.bankCategory && rule.bankSubCategory) {
-      // Exact bank category + subcategory match
-      if (transaction.bankCategory === rule.bankCategory && 
-          transaction.bankSubCategory === rule.bankSubCategory) {
-        isMatch = true;
-        console.log(`✅ [RULE] Exact bank category match: ${rule.bankCategory} → ${rule.bankSubCategory}`);
+    // Check bankhuvudkategori filter (NEW)
+    if (rule.bankhuvudkategori && rule.bankhuvudkategori !== 'Alla Bankkategorier') {
+      if (transaction.bankCategory !== rule.bankhuvudkategori) {
+        console.log(`🔍 [RULE] Rule "${rule.ruleName}" skipped - bank category "${transaction.bankCategory}" does not match filter "${rule.bankhuvudkategori}"`);
+        continue;
       }
-    } else if (rule.bankCategory && !rule.bankSubCategory) {
-      // Exact bank category match (any subcategory)
-      if (transaction.bankCategory === rule.bankCategory) {
+    }
+    
+    // Check bankunderkategori filter (NEW)
+    if (rule.bankunderkategori && rule.bankunderkategori !== 'Alla Bankunderkategorier') {
+      if (transaction.bankSubCategory !== rule.bankunderkategori) {
+        console.log(`🔍 [RULE] Rule "${rule.ruleName}" skipped - bank subcategory "${transaction.bankSubCategory}" does not match filter "${rule.bankunderkategori}"`);
+        continue;
+      }
+    }
+    
+    // New PostgreSQL rule structure - check for exact bank category matching
+    if (rule.bankhuvudkategori && rule.bankunderkategori) {
+      // Exact bank category + subcategory match
+      if (transaction.bankCategory === rule.bankhuvudkategori && 
+          transaction.bankSubCategory === rule.bankunderkategori) {
         isMatch = true;
-        console.log(`✅ [RULE] Bank category match: ${rule.bankCategory}`);
+        console.log(`✅ [RULE] Exact bank category match: ${rule.bankhuvudkategori} → ${rule.bankunderkategori}`);
+      }
+    } else if (rule.bankhuvudkategori && !rule.bankunderkategori) {
+      // Exact bank category match (any subcategory)
+      if (transaction.bankCategory === rule.bankhuvudkategori) {
+        isMatch = true;
+        console.log(`✅ [RULE] Bank category match: ${rule.bankhuvudkategori}`);
       }
     } else {
-      // Text-based matching (rules without bankCategory/bankSubCategory = "Alla Bankkategorier")
+      // Text-based matching (rules without bankhuvudkategori/bankunderkategori = "Alla Bankkategorier")
       const transactionText = transaction.description?.toLowerCase() || '';
       const ruleText = rule.transactionName?.toLowerCase() || '';
       

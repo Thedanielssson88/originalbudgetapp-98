@@ -56,12 +56,12 @@ export const UncategorizedBankCategories: React.FC<UncategorizedBankCategoriesPr
       if (!rule) return false;
       
       // NEW: Check modern PostgreSQL rules format (direct fields)
-      if (rule.bankCategory) {
+      if (rule.bankhuvudkategori) {
         // Exact match for bank category and subcategory
-        const categoryMatch = rule.bankCategory === bankCategory;
+        const categoryMatch = rule.bankhuvudkategori === bankCategory;
         const subcategoryMatch = bankSubCategory ? 
-          (rule.bankSubCategory === bankSubCategory) : 
-          (!rule.bankSubCategory || rule.bankSubCategory === '');
+          (rule.bankunderkategori === bankSubCategory) : 
+          (!rule.bankunderkategori || rule.bankunderkategori === '');
         return categoryMatch && subcategoryMatch;
       }
       

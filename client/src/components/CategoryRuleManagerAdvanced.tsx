@@ -14,6 +14,7 @@ import { get, StorageKey } from '@/services/storageService';
 import { useHuvudkategorier, useUnderkategorier, useCategoryNames } from '@/hooks/useCategories';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { CategoryRule } from '@shared/schema';
+import { BankCategorySelector } from './BankCategorySelector';
 
 interface CategoryRuleManagerAdvancedProps {
   rules: CategoryRule[];
@@ -40,6 +41,26 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
   };
   
   const queryClient = useQueryClient();
+
+  // Reset form function
+  const resetForm = () => {
+    setNewRule({
+      condition: { type: 'textContains', value: '' },
+      action: { 
+        appMainCategoryId: '', 
+        appSubCategoryId: '', 
+        positiveTransactionType: 'Transaction',
+        negativeTransactionType: 'Transaction',
+        applicableAccountIds: []
+      },
+      transactionDirection: 'all' as 'all' | 'positive' | 'negative',
+      priority: 100,
+      isActive: 'true',
+      bankhuvudkategori: 'Alla Bankkategorier',
+      bankunderkategori: 'Alla Bankunderkategorier'
+    });
+    setSelectedAccountIds([]);
+  };
   
   // Load PostgreSQL category rules
   const { data: postgresqlRules = [], refetch: refetchRules } = useQuery({
@@ -91,7 +112,9 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
     },
     transactionDirection: 'all' as 'all' | 'positive' | 'negative',
     priority: 100,
-    isActive: 'true'
+    isActive: 'true',
+    bankhuvudkategori: 'Alla Bankkategorier',
+    bankunderkategori: 'Alla Bankunderkategorier'
   });
 
   // Update available subcategories when main category changes (UUID-based)
@@ -136,6 +159,9 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
             bankSubCategory: (newRule.condition as any).bankSubCategory
           } : {}),
           transactionDirection: newRule.transactionDirection || 'all',
+          // NEW: Bank category filters
+          bankhuvudkategori: newRule.bankhuvudkategori === 'Alla Bankkategorier' ? null : newRule.bankhuvudkategori,
+          bankunderkategori: newRule.bankunderkategori === 'Alla Bankunderkategorier' ? null : newRule.bankunderkategori,
           huvudkategoriId: newRule.action.appMainCategoryId,
           underkategoriId: newRule.action.appSubCategoryId,
           positiveTransactionType: newRule.action.positiveTransactionType || 'Transaction',
@@ -163,20 +189,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
         await response.json();
         
         // Reset form
-        setSelectedAccountIds([]);
-        setNewRule({
-          condition: { type: 'textContains', value: '' },
-          action: { 
-            appMainCategoryId: '', 
-            appSubCategoryId: '', 
-            positiveTransactionType: 'Transaction',
-            negativeTransactionType: 'Transaction',
-            applicableAccountIds: []
-          },
-          transactionDirection: 'all' as 'all' | 'positive' | 'negative',
-          priority: 100,
-          isActive: 'true'
-        });
+        resetForm();
         setIsAddingRule(false);
         
         // Refresh the rules list
@@ -408,6 +421,27 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                 </Select>
               </div>
 
+              {/* Bank Category Selector */}
+              <div className="border-t pt-3">
+                <Label className="text-xs font-semibold mb-2 block">Bankens kategorier (filter)</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Regeln gäller endast för transaktioner som matchar de valda bankkategorierna.
+                </p>
+                <BankCategorySelector
+                  selectedBankCategory={newRule.bankhuvudkategori || 'Alla Bankkategorier'}
+                  selectedBankSubCategory={newRule.bankunderkategori || 'Alla Bankunderkategorier'}
+                  onBankCategoryChange={(category) => setNewRule({
+                    ...newRule,
+                    bankhuvudkategori: category,
+                    bankunderkategori: 'Alla Bankunderkategorier' // Reset subcategory when main category changes
+                  })}
+                  onBankSubCategoryChange={(subcategory) => setNewRule({
+                    ...newRule,
+                    bankunderkategori: subcategory
+                  })}
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">Prioritet</Label>
@@ -544,7 +578,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
               <Button size="sm" onClick={handleAddRule} className="flex-1">
                 Skapa regel
               </Button>
-              <Button size="sm" variant="outline" onClick={() => setIsAddingRule(false)} className="flex-1">
+              <Button size="sm" variant="outline" onClick={() => { resetForm(); setIsAddingRule(false); }} className="flex-1">
                 Avbryt
               </Button>
             </div>
@@ -588,13 +622,13 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                     <div className="text-xs">
                       <span className="font-medium">Bankhuvudkategori:</span> 
                       <span className="ml-1 bg-blue-100 px-2 py-0.5 rounded text-blue-800">
-                        {rule.bankCategory || 'Alla Bankkategorier'}
+                        {rule.bankhuvudkategori || 'Alla Bankkategorier'}
                       </span>
                     </div>
                     <div className="text-xs">
                       <span className="font-medium">Bankunderkategori:</span> 
                       <span className="ml-1 bg-blue-100 px-2 py-0.5 rounded text-blue-800">
-                        {rule.bankSubCategory || 'Alla Bankunderkategorier'}
+                        {rule.bankunderkategori || 'Alla Bankunderkategorier'}
                       </span>
                     </div>
                     <div className="text-xs">
