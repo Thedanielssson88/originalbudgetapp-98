@@ -694,34 +694,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // @ts-ignore
       const userId = req.userId;
-      const transactions = await storage.getTransactions(userId);
       
-      // DEBUG: Log a few transaction amounts to verify they're coming through correctly
+      // Check if requesting historical data
+      const { fromDate, toDate } = req.query;
+      let transactions;
+      
+      if (fromDate || toDate) {
+        // Load transactions within date range
+        const startDate = fromDate ? new Date(fromDate as string) : new Date('2000-01-01');
+        const endDate = toDate ? new Date(toDate as string) : new Date();
+        transactions = await storage.getTransactionsInDateRange(userId, startDate, endDate);
+        console.log(`📊 [API] Loading historical transactions from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`);
+      } else {
+        // Default behavior - load all (for backward compatibility)
+        transactions = await storage.getTransactions(userId);
+      }
+      
+      // Add debug logging for transaction response
+      console.log(`📊 [API] Sending ${transactions.length} transactions to client`);
       if (transactions.length > 0) {
-        console.log('Getting transactions for userId:', userId);
-        console.log('Found transactions:', transactions.length);
-        const sample = transactions.slice(0, 3);
-        sample.forEach((tx, i) => {
-          console.log(`Sample tx ${i}: amount=${tx.amount}, description="${tx.description}"`);
-        });
-        
-        // Special debug for savingsTargetId field
-        const savingsTransactions = transactions.filter(tx => tx.savingsTargetId);
-        console.log(`🔍 [API] Found ${savingsTransactions.length} transactions with savingsTargetId:`);
-        savingsTransactions.slice(0, 5).forEach(tx => {
-          console.log(`  - ID: ${tx.id}, savingsTargetId: ${tx.savingsTargetId}, description: "${tx.description}"`);
-        });
-        
-        // Special debug for our target transactions
-        const targetTransactions = transactions.filter(tx => 
-          tx.id === 'edece0e6-59d1-4967-a90b-28ef3c4bfc2f' || tx.id === 'efe00305-a8c4-4906-a493-28ebea93af0e'
-        );
-        if (targetTransactions.length > 0) {
-          console.log(`🚨 [API] Target LÖN transactions debug:`);
-          targetTransactions.forEach(tx => {
-            console.log(`  - ID: ${tx.id}, savingsTargetId: ${tx.savingsTargetId || 'MISSING'}, description: "${tx.description}"`);
-          });
-        }
+        console.log(`📊 [API] Date range: ${new Date(Math.min(...transactions.map(t => new Date(t.date).getTime()))).toLocaleDateString()} to ${new Date(Math.max(...transactions.map(t => new Date(t.date).getTime()))).toLocaleDateString()}`);
       }
       
       res.json(transactions);
@@ -889,11 +881,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/transactions/:id", async (req, res) => {
     try {
       console.log('🔍 [API] Raw request body before validation:', req.body);
+      console.log('🔍 [API] Body keys:', Object.keys(req.body));
+      console.log('🔍 [API] appCategoryId in body?', 'appCategoryId' in req.body, req.body.appCategoryId);
+      console.log('🔍 [API] appSubCategoryId in body?', 'appSubCategoryId' in req.body, req.body.appSubCategoryId);
       
       // Validate and convert the partial update data
       const updateData = insertTransactionSchema.partial().parse(req.body);
       
       console.log('🔍 [API] Parsed updateData after validation:', updateData);
+      console.log('🔍 [API] updateData keys:', Object.keys(updateData));
       
       // Debug logging for savingsTargetId updates
       if (updateData.savingsTargetId !== undefined) {

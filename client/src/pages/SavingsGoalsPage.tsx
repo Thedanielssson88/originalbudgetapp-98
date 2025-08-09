@@ -66,8 +66,8 @@ export function SavingsGoalsPage() {
   const calculateActualSaved = (goal: SavingsGoal): number => {
     let totalSaved = 0;
     
-    // Use SQL transactions instead of localStorage budgetState.allTransactions
-    const allTransactions = transactionsFromAPI.length > 0 ? transactionsFromAPI : (budgetState.allTransactions || []);
+    // PHASE 2 MIGRATION: SQL-only data source - no localStorage fallback
+    const allTransactions = transactionsFromAPI || [];
     
     allTransactions.forEach(transaction => {
       if (transaction.type === 'Savings' && 

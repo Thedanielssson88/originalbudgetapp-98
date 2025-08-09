@@ -515,14 +515,12 @@ export function getTransactionsForPeriod(
   console.log(`[getTransactionsForPeriod] Looking for transactions in period for month: ${selectedMonthKey}`);
   console.log(`[getTransactionsForPeriod] PURE STRING COMPARISON - Starting transaction search...`);
   
-  // CRITICAL FIX: Use SQL transactions as primary source instead of localStorage budgetState
+  // PHASE 2 MIGRATION: SQL-only data source - no localStorage fallback
   // Hämta start- och slutdatum som STRÄNGAR
   const { startDate, endDate } = getDateRangeForMonth(selectedMonthKey, budgetState.settings?.payday || 25);
-  const allTransactions = sqlTransactions && sqlTransactions.length > 0 
-    ? sqlTransactions 
-    : (budgetState.allTransactions || []);
+  const allTransactions = sqlTransactions || [];
   
-  console.log(`[getTransactionsForPeriod] 🔄 Using ${sqlTransactions && sqlTransactions.length > 0 ? 'SQL' : 'localStorage'} data source: ${allTransactions.length} transactions`);
+  console.log(`[getTransactionsForPeriod] 🔄 Using SQL-only data source: ${allTransactions.length} transactions`);
   
   console.log(`[getTransactionsForPeriod] Period: ${startDate} to ${endDate} (pure strings)`);
   console.log(`[getTransactionsForPeriod] Available transactions:`, allTransactions.length);
@@ -787,10 +785,8 @@ export function getInternalTransferSummary(
 
   // 1. Hämta det korrekta datumintervallet baserat på payday-inställningen
   const { startDate, endDate } = getDateRangeForMonth(selectedMonthKey, budgetState.settings?.payday || 25);
-  // CRITICAL FIX: Use SQL transactions as primary source instead of localStorage budgetState
-  const allTransactions = sqlTransactions && sqlTransactions.length > 0 
-    ? sqlTransactions 
-    : (budgetState.allTransactions || []);
+  // PHASE 2 MIGRATION: SQL-only data source - no localStorage fallback
+  const allTransactions = sqlTransactions || [];
   
   
   

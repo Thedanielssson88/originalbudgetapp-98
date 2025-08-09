@@ -26,8 +26,8 @@ export const state: AppState = {
     selectedMonthKey: '2025-07', // Use current month as default
     selectedHistoricalMonth: '2025-07',
     
-    // CRITICAL: Central transaction storage - single source of truth
-    allTransactions: [], // All transactions across all months
+    // REMOVED: allTransactions moved to SQL-only via React Query hooks
+    // Legacy field kept for backward compatibility during migration
     
     // UI state
     uiState: {
@@ -134,15 +134,10 @@ function getNextMonth(monthKey: string): string {
 // Function to check if app is loading
 export const isAppLoading = (): boolean => state.isLoading;
 
-// Save state to storage - NO LONGER SAVES TO LOCALSTORAGE
+// PHASE 2 MIGRATION: localStorage persistence removed - all data is SQL-only via React Query
 export function saveStateToStorage(): void {
-  try {
-    addMobileDebugLog('[SAVE] ⏳ Saving state - this is now a no-op for localStorage');
-    // No longer saving to localStorage - all data persisted via API
-  } catch (error) {
-    console.error('[SAVE] 💥 Error saving state:', error);
-    addMobileDebugLog(`[SAVE] 💥 Error: ${error}`);
-  }
+  // This function is now a no-op - keeping for backward compatibility during migration
+  // All data persistence is handled by React Query mutations to the SQL database
 }
 
 // Function to create empty month data

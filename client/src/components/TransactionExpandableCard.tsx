@@ -38,7 +38,7 @@ interface TransactionExpandableCardProps {
 }
 
 export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps> = React.memo(({
-  transaction,
+  transaction: propTransaction,
   account,
   isSelected,
   mainCategories,
@@ -54,6 +54,14 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   onExpenseClaim,
   onRefresh
 }) => {
+  // LOCAL STATE for immediate updates
+  const [transaction, setTransaction] = useState(propTransaction);
+  
+  // Update local state when prop changes
+  useEffect(() => {
+    setTransaction(propTransaction);
+  }, [propTransaction]);
+  
   // Use UUID-based category hooks
   const { data: huvudkategorier = [] } = useHuvudkategorier();
   const { data: allUnderkategorier = [] } = useUnderkategorier();
@@ -311,13 +319,19 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                       value={transaction.appCategoryId || ''}
                       onValueChange={(value) => {
                         try {
+                          console.log(`🔄 [TransactionCard] Huvudkategori changed for ${transaction.id}: ${value}`);
+                          // IMMEDIATE LOCAL UPDATE
+                          setTransaction(prev => ({
+                            ...prev,
+                            appCategoryId: value,
+                            appSubCategoryId: undefined // Reset subcategory when main changes
+                          }));
+                          // Then notify parent
+                          console.log(`🔄 [TransactionCard] Calling onUpdateCategory for ${transaction.id}`);
                           onUpdateCategory(transaction.id, value);
-                          // Trigger refresh after category update
-                          if (onRefresh) {
-                            setTimeout(() => onRefresh(), 100);
-                          }
                         } catch (error) {
                           console.error('Error updating main category:', error);
+                          console.error('Error details:', { error, stack: error?.stack });
                         }
                       }}
                     >
@@ -351,11 +365,13 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                             value={transaction.appSubCategoryId || ''}
                             onValueChange={(subCategoryId) => {
                               try {
+                                // IMMEDIATE LOCAL UPDATE
+                                setTransaction(prev => ({
+                                  ...prev,
+                                  appSubCategoryId: subCategoryId
+                                }));
+                                // Then notify parent
                                 onUpdateCategory(transaction.id, selectedCategoryId, subCategoryId);
-                                // Trigger refresh after category update
-                                if (onRefresh) {
-                                  setTimeout(() => onRefresh(), 100);
-                                }
                               } catch (error) {
                                 console.error('Error updating subcategory:', error);
                               }
@@ -503,7 +519,17 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Typ (Transaktionstyp)</label>
                   <div className="mt-1">
-                    <TransactionTypeSelector transaction={transaction} onRefresh={onRefresh} />
+                    <TransactionTypeSelector 
+                      transaction={transaction} 
+                      onRefresh={onRefresh}
+                      onTypeChange={(newType) => {
+                        // IMMEDIATE LOCAL UPDATE
+                        setTransaction(prev => ({
+                          ...prev,
+                          type: newType
+                        }));
+                      }}
+                    />
                   </div>
                 </div>
 

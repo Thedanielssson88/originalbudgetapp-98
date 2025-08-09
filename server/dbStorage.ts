@@ -69,13 +69,17 @@ export class DatabaseStorage implements IStorage {
     banks: Bank[];
     bankCsvMappings: BankCsvMapping[];
   }> {
-    const [accountTypesResult, accountsResult, huvudkategorierResult, underkategorierResult, categoryRulesResult, transactionsResult, monthlyBudgetsResult, banksResult, bankCsvMappingsResult] = await Promise.all([
+    // Only load recent transactions for bootstrap - last month for optimal performance
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    
+    const [accountTypesResult, accountsResult, huvudkategorierResult, underkategorierResult, categoryRulesResult, recentTransactionsResult, monthlyBudgetsResult, banksResult, bankCsvMappingsResult] = await Promise.all([
       this.getAccountTypes(userId),
       this.getAccounts(userId),
       this.getHuvudkategorier(userId),
       this.getUnderkategorier(userId),
       this.getCategoryRules(userId),
-      this.getTransactions(userId),
+      this.getRecentTransactions(userId, oneMonthAgo),
       this.getMonthlyBudgets(userId),
       this.getBanks(userId),
       this.getBankCsvMappings(userId)
@@ -87,7 +91,7 @@ export class DatabaseStorage implements IStorage {
       huvudkategorier: huvudkategorierResult,
       underkategorier: underkategorierResult,
       categoryRules: categoryRulesResult,
-      transactions: transactionsResult,
+      transactions: recentTransactionsResult,
       budgetPosts: [], // Not implemented yet
       monthlyBudgets: monthlyBudgetsResult,
       banks: banksResult,
@@ -354,6 +358,21 @@ export class DatabaseStorage implements IStorage {
   // Transaction methods
   async getTransactions(userId: string): Promise<Transaction[]> {
     return await db.select().from(transactions).where(eq(transactions.userId, userId));
+  }
+
+  async getRecentTransactions(userId: string, fromDate: Date): Promise<Transaction[]> {
+    console.log(`📊 [DB] Loading transactions from ${fromDate.toISOString()}`);
+    const result = await db.select()
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.userId, userId),
+          gte(transactions.date, fromDate)
+        )
+      )
+      .orderBy(transactions.date);
+    console.log(`📊 [DB] Loaded ${result.length} recent transactions`);
+    return result;
   }
 
   async getTransaction(id: string): Promise<Transaction | undefined> {

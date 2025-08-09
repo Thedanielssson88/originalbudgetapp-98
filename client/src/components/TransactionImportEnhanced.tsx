@@ -64,14 +64,14 @@ import { CategorySelectionDialog } from './CategorySelectionDialog';
 import { CreateRuleDialog } from './CreateRuleDialog';
 import { useBudget } from '@/hooks/useBudget';
 import { useAccounts } from '@/hooks/useAccounts';
-import { useTransactions } from '@/hooks/useTransactions';
+import { useTransactions, useUpdateTransaction } from '@/hooks/useTransactions';
 import { useCategoryRules, useCreateCategoryRule } from '@/hooks/useCategoryRules';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCategoryNames, useHuvudkategorier, useUnderkategorier } from '@/hooks/useCategories';
 import { useBanks, useCreateBank, useBankCsvMappings } from '@/hooks/useBanks';
 import { formatOrenAsCurrency } from '@/utils/currencyUtils';
 import { ColumnMappingDialog } from './ColumnMappingDialog';
-import { updateTransaction, addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping, linkAccountToBankTemplate, matchInternalTransfer } from '../orchestrator/budgetOrchestrator';
+import { addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping, linkAccountToBankTemplate, matchInternalTransfer } from '../orchestrator/budgetOrchestrator';
 import { improvedImportAndReconcileFile } from '../orchestrator/improvedImport';
 import { applyRulesToTransactionsBatch } from '../orchestrator/batchRuleApplication';
 import { getCurrentState, setMainCategories, updateSelectedBudgetMonth } from '../orchestrator/budgetOrchestrator';
@@ -454,9 +454,71 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [sampleDataForMapping, setSampleDataForMapping] = useState<string[][]>([]);
   const { toast } = useToast();
   
-  // Get budget data from central state (SINGLE SOURCE OF TRUTH)
+  // Get budget data from central state (for categories and rules only)
   const { budgetState } = useBudget();
-  const { data: transactionsFromAPI = [], isLoading: transactionsLoading } = useTransactions();
+  
+  // PERFORMANCE FIX: Smart data loading based on month filter and selected month
+  // Only load all transactions when user explicitly requests "all" months
+  const shouldLoadAllTransactions = useMemo(() => {
+    return monthFilter === 'all';
+  }, [monthFilter]);
+  
+  // Get the currently selected month from budget state (for month navigation)
+  const selectedMonthKey = budgetState?.selectedMonthKey || (() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  })();
+  
+  // Calculate date range for the selected month (from budget state or current)
+  const selectedMonthDateRange = useMemo(() => {
+    console.log(`📊 [TransactionImport] Recalculating date range - monthFilter: ${monthFilter}, selectedMonthKey: ${selectedMonthKey}, shouldLoadAllTransactions: ${shouldLoadAllTransactions}`);
+    
+    if (shouldLoadAllTransactions) {
+      console.log(`📊 [TransactionImport] Loading ALL transactions (monthFilter = 'all')`);
+      return undefined;
+    }
+    
+    const useCurrentMonth = monthFilter === 'current';
+    const monthKey = useCurrentMonth ? selectedMonthKey : monthFilter;
+    
+    // Handle different month key formats
+    if (monthKey === 'all') {
+      console.log(`📊 [TransactionImport] Loading ALL transactions (monthKey = 'all')`);
+      return undefined;
+    }
+    
+    if (monthKey === 'current') {
+      const [year, month] = selectedMonthKey.split('-');
+      const startOfMonth = `${year}-${month}-01`;
+      const endOfMonth = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0];
+      console.log(`📊 [TransactionImport] Loading CURRENT month: ${selectedMonthKey} (${startOfMonth} to ${endOfMonth})`);
+      return { fromDate: startOfMonth, toDate: endOfMonth };
+    }
+    
+    // Parse month key (YYYY-MM format) for specific month selections
+    const [year, month] = monthKey.split('-').map(Number);
+    if (isNaN(year) || isNaN(month)) {
+      console.warn(`📊 [TransactionImport] Invalid month key: ${monthKey}, falling back to current month`);
+      const now = new Date();
+      return {
+        fromDate: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0],
+        toDate: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
+      };
+    }
+    
+    const startOfMonth = new Date(year, month - 1, 1).toISOString().split('T')[0];
+    const endOfMonth = new Date(year, month, 0).toISOString().split('T')[0];
+    
+    console.log(`📊 [TransactionImport] Loading SPECIFIC month: ${monthKey} (${startOfMonth} to ${endOfMonth})`);
+    return { fromDate: startOfMonth, toDate: endOfMonth };
+  }, [shouldLoadAllTransactions, monthFilter, selectedMonthKey]);
+  
+  // Load transactions based on filter selection and month navigation
+  const { 
+    data: transactionsFromAPI = [], 
+    isLoading: transactionsLoading 
+  } = useTransactions(selectedMonthDateRange);
+  
   const { getHuvudkategoriName, getUnderkategoriName } = useCategoryNames();
   const queryClient = useQueryClient();
   const { data: categoryRules = [] } = useCategoryRules();
@@ -466,23 +528,13 @@ export const TransactionImportEnhanced: React.FC = () => {
   const { data: huvudkategorier = [] } = useHuvudkategorier();
   const { data: underkategorier = [] } = useUnderkategorier();
   
-  // CRITICAL DEBUG: Check what budgetState contains
-  console.log('[TX IMPORT] 🔍 CRITICAL DEBUG - budgetState from useBudget():');
-  console.log('[TX IMPORT] 🔍 budgetState exists:', !!budgetState);
-  console.log('[TX IMPORT] 🔍 allTransactions exists:', !!budgetState?.allTransactions);
-  console.log('[TX IMPORT] 🔍 allTransactions length:', budgetState?.allTransactions?.length || 0);
-  if (budgetState?.allTransactions && budgetState.allTransactions.length > 0) {
-    const firstTx = budgetState.allTransactions[0];
-    console.log('[TX IMPORT] 🔍 First transaction:', {
-      id: firstTx.id,
-      description: firstTx.description,
-      amount: firstTx.amount,
-      type: typeof firstTx.amount
-    });
-  }
+  // PHASE 2 MIGRATION: Removed budgetState.allTransactions debugging - now SQL-only
   
   // Use API data for accounts instead of budgetState.accounts
   const { data: accountsFromAPI = [], isLoading: accountsLoading } = useAccounts();
+  
+  // Direct API mutation hook (Phase 1 Migration)
+  const updateTransactionMutation = useUpdateTransaction();
   
   // Reset filters and states when month changes to ensure consistency
   useEffect(() => {
@@ -536,27 +588,14 @@ export const TransactionImportEnhanced: React.FC = () => {
   const costGroups = budgetState?.historicalData?.[budgetState.selectedMonthKey]?.costGroups || [];
   const categoryRulesFromState = budgetState?.categoryRules || [];
   
-  // DIRECT conversion without useMemo - exactly like balanceAfter works
-  console.log('[TX IMPORT] 🔥 DIRECT CONVERSION - NO useMemo!');
-    console.log('[TX IMPORT] 🔄 Reading from centralized transaction storage');
-    console.log('[TX IMPORT] 📊 Total transactions in centralized storage:', budgetState?.allTransactions?.length || 0);
+  // PHASE 2 MIGRATION: Simplified debugging - SQL-only data source
     
-    // CRITICAL DEBUG: Check if budgetState exists and has valid amounts
-    if (budgetState?.allTransactions && budgetState.allTransactions.length > 0) {
-      const firstTx = budgetState.allTransactions[0];
-      console.log('[TX IMPORT] CRITICAL DEBUG - First transaction in budgetState:');
-      console.log(`  - ID: ${firstTx.id}`);
-      console.log(`  - Description: "${firstTx.description}"`);  
-      console.log(`  - Amount: ${firstTx.amount} (type: ${typeof firstTx.amount})`);
-      console.log(`  - BalanceAfter: ${firstTx.balanceAfter} (type: ${typeof firstTx.balanceAfter})`);
-    }
-    
-  // Convert Transaction[] to ImportedTransaction[] format - Use SQL data as primary source
+  // PHASE 2 MIGRATION: Use SQL-only data source - no localStorage fallback
   const transactions = useMemo(() => {
-    // CRITICAL FIX: Use transactionsFromAPI (SQL data) instead of budgetState (old localStorage data)
-    const sourceTransactions = transactionsFromAPI.length > 0 ? transactionsFromAPI : (budgetState?.allTransactions || []);
-    console.log(`[TX IMPORT] 🔄 Using ${transactionsFromAPI.length > 0 ? 'SQL' : 'budgetState'} data source: ${sourceTransactions.length} transactions`);
-    addMobileDebugLog(`🔄 [TX IMPORT] Using ${transactionsFromAPI.length > 0 ? 'SQL' : 'budgetState'} data: ${sourceTransactions.length} transactions`);
+    // SQL-only data source
+    const sourceTransactions = transactionsFromAPI || [];
+    console.log(`[TX IMPORT] 🔄 Using SQL-only data source: ${sourceTransactions.length} transactions`);
+    addMobileDebugLog(`🔄 [TX IMPORT] Using SQL data: ${sourceTransactions.length} transactions`);
     
     // Debug savingsTargetId in source data
     const lonTransactions = sourceTransactions.filter(t => t.description === 'LÖN');
@@ -662,9 +701,8 @@ export const TransactionImportEnhanced: React.FC = () => {
     allTransactionsRef.current = allTransactions;
   }, [allTransactions]);
   
-  // CRITICAL DEBUG: Force log every render to understand why useMemo doesn't trigger
+  // PHASE 2 MIGRATION: Simplified render debugging
   console.log('[TX IMPORT] 🚨 RENDER DEBUG:');
-  console.log('[TX IMPORT] 🚨 budgetState?.allTransactions length:', budgetState?.allTransactions?.length || 0);
   console.log('[TX IMPORT] 🚨 refreshKey:', refreshKey);
   console.log('[TX IMPORT] 🚨 allTransactions (from useMemo) length:', allTransactions.length);
 
@@ -1411,7 +1449,7 @@ export const TransactionImportEnhanced: React.FC = () => {
 
   // UNIFIED UPDATE FUNCTION - This connects the UI back to the central state
   const handleTransactionUpdate = (transactionId: string, updates: Partial<ImportedTransaction>) => {
-    console.log(`🔄 [TransactionImportEnhanced] Updating transaction ${transactionId} with updates:`, updates);
+    console.log(`🔄 [TransactionImportEnhanced] handleTransactionUpdate called for ${transactionId} with updates:`, updates);
     
     // Find the transaction to get its date and derive monthKey
     // First try filteredTransactions (current view), then allTransactions
@@ -1430,8 +1468,7 @@ export const TransactionImportEnhanced: React.FC = () => {
       return;
     }
 
-    const monthKey = transaction.date.substring(0, 7);
-    console.log(`🔄 [TransactionImportEnhanced] Derived monthKey: ${monthKey} from date: ${transaction.date}`);
+    console.log(`🔄 [TransactionImportEnhanced] DIRECT API UPDATE: ${transactionId}`);
     
     // Always mark as manually changed for user interactions
     const updatesWithManualFlag = {
@@ -1439,29 +1476,57 @@ export const TransactionImportEnhanced: React.FC = () => {
       isManuallyChanged: true
     };
     
-    console.log(`🔄 [TransactionImportEnhanced] About to call updateTransaction with:`, {
-      transactionId,
-      updatesWithManualFlag,
-      monthKey
-    });
+    // PHASE 1 MIGRATION: Direct API call instead of orchestrator
+    // Convert ImportedTransaction format to database format
+    const dbUpdateData: any = {};
     
-    // Call the central orchestrator function with CORRECT signature
-    updateTransaction(transactionId, updatesWithManualFlag, monthKey);
+    if (updatesWithManualFlag.appCategoryId !== undefined) {
+      dbUpdateData.appCategoryId = updatesWithManualFlag.appCategoryId;
+    }
+    if (updatesWithManualFlag.appSubCategoryId !== undefined) {
+      dbUpdateData.appSubCategoryId = updatesWithManualFlag.appSubCategoryId;
+    }
+    if (updatesWithManualFlag.type !== undefined) {
+      dbUpdateData.type = updatesWithManualFlag.type;
+    }
+    if (updatesWithManualFlag.userDescription !== undefined) {
+      dbUpdateData.userDescription = updatesWithManualFlag.userDescription;
+    }
+    if (updatesWithManualFlag.status !== undefined) {
+      dbUpdateData.status = updatesWithManualFlag.status;
+    }
+    if (updatesWithManualFlag.savingsTargetId !== undefined) {
+      dbUpdateData.savingsTargetId = updatesWithManualFlag.savingsTargetId;
+    }
+    if (updatesWithManualFlag.linkedTransactionId !== undefined) {
+      dbUpdateData.linkedTransactionId = updatesWithManualFlag.linkedTransactionId;
+    }
+    if (updatesWithManualFlag.correctedAmount !== undefined) {
+      dbUpdateData.correctedAmount = updatesWithManualFlag.correctedAmount;
+    }
     
-    console.log(`🔄 [TransactionImportEnhanced] Called updateTransaction, checking state in 100ms...`);
-    setTimeout(() => {
-      const currentState = getCurrentState();
-      const updatedTransaction = currentState.budgetState.allTransactions.find((t: any) => t.id === transactionId);
-      console.log(`🔄 [TransactionImportEnhanced] Transaction after update:`, updatedTransaction ? {
-        id: updatedTransaction.id,
-        status: updatedTransaction.status,
-        type: updatedTransaction.type,
-        isManuallyChanged: updatedTransaction.isManuallyChanged
-      } : 'NOT FOUND');
-      
-      // Force a state refresh by updating a dummy state value
-      setRefreshKey(prev => prev + 1);
-    }, 100);
+    // Always include manual flag
+    dbUpdateData.isManuallyChanged = String(updatesWithManualFlag.isManuallyChanged || true);
+    
+    console.log(`🚀 [DIRECT API] Calling API directly with:`, dbUpdateData);
+    
+    // Use React Query mutation for direct API call with optimistic update
+    updateTransactionMutation.mutate(
+      { id: transactionId, data: dbUpdateData },
+      {
+        onSuccess: (result) => {
+          console.log(`✅ [DIRECT API] Transaction ${transactionId} updated successfully:`, result);
+        },
+        onError: (error) => {
+          console.error(`❌ [DIRECT API] Failed to update transaction ${transactionId}:`, error);
+          toast({
+            title: "Fel",
+            description: "Kunde inte uppdatera transaktionen. Försök igen.",
+            variant: "destructive"
+          });
+        }
+      }
+    );
   };
 
   // Create a refresh function to be passed to components
@@ -1513,47 +1578,93 @@ export const TransactionImportEnhanced: React.FC = () => {
   };
 
   const updateTransactionNote = (transactionId: string, userDescription: string) => {
+    // LOCAL-FIRST UPDATE: Immediately update local state
+    const updateLocalTransaction = (tx: ImportedTransaction) => {
+      if (tx.id === transactionId) {
+        return {
+          ...tx,
+          userDescription,
+          isManuallyChanged: true
+        };
+      }
+      return tx;
+    };
+    
+    // Update both filtered and all transactions immediately
+    setFilteredTransactions(prev => prev.map(updateLocalTransaction));
+    setAllTransactions(prev => prev.map(updateLocalTransaction));
+    
+    // Then update in the orchestrator (which will sync to DB in background)
     handleTransactionUpdate(transactionId, { userDescription });
   };
 
-  const updateTransactionCategory = (transactionId: string, categoryName: string, subCategoryId?: string) => {
-    const costGroup = costGroups.find(g => g.name === categoryName);
-    const categoryId = costGroup ? costGroup.id : categoryName;
-    
-    // Find the current transaction - first try filtered, then all
-    let currentTransaction = filteredTransactions.find(t => t.id === transactionId);
-    if (!currentTransaction) {
-      currentTransaction = allTransactions.find(t => t.id === transactionId);
-    }
-    
-    if (!currentTransaction) {
-      console.error(`Transaction ${transactionId} not found for category update`);
-      toast({
-        title: "Fel",
-        description: "Kunde inte hitta transaktionen för att uppdatera kategori.",
-        variant: "destructive"
+  const updateTransactionCategory = (transactionId: string, categoryIdOrName: string, subCategoryId?: string) => {
+    console.log(`🔄 [TransactionImportEnhanced] updateTransactionCategory called for ${transactionId}`, { categoryIdOrName, subCategoryId });
+    try {
+      // categoryIdOrName is already a UUID when coming from the new UUID-based system
+      // No need to look it up in costGroups
+      const categoryId = categoryIdOrName;
+      
+      // Find the current transaction - first try filtered, then all
+      let currentTransaction = filteredTransactions.find(t => t.id === transactionId);
+      if (!currentTransaction) {
+        currentTransaction = allTransactions.find(t => t.id === transactionId);
+      }
+      
+      if (!currentTransaction) {
+        console.error(`Transaction ${transactionId} not found for category update`);
+        toast({
+          title: "Fel",
+          description: "Kunde inte hitta transaktionen för att uppdatera kategori.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Create updated transaction object for status determination
+      const updatedTransaction = {
+        ...currentTransaction,
+        appCategoryId: categoryId,
+        appSubCategoryId: subCategoryId
+      };
+      
+      console.log(`🔄 [TransactionImportEnhanced] About to call determineTransactionStatus`);
+      // Use centralized status determination that includes auto-approval logic
+      const newStatus = determineTransactionStatus(updatedTransaction);
+      console.log(`🔄 [TransactionImportEnhanced] determineTransactionStatus returned: ${newStatus}`);
+      
+      // DIRECT API UPDATE: Skip local state updates since we have optimistic updates in React Query
+      console.log(`🔄 [TransactionImportEnhanced] About to call handleTransactionUpdate`);
+      handleTransactionUpdate(transactionId, { 
+        appCategoryId: categoryId,
+        appSubCategoryId: subCategoryId,
+        status: newStatus
       });
-      return;
+      console.log(`🔄 [TransactionImportEnhanced] handleTransactionUpdate completed`);
+    } catch (error) {
+      console.error(`❌ [TransactionImportEnhanced] Error in updateTransactionCategory:`, error);
+      console.error('Error details:', { error, stack: error?.stack });
     }
-    
-    // Create updated transaction object for status determination
-    const updatedTransaction = {
-      ...currentTransaction,
-      appCategoryId: categoryId,
-      appSubCategoryId: subCategoryId
-    };
-    
-    // Use centralized status determination that includes auto-approval logic
-    const newStatus = determineTransactionStatus(updatedTransaction);
-    
-    handleTransactionUpdate(transactionId, { 
-      appCategoryId: categoryId,
-      appSubCategoryId: subCategoryId,
-      status: newStatus
-    });
   };
 
   const updateTransactionStatus = (transactionId: string, status: 'green' | 'yellow' | 'red') => {
+    // LOCAL-FIRST UPDATE: Immediately update local state
+    const updateLocalTransaction = (tx: ImportedTransaction) => {
+      if (tx.id === transactionId) {
+        return {
+          ...tx,
+          status,
+          isManuallyChanged: true
+        };
+      }
+      return tx;
+    };
+    
+    // Update both filtered and all transactions immediately
+    setFilteredTransactions(prev => prev.map(updateLocalTransaction));
+    setAllTransactions(prev => prev.map(updateLocalTransaction));
+    
+    // Then update in the orchestrator (which will sync to DB in background)
     handleTransactionUpdate(transactionId, { status });
   };
 
@@ -1620,17 +1731,23 @@ export const TransactionImportEnhanced: React.FC = () => {
         const transferMonthKey = transfer.date.substring(0, 7);
         const matchMonthKey = match.date.substring(0, 7);
         
-        updateTransaction(transfer.id, {
-          linkedTransactionId: match.id,
-          status: 'yellow' as const,
-          isManuallyChanged: true
-        }, transferMonthKey);
+        updateTransactionMutation.mutate({
+          id: transfer.id,
+          data: {
+            linkedTransactionId: match.id,
+            status: 'yellow' as const,
+            isManuallyChanged: 'true'
+          }
+        });
         
-        updateTransaction(match.id, {
-          linkedTransactionId: transfer.id,
-          status: 'yellow' as const,
-          isManuallyChanged: true
-        }, matchMonthKey);
+        updateTransactionMutation.mutate({
+          id: match.id,
+          data: {
+            linkedTransactionId: transfer.id,
+            status: 'yellow' as const,
+            isManuallyChanged: 'true'
+          }
+        });
       }
     });
   }, [allTransactions]);
@@ -1670,24 +1787,14 @@ export const TransactionImportEnhanced: React.FC = () => {
     console.log(`🚀 [OPTIMISTIC APPROVE] Starting instant UI update for ${selectedTransactions.length} transactions`);
     let approvedCount = 0;
     
-    // STEP 1: UPDATE UI IMMEDIATELY (Optimistic Update)
-    // Direct state manipulation for instant UI response
-    const currentState = getCurrentState();
-    if (currentState?.budgetState?.allTransactions) {
-      selectedTransactions.forEach(transactionId => {
-        const transactionIndex = currentState.budgetState.allTransactions.findIndex(t => t.id === transactionId);
-        if (transactionIndex !== -1 && currentState.budgetState.allTransactions[transactionIndex].status !== 'green') {
-          console.log(`🚀 [OPTIMISTIC] Instantly updating UI: ${transactionId} -> green`);
-          // Directly mutate the state for immediate UI response
-          currentState.budgetState.allTransactions[transactionIndex] = {
-            ...currentState.budgetState.allTransactions[transactionIndex],
-            status: 'green',
-            isManuallyChanged: true
-          };
-          approvedCount++;
-        }
-      });
-    }
+    // PHASE 2 MIGRATION: Optimistic updates now handled by React Query mutations
+    // Count how many we would approve for the toast message
+    selectedTransactions.forEach(transactionId => {
+      const transaction = allTransactions.find(t => t.id === transactionId);
+      if (transaction && transaction.status !== 'green') {
+        approvedCount++;
+      }
+    });
 
     // STEP 2: IMMEDIATE UI REFRESH
     setSelectedTransactions([]);
@@ -1712,11 +1819,14 @@ export const TransactionImportEnhanced: React.FC = () => {
             // Find the transaction to get its date and derive monthKey
             const monthKey = transaction.date.substring(0, 7);
             
-            // Call orchestrator directly with minimal overhead
-            updateTransaction(transactionId, { 
-              status: 'green' as const,
-              isManuallyChanged: true 
-            }, monthKey);
+            // Use React Query mutation for direct API call
+            updateTransactionMutation.mutate({
+              id: transactionId,
+              data: {
+                status: 'green' as const,
+                isManuallyChanged: 'true'
+              }
+            });
           }
         }
         console.log(`✅ [BACKGROUND SYNC] Database sync completed for all approved transactions`);
@@ -1741,24 +1851,14 @@ export const TransactionImportEnhanced: React.FC = () => {
     console.log(`🚀 [OPTIMISTIC UNAPPROVE] Starting instant UI update for ${selectedTransactions.length} transactions`);
     let unapprovedCount = 0;
     
-    // STEP 1: UPDATE UI IMMEDIATELY (Optimistic Update)
-    // Direct state manipulation for instant UI response
-    const currentState = getCurrentState();
-    if (currentState?.budgetState?.allTransactions) {
-      selectedTransactions.forEach(transactionId => {
-        const transactionIndex = currentState.budgetState.allTransactions.findIndex(t => t.id === transactionId);
-        if (transactionIndex !== -1 && currentState.budgetState.allTransactions[transactionIndex].status === 'green') {
-          console.log(`🚀 [OPTIMISTIC] Instantly updating UI: ${transactionId} -> red`);
-          // Directly mutate the state for immediate UI response
-          currentState.budgetState.allTransactions[transactionIndex] = {
-            ...currentState.budgetState.allTransactions[transactionIndex],
-            status: 'red',
-            isManuallyChanged: true
-          };
-          unapprovedCount++;
-        }
-      });
-    }
+    // PHASE 2 MIGRATION: Optimistic updates now handled by React Query mutations
+    // Count how many we would unapprove for the toast message
+    selectedTransactions.forEach(transactionId => {
+      const transaction = allTransactions.find(t => t.id === transactionId);
+      if (transaction && transaction.status === 'green') {
+        unapprovedCount++;
+      }
+    });
 
     // STEP 2: IMMEDIATE UI REFRESH
     setSelectedTransactions([]);
@@ -1783,11 +1883,14 @@ export const TransactionImportEnhanced: React.FC = () => {
             // Find the transaction to get its date and derive monthKey
             const monthKey = transaction.date.substring(0, 7);
             
-            // Call orchestrator directly with minimal overhead
-            updateTransaction(transactionId, { 
-              status: 'red' as const,
-              isManuallyChanged: true 
-            }, monthKey);
+            // Use React Query mutation for direct API call
+            updateTransactionMutation.mutate({
+              id: transactionId,
+              data: {
+                status: 'red' as const,
+                isManuallyChanged: 'true'
+              }
+            });
           }
         }
         console.log(`✅ [BACKGROUND SYNC] Database sync completed for all unapproved transactions`);
@@ -2447,6 +2550,15 @@ export const TransactionImportEnhanced: React.FC = () => {
     
     // Filter by rule existence
     if (ruleFilter !== 'all') {
+      console.log(`🔍 [RULE FILTER] Filtering with ruleFilter: ${ruleFilter}, categoryRules count: ${categoryRules.length}`);
+      console.log(`🔍 [RULE FILTER] Active rules:`, categoryRules.filter(r => r.isActive === 'true').map(r => ({
+        id: r.id,
+        name: r.transactionName,
+        type: r.ruleType,
+        direction: r.transactionDirection,
+        accountIds: r.applicableAccountIds
+      })));
+      
       baseTransactions = baseTransactions.filter(t => {
         const hasMatchingRule = categoryRules.some(rule => {
           // Skip inactive rules
@@ -2462,7 +2574,11 @@ export const TransactionImportEnhanced: React.FC = () => {
               matches = t.description.toLowerCase().startsWith(rule.transactionName.toLowerCase());
               break;
             case 'textContains':
-              matches = t.description.toLowerCase().includes(rule.transactionName.toLowerCase());
+              if (rule.transactionName.toLowerCase().trim() === '*') {
+                matches = true; // Wildcard matches everything
+              } else {
+                matches = t.description.toLowerCase().includes(rule.transactionName.toLowerCase());
+              }
               break;
             case 'exactText':
               matches = t.description.toLowerCase() === rule.transactionName.toLowerCase();
@@ -2478,18 +2594,47 @@ export const TransactionImportEnhanced: React.FC = () => {
           // Additional filters if rule matches basic criteria
           if (matches) {
             // Check transaction direction
-            if (rule.transactionDirection === 'positive' && t.amount <= 0) matches = false;
-            if (rule.transactionDirection === 'negative' && t.amount >= 0) matches = false;
+            if (rule.transactionDirection === 'positive' && t.amount <= 0) {
+              matches = false;
+            }
+            if (rule.transactionDirection === 'negative' && t.amount >= 0) {
+              matches = false;
+            }
             
             // Check applicable account IDs
             if (rule.applicableAccountIds && rule.applicableAccountIds !== '[]') {
-              const accountIds = JSON.parse(rule.applicableAccountIds);
-              if (!accountIds.includes(t.accountId)) matches = false;
+              try {
+                const accountIds = JSON.parse(rule.applicableAccountIds);
+                if (!accountIds.includes(t.accountId)) {
+                  matches = false;
+                }
+              } catch (e) {
+                console.warn(`🔍 [RULE DEBUG] Failed to parse applicableAccountIds for rule ${rule.id}:`, rule.applicableAccountIds);
+                matches = false;
+              }
             }
+          }
+          
+          // Enhanced debugging for specific transactions
+          if (matches && (t.description.includes('Från Hushåll - Nöje') || t.description.includes('Circle K') || rule.transactionName?.includes('*'))) {
+            console.log(`🔍 [RULE DEBUG] MATCHED RULE for "${t.description}" (${t.amount}):`, {
+              ruleId: rule.id,
+              ruleName: rule.transactionName,
+              ruleType: rule.ruleType,
+              ruleDirection: rule.transactionDirection,
+              ruleAccountIds: rule.applicableAccountIds,
+              transactionAccountId: t.accountId,
+              transactionAmount: t.amount,
+              matches: matches
+            });
           }
           
           return matches;
         });
+        
+        if (t.description.includes('Från Hushåll - Nöje') || t.description.includes('Circle K') || t.description.includes('*')) {
+          console.log(`🔍 [RULE DEBUG] Transaction "${t.description}" (${t.amount}): hasMatchingRule=${hasMatchingRule}, ruleFilter=${ruleFilter}, willShow=${ruleFilter === 'with-rules' ? hasMatchingRule : !hasMatchingRule}`);
+        }
         
         return ruleFilter === 'with-rules' ? hasMatchingRule : !hasMatchingRule;
       });
@@ -2526,6 +2671,7 @@ export const TransactionImportEnhanced: React.FC = () => {
             Granska och kategorisera dina importerade transaktioner.
           </p>
         </div>
+
 
         {/* Expandable Filter Card */}
         <Card>
@@ -3412,8 +3558,13 @@ export const TransactionImportEnhanced: React.FC = () => {
         onUpdateTransaction={(transactionId, updates) => {
           const transaction = allTransactions.find(t => t.id === transactionId);
           if (transaction) {
-            const monthKey = transaction.date.substring(0, 7);
-            updateTransaction(transactionId, updates, monthKey);
+            updateTransactionMutation.mutate({
+              id: transactionId,
+              data: {
+                ...updates,
+                isManuallyChanged: 'true'
+              }
+            });
           }
         }}
         onRefresh={() => setRefreshKey(prev => prev + 1)}

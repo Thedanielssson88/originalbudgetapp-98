@@ -14,6 +14,7 @@ import CategoryManagement from "./pages/CategoryManagement";
 import NotFound from "./pages/NotFound";
 import ImportPage from "./pages/ImportPage";
 import { useInitializeApiStore } from "./hooks/useApiStore";
+import { usePrefetchAllTransactions } from "./hooks/useTransactions";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -35,6 +36,9 @@ if (typeof window !== 'undefined') {
 const AppContent = () => {
   // Initialize the API store when the app starts
   useInitializeApiStore();
+  
+  // STARTUP OPTIMIZATION: Prefetch all transactions for summaries and yearly analysis
+  usePrefetchAllTransactions();
   
   return (
     <TooltipProvider>
