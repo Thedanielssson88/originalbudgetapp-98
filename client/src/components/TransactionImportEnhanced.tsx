@@ -606,7 +606,7 @@ export const TransactionImportEnhanced: React.FC = () => {
       // CRITICAL DEBUG: Check if savingsTargetId is preserved for LÖN transactions
       if (t.description === 'LÖN' && t.savingsTargetId) {
         console.log(`[TX IMPORT] ✅ CONVERTED LÖN transaction ${t.id}: savingsTargetId=${converted.savingsTargetId}`);
-        console.log(`[TX IMPORT] ✅ LEGACY FIELDS: huvudkategoriId=${t.huvudkategoriId}, underkategoriId=${t.underkategoriId}`);
+        console.log(`[TX IMPORT] ✅ LEGACY FIELDS: huvudkategoriId=${(t as any).huvudkategoriId}, underkategoriId=${(t as any).underkategoriId}`);
         console.log(`[TX IMPORT] ✅ NEWER FIELDS: appCategoryId=${t.appCategoryId}, appSubCategoryId=${t.appSubCategoryId}`);
         addMobileDebugLog(`✅ CONVERTED LÖN ${t.id.slice(-8)}: savingsTargetId=${converted.savingsTargetId ? converted.savingsTargetId.slice(-8) : 'LOST!'}`);
         addMobileDebugLog(`🏷️ Categories: legacy(${(t as any).huvudkategoriId ? 'SET' : 'NULL'}), newer(${t.appCategoryId ? 'SET' : 'NULL'})`);
@@ -672,7 +672,11 @@ export const TransactionImportEnhanced: React.FC = () => {
   const accounts: Account[] = (accountsFromAPI || []).map(acc => ({
     id: acc.id,
     name: acc.name,
-    balance: acc.balance || 0
+    balance: acc.balance || 0,
+    userId: acc.userId,
+    assignedTo: acc.assignedTo,
+    bankTemplateId: acc.bankTemplateId,
+    accountTypeId: acc.accountTypeId
   }));
   
   // Get main categories from actual budget data
@@ -1181,7 +1185,12 @@ export const TransactionImportEnhanced: React.FC = () => {
           parseResult.cleanCsv, 
           accountId, 
           accountName, 
-          existingTransactions,
+          existingTransactions.map(t => ({
+            ...t,
+            userDescription: t.userDescription || '',
+            importedAt: t.importedAt || new Date().toISOString(),
+            fileSource: t.fileSource || 'unknown'
+          })),
           categoryRules
         );
         
@@ -1195,7 +1204,12 @@ export const TransactionImportEnhanced: React.FC = () => {
           
           // Update local state immediately with new transactions
           if (improvedResult.finalTransactions) {
-            allTransactionsRef.current = improvedResult.finalTransactions;
+            allTransactionsRef.current = improvedResult.finalTransactions.map(t => ({
+              ...t,
+              userDescription: t.userDescription || '',
+              importedAt: t.importedAt || new Date().toISOString(),
+              fileSource: t.fileSource || 'unknown'
+            }));
             // Trigger UI update
             await queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
             await queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
@@ -1221,7 +1235,12 @@ export const TransactionImportEnhanced: React.FC = () => {
           csvContent, 
           accountId, 
           accountName, 
-          existingTransactions,
+          existingTransactions.map(t => ({
+            ...t,
+            userDescription: t.userDescription || '',
+            importedAt: t.importedAt || new Date().toISOString(),
+            fileSource: t.fileSource || 'unknown'
+          })),
           categoryRules
         );
         
@@ -1235,7 +1254,12 @@ export const TransactionImportEnhanced: React.FC = () => {
           
           // Update local state immediately with new transactions
           if (improvedResult.finalTransactions) {
-            allTransactionsRef.current = improvedResult.finalTransactions;
+            allTransactionsRef.current = improvedResult.finalTransactions.map(t => ({
+              ...t,
+              userDescription: t.userDescription || '',
+              importedAt: t.importedAt || new Date().toISOString(),
+              fileSource: t.fileSource || 'unknown'
+            }));
             // Trigger UI update
             await queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
             await queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
@@ -2486,17 +2510,17 @@ export const TransactionImportEnhanced: React.FC = () => {
 
   // Helper functions to get unique values for filter dropdowns
   const uniqueTransactionTypes = useMemo(() => {
-    const types = [...new Set(allTransactions.map(t => t.type).filter(Boolean))];
+    const types = Array.from(new Set(allTransactions.map(t => t.type).filter(Boolean)));
     return types.sort();
   }, [allTransactions]);
 
   const uniqueBankCategories = useMemo(() => {
-    const categories = [...new Set(allTransactions.map(t => t.bankCategory).filter(Boolean))];
+    const categories = Array.from(new Set(allTransactions.map(t => t.bankCategory).filter(Boolean)));
     return categories.sort();
   }, [allTransactions]);
 
   const uniqueBankSubCategories = useMemo(() => {
-    const subCategories = [...new Set(allTransactions.map(t => t.bankSubCategory).filter(Boolean))];
+    const subCategories = Array.from(new Set(allTransactions.map(t => t.bankSubCategory).filter(Boolean)));
     return subCategories.sort();
   }, [allTransactions]);
 
@@ -2853,7 +2877,11 @@ export const TransactionImportEnhanced: React.FC = () => {
               <CardContent>
                 <UncategorizedBankCategories 
                   transactions={allTransactions}
-                  categoryRules={categoryRules}
+                  categoryRules={categoryRules.map(rule => ({
+                    ...rule,
+                    condition: { type: 'categoryMatch', bankCategory: rule.transactionName || '', bankSubCategory: '', value: rule.transactionName || '' },
+                    action: { appMainCategoryId: rule.huvudkategoriId || '', appSubCategoryId: rule.underkategoriId || '', positiveTransactionType: 'Transaction', negativeTransactionType: 'Transaction', applicableAccountIds: [] }
+                  }))}
                   onCreateRule={(bankCategory, bankSubCategory) => {
                     // Create a mock transaction with bank category info - empty description so it doesn't affect condition
                     const mockTransaction: ImportedTransaction = {
@@ -2867,7 +2895,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                       bankCategory: bankCategory,
                       bankSubCategory: bankSubCategory || '',
                       type: 'Transaction',
-                      status: 'pending'
+                      status: 'yellow'
                     };
                     setBankCategoryTransaction(mockTransaction);
                     setCreateRuleDialogOpen(true);
