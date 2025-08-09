@@ -28,6 +28,7 @@ interface OptimizedRule {
   id: string;
   ruleName: string;
   transactionName?: string;
+  ruleType?: string;
   bankCategory?: string;
   bankSubCategory?: string;
   transactionDirection?: string;
@@ -38,6 +39,7 @@ interface OptimizedRule {
   applicableAccountIds?: string;
   isActive: boolean;
   priority: number;
+  autoApproval?: boolean;
 }
 
 interface BatchUpdate {
@@ -61,6 +63,7 @@ function preprocessRules(rules: any[]): OptimizedRule[] {
       id: rule.id,
       ruleName: rule.ruleName || rule.name,
       transactionName: rule.transactionName?.toLowerCase(),
+      ruleType: rule.ruleType || 'textContains', // Default to textContains for legacy rules
       bankCategory: rule.bankCategory,
       bankSubCategory: rule.bankSubCategory,
       transactionDirection: rule.transactionDirection || 'all',
@@ -70,7 +73,8 @@ function preprocessRules(rules: any[]): OptimizedRule[] {
       negativeTransactionType: rule.negativeTransactionType,
       applicableAccountIds: rule.applicableAccountIds,
       isActive: true,
-      priority: rule.priority || 100
+      priority: rule.priority || 100,
+      autoApproval: rule.autoApproval === true
     }))
     .sort((a, b) => a.priority - b.priority); // Sort by priority
 }
@@ -139,9 +143,30 @@ function findMatchingRule(transaction: ImportedTransaction, rules: OptimizedRule
       if (rule.transactionName === '*') {
         return rule;
       }
-      // Normal text matching
-      if (transactionText.includes(rule.transactionName)) {
-        return rule;
+      
+      // Apply matching logic based on rule type
+      const ruleType = rule.ruleType || 'textContains'; // Default to textContains for legacy rules
+      
+      switch (ruleType) {
+        case 'exactText':
+          // Exact text match (case insensitive)
+          if (transactionText === rule.transactionName) {
+            return rule;
+          }
+          break;
+        case 'textStartsWith':
+          // Text starts with match
+          if (transactionText.startsWith(rule.transactionName)) {
+            return rule;
+          }
+          break;
+        case 'textContains':
+        default:
+          // Text contains match (default behavior)
+          if (transactionText.includes(rule.transactionName)) {
+            return rule;
+          }
+          break;
       }
     }
   }
@@ -181,8 +206,8 @@ function applyRuleToTransaction(
     hasUpdates = true;
   }
   
-  // Auto-approve if both categories are set
-  if (rule.huvudkategoriId && rule.underkategoriId && transaction.status !== 'green') {
+  // Auto-approve if auto-approval is enabled and both categories are set
+  if (rule.autoApproval && rule.huvudkategoriId && rule.underkategoriId && transaction.status !== 'green') {
     updates.status = 'green';
     hasUpdates = true;
   }
@@ -229,7 +254,6 @@ function applyBankCategoryFallback(
     updates: {
       appCategoryId: matchingHuvudkategori.id,
       appSubCategoryId: matchingUnderkategori.id,
-      status: 'green',
       isManuallyChanged: 'false'
     }
   };

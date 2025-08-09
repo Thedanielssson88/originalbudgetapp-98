@@ -42,6 +42,16 @@ export const inkomstkallorMedlem = pgTable('inkomstkallor_medlem', {
     uniqueMemberIncomeSource: unique().on(table.userId, table.familjemedlemId, table.idInkomstkalla),
 }));
 
+// Account types table for categorizing accounts
+export const accountTypes = pgTable('account_types', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    description: text('description'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const accounts = pgTable('accounts', {
     id: uuid('id').defaultRandom().primaryKey(),
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -51,6 +61,8 @@ export const accounts = pgTable('accounts', {
     assignedTo: text('assigned_to'), // null/'gemensamt' = shared, UUID string = specific family member
     // Bank template ID for CSV import mapping  
     bankTemplateId: text('bank_template_id'),
+    // Account type reference
+    accountTypeId: uuid('account_type_id').references(() => accountTypes.id, { onDelete: 'set null' }),
 });
 
 // Monthly account balances calculated from last transaction before 25th
@@ -113,6 +125,7 @@ export const categoryRules = pgTable('category_rules', {
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     ruleName: text('rule_name').notNull(),
     transactionName: text('transaction_name').notNull(),
+    ruleType: text('rule_type', { enum: ['textContains', 'textStartsWith', 'exactText', 'categoryMatch'] }), // Rule type for matching logic (nullable for existing rules)
     bankCategory: text('bank_category'), // Optional - only for exact bank category matching rules
     bankSubCategory: text('bank_sub_category'), // Optional - only for exact bank category matching rules
     transactionDirection: text('transaction_direction', { enum: ['all', 'positive', 'negative'] }).default('all'), // NEW: Filter by transaction amount direction (nullable for migration)
@@ -124,6 +137,7 @@ export const categoryRules = pgTable('category_rules', {
     applicableAccountIds: text('applicable_account_ids').default('[]').notNull(), // JSON string of account IDs
     priority: integer('priority').default(100).notNull(),
     isActive: text('is_active').default('true').notNull(),
+    autoApproval: boolean('auto_approval').default(false).notNull(), // NEW: Auto-approve transactions when rule is applied
 });
 
 // Banks table for storing bank information
@@ -248,6 +262,12 @@ export const insertInkomstkallorMedlemSchema = createInsertSchema(inkomstkallorM
   createdAt: true,
 });
 
+export const insertAccountTypeSchema = createInsertSchema(accountTypes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertAccountSchema = createInsertSchema(accounts).omit({
   id: true,
 });
@@ -314,6 +334,9 @@ export type Inkomstkall = typeof inkomstkallor.$inferSelect;
 
 export type InsertInkomstkallorMedlem = z.infer<typeof insertInkomstkallorMedlemSchema>;
 export type InkomstkallorMedlem = typeof inkomstkallorMedlem.$inferSelect;
+
+export type InsertAccountType = z.infer<typeof insertAccountTypeSchema>;
+export type AccountType = typeof accountTypes.$inferSelect;
 
 export type InsertAccount = z.infer<typeof insertAccountSchema>;
 export type Account = typeof accounts.$inferSelect;

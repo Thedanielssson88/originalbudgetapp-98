@@ -12,8 +12,10 @@ import { Switch } from "@/components/ui/switch";
 import { MainCategoriesSettings } from "@/components/MainCategoriesSettings";
 import { PaydaySettings } from "@/components/PaydaySettings";
 import { UserManagement } from "@/components/UserManagement";
+import AccountTypesManager from "@/components/AccountTypesManager";
 import { useBudget } from "@/hooks/useBudget";
 import { useAccounts, useCreateAccount, useDeleteAccount, useUpdateAccount } from "@/hooks/useAccounts";
+import { useAccountTypes } from "@/hooks/useAccountTypes";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { getCurrentState, updateSelectedBudgetMonth } from "@/orchestrator/budgetOrchestrator";
 import { apiStore } from "@/store/apiStore";
@@ -25,12 +27,14 @@ const SettingsPage = () => {
   
   // Use API accounts instead of budgetState.accounts
   const { data: accountsFromAPI = [] } = useAccounts();
+  const { data: accountTypes = [] } = useAccountTypes();
   const { data: familyMembers } = useFamilyMembers();
   const createAccountMutation = useCreateAccount();
   const deleteAccountMutation = useDeleteAccount();
   const updateAccountMutation = useUpdateAccount();
   const [currentPayday, setCurrentPayday] = useState(25);
   const [newAccountOwner, setNewAccountOwner] = useState("gemensamt");
+  const [newAccountType, setNewAccountType] = useState<string>("none");
 
   // Month navigation functions
   const navigateToPreviousMonth = () => {
@@ -219,11 +223,13 @@ const SettingsPage = () => {
           name: newAccountName.trim(),
           balance: 0, // balance field, not startBalance
           assignedTo: newAccountOwner === 'gemensamt' ? null : newAccountOwner,
-          bankTemplateId: null
+          bankTemplateId: null,
+          accountTypeId: newAccountType === 'none' || !newAccountType ? null : newAccountType
         });
         
         setNewAccountName('');
         setNewAccountOwner('gemensamt');
+        setNewAccountType('none');
         console.log('Account added successfully via API');
       } catch (error) {
         console.error('Failed to create account:', error);
@@ -241,6 +247,18 @@ const SettingsPage = () => {
       console.log('Account assignment updated successfully');
     } catch (error) {
       console.error('Failed to update account assignment:', error);
+    }
+  };
+
+  const handleAccountTypeChange = async (accountId: string, accountTypeId: string) => {
+    try {
+      await updateAccountMutation.mutateAsync({
+        id: accountId,
+        data: { accountTypeId: accountTypeId === 'none' ? null : accountTypeId }
+      });
+      console.log('Account type updated successfully');
+    } catch (error) {
+      console.error('Failed to update account type:', error);
     }
   };
 
@@ -920,17 +938,24 @@ Kontrollera att filen är en giltig JSON-fil som exporterats från denna app.`);
           </TabsContent>
 
           <TabsContent value="accounts" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
-                  Hantera konton
-                </CardTitle>
-                <CardDescription>
-                  Skapa och hantera konton samt tilldela ägare till varje konto
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
+            <Tabs defaultValue="manage-accounts" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="manage-accounts">Hantera konton</TabsTrigger>
+                <TabsTrigger value="manage-account-types">Hantera kontotyper</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="manage-accounts">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <DollarSign className="h-5 w-5" />
+                      Hantera konton
+                    </CardTitle>
+                    <CardDescription>
+                      Skapa och hantera konton samt tilldela ägare till varje konto
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
                 <div className="space-y-4">
                   <div className="flex gap-3">
                     <Input
@@ -939,6 +964,19 @@ Kontrollera att filen är en giltig JSON-fil som exporterats från denna app.`);
                       placeholder="Namn på nytt konto"
                       className="flex-1"
                     />
+                    <Select value={newAccountType} onValueChange={setNewAccountType}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Välj kontotyp" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Ingen kontotyp</SelectItem>
+                        {accountTypes?.map((accountType) => (
+                          <SelectItem key={accountType.id} value={accountType.id}>
+                            {accountType.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Select value={newAccountOwner} onValueChange={setNewAccountOwner}>
                       <SelectTrigger className="w-48">
                         <SelectValue placeholder="Välj ägare" />
@@ -971,6 +1009,22 @@ Kontrollera att filen är en giltig JSON-fil som exporterats från denna app.`);
                         </div>
                         <div className="flex items-center gap-3">
                           <Select
+                            value={account.accountTypeId || 'none'}
+                            onValueChange={(value) => handleAccountTypeChange(account.id, value)}
+                          >
+                            <SelectTrigger className="w-48">
+                              <SelectValue placeholder="Kontotyp" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Ingen kontotyp</SelectItem>
+                              {accountTypes?.map((accountType) => (
+                                <SelectItem key={accountType.id} value={accountType.id}>
+                                  {accountType.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Select
                             value={account.assignedTo || 'gemensamt'}
                             onValueChange={(value) => handleAccountAssignment(account.id, value)}
                           >
@@ -1000,6 +1054,25 @@ Kontrollera att filen är en giltig JSON-fil som exporterats från denna app.`);
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="manage-account-types">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Hantera kontotyper
+                </CardTitle>
+                <CardDescription>
+                  Lägg till, redigera och ta bort kontotyper som kan tilldelas konton
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <AccountTypesManager />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
           </TabsContent>
         </Tabs>
       </div>

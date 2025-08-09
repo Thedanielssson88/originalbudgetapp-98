@@ -15,7 +15,8 @@ interface CategorySelectionDialogProps {
     subCategory: string, 
     positiveTransactionType: string,
     negativeTransactionType: string,
-    applicableAccountIds: string[]
+    applicableAccountIds: string[],
+    autoApproval: boolean
   ) => void;
   bankCategory: string;
   bankSubCategory?: string;
@@ -37,6 +38,7 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
   const [positiveTransactionType, setPositiveTransactionType] = useState('Transaction');
   const [negativeTransactionType, setNegativeTransactionType] = useState('Transaction');
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+  const [autoApproval, setAutoApproval] = useState(false);
   // Load categories from PostgreSQL database using React Query
   const { data: huvudkategorier = [], isLoading: isLoadingHuvudkategorier } = useQuery<Huvudkategori[]>({
     queryKey: ['/api/huvudkategorier'],
@@ -99,7 +101,8 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
         selectedSubCategory,   // This will now be UUID
         positiveTransactionType,
         negativeTransactionType,
-        selectedAccountIds
+        selectedAccountIds,
+        autoApproval
       );
       onClose();
     }
@@ -153,6 +156,7 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
                 <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
                 <SelectItem value="Savings">Sparande</SelectItem>
                 <SelectItem value="CostCoverage">Täck en kostnad</SelectItem>
+                <SelectItem value="Inkomst">Inkomst</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -221,6 +225,22 @@ export const CategorySelectionDialog: React.FC<CategorySelectionDialogProps> = (
                     {subcategory.name}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="auto-approval">Godkänn automatiskt</Label>
+            <Select 
+              value={autoApproval ? 'ja' : 'nej'} 
+              onValueChange={(value) => setAutoApproval(value === 'ja')}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ja">Ja</SelectItem>
+                <SelectItem value="nej">Nej</SelectItem>
               </SelectContent>
             </Select>
           </div>

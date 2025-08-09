@@ -6,7 +6,11 @@
       "Bash(sed:*)",
       "Bash(git add:*)",
       "Bash(git push:*)",
-      "Bash(npm run db:push:*)"
+      "Bash(npm run db:push:*)",
+      "Bash(curl:*)",
+      "Bash(node test-batch-apply.js)",
+      "Bash(curl:*)",
+      "Bash(lsof:*)"
     ],
     "deny": []
   }

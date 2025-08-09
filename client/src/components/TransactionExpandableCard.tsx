@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,8 @@ import { useHuvudkategorier, useUnderkategorier, useCategoryNames } from '@/hook
 import { useBudgetPosts } from '@/hooks/useBudgetPosts';
 import { formatOrenAsCurrency } from '@/utils/currencyUtils';
 import { addMobileDebugLog } from '@/utils/mobileDebugLogger';
+import { useCategoryRules } from '@/hooks/useCategoryRules';
+import { CreateRuleDialog } from './CreateRuleDialog';
 
 interface TransactionExpandableCardProps {
   transaction: ImportedTransaction;
@@ -23,6 +25,7 @@ interface TransactionExpandableCardProps {
   isSelected: boolean;
   mainCategories: string[];
   costGroups?: { id: string; name: string; subCategories?: { id: string; name: string }[] }[];
+  accounts: { id: string; name: string }[]; // Add accounts list for rule creation
   onToggleSelection: (id: string) => void;
   onUpdateCategory: (id: string, category: string, subCategoryId?: string) => void;
   onUpdateNote: (id: string, note: string) => void;
@@ -40,6 +43,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   isSelected,
   mainCategories,
   costGroups = [],
+  accounts,
   onToggleSelection,
   onUpdateCategory,
   onUpdateNote,
@@ -56,6 +60,8 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   const categoryNames = useCategoryNames();
   // Force fetch ALL budget posts for linked transaction lookups (pass null to get all)
   const { data: budgetPostsFromAPI = [], refetch: refetchBudgetPosts } = useBudgetPosts(null);
+  // Fetch category rules
+  const { data: categoryRules = [] } = useCategoryRules();
   
   // Debug the budget posts data
   useEffect(() => {
@@ -94,7 +100,119 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [localNoteValue, setLocalNoteValue] = useState(transaction.userDescription || '');
   const [subcategoriesData, setSubcategoriesData] = useState<Record<string, string[]>>({});
+  const [isCreateRuleDialogOpen, setIsCreateRuleDialogOpen] = useState(false);
   const { budgetState } = useBudget();
+
+  // Function to find applicable rules for this transaction
+  const findApplicableRules = (transaction: ImportedTransaction) => {
+    return categoryRules.filter(rule => {
+      // Skip inactive rules
+      if (rule.isActive !== 'true' && rule.isActive !== true) {
+        return false;
+      }
+
+      // Check account restrictions
+      if (rule.applicableAccountIds && rule.applicableAccountIds !== '[]') {
+        try {
+          const accountIds = JSON.parse(rule.applicableAccountIds);
+          if (accountIds.length > 0 && !accountIds.includes(transaction.accountId)) {
+            return false;
+          }
+        } catch (e) {
+          // If parsing fails, assume no restrictions
+        }
+      }
+
+      // Check transaction direction
+      if (rule.transactionDirection === 'positive' && transaction.amount < 0) {
+        return false;
+      }
+      if (rule.transactionDirection === 'negative' && transaction.amount >= 0) {
+        return false;
+      }
+
+      // Check rule type and matching logic
+      const ruleType = rule.ruleType || 'textContains';
+      const transactionText = transaction.description?.toLowerCase() || '';
+      const ruleText = rule.transactionName?.toLowerCase() || '';
+
+      // Handle wildcard (*) - matches all transactions
+      if (ruleText === '*') {
+        return true;
+      }
+
+      // Bank category matching
+      if (ruleType === 'categoryMatch') {
+        if (rule.bankCategory && rule.bankSubCategory) {
+          return transaction.bankCategory === rule.bankCategory && 
+                 transaction.bankSubCategory === rule.bankSubCategory;
+        } else if (rule.bankCategory) {
+          return transaction.bankCategory === rule.bankCategory;
+        }
+        return false;
+      }
+
+      // Text-based matching
+      switch (ruleType) {
+        case 'exactText':
+          return transactionText === ruleText;
+        case 'textStartsWith':
+          return transactionText.startsWith(ruleText);
+        case 'textContains':
+        default:
+          return transactionText.includes(ruleText);
+      }
+    });
+  };
+
+  // Get applicable rules for this transaction
+  const applicableRules = findApplicableRules(transaction);
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('🔍 [TransactionExpandableCard] Category rules debug:', {
+      totalRules: categoryRules.length,
+      applicableRules: applicableRules.length,
+      transaction: {
+        id: transaction.id,
+        description: transaction.description,
+        accountId: transaction.accountId,
+        amount: transaction.amount,
+        bankCategory: transaction.bankCategory,
+        bankSubCategory: transaction.bankSubCategory
+      },
+      allRules: categoryRules.map(r => ({
+        id: r.id,
+        ruleName: r.ruleName,
+        isActive: r.isActive,
+        transactionName: r.transactionName,
+        ruleType: r.ruleType
+      }))
+    });
+  }, [categoryRules, applicableRules, transaction]);
+
+  // Get available bank categories from all transactions in budgetState
+  const availableBankCategories = useMemo(() => {
+    const categories = new Set<string>();
+    const allTransactions = budgetState?.allTransactions || [];
+    allTransactions.forEach(tx => {
+      if (tx.bankCategory && tx.bankCategory.trim() && tx.bankCategory !== '-') {
+        categories.add(tx.bankCategory);
+      }
+    });
+    return Array.from(categories).sort();
+  }, [budgetState?.allTransactions]);
+
+  const availableBankSubCategories = useMemo(() => {
+    const subCategories = new Set<string>();
+    const allTransactions = budgetState?.allTransactions || [];
+    allTransactions.forEach(tx => {
+      if (tx.bankSubCategory && tx.bankSubCategory.trim() && tx.bankSubCategory !== '-') {
+        subCategories.add(tx.bankSubCategory);
+      }
+    });
+    return Array.from(subCategories).sort();
+  }, [budgetState?.allTransactions]);
 
   // Update local note value when transaction changes but preserve editing state
   useEffect(() => {
@@ -514,6 +632,56 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                 </div>
               </div>
 
+              {/* Applicable Rules Section */}
+              <div className="mt-4 space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Automatiska regler som kan appliceras</label>
+                  <div className="mt-2 space-y-2">
+                    {applicableRules.length > 0 ? (
+                      applicableRules.map(rule => {
+                        const huvudkategoriName = categoryNames.getHuvudkategoriName(rule.huvudkategoriId || '') || 'Okänd kategori';
+                        const underkategoriName = categoryNames.getUnderkategoriName(rule.underkategoriId || '') || 'Okänd underkategori';
+                        const transactionType = transaction.amount >= 0 
+                          ? (rule.positiveTransactionType || 'Transaction')
+                          : (rule.negativeTransactionType || 'Transaction');
+                        
+                        return (
+                          <div key={rule.id} className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                            <div className="space-y-1">
+                              <p className="text-sm font-medium text-blue-800">
+                                {rule.ruleName}
+                              </p>
+                              <div className="text-xs text-blue-600 space-y-0.5">
+                                <p>• Huvudkategori: {huvudkategoriName}</p>
+                                <p>• Underkategori: {underkategoriName}</p>
+                                <p>• Transaktionstyp: {transactionType}</p>
+                                {rule.autoApproval && (
+                                  <p>• Status: Godkänn automatiskt</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                        <p className="text-sm text-gray-600">
+                          Ingen regel är skapad för att appliceras till den här transaktionen
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-2"
+                          onClick={() => setIsCreateRuleDialogOpen(true)}
+                        >
+                          Skapa regel
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* Linked transaction and savings information */}
               {(transaction.linkedTransactionId || transaction.savingsTargetId || transaction.type === 'InternalTransfer' || transaction.type === 'Savings' || transaction.type === 'Sparande') && (
                 <div className="mt-4 space-y-3">
@@ -725,6 +893,16 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
            </CardContent>
          </CollapsibleContent>
       </Collapsible>
+      
+      {/* Create Rule Dialog */}
+      <CreateRuleDialog
+        open={isCreateRuleDialogOpen}
+        onOpenChange={setIsCreateRuleDialogOpen}
+        transaction={transaction}
+        accounts={accounts}
+        availableBankCategories={availableBankCategories}
+        availableBankSubCategories={availableBankSubCategories}
+      />
     </Card>
   );
 });

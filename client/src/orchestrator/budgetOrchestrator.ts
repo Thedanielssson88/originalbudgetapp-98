@@ -284,10 +284,13 @@ async function applyImportRulesWithProtection(transaction: any, categoryRules: a
       
       console.log(`[IMPORT RULES] ✅ Applied rule: categories=${rule.huvudkategoriId}/${rule.underkategoriId}, type=${workingTransaction.type}`);
       
-      // If both category and subcategory are set, auto-approve (same as manual button)
-      if (rule.huvudkategoriId && rule.underkategoriId) {
+      // Check auto-approval setting from rule
+      if (rule.autoApproval === true && rule.huvudkategoriId && rule.underkategoriId) {
         workingTransaction.status = 'green';
-        console.log(`[IMPORT RULES] ✅ Auto-approved transaction`);
+        console.log(`[IMPORT RULES] ✅ Auto-approved transaction (autoApproval=true)`);
+      } else if (rule.huvudkategoriId && rule.underkategoriId) {
+        // Keep default behavior for rules without auto-approval
+        console.log(`[IMPORT RULES] ℹ️ Rule applied but not auto-approved (autoApproval=${rule.autoApproval})`);
       }
       
       ruleMatched = true;

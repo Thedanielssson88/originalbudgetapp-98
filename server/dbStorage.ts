@@ -3,6 +3,7 @@ import { eq, and, gte, lte } from "drizzle-orm";
 import {
   users,
   familyMembers,
+  accountTypes,
   accounts,
   huvudkategorier,
   underkategorier,
@@ -20,6 +21,8 @@ import {
   type InsertUser,
   type FamilyMember,
   type InsertFamilyMember,
+  type AccountType,
+  type InsertAccountType,
   type Account,
   type InsertAccount,
   type Huvudkategori,
@@ -52,6 +55,7 @@ import { IStorage } from "./storage";
 export class DatabaseStorage implements IStorage {
   // Bootstrap method
   async bootstrap(userId: string): Promise<{
+    accountTypes: AccountType[];
     accounts: Account[];
     huvudkategorier: Huvudkategori[];
     underkategorier: Underkategori[];
@@ -62,7 +66,8 @@ export class DatabaseStorage implements IStorage {
     banks: Bank[];
     bankCsvMappings: BankCsvMapping[];
   }> {
-    const [accountsResult, huvudkategorierResult, underkategorierResult, categoryRulesResult, transactionsResult, monthlyBudgetsResult, banksResult, bankCsvMappingsResult] = await Promise.all([
+    const [accountTypesResult, accountsResult, huvudkategorierResult, underkategorierResult, categoryRulesResult, transactionsResult, monthlyBudgetsResult, banksResult, bankCsvMappingsResult] = await Promise.all([
+      this.getAccountTypes(userId),
       this.getAccounts(userId),
       this.getHuvudkategorier(userId),
       this.getUnderkategorier(userId),
@@ -74,6 +79,7 @@ export class DatabaseStorage implements IStorage {
     ]);
 
     return {
+      accountTypes: accountTypesResult,
       accounts: accountsResult,
       huvudkategorier: huvudkategorierResult,
       underkategorier: underkategorierResult,
@@ -184,6 +190,37 @@ export class DatabaseStorage implements IStorage {
         eq(inkomstkallorMedlem.idInkomstkalla, idInkomstkalla)
       ))
       .returning();
+    return result.length > 0;
+  }
+
+  // Account Types methods
+  async getAccountTypes(userId: string): Promise<AccountType[]> {
+    return await db.select().from(accountTypes).where(eq(accountTypes.userId, userId));
+  }
+
+  async getAccountType(id: string): Promise<AccountType | undefined> {
+    const result = await db.select().from(accountTypes).where(eq(accountTypes.id, id));
+    return result[0];
+  }
+
+  async createAccountType(accountType: InsertAccountType): Promise<AccountType> {
+    const result = await db.insert(accountTypes).values(accountType).returning();
+    return result[0];
+  }
+
+  async updateAccountType(id: string, accountType: Partial<InsertAccountType>): Promise<AccountType | undefined> {
+    const result = await db.update(accountTypes)
+      .set({
+        ...accountType,
+        updatedAt: new Date()
+      })
+      .where(eq(accountTypes.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteAccountType(id: string): Promise<boolean> {
+    const result = await db.delete(accountTypes).where(eq(accountTypes.id, id)).returning();
     return result.length > 0;
   }
 

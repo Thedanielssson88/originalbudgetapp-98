@@ -19,7 +19,7 @@ export interface ImportedTransaction {
   appSubCategoryId?: string;
   
   // Transaction type and status
-  type: 'Transaction' | 'InternalTransfer' | 'Savings' | 'Sparande' | 'CostCoverage' | 'ExpenseClaim';
+  type: 'Transaction' | 'InternalTransfer' | 'Savings' | 'Sparande' | 'CostCoverage' | 'ExpenseClaim' | 'Income';
   status: 'red' | 'yellow' | 'green'; // Red=needs action, Yellow=auto, Green=approved
   
   // Transfer specific fields

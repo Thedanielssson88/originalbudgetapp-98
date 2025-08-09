@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import { 
   users, 
   familyMembers,
@@ -77,6 +78,13 @@ export interface IStorage {
   createAccount(account: InsertAccount): Promise<Account>;
   updateAccount(id: string, account: Partial<InsertAccount>): Promise<Account | undefined>;
   deleteAccount(id: string): Promise<boolean>;
+  
+  // Account Types CRUD
+  getAccountTypes(userId: string): Promise<any[]>;
+  getAccountType(id: string): Promise<any | undefined>;
+  createAccountType(accountType: any): Promise<any>;
+  updateAccountType(id: string, accountType: any): Promise<any | undefined>;
+  deleteAccountType(id: string): Promise<boolean>;
   
   // Huvudkategori CRUD
   getHuvudkategorier(userId: string): Promise<Huvudkategori[]>;
@@ -169,6 +177,7 @@ export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private familyMembers: Map<string, FamilyMember>;
   private accounts: Map<string, Account>;
+  private accountTypes: Map<string, any>;
   private huvudkategorier: Map<string, Huvudkategori>;
   private underkategorier: Map<string, Underkategori>;
   private categoryRules: Map<string, CategoryRule>;
@@ -187,6 +196,7 @@ export class MemStorage implements IStorage {
     this.users = new Map();
     this.familyMembers = new Map();
     this.accounts = new Map();
+    this.accountTypes = new Map();
     this.huvudkategorier = new Map();
     this.underkategorier = new Map();
     this.categoryRules = new Map();
@@ -203,6 +213,7 @@ export class MemStorage implements IStorage {
 
   // Bootstrap method
   async bootstrap(userId: string): Promise<{
+    accountTypes: any[];
     accounts: Account[];
     huvudkategorier: Huvudkategori[];
     underkategorier: Underkategori[];
@@ -214,6 +225,7 @@ export class MemStorage implements IStorage {
     bankCsvMappings: BankCsvMapping[];
   }> {
     return {
+      accountTypes: await this.getAccountTypes(userId),
       accounts: await this.getAccounts(userId),
       huvudkategorier: await this.getHuvudkategorier(userId),
       underkategorier: await this.getUnderkategorier(userId),
@@ -385,6 +397,44 @@ export class MemStorage implements IStorage {
     return this.accounts.delete(id);
   }
 
+  // Account types methods
+  async getAccountTypes(userId: string): Promise<any[]> {
+    return Array.from(this.accountTypes.values()).filter(type => type.userId === userId);
+  }
+
+  async getAccountType(id: string): Promise<any | undefined> {
+    return this.accountTypes.get(id);
+  }
+
+  async createAccountType(accountType: any): Promise<any> {
+    const id = crypto.randomUUID();
+    const newAccountType = {
+      id,
+      ...accountType,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.accountTypes.set(id, newAccountType);
+    return newAccountType;
+  }
+
+  async updateAccountType(id: string, accountType: any): Promise<any | undefined> {
+    const existing = this.accountTypes.get(id);
+    if (!existing) return undefined;
+    
+    const updated = {
+      ...existing,
+      ...accountType,
+      updatedAt: new Date(),
+    };
+    this.accountTypes.set(id, updated);
+    return updated;
+  }
+
+  async deleteAccountType(id: string): Promise<boolean> {
+    return this.accountTypes.delete(id);
+  }
+
   // Huvudkategori methods
   async getHuvudkategorier(userId: string): Promise<Huvudkategori[]> {
     return Array.from(this.huvudkategorier.values()).filter(kat => kat.userId === userId);
@@ -474,10 +524,12 @@ export class MemStorage implements IStorage {
 
   async createCategoryRule(rule: InsertCategoryRule): Promise<CategoryRule> {
     const id = crypto.randomUUID();
+    console.log('🔍 [SERVER STORAGE] Creating rule with transactionDirection:', rule.transactionDirection);
     const newRule: CategoryRule = {
       id,
       ...rule,
       isActive: rule.isActive ?? 'true',
+      transactionDirection: rule.transactionDirection ?? 'all',
       huvudkategoriId: rule.huvudkategoriId ?? null,
       bankCategory: rule.bankCategory ?? null,
       bankSubCategory: rule.bankSubCategory ?? null,
@@ -487,6 +539,7 @@ export class MemStorage implements IStorage {
       applicableAccountIds: rule.applicableAccountIds ?? '[]',
       priority: rule.priority ?? 100,
     };
+    console.log('🔍 [SERVER STORAGE] Created rule with final transactionDirection:', newRule.transactionDirection);
     this.categoryRules.set(id, newRule);
     return newRule;
   }

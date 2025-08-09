@@ -37,6 +37,7 @@ import { SavingsSection } from '@/components/SavingsSection';
 import { TransfersAnalysis } from '@/components/TransfersAnalysis';
 import { DynamicIncomeSection } from '@/components/DynamicIncomeSection';
 import { KontosaldoKopia } from '@/components/KontosaldoKopia';
+import { Sammanstallning } from '@/components/Sammanstallning';
 import { 
   calculateAccountEndBalances, 
   getTransactionsForPeriod, 
@@ -7390,6 +7391,14 @@ const BudgetCalculator = () => {
               </div>
             </div>
           </div>
+        </TabsContent>
+
+        {/* Tab 2: Sammanställning */}
+        <TabsContent value="sammanstallning" className="mt-0">
+          <Sammanstallning 
+            budgetState={budgetState} 
+            selectedMonth={selectedBudgetMonth} 
+          />
         </TabsContent>
       </Tabs>
       </div>

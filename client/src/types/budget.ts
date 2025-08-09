@@ -27,6 +27,7 @@ export interface Transaction {
 export type RuleCondition = 
   | { type: 'textContains'; value: string }
   | { type: 'textStartsWith'; value: string }
+  | { type: 'exactText'; value: string }
   | { type: 'categoryMatch'; bankCategory: string; bankSubCategory?: string };
 
 export interface CategoryRule {
@@ -39,7 +40,9 @@ export interface CategoryRule {
     positiveTransactionType: 'Transaction' | 'InternalTransfer' | 'Savings' | 'CostCoverage'; // För positiva belopp
     negativeTransactionType: 'Transaction' | 'InternalTransfer' | 'ExpenseClaim'; // För negativa belopp
     applicableAccountIds?: string[]; // Vilka konton regeln gäller för (tom array = alla konton)
+    autoApproval?: boolean; // Auto-approve transactions when rule is applied
   };
+  transactionDirection?: 'all' | 'positive' | 'negative'; // Filter för transaktionsriktning
   isActive: boolean; // Om regeln är aktiv eller inte
 }
 

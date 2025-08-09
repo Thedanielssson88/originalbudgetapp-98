@@ -150,7 +150,7 @@ export const calculateActualTransferred = (
     return transactionDate >= startDate && transactionDate <= endDate;
   });
   
-  return relevantTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  return relevantTransactions.reduce((sum, t) => sum + t.amount, 0);
 };
 
 /**

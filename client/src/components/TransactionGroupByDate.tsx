@@ -179,6 +179,7 @@ export const TransactionGroupByDate: React.FC<TransactionGroupByDateProps> = ({
                       key={transaction.id}
                       transaction={transaction}
                       account={accounts.find(a => a.id === transaction.accountId)}
+                      accounts={accounts}
                       isSelected={selectedTransactions.includes(transaction.id)}
                       mainCategories={mainCategories}
                       costGroups={costGroups}

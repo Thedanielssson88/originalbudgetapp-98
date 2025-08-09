@@ -364,6 +364,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [monthFilter, setMonthFilter] = useState<string>('current'); // 'all' or 'YYYY-MM' or 'current'
   const [accountFilter, setAccountFilter] = useState<string>('all'); // 'all' or account ID
   const [transactionTypeFilter, setTransactionTypeFilter] = useState<string>('all'); // 'all' or transaction type
+  const [amountFilter, setAmountFilter] = useState<string>('all'); // 'all', 'positive', 'negative'
   const [bankCategoryFilter, setBankCategoryFilter] = useState<string>('all'); // Bank category filter
   const [bankSubCategoryFilter, setBankSubCategoryFilter] = useState<string>('all'); // Bank subcategory filter
   const [appCategoryFilter, setAppCategoryFilter] = useState<string>('all'); // App hovedkategori filter
@@ -2289,6 +2290,15 @@ export const TransactionImportEnhanced: React.FC = () => {
       baseTransactions = baseTransactions.filter(t => t.type === transactionTypeFilter);
     }
     
+    // Filter by amount (positive/negative)
+    if (amountFilter !== 'all') {
+      if (amountFilter === 'positive') {
+        baseTransactions = baseTransactions.filter(t => t.amount > 0);
+      } else if (amountFilter === 'negative') {
+        baseTransactions = baseTransactions.filter(t => t.amount < 0);
+      }
+    }
+    
     // Filter by bank category
     if (bankCategoryFilter !== 'all') {
       baseTransactions = baseTransactions.filter(t => t.bankCategory === bankCategoryFilter);
@@ -2319,7 +2329,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     return hideGreenTransactions 
       ? baseTransactions.filter(t => t.status !== 'green')
       : baseTransactions;
-  }, [allTransactions, monthFilter, statusFilter, accountFilter, transactionTypeFilter, bankCategoryFilter, bankSubCategoryFilter, appCategoryFilter, appSubCategoryFilter, descriptionFilter, hideGreenTransactions, budgetState?.settings?.payday, budgetState.selectedMonthKey]);
+  }, [allTransactions, monthFilter, statusFilter, accountFilter, transactionTypeFilter, amountFilter, bankCategoryFilter, bankSubCategoryFilter, appCategoryFilter, appSubCategoryFilter, descriptionFilter, hideGreenTransactions, budgetState?.settings?.payday, budgetState.selectedMonthKey]);
 
   // Helper functions to get unique values for filter dropdowns
   const uniqueTransactionTypes = useMemo(() => {
@@ -2401,6 +2411,20 @@ export const TransactionImportEnhanced: React.FC = () => {
                             {type}
                           </SelectItem>
                         ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Label className="text-sm whitespace-nowrap">Transaktion:</Label>
+                    <Select value={amountFilter} onValueChange={setAmountFilter}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Alla transaktioner</SelectItem>
+                        <SelectItem value="positive">Positiva transaktioner</SelectItem>
+                        <SelectItem value="negative">Negativa transaktioner</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -2730,6 +2754,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                         key={transaction.id}
                         transaction={transaction}
                         account={accounts.find(acc => acc.id === transaction.accountId)}
+                        accounts={accounts}
                         isSelected={selectedTransactions.includes(transaction.id)}
                         onToggleSelection={toggleTransactionSelection}
                         onUpdateCategory={updateTransactionCategory}
@@ -2891,6 +2916,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                                     key={transaction.id}
                                     transaction={transaction}
                                     account={account}
+                                    accounts={accounts}
                                     isSelected={selectedTransactions.includes(transaction.id)}
                                     onToggleSelection={toggleTransactionSelection}
                                     onUpdateCategory={updateTransactionCategory}
@@ -2969,6 +2995,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                       key={transaction.id}
                       transaction={transaction}
                       account={account}
+                      accounts={accounts}
                       isSelected={selectedTransactions.includes(transaction.id)}
                       onToggleSelection={toggleTransactionSelection}
                       onUpdateCategory={updateTransactionCategory}
@@ -3328,6 +3355,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                              transaction.type === 'InternalTransfer' ? 'Intern transfer' :
                              transaction.type === 'Savings' ? 'Sparande' :
                              transaction.type === 'CostCoverage' ? 'Kostnadstäckning' :
+                             transaction.type === 'Income' ? 'Inkomst' :
                              transaction.type}
                           </TableCell>
                           <TableCell className="text-sm">

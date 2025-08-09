@@ -352,7 +352,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-blue-800">
             <ArrowLeftRight className="h-5 w-5" />
-            Kontoöversikt
+            Överföringar
           </CardTitle>
           <CardDescription className="text-blue-700">
             Översikt av alla konton med planerade och faktiska överföringar
@@ -362,8 +362,8 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
           <div className="p-4 bg-blue-100/50 rounded-lg border border-blue-200">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-lg font-semibold text-blue-800">Kontoöversikt ({selectedMonth})</h3>
-                <p className="text-sm text-blue-700">Planerade vs faktiska överföringar per konto</p>
+                <h3 className="text-lg font-semibold text-blue-800">Överföringar ({selectedMonth})</h3>
+                <p className="text-sm text-blue-700">Budgeterade kostnader, planerade och faktiska kontoöverföringar</p>
               </div>
               <Button 
                 size="sm" 
@@ -414,10 +414,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
                   const accountInternalTransfers = allInternalTransfers.find(t => t.accountId === account.id);
                   const actualTransferredIn = accountInternalTransfers?.totalIn || 0;
                   
-                  // Only show accounts that have some activity
-                  if (costPosts.length === 0 && transferPosts.length === 0 && actualTransferredIn === 0) {
-                    return null;
-                  }
+                  // Show all accounts regardless of activity level
 
                   const isAccountExpanded = expandedKontoAccounts.has(account.id);
 

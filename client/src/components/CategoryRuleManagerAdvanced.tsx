@@ -42,7 +42,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
   const queryClient = useQueryClient();
   
   // Load PostgreSQL category rules
-  const { data: postgresqlRules = [], refetch: refetchRules } = useQuery<CategoryRule[]>({
+  const { data: postgresqlRules = [], refetch: refetchRules } = useQuery({
     queryKey: ['/api/category-rules'],
     queryFn: async () => {
       const response = await fetch('/api/category-rules');
@@ -50,6 +50,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
       return response.json();
     }
   });
+
 
   // Delete rule mutation
   const deleteMutation = useMutation({
@@ -128,6 +129,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
           transactionName: newRule.condition.type === 'categoryMatch' ? 
             (newRule.condition as any).bankCategory : 
             (newRule.condition as any).value,
+          ruleType: newRule.condition.type,
           // Only include bankCategory/bankSubCategory for categoryMatch rules, not for text-based rules
           ...(newRule.condition.type === 'categoryMatch' ? {
             bankCategory: (newRule.condition as any).bankCategory,
@@ -141,12 +143,9 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
           applicableAccountIds: JSON.stringify(newRule.action.applicableAccountIds || []),
           priority: newRule.priority || 100,
           isActive: 'true',
+          autoApproval: newRule.action.autoApproval || false,
           userId: 'dev-user-123'
         };
-        
-        console.log('🔍 [RULE MANAGER] newRule.transactionDirection before payload:', newRule.transactionDirection);
-        console.log('🔍 [RULE MANAGER] Saving new manual rule with transactionDirection:', newRule.transactionDirection);
-        console.log('🔍 [RULE MANAGER] Full rulePayload before sending:', JSON.stringify(rulePayload, null, 2));
 
         // Save rule directly to PostgreSQL with all fields
         const response = await fetch('/api/category-rules', {
@@ -161,9 +160,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
           throw new Error(`Failed to create category rule: ${response.statusText}`);
         }
 
-        const savedRule = await response.json();
-        console.log('✅ [RULE MANAGER] Manual rule saved to PostgreSQL:', savedRule);
-        console.log('✅ [RULE MANAGER] Saved rule transactionDirection:', savedRule.transactionDirection);
+        await response.json();
         
         // Reset form
         setSelectedAccountIds([]);
@@ -316,6 +313,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                   <SelectContent>
                     <SelectItem value="textContains">Text innehåller</SelectItem>
                     <SelectItem value="textStartsWith">Text börjar med</SelectItem>
+                    <SelectItem value="exactText">Exakt text</SelectItem>
                     <SelectItem value="categoryMatch">Bankens kategori</SelectItem>
                   </SelectContent>
                 </Select>
@@ -327,6 +325,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                   placeholder={
                     newRule.condition?.type === 'textContains' ? 'Text som ska sökas efter (eller * för alla)' :
                     newRule.condition?.type === 'textStartsWith' ? 'Text som transaktionen börjar med (eller * för alla)' :
+                    newRule.condition?.type === 'exactText' ? 'Exakt text som ska matchas (eller * för alla)' :
                     'Bankens kategorinamn (eller * för alla)'
                   }
                   value={(newRule.condition as any)?.value || ''}
@@ -440,6 +439,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                       <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
                       <SelectItem value="Savings">Sparande</SelectItem>
                       <SelectItem value="CostCoverage">Täck en kostnad</SelectItem>
+                      <SelectItem value="Inkomst">Inkomst</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -518,6 +518,26 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                   ))}
                 </div>
               </div>
+
+              {/* Auto-approval Option */}
+              <div>
+                <Label className="text-xs">Godkänn automatiskt</Label>
+                <Select
+                  value={newRule.action?.autoApproval ? 'ja' : 'nej'}
+                  onValueChange={(value) => setNewRule({
+                    ...newRule,
+                    action: { ...newRule.action!, autoApproval: value === 'ja' }
+                  })}
+                >
+                  <SelectTrigger className="h-8 mt-2">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ja">Ja</SelectItem>
+                    <SelectItem value="nej">Nej</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="flex gap-2 pt-2">
@@ -535,7 +555,7 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
         {postgresqlRules.length > 0 ? (
           <div className="space-y-2">
             <div className="text-xs text-muted-foreground mb-2">
-              {postgresqlRules.length} regler laddade från databasen
+              {postgresqlRules.length} regler laddade från databasen (PostgreSQL)
             </div>
             {postgresqlRules
               .sort((a, b) => 100 - 100) // PostgreSQL rules don't have priority field yet
@@ -580,18 +600,10 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                     <div className="text-xs">
                       <span className="font-medium">Transaktion:</span> 
                       <span className="ml-1 bg-purple-100 px-2 py-0.5 rounded text-purple-800">
-                        {(() => {
-                          console.log('🔍 [RULE DISPLAY DEBUG] Rule:', rule.id, 'Full rule object:', JSON.stringify(rule, null, 2));
-                          console.log('🔍 [RULE DISPLAY DEBUG] Rule transactionDirection type:', typeof rule.transactionDirection);
-                          console.log('🔍 [RULE DISPLAY DEBUG] Rule transactionDirection value:', rule.transactionDirection);
-                          console.log('🔍 [RULE DISPLAY DEBUG] Direct comparison - all?', rule.transactionDirection === 'all');
-                          console.log('🔍 [RULE DISPLAY DEBUG] Direct comparison - positive?', rule.transactionDirection === 'positive');
-                          console.log('🔍 [RULE DISPLAY DEBUG] Direct comparison - negative?', rule.transactionDirection === 'negative');
-                          return rule.transactionDirection === 'all' ? 'Alla transaktioner' :
-                                 rule.transactionDirection === 'positive' ? 'Positiva transaktioner' :
-                                 rule.transactionDirection === 'negative' ? 'Negativa transaktioner' :
-                                 `Alla transaktioner (fallback: '${rule.transactionDirection}')`;
-                        })()}
+                        {rule.transactionDirection === 'all' ? 'Alla transaktioner' :
+                         rule.transactionDirection === 'positive' ? 'Positiva transaktioner' :
+                         rule.transactionDirection === 'negative' ? 'Negativa transaktioner' :
+                         'Alla transaktioner'}
                       </span>
                     </div>
                     <div className="text-xs border-t pt-1 mt-2">
@@ -633,6 +645,20 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                             return <span className="text-muted-foreground">Alla konton</span>;
                           }
                         })()}
+                      </div>
+                    </div>
+
+                    {/* Auto-approval Status */}
+                    <div className="text-xs border-t pt-1 mt-2">
+                      <div className="font-medium mb-1">Auto-godkännande:</div>
+                      <div className="ml-2">
+                        <span className={`px-2 py-0.5 rounded text-xs ${
+                          rule.autoApproval 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {rule.autoApproval ? 'Ja' : 'Nej'}
+                        </span>
                       </div>
                     </div>
                   </div>

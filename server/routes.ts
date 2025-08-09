@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
+  insertAccountTypeSchema,
   insertAccountSchema,
   insertFamilyMemberSchema,
   insertHuvudkategoriSchema, 
@@ -52,17 +53,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const backupData = req.body;
       console.log('Backup data keys:', Object.keys(backupData));
       
-      // For now, return success - full implementation would recreate all user data
-      // This would require implementing a comprehensive restore method in storage
-      console.warn('Restore backup endpoint not fully implemented yet');
-      
-      res.json({ 
-        success: true, 
-        message: 'Backup restore endpoint called but not fully implemented yet' 
-      });
+      // Implement full restore functionality
+      if (backupData.version && backupData.version.startsWith('4.')) {
+        console.log('Processing version 4.x backup - full SQL restore');
+        
+        // Delete all existing user data first
+        console.log('Deleting existing user data...');
+        await Promise.all([
+          // Delete in order to avoid foreign key constraints
+          storage.getTransactions ? storage.getTransactions(userId).then(transactions => 
+            Promise.all(transactions.map(t => storage.deleteTransaction(t.id)))) : Promise.resolve(),
+          storage.getCategoryRules ? storage.getCategoryRules(userId).then(rules => 
+            Promise.all(rules.map(r => storage.deleteCategoryRule(r.id)))) : Promise.resolve(),
+          storage.getUnderkategorier ? storage.getUnderkategorier(userId).then(underKats => 
+            Promise.all(underKats.map(u => storage.deleteUnderkategori(u.id)))) : Promise.resolve(),
+          storage.getHuvudkategorier ? storage.getHuvudkategorier(userId).then(huvudKats => 
+            Promise.all(huvudKats.map(h => storage.deleteHuvudkategori(h.id)))) : Promise.resolve(),
+          storage.getAccounts ? storage.getAccounts(userId).then(accounts => 
+            Promise.all(accounts.map(a => storage.deleteAccount(a.id)))) : Promise.resolve(),
+          storage.getAccountTypes ? storage.getAccountTypes(userId).then(accountTypes => 
+            Promise.all(accountTypes.map(at => storage.deleteAccountType(at.id)))) : Promise.resolve(),
+        ]);
+        
+        console.log('Restoring new data...');
+        
+        // Restore data in correct order
+        if (backupData.accountTypes) {
+          for (const accountType of backupData.accountTypes) {
+            const { id, createdAt, updatedAt, ...createData } = accountType;
+            await storage.createAccountType({ ...createData, userId });
+          }
+        }
+        
+        if (backupData.accounts) {
+          for (const account of backupData.accounts) {
+            const { id, ...createData } = account;
+            await storage.createAccount({ ...createData, userId });
+          }
+        }
+        
+        if (backupData.huvudkategorier) {
+          for (const hovedkat of backupData.huvudkategorier) {
+            const { id, ...createData } = hovedkat;
+            await storage.createHuvudkategori({ ...createData, userId });
+          }
+        }
+        
+        if (backupData.underkategorier) {
+          for (const underkat of backupData.underkategorier) {
+            const { id, ...createData } = underkat;
+            await storage.createUnderkategori({ ...createData, userId });
+          }
+        }
+        
+        if (backupData.categoryRules) {
+          for (const rule of backupData.categoryRules) {
+            const { id, ...createData } = rule;
+            await storage.createCategoryRule({ ...createData, userId });
+          }
+        }
+        
+        if (backupData.transactions) {
+          for (const transaction of backupData.transactions) {
+            const { id, ...createData } = transaction;
+            await storage.createTransaction({ ...createData, userId });
+          }
+        }
+        
+        console.log('Restore completed successfully');
+        res.json({ 
+          success: true, 
+          message: 'All data restored successfully from SQL backup',
+          restored: {
+            accountTypes: backupData.accountTypes?.length || 0,
+            accounts: backupData.accounts?.length || 0,
+            huvudkategorier: backupData.huvudkategorier?.length || 0,
+            underkategorier: backupData.underkategorier?.length || 0,
+            categoryRules: backupData.categoryRules?.length || 0,
+            transactions: backupData.transactions?.length || 0
+          }
+        });
+      } else {
+        res.status(400).json({ 
+          error: 'Unsupported backup version. Please use a version 4.x backup file.' 
+        });
+      }
     } catch (error) {
       console.error('Error restoring backup:', error);
-      res.status(500).json({ error: 'Failed to restore backup' });
+      res.status(500).json({ error: 'Failed to restore backup: ' + error.message });
     }
   });
 
@@ -132,6 +210,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting account:', error);
       res.status(500).json({ error: 'Failed to delete account' });
+    }
+  });
+
+  // Account Types routes
+  app.get("/api/account-types", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const accountTypes = await storage.getAccountTypes(userId);
+      res.json(accountTypes);
+    } catch (error) {
+      console.error('Error fetching account types:', error);
+      res.status(500).json({ error: 'Failed to fetch account types' });
+    }
+  });
+
+  app.get("/api/account-types/:id", async (req, res) => {
+    try {
+      const accountType = await storage.getAccountType(req.params.id);
+      if (!accountType) {
+        return res.status(404).json({ error: 'Account type not found' });
+      }
+      res.json(accountType);
+    } catch (error) {
+      console.error('Error fetching account type:', error);
+      res.status(500).json({ error: 'Failed to fetch account type' });
+    }
+  });
+
+  app.post("/api/account-types", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const validatedData = insertAccountTypeSchema.parse({
+        ...req.body,
+        userId
+      });
+      const accountType = await storage.createAccountType(validatedData);
+      res.status(201).json(accountType);
+    } catch (error) {
+      console.error('Error creating account type:', error);
+      res.status(400).json({ error: 'Failed to create account type' });
+    }
+  });
+
+  app.patch("/api/account-types/:id", async (req, res) => {
+    try {
+      const updateData = insertAccountTypeSchema.partial().parse(req.body);
+      const accountType = await storage.updateAccountType(req.params.id, updateData);
+      if (!accountType) {
+        return res.status(404).json({ error: 'Account type not found' });
+      }
+      res.json(accountType);
+    } catch (error) {
+      console.error('Error updating account type:', error);
+      res.status(400).json({ error: 'Failed to update account type' });
+    }
+  });
+
+  app.delete("/api/account-types/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteAccountType(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Account type not found' });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting account type:', error);
+      res.status(500).json({ error: 'Failed to delete account type' });
     }
   });
 
@@ -493,13 +640,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // @ts-ignore
       const userId = req.userId;
-      console.log('🔍 [SERVER ROUTE] Received rule data with transactionDirection:', req.body.transactionDirection);
+      console.log('🔍 [SERVER ROUTE] Received rule data:', JSON.stringify(req.body, null, 2));
+      console.log('🔍 [SERVER ROUTE] Received autoApproval:', req.body.autoApproval, typeof req.body.autoApproval);
       const validatedData = insertCategoryRuleSchema.parse({
         ...req.body,
         userId
       });
-      console.log('🔍 [SERVER ROUTE] Validated rule data with transactionDirection:', validatedData.transactionDirection);
+      console.log('🔍 [SERVER ROUTE] Validated rule data:', JSON.stringify(validatedData, null, 2));
+      console.log('🔍 [SERVER ROUTE] Validated autoApproval:', validatedData.autoApproval, typeof validatedData.autoApproval);
       const rule = await storage.createCategoryRule(validatedData);
+      console.log('🔍 [SERVER ROUTE] Created rule:', JSON.stringify(rule, null, 2));
       res.status(201).json(rule);
     } catch (error) {
       console.error('Error creating category rule:', error);

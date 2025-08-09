@@ -66,7 +66,7 @@ export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = (
       updates.correctedAmount = undefined;
     }
     // Keep savingsTargetId when changing TO Savings type, reset when changing away
-    if (newType !== 'Savings' && newType !== 'Transaction') {
+    if (newType !== 'Savings' && newType !== 'Transaction' && newType !== 'Income') {
       updates.savingsTargetId = undefined;
     }
     
@@ -98,6 +98,7 @@ export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = (
         ) : (
           // Alternativ för positiva transaktioner
           <>
+            <SelectItem value="Income">Inkomst</SelectItem>
             <SelectItem value="Transaction">Transaktion</SelectItem>
             <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
             <SelectItem value="Savings">Sparande</SelectItem>
