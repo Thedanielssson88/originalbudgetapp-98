@@ -10,7 +10,8 @@
       "Bash(curl:*)",
       "Bash(node test-batch-apply.js)",
       "Bash(curl:*)",
-      "Bash(lsof:*)"
+      "Bash(lsof:*)",
+      "Bash(awk:*)"
     ],
     "deny": []
   }

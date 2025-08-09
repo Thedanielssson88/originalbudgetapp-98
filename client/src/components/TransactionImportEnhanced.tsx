@@ -372,6 +372,7 @@ export const TransactionImportEnhanced: React.FC = () => {
   const [appSubCategoryFilter, setAppSubCategoryFilter] = useState<string>('all'); // App underkategori filter
   const [descriptionFilter, setDescriptionFilter] = useState<string>(''); // Description search text
   const [tempDescriptionFilter, setTempDescriptionFilter] = useState<string>(''); // Temporary input value
+  const [ruleFilter, setRuleFilter] = useState<'all' | 'yes'>('all'); // Rule filter: all transactions or only those with rules
   const [filtersExpanded, setFiltersExpanded] = useState<boolean>(false); // Filter card expansion state
   const [currentPage, setCurrentPage] = useState(1);
   const transactionsPerPage = 50; // Show 50 transactions per page for better performance
@@ -2561,6 +2562,19 @@ export const TransactionImportEnhanced: React.FC = () => {
                         <SelectItem value="yellow">Gul</SelectItem>
                         <SelectItem value="green">Grön</SelectItem>
                         <SelectItem value="red-yellow">Röd + Gul</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Label className="text-sm whitespace-nowrap">Visa bara regler:</Label>
+                    <Select value={ruleFilter} onValueChange={(value: 'all' | 'yes') => setRuleFilter(value)}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Alla transaktioner</SelectItem>
+                        <SelectItem value="yes">Ja - Transaktioner med regler</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
