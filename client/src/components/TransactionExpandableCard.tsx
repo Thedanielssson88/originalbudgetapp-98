@@ -58,8 +58,8 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   const { data: huvudkategorier = [] } = useHuvudkategorier();
   const { data: allUnderkategorier = [] } = useUnderkategorier();
   const categoryNames = useCategoryNames();
-  // Force fetch ALL budget posts for linked transaction lookups (pass null to get all)
-  const { data: budgetPostsFromAPI = [], refetch: refetchBudgetPosts } = useBudgetPosts(null);
+  // Force fetch ALL budget posts for linked transaction lookups (pass undefined to get all)
+  const { data: budgetPostsFromAPI = [], refetch: refetchBudgetPosts } = useBudgetPosts(undefined);
   // Fetch category rules
   const { data: categoryRules = [] } = useCategoryRules();
   
@@ -106,8 +106,9 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   // Function to find applicable rules for this transaction
   const findApplicableRules = (transaction: ImportedTransaction) => {
     return categoryRules.filter(rule => {
-      // Skip inactive rules
-      if (rule.isActive !== 'true' && rule.isActive !== true) {
+      // Skip inactive rules - handle both string and boolean types
+      const isActive = rule.isActive === 'true' || rule.isActive === true;
+      if (!isActive) {
         return false;
       }
 
