@@ -241,7 +241,7 @@ export class MemStorage implements IStorage {
       underkategorier: await this.getUnderkategorier(userId),
       categoryRules: await this.getCategoryRules(userId),
       transactions: await this.getTransactions(userId),
-      budgetPosts: await this.getBudgetPosts(),
+      budgetPosts: await this.getBudgetPosts(userId),
       monthlyBudgets: await this.getMonthlyBudgets(userId),
       banks: await this.getBanks(userId),
       bankCsvMappings: await this.getBankCsvMappings(userId),
@@ -273,7 +273,10 @@ export class MemStorage implements IStorage {
     const newMember: FamilyMember = {
       id,
       ...member,
+      role: member.role ?? 'adult',
+      contributesToBudget: member.contributesToBudget ?? true,
       createdAt: new Date(),
+      updatedAt: new Date(),
     };
     this.familyMembers.set(id, newMember);
     return newMember;
@@ -309,6 +312,7 @@ export class MemStorage implements IStorage {
     const newSource: Inkomstkall = {
       id,
       ...inkomstkall,
+      isDefault: inkomstkall.isDefault ?? false,
       createdAt: new Date(),
     };
     this.inkomstkallor.set(id, newSource);
@@ -338,6 +342,7 @@ export class MemStorage implements IStorage {
     const newAssignment: InkomstkallorMedlem = {
       id,
       ...assignment,
+      isEnabled: assignment.isEnabled ?? true,
       createdAt: new Date(),
     };
     this.inkomstkallorMedlem.set(id, newAssignment);
@@ -386,6 +391,7 @@ export class MemStorage implements IStorage {
       balance: account.balance ?? 0,
       assignedTo: account.assignedTo ?? 'gemensamt',
       bankTemplateId: account.bankTemplateId ?? null,
+      accountTypeId: account.accountTypeId ?? null,
     };
     this.accounts.set(id, newAccount);
     return newAccount;
@@ -548,6 +554,9 @@ export class MemStorage implements IStorage {
       negativeTransactionType: rule.negativeTransactionType ?? 'Transaction',
       applicableAccountIds: rule.applicableAccountIds ?? '[]',
       priority: rule.priority ?? 100,
+      transactionName: rule.transactionName ?? null,
+      ruleType: rule.ruleType ?? null,
+      autoApproval: rule.autoApproval ?? false,
     };
     console.log('🔍 [SERVER STORAGE] Created rule with final transactionDirection:', newRule.transactionDirection);
     this.categoryRules.set(id, newRule);
@@ -597,6 +606,7 @@ export class MemStorage implements IStorage {
       correctedAmount: transaction.correctedAmount ?? null,
       appCategoryId: transaction.appCategoryId ?? null,
       appSubCategoryId: transaction.appSubCategoryId ?? null,
+      savingsTargetId: transaction.savingsTargetId ?? null,
     };
     this.transactions.set(id, newTransaction);
     return newTransaction;
