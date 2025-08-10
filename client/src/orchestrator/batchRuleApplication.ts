@@ -50,6 +50,7 @@ interface BatchUpdate {
     type?: string;
     status?: string;
     isManuallyChanged?: string;
+    linkedTransactionId?: string;
   };
 }
 
@@ -206,10 +207,27 @@ function applyRuleToTransaction(
     hasUpdates = true;
   }
   
-  // Auto-approve if auto-approval is enabled and both categories are set
+  // For InternalTransfer type, only auto-approve if transaction has a linked transaction
+  // Otherwise, do not auto-approve even if the rule says to
   if (rule.autoApproval && rule.huvudkategoriId && rule.underkategoriId && transaction.status !== 'green') {
-    updates.status = 'green';
-    hasUpdates = true;
+    // Check if this is an InternalTransfer rule
+    const isInternalTransferRule = 
+      newType === 'InternalTransfer' || 
+      transaction.type === 'InternalTransfer' ||
+      (rule.positiveTransactionType === 'InternalTransfer' || rule.negativeTransactionType === 'InternalTransfer');
+    
+    if (isInternalTransferRule) {
+      // Only auto-approve if transaction has a linked transaction
+      if (transaction.linkedTransactionId) {
+        updates.status = 'green';
+        hasUpdates = true;
+      }
+      // Do not auto-approve unlinked internal transfers
+    } else {
+      // Regular transactions can be auto-approved
+      updates.status = 'green';
+      hasUpdates = true;
+    }
   }
   
   // Mark as rule-processed (not manually changed)
@@ -257,6 +275,151 @@ function applyBankCategoryFallback(
       isManuallyChanged: 'false'
     }
   };
+}
+
+/**
+ * Auto-match internal transfer transactions based on date, amount, and account
+ * Returns matched transaction pairs
+ */
+function autoMatchInternalTransfers(
+  transactions: ImportedTransaction[]
+): Array<{ transaction1Id: string; transaction2Id: string }> {
+  console.log('🔍 [BATCH RULES] Auto-matching internal transfer transactions...');
+  
+  const matches: Array<{ transaction1Id: string; transaction2Id: string }> = [];
+  const processedIds = new Set<string>();
+  
+  // Find all InternalTransfer transactions that don't have linked transactions
+  const unmatchedTransfers = transactions.filter(tx => 
+    tx.type === 'InternalTransfer' && !tx.linkedTransactionId
+  );
+  
+  console.log(`[BATCH RULES] Found ${unmatchedTransfers.length} unmatched internal transfers`);
+  
+  unmatchedTransfers.forEach(transaction => {
+    // Skip if already processed
+    if (processedIds.has(transaction.id)) {
+      return;
+    }
+    
+    // Find potential matches on the same date with opposite signs on different accounts
+    const potentialMatches = transactions.filter(t => {
+      return t.id !== transaction.id &&
+        t.accountId !== transaction.accountId && // Different account
+        t.date === transaction.date && // Same date only
+        // Opposite signs (positive matches negative, negative matches positive)
+        ((transaction.amount > 0 && t.amount < 0) || (transaction.amount < 0 && t.amount > 0)) &&
+        Math.abs(Math.abs(t.amount) - Math.abs(transaction.amount)) < 0.01 && // Same absolute amount
+        !t.linkedTransactionId && // Not already linked
+        !processedIds.has(t.id); // Not already processed
+    });
+    
+    // If exactly one match found, auto-link them
+    if (potentialMatches.length === 1) {
+      const matchedTransaction = potentialMatches[0];
+      console.log(`[BATCH RULES] Auto-matching ${transaction.id} with ${matchedTransaction.id}`);
+      
+      matches.push({
+        transaction1Id: transaction.id,
+        transaction2Id: matchedTransaction.id
+      });
+      
+      // Mark both as processed to avoid duplicate matching
+      processedIds.add(transaction.id);
+      processedIds.add(matchedTransaction.id);
+    }
+  });
+  
+  console.log(`✅ [BATCH RULES] Found ${matches.length} matching internal transfer pairs`);
+  return matches;
+}
+
+/**
+ * Synchronize categories and approval status between linked internal transfer transactions
+ * Returns the number of additional transactions synchronized
+ */
+function synchronizeLinkedTransactions(
+  transactions: ImportedTransaction[],
+  batchUpdates: BatchUpdate[]
+): number {
+  console.log('🔄 [BATCH RULES] Synchronizing linked internal transfer transactions...');
+  
+  let synchronizedCount = 0;
+  const processedLinkedIds = new Set<string>();
+  
+  // Create a map of transaction updates for quick lookup
+  const updateMap = new Map<string, BatchUpdate['updates']>();
+  batchUpdates.forEach(update => {
+    updateMap.set(update.id, update.updates);
+  });
+  
+  // Find all transactions that have been updated and have linked transactions
+  batchUpdates.forEach(update => {
+    const transaction = transactions.find(t => t.id === update.id);
+    if (!transaction || !transaction.linkedTransactionId) {
+      return;
+    }
+    
+    // Skip if we've already processed this linked pair
+    if (processedLinkedIds.has(transaction.linkedTransactionId)) {
+      return;
+    }
+    
+    // Check if this is an internal transfer
+    const isInternalTransfer = 
+      update.updates.type === 'InternalTransfer' || 
+      transaction.type === 'InternalTransfer';
+    
+    if (!isInternalTransfer) {
+      return;
+    }
+    
+    // Find the linked transaction
+    const linkedTransaction = transactions.find(t => t.id === transaction.linkedTransactionId);
+    if (!linkedTransaction) {
+      return;
+    }
+    
+    // Mark this pair as processed
+    processedLinkedIds.add(transaction.id);
+    processedLinkedIds.add(linkedTransaction.id);
+    
+    // Check if linked transaction already has an update
+    let linkedUpdate = batchUpdates.find(u => u.id === linkedTransaction.id);
+    
+    // If linked transaction doesn't have an update, create one
+    if (!linkedUpdate) {
+      linkedUpdate = {
+        id: linkedTransaction.id,
+        updates: {}
+      };
+      batchUpdates.push(linkedUpdate);
+      synchronizedCount++;
+    }
+    
+    // Synchronize categories from the first transaction to the linked one
+    if (update.updates.appCategoryId) {
+      linkedUpdate.updates.appCategoryId = update.updates.appCategoryId;
+    }
+    if (update.updates.appSubCategoryId) {
+      linkedUpdate.updates.appSubCategoryId = update.updates.appSubCategoryId;
+    }
+    
+    // Synchronize type
+    linkedUpdate.updates.type = 'InternalTransfer';
+    
+    // If the first transaction is auto-approved, also approve the linked one
+    if (update.updates.status === 'green') {
+      linkedUpdate.updates.status = 'green';
+    }
+    
+    // Mark as rule-processed
+    linkedUpdate.updates.isManuallyChanged = 'false';
+    
+    console.log(`✅ [BATCH RULES] Synchronized categories from ${transaction.id} to linked transaction ${linkedTransaction.id}`);
+  });
+  
+  return synchronizedCount;
 }
 
 /**
@@ -339,6 +502,62 @@ export async function applyRulesToTransactionsBatch(
   
   console.log(`📊 [BATCH RULES] Processing complete: ${batchUpdates.length} updates to apply`);
   
+  // Auto-match internal transfer transactions first
+  const transferMatches = autoMatchInternalTransfers(transactions);
+  if (transferMatches.length > 0) {
+    console.log(`🔗 [BATCH RULES] Applying ${transferMatches.length} auto-matched internal transfers`);
+    
+    // Apply the matched links to batch updates
+    transferMatches.forEach(match => {
+      // Check if we already have updates for these transactions
+      let update1 = batchUpdates.find(u => u.id === match.transaction1Id);
+      let update2 = batchUpdates.find(u => u.id === match.transaction2Id);
+      
+      // Create or update the first transaction
+      if (!update1) {
+        update1 = { id: match.transaction1Id, updates: {} };
+        batchUpdates.push(update1);
+      }
+      update1.updates.linkedTransactionId = match.transaction2Id;
+      update1.updates.type = 'InternalTransfer';
+      
+      // Create or update the second transaction  
+      if (!update2) {
+        update2 = { id: match.transaction2Id, updates: {} };
+        batchUpdates.push(update2);
+      }
+      update2.updates.linkedTransactionId = match.transaction1Id;
+      update2.updates.type = 'InternalTransfer';
+      
+      // If both transactions have categories and one is set to auto-approve, approve both
+      const tx1 = transactions.find(t => t.id === match.transaction1Id);
+      const tx2 = transactions.find(t => t.id === match.transaction2Id);
+      
+      if (tx1 && tx2) {
+        // Check if both have categories (either from rules or existing)
+        const tx1HasCategory = update1.updates.appCategoryId || tx1.appCategoryId;
+        const tx2HasCategory = update2.updates.appCategoryId || tx2.appCategoryId;
+        
+        if (tx1HasCategory && tx2HasCategory) {
+          // Auto-approve both since they're matched and categorized
+          update1.updates.status = 'green';
+          update2.updates.status = 'green';
+          stats.autoApproved += 2;
+        }
+      }
+    });
+    
+    stats.autoMatched += transferMatches.length * 2; // Count both transactions in each match
+    stats.updated += transferMatches.length * 2;
+  }
+  
+  // Synchronize linked internal transfer transactions
+  const synchronizedCount = synchronizeLinkedTransactions(transactions, batchUpdates);
+  if (synchronizedCount > 0) {
+    console.log(`🔄 [BATCH RULES] Synchronized ${synchronizedCount} additional linked transactions`);
+    stats.updated += synchronizedCount;
+  }
+  
   // Apply all updates in a single bulk operation
   if (batchUpdates.length > 0) {
     try {
@@ -350,7 +569,9 @@ export async function applyRulesToTransactionsBatch(
         body: JSON.stringify({
           transactions: batchUpdates.map(update => ({
             id: update.id,
-            ...update.updates
+            ...update.updates,
+            // Ensure linkedTransactionId is properly included
+            linkedTransactionId: update.updates.linkedTransactionId || undefined
           }))
         })
       });
@@ -379,6 +600,7 @@ export async function applyRulesToTransactionsBatch(
         appSubCategoryId: update.updates.appSubCategoryId || tx.appSubCategoryId,
         type: (update.updates.type as any) || tx.type,
         status: (update.updates.status as any) || tx.status,
+        linkedTransactionId: update.updates.linkedTransactionId || tx.linkedTransactionId,
         isManuallyChanged: update.updates.isManuallyChanged === 'true'
       };
     }
