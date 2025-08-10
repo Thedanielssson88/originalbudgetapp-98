@@ -69,13 +69,35 @@ export function SavingsGoalsPage() {
     // PHASE 2 MIGRATION: SQL-only data source - no localStorage fallback
     const allTransactions = transactionsFromAPI || [];
     
-    allTransactions.forEach(transaction => {
-      if (transaction.type === 'Savings' && 
-          transaction.accountId === goal.accountId &&
-          transaction.savingsTargetId === goal.id) {
-        totalSaved += Math.abs(transaction.amount);
+    // Debug logging to understand why progress might be 0
+    const matchingTransactions = allTransactions.filter(transaction => {
+      // Check for Savings or Sparande type (handle both variations)
+      const isSavingsType = transaction.type === 'Savings' || transaction.type === 'Sparande';
+      const hasMatchingTarget = transaction.savingsTargetId === goal.id;
+      
+      // For savings goals, we should count ALL transactions linked to this goal
+      // regardless of which account they're on (since transfers might come from different accounts)
+      if (isSavingsType && hasMatchingTarget) {
+        console.log(`[calculateActualSaved] Found matching transaction for goal ${goal.name}:`, {
+          transactionId: transaction.id,
+          amount: transaction.amount,
+          date: transaction.date,
+          accountId: transaction.accountId,
+          savingsTargetId: transaction.savingsTargetId,
+          type: transaction.type
+        });
+        return true;
       }
+      return false;
     });
+    
+    // Sum up all matching transactions
+    matchingTransactions.forEach(transaction => {
+      // Use the absolute value to handle both positive and negative amounts
+      totalSaved += Math.abs(transaction.amount);
+    });
+    
+    console.log(`[calculateActualSaved] Goal: ${goal.name}, Total saved: ${totalSaved}, Transactions found: ${matchingTransactions.length}`);
     
     return totalSaved;
   };
@@ -661,6 +683,14 @@ export function SavingsGoalsPage() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {allSavingsGoals.map(goal => {
+            // Debug the goal data
+            console.log(`[SavingsGoalsPage] Processing goal:`, {
+              id: goal.id,
+              name: goal.name,
+              accountId: goal.accountId,
+              targetAmount: goal.targetAmount
+            });
+            
             const actualSaved = calculateActualSaved(goal);
             const progress = Math.min((actualSaved / goal.targetAmount) * 100, 100);
             const monthlyAmount = calculateMonthlyAmount(goal);
