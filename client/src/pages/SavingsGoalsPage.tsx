@@ -80,7 +80,8 @@ export function SavingsGoalsPage() {
       if (isSavingsType && hasMatchingTarget) {
         console.log(`[calculateActualSaved] Found matching transaction for goal ${goal.name}:`, {
           transactionId: transaction.id,
-          amount: transaction.amount,
+          amountInOre: transaction.amount,
+          amountInKronor: transaction.amount / 100,
           date: transaction.date,
           accountId: transaction.accountId,
           savingsTargetId: transaction.savingsTargetId,
@@ -94,10 +95,12 @@ export function SavingsGoalsPage() {
     // Sum up all matching transactions
     matchingTransactions.forEach(transaction => {
       // Use the absolute value to handle both positive and negative amounts
-      totalSaved += Math.abs(transaction.amount);
+      // Convert from öre to kronor by dividing by 100
+      const amountInKronor = Math.abs(transaction.amount) / 100;
+      totalSaved += amountInKronor;
     });
     
-    console.log(`[calculateActualSaved] Goal: ${goal.name}, Total saved: ${totalSaved}, Transactions found: ${matchingTransactions.length}`);
+    console.log(`[calculateActualSaved] Goal: ${goal.name}, Total saved: ${totalSaved} kr, Transactions found: ${matchingTransactions.length}`);
     
     return totalSaved;
   };
