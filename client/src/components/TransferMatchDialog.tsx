@@ -11,8 +11,10 @@ import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { ImportedTransaction } from '@/types/transaction';
-import { matchInternalTransfer, updateTransaction, getAccountNameById } from '../orchestrator/budgetOrchestrator';
+import { getAccountNameById } from '../orchestrator/budgetOrchestrator';
+import { useUpdateTransaction } from '@/hooks/useTransactions';
 import { formatOrenAsCurrency } from '@/utils/currencyUtils';
+import { addMobileDebugLog } from '@/utils/mobileDebugLogger';
 
 interface TransferMatchDialogProps {
   isOpen: boolean;
@@ -31,6 +33,7 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
 }) => {
   const [selectedMatch, setSelectedMatch] = React.useState<string>('');
   const [showAllSuggestions, setShowAllSuggestions] = React.useState<boolean>(false);
+  const updateTransactionMutation = useUpdateTransaction();
 
   // Filter suggestions to show only same-date initially, with option to show all 7-day range
   const filteredSuggestions = React.useMemo(() => {
@@ -75,32 +78,100 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
   // Remove custom formatCurrency - use formatOrenAsCurrency instead
   // The transaction amounts are stored in öre in the database
 
-  const handleMatch = () => {
-    if (transaction && selectedMatch) {
-      const selectedTransaction = suggestions.find(s => s.id === selectedMatch);
+  const handleMatch = async () => {
+    // === MOBILE DEBUG: Initial state ===
+    addMobileDebugLog('🔗 [TRANSFER MATCH START] User clicked "Matcha transaktioner"');
+    addMobileDebugLog(`🔗 [TRANSFER MATCH] Transaction 1: ${transaction?.id} (${transaction?.type})`);
+    addMobileDebugLog(`🔗 [TRANSFER MATCH] Selected match: ${selectedMatch}`);
+    addMobileDebugLog(`🔗 [TRANSFER MATCH] Transaction 1 amount: ${transaction?.amount} öre`);
+    
+    if (!transaction || !selectedMatch) {
+      addMobileDebugLog('❌ [TRANSFER MATCH ERROR] Missing transaction or selectedMatch');
+      return;
+    }
+
+    const selectedTransaction = suggestions.find(s => s.id === selectedMatch);
+    if (!selectedTransaction) {
+      addMobileDebugLog('❌ [TRANSFER MATCH ERROR] Could not find selected transaction in suggestions');
+      return;
+    }
+    
+    // === MOBILE DEBUG: Transaction details ===
+    addMobileDebugLog(`🔗 [TRANSFER MATCH] Transaction 2: ${selectedTransaction.id} (${selectedTransaction.type})`);
+    addMobileDebugLog(`🔗 [TRANSFER MATCH] Transaction 2 amount: ${selectedTransaction.amount} öre`);
+    addMobileDebugLog(`🔗 [TRANSFER MATCH] Transaction 1 account: ${transaction.accountId}`);
+    addMobileDebugLog(`🔗 [TRANSFER MATCH] Transaction 2 account: ${selectedTransaction.accountId}`);
+
+    try {
+      // Get account names for descriptions
+      addMobileDebugLog('🔍 [TRANSFER MATCH] Getting account names from orchestrator...');
+      const account1Name = getAccountNameById(transaction.accountId) || 'Unknown Account';
+      const account2Name = getAccountNameById(selectedTransaction.accountId) || 'Unknown Account';
       
-      if (selectedTransaction) {
-        // Get month key from transaction date
-        const monthKey = transaction.date.substring(0, 7);
-        
-        // Convert both transactions to InternalTransfer if they aren't already
-        if (transaction.type !== 'InternalTransfer') {
-          updateTransaction(transaction.id, { type: 'InternalTransfer', isManuallyChanged: true }, monthKey);
-        }
-        if (selectedTransaction.type !== 'InternalTransfer') {
-          updateTransaction(selectedTransaction.id, { type: 'InternalTransfer', isManuallyChanged: true }, monthKey);
-        }
-        
-        // Match the transactions
-        matchInternalTransfer(transaction.id, selectedMatch);
-        
-        // Trigger refresh to update the UI
-        if (onRefresh) {
-          onRefresh();
-        }
+      addMobileDebugLog(`🏦 [TRANSFER MATCH] Account 1: ${account1Name} (${transaction.accountId})`);
+      addMobileDebugLog(`🏦 [TRANSFER MATCH] Account 2: ${account2Name} (${selectedTransaction.accountId})`);
+      
+      // === MOBILE DEBUG: API call preparation ===
+      const update1Data = {
+        type: 'InternalTransfer',
+        linkedTransactionId: selectedTransaction.id,
+        userDescription: `Överföring till ${account2Name}, ${selectedTransaction.date}`,
+        isManuallyChanged: 'true'
+      };
+      
+      const update2Data = {
+        type: 'InternalTransfer', 
+        linkedTransactionId: transaction.id,
+        userDescription: `Överföring från ${account1Name}, ${transaction.date}`,
+        isManuallyChanged: 'true'
+      };
+      
+      addMobileDebugLog('📡 [TRANSFER MATCH API] Preparing to call PATCH /api/transactions');
+      addMobileDebugLog(`📡 [TRANSFER MATCH API 1] PATCH /api/transactions/${transaction.id}`);
+      addMobileDebugLog(`📡 [TRANSFER MATCH API DATA 1] ${JSON.stringify(update1Data, null, 2)}`);
+      addMobileDebugLog(`📡 [TRANSFER MATCH API 2] PATCH /api/transactions/${selectedTransaction.id}`);
+      addMobileDebugLog(`📡 [TRANSFER MATCH API DATA 2] ${JSON.stringify(update2Data, null, 2)}`);
+      
+      // Update both transactions to link them together
+      addMobileDebugLog('📡 [TRANSFER MATCH API] Starting Promise.all for both API calls...');
+      
+      const apiResults = await Promise.all([
+        // Update first transaction
+        updateTransactionMutation.mutateAsync({
+          id: transaction.id,
+          data: update1Data
+        }),
+        // Update second transaction
+        updateTransactionMutation.mutateAsync({
+          id: selectedTransaction.id,
+          data: update2Data
+        })
+      ]);
+      
+      // === MOBILE DEBUG: API success ===
+      addMobileDebugLog('✅ [TRANSFER MATCH API SUCCESS] Both API calls completed successfully');
+      addMobileDebugLog(`✅ [TRANSFER MATCH API RESULT 1] ${JSON.stringify(apiResults[0], null, 2)}`);
+      addMobileDebugLog(`✅ [TRANSFER MATCH API RESULT 2] ${JSON.stringify(apiResults[1], null, 2)}`);
+      
+      // Trigger refresh to update the UI
+      if (onRefresh) {
+        addMobileDebugLog('🔄 [TRANSFER MATCH REFRESH] Calling onRefresh to update UI...');
+        await onRefresh();
+        addMobileDebugLog('✅ [TRANSFER MATCH REFRESH] onRefresh completed');
+      } else {
+        addMobileDebugLog('⚠️ [TRANSFER MATCH REFRESH] No onRefresh callback provided');
       }
       
+      addMobileDebugLog('🚪 [TRANSFER MATCH] Closing dialog - operation complete');
       onClose();
+      
+    } catch (error) {
+      // === MOBILE DEBUG: API errors ===
+      addMobileDebugLog('❌ [TRANSFER MATCH API ERROR] Failed to link transactions');
+      addMobileDebugLog(`❌ [TRANSFER MATCH API ERROR] ${error}`);
+      addMobileDebugLog(`❌ [TRANSFER MATCH ERROR DETAILS] ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`);
+      
+      // Don't close dialog on error so user can try again
     }
   };
 
@@ -227,10 +298,10 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
           {filteredSuggestions.length > 0 && (
             <Button 
               onClick={handleMatch} 
-              disabled={!selectedMatch}
+              disabled={!selectedMatch || updateTransactionMutation.isPending}
               className="bg-blue-600 hover:bg-blue-700"
             >
-              Matcha transaktioner
+              {updateTransactionMutation.isPending ? 'Matchar...' : 'Matcha transaktioner'}
             </Button>
           )}
         </DialogFooter>
