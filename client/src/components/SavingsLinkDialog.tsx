@@ -152,10 +152,13 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
     });
     
     // Update transaction with correct linking via prop function
+    // IMPORTANT: Preserve linkedTransactionId if it exists (for InternalTransfer links)
     const updates: Partial<ImportedTransaction> = {
       type: 'Savings', // Use 'Savings' instead of 'Sparande' for consistency with SQL
       appCategoryId: target.mainCategoryId, // Link to main category
-      savingsTargetId: target.id // Link to specific savings post/goal (budget_post ID for SQL targets)
+      savingsTargetId: target.id, // Link to specific savings post/goal (budget_post ID for SQL targets)
+      // Preserve the existing linkedTransactionId (internal transfer link)
+      linkedTransactionId: transaction.linkedTransactionId
     };
     
     // Call the prop function instead of direct orchestrator call

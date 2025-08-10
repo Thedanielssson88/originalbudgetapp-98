@@ -2476,6 +2476,62 @@ export function matchInternalTransfer(t1Id: string, t2Id: string): void {
   console.log(`✅ [ORCHESTRATOR] Successfully matched internal transfer between ${t1Id} and ${t2Id}`);
 }
 
+/**
+ * Unlinks an internal transfer and resets both transactions' status
+ * @param transactionId - The ID of one of the linked transactions
+ */
+export function unlinkInternalTransfer(transactionId: string): void {
+  console.log(`🔓 [ORCHESTRATOR] Unlinking internal transfer: ${transactionId}`);
+  
+  const transaction = findTransactionById(transactionId);
+  if (!transaction) {
+    console.error(`❌ [ORCHESTRATOR] Transaction not found: ${transactionId}`);
+    return;
+  }
+  
+  const linkedTransactionId = transaction.linkedTransactionId;
+  if (!linkedTransactionId) {
+    console.warn(`⚠️ [ORCHESTRATOR] Transaction has no linked transaction: ${transactionId}`);
+    return;
+  }
+  
+  const linkedTransaction = findTransactionById(linkedTransactionId);
+  const t1MonthKey = findMonthKeyForTransaction(transactionId);
+  const t2MonthKey = linkedTransaction ? findMonthKeyForTransaction(linkedTransactionId) : null;
+  
+  // Update first transaction - remove link and recalculate status
+  const newStatus1 = determineTransactionStatus({
+    ...transaction,
+    linkedTransactionId: undefined,
+    type: 'Transaction'
+  });
+  
+  updateTransaction(transactionId, {
+    linkedTransactionId: undefined,
+    type: 'Transaction',
+    status: newStatus1,
+    isManuallyChanged: true
+  }, t1MonthKey || state.budgetState.selectedMonthKey);
+  
+  // Update linked transaction if it exists
+  if (linkedTransaction && t2MonthKey) {
+    const newStatus2 = determineTransactionStatus({
+      ...linkedTransaction,
+      linkedTransactionId: undefined,
+      type: 'Transaction'
+    });
+    
+    updateTransaction(linkedTransactionId, {
+      linkedTransactionId: undefined,
+      type: 'Transaction',
+      status: newStatus2,
+      isManuallyChanged: true
+    }, t2MonthKey);
+  }
+  
+  console.log(`✅ [ORCHESTRATOR] Successfully unlinked internal transfer between ${transactionId} and ${linkedTransactionId}`);
+}
+
 export function linkSavingsTransaction(transactionId: string, savingsTargetId: string, mainCategoryId: string, monthKey?: string): void {
   console.log(`🔗 [DEBUG] linkSavingsTransaction called with:`, { transactionId, savingsTargetId, mainCategoryId, monthKey });
   
@@ -2488,10 +2544,14 @@ export function linkSavingsTransaction(transactionId: string, savingsTargetId: s
   console.log(`🔗 [DEBUG] Transaction exists in target month:`, !!transactionExists);
   console.log(`🔗 [DEBUG] Transaction before update:`, transactionExists ? { id: transactionExists.id, type: transactionExists.type, savingsTargetId: transactionExists.savingsTargetId, appCategoryId: transactionExists.appCategoryId } : 'NOT FOUND');
   
+  // Get the transaction to preserve its linkedTransactionId
+  const transaction = findTransactionById(transactionId);
+  
   updateTransaction(transactionId, {
     type: 'Savings',
     savingsTargetId: savingsTargetId,
-    appCategoryId: mainCategoryId // Save the main category ID directly on the transaction
+    appCategoryId: mainCategoryId, // Save the main category ID directly on the transaction
+    linkedTransactionId: transaction?.linkedTransactionId // Preserve the internal transfer link if it exists
   }, targetMonthKey);
   
   // Check after update
