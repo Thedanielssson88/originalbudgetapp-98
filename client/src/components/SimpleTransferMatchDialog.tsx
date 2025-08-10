@@ -14,6 +14,7 @@ import { Transaction } from '@/types/budget';
 import { getAccountNameById } from '../orchestrator/budgetOrchestrator';
 import { useUpdateTransaction } from '@/hooks/useTransactions';
 import { formatOrenAsCurrency } from '@/utils/currencyUtils';
+import { addMobileDebugLog } from '@/utils/mobileDebugLogger';
 
 interface SimpleTransferMatchDialogProps {
   isOpen: boolean;
@@ -78,6 +79,12 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
   // The transaction amounts are stored in öre in the database
 
   const handleMatch = async () => {
+    // === MOBILE DEBUG: Initial state ===
+    addMobileDebugLog('🔗 [MATCH START] User clicked "Matcha transaktioner"');
+    addMobileDebugLog(`🔗 [MATCH] Transaction 1: ${transaction?.id} (${transaction?.type})`);
+    addMobileDebugLog(`🔗 [MATCH] Selected match: ${selectedMatch}`);
+    addMobileDebugLog(`🔗 [MATCH] Transaction 1 amount: ${transaction?.amount} öre`);
+    
     console.log('🔗 [SimpleTransferMatchDialog] handleMatch called', { 
       transactionId: transaction?.id, 
       selectedMatch,
@@ -85,6 +92,7 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
     });
     
     if (!transaction || !selectedMatch) {
+      addMobileDebugLog('❌ [MATCH ERROR] Missing transaction or selectedMatch');
       console.warn('🔗 [SimpleTransferMatchDialog] Missing transaction or selectedMatch', {
         hasTransaction: !!transaction,
         selectedMatch
@@ -94,9 +102,16 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
 
     const selectedTransaction = suggestions.find(s => s.id === selectedMatch);
     if (!selectedTransaction) {
+      addMobileDebugLog('❌ [MATCH ERROR] Could not find selected transaction in suggestions');
       console.error('🔗 [SimpleTransferMatchDialog] Could not find selected transaction');
       return;
     }
+    
+    // === MOBILE DEBUG: Transaction details ===
+    addMobileDebugLog(`🔗 [MATCH] Transaction 2: ${selectedTransaction.id} (${selectedTransaction.type})`);
+    addMobileDebugLog(`🔗 [MATCH] Transaction 2 amount: ${selectedTransaction.amount} öre`);
+    addMobileDebugLog(`🔗 [MATCH] Transaction 1 account: ${transaction.accountId}`);
+    addMobileDebugLog(`🔗 [MATCH] Transaction 2 account: ${selectedTransaction.accountId}`);
     
     console.log('🔗 [SimpleTransferMatchDialog] Found selected transaction:', {
       selectedTransactionId: selectedTransaction.id,
@@ -106,47 +121,79 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
 
     try {
       // Get account names for descriptions
+      addMobileDebugLog('🔍 [MATCH] Getting account names from orchestrator...');
       const account1Name = getAccountNameById(transaction.accountId) || 'Unknown Account';
       const account2Name = getAccountNameById(selectedTransaction.accountId) || 'Unknown Account';
       
+      addMobileDebugLog(`🏦 [MATCH] Account 1: ${account1Name} (${transaction.accountId})`);
+      addMobileDebugLog(`🏦 [MATCH] Account 2: ${account2Name} (${selectedTransaction.accountId})`);
+      
       console.log('🔗 [SimpleTransferMatchDialog] Linking transactions with API calls');
       
+      // === MOBILE DEBUG: API call preparation ===
+      const update1Data = {
+        type: 'InternalTransfer',
+        linkedTransactionId: selectedTransaction.id,
+        userDescription: `Överföring till ${account2Name}, ${selectedTransaction.date}`,
+        isManuallyChanged: 'true'
+      };
+      
+      const update2Data = {
+        type: 'InternalTransfer', 
+        linkedTransactionId: transaction.id,
+        userDescription: `Överföring från ${account1Name}, ${transaction.date}`,
+        isManuallyChanged: 'true'
+      };
+      
+      addMobileDebugLog('📡 [API CALL] Preparing to call PATCH /api/transactions');
+      addMobileDebugLog(`📡 [API CALL 1] PATCH /api/transactions/${transaction.id}`);
+      addMobileDebugLog(`📡 [API DATA 1] ${JSON.stringify(update1Data, null, 2)}`);
+      addMobileDebugLog(`📡 [API CALL 2] PATCH /api/transactions/${selectedTransaction.id}`);
+      addMobileDebugLog(`📡 [API DATA 2] ${JSON.stringify(update2Data, null, 2)}`);
+      
       // Update both transactions to link them together
-      await Promise.all([
+      addMobileDebugLog('📡 [API] Starting Promise.all for both API calls...');
+      
+      const apiResults = await Promise.all([
         // Update first transaction
         updateTransactionMutation.mutateAsync({
           id: transaction.id,
-          data: {
-            type: 'InternalTransfer',
-            linkedTransactionId: selectedTransaction.id,
-            userDescription: `Överföring till ${account2Name}, ${selectedTransaction.date}`,
-            isManuallyChanged: 'true'
-          }
+          data: update1Data
         }),
         // Update second transaction
         updateTransactionMutation.mutateAsync({
           id: selectedTransaction.id,
-          data: {
-            type: 'InternalTransfer', 
-            linkedTransactionId: transaction.id,
-            userDescription: `Överföring från ${account1Name}, ${transaction.date}`,
-            isManuallyChanged: 'true'
-          }
+          data: update2Data
         })
       ]);
+      
+      // === MOBILE DEBUG: API success ===
+      addMobileDebugLog('✅ [API SUCCESS] Both API calls completed successfully');
+      addMobileDebugLog(`✅ [API RESULT 1] ${JSON.stringify(apiResults[0], null, 2)}`);
+      addMobileDebugLog(`✅ [API RESULT 2] ${JSON.stringify(apiResults[1], null, 2)}`);
       
       console.log('🔗 [SimpleTransferMatchDialog] Successfully linked transactions via API');
       
       // Trigger refresh to update the UI
       if (onRefresh) {
+        addMobileDebugLog('🔄 [REFRESH] Calling onRefresh to update UI...');
         console.log('🔗 [SimpleTransferMatchDialog] Calling onRefresh');
         await onRefresh();
+        addMobileDebugLog('✅ [REFRESH] onRefresh completed');
+      } else {
+        addMobileDebugLog('⚠️ [REFRESH] No onRefresh callback provided');
       }
       
+      addMobileDebugLog('🚪 [MATCH] Closing dialog - operation complete');
       console.log('🔗 [SimpleTransferMatchDialog] Closing dialog');
       onClose();
       
     } catch (error) {
+      // === MOBILE DEBUG: API errors ===
+      addMobileDebugLog('❌ [API ERROR] Failed to link transactions');
+      addMobileDebugLog(`❌ [API ERROR] ${error}`);
+      addMobileDebugLog(`❌ [ERROR DETAILS] ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`);
+      
       console.error('🔗 [SimpleTransferMatchDialog] Error linking transactions:', error);
       // Don't close dialog on error so user can try again
     }

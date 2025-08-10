@@ -2401,12 +2401,22 @@ export function updateTransaction(transactionId: string, updates: Partial<Import
   console.log(`🔄 [ORCHESTRATOR] PHASE 2 MIGRATION: updateTransaction is now a no-op - using direct API calls`);
   console.log(`🔄 [ORCHESTRATOR] Received call for ${transactionId} but skipping orchestrator - handled by React Query`);
   
+  // MOBILE DEBUG: Track legacy function calls
+  addMobileDebugLog('⚠️ [LEGACY CALL] updateTransaction() was called (THIS IS DEPRECATED)');
+  addMobileDebugLog(`⚠️ [LEGACY] updateTransaction(${transactionId}, ${JSON.stringify(updates)}, ${monthKey})`);
+  addMobileDebugLog('⚠️ [LEGACY] This function is a no-op - changes will NOT be saved!');
+  
   // PHASE 2 MIGRATION: This function is now disabled
   // All transaction updates are handled by direct API calls via React Query hooks
   // Keeping this function for backward compatibility during migration
 }
 
 export function matchInternalTransfer(t1Id: string, t2Id: string): void {
+  // MOBILE DEBUG: Track legacy function calls
+  addMobileDebugLog('⚠️ [LEGACY CALL] matchInternalTransfer() was called');
+  addMobileDebugLog(`⚠️ [LEGACY] matchInternalTransfer(${t1Id}, ${t2Id})`);
+  addMobileDebugLog('⚠️ [LEGACY] This function uses deprecated updateTransaction() - changes will NOT be saved!');
+  
   console.log(`🔄 [ORCHESTRATOR] Matching internal transfers: ${t1Id} <-> ${t2Id}`);
   
   // Search for transactions in centralized allTransactions array first
@@ -2415,16 +2425,23 @@ export function matchInternalTransfer(t1Id: string, t2Id: string): void {
   let t1MonthKey = '';
   let t2MonthKey = '';
   
+  addMobileDebugLog(`🔍 [LEGACY] Searching for transactions in centralized storage...`);
+  addMobileDebugLog(`🔍 [LEGACY] Found t1 in centralized: ${!!t1}`);
+  addMobileDebugLog(`🔍 [LEGACY] Found t2 in centralized: ${!!t2}`);
+  
   // If found in centralized storage, derive month keys from dates
   if (t1) {
     t1MonthKey = t1.date.substring(0, 7);
+    addMobileDebugLog(`🔍 [LEGACY] t1 month key: ${t1MonthKey}`);
   }
   if (t2) {
     t2MonthKey = t2.date.substring(0, 7);
+    addMobileDebugLog(`🔍 [LEGACY] t2 month key: ${t2MonthKey}`);
   }
   
   // Fallback: search in monthly historical data if not found in centralized storage
   if (!t1 || !t2) {
+    addMobileDebugLog('🔍 [LEGACY] Searching in historical data...');
     Object.keys(state.budgetState.historicalData).forEach(monthKey => {
       const monthData = state.budgetState.historicalData[monthKey];
       if (monthData?.transactions) {
@@ -2434,16 +2451,19 @@ export function matchInternalTransfer(t1Id: string, t2Id: string): void {
         if (foundT1 && !t1) {
           t1 = foundT1;
           t1MonthKey = monthKey;
+          addMobileDebugLog(`🔍 [LEGACY] Found t1 in historical data: ${monthKey}`);
         }
         if (foundT2 && !t2) {
           t2 = foundT2;
           t2MonthKey = monthKey;
+          addMobileDebugLog(`🔍 [LEGACY] Found t2 in historical data: ${monthKey}`);
         }
       }
     });
   }
   
   if (!t1 || !t2) {
+    addMobileDebugLog('❌ [LEGACY ERROR] Could not find one or both transactions');
     console.error(`❌ [ORCHESTRATOR] Could not find transactions: t1=${!!t1} t2=${!!t2}`);
     console.error(`❌ [ORCHESTRATOR] Searched for ${t1Id} and ${t2Id} in ${state.budgetState.allTransactions.length} centralized transactions and ${Object.keys(state.budgetState.historicalData).length} historical months`);
     return;
@@ -2456,9 +2476,13 @@ export function matchInternalTransfer(t1Id: string, t2Id: string): void {
   const account2Name = state.budgetState.accounts.find(a => a.id === t2.accountId)?.name || t2.accountId;
   console.log('⚠️ [ORCHESTRATOR] Using legacy budgetState.accounts lookup - should pass sqlAccounts parameter');
   
+  addMobileDebugLog(`🏦 [LEGACY] Account 1: ${account1Name}`);
+  addMobileDebugLog(`🏦 [LEGACY] Account 2: ${account2Name}`);
+  
   console.log(`🔄 [ORCHESTRATOR] Matching ${account1Name} transaction "${t1.description}" with ${account2Name} transaction "${t2.description}"`);
   
   // Update both transactions with link and description
+  addMobileDebugLog('⚠️ [LEGACY] About to call updateTransaction() for t1 (WILL NOT SAVE)');
   updateTransaction(t1.id, {
     type: 'InternalTransfer',
     linkedTransactionId: t2.id,
@@ -2466,6 +2490,7 @@ export function matchInternalTransfer(t1Id: string, t2Id: string): void {
     isManuallyChanged: true
   }, t1MonthKey);
   
+  addMobileDebugLog('⚠️ [LEGACY] About to call updateTransaction() for t2 (WILL NOT SAVE)');
   updateTransaction(t2.id, {
     type: 'InternalTransfer',
     linkedTransactionId: t1.id,
@@ -2473,6 +2498,7 @@ export function matchInternalTransfer(t1Id: string, t2Id: string): void {
     isManuallyChanged: true
   }, t2MonthKey);
   
+  addMobileDebugLog('⚠️ [LEGACY] matchInternalTransfer completed - but no data was saved to SQL');
   console.log(`✅ [ORCHESTRATOR] Successfully matched internal transfer between ${t1Id} and ${t2Id}`);
 }
 
@@ -2950,15 +2976,21 @@ export function getCsvMapping(fileFingerprint: string): CsvMapping | undefined {
 // ===== ACCOUNT HELPER FUNCTIONS =====
 
 export function getAccountNameById(accountId: string, sqlAccounts?: any[]): string {
+  // MOBILE DEBUG: Track account name lookups
+  addMobileDebugLog(`🏦 [ACCOUNT] getAccountNameById(${accountId}) called`);
+  
   // CRITICAL FIX: Use SQL accounts as primary source instead of localStorage budgetState
   const accounts = sqlAccounts && sqlAccounts.length > 0 
     ? sqlAccounts 
     : (state.budgetState.accounts || []);
   
+  addMobileDebugLog(`🏦 [ACCOUNT] Using ${sqlAccounts && sqlAccounts.length > 0 ? 'SQL' : 'localStorage'} accounts: ${accounts.length} total`);
+  
   console.log(`[ORCHESTRATOR] getAccountNameById using ${sqlAccounts && sqlAccounts.length > 0 ? 'SQL' : 'localStorage'} accounts: ${accounts.length} total`);
   
   // Safety check: ensure accounts array exists
   if (!accounts || !Array.isArray(accounts)) {
+    addMobileDebugLog(`⚠️ [ACCOUNT] No accounts loaded, returning accountId: ${accountId}`);
     console.warn(`[ORCHESTRATOR] getAccountNameById called but accounts not loaded yet, returning accountId: ${accountId}`);
     return accountId;
   }
@@ -2966,12 +2998,15 @@ export function getAccountNameById(accountId: string, sqlAccounts?: any[]): stri
   // First check if the accountId is already a name (like "Bil")
   const accountByName = accounts.find(acc => acc.name === accountId);
   if (accountByName) {
+    addMobileDebugLog(`🏦 [ACCOUNT] Found by name: ${accountId}`);
     return accountId; // It's already a name
   }
   
   // Otherwise, look up by ID
   const accountById = accounts.find(acc => acc.id === accountId);
-  return accountById?.name || accountId; // Return name if found, otherwise return the original ID
+  const result = accountById?.name || accountId;
+  addMobileDebugLog(`🏦 [ACCOUNT] Result: ${accountId} -> ${result}`);
+  return result; // Return name if found, otherwise return the original ID
 }
 // Categories are now directly managed through mainCategories and subcategories
 // No more separate linking system needed
