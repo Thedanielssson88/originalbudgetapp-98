@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Transaction } from '@/types/budget';
-import { matchInternalTransfer, updateTransaction, getAccountNameById } from '../orchestrator/budgetOrchestrator';
+import { getAccountNameById } from '../orchestrator/budgetOrchestrator';
+import { useUpdateTransaction } from '@/hooks/useTransactions';
 import { formatOrenAsCurrency } from '@/utils/currencyUtils';
 
 interface SimpleTransferMatchDialogProps {
@@ -31,6 +32,7 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
 }) => {
   const [selectedMatch, setSelectedMatch] = React.useState<string>('');
   const [showAllSuggestions, setShowAllSuggestions] = React.useState<boolean>(false);
+  const updateTransactionMutation = useUpdateTransaction();
 
   // Filter suggestions to show only same-date initially, with option to show all 7-day range
   const filteredSuggestions = React.useMemo(() => {
@@ -75,56 +77,78 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
   // Remove custom formatCurrency - use formatOrenAsCurrency instead
   // The transaction amounts are stored in öre in the database
 
-  const handleMatch = () => {
+  const handleMatch = async () => {
     console.log('🔗 [SimpleTransferMatchDialog] handleMatch called', { 
       transactionId: transaction?.id, 
       selectedMatch,
       transactionType: transaction?.type 
     });
     
-    if (transaction && selectedMatch) {
-      const selectedTransaction = suggestions.find(s => s.id === selectedMatch);
-      
-      console.log('🔗 [SimpleTransferMatchDialog] Found selected transaction:', {
-        selectedTransactionId: selectedTransaction?.id,
-        selectedTransactionType: selectedTransaction?.type,
-        selectedTransactionAmount: selectedTransaction?.amount
-      });
-      
-      if (selectedTransaction) {
-        // Get month key from transaction date
-        const monthKey = transaction.date.substring(0, 7);
-        console.log('🔗 [SimpleTransferMatchDialog] Using month key:', monthKey);
-        
-        // Convert both transactions to InternalTransfer if they aren't already
-        if (transaction.type !== 'InternalTransfer') {
-          console.log('🔗 [SimpleTransferMatchDialog] Converting transaction 1 to InternalTransfer');
-          updateTransaction(transaction.id, { type: 'InternalTransfer', isManuallyChanged: true }, monthKey);
-        }
-        if (selectedTransaction.type !== 'InternalTransfer') {
-          console.log('🔗 [SimpleTransferMatchDialog] Converting transaction 2 to InternalTransfer');
-          updateTransaction(selectedTransaction.id, { type: 'InternalTransfer', isManuallyChanged: true }, monthKey);
-        }
-        
-        // Match the transactions
-        console.log('🔗 [SimpleTransferMatchDialog] Calling matchInternalTransfer');
-        matchInternalTransfer(transaction.id, selectedMatch);
-        console.log('🔗 [SimpleTransferMatchDialog] matchInternalTransfer completed');
-        
-        // Trigger refresh to update the UI
-        if (onRefresh) {
-          console.log('🔗 [SimpleTransferMatchDialog] Calling onRefresh');
-          onRefresh();
-        }
-      }
-      
-      console.log('🔗 [SimpleTransferMatchDialog] Closing dialog');
-      onClose();
-    } else {
+    if (!transaction || !selectedMatch) {
       console.warn('🔗 [SimpleTransferMatchDialog] Missing transaction or selectedMatch', {
         hasTransaction: !!transaction,
         selectedMatch
       });
+      return;
+    }
+
+    const selectedTransaction = suggestions.find(s => s.id === selectedMatch);
+    if (!selectedTransaction) {
+      console.error('🔗 [SimpleTransferMatchDialog] Could not find selected transaction');
+      return;
+    }
+    
+    console.log('🔗 [SimpleTransferMatchDialog] Found selected transaction:', {
+      selectedTransactionId: selectedTransaction.id,
+      selectedTransactionType: selectedTransaction.type,
+      selectedTransactionAmount: selectedTransaction.amount
+    });
+
+    try {
+      // Get account names for descriptions
+      const account1Name = getAccountNameById(transaction.accountId) || 'Unknown Account';
+      const account2Name = getAccountNameById(selectedTransaction.accountId) || 'Unknown Account';
+      
+      console.log('🔗 [SimpleTransferMatchDialog] Linking transactions with API calls');
+      
+      // Update both transactions to link them together
+      await Promise.all([
+        // Update first transaction
+        updateTransactionMutation.mutateAsync({
+          id: transaction.id,
+          data: {
+            type: 'InternalTransfer',
+            linkedTransactionId: selectedTransaction.id,
+            userDescription: `Överföring till ${account2Name}, ${selectedTransaction.date}`,
+            isManuallyChanged: 'true'
+          }
+        }),
+        // Update second transaction
+        updateTransactionMutation.mutateAsync({
+          id: selectedTransaction.id,
+          data: {
+            type: 'InternalTransfer', 
+            linkedTransactionId: transaction.id,
+            userDescription: `Överföring från ${account1Name}, ${transaction.date}`,
+            isManuallyChanged: 'true'
+          }
+        })
+      ]);
+      
+      console.log('🔗 [SimpleTransferMatchDialog] Successfully linked transactions via API');
+      
+      // Trigger refresh to update the UI
+      if (onRefresh) {
+        console.log('🔗 [SimpleTransferMatchDialog] Calling onRefresh');
+        await onRefresh();
+      }
+      
+      console.log('🔗 [SimpleTransferMatchDialog] Closing dialog');
+      onClose();
+      
+    } catch (error) {
+      console.error('🔗 [SimpleTransferMatchDialog] Error linking transactions:', error);
+      // Don't close dialog on error so user can try again
     }
   };
 
@@ -239,10 +263,10 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
           {filteredSuggestions.length > 0 && (
             <Button 
               onClick={handleMatch} 
-              disabled={!selectedMatch}
+              disabled={!selectedMatch || updateTransactionMutation.isPending}
               className="bg-blue-600 hover:bg-blue-700"
             >
-              Matcha transaktioner
+              {updateTransactionMutation.isPending ? 'Matchar...' : 'Matcha transaktioner'}
             </Button>
           )}
         </DialogFooter>
