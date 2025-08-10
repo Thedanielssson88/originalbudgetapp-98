@@ -19,13 +19,15 @@ interface SimpleTransferMatchDialogProps {
   onClose: () => void;
   transaction?: Transaction;
   suggestions?: Transaction[];
+  onRefresh?: () => void;
 }
 
 export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps> = ({
   isOpen,
   onClose,
   transaction,
-  suggestions = []
+  suggestions = [],
+  onRefresh
 }) => {
   const [selectedMatch, setSelectedMatch] = React.useState<string>('');
   const [showAllSuggestions, setShowAllSuggestions] = React.useState<boolean>(false);
@@ -74,26 +76,55 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
   // The transaction amounts are stored in öre in the database
 
   const handleMatch = () => {
+    console.log('🔗 [SimpleTransferMatchDialog] handleMatch called', { 
+      transactionId: transaction?.id, 
+      selectedMatch,
+      transactionType: transaction?.type 
+    });
+    
     if (transaction && selectedMatch) {
       const selectedTransaction = suggestions.find(s => s.id === selectedMatch);
+      
+      console.log('🔗 [SimpleTransferMatchDialog] Found selected transaction:', {
+        selectedTransactionId: selectedTransaction?.id,
+        selectedTransactionType: selectedTransaction?.type,
+        selectedTransactionAmount: selectedTransaction?.amount
+      });
       
       if (selectedTransaction) {
         // Get month key from transaction date
         const monthKey = transaction.date.substring(0, 7);
+        console.log('🔗 [SimpleTransferMatchDialog] Using month key:', monthKey);
         
         // Convert both transactions to InternalTransfer if they aren't already
         if (transaction.type !== 'InternalTransfer') {
+          console.log('🔗 [SimpleTransferMatchDialog] Converting transaction 1 to InternalTransfer');
           updateTransaction(transaction.id, { type: 'InternalTransfer', isManuallyChanged: true }, monthKey);
         }
         if (selectedTransaction.type !== 'InternalTransfer') {
+          console.log('🔗 [SimpleTransferMatchDialog] Converting transaction 2 to InternalTransfer');
           updateTransaction(selectedTransaction.id, { type: 'InternalTransfer', isManuallyChanged: true }, monthKey);
         }
         
         // Match the transactions
+        console.log('🔗 [SimpleTransferMatchDialog] Calling matchInternalTransfer');
         matchInternalTransfer(transaction.id, selectedMatch);
+        console.log('🔗 [SimpleTransferMatchDialog] matchInternalTransfer completed');
+        
+        // Trigger refresh to update the UI
+        if (onRefresh) {
+          console.log('🔗 [SimpleTransferMatchDialog] Calling onRefresh');
+          onRefresh();
+        }
       }
       
+      console.log('🔗 [SimpleTransferMatchDialog] Closing dialog');
       onClose();
+    } else {
+      console.warn('🔗 [SimpleTransferMatchDialog] Missing transaction or selectedMatch', {
+        hasTransaction: !!transaction,
+        selectedMatch
+      });
     }
   };
 

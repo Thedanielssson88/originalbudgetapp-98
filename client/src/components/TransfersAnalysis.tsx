@@ -1045,6 +1045,7 @@ export const TransfersAnalysis: React.FC<TransfersAnalysisProps> = ({
       onClose={() => setTransferMatchDialog({ isOpen: false })}
       transaction={transferMatchDialog.transaction}
       suggestions={transferMatchDialog.suggestions || []}
+      onRefresh={refetchBudgetPosts}
     />
     
     {/* New Transfer Form Modal */}
