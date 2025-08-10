@@ -175,12 +175,33 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
     }
   };
 
-  const handleChangeToInternalTransfer = () => {
+  const handleChangeToInternalTransfer = async () => {
     if (transaction) {
-      // Derive monthKey from transaction's date
-      const monthKey = transaction.date.substring(0, 7);
-      updateTransaction(transaction.id, { type: 'InternalTransfer', isManuallyChanged: true }, monthKey);
-      onClose();
+      try {
+        addMobileDebugLog('🔄 [CHANGE TYPE] Converting to InternalTransfer via API');
+        
+        await updateTransactionMutation.mutateAsync({
+          id: transaction.id,
+          data: {
+            type: 'InternalTransfer',
+            isManuallyChanged: 'true'
+          }
+        });
+        
+        addMobileDebugLog('✅ [CHANGE TYPE] Successfully converted to InternalTransfer');
+        
+        // Trigger refresh to update the UI
+        if (onRefresh) {
+          addMobileDebugLog('🔄 [CHANGE TYPE REFRESH] Calling onRefresh...');
+          await onRefresh();
+          addMobileDebugLog('✅ [CHANGE TYPE REFRESH] onRefresh completed');
+        }
+        
+        onClose();
+      } catch (error) {
+        addMobileDebugLog('❌ [CHANGE TYPE ERROR] Failed to convert to InternalTransfer');
+        addMobileDebugLog(`❌ [CHANGE TYPE ERROR DETAILS] ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`);
+      }
     }
   };
 

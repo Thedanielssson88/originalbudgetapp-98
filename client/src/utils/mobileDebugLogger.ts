@@ -18,8 +18,8 @@ class MobileDebugLogger {
     const timestamp = new Date().toLocaleTimeString();
     const logEntry: DebugLog = { timestamp, message };
     
-    // Keep only last 200 messages to prevent memory issues
-    this.logs = [...this.logs.slice(-199), logEntry];
+    // Keep only last 400 messages to prevent memory issues
+    this.logs = [...this.logs.slice(-399), logEntry];
     
     // Also log to console (only in development)
     console.log(`${timestamp}: ${message}`);

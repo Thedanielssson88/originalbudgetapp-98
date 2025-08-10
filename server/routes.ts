@@ -998,6 +998,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
   // Bulk delete transactions by account and date range
   app.post("/api/transactions/bulk-delete", async (req, res) => {
     try {

@@ -111,6 +111,7 @@ export const transactions = pgTable('transactions', {
     status: text('status').default('yellow').notNull(),
     linkedTransactionId: uuid('linked_transaction_id'),
     savingsTargetId: uuid('savings_target_id'), // Links to budget_posts.id for savings goals/posts
+    incomeTargetId: uuid('income_target_id'), // Links to budget_posts.id for income sources - reference added below after budgetPosts definition
     correctedAmount: integer('corrected_amount'),
     isManuallyChanged: text('is_manually_changed').default('false').notNull(),
     appCategoryId: uuid('app_category_id').references(() => huvudkategorier.id, { onDelete: 'set null' }),

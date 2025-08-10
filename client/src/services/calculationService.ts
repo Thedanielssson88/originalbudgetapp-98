@@ -581,6 +581,16 @@ export function getDateRangeForMonth(monthKey: string, payday: number): { startD
     const startDate = new Date(prevYear, prevMonth - 1, payday);
     const endDate = new Date(year, month - 1, payday - 1);
     result = { startDate: formatDateToString(startDate), endDate: formatDateToString(endDate) };
+    
+    // Debug logging for date range
+    console.log(`[getDateRangeForMonth] Month: ${monthKey}, Payday: ${payday}`);
+    console.log(`[getDateRangeForMonth] Start Date: ${result.startDate} (includes this date)`);
+    console.log(`[getDateRangeForMonth] End Date: ${result.endDate} (includes this date)`);
+    
+    // Add to mobile debug log as well
+    if (typeof window !== 'undefined' && (window as any).addMobileDebugLog) {
+      (window as any).addMobileDebugLog(`📅 [DATE RANGE] ${monthKey}: ${result.startDate} to ${result.endDate}`);
+    }
   }
   
   // Cache the result

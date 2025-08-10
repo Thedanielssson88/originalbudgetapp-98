@@ -488,30 +488,31 @@ export const TransactionImportEnhanced: React.FC = () => {
     }
     
     if (monthKey === 'current') {
-      const [year, month] = selectedMonthKey.split('-');
-      const startOfMonth = `${year}-${month}-01`;
-      const endOfMonth = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0];
-      console.log(`📊 [TransactionImport] Loading CURRENT month: ${selectedMonthKey} (${startOfMonth} to ${endOfMonth})`);
-      return { fromDate: startOfMonth, toDate: endOfMonth };
+      // Use payday-based range for current month to match filtering logic
+      const payday = budgetState?.settings?.payday || 25;
+      const { startDate, endDate } = getDateRangeForMonth(selectedMonthKey, payday);
+      console.log(`📊 [TransactionImport] Loading CURRENT month with payday logic: ${selectedMonthKey} (${startDate} to ${endDate})`);
+      return { fromDate: startDate, toDate: endDate };
     }
     
     // Parse month key (YYYY-MM format) for specific month selections
     const [year, month] = monthKey.split('-').map(Number);
     if (isNaN(year) || isNaN(month)) {
       console.warn(`📊 [TransactionImport] Invalid month key: ${monthKey}, falling back to current month`);
+      const payday = budgetState?.settings?.payday || 25;
       const now = new Date();
-      return {
-        fromDate: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0],
-        toDate: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
-      };
+      const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const { startDate, endDate } = getDateRangeForMonth(currentMonthKey, payday);
+      return { fromDate: startDate, toDate: endDate };
     }
     
-    const startOfMonth = new Date(year, month - 1, 1).toISOString().split('T')[0];
-    const endOfMonth = new Date(year, month, 0).toISOString().split('T')[0];
+    // Use payday-based range for specific month selections too
+    const payday = budgetState?.settings?.payday || 25;
+    const { startDate, endDate } = getDateRangeForMonth(monthKey, payday);
     
-    console.log(`📊 [TransactionImport] Loading SPECIFIC month: ${monthKey} (${startOfMonth} to ${endOfMonth})`);
-    return { fromDate: startOfMonth, toDate: endOfMonth };
-  }, [shouldLoadAllTransactions, monthFilter, selectedMonthKey]);
+    console.log(`📊 [TransactionImport] Loading SPECIFIC month with payday logic: ${monthKey} (${startDate} to ${endDate})`);
+    return { fromDate: startDate, toDate: endDate };
+  }, [shouldLoadAllTransactions, monthFilter, selectedMonthKey, budgetState?.settings?.payday]);
   
   // Load transactions based on filter selection and month navigation
   const { 
@@ -625,6 +626,7 @@ export const TransactionImportEnhanced: React.FC = () => {
         type: t.type as ImportedTransaction['type'],
         status: t.status as ImportedTransaction['status'],
         linkedTransactionId: t.linkedTransactionId,
+        incomeTargetId: t.incomeTargetId,
         correctedAmount: t.correctedAmount,
         isManuallyChanged: t.isManuallyChanged,
         appCategoryId: t.appCategoryId,
@@ -1694,12 +1696,27 @@ export const TransactionImportEnhanced: React.FC = () => {
   };
 
   const handleCostCoverage = (transaction: ImportedTransaction) => {
-    const potentialCosts = allTransactions.filter(t => 
-      t.type === 'Transaction' && 
-      t.amount < 0 && 
-      !t.coveredCostId &&
-      Math.abs(new Date(t.date).getTime() - new Date(transaction.date).getTime()) <= 7 * 24 * 60 * 60 * 1000
-    );
+    const potentialCosts = allTransactions
+      .filter(t => 
+        t.id !== transaction.id &&                    // Not the same transaction
+        t.accountId === transaction.accountId &&      // Must be on SAME account  
+        t.amount < 0 &&                               // Must be a negative transaction
+        !t.linkedTransactionId                        // Not already linked
+        // Removed type restriction - show ALL negative unlinked transactions
+        // Removed date restriction - show transactions from any date for better matching
+      )
+      .sort((a, b) => {
+        // Sort by amount similarity first (exact matches first), then by date proximity
+        const amountDiffA = Math.abs(Math.abs(a.amount) - Math.abs(transaction.amount));
+        const amountDiffB = Math.abs(Math.abs(b.amount) - Math.abs(transaction.amount));
+        
+        if (amountDiffA !== amountDiffB) {
+          return amountDiffA - amountDiffB; // Smaller difference first
+        }
+        
+        // If amounts are similar, sort by date (more recent first)
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      });
 
     setCostCoverageDialog({
       isOpen: true,
@@ -1927,9 +1944,38 @@ export const TransactionImportEnhanced: React.FC = () => {
       const matchedTransaction = potentialMatches[0];
       console.log(`🔄 [AUTO TRANSFER MATCH] Found exact match on same date: ${transaction.id} (${transaction.amount} kr, ${transaction.date}) <-> ${matchedTransaction.id} (${matchedTransaction.amount} kr, ${matchedTransaction.date})`);
       
-      // Use the matchInternalTransfer function from imports
-      // Match the transactions
-      matchInternalTransfer(transaction.id, matchedTransaction.id);
+      // Use API calls to match the transactions instead of legacy orchestrator function
+      console.log(`🔄 [AUTO TRANSFER MATCH] Linking transactions via API calls`);
+      
+      // Convert both to InternalTransfer and link them using API calls
+      const account1Name = getAccountNameById(transaction.accountId) || 'Unknown Account';
+      const account2Name = getAccountNameById(matchedTransaction.accountId) || 'Unknown Account';
+      
+      // Use Promise.all to update both transactions simultaneously
+      Promise.all([
+        updateTransactionMutation.mutateAsync({
+          id: transaction.id,
+          data: {
+            type: 'InternalTransfer',
+            linkedTransactionId: matchedTransaction.id,
+            userDescription: `Överföring till ${account2Name}, ${matchedTransaction.date}`,
+            isManuallyChanged: 'true'
+          }
+        }),
+        updateTransactionMutation.mutateAsync({
+          id: matchedTransaction.id,
+          data: {
+            type: 'InternalTransfer',
+            linkedTransactionId: transaction.id,
+            userDescription: `Överföring från ${account1Name}, ${transaction.date}`,
+            isManuallyChanged: 'true'
+          }
+        })
+      ]).then(() => {
+        console.log(`✅ [AUTO TRANSFER MATCH] Successfully linked transactions via API`);
+      }).catch(error => {
+        console.error(`❌ [AUTO TRANSFER MATCH] Error linking transactions:`, error);
+      });
       
       return true; // Indicates a match was found and linked
     }
@@ -2469,6 +2515,24 @@ export const TransactionImportEnhanced: React.FC = () => {
   };
   // Memoize filtered transactions for performance optimization
   const filteredTransactions = useMemo(() => {
+    addMobileDebugLog(`🔍 [FILTER START] Starting filter process with ${allTransactions.length} total transactions`);
+    
+    // Debug: Check if our target transaction exists in allTransactions
+    const targetTransaction = allTransactions.find(t => 
+      t.description && t.description.includes('Från A - Kortöverföring')
+    );
+    if (targetTransaction) {
+      addMobileDebugLog(`✅ [ALL TRANSACTIONS] Found "Från A - Kortöverföring" in allTransactions`);
+      addMobileDebugLog(`📊 [TARGET TX] Date: ${targetTransaction.date}, Amount: ${targetTransaction.amount}, Account: ${targetTransaction.accountId}`);
+    } else {
+      addMobileDebugLog(`❌ [ALL TRANSACTIONS] "Från A - Kortöverföring" NOT FOUND in ${allTransactions.length} transactions`);
+      // Show first few transactions for debugging
+      addMobileDebugLog(`📋 [SAMPLE TRANSACTIONS]:`);
+      allTransactions.slice(0, 3).forEach((tx, i) => {
+        addMobileDebugLog(`   ${i+1}. ${tx.date}: ${tx.description.substring(0, 30)} (${tx.amount})`);
+      });
+    }
+    
     // Always show all transactions in the system
     let baseTransactions = allTransactions;
     
@@ -2486,6 +2550,39 @@ export const TransactionImportEnhanced: React.FC = () => {
       // Filter by current selected month from budget state using payday-based filtering
       const payday = budgetState?.settings?.payday || 25;
       const { startDate, endDate } = getDateRangeForMonth(budgetState.selectedMonthKey, payday);
+      
+      addMobileDebugLog(`🗓️ [MONTH FILTER] Current month filter for ${budgetState.selectedMonthKey}`);
+      addMobileDebugLog(`🗓️ [DATE RANGE] ${startDate} to ${endDate} (payday: ${payday})`);
+      
+      // Debug logging for the specific transaction we're looking for
+      const debugTransaction = baseTransactions.find(t => 
+        t.description && t.description.includes('Från A - Kortöverföring')
+      );
+      if (debugTransaction) {
+        const willBeIncluded = debugTransaction.date >= startDate && debugTransaction.date <= endDate;
+        addMobileDebugLog(`🔍 [TRANSACTION DEBUG] Found "Från A - Kortöverföring"`);
+        addMobileDebugLog(`🔍 [TRANSACTION] Date: ${debugTransaction.date}, Amount: ${debugTransaction.amount}`);
+        addMobileDebugLog(`🔍 [DATE CHECK] ${debugTransaction.date} >= ${startDate}: ${debugTransaction.date >= startDate}`);
+        addMobileDebugLog(`🔍 [DATE CHECK] ${debugTransaction.date} <= ${endDate}: ${debugTransaction.date <= endDate}`);
+        addMobileDebugLog(`🔍 [RESULT] Will be included: ${willBeIncluded}`);
+        
+        console.log('[FILTER DEBUG] Found "Från A - Kortöverföring" transaction:', {
+          date: debugTransaction.date,
+          amount: debugTransaction.amount,
+          startDate,
+          endDate,
+          willBeIncluded,
+          dateComparison: {
+            'transaction.date': debugTransaction.date,
+            'startDate': startDate,
+            'endDate': endDate,
+            'date >= startDate': debugTransaction.date >= startDate,
+            'date <= endDate': debugTransaction.date <= endDate
+          }
+        });
+      } else {
+        addMobileDebugLog(`❌ [TRANSACTION DEBUG] "Från A - Kortöverföring" not found in ${baseTransactions.length} transactions`);
+      }
       
       baseTransactions = baseTransactions.filter(t => {
         const transactionDate = t.date; // Already in YYYY-MM-DD format

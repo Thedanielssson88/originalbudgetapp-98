@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { kronoraToOren, orenToKronor } from '@/utils/currencyUtils';
 import { useFamilyMembers } from '@/hooks/useFamilyMembers';
 import { useInkomstkallor, useInkomstkallorMedlem } from '@/hooks/useInkomstkallor';
 import { useBudgetPosts, useCreateBudgetPost, useUpdateBudgetPost } from '@/hooks/useBudgetPosts';
+import { useTransactions, useUpdateTransaction } from '@/hooks/useTransactions';
+import { IncomeLinkDialog } from './IncomeLinkDialog';
+import { useQueryClient } from '@tanstack/react-query';
+import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 import type { FamilyMember, Inkomstkall, InkomstkallorMedlem, BudgetPost } from '@shared/schema';
 
 interface DynamicIncomeSectionProps {
@@ -20,11 +25,20 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
   const { data: inkomstkallor } = useInkomstkallor();
   const { data: assignments } = useInkomstkallorMedlem();
   const { data: budgetPosts } = useBudgetPosts(monthKey);
+  const { data: transactions = [] } = useTransactions();
   
   const createBudgetPostMutation = useCreateBudgetPost();
   const updateBudgetPostMutation = useUpdateBudgetPost();
+  const updateTransactionMutation = useUpdateTransaction();
+  const queryClient = useQueryClient();
   
   const [localIncomeValues, setLocalIncomeValues] = useState<Record<string, string>>({});
+  const [linkDialogState, setLinkDialogState] = useState<{
+    isOpen: boolean;
+    member: FamilyMember | null;
+    source: Inkomstkall | null;
+    budgetPost: BudgetPost | null;
+  }>({ isOpen: false, member: null, source: null, budgetPost: null });
 
   // Filter family members who contribute to budget
   const contributingMembers = familyMembers?.filter(m => m.contributesToBudget) || [];
@@ -112,6 +126,167 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
     }
   };
 
+  const openLinkDialog = (member: FamilyMember, source: Inkomstkall) => {
+    const budgetPost = getIncomeBudgetPost(member.id, source.id);
+    setLinkDialogState({
+      isOpen: true,
+      member,
+      source,
+      budgetPost: budgetPost || null
+    });
+  };
+
+  const handleLinkTransaction = async (transactionId: string) => {
+    if (!linkDialogState.member || !linkDialogState.source) return;
+
+    const transaction = transactions.find(t => t.id === transactionId);
+    if (!transaction) return;
+
+    let budgetPost = linkDialogState.budgetPost;
+    
+    try {
+      addMobileDebugLog('🔗 [INCOME LINK] Starting transaction linking process');
+      addMobileDebugLog(`🔗 [INCOME LINK] Transaction: ${transactionId} (${transaction.amount} öre)`);
+      addMobileDebugLog(`🔗 [INCOME LINK] Member: ${linkDialogState.member.name}`);
+      addMobileDebugLog(`🔗 [INCOME LINK] Source: ${linkDialogState.source.text}`);
+      
+      console.log('🔗 [INCOME LINK] Starting transaction linking process');
+      console.log('🔗 [INCOME LINK] Transaction:', { id: transactionId, amount: transaction.amount });
+      console.log('🔗 [INCOME LINK] Member:', linkDialogState.member.name);
+      console.log('🔗 [INCOME LINK] Source:', linkDialogState.source.text);
+      
+      // Create budget post if it doesn't exist
+      if (!budgetPost) {
+        addMobileDebugLog('🔗 [INCOME LINK] Creating new budget post...');
+        console.log('🔗 [INCOME LINK] Creating new budget post...');
+        const result = await createBudgetPostMutation.mutateAsync({
+          monthKey,
+          type: 'Inkomst',
+          description: `${linkDialogState.member.name} - ${linkDialogState.source.text}`,
+          amount: transaction.amount,
+          familjemedlemId: linkDialogState.member.id,
+          idInkomstkalla: linkDialogState.source.id,
+          budgetType: 'Inkomst',
+          transactionType: 'Inkomst',
+          financedFrom: 'Löpande kostnad'
+        });
+        budgetPost = result;
+        addMobileDebugLog(`🔗 [INCOME LINK] Budget post created: ${budgetPost?.id}`);
+        console.log('🔗 [INCOME LINK] Budget post created:', budgetPost?.id);
+      } else {
+        addMobileDebugLog(`🔗 [INCOME LINK] Updating existing budget post: ${budgetPost.id}`);
+        console.log('🔗 [INCOME LINK] Updating existing budget post:', budgetPost.id);
+        // Update budget post amount to match transaction
+        await updateBudgetPostMutation.mutateAsync({
+          id: budgetPost.id,
+          data: { amount: transaction.amount }
+        });
+        addMobileDebugLog('🔗 [INCOME LINK] Budget post updated');
+        console.log('🔗 [INCOME LINK] Budget post updated');
+      }
+
+      // Update transaction with income_target_id using mutation
+      addMobileDebugLog(`🔗 [INCOME LINK] Updating transaction with incomeTargetId: ${budgetPost?.id}`);
+      console.log('🔗 [INCOME LINK] Updating transaction with incomeTargetId:', budgetPost?.id);
+      const updateResult = await updateTransactionMutation.mutateAsync({
+        id: transactionId,
+        data: { incomeTargetId: budgetPost?.id }
+      });
+      addMobileDebugLog('🔗 [INCOME LINK] Transaction update completed');
+      console.log('🔗 [INCOME LINK] Transaction update result:', updateResult);
+
+      // Update local state immediately for responsive UI
+      const key = `${linkDialogState.member.id}-${linkDialogState.source.id}`;
+      setLocalIncomeValues(prev => ({
+        ...prev,
+        [key]: orenToKronor(transaction.amount).toString()
+      }));
+
+      // Invalidate queries to refresh data
+      addMobileDebugLog('🔗 [INCOME LINK] Invalidating queries...');
+      console.log('🔗 [INCOME LINK] Invalidating queries...');
+      await queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      await queryClient.invalidateQueries({ queryKey: ['budget-posts', monthKey] });
+
+      addMobileDebugLog('✅ [INCOME LINK] Successfully linked transaction');
+      console.log('🔗 [INCOME LINK] Successfully linked transaction');
+      setLinkDialogState({ isOpen: false, member: null, source: null, budgetPost: null });
+      
+      if (onIncomeUpdate) {
+        onIncomeUpdate();
+      }
+    } catch (error) {
+      addMobileDebugLog(`❌ [INCOME LINK] Failed to link: ${error}`);
+      console.error('❌ [INCOME LINK] Failed to link income transaction:', error);
+      // Add more detailed error logging
+      if (error instanceof Error) {
+        addMobileDebugLog(`❌ [INCOME LINK] Error: ${error.message}`);
+        console.error('❌ [INCOME LINK] Error message:', error.message);
+        console.error('❌ [INCOME LINK] Error stack:', error.stack);
+      }
+    }
+  };
+
+  const handleUnlinkTransaction = async () => {
+    if (!linkDialogState.budgetPost) return;
+
+    try {
+      // Find and unlink the transaction
+      const linkedTransaction = transactions.find(t => t.incomeTargetId === linkDialogState.budgetPost?.id);
+      if (linkedTransaction) {
+        await updateTransactionMutation.mutateAsync({
+          id: linkedTransaction.id,
+          data: { incomeTargetId: null }
+        });
+      }
+
+      // Reset budget post amount to 0 to indicate "Inget belopp"
+      await updateBudgetPostMutation.mutateAsync({
+        id: linkDialogState.budgetPost.id,
+        data: { amount: 0 }
+      });
+
+      // Update local state immediately
+      const key = `${linkDialogState.member?.id}-${linkDialogState.source?.id}`;
+      setLocalIncomeValues(prev => ({
+        ...prev,
+        [key]: ''
+      }));
+
+      // Invalidate queries to refresh data
+      await queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      await queryClient.invalidateQueries({ queryKey: ['budget-posts', monthKey] });
+
+      setLinkDialogState({ isOpen: false, member: null, source: null, budgetPost: null });
+      
+      if (onIncomeUpdate) {
+        onIncomeUpdate();
+      }
+    } catch (error) {
+      console.error('Failed to unlink income transaction:', error);
+    }
+  };
+
+  const getLinkedTransaction = (budgetPostId: string) => {
+    return transactions.find(t => t.incomeTargetId === budgetPostId);
+  };
+
+  const getButtonStatus = (member: FamilyMember, source: Inkomstkall) => {
+    const budgetPost = getIncomeBudgetPost(member.id, source.id);
+    if (!budgetPost) return { text: 'Hämta belopp', color: 'yellow', isLinked: false, isEditable: true };
+    
+    const linkedTransaction = getLinkedTransaction(budgetPost.id);
+    if (linkedTransaction) {
+      return { text: 'Länkad', color: 'green', isLinked: true, isEditable: false };
+    }
+    
+    if (budgetPost.amount === 0) {
+      return { text: 'Inget belopp', color: 'gray', isLinked: false, isEditable: false };
+    }
+    
+    return { text: 'Hämta belopp', color: 'yellow', isLinked: false, isEditable: true };
+  };
+
   // Calculate total income for display
   const calculateTotalIncome = (): number => {
     let total = 0;
@@ -151,12 +326,34 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
               {sources.map(source => {
                 const key = `${member.id}-${source.id}`;
                 const value = localIncomeValues[key] || '';
+                const buttonStatus = getButtonStatus(member, source);
+                const budgetPost = getIncomeBudgetPost(member.id, source.id);
+                const linkedTransaction = budgetPost ? getLinkedTransaction(budgetPost.id) : null;
+                
+                const getButtonClassName = () => {
+                  if (buttonStatus.color === 'green') {
+                    return 'bg-green-600 hover:bg-green-700 text-white border-green-600';
+                  } else if (buttonStatus.color === 'gray') {
+                    return 'bg-gray-400 hover:bg-gray-500 text-white border-gray-400';
+                  } else {
+                    return 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500';
+                  }
+                };
                 
                 return (
                   <div key={source.id} className="space-y-2">
-                    <Label htmlFor={key} className="text-green-700">
-                      {source.text}
-                    </Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor={key} className="text-green-700">
+                        {source.text}
+                      </Label>
+                      <Button
+                        size="sm"
+                        onClick={() => openLinkDialog(member, source)}
+                        className={`${getButtonClassName()} transition-colors duration-200 font-medium px-4 py-1.5 rounded-md`}
+                      >
+                        {buttonStatus.text}
+                      </Button>
+                    </div>
                     <Input
                       id={key}
                       type="number"
@@ -164,7 +361,8 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
                       value={value}
                       onChange={(e) => handleIncomeChange(member.id, source.id, e.target.value)}
                       onBlur={(e) => handleIncomeBlur(member, source, e.target.value)}
-                      className="text-lg bg-white/70"
+                      className={`text-lg bg-white/70 ${!buttonStatus.isEditable ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                      disabled={!buttonStatus.isEditable}
                     />
                   </div>
                 );
@@ -183,6 +381,21 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
             </span>
           </div>
         </div>
+      )}
+
+      {linkDialogState.isOpen && linkDialogState.member && linkDialogState.source && (
+        <IncomeLinkDialog
+          isOpen={linkDialogState.isOpen}
+          onClose={() => setLinkDialogState({ isOpen: false, member: null, source: null, budgetPost: null })}
+          onLink={handleLinkTransaction}
+          onUnlink={handleUnlinkTransaction}
+          transactions={transactions}
+          currentAmount={linkDialogState.budgetPost?.amount}
+          currentLinkedTransactionId={linkDialogState.budgetPost ? getLinkedTransaction(linkDialogState.budgetPost.id)?.id : undefined}
+          memberName={linkDialogState.member.name}
+          incomeSourceName={linkDialogState.source.text}
+          monthKey={monthKey}
+        />
       )}
     </div>
   );

@@ -2397,31 +2397,43 @@ export const deleteSavingsGoal = (goalId: string) => {
 
 // ===== TRANSACTION MANAGEMENT =====
 
+/**
+ * @deprecated This function is deprecated and will be removed in future versions.
+ * Use useUpdateTransaction() React Query hook instead for proper SQL persistence.
+ * This function now throws an error to prevent accidental usage.
+ */
 export function updateTransaction(transactionId: string, updates: Partial<ImportedTransaction>, monthKey?: string): void {
-  console.log(`🔄 [ORCHESTRATOR] PHASE 2 MIGRATION: updateTransaction is now a no-op - using direct API calls`);
-  console.log(`🔄 [ORCHESTRATOR] Received call for ${transactionId} but skipping orchestrator - handled by React Query`);
+  addMobileDebugLog('🚨 [LEGACY ERROR] updateTransaction() was called - THIS IS DEPRECATED AND DISABLED');
+  addMobileDebugLog(`🚨 [LEGACY ERROR] Attempted to update transaction ${transactionId} with: ${JSON.stringify(updates)}`);
+  addMobileDebugLog('🚨 [LEGACY ERROR] Use useUpdateTransaction() React Query hook instead');
   
-  // MOBILE DEBUG: Track legacy function calls
-  addMobileDebugLog('⚠️ [LEGACY CALL] updateTransaction() was called (THIS IS DEPRECATED)');
-  addMobileDebugLog(`⚠️ [LEGACY] updateTransaction(${transactionId}, ${JSON.stringify(updates)}, ${monthKey})`);
-  addMobileDebugLog('⚠️ [LEGACY] This function is a no-op - changes will NOT be saved!');
+  console.error('🚨 [LEGACY ERROR] updateTransaction() is deprecated and disabled!');
+  console.error('🚨 [LEGACY ERROR] Transaction ID:', transactionId, 'Updates:', updates);
+  console.error('🚨 [LEGACY ERROR] Use useUpdateTransaction() React Query hook instead');
   
-  // PHASE 2 MIGRATION: This function is now disabled
-  // All transaction updates are handled by direct API calls via React Query hooks
-  // Keeping this function for backward compatibility during migration
+  // Throw an error to make it clear this function should not be used
+  throw new Error('updateTransaction() is deprecated. Use useUpdateTransaction() React Query hook instead.');
 }
 
+/**
+ * @deprecated This function is deprecated and will be removed in future versions.
+ * Use useUpdateTransaction() React Query hook with Promise.all instead for proper SQL persistence.
+ * This function now throws an error to prevent accidental usage.
+ */
 export function matchInternalTransfer(t1Id: string, t2Id: string): void {
-  // MOBILE DEBUG: Track legacy function calls
-  addMobileDebugLog('⚠️ [LEGACY CALL] matchInternalTransfer() was called');
-  addMobileDebugLog(`⚠️ [LEGACY] matchInternalTransfer(${t1Id}, ${t2Id})`);
-  addMobileDebugLog('⚠️ [LEGACY] This function uses deprecated updateTransaction() - changes will NOT be saved!');
+  addMobileDebugLog('🚨 [LEGACY ERROR] matchInternalTransfer() was called - THIS IS DEPRECATED AND DISABLED');
+  addMobileDebugLog(`🚨 [LEGACY ERROR] Attempted to match ${t1Id} <-> ${t2Id}`);
+  addMobileDebugLog('🚨 [LEGACY ERROR] Use useUpdateTransaction() React Query hook with Promise.all instead');
   
-  console.log(`🔄 [ORCHESTRATOR] Matching internal transfers: ${t1Id} <-> ${t2Id}`);
+  console.error('🚨 [LEGACY ERROR] matchInternalTransfer() is deprecated and disabled!');
+  console.error('🚨 [LEGACY ERROR] Transaction IDs:', t1Id, t2Id);
+  console.error('🚨 [LEGACY ERROR] Use useUpdateTransaction() React Query hook with Promise.all instead');
   
-  // Search for transactions in centralized allTransactions array first
-  let t1: any = state.budgetState.allTransactions.find(t => t.id === t1Id);
-  let t2: any = state.budgetState.allTransactions.find(t => t.id === t2Id);
+  // Throw an error to make it clear this function should not be used
+  throw new Error('matchInternalTransfer() is deprecated. Use useUpdateTransaction() React Query hook with Promise.all instead.');
+}
+
+/**
   let t1MonthKey = '';
   let t2MonthKey = '';
   
@@ -2976,21 +2988,15 @@ export function getCsvMapping(fileFingerprint: string): CsvMapping | undefined {
 // ===== ACCOUNT HELPER FUNCTIONS =====
 
 export function getAccountNameById(accountId: string, sqlAccounts?: any[]): string {
-  // MOBILE DEBUG: Track account name lookups
-  addMobileDebugLog(`🏦 [ACCOUNT] getAccountNameById(${accountId}) called`);
-  
   // CRITICAL FIX: Use SQL accounts as primary source instead of localStorage budgetState
   const accounts = sqlAccounts && sqlAccounts.length > 0 
     ? sqlAccounts 
     : (state.budgetState.accounts || []);
   
-  addMobileDebugLog(`🏦 [ACCOUNT] Using ${sqlAccounts && sqlAccounts.length > 0 ? 'SQL' : 'localStorage'} accounts: ${accounts.length} total`);
-  
   console.log(`[ORCHESTRATOR] getAccountNameById using ${sqlAccounts && sqlAccounts.length > 0 ? 'SQL' : 'localStorage'} accounts: ${accounts.length} total`);
   
   // Safety check: ensure accounts array exists
   if (!accounts || !Array.isArray(accounts)) {
-    addMobileDebugLog(`⚠️ [ACCOUNT] No accounts loaded, returning accountId: ${accountId}`);
     console.warn(`[ORCHESTRATOR] getAccountNameById called but accounts not loaded yet, returning accountId: ${accountId}`);
     return accountId;
   }
@@ -2998,14 +3004,12 @@ export function getAccountNameById(accountId: string, sqlAccounts?: any[]): stri
   // First check if the accountId is already a name (like "Bil")
   const accountByName = accounts.find(acc => acc.name === accountId);
   if (accountByName) {
-    addMobileDebugLog(`🏦 [ACCOUNT] Found by name: ${accountId}`);
     return accountId; // It's already a name
   }
   
   // Otherwise, look up by ID
   const accountById = accounts.find(acc => acc.id === accountId);
   const result = accountById?.name || accountId;
-  addMobileDebugLog(`🏦 [ACCOUNT] Result: ${accountId} -> ${result}`);
   return result; // Return name if found, otherwise return the original ID
 }
 // Categories are now directly managed through mainCategories and subcategories
