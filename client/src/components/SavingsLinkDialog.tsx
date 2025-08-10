@@ -216,7 +216,7 @@ export const SavingsLinkDialog: React.FC<SavingsLinkDialogProps> = ({
             <div className="p-3 bg-muted rounded-lg">
               <div className="flex justify-between">
                 <span>{transaction.description}</span>
-                <span className="font-medium">+{transaction.amount} kr</span>
+                <span className="font-medium">{transaction.amount >= 0 ? '+' : ''}{(transaction.amount / 100).toFixed(2)} kr</span>
               </div>
               <div className="text-sm text-muted-foreground">{transaction.date}</div>
             </div>

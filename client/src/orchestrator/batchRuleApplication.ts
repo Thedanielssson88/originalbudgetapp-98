@@ -563,29 +563,38 @@ export async function applyRulesToTransactionsBatch(
     try {
       console.log(`🔄 [BATCH RULES] Applying ${batchUpdates.length} updates via bulk API...`);
       
+      // Prepare the transactions data for the bulk update
+      const transactionsToUpdate = batchUpdates.map(update => ({
+        id: update.id,
+        ...update.updates,
+        // Ensure linkedTransactionId is properly included
+        linkedTransactionId: update.updates.linkedTransactionId || undefined
+      }));
+      
+      console.log(`📦 [BATCH RULES] Sending bulk update with ${transactionsToUpdate.length} transactions`);
+      
       const response = await fetch('/api/transactions/bulk-update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          transactions: batchUpdates.map(update => ({
-            id: update.id,
-            ...update.updates,
-            // Ensure linkedTransactionId is properly included
-            linkedTransactionId: update.updates.linkedTransactionId || undefined
-          }))
+          transactions: transactionsToUpdate
         })
       });
       
-      if (response.ok) {
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ [BATCH RULES] Bulk update failed: ${response.status} - ${errorText}`);
+        // Continue with local updates even if server update fails
+        console.warn(`⚠️ [BATCH RULES] Continuing with local state update despite server error`);
+      } else {
         const result = await response.json();
         console.log(`✅ [BATCH RULES] Bulk update successful: ${result.updatedCount} transactions updated`);
-      } else {
-        console.error(`❌ [BATCH RULES] Bulk update failed: ${response.status}`);
-        return { success: false, stats, updatedTransactions: [] };
       }
     } catch (error) {
       console.error(`❌ [BATCH RULES] Bulk update error:`, error);
-      return { success: false, stats, updatedTransactions: [] };
+      // Continue with local updates even if server update fails
+      console.warn(`⚠️ [BATCH RULES] Continuing with local state update despite server error`);
+      // Don't return early - continue with local state update
     }
   }
   

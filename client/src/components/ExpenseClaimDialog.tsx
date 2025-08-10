@@ -78,7 +78,7 @@ export const ExpenseClaimDialog: React.FC<ExpenseClaimDialogProps> = ({
         <DialogHeader>
           <DialogTitle>Vilket utlägg täcker denna överföring?</DialogTitle>
           <DialogDescription>
-            Du kategoriserar {Math.abs(transaction.amount)} kr som "Utlägg". 
+            Du kategoriserar {(Math.abs(transaction.amount) / 100).toFixed(2)} kr som "Utlägg". 
             Välj vilken inkommande överföring som täcker kostnaden.
           </DialogDescription>
         </DialogHeader>
@@ -112,7 +112,7 @@ export const ExpenseClaimDialog: React.FC<ExpenseClaimDialogProps> = ({
                         </div>
                         <div className="text-right">
                           <div className="font-medium text-green-600">
-                            +{payment.amount.toFixed(2)} kr
+                            +{(payment.amount / 100).toFixed(2)} kr
                           </div>
                         </div>
                       </div>
