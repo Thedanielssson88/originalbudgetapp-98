@@ -134,13 +134,13 @@ export function SavingsGoalsPage() {
       // Check if current month is at or after the start date
       const isAtOrAfterStart = currentYear > startYear || (currentYear === startYear && currentMonth >= startMonth);
       
-      // For active goals: include if we're at or after start date (ignore end date)
-      if (goal.status === 'active' || !goal.status) {
+      // For active goals (default to active if no status set): include if we're at or after start date (ignore end date)
+      if (goal.status === 'active' || goal.status === 'yellow' || !goal.status) {
         return isAtOrAfterStart;
       }
       
       // For completed goals: only include if we're in their original date range
-      if (goal.status === 'completed') {
+      if (goal.status === 'completed' || goal.status === 'green') {
         const isInDateRange = isAtOrAfterStart &&
                              (currentYear < endYear || (currentYear === endYear && currentMonth <= endMonth));
         return isInDateRange;
@@ -271,19 +271,22 @@ export function SavingsGoalsPage() {
     return savingsGoalsFromSQL.filter(goal => {
       if (goal.accountId !== accountId) return false;
       
+      // Handle invalid dates gracefully
+      if (!goal.startDate || !goal.endDate) return false;
+      
       const [startYear, startMonth] = goal.startDate.split('-').map(Number);
       const [endYear, endMonth] = goal.endDate.split('-').map(Number);
       
       // Check if current month is at or after the start date
       const isAtOrAfterStart = currentYear > startYear || (currentYear === startYear && currentMonth >= startMonth);
       
-      // For active goals: show for all months from start date onwards (ignore end date)
-      if (goal.status === 'active' || !goal.status) {
+      // For active goals (default to active if no status set): show for all months from start date onwards (ignore end date)
+      if (goal.status === 'active' || goal.status === 'yellow' || !goal.status) {
         return isAtOrAfterStart;
       }
       
       // For completed goals: only show during their original active date range (startDate to endDate)
-      if (goal.status === 'completed') {
+      if (goal.status === 'completed' || goal.status === 'green') {
         const isInDateRange = isAtOrAfterStart &&
                              (currentYear < endYear || (currentYear === endYear && currentMonth <= endMonth));
         return isInDateRange;
