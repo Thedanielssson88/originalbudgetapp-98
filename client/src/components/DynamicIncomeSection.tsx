@@ -407,8 +407,8 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
           onUnlink={handleUnlinkTransaction}
           transactions={transactions.map(t => ({ 
             ...t, 
-            date: typeof t.date === 'string' ? t.date : new Date(t.date).toISOString().split('T')[0] 
-          })) as Transaction[]}
+            date: t.date instanceof Date ? t.date.toISOString().split('T')[0] : t.date
+          }))}
           currentAmount={linkDialogState.budgetPost?.amount}
           currentLinkedTransactionId={linkDialogState.budgetPost ? getLinkedTransaction(linkDialogState.budgetPost.id)?.id : undefined}
           memberName={linkDialogState.member.name}
