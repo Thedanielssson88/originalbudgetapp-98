@@ -26,8 +26,8 @@ export const state: AppState = {
     selectedMonthKey: '2025-07', // Use current month as default
     selectedHistoricalMonth: '2025-07',
     
-    // REMOVED: allTransactions moved to SQL-only via React Query hooks
-    // Legacy field kept for backward compatibility during migration
+    // CRITICAL: Central transaction storage - single source of truth
+    allTransactions: [], // All transactions across all months
     
     // UI state
     uiState: {
@@ -169,6 +169,10 @@ function createEmptyMonthData(): MonthData {
     transferChecks: {},
     andreasShareChecked: false,
     susannaShareChecked: false,
+    // Month completion flags
+    monthFinalBalances: {},
+    // Account ending balances
+    accountEndingBalances: {},
     // NOTE: Transactions are no longer stored here - they're in allTransactions
     transactions: [],
   };

@@ -1,7 +1,7 @@
 // Definierar alla typer som används i appen.
 
 // Import Account type from shared schema
-export type { Account } from '@shared/schema';
+import type { Account } from '@shared/schema';
 
 export interface Transaction {
   id: string; // Ett unikt ID, t.ex. från bankens referens + datum
