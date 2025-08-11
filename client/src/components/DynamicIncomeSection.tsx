@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Link2, Unlink2 } from 'lucide-react';
 import { kronoraToOren, orenToKronor } from '@/utils/currencyUtils';
 import { useFamilyMembers } from '@/hooks/useFamilyMembers';
 import { useInkomstkallor, useInkomstkallorMedlem } from '@/hooks/useInkomstkallor';
@@ -10,7 +11,7 @@ import { useTransactions, useUpdateTransaction } from '@/hooks/useTransactions';
 import { IncomeLinkDialog } from './IncomeLinkDialog';
 import { useQueryClient } from '@tanstack/react-query';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
-import type { FamilyMember, Inkomstkall, InkomstkallorMedlem, BudgetPost } from '@shared/schema';
+import type { FamilyMember, Inkomstkall, BudgetPost, Transaction } from '@shared/schema';
 
 interface DynamicIncomeSectionProps {
   monthKey: string;
@@ -41,7 +42,7 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
   }>({ isOpen: false, member: null, source: null, budgetPost: null });
 
   // Filter family members who contribute to budget
-  const contributingMembers = familyMembers?.filter(m => m.contributesToBudget) || [];
+  const contributingMembers = familyMembers?.filter((m: any) => m.contributesToBudget) || [];
 
   // Get enabled income sources for a family member
   const getEnabledIncomeSources = (memberId: string): Inkomstkall[] => {
@@ -71,7 +72,7 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
     if (!budgetPosts) return;
     
     const values: Record<string, string> = {};
-    contributingMembers.forEach(member => {
+    contributingMembers.forEach((member: any) => {
       const sources = getEnabledIncomeSources(member.id);
       sources.forEach(source => {
         const post = getIncomeBudgetPost(member.id, source.id);
@@ -90,7 +91,7 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
     }));
   };
 
-  const handleIncomeBlur = async (member: FamilyMember, source: Inkomstkall, value: string) => {
+  const handleIncomeBlur = async (member: any, source: Inkomstkall, value: string) => {
     const sekValue = Number(value) || 0;
     const oreValue = kronoraToOren(sekValue);
     
@@ -107,6 +108,7 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
         // Create new budget post only if amount is greater than 0
         await createBudgetPostMutation.mutateAsync({
           monthKey,
+          userId: member.userId || 'temp-user-id',
           type: 'Inkomst',
           description: `${member.name} - ${source.text}`,
           amount: oreValue,
@@ -126,7 +128,7 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
     }
   };
 
-  const openLinkDialog = (member: FamilyMember, source: Inkomstkall) => {
+  const openLinkDialog = (member: any, source: Inkomstkall) => {
     const budgetPost = getIncomeBudgetPost(member.id, source.id);
     setLinkDialogState({
       isOpen: true,
@@ -161,6 +163,7 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
         console.log('🔗 [INCOME LINK] Creating new budget post...');
         const result = await createBudgetPostMutation.mutateAsync({
           monthKey,
+          userId: (linkDialogState.member as any).userId || 'temp-user-id',
           type: 'Inkomst',
           description: `${linkDialogState.member.name} - ${linkDialogState.source.text}`,
           amount: transaction.amount,
@@ -203,13 +206,9 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
       }));
 
       // Invalidate queries to refresh data
-      addMobileDebugLog('🔗 [INCOME LINK] Invalidating queries...');
-      console.log('🔗 [INCOME LINK] Invalidating queries...');
       await queryClient.invalidateQueries({ queryKey: ['transactions'] });
       await queryClient.invalidateQueries({ queryKey: ['budget-posts', monthKey] });
 
-      addMobileDebugLog('✅ [INCOME LINK] Successfully linked transaction');
-      console.log('🔗 [INCOME LINK] Successfully linked transaction');
       setLinkDialogState({ isOpen: false, member: null, source: null, budgetPost: null });
       
       if (onIncomeUpdate) {
@@ -250,6 +249,7 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
         // Create a budget post with amount 0 if it doesn't exist
         await createBudgetPostMutation.mutateAsync({
           monthKey,
+          userId: (linkDialogState.member as any).userId || 'temp-user-id',
           type: 'Inkomst',
           description: `${linkDialogState.member.name} - ${linkDialogState.source.text}`,
           amount: 0,
@@ -286,7 +286,7 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
     return transactions.find(t => t.incomeTargetId === budgetPostId);
   };
 
-  const getButtonStatus = (member: FamilyMember, source: Inkomstkall) => {
+  const getButtonStatus = (member: any, source: Inkomstkall) => {
     const budgetPost = getIncomeBudgetPost(member.id, source.id);
     if (!budgetPost) return { text: 'Hämta belopp', color: 'yellow', isLinked: false, isEditable: true };
     
@@ -305,7 +305,7 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
   // Calculate total income for display
   const calculateTotalIncome = (): number => {
     let total = 0;
-    contributingMembers.forEach(member => {
+    contributingMembers.forEach((member: any) => {
       const sources = getEnabledIncomeSources(member.id);
       sources.forEach(source => {
         const key = `${member.id}-${source.id}`;
@@ -327,7 +327,7 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
 
   return (
     <div className="space-y-6">
-      {contributingMembers.map(member => {
+      {contributingMembers.map((member: any) => {
         const sources = getEnabledIncomeSources(member.id);
         
         if (sources.length === 0) {
@@ -364,8 +364,9 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
                       <Button
                         size="sm"
                         onClick={() => openLinkDialog(member, source)}
-                        className={`${getButtonClassName()} transition-colors duration-200 font-medium px-4 py-1.5 rounded-md`}
+                        className={getButtonClassName()}
                       >
+                        {buttonStatus.isLinked ? <Unlink2 size={16} /> : <Link2 size={16} />}
                         {buttonStatus.text}
                       </Button>
                     </div>
@@ -404,7 +405,10 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
           onClose={() => setLinkDialogState({ isOpen: false, member: null, source: null, budgetPost: null })}
           onLink={handleLinkTransaction}
           onUnlink={handleUnlinkTransaction}
-          transactions={transactions}
+          transactions={transactions.map(t => ({ 
+            ...t, 
+            date: typeof t.date === 'string' ? t.date : new Date(t.date).toISOString().split('T')[0] 
+          })) as Transaction[]}
           currentAmount={linkDialogState.budgetPost?.amount}
           currentLinkedTransactionId={linkDialogState.budgetPost ? getLinkedTransaction(linkDialogState.budgetPost.id)?.id : undefined}
           memberName={linkDialogState.member.name}

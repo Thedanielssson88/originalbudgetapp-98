@@ -93,7 +93,9 @@ export const IncomeLinkDialog: React.FC<IncomeLinkDialogProps> = ({
   const incomeTransactions = useMemo(() => {
     // Count transactions at each filter stage
     const positiveTransactions = transactions.filter(t => t.amount > 0);
-    const incomeTypeTransactions = positiveTransactions.filter(t => t.type === 'Inkomst' || t.type === 'Income');
+    const incomeTypeTransactions = positiveTransactions.filter(t => 
+      (t.type as string) === 'Inkomst' || (t.type as string) === 'Income'
+    );
     const notLinkedTransactions = incomeTypeTransactions.filter(t => !t.incomeTargetId);
     
     // Apply date filtering only if not showing all months
@@ -175,7 +177,7 @@ export const IncomeLinkDialog: React.FC<IncomeLinkDialogProps> = ({
     return transactions.filter(t => {
       const transactionDate = new Date(t.date);
       const isInDateRange = showAllMonths || (transactionDate >= startDate && transactionDate < endDate);
-      const isIncomeType = t.type === 'Inkomst' || t.type === 'Income';
+      const isIncomeType = (t.type as string) === 'Inkomst' || (t.type as string) === 'Income';
       const isPositive = t.amount > 0;
       const notLinked = !t.incomeTargetId;
       
