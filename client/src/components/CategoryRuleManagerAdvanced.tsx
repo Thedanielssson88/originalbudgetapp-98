@@ -317,10 +317,14 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
   const formatRuleSubtitle = (rule: CategoryRule) => {
     const parts = [];
     if (rule.positiveTransactionType && rule.positiveTransactionType !== 'Transaction') {
-      parts.push(`Pos: ${rule.positiveTransactionType}`);
+      // Display 'Inkomst' in UI when value is 'Income'
+      const displayType = rule.positiveTransactionType === 'Income' ? 'Inkomst' : rule.positiveTransactionType;
+      parts.push(`Pos: ${displayType}`);
     }
     if (rule.negativeTransactionType && rule.negativeTransactionType !== 'Transaction') {
-      parts.push(`Neg: ${rule.negativeTransactionType}`);
+      // Display 'Inkomst' in UI when value is 'Income'
+      const displayType = rule.negativeTransactionType === 'Income' ? 'Inkomst' : rule.negativeTransactionType;
+      parts.push(`Neg: ${displayType}`);
     }
     return parts.length > 0 ? parts.join(' • ') : 'Standard transaktionstyper';
   };
@@ -694,13 +698,13 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                               <div>
                                 <Label className="text-xs font-medium text-muted-foreground">Positiva belopp</Label>
                                 <p className="font-medium">
-                                  {rule.positiveTransactionType || 'Transaction'}
+                                  {rule.positiveTransactionType === 'Income' ? 'Inkomst' : (rule.positiveTransactionType || 'Transaction')}
                                 </p>
                               </div>
                               <div>
                                 <Label className="text-xs font-medium text-muted-foreground">Negativa belopp</Label>
                                 <p className="font-medium">
-                                  {rule.negativeTransactionType || 'Transaction'}
+                                  {rule.negativeTransactionType === 'Income' ? 'Inkomst' : (rule.negativeTransactionType || 'Transaction')}
                                 </p>
                               </div>
                             </div>

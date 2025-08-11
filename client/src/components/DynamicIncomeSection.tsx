@@ -228,29 +228,44 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
   };
 
   const handleUnlinkTransaction = async () => {
-    if (!linkDialogState.budgetPost) return;
+    if (!linkDialogState.member || !linkDialogState.source) return;
 
     try {
-      // Find and unlink the transaction
-      const linkedTransaction = transactions.find(t => t.incomeTargetId === linkDialogState.budgetPost?.id);
-      if (linkedTransaction) {
-        await updateTransactionMutation.mutateAsync({
-          id: linkedTransaction.id,
-          data: { incomeTargetId: null }
+      // Find and unlink any linked transaction if there's a budget post
+      if (linkDialogState.budgetPost) {
+        const linkedTransaction = transactions.find(t => t.incomeTargetId === linkDialogState.budgetPost?.id);
+        if (linkedTransaction) {
+          await updateTransactionMutation.mutateAsync({
+            id: linkedTransaction.id,
+            data: { incomeTargetId: null }
+          });
+        }
+
+        // Reset budget post amount to 0 to indicate "Ingen inkomst"
+        await updateBudgetPostMutation.mutateAsync({
+          id: linkDialogState.budgetPost.id,
+          data: { amount: 0 }
+        });
+      } else {
+        // Create a budget post with amount 0 if it doesn't exist
+        await createBudgetPostMutation.mutateAsync({
+          monthKey,
+          type: 'Inkomst',
+          description: `${linkDialogState.member.name} - ${linkDialogState.source.text}`,
+          amount: 0,
+          familjemedlemId: linkDialogState.member.id,
+          idInkomstkalla: linkDialogState.source.id,
+          budgetType: 'Inkomst',
+          transactionType: 'Inkomst',
+          financedFrom: 'Löpande kostnad'
         });
       }
 
-      // Reset budget post amount to 0 to indicate "Inget belopp"
-      await updateBudgetPostMutation.mutateAsync({
-        id: linkDialogState.budgetPost.id,
-        data: { amount: 0 }
-      });
-
-      // Update local state immediately
+      // Update local state to show "0" in the input field
       const key = `${linkDialogState.member?.id}-${linkDialogState.source?.id}`;
       setLocalIncomeValues(prev => ({
         ...prev,
-        [key]: ''
+        [key]: '0'
       }));
 
       // Invalidate queries to refresh data

@@ -2554,6 +2554,30 @@ export const TransactionImportEnhanced: React.FC = () => {
       addMobileDebugLog(`🗓️ [MONTH FILTER] Current month filter for ${budgetState.selectedMonthKey}`);
       addMobileDebugLog(`🗓️ [DATE RANGE] ${startDate} to ${endDate} (payday: ${payday})`);
       
+      // Debug logging for LÖN transactions in February
+      const lonTransactions = baseTransactions.filter(t => 
+        t.description && t.description.toUpperCase().includes('LÖN')
+      );
+      
+      if (lonTransactions.length > 0) {
+        addMobileDebugLog(`💰 [LÖN DEBUG] Found ${lonTransactions.length} LÖN transactions:`);
+        lonTransactions.forEach(t => {
+          // Normalize the date for comparison (remove time part if present)
+          const normalizedDate = t.date.split('T')[0];
+          const willBeIncluded = normalizedDate >= startDate && normalizedDate <= endDate;
+          addMobileDebugLog(`  - Date: ${t.date}, Amount: ${t.amount}, Type: ${t.type}, In range: ${willBeIncluded}`);
+          
+          // Special check for Feb 24 transaction
+          if (normalizedDate === '2025-02-24') {
+            addMobileDebugLog(`  📍 FEB 24 LÖN TRANSACTION FOUND!`);
+            addMobileDebugLog(`    - Original date: ${t.date}`);
+            addMobileDebugLog(`    - Normalized date: ${normalizedDate}`);
+            addMobileDebugLog(`    - Comparing: ${normalizedDate} >= ${startDate} && ${normalizedDate} <= ${endDate}`);
+            addMobileDebugLog(`    - Will be included: ${willBeIncluded}`);
+          }
+        });
+      }
+      
       // Debug logging for the specific transaction we're looking for
       const debugTransaction = baseTransactions.find(t => 
         t.description && t.description.includes('Från A - Kortöverföring')
@@ -2585,8 +2609,9 @@ export const TransactionImportEnhanced: React.FC = () => {
       }
       
       baseTransactions = baseTransactions.filter(t => {
-        const transactionDate = t.date; // Already in YYYY-MM-DD format
-        return transactionDate >= startDate && transactionDate <= endDate;
+        // Normalize the date for comparison (remove time part if present)
+        const normalizedDate = t.date.split('T')[0];
+        return normalizedDate >= startDate && normalizedDate <= endDate;
       });
     }
     
@@ -3886,8 +3911,9 @@ export const TransactionImportEnhanced: React.FC = () => {
               transactionDirection: 'all', // Default to all transactions for bank category rules
               huvudkategoriId: huvudkategoriId,
               underkategoriId: underkategoriId,
-              positiveTransactionType: positiveTransactionType || 'Transaction',
-              negativeTransactionType: negativeTransactionType || 'Transaction',
+              // Map Swedish 'Inkomst' to English 'Income' for database
+              positiveTransactionType: positiveTransactionType === 'Inkomst' ? 'Income' : (positiveTransactionType || 'Transaction'),
+              negativeTransactionType: negativeTransactionType === 'Inkomst' ? 'Income' : (negativeTransactionType || 'Transaction'),
               applicableAccountIds: JSON.stringify(applicableAccountIds || []),
               priority: 100,
               isActive: 'true',

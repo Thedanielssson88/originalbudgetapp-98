@@ -221,8 +221,11 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
           bankunderkategori: useBankCategories && newRule.bankunderkategori !== 'Alla Bankunderkategorier' ? newRule.bankunderkategori : null,
           huvudkategoriId: newRule.action.appMainCategoryId,
           underkategoriId: newRule.action.appSubCategoryId,
-          positiveTransactionType: newRule.action.positiveTransactionType || 'Transaction',
-          negativeTransactionType: newRule.action.negativeTransactionType || 'Transaction',
+          // Map Swedish 'Inkomst' to English 'Income' for database
+          positiveTransactionType: newRule.action.positiveTransactionType === 'Inkomst' ? 
+            'Income' : (newRule.action.positiveTransactionType || 'Transaction'),
+          negativeTransactionType: newRule.action.negativeTransactionType === 'Inkomst' ? 
+            'Income' : (newRule.action.negativeTransactionType || 'Transaction'),
           applicableAccountIds: JSON.stringify(newRule.action.applicableAccountIds || []),
           priority: newRule.priority || 100,
           isActive: 'true',

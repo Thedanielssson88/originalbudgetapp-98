@@ -530,11 +530,58 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
     return !isInFileRange; // Keep transactions OUTSIDE the file's date range
   });
   
-  // 5. Create map of existing transactions for smart merge
+  // 5. Create map of existing transactions for smart merge with enhanced duplicate detection
   const savedTransactionsMap = new Map<string, ImportedTransaction>();
-  (allSavedTransactions || []).forEach(t => savedTransactionsMap.set(createTransactionFingerprint(t), t));
+  const duplicateGroups = new Map<string, ImportedTransaction[]>(); // Track potential duplicates
   
-  console.log(`[ORCHESTRATOR] 🧹 Kept ${transactionsToKeep.length} transactions, removing ${allSavedTransactions.length - transactionsToKeep.length} within date range`);
+  (allSavedTransactions || []).forEach(t => {
+    const fingerprint = createTransactionFingerprint(t);
+    const existing = savedTransactionsMap.get(fingerprint);
+    
+    if (existing) {
+      // Found potential duplicate - group them for resolution
+      if (!duplicateGroups.has(fingerprint)) {
+        duplicateGroups.set(fingerprint, [existing]);
+      }
+      duplicateGroups.get(fingerprint)!.push(t);
+      console.log(`[ORCHESTRATOR] 🔍 Found potential duplicate: ${fingerprint}`);
+    } else {
+      savedTransactionsMap.set(fingerprint, t);
+    }
+  });
+  
+  // Resolve duplicates by keeping the most complete transaction (with manual changes or latest)
+  duplicateGroups.forEach((duplicates, fingerprint) => {
+    console.log(`[ORCHESTRATOR] 🔧 Resolving ${duplicates.length} duplicates for: ${fingerprint}`);
+    
+    // Prefer transactions with manual changes, then most recent
+    const bestTransaction = duplicates.reduce((best, current) => {
+      if (current.isManuallyChanged && !best.isManuallyChanged) return current;
+      if (!current.isManuallyChanged && best.isManuallyChanged) return best;
+      // If both or neither have manual changes, prefer the most recent
+      return new Date(current.date) > new Date(best.date) ? current : best;
+    });
+    
+    savedTransactionsMap.set(fingerprint, bestTransaction);
+    console.log(`[ORCHESTRATOR] ✅ Kept best transaction: ${bestTransaction.id} (manually changed: ${!!bestTransaction.isManuallyChanged})`);
+  });
+  
+  // Update transactionsToKeep to exclude duplicates that were resolved
+  const resolvedTransactionIds = new Set();
+  duplicateGroups.forEach((duplicates, fingerprint) => {
+    const kept = savedTransactionsMap.get(fingerprint);
+    duplicates.forEach(dup => {
+      if (dup.id !== kept?.id) {
+        resolvedTransactionIds.add(dup.id);
+      }
+    });
+  });
+  
+  // Filter out resolved duplicates from transactionsToKeep
+  const originalKeepCount = transactionsToKeep.length;
+  transactionsToKeep = transactionsToKeep.filter(t => !resolvedTransactionIds.has(t.id));
+  
+  console.log(`[ORCHESTRATOR] 🧹 Kept ${transactionsToKeep.length} transactions (removed ${originalKeepCount - transactionsToKeep.length} duplicates), removing ${allSavedTransactions.length - originalKeepCount} within date range, resolved ${duplicateGroups.size} duplicate groups`);
   
   // 6. Intelligent merge with SAME rule logic as manual "Applicera regler på filtrerade transaktioner"
   const mergedTransactions = await Promise.all((transactionsFromFile || []).map(async (fileTx) => {
@@ -1321,7 +1368,12 @@ export function parseCSVContent(csvContent: string, accountId: string, fileName:
 
       const rawDate = dateColumnIndex >= 0 ? fields[dateColumnIndex] : '';
       const parsedDate = parseSwedishDate(rawDate);
-      console.log(`[ORCHESTRATOR] 🔍 Processing line ${i}: Date field: "${rawDate}" -> "${parsedDate}"`);
+      console.log(`[ORCHESTRATOR] 📅 Processing line ${i}: Date field: "${rawDate}" -> "${parsedDate}"`);
+      
+      // Add mobile debug log for date parsing
+      if (i <= 3) { // Only log first 3 for mobile
+        addMobileDebugLog(`📅 Date parsing: "${rawDate}" -> "${parsedDate}"`);
+      }
       
       if (!parsedDate) {
         console.log(`[ORCHESTRATOR] ⚠️ Skipping line ${i}: Invalid date`);
@@ -1429,21 +1481,50 @@ function parseSwedishDate(dateString: string): string | null {
   if (!dateString) return null;
   
   const trimmed = dateString.trim();
-  const swedishDatePattern = /^(\d{4})-(\d{2})-(\d{2})$/;
-  const match = trimmed.match(swedishDatePattern);
+  let year: string, month: string, day: string;
+  
+  // Pattern 1: YYYY-MM-DD (ISO format)
+  const isoPattern = /^(\d{4})-(\d{2})-(\d{2})$/;
+  let match = trimmed.match(isoPattern);
   
   if (match) {
-    const [, year, month, day] = match;
-    // Validate the date values without creating a Date object
-    const yearNum = parseInt(year);
-    const monthNum = parseInt(month);
-    const dayNum = parseInt(day);
+    [, year, month, day] = match;
+  } else {
+    // Pattern 2: DD/MM/YYYY (Swedish format)
+    const swedishPattern = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+    match = trimmed.match(swedishPattern);
     
-    if (yearNum >= 1900 && yearNum <= 2100 && 
-        monthNum >= 1 && monthNum <= 12 && 
-        dayNum >= 1 && dayNum <= 31) {
-      return trimmed; // Return the original YYYY-MM-DD string if valid
+    if (match) {
+      [, day, month, year] = match;
+      // Pad with zeros if needed
+      day = day.padStart(2, '0');
+      month = month.padStart(2, '0');
+    } else {
+      // Pattern 3: DD-MM-YYYY (alternative Swedish format)
+      const altSwedishPattern = /^(\d{1,2})-(\d{1,2})-(\d{4})$/;
+      match = trimmed.match(altSwedishPattern);
+      
+      if (match) {
+        [, day, month, year] = match;
+        // Pad with zeros if needed
+        day = day.padStart(2, '0');
+        month = month.padStart(2, '0');
+      } else {
+        return null; // No matching pattern found
+      }
     }
+  }
+  
+  // Validate the date values
+  const yearNum = parseInt(year);
+  const monthNum = parseInt(month);
+  const dayNum = parseInt(day);
+  
+  if (yearNum >= 1900 && yearNum <= 2100 && 
+      monthNum >= 1 && monthNum <= 12 && 
+      dayNum >= 1 && dayNum <= 31) {
+    // Always return ISO format with 12:00 time (noon) to avoid timezone edge cases
+    return `${year}-${month}-${day}T12:00:00.000Z`;
   }
   
   return null;
@@ -1453,8 +1534,8 @@ function groupTransactionsByMonth(transactions: ImportedTransaction[]): Record<s
   const groups: Record<string, ImportedTransaction[]> = {};
   
   transactions.forEach(transaction => {
-    // Extract month from YYYY-MM-DD string directly - no Date object needed
-    const monthKey = transaction.date.substring(0, 7); // Extract "YYYY-MM" from "YYYY-MM-DD"
+    // Extract month from ISO date string - handles both old YYYY-MM-DD and new ISO format
+    const monthKey = transaction.date.substring(0, 7); // Extract "YYYY-MM" from "YYYY-MM-DDTHH:MM:SS.000Z" or "YYYY-MM-DD"
     
     console.log(`[ORCHESTRATOR] 📅 Transaction ${transaction.date} -> calendar month ${monthKey}`);
     addMobileDebugLog(`📅 TX ${transaction.date} -> calendar month ${monthKey}`);
@@ -1508,7 +1589,113 @@ function reconcileTransactions(
 }
 
 function createTransactionFingerprint(transaction: { date: string; description: string; amount: number; accountId?: string }): string {
-  return `${transaction.accountId || ''}_${transaction.date.trim()}_${transaction.description.trim().toLowerCase()}_${transaction.amount}`;
+  // Use only the date part (YYYY-MM-DD) to avoid time-based duplicates
+  const dateOnly = transaction.date.substring(0, 10); // Extract YYYY-MM-DD from YYYY-MM-DDTHH:mm:ss.sssZ
+  return `${transaction.accountId || ''}_${dateOnly}_${transaction.description.trim().toLowerCase()}_${transaction.amount}`;
+}
+
+/**
+ * Clean up duplicate transactions in the database
+ * This function identifies and removes duplicate transactions based on the same fingerprint logic
+ * used during imports, keeping the best version of each duplicate group.
+ */
+export async function cleanupDuplicateTransactions(): Promise<{removed: number; kept: number}> {
+  console.log('[CLEANUP] 🧹 Starting duplicate transaction cleanup...');
+  
+  try {
+    // Fetch all transactions from the API
+    const response = await fetch('/api/transactions');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch transactions: ${response.status}`);
+    }
+    
+    const allTransactions = await response.json();
+    console.log(`[CLEANUP] 📊 Found ${allTransactions.length} total transactions`);
+    
+    // Group transactions by fingerprint
+    const transactionGroups = new Map<string, any[]>();
+    allTransactions.forEach((tx: any) => {
+      const fingerprint = createTransactionFingerprint(tx);
+      if (!transactionGroups.has(fingerprint)) {
+        transactionGroups.set(fingerprint, []);
+      }
+      transactionGroups.get(fingerprint)!.push(tx);
+    });
+    
+    // Find duplicates (groups with more than one transaction)
+    const duplicateGroups = new Map<string, any[]>();
+    transactionGroups.forEach((transactions, fingerprint) => {
+      if (transactions.length > 1) {
+        duplicateGroups.set(fingerprint, transactions);
+        console.log(`[CLEANUP] 🔍 Found ${transactions.length} duplicates for: ${fingerprint}`);
+      }
+    });
+    
+    console.log(`[CLEANUP] 📊 Found ${duplicateGroups.size} groups with duplicates`);
+    
+    if (duplicateGroups.size === 0) {
+      console.log('[CLEANUP] ✅ No duplicates found');
+      return { removed: 0, kept: allTransactions.length };
+    }
+    
+    let removedCount = 0;
+    
+    // Process each duplicate group
+    for (const [fingerprint, duplicates] of duplicateGroups) {
+      console.log(`[CLEANUP] 🔧 Processing ${duplicates.length} duplicates for: ${fingerprint}`);
+      
+      // Find the best transaction to keep
+      const bestTransaction = duplicates.reduce((best, current) => {
+        // Prefer transactions with manual changes
+        if (current.isManuallyChanged && !best.isManuallyChanged) return current;
+        if (!current.isManuallyChanged && best.isManuallyChanged) return best;
+        
+        // Prefer transactions with income links
+        if (current.incomeTargetId && !best.incomeTargetId) return current;
+        if (!current.incomeTargetId && best.incomeTargetId) return best;
+        
+        // Prefer transactions with categories
+        if (current.appCategoryId && !best.appCategoryId) return current;
+        if (!current.appCategoryId && best.appCategoryId) return best;
+        
+        // If all else equal, prefer the most recent
+        return new Date(current.date) > new Date(best.date) ? current : best;
+      });
+      
+      // Remove all duplicates except the best one
+      const toRemove = duplicates.filter(tx => tx.id !== bestTransaction.id);
+      console.log(`[CLEANUP] 🗑️ Removing ${toRemove.length} duplicates, keeping: ${bestTransaction.id}`);
+      
+      for (const txToRemove of toRemove) {
+        try {
+          const deleteResponse = await fetch(`/api/transactions/${txToRemove.id}`, {
+            method: 'DELETE'
+          });
+          
+          if (deleteResponse.ok) {
+            removedCount++;
+            console.log(`[CLEANUP] ✅ Removed duplicate: ${txToRemove.id}`);
+          } else {
+            console.error(`[CLEANUP] ❌ Failed to remove duplicate ${txToRemove.id}: ${deleteResponse.status}`);
+          }
+        } catch (error) {
+          console.error(`[CLEANUP] ❌ Error removing duplicate ${txToRemove.id}:`, error);
+        }
+      }
+    }
+    
+    const keptCount = allTransactions.length - removedCount;
+    console.log(`[CLEANUP] 🎉 Cleanup complete: removed ${removedCount} duplicates, kept ${keptCount} transactions`);
+    
+    // Trigger UI refresh
+    triggerUIRefresh();
+    
+    return { removed: removedCount, kept: keptCount };
+    
+  } catch (error) {
+    console.error('[CLEANUP] ❌ Error during cleanup:', error);
+    throw error;
+  }
 }
 
 // Event system for UI updates

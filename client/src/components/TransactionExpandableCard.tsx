@@ -942,9 +942,11 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                       applicableRules.map(rule => {
                         const huvudkategoriName = categoryNames.getHuvudkategoriName(rule.huvudkategoriId || '') || 'Okänd kategori';
                         const underkategoriName = categoryNames.getUnderkategoriName(rule.underkategoriId || '') || 'Okänd underkategori';
-                        const transactionType = transaction.amount >= 0 
+                        const rawTransactionType = transaction.amount >= 0 
                           ? (rule.positiveTransactionType || 'Transaction')
                           : (rule.negativeTransactionType || 'Transaction');
+                        // Display 'Inkomst' in UI when value is 'Income'
+                        const transactionType = rawTransactionType === 'Income' ? 'Inkomst' : rawTransactionType;
                         
                         return (
                           <div key={rule.id} className="p-3 bg-blue-50 border border-blue-200 rounded-md">
