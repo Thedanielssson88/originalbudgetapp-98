@@ -214,6 +214,8 @@ export const budgetPosts = pgTable('budget_posts', {
     // New fields for Balance type (Kontosaldo Kopia)
     accountUserBalance: integer('account_user_balance'), // User-entered balance (Faktiskt Kontosaldo) in öre
     accountBalance: integer('account_balance'), // Bank balance (Bankens Kontosaldo) in öre
+    // Status field for sparmål completion tracking
+    status: text('status').default('yellow').notNull(), // 'yellow' = active, 'green' = completed, 'red' = needs attention
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

@@ -100,6 +100,7 @@ export interface SavingsGoal {
   targetAmount: number;
   startDate: string; // YYYY-MM
   endDate: string; // YYYY-MM
+  status?: 'active' | 'completed'; // Status of the savings goal
   mainCategoryId?: string; // Ny: Huvudkategori för integration med sparandesystem
   subCategoryId?: string; // Ny: Underkategori för integration med sparandesystem
 }

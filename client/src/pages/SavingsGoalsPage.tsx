@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
-import { Plus, Target, TrendingUp, ChevronLeft, ChevronRight, Edit, Trash2 } from 'lucide-react';
+import { Plus, Target, TrendingUp, ChevronLeft, ChevronRight, Edit, Trash2, Wallet, ArrowUp, ArrowDown, Banknote, CheckCircle, RotateCcw } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useBudget } from '../hooks/useBudget';
 import { useAccounts } from '../hooks/useAccounts';
 import { useTransactions } from '../hooks/useTransactions';
+// Removed useMonthlyAccountBalances - now using budgetPosts with type='Balance' to match KontosaldoKopia
 import { useHuvudkategorier, useUnderkategorier } from '../hooks/useCategories';
 import { useCreateBudgetPost, useBudgetPosts, useUpdateBudgetPost, useDeleteBudgetPost } from '../hooks/useBudgetPosts';
 import { createSavingsGoal, updateSelectedBudgetMonth } from '../orchestrator/budgetOrchestrator';
@@ -16,14 +17,16 @@ import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Progress } from '../components/ui/progress';
 import { Badge } from '../components/ui/badge';
+import { formatOrenAsCurrency } from '../utils/currencyUtils';
 
 export function SavingsGoalsPage() {
   const { budgetState, isLoading } = useBudget();
   const { data: accountsFromAPI = [], isLoading: accountsLoading } = useAccounts();
   const { data: transactionsFromAPI = [] } = useTransactions();
+  // Note: We now use budgetPosts with type='Balance' instead of monthlyBalances to match KontosaldoKopia
   const { data: huvudkategorier = [], isLoading: isLoadingHuvud } = useHuvudkategorier();
   const { data: underkategorier = [], isLoading: isLoadingUnder } = useUnderkategorier();
-  const { data: budgetPostsFromAPI = [], isLoading: isLoadingBudgetPosts } = useBudgetPosts();
+  const { data: budgetPostsFromAPI = [], isLoading: isLoadingBudgetPosts } = useBudgetPosts(budgetState.selectedMonthKey);
   const createBudgetPostMutation = useCreateBudgetPost();
   const updateBudgetPostMutation = useUpdateBudgetPost();
   const deleteBudgetPostMutation = useDeleteBudgetPost();
@@ -61,51 +64,180 @@ export function SavingsGoalsPage() {
     updateSelectedBudgetMonth(value);
   };
 
-  // CRITICAL FIX: Use SQL transactions instead of localStorage budgetState
-  // Beräkna faktiskt sparat för ett sparmål
-  const calculateActualSaved = (goal: SavingsGoal): number => {
-    let totalSaved = 0;
+  // Calculate opening balance for an account - use same logic as KontosaldoKopia
+  const getOpeningBalance = (accountId: string): number => {
+    // Find the Balance type budget post for this account (same as KontosaldoKopia)
+    const balancePost = budgetPostsFromAPI.find(post => 
+      post.type === 'Balance' && post.accountId === accountId
+    );
     
-    // PHASE 2 MIGRATION: SQL-only data source - no localStorage fallback
-    const allTransactions = transactionsFromAPI || [];
+    if (!balancePost) return 0;
     
-    // Debug logging to understand why progress might be 0
-    const matchingTransactions = allTransactions.filter(transaction => {
-      // Check for Savings or Sparande type (handle both variations)
-      const isSavingsType = transaction.type === 'Savings' || transaction.type === 'Sparande';
-      const hasMatchingTarget = transaction.savingsTargetId === goal.id;
+    // Use accountUserBalance (Faktiskt kontosaldo) if available, otherwise accountBalance (Bankens kontosaldo)
+    // This matches exactly what KontosaldoKopia shows
+    const balanceInOre = balancePost.accountUserBalance ?? balancePost.accountBalance ?? 0;
+    return balanceInOre; // Keep in öre for calculations
+  };
+
+  // Calculate payday date range for current month
+  const getPaydayDateRange = (monthKey: string): { startDate: Date, endDate: Date } => {
+    const [year, month] = monthKey.split('-').map(Number);
+    
+    // Start from 25th of previous month
+    let startYear = year;
+    let startMonth = month - 1;
+    if (startMonth === 0) {
+      startMonth = 12;
+      startYear = year - 1;
+    }
+    
+    // From 2025-07-25 to 2025-08-24 for August
+    const startDate = new Date(startYear, startMonth - 1, 25, 0, 0, 0);
+    const endDate = new Date(year, month - 1, 25, 0, 0, 0); // End on 25th of current month (exclusive)
+    
+    return { startDate, endDate };
+  };
+
+  // Calculate actual saved (Faktiskt Sparat) using payday logic
+  const calculateActualSaved = (accountId: string, monthKey: string): number => {
+    const { startDate, endDate } = getPaydayDateRange(monthKey);
+    
+    // Filter transactions for this account within the payday period
+    const savingTransactions = transactionsFromAPI.filter(transaction => {
+      const transactionDate = new Date(transaction.date);
+      const isInDateRange = transactionDate >= startDate && transactionDate < endDate;
+      const isCorrectAccount = transaction.accountId === accountId;
+      const isSavingsType = transaction.type === 'Sparande' || transaction.type === 'Savings';
       
-      // For savings goals, we should count ALL transactions linked to this goal
-      // regardless of which account they're on (since transfers might come from different accounts)
-      if (isSavingsType && hasMatchingTarget) {
-        console.log(`[calculateActualSaved] Found matching transaction for goal ${goal.name}:`, {
-          transactionId: transaction.id,
-          amountInOre: transaction.amount,
-          amountInKronor: transaction.amount / 100,
-          date: transaction.date,
-          accountId: transaction.accountId,
-          savingsTargetId: transaction.savingsTargetId,
-          type: transaction.type
-        });
-        return true;
+      return isCorrectAccount && isInDateRange && isSavingsType;
+    });
+    
+    // Sum up all savings transactions (positive - negative)
+    return savingTransactions.reduce((total, transaction) => {
+      return total + transaction.amount; // Amount is already in öre, can be positive or negative
+    }, 0);
+  };
+
+  // Calculate cumulative savings that should have been saved by current month for all goals on account
+  const getCumulativeSavingsForAccount = (accountId: string, currentMonthKey: string, allSavingsGoals: SavingsGoal[]): number => {
+    const [currentYear, currentMonth] = currentMonthKey.split('-').map(Number);
+    
+    let totalCumulative = 0;
+    
+    // Filter goals for this account and apply visibility rules (same as display logic)
+    const relevantGoals = allSavingsGoals.filter(goal => {
+      if (goal.accountId !== accountId) return false;
+      
+      const [startYear, startMonth] = goal.startDate.split('-').map(Number);
+      const [endYear, endMonth] = goal.endDate.split('-').map(Number);
+      
+      // Check if current month is at or after the start date
+      const isAtOrAfterStart = currentYear > startYear || (currentYear === startYear && currentMonth >= startMonth);
+      
+      // For active goals: include if we're at or after start date (ignore end date)
+      if (goal.status === 'active' || !goal.status) {
+        return isAtOrAfterStart;
       }
+      
+      // For completed goals: only include if we're in their original date range
+      if (goal.status === 'completed') {
+        const isInDateRange = isAtOrAfterStart &&
+                             (currentYear < endYear || (currentYear === endYear && currentMonth <= endMonth));
+        return isInDateRange;
+      }
+      
       return false;
     });
     
-    // Sum up all matching transactions
-    matchingTransactions.forEach(transaction => {
-      // Use the absolute value to handle both positive and negative amounts
-      // Convert from öre to kronor by dividing by 100
-      const amountInKronor = Math.abs(transaction.amount) / 100;
-      totalSaved += amountInKronor;
+    relevantGoals.forEach(goal => {
+      const monthlyAmount = calculateMonthlyAmount(goal);
+      const [startYear, startMonth] = goal.startDate.split('-').map(Number);
+      const [endYear, endMonth] = goal.endDate.split('-').map(Number);
+      
+      // For active goals: calculate from start to current month
+      // For completed goals: calculate from start to end month (or current if before end)
+      let calculationEndYear = currentYear;
+      let calculationEndMonth = currentMonth;
+      
+      if (goal.status === 'completed') {
+        // For completed goals, calculate only up to their end date
+        if (currentYear > endYear || (currentYear === endYear && currentMonth > endMonth)) {
+          calculationEndYear = endYear;
+          calculationEndMonth = endMonth;
+        }
+      }
+      
+      // Calculate how many months from start to calculation end (inclusive)
+      let monthsElapsed = 0;
+      let year = startYear;
+      let month = startMonth;
+      
+      while (year < calculationEndYear || (year === calculationEndYear && month <= calculationEndMonth)) {
+        // Don't count months beyond the goal end date
+        if (year > endYear || (year === endYear && month > endMonth)) {
+          break;
+        }
+        
+        monthsElapsed++;
+        
+        // Move to next month
+        month++;
+        if (month > 12) {
+          month = 1;
+          year++;
+        }
+      }
+      
+      const cumulativeForGoal = monthsElapsed * monthlyAmount * 100; // Convert to öre
+      totalCumulative += cumulativeForGoal;
+      
+      console.log(`[SAVINGS] Goal: ${goal.name} (${goal.status}), Monthly: ${monthlyAmount} kr, Months elapsed: ${monthsElapsed}, Cumulative: ${cumulativeForGoal / 100} kr`);
     });
     
-    console.log(`[calculateActualSaved] Goal: ${goal.name}, Total saved: ${totalSaved} kr, Transactions found: ${matchingTransactions.length}`);
-    
-    return totalSaved;
+    console.log(`[SAVINGS] Account ${accountId} total cumulative: ${totalCumulative / 100} kr`);
+    return totalCumulative; // Return in öre
   };
 
-  // Beräkna månadsbelopp som behövs
+  // Calculate budgeted savings goals for the current month per account (for display purposes)
+  const getBudgetedSavingsForAccount = (accountId: string, monthKey: string): number => {
+    // Get all budget posts of type 'savings' or 'sparmål' for this account and month
+    const savingsBudgets = budgetPostsFromAPI.filter(post => 
+      post.accountId === accountId && 
+      (post.type === 'savings' || post.type === 'sparmål' || post.budgetType === 'Sparande')
+    );
+    
+    // Sum up the budgeted amounts
+    return savingsBudgets.reduce((total, post) => total + (post.amount || 0), 0);
+  };
+
+  // Convert budget posts with type='sparmål' to SavingsGoal format
+  const savingsGoalsFromSQL = useMemo(() => {
+    if (!budgetPostsFromAPI || budgetPostsFromAPI.length === 0) return [];
+    
+    return budgetPostsFromAPI
+      .filter(post => post.type === 'sparmål')
+      .map(post => {
+        // CRITICAL FIX: Read dates from dedicated database fields instead of JSON description
+        const goalName = post.name || post.description?.replace('Sparmål: ', '') || 'Unnamed Goal';
+        
+        // Map budget post status to savings goal status
+        const status = post.status === 'green' ? 'completed' : 'active';
+        
+        const goal: SavingsGoal = {
+          id: post.id,
+          name: goalName,
+          accountId: post.accountId || '',
+          targetAmount: post.amount / 100, // Convert from öre to kronor
+          startDate: post.startDate || '', // CRITICAL FIX: Use dedicated startDate field
+          endDate: post.endDate || '',      // CRITICAL FIX: Use dedicated endDate field
+          status: status
+        };
+        
+        return goal;
+      });
+  }, [budgetPostsFromAPI]);
+
+  // Calculate monthly amount needed for a savings goal
   const calculateMonthlyAmount = (goal: SavingsGoal): number => {
     const start = new Date(goal.startDate + '-01');
     const end = new Date(goal.endDate + '-01');
@@ -113,6 +245,79 @@ export function SavingsGoalsPage() {
                        (end.getMonth() - start.getMonth()) + 1;
     return goal.targetAmount / monthsDiff;
   };
+
+  // Calculate actual progress for a specific savings goal
+  const calculateGoalProgress = (goal: SavingsGoal): { actualSaved: number; progress: number } => {
+    // For now, we'll calculate based on transactions linked to this specific goal
+    const goalTransactions = transactionsFromAPI.filter(transaction => {
+      const isSavingsType = transaction.type === 'Savings' || transaction.type === 'Sparande';
+      const isLinkedToGoal = transaction.savingsTargetId === goal.id;
+      return isSavingsType && isLinkedToGoal;
+    });
+    
+    const actualSaved = goalTransactions.reduce((total, transaction) => {
+      return total + Math.abs(transaction.amount / 100); // Convert to kronor
+    }, 0);
+    
+    const progress = Math.min((actualSaved / goal.targetAmount) * 100, 100);
+    
+    return { actualSaved, progress };
+  };
+
+  // Get savings goals for an account based on current month and goal status
+  const getSavingsGoalsForAccount = (accountId: string, currentMonthKey: string): SavingsGoal[] => {
+    const [currentYear, currentMonth] = currentMonthKey.split('-').map(Number);
+    
+    return savingsGoalsFromSQL.filter(goal => {
+      if (goal.accountId !== accountId) return false;
+      
+      const [startYear, startMonth] = goal.startDate.split('-').map(Number);
+      const [endYear, endMonth] = goal.endDate.split('-').map(Number);
+      
+      // Check if current month is at or after the start date
+      const isAtOrAfterStart = currentYear > startYear || (currentYear === startYear && currentMonth >= startMonth);
+      
+      // For active goals: show for all months from start date onwards (ignore end date)
+      if (goal.status === 'active' || !goal.status) {
+        return isAtOrAfterStart;
+      }
+      
+      // For completed goals: only show during their original active date range (startDate to endDate)
+      if (goal.status === 'completed') {
+        const isInDateRange = isAtOrAfterStart &&
+                             (currentYear < endYear || (currentYear === endYear && currentMonth <= endMonth));
+        return isInDateRange;
+      }
+      
+      return false;
+    });
+  };
+
+  // Calculate data per account
+  const accountsData = useMemo(() => {
+    return accountsFromAPI.map(account => {
+      const openingBalance = getOpeningBalance(account.id); // in öre
+      const actualSaved = calculateActualSaved(account.id, budgetState.selectedMonthKey); // in öre
+      const currentCalculatedBalance = openingBalance + actualSaved; // in öre
+      const budgetedSavings = getBudgetedSavingsForAccount(account.id, budgetState.selectedMonthKey); // in öre (current month only, for display)
+      const cumulativeSavings = getCumulativeSavingsForAccount(account.id, budgetState.selectedMonthKey, savingsGoalsFromSQL); // in öre (cumulative from start to current month)
+      const available = currentCalculatedBalance - cumulativeSavings; // in öre (use cumulative for "Tillgängligt")
+      const savingsGoals = getSavingsGoalsForAccount(account.id, budgetState.selectedMonthKey);
+
+      console.log(`[ACCOUNT] ${account.name}: Balance=${currentCalculatedBalance/100} kr, Cumulative=${cumulativeSavings/100} kr, Available=${available/100} kr`);
+
+      return {
+        account,
+        openingBalance, // öre
+        actualSaved, // öre
+        currentCalculatedBalance, // öre
+        budgetedSavings, // öre (current month only)
+        cumulativeSavings, // öre (total that should be saved by now)
+        available, // öre (balance - cumulative)
+        savingsGoals
+      };
+    });
+  }, [accountsFromAPI, transactionsFromAPI, budgetPostsFromAPI, savingsGoalsFromSQL, budgetState.selectedMonthKey]);
 
   const handleCreateGoal = async () => {
     if (!formData.huvudkategoriId || !formData.underkategoriId || !formData.name || !formData.accountId || !formData.targetAmount || 
@@ -219,39 +424,29 @@ export function SavingsGoalsPage() {
     }
   };
 
-  // Convert budget posts with type='sparmål' to SavingsGoal format
-  const savingsGoalsFromSQL = useMemo(() => {
-    if (!budgetPostsFromAPI || budgetPostsFromAPI.length === 0) return [];
-    
-    return budgetPostsFromAPI
-      .filter(post => post.type === 'sparmål')
-      .map(post => {
-        // CRITICAL FIX: Read dates from dedicated database fields instead of JSON description
-        const goalName = post.name || post.description?.replace('Sparmål: ', '') || 'Unnamed Goal';
-        
-        const goal = {
-          id: post.id,
-          name: goalName,
-          accountId: post.accountId || '',
-          targetAmount: post.amount / 100, // Convert from öre to kronor
-          startDate: post.startDate || '', // CRITICAL FIX: Use dedicated startDate field
-          endDate: post.endDate || ''      // CRITICAL FIX: Use dedicated endDate field
-        };
-        
-        
-        return goal;
+  const handleMarkAsCompleted = async (goalId: string) => {
+    try {
+      await updateBudgetPostMutation.mutateAsync({ 
+        id: goalId, 
+        data: { status: 'green' } // Mark as completed by setting status to green
       });
-  }, [budgetPostsFromAPI]);
+      console.log('🎉 [SUCCESS] Marked savings goal as completed:', goalId);
+    } catch (error) {
+      console.error('🔍 [ERROR] Failed to mark savings goal as completed:', error);
+    }
+  };
 
-  // Combine SQL savings goals with legacy savings goals (during transition period)
-  const allSavingsGoals = useMemo(() => {
-    const legacyGoals = budgetState.savingsGoals || [];
-    const sqlGoals = savingsGoalsFromSQL || [];
-    
-    // For now, prioritize SQL goals over legacy goals
-    // You might want to deduplicate based on name or other criteria
-    return [...sqlGoals, ...legacyGoals];
-  }, [savingsGoalsFromSQL, budgetState.savingsGoals]);
+  const handleMarkAsActive = async (goalId: string) => {
+    try {
+      await updateBudgetPostMutation.mutateAsync({ 
+        id: goalId, 
+        data: { status: 'yellow' } // Mark as active by setting status to yellow
+      });
+      console.log('✅ [SUCCESS] Marked savings goal as active:', goalId);
+    } catch (error) {
+      console.error('🔍 [ERROR] Failed to mark savings goal as active:', error);
+    }
+  };
 
   // Filter subcategories based on selected main category
   const availableSubcategories = useMemo(() => {
@@ -273,8 +468,8 @@ export function SavingsGoalsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="max-w-6xl mx-auto">
+    <div className="container mx-auto p-4 md:p-6">
+      <div className="max-w-7xl mx-auto">
         {/* Header - Same as main budget page */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
@@ -665,113 +860,257 @@ export function SavingsGoalsPage() {
         </Dialog>
       </div>
 
-      {allSavingsGoals.length === 0 ? (
-        <Card className="text-center py-12">
-          <CardContent>
-            <Target className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-            <CardTitle className="mb-2">Inga sparmål ännu</CardTitle>
-            <CardDescription className="mb-6">
-              Skapa ditt första sparmål för att börja spåra dina framsteg
-            </CardDescription>
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Skapa ditt första sparmål
-                </Button>
-              </DialogTrigger>
-            </Dialog>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {allSavingsGoals.map(goal => {
-            // Debug the goal data
-            console.log(`[SavingsGoalsPage] Processing goal:`, {
-              id: goal.id,
-              name: goal.name,
-              accountId: goal.accountId,
-              targetAmount: goal.targetAmount
-            });
-            
-            const actualSaved = calculateActualSaved(goal);
-            const progress = Math.min((actualSaved / goal.targetAmount) * 100, 100);
-            const monthlyAmount = calculateMonthlyAmount(goal);
-            const accountName = accountsFromAPI.find(acc => acc.id === goal.accountId)?.name || 'Okänt konto';
-            
-            return (
-              <Card key={goal.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-xl">{goal.name}</CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">
-                        {accountName}
-                      </Badge>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleEditGoal(goal)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDeleteGoal(goal.id)}
-                        className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+        {/* Account-based savings overview */}
+        <div className="space-y-6">
+          {accountsData.map(({ account, openingBalance, actualSaved, currentCalculatedBalance, budgetedSavings, cumulativeSavings, available, savingsGoals }) => (
+            <Card key={account.id} className="w-full">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <Wallet className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xl">{account.name}</CardTitle>
+                      <CardDescription>
+                        Sparmålsöversikt för {(() => {
+                          const monthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
+                          const [year, month] = budgetState.selectedMonthKey.split('-');
+                          return `${monthNames[parseInt(month) - 1]} ${year}`;
+                        })()}
+                      </CardDescription>
                     </div>
                   </div>
-                  <CardDescription>
-                    {goal.startDate} till {goal.endDate}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Framsteg</span>
-                      <span>{progress.toFixed(1)}%</span>
+                  <Badge variant="secondary" className="text-sm px-3 py-1">
+                    {savingsGoals.length} sparmål
+                  </Badge>
+                </div>
+              </CardHeader>
+              
+              <CardContent className="space-y-6">
+                {/* Financial Summary - Mobile responsive */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                      {formatOrenAsCurrency(openingBalance)}
                     </div>
-                    <Progress value={progress} className="h-2" />
-                    <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>{actualSaved.toLocaleString()} kr</span>
-                      <span>{goal.targetAmount.toLocaleString()} kr</span>
-                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">Ingående saldo</div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-primary">
-                        {(goal.targetAmount - actualSaved).toLocaleString()}
-                      </div>
-                      <div className="text-xs text-muted-foreground">kr kvar</div>
+                  <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <div className="text-2xl font-bold text-green-700 dark:text-green-300 flex items-center justify-center gap-1">
+                      {actualSaved >= 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                      {formatOrenAsCurrency(Math.abs(actualSaved))}
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold flex items-center justify-center">
-                        <TrendingUp className="h-4 w-4 mr-1" />
-                        {monthlyAmount.toLocaleString()}
-                      </div>
-                      <div className="text-xs text-muted-foreground">kr/månad</div>
-                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">Faktiskt Sparat</div>
                   </div>
                   
-                  {progress >= 100 && (
-                    <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg text-center">
-                      <div className="text-green-700 dark:text-green-300 font-medium">
-                        🎉 Sparmål uppnått!
-                      </div>
+                  <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                    <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                      {formatOrenAsCurrency(currentCalculatedBalance)}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+                    <div className="text-sm text-muted-foreground mt-1">Nuvarande saldo</div>
+                  </div>
+                  
+                  <div className="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                    <div className={`text-2xl font-bold ${available >= 0 ? 'text-orange-700 dark:text-orange-300' : 'text-red-700 dark:text-red-300'}`}>
+                      {formatOrenAsCurrency(available)}
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">Tillgängligt</div>
+                  </div>
+                </div>
+                
+                {/* Cumulative Savings Goals */}
+                {cumulativeSavings > 0 && (
+                  <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Target className="h-5 w-5 text-amber-600" />
+                      <span className="font-semibold text-amber-800 dark:text-amber-200">Totalt som borde sparats t.o.m. denna månad</span>
+                    </div>
+                    <div className="text-lg font-bold text-amber-700 dark:text-amber-300">
+                      {formatOrenAsCurrency(cumulativeSavings)}
+                    </div>
+                    {budgetedSavings > 0 && (
+                      <div className="text-sm text-amber-600 dark:text-amber-400 mt-2">
+                        Denna månad: {formatOrenAsCurrency(budgetedSavings)}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Savings Goals for this account */}
+                {savingsGoals.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">Sparmål</h3>
+                      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button size="sm" variant="outline">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Lägg till sparmål
+                          </Button>
+                        </DialogTrigger>
+                      </Dialog>
+                    </div>
+                    
+                    <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
+                      {savingsGoals.map(goal => {
+                        const { actualSaved, progress } = calculateGoalProgress(goal);
+                        const monthlyAmount = calculateMonthlyAmount(goal);
+                        const remainingAmount = Math.max(0, goal.targetAmount - actualSaved);
+                        const isCompleted = goal.status === 'completed';
+                        
+                        return (
+                          <div key={goal.id} className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${
+                            isCompleted 
+                              ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' 
+                              : 'bg-white dark:bg-gray-800'
+                          }`}>
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <h4 className={`font-semibold ${isCompleted ? 'text-green-800 dark:text-green-200' : ''}`}>
+                                  {goal.name}
+                                </h4>
+                                {isCompleted && (
+                                  <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    Färdigt
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {isCompleted ? (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleMarkAsActive(goal.id)}
+                                    title="Markera som aktiv"
+                                    className="h-8 w-8 p-0 text-orange-500 hover:text-orange-700"
+                                  >
+                                    <RotateCcw className="h-4 w-4" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleMarkAsCompleted(goal.id)}
+                                    title="Markera som färdigt"
+                                    className="h-8 w-8 p-0 text-green-500 hover:text-green-700"
+                                  >
+                                    <CheckCircle className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleEditGoal(goal)}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleDeleteGoal(goal.id)}
+                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-3">
+                              <div className="flex justify-between text-sm text-muted-foreground">
+                                <span>{goal.startDate}</span>
+                                <span>{goal.endDate}</span>
+                              </div>
+                              
+                              {/* Target Amount */}
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-primary">
+                                  {goal.targetAmount.toLocaleString('sv-SE')} kr
+                                </div>
+                                <div className="text-xs text-muted-foreground">Målbelopp</div>
+                              </div>
+                              
+                              {/* Progress Bar */}
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-sm">
+                                  <span>Framsteg</span>
+                                  <span>{progress.toFixed(1)}%</span>
+                                </div>
+                                <Progress value={progress} className="h-2" />
+                                <div className="flex justify-between text-sm text-muted-foreground">
+                                  <span>{actualSaved.toLocaleString('sv-SE')} kr sparat</span>
+                                  <span>{remainingAmount.toLocaleString('sv-SE')} kr kvar</span>
+                                </div>
+                              </div>
+                              
+                              {/* Monthly Amount */}
+                              <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                                <div className="flex items-center justify-center gap-1 text-xl font-bold text-blue-700 dark:text-blue-300">
+                                  <TrendingUp className="h-4 w-4" />
+                                  {monthlyAmount.toLocaleString('sv-SE')} kr
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">per månad</div>
+                              </div>
+                              
+                              {/* Completion Status */}
+                              {isCompleted ? (
+                                <div className="bg-green-100 dark:bg-green-800/40 p-3 rounded-lg text-center">
+                                  <div className="text-green-800 dark:text-green-200 font-medium">
+                                    🎉 Sparmål färdigt!
+                                  </div>
+                                  <div className="text-green-600 dark:text-green-300 text-sm mt-1">
+                                    Detta sparmål är markerat som slutfört
+                                  </div>
+                                </div>
+                              ) : progress >= 100 && (
+                                <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg text-center">
+                                  <div className="text-amber-700 dark:text-amber-300 font-medium">
+                                    🎯 Målbelopp uppnått!
+                                  </div>
+                                  <div className="text-amber-600 dark:text-amber-400 text-sm mt-1">
+                                    Du kan markera detta sparmål som färdigt
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 border-2 border-dashed border-muted rounded-lg">
+                    <Target className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground mb-4">Inga sparmål för detta konto</p>
+                    <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Skapa ditt första sparmål
+                        </Button>
+                      </DialogTrigger>
+                    </Dialog>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+          
+          {accountsData.length === 0 && (
+            <Card className="text-center py-12">
+              <CardContent>
+                <Wallet className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
+                <CardTitle className="mb-2">Inga konton hittades</CardTitle>
+                <CardDescription>
+                  Lägg till konton för att börja hantera sparmål
+                </CardDescription>
+              </CardContent>
+            </Card>
+          )}
         </div>
-      )}
       </div>
     </div>
   );
