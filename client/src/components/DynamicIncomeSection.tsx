@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
   const { data: inkomstkallor } = useInkomstkallor();
   const { data: assignments } = useInkomstkallorMedlem();
   const { data: budgetPosts } = useBudgetPosts(monthKey);
+  // Use default transactions (recent only) for better performance
   const { data: transactions = [] } = useTransactions();
   
   const createBudgetPostMutation = useCreateBudgetPost();
@@ -128,14 +129,74 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
     }
   };
 
-  const openLinkDialog = (member: any, source: Inkomstkall) => {
+  const openLinkDialog = async (member: any, source: Inkomstkall) => {
     const budgetPost = getIncomeBudgetPost(member.id, source.id);
+    
+    // Load transactions for dialog
+    await loadDialogTransactions();
+    
     setLinkDialogState({
       isOpen: true,
       member,
       source,
       budgetPost: budgetPost || null
     });
+  };
+
+  // Lazy load transactions only when dialog opens to prevent UI freeze
+  const [dialogTransactions, setDialogTransactions] = useState<any[]>([]);
+  const [isLoadingDialogTransactions, setIsLoadingDialogTransactions] = useState(false);
+  
+  const loadDialogTransactions = async () => {
+    if (isLoadingDialogTransactions) return;
+    
+    setIsLoadingDialogTransactions(true);
+    console.log(`🔍 [INCOME DIALOG] Loading income transactions for dialog for ${monthKey}`);
+    
+    try {
+      // Calculate payday date range for current month (±6 days buffer)
+      const [year, month] = monthKey.split('-').map(Number);
+      
+      // Start date: 25th of previous month minus 6 days for early payments
+      let startYear = year;
+      let startMonth = month - 1;
+      if (startMonth === 0) {
+        startMonth = 12;
+        startYear = year - 1;
+      }
+      
+      const paydayStart = new Date(startYear, startMonth - 1, 25, 0, 0, 0);
+      const startDate = new Date(paydayStart);
+      startDate.setDate(paydayStart.getDate() - 6); // 6 days before payday
+      
+      // End date: 25th of current month (end of day) to catch all transactions
+      const endDate = new Date(year, month - 1, 25, 23, 59, 59); // 25th at 23:59:59
+      
+      console.log(`🔍 [INCOME DIALOG] Date range: ${startDate.toISOString().split('T')[0]} to ${new Date(endDate.getTime() - 1).toISOString().split('T')[0]}`);
+      
+      // Fetch transactions within the date range from server
+      const response = await fetch(`/api/transactions?fromDate=${startDate.toISOString().split('T')[0]}&toDate=${endDate.toISOString().split('T')[0]}`);
+      const allTransactions = await response.json();
+      
+      // Filter to only positive income transactions and format dates
+      const filtered = allTransactions
+        .filter((t: any) => t.amount > 0 && (t.type === 'Inkomst' || t.type === 'Income'))
+        .map((t: any) => ({ 
+          ...t, 
+          date: t.date instanceof Date ? t.date.toISOString().split('T')[0] : t.date
+        }));
+      
+      console.log(`🔍 [INCOME DIALOG] Found ${filtered.length} income transactions in payday period`);
+      addMobileDebugLog(`🔍 Income Dialog: ${filtered.length} transactions in payday period`);
+      
+      setDialogTransactions(filtered);
+    } catch (error) {
+      console.error('Failed to load dialog transactions:', error);
+      addMobileDebugLog(`❌ Failed to load dialog transactions: ${error}`);
+      setDialogTransactions([]);
+    } finally {
+      setIsLoadingDialogTransactions(false);
+    }
   };
 
   const handleLinkTransaction = async (transactionId: string) => {
@@ -405,10 +466,7 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
           onClose={() => setLinkDialogState({ isOpen: false, member: null, source: null, budgetPost: null })}
           onLink={handleLinkTransaction}
           onUnlink={handleUnlinkTransaction}
-          transactions={transactions.map(t => ({ 
-            ...t, 
-            date: t.date instanceof Date ? t.date.toISOString().split('T')[0] : t.date
-          }))}
+          transactions={dialogTransactions}
           currentAmount={linkDialogState.budgetPost?.amount}
           currentLinkedTransactionId={linkDialogState.budgetPost ? getLinkedTransaction(linkDialogState.budgetPost.id)?.id : undefined}
           memberName={linkDialogState.member.name}

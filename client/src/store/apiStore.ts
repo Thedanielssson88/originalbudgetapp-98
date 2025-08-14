@@ -101,6 +101,19 @@ class ApiStore {
       }
 
       const data = await response.json();
+      
+      // Debug: Check if linking fields are coming from API
+      const { addMobileDebugLog } = await import('../utils/mobileDebugLogger');
+      addMobileDebugLog(`📊 [API STORE] Received ${data.length} transactions from /api/transactions`);
+      
+      // Check first few transactions for linking fields
+      const sampleTransactions = data.slice(0, 3);
+      sampleTransactions.forEach((tx: any, index: number) => {
+        if (tx.type === 'ExpenseClaim' || tx.type === 'CostCoverage' || tx.linkedCostId || tx.linkedTransactionId) {
+          addMobileDebugLog(`📊 [API STORE] Sample ${index}: ID=${tx.id?.slice(-8)}, type=${tx.type}, linkedCostId=${tx.linkedCostId || 'null'}, correctedAmount=${tx.correctedAmount || 'null'}, linked_cost_id=${tx.linked_cost_id || 'undefined'}, corrected_amount=${tx.corrected_amount || 'undefined'}`);
+        }
+      });
+      
       return data;
     } catch (error) {
       console.log('❌ [ApiStore] Failed to fetch transactions:', error);

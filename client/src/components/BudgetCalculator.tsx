@@ -53,7 +53,7 @@ import { useFamilyMembers } from '@/hooks/useFamilyMembers';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useInkomstkallor, useInkomstkallorMedlem } from '@/hooks/useInkomstkallor';
 import { useTransactions } from '@/hooks/useTransactions';
-import { useBudgetPosts, useDeleteBudgetPost } from '@/hooks/useBudgetPosts';
+import { useBudgetPosts, useAllBudgetPosts, useDeleteBudgetPost } from '@/hooks/useBudgetPosts';
 import { useMonthlyAccountBalances, useUpdateFaktisktKontosaldo } from '@/hooks/useMonthlyAccountBalances';
 import { 
   createSavingsGoal,
@@ -137,6 +137,7 @@ const BudgetCalculator = () => {
   const { data: accountsFromAPI = [], isLoading: accountsLoading, error: accountsError } = useAccounts();
   const { data: transactionsFromAPI = [], isLoading: transactionsLoading } = useTransactions();
   const { data: budgetPostsFromAPI = [], isLoading: budgetPostsLoading } = useBudgetPosts(budgetState.selectedMonthKey);
+  const { data: allBudgetPostsFromAPI = [] } = useAllBudgetPosts();
   const deleteBudgetPostMutation = useDeleteBudgetPost();
   const currentMonthlyBudget = useMonthlyBudget(budgetState.selectedMonthKey);
   const { toast } = useToast();
@@ -610,9 +611,23 @@ const BudgetCalculator = () => {
 
   // CRITICAL FIX: Combine SQL savings goals with localStorage savings goals
   const allSavingsGoals = useMemo(() => {
+    // Use ALL budget posts to get savings goals, then filter by date range
+    const currentMonth = selectedBudgetMonth || budgetState.selectedMonthKey;
+    
     // Convert budget posts with type='sparmål' to SavingsGoal format (same logic as SavingsGoalsPage)
-    const savingsGoalsFromSQL = budgetPostsFromAPI
-      .filter(post => post.type === 'sparmål')
+    const savingsGoalsFromSQL = allBudgetPostsFromAPI
+      .filter(post => {
+        if (post.type !== 'sparmål') return false;
+        
+        // Include goal if current month is within its date range
+        if (post.startDate && post.endDate && currentMonth) {
+          const start = post.startDate;
+          const end = post.endDate;
+          return currentMonth >= start && currentMonth <= end;
+        }
+        
+        return true; // Include if no date range specified
+      })
       .map(post => {
         const goalName = post.name || post.description?.replace('Sparmål: ', '') || 'Unnamed Goal';
         
@@ -633,7 +648,7 @@ const BudgetCalculator = () => {
     const combined = [...savingsGoalsFromSQL, ...legacyGoals];
     
     return combined;
-  }, [budgetPostsFromAPI, budgetState.savingsGoals]);
+  }, [allBudgetPostsFromAPI, budgetState.savingsGoals, selectedBudgetMonth, budgetState.selectedMonthKey]);
 
   // CENTRALIZED LOGIC: Use single function call to replace complex logic
   const activeContent = useMemo(() => {
@@ -1721,7 +1736,7 @@ const BudgetCalculator = () => {
     console.log('🔍 [DEBUG] deleteSavingsGroup called with id:', id);
     
     // Check if this is a savings goal (sparmål) from SQL
-    const sqlSavingsGoal = budgetPostsFromAPI.find(post => post.id === id && post.type === 'sparmål');
+    const sqlSavingsGoal = allBudgetPostsFromAPI.find(post => post.id === id && post.type === 'sparmål');
     
     if (sqlSavingsGoal) {
       console.log('🔍 [DEBUG] Deleting SQL savings goal (sparmål) with id:', id);

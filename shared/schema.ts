@@ -110,6 +110,7 @@ export const transactions = pgTable('transactions', {
     type: text('type').default('Transaction').notNull(),
     status: text('status').default('yellow').notNull(),
     linkedTransactionId: uuid('linked_transaction_id'),
+    linkedCostId: uuid('linked_cost_id'), // Links to transactions for expense coverage
     savingsTargetId: uuid('savings_target_id'), // Links to budget_posts.id for savings goals/posts
     incomeTargetId: uuid('income_target_id'), // Links to budget_posts.id for income sources - reference added below after budgetPosts definition
     correctedAmount: integer('corrected_amount'),

@@ -70,6 +70,31 @@ export function useTransactions(dateRange?: { fromDate?: string; toDate?: string
         console.log(`📊 [useTransactions] Fetching from: ${url} (Query Key: ${JSON.stringify(queryKey)})`);
         const data = await apiRequest(url);
         
+        console.log(`📊 [useTransactions] Received ${data?.length || 0} transactions from server`);
+        if (data && data.length > 0) {
+          // Log some sample transactions to debug
+          const sampleTransactions = data.slice(0, 3);
+          console.log(`📊 [useTransactions] Sample transactions:`, sampleTransactions.map((t: any) => 
+            `${t.date}: ${t.description} (${t.amount})`
+          ));
+          
+          // Check for ExpenseClaim transactions with linkedCostId
+          const expenseClaims = data.filter((t: any) => t.type === 'ExpenseClaim');
+          if (expenseClaims.length > 0) {
+            console.log(`📊 [useTransactions] Found ${expenseClaims.length} ExpenseClaim transactions`);
+            expenseClaims.forEach((t: any) => {
+              console.log(`  - ${t.id}: linkedCostId=${t.linkedCostId}, correctedAmount=${t.correctedAmount}`);
+            });
+          }
+          
+          // Check for our specific February 24 transaction
+          const feb24Transactions = data.filter((t: any) => t.date.includes('2025-02-24'));
+          console.log(`📊 [useTransactions] Found ${feb24Transactions.length} transactions on 2025-02-24`);
+          feb24Transactions.forEach((t: any) => {
+            console.log(`  - ${t.description}: ${t.amount} öre`);
+          });
+        }
+        
         // Only cache data without date filters (full dataset)
         if (data && Array.isArray(data) && !dateRange?.fromDate && !dateRange?.toDate) {
           cacheTransactions(data);
@@ -158,12 +183,20 @@ export function useUpdateTransaction() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<InsertTransaction> }) =>
-      apiRequest(`/api/transactions/${id}`, {
+    mutationFn: async ({ id, data }: { id: string; data: Partial<InsertTransaction> }) => {
+      console.log(`🔄 [UPDATE] Sending update for transaction ${id}:`, data);
+      const result = await apiRequest(`/api/transactions/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
-      }),
+      });
+      console.log(`🔄 [UPDATE] Received response for transaction ${id}:`, {
+        linkedCostId: result.linkedCostId,
+        correctedAmount: result.correctedAmount,
+        type: result.type
+      });
+      return result;
+    },
     onMutate: async ({ id, data }) => {
       // OPTIMISTIC UPDATE: Update all transaction caches immediately
       console.log(`🔄 [OPTIMISTIC] Updating transaction ${id} with:`, data);

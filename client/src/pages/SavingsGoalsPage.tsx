@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react';
-import { Plus, Target, TrendingUp, ChevronLeft, ChevronRight, Edit, Trash2, Wallet, ArrowUp, ArrowDown, Banknote, CheckCircle, RotateCcw } from 'lucide-react';
+import { Plus, Target, TrendingUp, ChevronLeft, ChevronRight, Edit, Trash2, Wallet, ArrowUp, ArrowDown, Banknote, CheckCircle, RotateCcw, Receipt } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useBudget } from '../hooks/useBudget';
 import { useAccounts } from '../hooks/useAccounts';
 import { useTransactions } from '../hooks/useTransactions';
 // Removed useMonthlyAccountBalances - now using budgetPosts with type='Balance' to match KontosaldoKopia
 import { useHuvudkategorier, useUnderkategorier } from '../hooks/useCategories';
-import { useCreateBudgetPost, useBudgetPosts, useUpdateBudgetPost, useDeleteBudgetPost } from '../hooks/useBudgetPosts';
+import { useCreateBudgetPost, useBudgetPosts, useAllBudgetPosts, useUpdateBudgetPost, useDeleteBudgetPost } from '../hooks/useBudgetPosts';
 import { createSavingsGoal, updateSelectedBudgetMonth } from '../orchestrator/budgetOrchestrator';
 import { SavingsGoal } from '../types/budget';
 import { Button } from '../components/ui/button';
@@ -27,12 +27,17 @@ export function SavingsGoalsPage() {
   const { data: huvudkategorier = [], isLoading: isLoadingHuvud } = useHuvudkategorier();
   const { data: underkategorier = [], isLoading: isLoadingUnder } = useUnderkategorier();
   const { data: budgetPostsFromAPI = [], isLoading: isLoadingBudgetPosts } = useBudgetPosts(budgetState.selectedMonthKey);
+  const { data: allBudgetPostsFromAPI = [] } = useAllBudgetPosts();
   const createBudgetPostMutation = useCreateBudgetPost();
   const updateBudgetPostMutation = useUpdateBudgetPost();
   const deleteBudgetPostMutation = useDeleteBudgetPost();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
+  const [showTransactionsDialog, setShowTransactionsDialog] = useState(false);
+  const [selectedGoalForTransactions, setSelectedGoalForTransactions] = useState<SavingsGoal | null>(null);
+  const [showAccountTransactionsDialog, setShowAccountTransactionsDialog] = useState(false);
+  const [selectedAccountForTransactions, setSelectedAccountForTransactions] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     huvudkategoriId: '',
     underkategoriId: '',
@@ -150,29 +155,33 @@ export function SavingsGoalsPage() {
     });
     
     relevantGoals.forEach(goal => {
-      const monthlyAmount = calculateMonthlyAmount(goal);
       const [startYear, startMonth] = goal.startDate.split('-').map(Number);
       const [endYear, endMonth] = goal.endDate.split('-').map(Number);
       
-      // For active goals: calculate from start to current month
-      // For completed goals: calculate from start to end month (or current if before end)
-      let calculationEndYear = currentYear;
-      let calculationEndMonth = currentMonth;
+      // Calculate total months for the goal (from start to end)
+      let totalMonths = 0;
+      let tempYear = startYear;
+      let tempMonth = startMonth;
       
-      if (goal.status === 'completed') {
-        // For completed goals, calculate only up to their end date
-        if (currentYear > endYear || (currentYear === endYear && currentMonth > endMonth)) {
-          calculationEndYear = endYear;
-          calculationEndMonth = endMonth;
+      while (tempYear < endYear || (tempYear === endYear && tempMonth <= endMonth)) {
+        totalMonths++;
+        tempMonth++;
+        if (tempMonth > 12) {
+          tempMonth = 1;
+          tempYear++;
         }
       }
       
-      // Calculate how many months from start to calculation end (inclusive)
+      // Calculate monthly amount: target / total months
+      const monthlyAmount = goal.targetAmount / totalMonths;
+      
+      // Calculate how many months have elapsed from start to current month (inclusive)
       let monthsElapsed = 0;
       let year = startYear;
       let month = startMonth;
       
-      while (year < calculationEndYear || (year === calculationEndYear && month <= calculationEndMonth)) {
+      // Count months from start up to and including current month
+      while (year < currentYear || (year === currentYear && month <= currentMonth)) {
         // Don't count months beyond the goal end date
         if (year > endYear || (year === endYear && month > endMonth)) {
           break;
@@ -188,10 +197,15 @@ export function SavingsGoalsPage() {
         }
       }
       
+      // For completed goals, cap at the total months
+      if (goal.status === 'completed' || goal.status === 'green') {
+        monthsElapsed = Math.min(monthsElapsed, totalMonths);
+      }
+      
       const cumulativeForGoal = monthsElapsed * monthlyAmount * 100; // Convert to öre
       totalCumulative += cumulativeForGoal;
       
-      console.log(`[SAVINGS] Goal: ${goal.name} (${goal.status}), Monthly: ${monthlyAmount} kr, Months elapsed: ${monthsElapsed}, Cumulative: ${cumulativeForGoal / 100} kr`);
+      console.log(`[SAVINGS] Goal: ${goal.name} (${goal.status}), Target: ${goal.targetAmount} kr, Total months: ${totalMonths}, Monthly: ${monthlyAmount.toFixed(2)} kr, Months elapsed: ${monthsElapsed}, Cumulative: ${cumulativeForGoal / 100} kr`);
     });
     
     console.log(`[SAVINGS] Account ${accountId} total cumulative: ${totalCumulative / 100} kr`);
@@ -212,10 +226,42 @@ export function SavingsGoalsPage() {
 
   // Convert budget posts with type='sparmål' to SavingsGoal format
   const savingsGoalsFromSQL = useMemo(() => {
-    if (!budgetPostsFromAPI || budgetPostsFromAPI.length === 0) return [];
+    if (!allBudgetPostsFromAPI || allBudgetPostsFromAPI.length === 0) {
+      console.log('[SavingsGoals] No budget posts loaded');
+      return [];
+    }
     
-    return budgetPostsFromAPI
-      .filter(post => post.type === 'sparmål')
+    console.log('[SavingsGoals] All budget posts:', allBudgetPostsFromAPI.length);
+    console.log('[SavingsGoals] Savings goals (type=sparmål):', allBudgetPostsFromAPI.filter(p => p.type === 'sparmål').length);
+    
+    const currentMonth = budgetState.selectedMonthKey;
+    console.log('[SavingsGoals] Current month:', currentMonth);
+    
+    return allBudgetPostsFromAPI
+      .filter(post => {
+        if (post.type !== 'sparmål') return false;
+        
+        // Apply visibility rules based on goal status
+        if (post.startDate && currentMonth) {
+          const start = post.startDate;
+          const end = post.endDate || '9999-12'; // Default to far future if no end date
+          
+          // For completed goals (status = 'green'): only show during their original active period
+          if (post.status === 'green') {
+            const isInRange = currentMonth >= start && currentMonth <= end;
+            console.log(`[SavingsGoals] COMPLETED Goal "${post.name}" (${start} to ${end}): ${isInRange ? 'VISIBLE' : 'HIDDEN'} for ${currentMonth}`);
+            return isInRange;
+          }
+          
+          // For active goals (status = 'yellow' or no status): show from start date onwards
+          const isAfterStart = currentMonth >= start;
+          console.log(`[SavingsGoals] ACTIVE Goal "${post.name}" (starts ${start}): ${isAfterStart ? 'VISIBLE' : 'HIDDEN'} for ${currentMonth}`);
+          return isAfterStart;
+        }
+        
+        console.log(`[SavingsGoals] Goal "${post.name}" has no date range, including`);
+        return true; // Include if no date range specified
+      })
       .map(post => {
         // CRITICAL FIX: Read dates from dedicated database fields instead of JSON description
         const goalName = post.name || post.description?.replace('Sparmål: ', '') || 'Unnamed Goal';
@@ -235,7 +281,7 @@ export function SavingsGoalsPage() {
         
         return goal;
       });
-  }, [budgetPostsFromAPI]);
+  }, [allBudgetPostsFromAPI, budgetState.selectedMonthKey]);
 
   // Calculate monthly amount needed for a savings goal
   const calculateMonthlyAmount = (goal: SavingsGoal): number => {
@@ -247,21 +293,77 @@ export function SavingsGoalsPage() {
   };
 
   // Calculate actual progress for a specific savings goal
-  const calculateGoalProgress = (goal: SavingsGoal): { actualSaved: number; progress: number } => {
-    // For now, we'll calculate based on transactions linked to this specific goal
+  const calculateGoalProgress = (goal: SavingsGoal): { actualSaved: number; progress: number; perMonthAmount: number; remainingMonths: number } => {
+    const currentMonthKey = budgetState.selectedMonthKey;
+    const [currentYear, currentMonth] = currentMonthKey.split('-').map(Number);
+    const [goalStartYear, goalStartMonth] = goal.startDate.split('-').map(Number);
+    const [goalEndYear, goalEndMonth] = goal.endDate.split('-').map(Number);
+    
+    // Calculate the date up to which we should count transactions
+    // For current month, include transactions up to the 25th
+    const endDate = new Date(currentYear, currentMonth - 1, 25, 23, 59, 59);
+    
+    // Start from beginning of goal period (25th of month before start month)
+    let startYear = goalStartYear;
+    let startMonth = goalStartMonth - 1;
+    if (startMonth === 0) {
+      startMonth = 12;
+      startYear = goalStartYear - 1;
+    }
+    const startDate = new Date(startYear, startMonth - 1, 25, 0, 0, 0);
+    
+    // Filter transactions for this goal up to the appropriate date
     const goalTransactions = transactionsFromAPI.filter(transaction => {
+      const transactionDate = new Date(transaction.date);
+      const isInDateRange = transactionDate >= startDate && transactionDate <= endDate;
       const isSavingsType = transaction.type === 'Savings' || transaction.type === 'Sparande';
       const isLinkedToGoal = transaction.savingsTargetId === goal.id;
-      return isSavingsType && isLinkedToGoal;
+      const isCorrectAccount = transaction.accountId === goal.accountId;
+      return isInDateRange && isSavingsType && (isLinkedToGoal || isCorrectAccount);
     });
     
     const actualSaved = goalTransactions.reduce((total, transaction) => {
-      return total + Math.abs(transaction.amount / 100); // Convert to kronor
+      return total + (transaction.amount / 100); // Convert to kronor, keep sign
     }, 0);
+    
+    // Calculate total saved before current month (up to 25th of previous month)
+    let prevYear = currentYear;
+    let prevMonth = currentMonth - 1;
+    if (prevMonth === 0) {
+      prevMonth = 12;
+      prevYear = currentYear - 1;
+    }
+    const prevMonthEndDate = new Date(prevYear, prevMonth - 1, 25, 23, 59, 59);
+    
+    const savedBeforeCurrentMonth = goalTransactions
+      .filter(t => new Date(t.date) <= prevMonthEndDate)
+      .reduce((total, transaction) => {
+        return total + (transaction.amount / 100);
+      }, 0);
+    
+    // Calculate remaining amount and months
+    const remainingAmount = Math.max(0, goal.targetAmount - savedBeforeCurrentMonth);
+    
+    // Calculate remaining months (including current month)
+    let remainingMonths = 0;
+    let calcYear = currentYear;
+    let calcMonth = currentMonth;
+    
+    while (calcYear < goalEndYear || (calcYear === goalEndYear && calcMonth <= goalEndMonth)) {
+      remainingMonths++;
+      calcMonth++;
+      if (calcMonth > 12) {
+        calcMonth = 1;
+        calcYear++;
+      }
+    }
+    
+    // Calculate per month amount based on what's left to save
+    const perMonthAmount = remainingMonths > 0 ? remainingAmount / remainingMonths : 0;
     
     const progress = Math.min((actualSaved / goal.targetAmount) * 100, 100);
     
-    return { actualSaved, progress };
+    return { actualSaved, progress, perMonthAmount, remainingMonths };
   };
 
   // Get savings goals for an account based on current month and goal status
@@ -302,10 +404,32 @@ export function SavingsGoalsPage() {
       const openingBalance = getOpeningBalance(account.id); // in öre
       const actualSaved = calculateActualSaved(account.id, budgetState.selectedMonthKey); // in öre
       const currentCalculatedBalance = openingBalance + actualSaved; // in öre
-      const budgetedSavings = getBudgetedSavingsForAccount(account.id, budgetState.selectedMonthKey); // in öre (current month only, for display)
+      const savingsGoals = getSavingsGoalsForAccount(account.id, budgetState.selectedMonthKey);
+      
+      // Calculate this month's savings amount (sum of monthly amounts for all active goals)
+      const thisMonthSavings = savingsGoals.reduce((sum, goal) => {
+        const [startYear, startMonth] = goal.startDate.split('-').map(Number);
+        const [endYear, endMonth] = goal.endDate.split('-').map(Number);
+        
+        // Calculate total months and monthly amount
+        let totalMonths = 0;
+        let tempYear = startYear;
+        let tempMonth = startMonth;
+        while (tempYear < endYear || (tempYear === endYear && tempMonth <= endMonth)) {
+          totalMonths++;
+          tempMonth++;
+          if (tempMonth > 12) {
+            tempMonth = 1;
+            tempYear++;
+          }
+        }
+        
+        return sum + (goal.targetAmount / totalMonths * 100); // Convert to öre
+      }, 0);
+      
       const cumulativeSavings = getCumulativeSavingsForAccount(account.id, budgetState.selectedMonthKey, savingsGoalsFromSQL); // in öre (cumulative from start to current month)
       const available = currentCalculatedBalance - cumulativeSavings; // in öre (use cumulative for "Tillgängligt")
-      const savingsGoals = getSavingsGoalsForAccount(account.id, budgetState.selectedMonthKey);
+      const budgetedSavings = thisMonthSavings; // Use calculated monthly amount instead of budget posts
 
       console.log(`[ACCOUNT] ${account.name}: Balance=${currentCalculatedBalance/100} kr, Cumulative=${cumulativeSavings/100} kr, Available=${available/100} kr`);
 
@@ -320,7 +444,7 @@ export function SavingsGoalsPage() {
         savingsGoals
       };
     });
-  }, [accountsFromAPI, transactionsFromAPI, budgetPostsFromAPI, savingsGoalsFromSQL, budgetState.selectedMonthKey]);
+  }, [accountsFromAPI, transactionsFromAPI, budgetPostsFromAPI, allBudgetPostsFromAPI, savingsGoalsFromSQL, budgetState.selectedMonthKey]);
 
   const handleCreateGoal = async () => {
     if (!formData.huvudkategoriId || !formData.underkategoriId || !formData.name || !formData.accountId || !formData.targetAmount || 
@@ -368,7 +492,7 @@ export function SavingsGoalsPage() {
 
   const handleEditGoal = (goal: SavingsGoal) => {
     // Find the budget post associated with this savings goal
-    const budgetPost = budgetPostsFromAPI.find(post => post.id === goal.id && post.type === 'sparmål');
+    const budgetPost = allBudgetPostsFromAPI.find(post => post.id === goal.id && post.type === 'sparmål');
     
     setEditingGoal(goal);
     setFormData({
@@ -863,6 +987,114 @@ export function SavingsGoalsPage() {
         </Dialog>
       </div>
 
+        {/* Total Savings Summary */}
+        {(() => {
+          const totalCumulativeSavings = accountsData.reduce((sum, data) => sum + data.cumulativeSavings, 0);
+          if (totalCumulativeSavings > 0) {
+            return (
+              <Card className="mb-6 border-2 border-amber-200 dark:border-amber-800">
+                <CardHeader className="text-center pb-4">
+                  <div className="flex items-center justify-center gap-3 mb-2">
+                    <div className="p-3 bg-amber-100 dark:bg-amber-900/30 rounded-full">
+                      <Target className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+                    </div>
+                  </div>
+                  <CardTitle className="text-2xl font-bold text-amber-800 dark:text-amber-200">
+                    Totalt sparmålssammandrag
+                  </CardTitle>
+                  <CardDescription className="text-lg">
+                    Belopp som borde sparats t.o.m. {(() => {
+                      const monthNames = ['januari', 'februari', 'mars', 'april', 'maj', 'juni', 'juli', 'augusti', 'september', 'oktober', 'november', 'december'];
+                      const [year, month] = budgetState.selectedMonthKey.split('-');
+                      return `${monthNames[parseInt(month) - 1]} ${year}`;
+                    })()}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center mb-8">
+                    <div className="text-5xl font-bold text-amber-700 dark:text-amber-300 mb-2">
+                      {formatOrenAsCurrency(totalCumulativeSavings)}
+                    </div>
+                    <div className="text-lg text-muted-foreground">
+                      Totalt ackumulerat sparmål
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    {accountsData.filter(data => data.cumulativeSavings > 0).map(({ account, savingsGoals }) => (
+                      <div key={account.id} className="bg-amber-50 dark:bg-amber-900/10 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Wallet className="h-5 w-5 text-amber-600" />
+                          <h3 className="font-semibold text-lg text-amber-800 dark:text-amber-200">
+                            {account.name}
+                          </h3>
+                        </div>
+                        <div className="space-y-3">
+                          {savingsGoals.map(goal => {
+                            const [startYear, startMonth] = goal.startDate.split('-').map(Number);
+                            const [endYear, endMonth] = goal.endDate.split('-').map(Number);
+                            const [currentYear, currentMonth] = budgetState.selectedMonthKey.split('-').map(Number);
+                            
+                            // Calculate total months and monthly amount
+                            let totalMonths = 0;
+                            let tempYear = startYear;
+                            let tempMonth = startMonth;
+                            while (tempYear < endYear || (tempYear === endYear && tempMonth <= endMonth)) {
+                              totalMonths++;
+                              tempMonth++;
+                              if (tempMonth > 12) {
+                                tempMonth = 1;
+                                tempYear++;
+                              }
+                            }
+                            const monthlyAmount = goal.targetAmount / totalMonths;
+                            
+                            // Calculate elapsed months
+                            let monthsElapsed = 0;
+                            let year = startYear;
+                            let month = startMonth;
+                            while (year < currentYear || (year === currentYear && month <= currentMonth)) {
+                              if (year > endYear || (year === endYear && month > endMonth)) break;
+                              monthsElapsed++;
+                              month++;
+                              if (month > 12) {
+                                month = 1;
+                                year++;
+                              }
+                            }
+                            
+                            const shouldHaveSaved = monthsElapsed * monthlyAmount;
+                            
+                            return (
+                              <div key={goal.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-md border border-amber-200 dark:border-amber-700">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                                    {goal.name}
+                                  </span>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-lg font-bold text-amber-700 dark:text-amber-300">
+                                    {formatOrenAsCurrency(shouldHaveSaved * 100)}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {monthlyAmount.toFixed(0)} kr/mån × {monthsElapsed} mån
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+          return null;
+        })()}
+
         {/* Account-based savings overview */}
         <div className="space-y-6">
           {accountsData.map(({ account, openingBalance, actualSaved, currentCalculatedBalance, budgetedSavings, cumulativeSavings, available, savingsGoals }) => (
@@ -901,11 +1133,22 @@ export function SavingsGoalsPage() {
                   </div>
                   
                   <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <div className="text-2xl font-bold text-green-700 dark:text-green-300 flex items-center justify-center gap-1">
-                      {actualSaved >= 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
-                      {formatOrenAsCurrency(Math.abs(actualSaved))}
-                    </div>
-                    <div className="text-sm text-muted-foreground mt-1">Faktiskt Sparat</div>
+                    <Button
+                      variant="ghost"
+                      className="p-0 h-auto w-full hover:bg-transparent"
+                      onClick={() => {
+                        setSelectedAccountForTransactions(account.id);
+                        setShowAccountTransactionsDialog(true);
+                      }}
+                    >
+                      <div>
+                        <div className="text-2xl font-bold text-green-700 dark:text-green-300 flex items-center justify-center gap-1">
+                          {actualSaved >= 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                          {formatOrenAsCurrency(Math.abs(actualSaved))}
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1 hover:underline">Faktiskt Sparat</div>
+                      </div>
+                    </Button>
                   </div>
                   
                   <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
@@ -933,11 +1176,49 @@ export function SavingsGoalsPage() {
                     <div className="text-lg font-bold text-amber-700 dark:text-amber-300">
                       {formatOrenAsCurrency(cumulativeSavings)}
                     </div>
-                    {budgetedSavings > 0 && (
-                      <div className="text-sm text-amber-600 dark:text-amber-400 mt-2">
-                        Denna månad: {formatOrenAsCurrency(budgetedSavings)}
-                      </div>
-                    )}
+                    <div className="space-y-1 mt-2">
+                      {savingsGoals.map(goal => {
+                        const [startYear, startMonth] = goal.startDate.split('-').map(Number);
+                        const [endYear, endMonth] = goal.endDate.split('-').map(Number);
+                        const [currentYear, currentMonth] = budgetState.selectedMonthKey.split('-').map(Number);
+                        
+                        // Calculate total months and monthly amount
+                        let totalMonths = 0;
+                        let tempYear = startYear;
+                        let tempMonth = startMonth;
+                        while (tempYear < endYear || (tempYear === endYear && tempMonth <= endMonth)) {
+                          totalMonths++;
+                          tempMonth++;
+                          if (tempMonth > 12) {
+                            tempMonth = 1;
+                            tempYear++;
+                          }
+                        }
+                        const monthlyAmount = goal.targetAmount / totalMonths;
+                        
+                        // Calculate elapsed months
+                        let monthsElapsed = 0;
+                        let year = startYear;
+                        let month = startMonth;
+                        while (year < currentYear || (year === currentYear && month <= currentMonth)) {
+                          if (year > endYear || (year === endYear && month > endMonth)) break;
+                          monthsElapsed++;
+                          month++;
+                          if (month > 12) {
+                            month = 1;
+                            year++;
+                          }
+                        }
+                        
+                        const shouldHaveSaved = monthsElapsed * monthlyAmount;
+                        
+                        return (
+                          <div key={goal.id} className="text-xs text-amber-600 dark:text-amber-400">
+                            {goal.name}: {formatOrenAsCurrency(shouldHaveSaved * 100)} ({monthlyAmount.toFixed(0)} kr/mån × {monthsElapsed} mån)
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
                 
@@ -958,8 +1239,7 @@ export function SavingsGoalsPage() {
                     
                     <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
                       {savingsGoals.map(goal => {
-                        const { actualSaved, progress } = calculateGoalProgress(goal);
-                        const monthlyAmount = calculateMonthlyAmount(goal);
+                        const { actualSaved, progress, perMonthAmount, remainingMonths } = calculateGoalProgress(goal);
                         const remainingAmount = Math.max(0, goal.targetAmount - actualSaved);
                         const isCompleted = goal.status === 'completed';
                         
@@ -1044,8 +1324,19 @@ export function SavingsGoalsPage() {
                                 </div>
                                 <Progress value={progress} className="h-2" />
                                 <div className="flex justify-between text-sm text-muted-foreground">
-                                  <span>{actualSaved.toLocaleString('sv-SE')} kr sparat</span>
-                                  <span>{remainingAmount.toLocaleString('sv-SE')} kr kvar</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="p-0 h-auto font-normal text-muted-foreground hover:text-primary underline-offset-2 hover:underline"
+                                    onClick={() => {
+                                      setSelectedGoalForTransactions(goal);
+                                      setShowTransactionsDialog(true);
+                                    }}
+                                  >
+                                    <Receipt className="h-3 w-3 mr-1" />
+                                    {actualSaved.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr sparat
+                                  </Button>
+                                  <span>{remainingAmount.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr kvar</span>
                                 </div>
                               </div>
                               
@@ -1053,9 +1344,9 @@ export function SavingsGoalsPage() {
                               <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                                 <div className="flex items-center justify-center gap-1 text-xl font-bold text-blue-700 dark:text-blue-300">
                                   <TrendingUp className="h-4 w-4" />
-                                  {monthlyAmount.toLocaleString('sv-SE')} kr
+                                  {perMonthAmount.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
                                 </div>
-                                <div className="text-xs text-muted-foreground mt-1">per månad</div>
+                                <div className="text-xs text-muted-foreground mt-1">per månad ({remainingMonths} månader kvar)</div>
                               </div>
                               
                               {/* Completion Status */}
@@ -1115,6 +1406,205 @@ export function SavingsGoalsPage() {
           )}
         </div>
       </div>
+
+      {/* Goal Transactions Dialog */}
+      <Dialog open={showTransactionsDialog} onOpenChange={setShowTransactionsDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Transaktioner för {selectedGoalForTransactions?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Visar alla spartransaktioner för detta mål upp till den 25:e denna månad
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            {selectedGoalForTransactions && (() => {
+              const currentMonthKey = budgetState.selectedMonthKey;
+              const [currentYear, currentMonth] = currentMonthKey.split('-').map(Number);
+              const [goalStartYear, goalStartMonth] = selectedGoalForTransactions.startDate.split('-').map(Number);
+              
+              // Calculate the date up to which we should show transactions
+              const endDate = new Date(currentYear, currentMonth - 1, 25, 23, 59, 59);
+              
+              // Start from beginning of goal period (25th of month before start month)
+              let startYear = goalStartYear;
+              let startMonth = goalStartMonth - 1;
+              if (startMonth === 0) {
+                startMonth = 12;
+                startYear = goalStartYear - 1;
+              }
+              const startDate = new Date(startYear, startMonth - 1, 25, 0, 0, 0);
+              
+              // Filter transactions for this goal
+              const goalTransactions = transactionsFromAPI.filter(transaction => {
+                const transactionDate = new Date(transaction.date);
+                const isInDateRange = transactionDate >= startDate && transactionDate <= endDate;
+                const isSavingsType = transaction.type === 'Savings' || transaction.type === 'Sparande';
+                const isCorrectAccount = transaction.accountId === selectedGoalForTransactions.accountId;
+                const isLinkedToGoal = transaction.savingsTargetId === selectedGoalForTransactions.id;
+                return isInDateRange && isSavingsType && isCorrectAccount;
+              }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+              
+              const totalSaved = goalTransactions.reduce((sum, t) => sum + (t.amount / 100), 0);
+              
+              return (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center p-4 bg-muted rounded-lg">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Period</p>
+                      <p className="font-medium">
+                        {startDate.toLocaleDateString('sv-SE')} - {endDate.toLocaleDateString('sv-SE')}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Totalt sparat</p>
+                      <p className="text-xl font-bold">
+                        {totalSaved.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {goalTransactions.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-4 gap-2 pb-2 border-b text-sm font-medium text-muted-foreground">
+                        <div>Datum</div>
+                        <div>Beskrivning</div>
+                        <div className="text-right">Belopp</div>
+                        <div>Kategori</div>
+                      </div>
+                      {goalTransactions.map((transaction) => {
+                        const huvudkategori = huvudkategorier.find(h => h.id === transaction.huvudkategoriId);
+                        const underkategori = underkategorier.find(u => u.id === transaction.underkategoriId);
+                        
+                        return (
+                          <div key={transaction.id} className="grid grid-cols-4 gap-2 py-2 hover:bg-muted/50 rounded">
+                            <div className="text-sm">
+                              {new Date(transaction.date).toLocaleDateString('sv-SE')}
+                            </div>
+                            <div className="text-sm truncate" title={transaction.description}>
+                              {transaction.description}
+                            </div>
+                            <div className={`text-sm text-right font-medium ${
+                              transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {transaction.amount >= 0 ? '+' : ''}
+                              {(transaction.amount / 100).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {huvudkategori?.name || ''}
+                              {underkategori && ` / ${underkategori.name}`}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Wallet className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>Inga transaktioner hittades för denna period</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowTransactionsDialog(false)}>Stäng</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Account Transactions Dialog */}
+      <Dialog open={showAccountTransactionsDialog} onOpenChange={setShowAccountTransactionsDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Spartransaktioner för {accountsFromAPI.find(a => a.id === selectedAccountForTransactions)?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Visar alla spartransaktioner för kontot mellan den 25:e förra månaden och 25:e denna månad
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            {selectedAccountForTransactions && (() => {
+              const { startDate, endDate } = getPaydayDateRange(budgetState.selectedMonthKey);
+              
+              // Filter transactions for this account
+              const accountTransactions = transactionsFromAPI.filter(transaction => {
+                const transactionDate = new Date(transaction.date);
+                const isInDateRange = transactionDate >= startDate && transactionDate < endDate;
+                const isCorrectAccount = transaction.accountId === selectedAccountForTransactions;
+                const isSavingsType = transaction.type === 'Sparande' || transaction.type === 'Savings';
+                return isCorrectAccount && isInDateRange && isSavingsType;
+              }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+              
+              const totalSaved = accountTransactions.reduce((sum, t) => sum + (t.amount / 100), 0);
+              
+              return (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center p-4 bg-muted rounded-lg">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Period (lönedag till lönedag)</p>
+                      <p className="font-medium">
+                        {startDate.toLocaleDateString('sv-SE')} - {new Date(endDate.getTime() - 1).toLocaleDateString('sv-SE')}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Faktiskt sparat</p>
+                      <p className="text-xl font-bold">
+                        {totalSaved.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {accountTransactions.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-4 gap-2 pb-2 border-b text-sm font-medium text-muted-foreground">
+                        <div>Datum</div>
+                        <div>Beskrivning</div>
+                        <div className="text-right">Belopp</div>
+                        <div>Sparmål</div>
+                      </div>
+                      {accountTransactions.map((transaction) => {
+                        const linkedGoal = savingsGoalsFromSQL.find(g => g.id === transaction.savingsTargetId);
+                        
+                        return (
+                          <div key={transaction.id} className="grid grid-cols-4 gap-2 py-2 hover:bg-muted/50 rounded">
+                            <div className="text-sm">
+                              {new Date(transaction.date).toLocaleDateString('sv-SE')}
+                            </div>
+                            <div className="text-sm truncate" title={transaction.description}>
+                              {transaction.description}
+                            </div>
+                            <div className={`text-sm text-right font-medium ${
+                              transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {transaction.amount >= 0 ? '+' : ''}
+                              {(transaction.amount / 100).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {linkedGoal ? linkedGoal.name : 'Allmänt sparande'}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Wallet className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>Inga spartransaktioner hittades för denna period</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowAccountTransactionsDialog(false)}>Stäng</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

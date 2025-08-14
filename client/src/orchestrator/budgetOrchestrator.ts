@@ -500,7 +500,7 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
     addMobileDebugLog(`📅 Found ${existingForAccount.length} existing transactions for account`);
   }
   
-  // 4. Remove ONLY transactions within the exact date range for this account
+  // 4. ENHANCED: Remove transactions within date range and perform aggressive duplicate cleanup
   let keepCount = 0;
   let removeCount = 0;
   const transactionsToKeep = allSavedTransactions.filter(t => {
@@ -509,7 +509,7 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
     // Normalize existing transaction date to YYYY-MM-DD format
     const existingDateStr = t.date.split('T')[0];
     
-    // FIXED: Only remove if date is WITHIN the new file's range (inclusive)
+    // ENHANCED: Only remove if date is WITHIN the new file's range (inclusive)
     const isInFileRange = existingDateStr >= minDateStr && existingDateStr <= maxDateStr;
     
     if (!isLargeFile) {
@@ -528,6 +528,25 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
     }
     
     return !isInFileRange; // Keep transactions OUTSIDE the file's date range
+  });
+  
+  // ENHANCED: Additional duplicate detection across time variations
+  console.log(`[ORCHESTRATOR] 🧹 Enhanced duplicate detection: checking for time-based duplicates...`);
+  const enhancedDeduplication = new Map<string, ImportedTransaction>();
+  allSavedTransactions.forEach(t => {
+    const fingerprint = createTransactionFingerprint(t);
+    const existing = enhancedDeduplication.get(fingerprint);
+    
+    if (existing) {
+      // Keep the transaction with the most manual changes or most recent
+      const betterTransaction = (existing.isManuallyChanged && !t.isManuallyChanged) ? existing :
+                               (!existing.isManuallyChanged && t.isManuallyChanged) ? t :
+                               new Date(existing.date) > new Date(t.date) ? existing : t;
+      enhancedDeduplication.set(fingerprint, betterTransaction);
+      console.log(`[ORCHESTRATOR] 🔧 Resolved time-based duplicate: ${fingerprint}`);
+    } else {
+      enhancedDeduplication.set(fingerprint, t);
+    }
   });
   
   // 5. Create map of existing transactions for smart merge with enhanced duplicate detection
@@ -579,9 +598,9 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
   
   // Filter out resolved duplicates from transactionsToKeep
   const originalKeepCount = transactionsToKeep.length;
-  transactionsToKeep = transactionsToKeep.filter(t => !resolvedTransactionIds.has(t.id));
+  let filteredTransactionsToKeep = transactionsToKeep.filter(t => !resolvedTransactionIds.has(t.id));
   
-  console.log(`[ORCHESTRATOR] 🧹 Kept ${transactionsToKeep.length} transactions (removed ${originalKeepCount - transactionsToKeep.length} duplicates), removing ${allSavedTransactions.length - originalKeepCount} within date range, resolved ${duplicateGroups.size} duplicate groups`);
+  console.log(`[ORCHESTRATOR] 🧹 Kept ${filteredTransactionsToKeep.length} transactions (removed ${originalKeepCount - filteredTransactionsToKeep.length} duplicates), removing ${allSavedTransactions.length - originalKeepCount} within date range, resolved ${duplicateGroups.size} duplicate groups`);
   
   // 6. Intelligent merge with SAME rule logic as manual "Applicera regler på filtrerade transaktioner"
   const mergedTransactions = await Promise.all((transactionsFromFile || []).map(async (fileTx) => {
@@ -624,7 +643,7 @@ export async function importAndReconcileFile(csvContent: string, accountId: stri
   }));
   
   // 7. Combine cleaned list with new merged transactions
-  const finalTransactionList = [...transactionsToKeep, ...mergedTransactions];
+  const finalTransactionList = [...filteredTransactionsToKeep, ...mergedTransactions];
   
   // Debug: Count April transactions in final list
   const aprilTransactions = finalTransactionList.filter(t => t.date.startsWith('2025-04'));
@@ -1589,9 +1608,30 @@ function reconcileTransactions(
 }
 
 function createTransactionFingerprint(transaction: { date: string; description: string; amount: number; accountId?: string }): string {
-  // Use only the date part (YYYY-MM-DD) to avoid time-based duplicates
-  const dateOnly = transaction.date.substring(0, 10); // Extract YYYY-MM-DD from YYYY-MM-DDTHH:mm:ss.sssZ
-  return `${transaction.accountId || ''}_${dateOnly}_${transaction.description.trim().toLowerCase()}_${transaction.amount}`;
+  // CRITICAL FIX: Extract date and completely ignore time component
+  let dateOnly: string;
+  
+  if (transaction.date.includes('T')) {
+    // ISO format: 2025-07-15T12:00:00.000Z -> 2025-07-15
+    dateOnly = transaction.date.split('T')[0];
+  } else if (transaction.date.includes(' ')) {
+    // Space format: 2025-07-15 12:00:00 -> 2025-07-15
+    dateOnly = transaction.date.split(' ')[0];
+  } else {
+    // Already in YYYY-MM-DD format
+    dateOnly = transaction.date.substring(0, 10);
+  }
+  
+  // Normalize description: trim, lowercase, and remove extra spaces
+  const normalizedDescription = transaction.description.trim().toLowerCase().replace(/\s+/g, ' ');
+  
+  // Round amount to avoid floating point precision issues  
+  const normalizedAmount = Math.round(transaction.amount * 100) / 100;
+  
+  const fingerprint = `${transaction.accountId || ''}_${dateOnly}_${normalizedDescription}_${normalizedAmount}`;
+  
+  console.log(`[CLIENT FINGERPRINT] Created: ${fingerprint} from date: ${transaction.date} -> ${dateOnly}`);
+  return fingerprint;
 }
 
 /**
@@ -1599,8 +1639,12 @@ function createTransactionFingerprint(transaction: { date: string; description: 
  * This function identifies and removes duplicate transactions based on the same fingerprint logic
  * used during imports, keeping the best version of each duplicate group.
  */
+/**
+ * Enhanced duplicate transaction cleanup with improved detection
+ * Now includes better normalization and handles time-based duplicates (12:00 vs 00:00)
+ */
 export async function cleanupDuplicateTransactions(): Promise<{removed: number; kept: number}> {
-  console.log('[CLEANUP] 🧹 Starting duplicate transaction cleanup...');
+  console.log('[CLEANUP] 🧹 Starting ENHANCED duplicate transaction cleanup...');
   
   try {
     // Fetch all transactions from the API
@@ -1694,6 +1738,112 @@ export async function cleanupDuplicateTransactions(): Promise<{removed: number; 
     
   } catch (error) {
     console.error('[CLEANUP] ❌ Error during cleanup:', error);
+    throw error;
+  }
+}
+
+/**
+ * COMPREHENSIVE duplicate cleanup specifically for the user's requirements
+ * Removes duplicates based on date, description, and amount - handles time differences (12:00 vs 00:00)
+ */
+export async function comprehensiveDuplicateCleanup(): Promise<{removed: number; kept: number; summary: string[]}> {
+  console.log('[COMPREHENSIVE] 🧹 Starting comprehensive duplicate cleanup for CSV import issues...');
+  
+  const summary: string[] = [];
+  let totalRemoved = 0;
+  
+  try {
+    // First run the standard cleanup
+    console.log('[COMPREHENSIVE] Step 1: Running standard duplicate cleanup...');
+    const standardResult = await cleanupDuplicateTransactions();
+    totalRemoved += standardResult.removed;
+    summary.push(`Standard cleanup: removed ${standardResult.removed} duplicates`);
+    
+    // Now do additional comprehensive cleanup for CSV-specific issues
+    console.log('[COMPREHENSIVE] Step 2: Checking for CSV import-specific duplicates...');
+    
+    const response = await fetch('/api/transactions');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch transactions: ${response.status}`);
+    }
+    
+    const allTransactions = await response.json();
+    console.log(`[COMPREHENSIVE] Analyzing ${allTransactions.length} transactions for advanced duplicates...`);
+    
+    // Group by enhanced fingerprint
+    const fingerprintGroups = new Map<string, any[]>();
+    allTransactions.forEach((tx: any) => {
+      const fingerprint = createTransactionFingerprint(tx);
+      if (!fingerprintGroups.has(fingerprint)) {
+        fingerprintGroups.set(fingerprint, []);
+      }
+      fingerprintGroups.get(fingerprint)!.push(tx);
+    });
+    
+    // Find and resolve complex duplicates
+    let complexDuplicatesRemoved = 0;
+    for (const [fingerprint, transactions] of fingerprintGroups) {
+      if (transactions.length > 1) {
+        console.log(`[COMPREHENSIVE] 🔧 Processing ${transactions.length} complex duplicates: ${fingerprint}`);
+        
+        // Sort by preference: manually changed > more categories > more recent
+        const bestTransaction = transactions.reduce((best, current) => {
+          // Prefer manually changed
+          if (current.isManuallyChanged && !best.isManuallyChanged) return current;
+          if (!current.isManuallyChanged && best.isManuallyChanged) return best;
+          
+          // Prefer transactions with more app categories
+          const currentCategories = (current.appCategoryId ? 1 : 0) + (current.appSubCategoryId ? 1 : 0);
+          const bestCategories = (best.appCategoryId ? 1 : 0) + (best.appSubCategoryId ? 1 : 0);
+          if (currentCategories > bestCategories) return current;
+          if (currentCategories < bestCategories) return best;
+          
+          // Prefer more recent
+          return new Date(current.date || current.createdAt) > new Date(best.date || best.createdAt) ? current : best;
+        });
+        
+        // Remove all others
+        const toRemove = transactions.filter(tx => tx.id !== bestTransaction.id);
+        for (const txToRemove of toRemove) {
+          try {
+            const deleteResponse = await fetch(`/api/transactions/${txToRemove.id}`, {
+              method: 'DELETE'
+            });
+            
+            if (deleteResponse.ok) {
+              complexDuplicatesRemoved++;
+              console.log(`[COMPREHENSIVE] ✅ Removed complex duplicate: ${txToRemove.id}`);
+            } else {
+              console.error(`[COMPREHENSIVE] ❌ Failed to remove duplicate ${txToRemove.id}: ${deleteResponse.status}`);
+            }
+          } catch (error) {
+            console.error(`[COMPREHENSIVE] ❌ Error removing duplicate ${txToRemove.id}:`, error);
+          }
+        }
+      }
+    }
+    
+    totalRemoved += complexDuplicatesRemoved;
+    summary.push(`Advanced cleanup: removed ${complexDuplicatesRemoved} complex duplicates`);
+    
+    const finalCount = allTransactions.length - totalRemoved;
+    summary.push(`Final result: ${finalCount} transactions remaining`);
+    
+    console.log(`[COMPREHENSIVE] 🎉 Comprehensive cleanup complete!`);
+    summary.forEach(line => console.log(`[COMPREHENSIVE] ${line}`));
+    
+    // Trigger UI refresh
+    triggerUIRefresh();
+    
+    return { 
+      removed: totalRemoved, 
+      kept: finalCount, 
+      summary 
+    };
+    
+  } catch (error) {
+    console.error('[COMPREHENSIVE] ❌ Error during comprehensive cleanup:', error);
+    summary.push(`Error: ${error}`);
     throw error;
   }
 }
@@ -1803,13 +1953,22 @@ export async function forceReloadTransactions(): Promise<void> {
 
     // Convert and store transactions
     const convertedTransactions = (dbTransactions || []).map((tx, index) => {
-      // CRITICAL DEBUG: Log what we're converting for first few transactions
-      if (index < 3) {
-        console.log(`[ORCHESTRATOR] FORCE RELOAD DEBUG ${index}:`);
+      // CRITICAL DEBUG: Log what we're converting for first few transactions OR transactions with linking
+      const hasLinkedData = tx.linkedCostId || (tx as any).linked_cost_id || 
+                           tx.linkedTransactionId || (tx as any).linked_transaction_id || 
+                           tx.savingsTargetId || (tx as any).savings_target_id ||
+                           tx.correctedAmount !== null || (tx as any).corrected_amount !== null;
+      if (index < 3 || hasLinkedData) {
+        console.log(`[ORCHESTRATOR] FORCE RELOAD DEBUG ${index} (${tx.type}) - HAS LINKS: ${hasLinkedData}:`);
         console.log(`  - TX ID: ${tx.id}`);
+        console.log(`  - TX type: ${tx.type}`);
         console.log(`  - TX amount from DB: ${tx.amount} (type: ${typeof tx.amount})`);
         console.log(`  - TX description: "${tx.description}"`);
+        console.log(`  - TX linkedCostId: ${tx.linkedCostId} / ${(tx as any).linked_cost_id}`);
+        console.log(`  - TX linkedTransactionId: ${tx.linkedTransactionId} / ${(tx as any).linked_transaction_id}`);
+        console.log(`  - TX correctedAmount: ${tx.correctedAmount} / ${(tx as any).corrected_amount}`);
         console.log(`  - TX savingsTargetId: ${tx.savingsTargetId} / ${(tx as any).savings_target_id}`);
+        console.log(`  - All TX keys:`, Object.keys(tx));
       }
       
       const converted = {
@@ -1822,12 +1981,14 @@ export async function forceReloadTransactions(): Promise<void> {
         userDescription: tx.userDescription || '',
         type: tx.type || 'Transaction',
         status: tx.status || 'red',
-        linkedTransactionId: tx.linkedTransactionId,
-        savingsTargetId: tx.savingsTargetId || tx.savings_target_id, // CRITICAL FIX: Include savingsTargetId field (handle both field names)
-        correctedAmount: tx.correctedAmount,
+        linkedTransactionId: tx.linkedTransactionId || (tx as any).linked_transaction_id,
+        linkedCostId: tx.linkedCostId || (tx as any).linked_cost_id, // CRITICAL FIX: Handle snake_case
+        savingsTargetId: tx.savingsTargetId || (tx as any).savings_target_id, // CRITICAL FIX: Include savingsTargetId field (handle both field names)
+        incomeTargetId: tx.incomeTargetId || (tx as any).income_target_id, // Handle snake_case
+        correctedAmount: tx.correctedAmount ?? (tx as any).corrected_amount ?? null, // Handle snake_case and null values
         isManuallyChanged: tx.isManuallyChanged === 'true',
-        appCategoryId: tx.appCategoryId,
-        appSubCategoryId: tx.appSubCategoryId,
+        appCategoryId: tx.appCategoryId || (tx as any).app_category_id,
+        appSubCategoryId: tx.appSubCategoryId || (tx as any).app_sub_category_id,
         bankCategory: tx.bankCategory || '',
         bankSubCategory: tx.bankSubCategory || '',
         createdAt: tx.createdAt || new Date().toISOString(),
@@ -1876,30 +2037,29 @@ export async function forceReloadTransactions(): Promise<void> {
   }
 }
 
+// Throttle initialization calls to prevent infinite loops
+let lastInitTime = 0;
+const INIT_THROTTLE_MS = 5000; // Only allow initialization every 5 seconds
+
 // Initialize the application
 export async function initializeApp(): Promise<void> {
+  const now = Date.now();
+  const shouldSkip = now - lastInitTime < INIT_THROTTLE_MS;
+  
+  if (isInitialized && shouldSkip) {
+    // Skip frequent repeated calls - app already initialized recently
+    return;
+  }
+  
+  lastInitTime = now;
   console.log('[BudgetOrchestrator] 🚀 initializeApp() called!');
-  addMobileDebugLog('[ORCHESTRATOR] 🚀 initializeApp() called!');
   
   if (isInitialized) {
-    console.log('[BudgetOrchestrator] ⚠️ App already initialized - but checking transactions...');
-    
-    // CRITICAL DEBUG: Check if transactions exist in state after initialization
+    // Only check transactions once every few seconds to prevent loops
     const currentTxCount = state?.budgetState?.allTransactions?.length || 0;
-    console.log(`[BudgetOrchestrator] 📊 Current transaction count in state: ${currentTxCount}`);
     if (currentTxCount === 0) {
       console.log('[BudgetOrchestrator] 🔄 No transactions found, forcing reload...');
       await forceReloadTransactions();
-    }
-    addMobileDebugLog('[ORCHESTRATOR] ⚠️ App already initialized - but checking transactions...');
-    
-    // Even if initialized, always ensure transactions are loaded
-    console.log(`🔍 [ORCHESTRATOR] Current transactions in state: ${state.budgetState.allTransactions.length}`);
-    if (state.budgetState.allTransactions.length === 0) {
-      console.log('⚠️ [ORCHESTRATOR] No transactions in state, force loading...');
-      await forceReloadTransactions();
-    } else {
-      console.log(`✅ [ORCHESTRATOR] Found ${state.budgetState.allTransactions.length} transactions in state`);
     }
     return;
   }
@@ -3320,12 +3480,14 @@ async function loadTransactionsFromDatabase(): Promise<void> {
       userDescription: tx.userDescription || '',
       type: tx.type || 'Transaction',
       status: tx.status || 'red',
-      linkedTransactionId: tx.linkedTransactionId,
-      savingsTargetId: tx.savingsTargetId || tx.savings_target_id, // Handle both camelCase and snake_case from database
-      correctedAmount: tx.correctedAmount,
+      linkedTransactionId: tx.linkedTransactionId || (tx as any).linked_transaction_id,
+      linkedCostId: tx.linkedCostId || (tx as any).linked_cost_id, // Handle snake_case
+      savingsTargetId: tx.savingsTargetId || (tx as any).savings_target_id, // Handle both camelCase and snake_case from database
+      incomeTargetId: tx.incomeTargetId || (tx as any).income_target_id, // Handle snake_case
+      correctedAmount: tx.correctedAmount ?? (tx as any).corrected_amount ?? null, // Handle snake_case and null values
       isManuallyChanged: tx.isManuallyChanged === 'true',
-      appCategoryId: tx.appCategoryId,
-      appSubCategoryId: tx.appSubCategoryId,
+      appCategoryId: tx.appCategoryId || (tx as any).app_category_id,
+      appSubCategoryId: tx.appSubCategoryId || (tx as any).app_sub_category_id,
       bankCategory: tx.bankCategory || '',
       bankSubCategory: tx.bankSubCategory || '',
       createdAt: tx.createdAt || new Date().toISOString(),

@@ -49,6 +49,8 @@ export const IncomeLinkDialog: React.FC<IncomeLinkDialogProps> = ({
   );
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [showAllMonths, setShowAllMonths] = useState(false);
+  const [allMonthsTransactions, setAllMonthsTransactions] = useState<Transaction[]>([]);
+  const [isLoadingAllMonths, setIsLoadingAllMonths] = useState(false);
 
   // Fetch accounts data for name lookup
   const { data: accounts = [] } = useAccounts();
@@ -60,9 +62,80 @@ export const IncomeLinkDialog: React.FC<IncomeLinkDialogProps> = ({
     return account?.name || `Konto: ${accountId}`;
   };
 
+  // Fetch all unlinked income transactions when "show all months" is checked
+  const fetchAllMonthsTransactions = async () => {
+    if (isLoadingAllMonths) return;
+    
+    setIsLoadingAllMonths(true);
+    try {
+      console.log('🔍 [ALL MONTHS] Fetching all unlinked income transactions...');
+      addMobileDebugLog('🔍 Fetching all unlinked income transactions...');
+      
+      // Fetch ALL transactions from server (no date filter)
+      const response = await fetch('/api/transactions');
+      const allTransactions = await response.json();
+      
+      // Filter to only unlinked income transactions
+      const unlinkedIncomeTransactions = allTransactions
+        .filter((t: any) => {
+          // Must be positive amount and income type
+          if (t.amount <= 0) return false;
+          if (t.type !== 'Inkomst' && t.type !== 'Income') return false;
+          // Must not be linked to any income target
+          if (t.incomeTargetId) return false;
+          return true;
+        })
+        .map((t: any) => ({ 
+          ...t, 
+          date: t.date instanceof Date ? t.date.toISOString().split('T')[0] : t.date
+        }));
+      
+      console.log(`🔍 [ALL MONTHS] Found ${unlinkedIncomeTransactions.length} unlinked income transactions`);
+      addMobileDebugLog(`🔍 Found ${unlinkedIncomeTransactions.length} unlinked income transactions`);
+      
+      setAllMonthsTransactions(unlinkedIncomeTransactions);
+    } catch (error) {
+      console.error('Failed to fetch all months transactions:', error);
+      addMobileDebugLog(`❌ Failed to fetch all months transactions: ${error}`);
+      setAllMonthsTransactions([]);
+    } finally {
+      setIsLoadingAllMonths(false);
+    }
+  };
+
+  // Handle show all months checkbox change
+  const handleShowAllMonthsChange = (checked: boolean) => {
+    setShowAllMonths(checked);
+    if (checked) {
+      fetchAllMonthsTransactions();
+    }
+  };
+
   // Calculate date range for the month based on payday (25th)
   const { startDate, endDate } = useMemo(() => {
-    const [year, month] = monthKey.split('-').map(Number);
+    // Validate monthKey format
+    if (!monthKey || !monthKey.includes('-')) {
+      console.error('Invalid monthKey format:', monthKey);
+      const now = new Date();
+      return { startDate: now, endDate: now };
+    }
+    
+    const parts = monthKey.split('-');
+    if (parts.length !== 2) {
+      console.error('Invalid monthKey format:', monthKey);
+      const now = new Date();
+      return { startDate: now, endDate: now };
+    }
+    
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10);
+    
+    // Validate parsed values
+    if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+      console.error('Invalid year or month in monthKey:', monthKey);
+      const now = new Date();
+      return { startDate: now, endDate: now };
+    }
     
     // Calculate the payday period for this month with 6-day buffer for early payments
     // The income for a month comes between 6 days before the 25th of previous month and the 24th of current month
@@ -82,17 +155,31 @@ export const IncomeLinkDialog: React.FC<IncomeLinkDialogProps> = ({
     const start = new Date(paydayStart);
     start.setDate(paydayStart.getDate() - 6); // 6 days before payday
     
-    // End date: 24th of current month at END of day (actually start of 25th)
-    // We use the start of the 25th to ensure all transactions on the 24th are included
-    const end = new Date(year, month - 1, 25, 0, 0, 0); // This is 25th at 00:00:00
+    // End date: 25th of current month at END of day to ensure we catch all transactions
+    // This ensures transactions on the 24th (and even early 25th) are included
+    const end = new Date(year, month - 1, 25, 23, 59, 59); // This is 25th at 23:59:59
     
     return { startDate: start, endDate: end };
   }, [monthKey]);
 
   // Filter for positive transactions with type = 'Inkomst' within the month period or all months
   const incomeTransactions = useMemo(() => {
-    // Count transactions at each filter stage
-    const positiveTransactions = transactions.filter(t => t.amount > 0);
+    try {
+      // If showing all months, use the all months transactions data
+      if (showAllMonths) {
+        if (allMonthsTransactions.length === 0 && !isLoadingAllMonths) {
+          return [];
+        }
+        return allMonthsTransactions; // These are already filtered to unlinked income transactions
+      }
+
+      // Early return if no transactions for current month
+      if (!transactions || transactions.length === 0) {
+        return [];
+      }
+
+      // Count transactions at each filter stage
+      const positiveTransactions = transactions.filter(t => t.amount > 0);
     const incomeTypeTransactions = positiveTransactions.filter(t => 
       (t.type as string) === 'Inkomst' || (t.type as string) === 'Income'
     );
@@ -121,8 +208,12 @@ export const IncomeLinkDialog: React.FC<IncomeLinkDialogProps> = ({
     if (showAllMonths) {
       addMobileDebugLog(`- Showing ALL months (no date filtering)`);
     } else {
-      addMobileDebugLog(`- Date range (6 days early): ${format(startDate, 'yyyy-MM-dd')} to ${format(new Date(endDate.getTime() - 1), 'yyyy-MM-dd')}`);
-      addMobileDebugLog(`- Covers early salary payments (weekends/holidays)`);
+      try {
+        addMobileDebugLog(`- Date range (6 days early): ${format(startDate, 'yyyy-MM-dd')} to ${format(new Date(endDate.getTime() - 1), 'yyyy-MM-dd')}`);
+        addMobileDebugLog(`- Covers early salary payments (weekends/holidays)`);
+      } catch (e) {
+        addMobileDebugLog(`- Date range formatting error`);
+      }
     }
     addMobileDebugLog(`- Show all months: ${showAllMonths ? 'Yes' : 'No'}`);
     addMobileDebugLog(`- Showing all: ${showAllTransactions ? 'Yes' : 'No'}`);
@@ -140,9 +231,13 @@ export const IncomeLinkDialog: React.FC<IncomeLinkDialogProps> = ({
     if (lonTransactions.length > 0) {
       addMobileDebugLog(`🔍 Found ${lonTransactions.length} LÖN transaction(s):`);
       lonTransactions.forEach(t => {
-        const transactionDate = new Date(t.date);
-        const isInRange = showAllMonths || (transactionDate >= startDate && transactionDate < endDate);
-        addMobileDebugLog(`  - Date: ${format(transactionDate, 'yyyy-MM-dd')}, Amount: ${t.amount} kr, Type: "${t.type}", Linked: ${t.incomeTargetId ? 'Yes' : 'No'}, In range: ${isInRange ? 'Yes' : 'No'}`);
+        try {
+          const transactionDate = new Date(t.date);
+          const isInRange = showAllMonths || (transactionDate >= startDate && transactionDate < endDate);
+          addMobileDebugLog(`  - Date: ${format(transactionDate, 'yyyy-MM-dd')}, Amount: ${t.amount} kr, Type: "${t.type}", Linked: ${t.incomeTargetId ? 'Yes' : 'No'}, In range: ${isInRange ? 'Yes' : 'No'}`);
+        } catch (e) {
+          addMobileDebugLog(`  - Date formatting error for transaction`);
+        }
       });
     }
     
@@ -154,9 +249,13 @@ export const IncomeLinkDialog: React.FC<IncomeLinkDialogProps> = ({
     if (barnbidragTransactions.length > 0 && !showAllTransactions) {
       addMobileDebugLog(`🔍 Found ${barnbidragTransactions.length} Barnbidrag transaction(s):`);
       barnbidragTransactions.forEach(t => {
-        const transactionDate = new Date(t.date);
-        const isInRange = showAllMonths || (transactionDate >= startDate && transactionDate < endDate);
-        addMobileDebugLog(`  - Amount: ${t.amount} kr, Date: ${format(transactionDate, 'MMM d')}, Type: ${t.type}, Linked: ${t.incomeTargetId ? 'Yes' : 'No'}, In range: ${isInRange ? 'Yes' : 'No'}`);
+        try {
+          const transactionDate = new Date(t.date);
+          const isInRange = showAllMonths || (transactionDate >= startDate && transactionDate < endDate);
+          addMobileDebugLog(`  - Amount: ${t.amount} kr, Date: ${format(transactionDate, 'MMM d')}, Type: ${t.type}, Linked: ${t.incomeTargetId ? 'Yes' : 'No'}, In range: ${isInRange ? 'Yes' : 'No'}`);
+        } catch (e) {
+          addMobileDebugLog(`  - Date formatting error for transaction`);
+        }
       });
     }
     
@@ -164,8 +263,8 @@ export const IncomeLinkDialog: React.FC<IncomeLinkDialogProps> = ({
       monthKey,
       showAllTransactions,
       showAllMonths,
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
+      startDate: startDate instanceof Date && !isNaN(startDate.getTime()) ? startDate.toISOString() : 'Invalid Date',
+      endDate: endDate instanceof Date && !isNaN(endDate.getTime()) ? endDate.toISOString() : 'Invalid Date',
       totalTransactions: transactions.length,
       positiveTransactions: positiveTransactions.length,
       incomeTypeTransactions: incomeTypeTransactions.length,
@@ -174,22 +273,38 @@ export const IncomeLinkDialog: React.FC<IncomeLinkDialogProps> = ({
       unlinkedDateFilteredTransactions: unlinkedDateFilteredTransactions.length
     });
     
-    return transactions.filter(t => {
-      const transactionDate = new Date(t.date);
-      const isInDateRange = showAllMonths || (transactionDate >= startDate && transactionDate < endDate);
-      const isIncomeType = (t.type as string) === 'Inkomst' || (t.type as string) === 'Income';
-      const isPositive = t.amount > 0;
-      const notLinked = !t.incomeTargetId;
+    // Final filtering
+    const filtered = transactions.filter(t => {
+      // Quick checks first
+      if (t.amount <= 0) return false;
       
-      if (showAllTransactions) {
-        // Show ALL income transactions (both linked and unlinked) in date range or all months
-        return isPositive && isIncomeType && isInDateRange;
-      } else {
-        // Show only unlinked transactions in date range or all months
-        return isPositive && isIncomeType && notLinked && isInDateRange;
+      const isIncomeType = (t.type as string) === 'Inkomst' || (t.type as string) === 'Income';
+      if (!isIncomeType) return false;
+      
+      // Check linked status if not showing all
+      if (!showAllTransactions && t.incomeTargetId) return false;
+      
+      // Date range check
+      if (!showAllMonths) {
+        const transactionDate = new Date(t.date);
+        if (transactionDate < startDate || transactionDate >= endDate) return false;
       }
-    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [transactions, startDate, endDate, monthKey, showAllTransactions, showAllMonths]);
+      
+      return true;
+    });
+    
+    // Sort by date descending
+    return filtered.sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateB - dateA;
+    });
+    } catch (error) {
+      console.error('Error filtering income transactions:', error);
+      addMobileDebugLog(`❌ Error filtering transactions: ${error}`);
+      return []; // Return empty array on error to prevent UI freeze
+    }
+  }, [transactions, startDate, endDate, monthKey, showAllTransactions, showAllMonths, allMonthsTransactions, isLoadingAllMonths]);
 
   // Filter by search term
   const filteredTransactions = useMemo(() => {
@@ -254,7 +369,13 @@ export const IncomeLinkDialog: React.FC<IncomeLinkDialogProps> = ({
             {showAllMonths ? (
               <span>Visar alla inkomsttransaktioner för alla månader.</span>
             ) : (
-              <span>Visar transaktioner från {format(startDate, 'yyyy-MM-dd')} till {format(new Date(endDate.getTime() - 1), 'yyyy-MM-dd')}.</span>
+              <span>
+                {startDate instanceof Date && !isNaN(startDate.getTime()) && endDate instanceof Date && !isNaN(endDate.getTime()) ? (
+                  <>Visar transaktioner från {format(startDate, 'yyyy-MM-dd')} till {format(new Date(endDate.getTime() - 1), 'yyyy-MM-dd')}.</>
+                ) : (
+                  <>Visar transaktioner för vald månad.</>
+                )}
+              </span>
             )}
           </DialogDescription>
         </DialogHeader>
@@ -276,7 +397,7 @@ export const IncomeLinkDialog: React.FC<IncomeLinkDialogProps> = ({
                 <input
                   type="checkbox"
                   checked={showAllMonths}
-                  onChange={(e) => setShowAllMonths(e.target.checked)}
+                  onChange={(e) => handleShowAllMonthsChange(e.target.checked)}
                   className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
                 <span className="text-sm font-medium">
@@ -285,7 +406,7 @@ export const IncomeLinkDialog: React.FC<IncomeLinkDialogProps> = ({
               </label>
               {showAllMonths && (
                 <span className="text-xs text-gray-500">
-                  (visar alla olänkade inkomsttransaktioner)
+                  {isLoadingAllMonths ? '(laddar...)' : '(visar alla olänkade inkomsttransaktioner)'}
                 </span>
               )}
             </div>
@@ -328,7 +449,13 @@ export const IncomeLinkDialog: React.FC<IncomeLinkDialogProps> = ({
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="font-medium text-green-700">
-                          {format(new Date(currentLinkedTransaction.date), 'yyyy-MM-dd')}: {currentLinkedTransaction.description}
+                          {(() => {
+                            try {
+                              return format(new Date(currentLinkedTransaction.date), 'yyyy-MM-dd');
+                            } catch {
+                              return currentLinkedTransaction.date;
+                            }
+                          })()}: {currentLinkedTransaction.description}
                         </p>
                         <p className="text-sm text-green-600">Nuvarande länkad transaktion</p>
                         {currentLinkedTransaction.accountId && (
@@ -365,7 +492,13 @@ export const IncomeLinkDialog: React.FC<IncomeLinkDialogProps> = ({
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <p className="font-medium">
-                          {format(new Date(transaction.date), 'yyyy-MM-dd')}: {transaction.description}
+                          {(() => {
+                            try {
+                              return format(new Date(transaction.date), 'yyyy-MM-dd');
+                            } catch {
+                              return transaction.date;
+                            }
+                          })()}: {transaction.description}
                         </p>
                         {transaction.incomeTargetId && (
                           <p className="text-sm text-orange-600 font-medium">

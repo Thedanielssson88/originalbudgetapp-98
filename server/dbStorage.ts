@@ -357,7 +357,39 @@ export class DatabaseStorage implements IStorage {
 
   // Transaction methods
   async getTransactions(userId: string): Promise<Transaction[]> {
-    return await db.select().from(transactions).where(eq(transactions.userId, userId));
+    // Explicitly select all columns to ensure linkedCostId, correctedAmount etc. are included
+    const result = await db.select({
+      id: transactions.id,
+      userId: transactions.userId,
+      accountId: transactions.accountId,
+      description: transactions.description,
+      amount: transactions.amount,
+      date: transactions.date,
+      balanceAfter: transactions.balanceAfter,
+      userDescription: transactions.userDescription,
+      bankCategory: transactions.bankCategory,
+      bankSubCategory: transactions.bankSubCategory,
+      type: transactions.type,
+      status: transactions.status,
+      linkedTransactionId: transactions.linkedTransactionId,
+      linkedCostId: transactions.linkedCostId,
+      savingsTargetId: transactions.savingsTargetId,
+      incomeTargetId: transactions.incomeTargetId,
+      correctedAmount: transactions.correctedAmount,
+      isManuallyChanged: transactions.isManuallyChanged,
+      appCategoryId: transactions.appCategoryId,
+      appSubCategoryId: transactions.appSubCategoryId,
+      huvudkategoriId: transactions.huvudkategoriId,
+      underkategoriId: transactions.underkategoriId
+    }).from(transactions).where(eq(transactions.userId, userId));
+    
+    console.log(`📊 [DB] getTransactions - returning ${result.length} transactions with explicit field selection`);
+    if (result.length > 0) {
+      const sampleTx = result[0];
+      console.log(`📊 [DB] Sample transaction fields: linkedCostId=${sampleTx.linkedCostId}, correctedAmount=${sampleTx.correctedAmount}, savingsTargetId=${sampleTx.savingsTargetId}`);
+    }
+    
+    return result;
   }
 
   async getRecentTransactions(userId: string, fromDate: Date): Promise<Transaction[]> {
@@ -402,7 +434,30 @@ export class DatabaseStorage implements IStorage {
   async getTransactionsInDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
     console.log(`Getting transactions for userId: ${userId} between ${startDate.toISOString()} and ${endDate.toISOString()}`);
     const result = await db
-      .select()
+      .select({
+        id: transactions.id,
+        userId: transactions.userId,
+        accountId: transactions.accountId,
+        description: transactions.description,
+        amount: transactions.amount,
+        date: transactions.date,
+        balanceAfter: transactions.balanceAfter,
+        userDescription: transactions.userDescription,
+        bankCategory: transactions.bankCategory,
+        bankSubCategory: transactions.bankSubCategory,
+        type: transactions.type,
+        status: transactions.status,
+        linkedTransactionId: transactions.linkedTransactionId,
+        linkedCostId: transactions.linkedCostId,
+        savingsTargetId: transactions.savingsTargetId,
+        incomeTargetId: transactions.incomeTargetId,
+        correctedAmount: transactions.correctedAmount,
+        isManuallyChanged: transactions.isManuallyChanged,
+        appCategoryId: transactions.appCategoryId,
+        appSubCategoryId: transactions.appSubCategoryId,
+        huvudkategoriId: transactions.huvudkategoriId,
+        underkategoriId: transactions.underkategoriId
+      })
       .from(transactions)
       .where(
         and(
@@ -418,7 +473,30 @@ export class DatabaseStorage implements IStorage {
   async getTransactionsInDateRangeByAccount(userId: string, accountId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
     console.log(`Getting transactions for userId: ${userId}, accountId: ${accountId} between ${startDate.toISOString()} and ${endDate.toISOString()}`);
     const result = await db
-      .select()
+      .select({
+        id: transactions.id,
+        userId: transactions.userId,
+        accountId: transactions.accountId,
+        description: transactions.description,
+        amount: transactions.amount,
+        date: transactions.date,
+        balanceAfter: transactions.balanceAfter,
+        userDescription: transactions.userDescription,
+        bankCategory: transactions.bankCategory,
+        bankSubCategory: transactions.bankSubCategory,
+        type: transactions.type,
+        status: transactions.status,
+        linkedTransactionId: transactions.linkedTransactionId,
+        linkedCostId: transactions.linkedCostId,
+        savingsTargetId: transactions.savingsTargetId,
+        incomeTargetId: transactions.incomeTargetId,
+        correctedAmount: transactions.correctedAmount,
+        isManuallyChanged: transactions.isManuallyChanged,
+        appCategoryId: transactions.appCategoryId,
+        appSubCategoryId: transactions.appSubCategoryId,
+        huvudkategoriId: transactions.huvudkategoriId,
+        underkategoriId: transactions.underkategoriId
+      })
       .from(transactions)
       .where(
         and(
@@ -428,7 +506,11 @@ export class DatabaseStorage implements IStorage {
           lte(transactions.date, endDate)
         )
       );
-    console.log(`Found ${result.length} transactions for account in date range`);
+    console.log(`📊 [DB] getTransactionsInDateRangeByAccount - returning ${result.length} transactions with explicit field selection`);
+    if (result.length > 0) {
+      const sampleTx = result[0];
+      console.log(`📊 [DB] Sample account transaction fields: linkedCostId=${sampleTx.linkedCostId}, correctedAmount=${sampleTx.correctedAmount}, savingsTargetId=${sampleTx.savingsTargetId}`);
+    }
     return result;
   }
 
@@ -546,6 +628,23 @@ export class DatabaseStorage implements IStorage {
       return results;
     } catch (error) {
       console.error('Error getting budget posts:', error);
+      throw error;
+    }
+  }
+
+  async getAllBudgetPosts(userId: string): Promise<any[]> {
+    console.log('Getting all budget posts for userId:', userId);
+    
+    try {
+      const results = await db
+        .select()
+        .from(budgetPosts)
+        .where(eq(budgetPosts.userId, userId));
+      
+      console.log('Found all budget posts:', results.length);
+      return results;
+    } catch (error) {
+      console.error('Error getting all budget posts:', error);
       throw error;
     }
   }

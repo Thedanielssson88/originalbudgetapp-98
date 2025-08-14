@@ -16,7 +16,6 @@ import { useUpdateTransaction } from '@/hooks/useTransactions';
 import { useHuvudkategorier, useUnderkategorier, useCategoryNames } from '@/hooks/useCategories';
 import { useBudgetPosts } from '@/hooks/useBudgetPosts';
 import { formatOrenAsCurrency } from '@/utils/currencyUtils';
-import { addMobileDebugLog } from '@/utils/mobileDebugLogger';
 import { useCategoryRules } from '@/hooks/useCategoryRules';
 import { CreateRuleDialog } from './CreateRuleDialog';
 import { useFamilyMembers } from '@/hooks/useFamilyMembers';
@@ -57,12 +56,45 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   onExpenseClaim,
   onRefresh
 }) => {
-  // LOCAL STATE for immediate updates
-  const [transaction, setTransaction] = useState(propTransaction);
+  // LOCAL STATE for immediate updates - with snake_case to camelCase conversion
+  const [transaction, setTransaction] = useState(() => {
+    return {
+      ...propTransaction,
+      linkedCostId: propTransaction.linkedCostId || (propTransaction as any).linked_cost_id || null,
+      linkedTransactionId: propTransaction.linkedTransactionId || (propTransaction as any).linked_transaction_id || null,
+      savingsTargetId: propTransaction.savingsTargetId || (propTransaction as any).savings_target_id || null,
+      correctedAmount: propTransaction.correctedAmount !== undefined ? propTransaction.correctedAmount : (propTransaction as any).corrected_amount || null,
+    };
+  });
   
   // Update local state when prop changes
   useEffect(() => {
-    setTransaction(propTransaction);
+    // Apply snake_case to camelCase conversion for linking fields, same as orchestrator
+    const convertedTransaction = {
+      ...propTransaction,
+      linkedCostId: propTransaction.linkedCostId || (propTransaction as any).linked_cost_id || null,
+      linkedTransactionId: propTransaction.linkedTransactionId || (propTransaction as any).linked_transaction_id || null,
+      savingsTargetId: propTransaction.savingsTargetId || (propTransaction as any).savings_target_id || null,
+      correctedAmount: propTransaction.correctedAmount !== undefined ? propTransaction.correctedAmount : (propTransaction as any).corrected_amount || null,
+    };
+    
+    setTransaction(convertedTransaction);
+    
+    // Debug for ExpenseClaim/CostCoverage transactions
+    if (propTransaction.type === 'ExpenseClaim' || propTransaction.type === 'CostCoverage') {
+      console.log('🔄 [TransactionExpandableCard] Linking transaction updated:', {
+        id: propTransaction.id,
+        type: propTransaction.type,
+        linkedCostId: convertedTransaction.linkedCostId,
+        linkedTransactionId: convertedTransaction.linkedTransactionId,
+        correctedAmount: convertedTransaction.correctedAmount,
+        description: propTransaction.description,
+        userDescription: propTransaction.userDescription,
+        raw_linked_cost_id: (propTransaction as any).linked_cost_id,
+        raw_corrected_amount: (propTransaction as any).corrected_amount,
+        willShowCorrectedAmount: !!(convertedTransaction.linkedTransactionId || convertedTransaction.linkedCostId)
+      });
+    }
   }, [propTransaction]);
   
   // Use UUID-based category hooks
@@ -268,13 +300,9 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   // Function to unlink internal transfer transactions
   const handleUnlinkInternalTransfer = async () => {
     if (!transaction.linkedTransactionId) {
-      addMobileDebugLog('❌ [UNLINK ERROR] No linked transaction to unlink');
       return;
     }
 
-    addMobileDebugLog('🗑️ [UNLINK START] Unlinking internal transfer transactions');
-    addMobileDebugLog(`🗑️ [UNLINK] Transaction 1: ${transaction.id}`);
-    addMobileDebugLog(`🗑️ [UNLINK] Transaction 2: ${transaction.linkedTransactionId}`);
 
     try {
       // Find the linked transaction to determine its status after unlinking
@@ -300,28 +328,8 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
       const transaction1Status = calculateUnlinkedStatus(transaction);
       const transaction2Status = linkedTransaction ? calculateUnlinkedStatus(linkedTransaction) : 'red';
 
-      addMobileDebugLog(`🔄 [UNLINK STATUS] Transaction 1 new status: ${transaction1Status}`);
-      addMobileDebugLog(`🔄 [UNLINK STATUS] Transaction 2 new status: ${transaction2Status}`);
 
       // Update both transactions to remove links and reset type to 'Transaction'
-      addMobileDebugLog('📡 [UNLINK API] Preparing API calls to unlink transactions');
-      addMobileDebugLog(`📡 [UNLINK API 1] PATCH /api/transactions/${transaction.id}`);
-      addMobileDebugLog(`📡 [UNLINK DATA 1] ${JSON.stringify({
-        type: 'Transaction',
-        linkedTransactionId: null,
-        userDescription: null,
-        status: transaction1Status,
-        isManuallyChanged: 'true'
-      }, null, 2)}`);
-      addMobileDebugLog(`📡 [UNLINK API 2] PATCH /api/transactions/${transaction.linkedTransactionId}`);
-      addMobileDebugLog(`📡 [UNLINK DATA 2] ${JSON.stringify({
-        type: 'Transaction', 
-        linkedTransactionId: null,
-        userDescription: null,
-        status: transaction2Status,
-        isManuallyChanged: 'true'
-      }, null, 2)}`);
-
       // Try removing null values entirely instead of sending them
       const transaction1Data: any = {
         type: 'Transaction',
@@ -342,8 +350,6 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
       transaction2Data.linkedTransactionId = null; 
       transaction2Data.userDescription = ''; // Must be empty string, not null due to schema constraint
 
-      addMobileDebugLog(`📡 [UNLINK FINAL DATA 1] ${JSON.stringify(transaction1Data, null, 2)}`);
-      addMobileDebugLog(`📡 [UNLINK FINAL DATA 2] ${JSON.stringify(transaction2Data, null, 2)}`);
 
       const apiResults = await Promise.all([
         updateTransactionMutation.mutateAsync({
@@ -356,35 +362,24 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
         })
       ]);
 
-      addMobileDebugLog('✅ [UNLINK API RESULTS] Both API calls completed');
-      addMobileDebugLog(`✅ [UNLINK API RESULT 1] ${JSON.stringify(apiResults[0], null, 2)}`);
-      addMobileDebugLog(`✅ [UNLINK API RESULT 2] ${JSON.stringify(apiResults[1], null, 2)}`);
 
-      addMobileDebugLog('✅ [UNLINK SUCCESS] Both transactions unlinked successfully');
 
       // Trigger refresh to update the UI
       if (onRefresh) {
-        addMobileDebugLog('🔄 [UNLINK REFRESH] Calling onRefresh to update UI...');
         await onRefresh();
-        addMobileDebugLog('✅ [UNLINK REFRESH] onRefresh completed');
       }
 
     } catch (error) {
-      addMobileDebugLog('❌ [UNLINK ERROR] Failed to unlink transactions');
-      addMobileDebugLog(`❌ [UNLINK ERROR DETAILS] ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`);
     }
   };
 
   // Function to unlink expense claim/cost coverage transactions
   const handleUnlinkExpenseClaim = async () => {
-    if (!transaction.linkedTransactionId) {
-      addMobileDebugLog('❌ [UNLINK EXPENSE ERROR] No linked transaction to unlink');
+    const linkedId = transaction.linkedTransactionId || transaction.linkedCostId;
+    if (!linkedId) {
       return;
     }
 
-    addMobileDebugLog('🗑️ [UNLINK EXPENSE START] Unlinking expense claim/cost coverage');
-    addMobileDebugLog(`🗑️ [UNLINK EXPENSE] Transaction 1: ${transaction.id}`);
-    addMobileDebugLog(`🗑️ [UNLINK EXPENSE] Transaction 2: ${transaction.linkedTransactionId}`);
 
     try {
       // Find the linked transaction to determine its status after unlinking
@@ -394,7 +389,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
           (month as any)?.transactions || []
         );
       }
-      const linkedTransaction = allTransactions.find((t: any) => t.id === transaction.linkedTransactionId);
+      const linkedTransaction = allTransactions.find((t: any) => t.id === linkedId);
       
       // Calculate status for both transactions based on categorization
       const calculateUnlinkedStatus = (tx: any) => {
@@ -411,7 +406,6 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
       const transaction2Status = linkedTransaction ? calculateUnlinkedStatus(linkedTransaction) : 'red';
 
       // Update both transactions - remove link and restore correctedAmount to null
-      addMobileDebugLog('📡 [UNLINK EXPENSE API] Starting API calls for both transactions');
       
       try {
         const result1 = await updateTransactionMutation.mutateAsync({
@@ -419,6 +413,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
           data: {
             type: 'Transaction',
             linkedTransactionId: null,
+            linkedCostId: null,  // Clear both types of links
             correctedAmount: null, // Restore original amount
             userDescription: '',
             status: transaction1Status,
@@ -426,54 +421,41 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
           }
         });
         
-        addMobileDebugLog(`✅ [UNLINK EXPENSE API 1] Successfully updated transaction 1: ${transaction.id}`);
-        addMobileDebugLog(`✅ [UNLINK EXPENSE RESULT 1] ${JSON.stringify(result1, null, 2)}`);
         
         const result2 = await updateTransactionMutation.mutateAsync({
-          id: transaction.linkedTransactionId,
+          id: linkedId,
           data: {
             type: 'Transaction', 
             linkedTransactionId: null,
+            linkedCostId: null,  // Clear both types of links
             userDescription: '',
             status: transaction2Status,
             isManuallyChanged: 'true'
           }
         });
         
-        addMobileDebugLog(`✅ [UNLINK EXPENSE API 2] Successfully updated transaction 2: ${transaction.linkedTransactionId}`);
-        addMobileDebugLog(`✅ [UNLINK EXPENSE RESULT 2] ${JSON.stringify(result2, null, 2)}`);
         
       } catch (apiError) {
         // If sequential approach fails, try to at least unlink the current transaction
-        addMobileDebugLog(`❌ [UNLINK EXPENSE API ERROR] Failed during sequential updates: ${apiError}`);
         throw apiError;
       }
 
-      addMobileDebugLog('✅ [UNLINK EXPENSE SUCCESS] Both transactions unlinked successfully');
 
       // Trigger refresh to update the UI
       if (onRefresh) {
-        addMobileDebugLog('🔄 [UNLINK EXPENSE REFRESH] Calling onRefresh to update UI...');
         await onRefresh();
-        addMobileDebugLog('✅ [UNLINK EXPENSE REFRESH] onRefresh completed');
       }
 
     } catch (error) {
-      addMobileDebugLog('❌ [UNLINK EXPENSE ERROR] Failed to unlink transactions');
-      addMobileDebugLog(`❌ [UNLINK EXPENSE ERROR DETAILS] ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`);
     }
   };
 
   // Function to unlink savings transactions
   const handleUnlinkSavings = async () => {
     if (!transaction.savingsTargetId) {
-      addMobileDebugLog('❌ [UNLINK SAVINGS ERROR] No savings target to unlink');
       return;
     }
 
-    addMobileDebugLog('🗑️ [UNLINK SAVINGS START] Unlinking savings target');
-    addMobileDebugLog(`🗑️ [UNLINK SAVINGS] Transaction: ${transaction.id}`);
-    addMobileDebugLog(`🗑️ [UNLINK SAVINGS] Savings Target: ${transaction.savingsTargetId}`);
 
     try {
       // Calculate status based on categorization
@@ -501,18 +483,13 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
         }
       });
 
-      addMobileDebugLog('✅ [UNLINK SAVINGS SUCCESS] Savings target unlinked successfully');
 
       // Trigger refresh to update the UI
       if (onRefresh) {
-        addMobileDebugLog('🔄 [UNLINK SAVINGS REFRESH] Calling onRefresh to update UI...');
         await onRefresh();
-        addMobileDebugLog('✅ [UNLINK SAVINGS REFRESH] onRefresh completed');
       }
 
     } catch (error) {
-      addMobileDebugLog('❌ [UNLINK SAVINGS ERROR] Failed to unlink savings');
-      addMobileDebugLog(`❌ [UNLINK SAVINGS ERROR DETAILS] ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`);
     }
   };
 
@@ -562,12 +539,41 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                   {/* Description */}
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">Beskrivning</p>
-                    <p className="text-sm truncate" title={displayDescription}>
-                      {hasUserDescription && (
-                        <span className="text-primary font-medium">{displayDescription}</span>
+                    <div className="space-y-1">
+                      <p className="text-sm truncate" title={displayDescription}>
+                        {hasUserDescription && (
+                          <span className="text-primary font-medium">{displayDescription}</span>
+                        )}
+                        {!hasUserDescription && displayDescription}
+                      </p>
+                      {/* Show linked transaction indicator in main view */}
+                      {(transaction.linkedTransactionId || transaction.linkedCostId) && (
+                        <p className="text-xs text-blue-600 font-medium">
+                          {transaction.type === 'ExpenseClaim' 
+                            ? (transaction.linkedCostId 
+                                ? `Länkad till Utlägg/Kostnad: ${transaction.linkedCostId.slice(0, 8)}...` 
+                                : `Utlägg täcks av: ${transaction.linkedTransactionId?.slice(0, 8)}...`)
+                            : transaction.type === 'CostCoverage'
+                              ? `Täcker kostnad: ${(transaction.linkedTransactionId || transaction.linkedCostId)?.slice(0, 8)}...`
+                              : transaction.type === 'InternalTransfer'
+                                ? `Intern överföring: ${transaction.linkedTransactionId?.slice(0, 8)}...`
+                                : `Länkad: ${(transaction.linkedTransactionId || transaction.linkedCostId)?.slice(0, 8)}...`
+                          }
+                        </p>
                       )}
-                      {!hasUserDescription && displayDescription}
-                    </p>
+                      {/* Show savings link indicator */}
+                      {transaction.savingsTargetId && (transaction.type === 'Savings' || transaction.type === 'Sparande') && (
+                        <p className="text-xs text-green-600 font-medium">
+                          Länkad till sparpost: {transaction.savingsTargetId.slice(0, 8)}...
+                        </p>
+                      )}
+                      {/* Show income link indicator */}
+                      {transaction.incomeTargetId && transaction.type === 'Inkomst' && (
+                        <p className="text-xs text-green-600 font-medium">
+                          Länkad till inkomst: {transaction.incomeTargetId.slice(0, 8)}...
+                        </p>
+                      )}
+                    </div>
                   </div>
                   
                   {/* App Main Category with dropdown */}
@@ -672,8 +678,8 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
 
                   {/* Amount from Database (amount / 100) */}
                   <div className="min-w-0">
-                    {/* For ExpenseClaim/CostCoverage with linked transactions, show both original (crossed) and corrected amount */}
-                    {(transaction.type === 'ExpenseClaim' || transaction.type === 'CostCoverage') && transaction.linkedTransactionId ? (
+                    {/* For any transaction with links (ExpenseClaim/CostCoverage/InternalTransfer), show both original (crossed) and corrected amount */}
+                    {(transaction.linkedTransactionId || transaction.linkedCostId) ? (
                       <>
                         <p className="text-xs text-muted-foreground">Belopp</p>
                         <p className={`font-semibold text-sm line-through opacity-60 ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -985,153 +991,162 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                 </div>
               </div>
 
-              {/* Linked transaction and savings information */}
-              {(transaction.linkedTransactionId || transaction.savingsTargetId || transaction.type === 'InternalTransfer' || transaction.type === 'Savings' || transaction.type === 'Sparande') && (
-                <div className="mt-4 space-y-3">
-                  {/* Linked transaction information */}
-                  {(transaction.linkedTransactionId || transaction.type === 'InternalTransfer') && (
-                    <div>
-                      <label className="text-xs font-medium text-muted-foreground">
-                        {transaction.type === 'CostCoverage' ? 'Täcker kostnad' : 
-                         transaction.type === 'ExpenseClaim' ? 'Utlägg täcks av' : 'Länkad transaktion'}
-                      </label>
-                      <div className="mt-1 p-2 bg-blue-50 border border-blue-200 rounded-md">
-                        {(() => {
-                          // First check centralized allTransactions array, then fallback to historical data
-                          let allTransactions = budgetState?.allTransactions || [];
-                          if (allTransactions.length === 0) {
-                            // Fallback to historical data if centralized array is empty
-                            allTransactions = Object.values(budgetState?.historicalData || {}).flatMap(month => 
-                              (month as any)?.transactions || []
-                            );
+              {/* All linked information sections */}
+              <div className="mt-4 space-y-3">
+                {/* Linked cost/expense (linked_cost_id) */}
+                {(transaction.linkedCostId || transaction.type === 'CostCoverage' || transaction.type === 'ExpenseClaim') && (
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Länkad transaktion för utlägg/kostnad
+                    </label>
+                    <div className="mt-1 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                      {(() => {
+                        // Debug logging for ExpenseClaim
+                        if (transaction.type === 'ExpenseClaim') {
+                          console.log('🔍 [ExpenseClaim Debug]', {
+                            transactionId: transaction.id,
+                            linkedCostId: transaction.linkedCostId,
+                            description: transaction.description,
+                            userDescription: transaction.userDescription,
+                            type: transaction.type
+                          });
+                        }
+                        
+                        if (!transaction.linkedCostId) {
+                          // Try to extract from description if ExpenseClaim
+                          if (transaction.type === 'ExpenseClaim' && (transaction.description || transaction.userDescription)) {
+                            const desc = transaction.userDescription || transaction.description;
+                            const uuidPattern = /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i;
+                            const match = desc.match(uuidPattern);
+                            if (match) {
+                              console.log('🔍 [ExpenseClaim] Found UUID in description:', match[1]);
+                            }
                           }
-                          const linkedTransaction = allTransactions.find((t: any) => t.id === transaction.linkedTransactionId);
                           
-                          // Handle internal transfers without linked transactions
-                          if (transaction.type === 'InternalTransfer' && !transaction.linkedTransactionId) {
-                            return (
-                              <p className="text-sm text-orange-700">
-                                Ingen länkad transaktion
-                              </p>
-                            );
-                          }
-                          
-                          if (!linkedTransaction) {
-                            return (
-                              <p className="text-sm text-blue-700">
-                                Länkad transaktion hittades inte
-                              </p>
-                            );
-                          }
+                          return (
+                            <p className="text-sm text-orange-700">
+                              Ingen länkad transaktion
+                            </p>
+                          );
+                        }
+                        
+                        // Find the linked transaction
+                        let allTransactions = budgetState?.allTransactions || [];
+                        if (allTransactions.length === 0) {
+                          allTransactions = Object.values(budgetState?.historicalData || {}).flatMap(month => 
+                            (month as any)?.transactions || []
+                          );
+                        }
+                        const linkedTransaction = allTransactions.find((t: any) => t.id === transaction.linkedCostId);
+                        
+                        if (!linkedTransaction) {
+                          return (
+                            <p className="text-sm text-blue-700">
+                              Länkad transaktion hittades inte (ID: {transaction.linkedCostId})
+                            </p>
+                          );
+                        }
 
-                          const account = budgetState?.accounts?.find(acc => acc.id === linkedTransaction.accountId);
-                          
-                          if (transaction.type === 'CostCoverage') {
-                            const coveredAmount = transaction.amount - (transaction.correctedAmount || 0);
-                            return (
-                              <div className="space-y-1">
-                                <div className="flex items-center justify-between">
-                                  <p className="text-sm text-blue-700 font-medium">
-                                    Täcker {formatOrenAsCurrency(Math.abs(coveredAmount))} av kostnad:
-                                  </p>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleUnlinkExpenseClaim();
-                                    }}
-                                    className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    title="Ta bort länk"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                                <p className="text-sm text-blue-600">
-                                  {linkedTransaction.date}: {linkedTransaction.description}
-                                </p>
-                                <p className="text-xs text-blue-500">
-                                  Konto: {account?.name || linkedTransaction.accountId}
-                                </p>
-                              </div>
-                            );
-                          } else if (transaction.type === 'ExpenseClaim') {
-                            const claimedAmount = Math.abs(transaction.amount);
-                            return (
-                              <div className="space-y-1">
-                                <div className="flex items-center justify-between">
-                                  <p className="text-sm text-blue-700 font-medium">
-                                    Utlägg på {formatOrenAsCurrency(claimedAmount)} täcks av:
-                                  </p>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleUnlinkExpenseClaim();
-                                    }}
-                                    className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    title="Ta bort länk"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                                <p className="text-sm text-blue-600">
-                                  {linkedTransaction.date}: {linkedTransaction.description}
-                                </p>
-                                <p className="text-xs text-blue-500">
-                                  Konto: {account?.name || linkedTransaction.accountId}
-                                </p>
-                              </div>
-                            );
-                          } else if (transaction.type === 'InternalTransfer') {
-                            return (
-                              <div className="space-y-1">
-                                <div className="flex items-center justify-between">
-                                  <p className="text-sm text-blue-700 font-medium">
-                                    Länkad transaktion:
-                                  </p>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleUnlinkInternalTransfer();
-                                    }}
-                                    className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    title="Ta bort länk"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                                <p className="text-sm text-blue-600">
-                                  {linkedTransaction.date}: {linkedTransaction.description}
-                                </p>
-                                <p className="text-xs text-blue-500">
-                                  Konto: {account?.name || linkedTransaction.accountId}
-                                </p>
-                              </div>
-                            );
-                          } else {
-                            const coveredAmount = Math.abs(transaction.amount) - Math.abs(transaction.correctedAmount || transaction.amount);
-                            return (
-                              <div className="space-y-1">
-                                <p className="text-sm text-blue-700 font-medium">
-                                  {coveredAmount > 0 ? `${coveredAmount.toLocaleString('sv-SE')} kr täcks av:` : 'Täcks av:'}
-                                </p>
-                                <p className="text-sm text-blue-600">
-                                  {linkedTransaction.date}: {linkedTransaction.description}
-                                </p>
-                                <p className="text-xs text-blue-500">
-                                  Konto: {account?.name || linkedTransaction.accountId}
-                                </p>
-                              </div>
-                            );
-                          }
-                        })()}
-                      </div>
+                        const account = budgetState?.accounts?.find(acc => acc.id === linkedTransaction.accountId);
+                        
+                        return (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm text-blue-700 font-medium">
+                                ID: {transaction.linkedCostId}
+                              </p>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleUnlinkExpenseClaim();
+                                }}
+                                className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                title="Ta bort länk"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                            <p className="text-sm text-blue-600">
+                              {linkedTransaction.date}: {linkedTransaction.description}
+                            </p>
+                            <p className="text-xs text-blue-500">
+                              Konto: {account?.name || 'Okänt konto'} • Belopp: {formatOrenAsCurrency(linkedTransaction.amount)}
+                            </p>
+                          </div>
+                        );
+                      })()}
                     </div>
-                  )}
+                  </div>
+                )}
+
+                {/* Linked internal transfer (linked_transaction_id) */}
+                {(transaction.linkedTransactionId || transaction.type === 'InternalTransfer') && (
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Länkad intern överföring
+                    </label>
+                    <div className="mt-1 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                      {(() => {
+                        if (!transaction.linkedTransactionId) {
+                          return (
+                            <p className="text-sm text-orange-700">
+                              Ingen länkad transaktion
+                            </p>
+                          );
+                        }
+                        
+                        // Find the linked transaction
+                        let allTransactions = budgetState?.allTransactions || [];
+                        if (allTransactions.length === 0) {
+                          allTransactions = Object.values(budgetState?.historicalData || {}).flatMap(month => 
+                            (month as any)?.transactions || []
+                          );
+                        }
+                        const linkedTransaction = allTransactions.find((t: any) => t.id === transaction.linkedTransactionId);
+                        
+                        if (!linkedTransaction) {
+                          return (
+                            <p className="text-sm text-blue-700">
+                              Länkad transaktion hittades inte (ID: {transaction.linkedTransactionId})
+                            </p>
+                          );
+                        }
+
+                        const account = budgetState?.accounts?.find(acc => acc.id === linkedTransaction.accountId);
+                        
+                        return (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm text-blue-700 font-medium">
+                                ID: {transaction.linkedTransactionId}
+                              </p>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleUnlinkInternalTransfer();
+                                }}
+                                className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                title="Ta bort länk"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                            <p className="text-sm text-blue-600">
+                              {linkedTransaction.date}: {linkedTransaction.description}
+                            </p>
+                            <p className="text-xs text-blue-500">
+                              Konto: {account?.name || 'Okänt konto'} • Belopp: {formatOrenAsCurrency(linkedTransaction.amount)}
+                            </p>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
 
                   {/* Linked savings information - DEBUG */}
                   {(() => {
@@ -1147,62 +1162,71 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                         conditionMet: !!(transaction.savingsTargetId || transaction.linked_saving) && (transaction.type === 'Savings' || transaction.type === 'Sparande' || transaction.type === 'Transaction')
                       };
                       console.log('🔍 [SPARANDE DEBUG] Transaction details:', debugInfo);
-                      addMobileDebugLog(`🔍 [SPARANDE DEBUG] ${transaction.description}: type=${debugInfo.type}, savingsTargetId=${debugInfo.savingsTargetId}, hasLink=${debugInfo.hasAnySavingsId}, showSection=${debugInfo.conditionMet}`);
                     }
                     return null;
                   })()}
 
-                  {/* Linked savings information - Only for Savings/Sparande type with savingsTargetId */}
-                  {transaction.savingsTargetId && (transaction.type === 'Savings' || transaction.type === 'Sparande') && (
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-medium text-muted-foreground">
-                          Länkad transaktion
-                        </label>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleUnlinkSavings();
-                          }}
-                          className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          title="Ta bort länk"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      <div className="mt-1 p-2 bg-blue-50 border border-blue-200 rounded-md">
-                        {(() => {
-                          // Look up the budget_post by ID using the same pattern as internal transfers
-                          const linkedBudgetPost = budgetPostsFromAPI.find(post => post.id === transaction.savingsTargetId);
-                          
-                          if (!linkedBudgetPost) {
-                            return (
-                              <p className="text-sm text-blue-700">
-                                Länkad transaktion hittades inte
-                              </p>
-                            );
-                          }
-
-                          // Get the account name
-                          const account = budgetState?.accounts?.find(acc => acc.id === linkedBudgetPost.accountId);
-                          
-                          // Display the budget post information using the same format as internal transfers
+                {/* Linked savings (savings_target_id) */}
+                {(transaction.savingsTargetId || transaction.type === 'Savings' || transaction.type === 'Sparande') && (
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Länkat sparande/sparmål
+                    </label>
+                    <div className="mt-1 p-2 bg-green-50 border border-green-200 rounded-md">
+                      {(() => {
+                        if (!transaction.savingsTargetId) {
                           return (
-                            <div className="space-y-1">
-                              <p className="text-sm text-blue-600">
-                                {linkedBudgetPost.description}
-                              </p>
-                              <p className="text-xs text-blue-500">
-                                Typ: {linkedBudgetPost.type === 'sparmål' ? 'Sparmål' : 'Sparpost'} • Konto: {account?.name || linkedBudgetPost.accountId}
-                              </p>
-                            </div>
+                            <p className="text-sm text-orange-700">
+                              Ingen länkad transaktion
+                            </p>
                           );
-                        })()}
-                      </div>
+                        }
+                        
+                        // Look up the budget_post by ID
+                        const linkedBudgetPost = budgetPostsFromAPI.find(post => post.id === transaction.savingsTargetId);
+                        
+                        if (!linkedBudgetPost) {
+                          return (
+                            <p className="text-sm text-green-700">
+                              Länkad transaktion hittades inte (ID: {transaction.savingsTargetId})
+                            </p>
+                          );
+                        }
+
+                        // Get the account name
+                        const account = budgetState?.accounts?.find(acc => acc.id === linkedBudgetPost.accountId);
+                        
+                        return (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm text-green-700 font-medium">
+                                ID: {transaction.savingsTargetId}
+                              </p>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleUnlinkSavings();
+                                }}
+                                className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                title="Ta bort länk"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                            <p className="text-sm text-green-600">
+                              {linkedBudgetPost.description}
+                            </p>
+                            <p className="text-xs text-green-500">
+                              Typ: {linkedBudgetPost.type === 'sparmål' ? 'Sparmål' : 'Sparpost'} • Konto: {account?.name || linkedBudgetPost.accountId}
+                            </p>
+                          </div>
+                        );
+                      })()}
                     </div>
-                  )}
+                  </div>
+                )}
 
                   {/* Linked income information - For income transactions with incomeTargetId */}
                   {transaction.incomeTargetId && transaction.type === 'Inkomst' && (
@@ -1252,22 +1276,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                       </div>
                     </div>
                   )}
-                  
-                  {/* Show message for Savings/Sparande type without savingsTargetId */}
-                  {!transaction.savingsTargetId && (transaction.type === 'Savings' || transaction.type === 'Sparande') && (
-                    <div>
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Länkad transaktion
-                      </label>
-                      <div className="mt-1 p-2 bg-gray-50 border border-gray-200 rounded-md">
-                        <p className="text-sm text-gray-600">
-                          Länkad transaktion hittades inte
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                 </div>
-               )}
+              </div>
 
                {/* Show balance information */}
                {(transaction.balanceAfter !== undefined && !isNaN(transaction.balanceAfter)) || 

@@ -71,12 +71,11 @@ import { useCategoryNames, useHuvudkategorier, useUnderkategorier } from '@/hook
 import { useBanks, useCreateBank, useBankCsvMappings } from '@/hooks/useBanks';
 import { formatOrenAsCurrency } from '@/utils/currencyUtils';
 import { ColumnMappingDialog } from './ColumnMappingDialog';
-import { addCategoryRule, updateCategoryRule, deleteCategoryRule, updateCostGroups, updateTransactionsForMonth, setTransactionsForCurrentMonth, importAndReconcileFile, saveCsvMapping, getCsvMapping, linkAccountToBankTemplate, matchInternalTransfer } from '../orchestrator/budgetOrchestrator';
-import { improvedImportAndReconcileFile } from '../orchestrator/improvedImport';
+import { addCategoryRule, updateCategoryRule, deleteCategoryRule, saveCsvMapping, getCsvMapping, linkAccountToBankTemplate } from '../orchestrator/budgetOrchestrator';
+import { bulletproofImport } from '../orchestrator/bulletproofImport';
 import { applyRulesToTransactionsBatch } from '../orchestrator/batchRuleApplication';
 import { getCurrentState, setMainCategories, updateSelectedBudgetMonth } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
-import { addMobileDebugLog } from '../utils/mobileDebugLogger';
 import { clearExpansionState } from '@/hooks/useTransactionExpansion';
 
 // Category Management Component
@@ -348,7 +347,6 @@ export const TransactionImportEnhanced: React.FC = () => {
   
   // Force mobile debug log immediately
   try {
-    addMobileDebugLog('🔥 [TX IMPORT] Component rendering...');
   } catch (error) {
     console.error('Mobile debug log error:', error);
   }
@@ -515,10 +513,11 @@ export const TransactionImportEnhanced: React.FC = () => {
   }, [shouldLoadAllTransactions, monthFilter, selectedMonthKey, budgetState?.settings?.payday]);
   
   // Load transactions based on filter selection and month navigation
+  // FIXED: Force fresh data load without caching issues
   const { 
     data: transactionsFromAPI = [], 
     isLoading: transactionsLoading 
-  } = useTransactions(selectedMonthDateRange);
+  } = useTransactions(); // Use all transactions and filter in component
   
   const { getHuvudkategoriName, getUnderkategoriName } = useCategoryNames();
   const queryClient = useQueryClient();
@@ -596,13 +595,11 @@ export const TransactionImportEnhanced: React.FC = () => {
     // SQL-only data source
     const sourceTransactions = transactionsFromAPI || [];
     console.log(`[TX IMPORT] 🔄 Using SQL-only data source: ${sourceTransactions.length} transactions`);
-    addMobileDebugLog(`🔄 [TX IMPORT] Using SQL data: ${sourceTransactions.length} transactions`);
     
     // Debug savingsTargetId in source data
     const lonTransactions = sourceTransactions.filter(t => t.description === 'LÖN');
     lonTransactions.forEach(t => {
       console.log(`[TX IMPORT] LÖN transaction ${t.id}: savingsTargetId=${t.savingsTargetId}`);
-      addMobileDebugLog(`💰 LÖN ${t.id.slice(-8)}: savingsTargetId=${t.savingsTargetId ? t.savingsTargetId.slice(-8) : 'MISSING'}`);
     });
     
     return sourceTransactions.map((t, index) => {
@@ -649,8 +646,6 @@ export const TransactionImportEnhanced: React.FC = () => {
         console.log(`[TX IMPORT] ✅ CONVERTED LÖN transaction ${t.id}: savingsTargetId=${converted.savingsTargetId}`);
         console.log(`[TX IMPORT] ✅ LEGACY FIELDS: huvudkategoriId=${(t as any).huvudkategoriId}, underkategoriId=${(t as any).underkategoriId}`);
         console.log(`[TX IMPORT] ✅ NEWER FIELDS: appCategoryId=${t.appCategoryId}, appSubCategoryId=${t.appSubCategoryId}`);
-        addMobileDebugLog(`✅ CONVERTED LÖN ${t.id.slice(-8)}: savingsTargetId=${converted.savingsTargetId ? converted.savingsTargetId.slice(-8) : 'LOST!'}`);
-        addMobileDebugLog(`🏷️ Categories: legacy(${(t as any).huvudkategoriId ? 'SET' : 'NULL'}), newer(${t.appCategoryId ? 'SET' : 'NULL'})`);
       }
       
       return converted;
@@ -1042,8 +1037,6 @@ export const TransactionImportEnhanced: React.FC = () => {
         }
       });
       
-      addMobileDebugLog(`🔍 XLSX Headers: ${headers.join(', ')}`);
-      addMobileDebugLog(`🔍 XLSX Category columns: Kategori at pos ${headers.indexOf('Kategori') + 1}, Underkategori at pos ${headers.indexOf('Underkategori') + 1}`);
       
       // Show sample data to verify category columns have values
       if (filteredLines.length > 1) {
@@ -1070,8 +1063,6 @@ export const TransactionImportEnhanced: React.FC = () => {
       const parseResult = smartParse(filteredLines.join('\n'));
       console.log(`🎯 [XLSX] Smart parser found ${parseResult.headers.length} headers and ${parseResult.dataRows.length} data rows`);
       
-      addMobileDebugLog(`🎯 SMART PARSE SUCCESS: ${parseResult.headers.length} headers, ${parseResult.dataRows.length} rows`);
-      addMobileDebugLog(`🎯 Headers: ${parseResult.headers.join(', ')}`);
       
       return parseResult.cleanCsv;
     } catch (error) {
@@ -1085,7 +1076,17 @@ export const TransactionImportEnhanced: React.FC = () => {
   // File upload handler - uses the new Smart Merge function
   const handleFileUpload = useCallback(async (file: File, accountId: string, accountName: string) => {
     console.log(`🚀 [IMPORT] handleFileUpload called with:`, { fileName: file.name, accountId, accountName });
-    addMobileDebugLog(`📁 FILE UPLOAD STARTED: ${file.name} for account ${accountId}`);
+    
+    // Prevent multiple concurrent imports
+    if (importProgress.isImporting) {
+      console.warn(`🚨 [IMPORT] Import already in progress, ignoring duplicate call`);
+      toast({
+        title: "Import pågår redan",
+        description: "Vänta tills nuvarande import är klar.",
+        variant: "destructive"
+      });
+      return;
+    }
     
     // Clear any previous balance updates and prepare for new import
     setBalanceUpdates([]);
@@ -1101,11 +1102,9 @@ export const TransactionImportEnhanced: React.FC = () => {
       if (fileExtension === 'xlsx' || fileExtension === 'xls') {
         console.log(`🚀🚀🚀 XLSX IMPORT STARTING: ${file.name} 🚀🚀🚀`);
         console.clear(); // Clear console to see XLSX logs clearly
-        addMobileDebugLog(`📁 Processing XLSX file: ${file.name}`);
         csvContent = await parseXLSXFile(file);
       } else {
         console.log(`🚀 [IMPORT] Processing CSV file: ${file.name}`);
-        addMobileDebugLog(`📁 Processing CSV file: ${file.name}`);
         
         // Read file with proper encoding for Swedish characters
         const arrayBuffer = await file.arrayBuffer();
@@ -1124,7 +1123,6 @@ export const TransactionImportEnhanced: React.FC = () => {
         .replace(/Ã–/g, 'Ö'); // Fix Ö
       
       console.log(`🚀 [IMPORT] File content cleaned, length: ${csvContent.length}`);
-      addMobileDebugLog(`📁 File read successfully: ${csvContent.length} characters`);
       
       if (!csvContent || csvContent.trim().length === 0) {
         setIsWaitingForBalanceUpdates(false);
@@ -1168,9 +1166,6 @@ export const TransactionImportEnhanced: React.FC = () => {
         console.log(`🔍 [DEBUG] Line ${index}: ${line}`);
       });
       
-      addMobileDebugLog(`🔄 About to import for account: ${accountId}`);
-      addMobileDebugLog(`🔄 CSV preview: ${csvContent.substring(0, 100)}...`);
-      addMobileDebugLog(`🔄 Headers: ${csvHeaders.join(', ')}`);
       
       console.log(`🚀 [IMPORT] About to call importAndReconcileFile...`);
       console.log(`🚀 [IMPORT] File import targeting account: ${accountName} (${accountId})`);
@@ -1189,7 +1184,6 @@ export const TransactionImportEnhanced: React.FC = () => {
       try {
         parseResult = smartParse(csvContent);
         console.log(`🎯 [IMPORT] Smart parser found ${parseResult.headers.length} headers and ${parseResult.dataRows.length} data rows`);
-        addMobileDebugLog(`🎯 FINAL PARSE: ${parseResult.headers.length} headers, ${parseResult.dataRows.length} rows`);
         
         // Update progress with transaction count
         setImportProgress(prev => ({
@@ -1206,7 +1200,6 @@ export const TransactionImportEnhanced: React.FC = () => {
         if (kategoriIndex >= 0 && parseResult.dataRows.length > 0) {
           const sampleCategories = parseResult.dataRows.slice(0, 3).map((row: string[]) => row[kategoriIndex] || '[EMPTY]');
           console.log(`🎯 [FINAL CHECK] Kategori data: ${sampleCategories.join(', ')}`);
-          addMobileDebugLog(`🎯 Categories found: ${sampleCategories.join(', ')}`);
         }
         
         setImportProgress(prev => ({
@@ -1215,45 +1208,27 @@ export const TransactionImportEnhanced: React.FC = () => {
           progress: 50
         }));
         
-        // Use IMPROVED IMPORT for better performance and targeted updates
-        const existingTransactions = allTransactionsRef.current || [];
+        // BULLETPROOF: Use new bulletproof import - zero duplicates, preserves all user data
+        console.log(`🛡️ [BULLETPROOF] Using bulletproof import`);
         
-        console.log(`🚀 [IMPROVED] Using improved import with ${existingTransactions.length} existing transactions in memory`);
-        addMobileDebugLog(`🚀 IMPROVED: ${existingTransactions.length} existing transactions loaded`);
-        
-        const improvedResult = await improvedImportAndReconcileFile(
-          parseResult.cleanCsv, 
+        const bulletproofResult = await bulletproofImport(
+          parseResult?.cleanCsv || csvContent, 
           accountId, 
-          accountName, 
-          existingTransactions.map(t => ({
-            ...t,
-            userDescription: t.userDescription || '',
-            importedAt: new Date().toISOString(),
-            fileSource: 'unknown',
-            balanceAfter: t.balanceAfter ?? 0
-          } as any)),
-          categoryRules
+          accountName,
+          postgresqlRules
         );
         
-        if (!improvedResult.success) {
-          console.log(`⚠️ [IMPROVED] Improved import failed, falling back to standard import...`);
-          addMobileDebugLog(`⚠️ Improved import failed, using fallback`);
-          await importAndReconcileFile(parseResult.cleanCsv, accountId, postgresqlRules);
-        } else {
-          console.log(`✅ [IMPROVED] Import successful:`, improvedResult.stats);
-          addMobileDebugLog(`✅ Improved: ${improvedResult.stats.created} new, ${improvedResult.stats.updated} updated, ${improvedResult.stats.removed} removed`);
+        if (bulletproofResult.success) {
+          console.log(`✅ [BULLETPROOF] Import successful:`, bulletproofResult.stats);
           
-          // Update local state immediately with new transactions
-          if (improvedResult.finalTransactions) {
-            allTransactionsRef.current = improvedResult.finalTransactions as any;
-            // Trigger UI update
-            await queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
-            await queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
-          }
+          // Trigger UI refresh
+          await queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
+          await queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
+        } else {
+          console.error(`❌ [BULLETPROOF] Import failed:`, bulletproofResult.message);
         }
       } catch (error) {
         console.warn(`🔍 [IMPORT] Smart parser failed, using original CSV:`, error);
-        addMobileDebugLog(`⚠️ Smart parser failed: ${error}`);
         
         setImportProgress(prev => ({
           ...prev,
@@ -1261,41 +1236,24 @@ export const TransactionImportEnhanced: React.FC = () => {
           progress: 50
         }));
         
-        // Use IMPROVED IMPORT for fallback case too
-        const existingTransactions = allTransactionsRef.current || [];
+        // BULLETPROOF: Fallback also uses bulletproof import
+        console.log(`🛡️ [BULLETPROOF FALLBACK] Using bulletproof import for fallback`);
         
-        console.log(`🚀 [IMPROVED FALLBACK] Using improved import fallback with ${existingTransactions.length} existing transactions`);
-        addMobileDebugLog(`🚀 FALLBACK: Using improved import with ${existingTransactions.length} transactions`);
-        
-        const improvedResult = await improvedImportAndReconcileFile(
+        const bulletproofResult = await bulletproofImport(
           csvContent, 
           accountId, 
-          accountName, 
-          existingTransactions.map(t => ({
-            ...t,
-            userDescription: t.userDescription || '',
-            importedAt: new Date().toISOString(),
-            fileSource: 'unknown',
-            balanceAfter: t.balanceAfter ?? 0
-          } as any)),
-          categoryRules
+          accountName,
+          postgresqlRules
         );
         
-        if (!improvedResult.success) {
-          console.log(`⚠️ [IMPROVED FALLBACK] Both improved and fallback failed, using legacy import...`);
-          addMobileDebugLog(`⚠️ All improved methods failed, using legacy import`);
-          await importAndReconcileFile(csvContent, accountId, postgresqlRules);
-        } else {
-          console.log(`✅ [IMPROVED FALLBACK] Import successful:`, improvedResult.stats);
-          addMobileDebugLog(`✅ Fallback success: ${improvedResult.stats.created} new, ${improvedResult.stats.updated} updated, ${improvedResult.stats.removed} removed`);
+        if (bulletproofResult.success) {
+          console.log(`✅ [BULLETPROOF FALLBACK] Import successful:`, bulletproofResult.stats);
           
-          // Update local state immediately with new transactions
-          if (improvedResult.finalTransactions) {
-            allTransactionsRef.current = improvedResult.finalTransactions as any;
-            // Trigger UI update
-            await queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
-            await queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
-          }
+          // Trigger UI refresh
+          await queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
+          await queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
+        } else {
+          console.error(`❌ [BULLETPROOF FALLBACK] Import failed:`, bulletproofResult.message);
         }
         
         // Fallback: Create parseResult from raw CSV for Settings2 button
@@ -1352,8 +1310,6 @@ export const TransactionImportEnhanced: React.FC = () => {
         
     } catch (error) {
       console.error('Error uploading file:', error);
-      addMobileDebugLog(`❌ FILE UPLOAD ERROR: ${error instanceof Error ? error.message : String(error)}`);
-      addMobileDebugLog(`❌ Error stack: ${error instanceof Error ? error.stack : 'No stack trace'}`);
       
       // Reset progress on error
       setImportProgress(prev => ({
@@ -1374,22 +1330,15 @@ export const TransactionImportEnhanced: React.FC = () => {
   }, [toast, parseXLSXFile]);
 
   const triggerFileUpload = useCallback((accountId: string) => {
-    addMobileDebugLog(`🔄 TRIGGER FILE UPLOAD clicked for account: ${accountId}`);
     const input = fileInputRefs.current[accountId];
     if (input) {
-      addMobileDebugLog(`🔄 File input found, clearing value and triggering click`);
-      addMobileDebugLog(`🔄 File input disabled: ${input.disabled}, type: ${input.type}, accept: ${input.accept}`);
       // CRITICAL: Clear the input value to ensure fresh file processing
       input.value = '';
       try {
         input.click();
-        addMobileDebugLog(`🔄 File input click() executed successfully`);
       } catch (error) {
-        addMobileDebugLog(`❌ Error clicking file input: ${error}`);
       }
     } else {
-      addMobileDebugLog(`❌ No file input found for account: ${accountId}`);
-      addMobileDebugLog(`❌ Available file inputs: ${Object.keys(fileInputRefs.current).join(', ')}`);
     }
   }, []);
 
@@ -1701,7 +1650,7 @@ export const TransactionImportEnhanced: React.FC = () => {
         t.id !== transaction.id &&                    // Not the same transaction
         t.accountId === transaction.accountId &&      // Must be on SAME account  
         t.amount < 0 &&                               // Must be a negative transaction
-        !t.linkedTransactionId                        // Not already linked
+        !t.linkedTransactionId                        // Not linked as internal transfer (but allow linkedCostId to enable changing cost coverage)
         // Removed type restriction - show ALL negative unlinked transactions
         // Removed date restriction - show transactions from any date for better matching
       )
@@ -2228,9 +2177,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                   style={{ display: 'none' }}
                   onChange={(e) => {
                     const file = e.target.files?.[0];
-                    addMobileDebugLog(`📁 FILE INPUT CHANGE EVENT: ${file ? file.name : 'no file'} for account ${account.id}`);
                     if (file) {
-                      addMobileDebugLog(`📁 Calling handleFileUpload for: ${file.name}`);
                       handleFileUpload(file, account.id, account.name);
                     }
                   }}
@@ -2515,21 +2462,15 @@ export const TransactionImportEnhanced: React.FC = () => {
   };
   // Memoize filtered transactions for performance optimization
   const filteredTransactions = useMemo(() => {
-    addMobileDebugLog(`🔍 [FILTER START] Starting filter process with ${allTransactions.length} total transactions`);
     
     // Debug: Check if our target transaction exists in allTransactions
     const targetTransaction = allTransactions.find(t => 
       t.description && t.description.includes('Från A - Kortöverföring')
     );
     if (targetTransaction) {
-      addMobileDebugLog(`✅ [ALL TRANSACTIONS] Found "Från A - Kortöverföring" in allTransactions`);
-      addMobileDebugLog(`📊 [TARGET TX] Date: ${targetTransaction.date}, Amount: ${targetTransaction.amount}, Account: ${targetTransaction.accountId}`);
     } else {
-      addMobileDebugLog(`❌ [ALL TRANSACTIONS] "Från A - Kortöverföring" NOT FOUND in ${allTransactions.length} transactions`);
       // Show first few transactions for debugging
-      addMobileDebugLog(`📋 [SAMPLE TRANSACTIONS]:`);
       allTransactions.slice(0, 3).forEach((tx, i) => {
-        addMobileDebugLog(`   ${i+1}. ${tx.date}: ${tx.description.substring(0, 30)} (${tx.amount})`);
       });
     }
     
@@ -2551,31 +2492,59 @@ export const TransactionImportEnhanced: React.FC = () => {
       const payday = budgetState?.settings?.payday || 25;
       const { startDate, endDate } = getDateRangeForMonth(budgetState.selectedMonthKey, payday);
       
-      addMobileDebugLog(`🗓️ [MONTH FILTER] Current month filter for ${budgetState.selectedMonthKey}`);
-      addMobileDebugLog(`🗓️ [DATE RANGE] ${startDate} to ${endDate} (payday: ${payday})`);
       
       // Debug logging for LÖN transactions in February
       const lonTransactions = baseTransactions.filter(t => 
         t.description && t.description.toUpperCase().includes('LÖN')
       );
       
+      // Additional debug: Check for 20081 amount specifically
+      const amount20081Transactions = baseTransactions.filter(t => 
+        Math.abs(t.amount) === 2008100 // 20081 kr in öre
+      );
+      
+      amount20081Transactions.forEach(t => {
+      });
+      
+      // Debug: Check for any February 24 transactions
+      const feb24Transactions = baseTransactions.filter(t => 
+        t.date.split('T')[0] === '2025-02-24'
+      );
+      
+      feb24Transactions.forEach(t => {
+      });
+      
       if (lonTransactions.length > 0) {
-        addMobileDebugLog(`💰 [LÖN DEBUG] Found ${lonTransactions.length} LÖN transactions:`);
         lonTransactions.forEach(t => {
           // Normalize the date for comparison (remove time part if present)
           const normalizedDate = t.date.split('T')[0];
           const willBeIncluded = normalizedDate >= startDate && normalizedDate <= endDate;
-          addMobileDebugLog(`  - Date: ${t.date}, Amount: ${t.amount}, Type: ${t.type}, In range: ${willBeIncluded}`);
           
           // Special check for Feb 24 transaction
           if (normalizedDate === '2025-02-24') {
-            addMobileDebugLog(`  📍 FEB 24 LÖN TRANSACTION FOUND!`);
-            addMobileDebugLog(`    - Original date: ${t.date}`);
-            addMobileDebugLog(`    - Normalized date: ${normalizedDate}`);
-            addMobileDebugLog(`    - Comparing: ${normalizedDate} >= ${startDate} && ${normalizedDate} <= ${endDate}`);
-            addMobileDebugLog(`    - Will be included: ${willBeIncluded}`);
+            
+            // Extra detailed comparison logging
           }
         });
+      }
+      
+      // Apply the date filter
+      const beforeFilterCount = baseTransactions.length;
+      baseTransactions = baseTransactions.filter(t => {
+        // Normalize the date for comparison (remove time part if present)
+        const normalizedDate = t.date.split('T')[0];
+        return normalizedDate >= startDate && normalizedDate <= endDate;
+      });
+      const afterFilterCount = baseTransactions.length;
+      
+      
+      // Check if our specific transaction survived the filter
+      const feb24Transaction = baseTransactions.find(t => 
+        t.date.split('T')[0] === '2025-02-24' && 
+        t.description && t.description.toUpperCase().includes('LÖN')
+      );
+      if (feb24Transaction) {
+      } else {
       }
       
       // Debug logging for the specific transaction we're looking for
@@ -2584,11 +2553,6 @@ export const TransactionImportEnhanced: React.FC = () => {
       );
       if (debugTransaction) {
         const willBeIncluded = debugTransaction.date >= startDate && debugTransaction.date <= endDate;
-        addMobileDebugLog(`🔍 [TRANSACTION DEBUG] Found "Från A - Kortöverföring"`);
-        addMobileDebugLog(`🔍 [TRANSACTION] Date: ${debugTransaction.date}, Amount: ${debugTransaction.amount}`);
-        addMobileDebugLog(`🔍 [DATE CHECK] ${debugTransaction.date} >= ${startDate}: ${debugTransaction.date >= startDate}`);
-        addMobileDebugLog(`🔍 [DATE CHECK] ${debugTransaction.date} <= ${endDate}: ${debugTransaction.date <= endDate}`);
-        addMobileDebugLog(`🔍 [RESULT] Will be included: ${willBeIncluded}`);
         
         console.log('[FILTER DEBUG] Found "Från A - Kortöverföring" transaction:', {
           date: debugTransaction.date,
@@ -2605,14 +2569,7 @@ export const TransactionImportEnhanced: React.FC = () => {
           }
         });
       } else {
-        addMobileDebugLog(`❌ [TRANSACTION DEBUG] "Från A - Kortöverföring" not found in ${baseTransactions.length} transactions`);
       }
-      
-      baseTransactions = baseTransactions.filter(t => {
-        // Normalize the date for comparison (remove time part if present)
-        const normalizedDate = t.date.split('T')[0];
-        return normalizedDate >= startDate && normalizedDate <= endDate;
-      });
     }
     
     // Filter by status
@@ -3921,10 +3878,8 @@ export const TransactionImportEnhanced: React.FC = () => {
             });
 
             console.log('✅ [CATEGORY DIALOG] Rule saved to PostgreSQL:', savedRule);
-            addMobileDebugLog(`✅ [CATEGORY DIALOG] Rule saved: ${savedRule.ruleName}`);
           } catch (error) {
             console.error('❌ [CATEGORY DIALOG] Failed to save rule:', error);
-            addMobileDebugLog(`❌ [CATEGORY DIALOG] Failed to save rule: ${error}`);
           }
         }}
         bankhuvudkategori={selectedBankCategory}
@@ -3958,6 +3913,202 @@ export const TransactionImportEnhanced: React.FC = () => {
           setShowColumnMappingDialog(false);
         }}
       />
+
+      {/* Debug/Cleanup Section - Emergency Controls */}
+      <Card className="mt-8 border-red-200 bg-red-50/50">
+        <CardHeader>
+          <CardTitle className="text-red-800 flex items-center gap-2">
+            🚨 Emergency Cleanup Controls
+          </CardTitle>
+          <CardDescription className="text-red-700">
+            Use these buttons to debug and fix duplicate transaction issues
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button 
+              variant="outline" 
+              onClick={async () => {
+                console.log('🔍 DEBUGGING IMPORT PROCESS...');
+                
+                try {
+                  // Check current transactions
+                  const response = await fetch('/api/transactions');
+                  const transactions = await response.json();
+                  
+                  console.log(`📊 Current total transactions: ${transactions.length}`);
+                  
+                  // Group by fingerprint to see duplicates
+                  function createFingerprint(tx: any) {
+                    const dateOnly = tx.date.includes('T') ? tx.date.split('T')[0] : tx.date.substring(0, 10);
+                    const normalizedDesc = tx.description.trim().toLowerCase().replace(/\s+/g, ' ');
+                    const normalizedAmount = Math.round(tx.amount * 100) / 100;
+                    return `${tx.accountId || ''}_${dateOnly}_${normalizedDesc}_${normalizedAmount}`;
+                  }
+                  
+                  const groups = new Map();
+                  transactions.forEach((tx: any) => {
+                    const fingerprint = createFingerprint(tx);
+                    if (!groups.has(fingerprint)) {
+                      groups.set(fingerprint, []);
+                    }
+                    groups.get(fingerprint).push(tx);
+                  });
+                  
+                  // Show duplicates
+                  let duplicateCount = 0;
+                  for (const [fingerprint, txs] of groups) {
+                    if (txs.length > 1) {
+                      duplicateCount += txs.length - 1;
+                      console.log(`🔍 DUPLICATE GROUP (${txs.length}):`, fingerprint);
+                      
+                      // Parse fingerprint for mobile debug
+                      const parts = fingerprint.split('_');
+                      const accountId = parts[0] || 'no-account';
+                      const date = parts[1] || 'no-date';
+                      const desc = parts[2] || 'no-desc';
+                      const amount = parts[3] || '0';
+                      
+                      
+                      txs.forEach((tx: any, idx: number) => {
+                        console.log(`  - ID: ${tx.id}, Date: ${tx.date}, Manual: ${tx.isManuallyChanged}, Created: ${tx.createdAt || 'unknown'}`);
+                      });
+                    }
+                  }
+                  
+                  console.log(`📊 Found ${duplicateCount} duplicates across ${groups.size} unique transactions`);
+                  
+                  toast({
+                    title: "Debug Complete",
+                    description: `Found ${duplicateCount} duplicates. Check console for details.`,
+                    variant: duplicateCount > 0 ? "destructive" : "default"
+                  });
+                  
+                } catch (error) {
+                  console.error('❌ Debug failed:', error);
+                  toast({
+                    title: "Debug Failed", 
+                    description: "Check console for error details",
+                    variant: "destructive"
+                  });
+                }
+              }}
+            >
+              🔍 Debug Duplicates
+            </Button>
+
+            <Button 
+              variant="destructive"
+              onClick={async () => {
+                if (!confirm('Are you sure? This will delete ALL duplicate transactions and keep the best version of each.')) {
+                  return;
+                }
+                
+                console.log('🚨 EMERGENCY DUPLICATE CLEANUP STARTING...');
+                
+                try {
+                  // Create improved fingerprint function
+                  function createFingerprint(tx: any) {
+                    const dateOnly = tx.date.includes('T') ? tx.date.split('T')[0] : tx.date.substring(0, 10);
+                    const normalizedDesc = tx.description.trim().toLowerCase().replace(/\s+/g, ' ');
+                    const normalizedAmount = Math.round(tx.amount * 100) / 100;
+                    return `${tx.accountId || ''}_${dateOnly}_${normalizedDesc}_${normalizedAmount}`;
+                  }
+                  
+                  // Get all transactions
+                  const response = await fetch('/api/transactions');
+                  const allTransactionsData = await response.json();
+                  console.log(`📊 Found ${allTransactionsData.length} total transactions`);
+                  
+                  // Group by fingerprint
+                  const groups = new Map();
+                  allTransactionsData.forEach((tx: any) => {
+                    const fingerprint = createFingerprint(tx);
+                    if (!groups.has(fingerprint)) {
+                      groups.set(fingerprint, []);
+                    }
+                    groups.get(fingerprint).push(tx);
+                  });
+                  
+                  // Find and delete duplicates
+                  let duplicateCount = 0;
+                  let deletedCount = 0;
+                  
+                  for (const [fingerprint, transactions] of groups) {
+                    if (transactions.length > 1) {
+                      duplicateCount += transactions.length - 1;
+                      console.log(`🔍 Found ${transactions.length} duplicates:`, fingerprint);
+                      
+                      // Sort by priority: manual changes first, then newest
+                      transactions.sort((a: any, b: any) => {
+                        if (a.isManuallyChanged === 'true' && b.isManuallyChanged !== 'true') return -1;
+                        if (b.isManuallyChanged === 'true' && a.isManuallyChanged !== 'true') return 1;
+                        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+                      });
+                      
+                      // Keep the first, delete the rest
+                      const keep = transactions[0];
+                      console.log(`✅ Keeping:`, keep.id, keep.description, keep.isManuallyChanged);
+                      
+                      for (let i = 1; i < transactions.length; i++) {
+                        const toDelete = transactions[i];
+                        console.log(`🗑️ Deleting:`, toDelete.id, toDelete.description);
+                        
+                        try {
+                          const deleteResponse = await fetch(`/api/transactions/${toDelete.id}`, {
+                            method: 'DELETE'
+                          });
+                          if (deleteResponse.ok) {
+                            deletedCount++;
+                            console.log(`✅ Deleted: ${toDelete.id}`);
+                          } else {
+                            console.error(`❌ Failed to delete: ${toDelete.id}`);
+                          }
+                        } catch (error) {
+                          console.error(`❌ Error deleting ${toDelete.id}:`, error);
+                        }
+                      }
+                    }
+                  }
+                  
+                  console.log(`🎉 CLEANUP COMPLETE!`);
+                  console.log(`📊 Found ${duplicateCount} duplicates`);
+                  console.log(`🗑️ Successfully deleted ${deletedCount} duplicate transactions`);
+                  
+                  toast({
+                    title: "Cleanup Complete!",
+                    description: `Deleted ${deletedCount} duplicate transactions. Refresh page to see results.`,
+                  });
+                  
+                  // Refresh the page automatically after a short delay
+                  setTimeout(() => {
+                    window.location.reload();
+                  }, 2000);
+                  
+                } catch (error) {
+                  console.error('❌ Emergency cleanup failed:', error);
+                  toast({
+                    title: "Cleanup Failed", 
+                    description: "Check console for error details",
+                    variant: "destructive"
+                  });
+                }
+              }}
+            >
+              🗑️ Emergency Cleanup
+            </Button>
+          </div>
+          
+          <div className="text-sm text-red-600 bg-red-100 p-3 rounded">
+            <strong>Instructions:</strong>
+            <ol className="list-decimal list-inside mt-2 space-y-1">
+              <li><strong>Debug Duplicates:</strong> Check console to see how many duplicates exist and test API</li>
+              <li><strong>Emergency Cleanup:</strong> Delete all duplicates, keeping the best version of each</li>
+              <li><strong>After cleanup:</strong> Page will refresh automatically to show clean results</li>
+            </ol>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

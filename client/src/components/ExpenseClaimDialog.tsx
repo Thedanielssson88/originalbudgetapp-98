@@ -44,7 +44,7 @@ export const ExpenseClaimDialog: React.FC<ExpenseClaimDialogProps> = ({
         t.id !== transaction.id &&                  // Not the same transaction
         t.accountId === transaction.accountId &&    // Must be on SAME account
         t.amount > 0 &&                             // Must be a positive transaction
-        !t.linkedTransactionId                      // Not already linked to another transaction
+        !t.linkedTransactionId && !t.linkedCostId   // Not already linked to another transaction
         // Removed type restriction - show ALL positive unlinked transactions
         // Removed date restriction - show transactions from any date for better matching
       )
@@ -108,6 +108,7 @@ export const ExpenseClaimDialog: React.FC<ExpenseClaimDialogProps> = ({
       addMobileDebugLog(`📋 [PAYMENT] Payment CorrectedAmount (existing): ${paymentTransaction.correctedAmount ?? 'null'} öre`);
       addMobileDebugLog(`📋 [PAYMENT] Payment Type: ${paymentTransaction.type}`);
       addMobileDebugLog(`📋 [PAYMENT] Payment LinkedTransactionId: ${paymentTransaction.linkedTransactionId ?? 'null'}`);
+      addMobileDebugLog(`📋 [PAYMENT] Payment LinkedCostId: ${paymentTransaction.linkedCostId ?? 'null'}`);
 
       // Get account names for descriptions
       const expenseAccountName = getAccountNameById(transaction.accountId) || 'Unknown Account';
@@ -149,7 +150,7 @@ export const ExpenseClaimDialog: React.FC<ExpenseClaimDialogProps> = ({
         id: transaction.id,
         data: {
           type: 'ExpenseClaim',
-          linkedTransactionId: selectedPayment,
+          linkedCostId: selectedPayment,  // Use linkedCostId for expense coverage
           correctedAmount: Math.round(expenseCorrectedAmount), // Ensure it's an integer
           userDescription: `Utlägg täcks av betalning från ${paymentAccountName}`,
           isManuallyChanged: 'true'
@@ -158,7 +159,7 @@ export const ExpenseClaimDialog: React.FC<ExpenseClaimDialogProps> = ({
       
       addMobileDebugLog(`📤 [API] Expense Update ID: ${expenseUpdate.id}`);
       addMobileDebugLog(`📤 [API] Expense Update Type: ${expenseUpdate.data.type}`);
-      addMobileDebugLog(`📤 [API] Expense Update LinkedTo: ${expenseUpdate.data.linkedTransactionId}`);
+      addMobileDebugLog(`📤 [API] Expense Update LinkedCostId: ${expenseUpdate.data.linkedCostId}`);
       addMobileDebugLog(`📤 [API] Expense Update CorrectedAmount: ${expenseUpdate.data.correctedAmount} öre`);
       addMobileDebugLog(`📤 [API] Expense Update Description: ${expenseUpdate.data.userDescription}`);
       
@@ -166,7 +167,7 @@ export const ExpenseClaimDialog: React.FC<ExpenseClaimDialogProps> = ({
         id: selectedPayment,
         data: {
           type: 'CostCoverage',
-          linkedTransactionId: transaction.id,
+          linkedCostId: transaction.id,  // Use linkedCostId for expense coverage
           correctedAmount: Math.round(coverageCorrectedAmount), // Ensure it's an integer
           userDescription: `Täcker utlägg från ${expenseAccountName}`,
           isManuallyChanged: 'true'
@@ -175,7 +176,7 @@ export const ExpenseClaimDialog: React.FC<ExpenseClaimDialogProps> = ({
       
       addMobileDebugLog(`📤 [API] Payment Update ID: ${paymentUpdate.id}`);
       addMobileDebugLog(`📤 [API] Payment Update Type: ${paymentUpdate.data.type}`);
-      addMobileDebugLog(`📤 [API] Payment Update LinkedTo: ${paymentUpdate.data.linkedTransactionId}`);
+      addMobileDebugLog(`📤 [API] Payment Update LinkedCostId: ${paymentUpdate.data.linkedCostId}`);
       addMobileDebugLog(`📤 [API] Payment Update CorrectedAmount: ${paymentUpdate.data.correctedAmount} öre`);
       addMobileDebugLog(`📤 [API] Payment Update Description: ${paymentUpdate.data.userDescription}`);
       
@@ -204,6 +205,16 @@ export const ExpenseClaimDialog: React.FC<ExpenseClaimDialogProps> = ({
         addMobileDebugLog('🔄 [REFRESH] Calling onRefresh callback...');
         await onRefresh();
         addMobileDebugLog('✅ [REFRESH] onRefresh completed');
+      }
+      
+      // Force reload transactions to ensure UI shows updated data
+      try {
+        addMobileDebugLog('🔄 [FORCE REFRESH] Forcing transaction reload...');
+        const { forceReloadTransactions } = await import('../orchestrator/budgetOrchestrator');
+        await forceReloadTransactions();
+        addMobileDebugLog('✅ [FORCE REFRESH] Transaction reload completed');
+      } catch (error) {
+        addMobileDebugLog(`❌ [FORCE REFRESH] Failed: ${error}`);
       }
       
       addMobileDebugLog('====================================');

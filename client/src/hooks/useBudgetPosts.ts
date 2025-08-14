@@ -89,8 +89,14 @@ export function useAllBudgetPosts() {
   return useQuery<BudgetPost[]>({
     queryKey: ['/api/budget-posts', 'all'],
     queryFn: async () => {
-      const data = await apiRequest('/api/budget-posts');
-      return data;
+      try {
+        // Fetch all budget posts across all months
+        const data = await apiRequest('/api/budget-posts-all');
+        return data || [];
+      } catch (error) {
+        console.log('[useAllBudgetPosts] Failed to fetch all budget posts:', error);
+        return [];
+      }
     },
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
     gcTime: 1000 * 60 * 10, // Keep in cache for 10 minutes

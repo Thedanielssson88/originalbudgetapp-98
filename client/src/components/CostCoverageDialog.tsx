@@ -14,8 +14,8 @@ import { Input } from '@/components/ui/input';
 import { ImportedTransaction } from '@/types/transaction';
 import { getAccountNameById } from '../orchestrator/budgetOrchestrator';
 import { useUpdateTransaction } from '@/hooks/useTransactions';
-import { addMobileDebugLog } from '@/utils/mobileDebugLogger';
 import { formatOrenAsCurrency } from '@/utils/currencyUtils';
+import { addMobileDebugLog } from '@/utils/mobileDebugLogger';
 
 interface CostCoverageDialogProps {
   isOpen: boolean;
@@ -41,12 +41,20 @@ export const CostCoverageDialog: React.FC<CostCoverageDialogProps> = ({
   // Reset state when dialog opens
   React.useEffect(() => {
     if (isOpen) {
+      console.log('🔵 [DIALOG] CostCoverageDialog opened', { 
+        transfer: transfer?.id, 
+        potentialCostsCount: potentialCosts.length,
+        transfer_full: transfer 
+      });
+      addMobileDebugLog(`🔵 [DIALOG] CostCoverageDialog opened - transfer: ${transfer?.id}, costs: ${potentialCosts.length}`);
+      addMobileDebugLog(`💰 [TRANSFER] ID: ${transfer?.id}, LinkedCostId: ${transfer?.linkedCostId || 'NONE'}`);
+      
       setSelectedCost('');
       setSearchTerm('');
       setIsProcessing(false);
       setShowAll(false);
     }
-  }, [isOpen]);
+  }, [isOpen, transfer, potentialCosts]);
 
   const filteredCosts = potentialCosts.filter(cost => 
     cost.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -58,19 +66,64 @@ export const CostCoverageDialog: React.FC<CostCoverageDialogProps> = ({
   const hasMoreCosts = filteredCosts.length > 5 && !searchTerm && !showAll;
 
   const handleCover = async () => {
-    if (!transfer || !selectedCost || isProcessing) return;
+    console.log('🔵 [TÄCK KOSTNAD] Button clicked!', { transfer: transfer?.id, selectedCost, isProcessing });
+    addMobileDebugLog(`🔵 [TÄCK KOSTNAD] Button clicked! transfer: ${transfer?.id}, selectedCost: ${selectedCost}`);
+    addMobileDebugLog(`💰 [TRANSFER BEFORE] ID: ${transfer?.id}, LinkedCostId: ${transfer?.linkedCostId || 'NONE'}, Amount: ${transfer?.amount}`);
+    
+    // Find and log the selected cost transaction details
+    const selectedCostTransaction = potentialCosts.find(c => c.id === selectedCost);
+    if (selectedCostTransaction) {
+      addMobileDebugLog(`💸 [COST BEFORE] ID: ${selectedCostTransaction.id}, LinkedCostId: ${selectedCostTransaction.linkedCostId || 'NONE'}, Amount: ${selectedCostTransaction.amount}`);
+    }
+    
+    if (!transfer || !selectedCost || isProcessing) {
+      console.log('🔴 [TÄCK KOSTNAD] Early return - missing data or processing');
+      addMobileDebugLog(`🔴 [TÄCK KOSTNAD] Early return - transfer: ${!!transfer}, selectedCost: ${!!selectedCost}, isProcessing: ${isProcessing}`);
+      return;
+    }
     
     setIsProcessing(true);
 
-    addMobileDebugLog('====================================');
-    addMobileDebugLog('🔗 [TÄCK KOSTNAD START] Beginning cost coverage calculation');
-    addMobileDebugLog('====================================');
-    addMobileDebugLog(`📋 [INPUT] Transfer ID: ${transfer.id}`);
-    addMobileDebugLog(`📋 [INPUT] Transfer Description: ${transfer.description}`);
-    addMobileDebugLog(`📋 [INPUT] Transfer Amount (original): ${transfer.amount} öre`);
-    addMobileDebugLog(`📋 [INPUT] Transfer CorrectedAmount (existing): ${transfer.correctedAmount ?? 'null'} öre`);
-    addMobileDebugLog(`📋 [INPUT] Transfer Type: ${transfer.type}`);
-    addMobileDebugLog(`📋 [INPUT] Selected Cost ID: ${selectedCost}`);
+    // STEP 1: Check if transfer already has an existing cost coverage link and remove it
+    if (transfer.linkedCostId) {
+      addMobileDebugLog('🗑️ [UNLINK EXISTING] Transfer already has a linkedCostId, removing existing link first');
+      addMobileDebugLog(`🗑️ [UNLINK EXISTING] Removing link between transfer ${transfer.id} and existing cost ${transfer.linkedCostId}`);
+      
+      try {
+        // Remove link from both the transfer and its currently linked cost
+        await Promise.all([
+          // Remove link from transfer
+          updateTransactionMutation.mutateAsync({
+            id: transfer.id,
+            data: {
+              type: 'Transaction',
+              linkedCostId: null,
+              correctedAmount: null,
+              userDescription: '',
+              isManuallyChanged: 'true'
+            }
+          }),
+          // Remove link from existing cost
+          updateTransactionMutation.mutateAsync({
+            id: transfer.linkedCostId,
+            data: {
+              type: 'Transaction', 
+              linkedCostId: null,
+              correctedAmount: null,
+              userDescription: '',
+              isManuallyChanged: 'true'
+            }
+          })
+        ]);
+        
+        addMobileDebugLog('✅ [UNLINK EXISTING] Successfully removed existing links');
+      } catch (unlinkError) {
+        addMobileDebugLog(`❌ [UNLINK EXISTING ERROR] Failed to remove existing links: ${unlinkError}`);
+        setIsProcessing(false);
+        return;
+      }
+    }
+
 
     // DEBUG: Log to browser console for direct debugging
     console.log('=== COST COVERAGE CALCULATION DEBUG ===');
@@ -84,56 +137,77 @@ export const CostCoverageDialog: React.FC<CostCoverageDialogProps> = ({
         addMobileDebugLog('❌ [COST COVERAGE ERROR] Cost transaction not found');
         return;
       }
+      
+      addMobileDebugLog(`💸 [COST FOUND] Description: ${costTransaction.description}, ID: ${costTransaction.id}`);
+      addMobileDebugLog(`💸 [COST DETAILS] Amount: ${costTransaction.amount}, LinkedCostId: ${costTransaction.linkedCostId || 'NONE'}`);
 
       console.log('Cost Transaction (ExpenseClaim):', costTransaction);
 
-      addMobileDebugLog(`📋 [COST] Cost Description: ${costTransaction.description}`);
-      addMobileDebugLog(`📋 [COST] Cost Amount (original): ${costTransaction.amount} öre`);
-      addMobileDebugLog(`📋 [COST] Cost CorrectedAmount (existing): ${costTransaction.correctedAmount ?? 'null'} öre`);
-      addMobileDebugLog(`📋 [COST] Cost Type: ${costTransaction.type}`);
-      addMobileDebugLog(`📋 [COST] Cost LinkedTransactionId: ${costTransaction.linkedTransactionId ?? 'null'}`);
+
+      // STEP 2: Check if the selected cost already has an existing cost coverage link and remove it
+      if (costTransaction.linkedCostId) {
+        addMobileDebugLog('🗑️ [UNLINK EXISTING COST] Selected cost already has a linkedCostId, removing existing link first');
+        addMobileDebugLog(`🗑️ [UNLINK EXISTING COST] Removing link between cost ${costTransaction.id} and existing transfer ${costTransaction.linkedCostId}`);
+        
+        try {
+          // Remove link from both the cost and its currently linked transfer
+          await Promise.all([
+            // Remove link from cost
+            updateTransactionMutation.mutateAsync({
+              id: costTransaction.id,
+              data: {
+                type: 'Transaction',
+                linkedCostId: null,
+                correctedAmount: null,
+                userDescription: '',
+                isManuallyChanged: 'true'
+              }
+            }),
+            // Remove link from existing transfer
+            updateTransactionMutation.mutateAsync({
+              id: costTransaction.linkedCostId,
+              data: {
+                type: 'Transaction', 
+                linkedCostId: null,
+                correctedAmount: null,
+                userDescription: '',
+                isManuallyChanged: 'true'
+              }
+            })
+          ]);
+          
+          addMobileDebugLog('✅ [UNLINK EXISTING COST] Successfully removed existing cost links');
+        } catch (unlinkError) {
+          addMobileDebugLog(`❌ [UNLINK EXISTING COST ERROR] Failed to remove existing cost links: ${unlinkError}`);
+          setIsProcessing(false);
+          return;
+        }
+      }
 
       // Get account names for descriptions
       const transferAccountName = getAccountNameById(transfer.accountId) || 'Unknown Account';
       const costAccountName = getAccountNameById(costTransaction.accountId) || 'Unknown Account';
       
-      addMobileDebugLog(`📋 [ACCOUNTS] Transfer Account: ${transferAccountName}`);
-      addMobileDebugLog(`📋 [ACCOUNTS] Cost Account: ${costAccountName}`);
 
       // Calculate corrected amount based on coverage
       // Use EFFECTIVE amounts (correctedAmount if exists, otherwise original amount)
-      addMobileDebugLog('====================================');
-      addMobileDebugLog('🧮 [CALCULATION START]');
-      addMobileDebugLog('====================================');
+        
+      // Since we've removed any existing links above, both transactions should now be in their original state
+      // Use original amounts for calculation
+      const effectiveExpenseAmount = Math.abs(costTransaction.amount);
+      const effectiveTransferAmount = Math.abs(transfer.amount);
       
-      // For expense: use correctedAmount if it exists AND is linked, otherwise original
-      const effectiveExpenseAmount = (costTransaction.correctedAmount !== null && costTransaction.linkedTransactionId !== null)
-        ? Math.abs(costTransaction.correctedAmount)
-        : Math.abs(costTransaction.amount);
+      const expenseSource = `original(${costTransaction.amount})`;
+      const transferSource = `original(${transfer.amount})`;
       
-      // For transfer: use correctedAmount if it exists AND is linked, otherwise original  
-      const effectiveTransferAmount = (transfer.correctedAmount !== null && transfer.linkedTransactionId !== null)
-        ? Math.abs(transfer.correctedAmount)
-        : Math.abs(transfer.amount);
-      
-      const expenseSource = (costTransaction.correctedAmount !== null && costTransaction.linkedTransactionId !== null) ? `corrected(${costTransaction.correctedAmount})` : `original(${costTransaction.amount})`;
-      const transferSource = (transfer.correctedAmount !== null && transfer.linkedTransactionId !== null) ? `corrected(${transfer.correctedAmount})` : `original(${transfer.amount})`;
-      
-      addMobileDebugLog(`🧮 [CALC] Step 1: effectiveExpenseAmount = abs(${expenseSource}) = ${effectiveExpenseAmount} öre`);
-      addMobileDebugLog(`🧮 [CALC] Step 2: effectiveTransferAmount = abs(${transferSource}) = ${effectiveTransferAmount} öre`);
       
       // Calculate how much of the expense can be covered with available transfer amount
       const amountToCover = Math.min(effectiveExpenseAmount, effectiveTransferAmount);
       
-      addMobileDebugLog(`🧮 [CALC] Step 3: amountToCover = min(${effectiveExpenseAmount}, ${effectiveTransferAmount}) = ${amountToCover} öre`);
       
       // Check if there's actually any amount to cover
       if (amountToCover <= 0) {
-        addMobileDebugLog('⚠️ [WARNING] No amount available to cover - transfer may be fully used or expense fully covered');
-        addMobileDebugLog('====================================');
-        addMobileDebugLog('🚫 [TÄCK KOSTNAD ABORTED] - Nothing to cover');
-        addMobileDebugLog('====================================');
-        
+            
         // Show user-friendly message
         const message = effectiveTransferAmount === 0 
           ? 'Denna överföring har redan använts helt för att täcka andra kostnader. Du behöver antingen koppla ur den befintliga länkningen först, eller använda en annan överföring.'
@@ -144,25 +218,18 @@ export const CostCoverageDialog: React.FC<CostCoverageDialogProps> = ({
         return;
       }
       
-      // Calculate the NEW corrected amounts based on current effective amounts
-      // For expense: reduce the remaining amount by what's being covered
-      const currentExpenseAmount = (costTransaction.correctedAmount !== null && costTransaction.linkedTransactionId !== null) ? costTransaction.correctedAmount : costTransaction.amount;
-      const newCostCorrectedAmount = currentExpenseAmount + amountToCover;
+      // Calculate the NEW corrected amounts - since we unlinked existing connections, work from original amounts
+      // For expense (negative): adding positive coverage amount moves toward 0 (less negative)
+      const newCostCorrectedAmount = costTransaction.amount + amountToCover;
       
-      // For transfer: reduce the available amount by what's being used  
-      const currentTransferAmount = (transfer.correctedAmount !== null && transfer.linkedTransactionId !== null) ? transfer.correctedAmount : transfer.amount;
-      const newTransferCorrectedAmount = currentTransferAmount - amountToCover;
+      // For transfer (positive): subtracting used amount reduces available amount
+      const newTransferCorrectedAmount = transfer.amount - amountToCover;
       
-      addMobileDebugLog(`🧮 [CALC] Step 4: newCostCorrectedAmount = ${currentExpenseAmount} + ${amountToCover} = ${newCostCorrectedAmount} öre`);
-      addMobileDebugLog(`🧮 [CALC] Step 5: newTransferCorrectedAmount = ${currentTransferAmount} - ${amountToCover} = ${newTransferCorrectedAmount} öre`);
-      addMobileDebugLog('====================================');
-
-      console.log('=== CALCULATION VALUES ===');
+  
+      console.log('=== CALCULATION VALUES (after unlinking existing connections) ===');
       console.log('costTransaction.amount (original):', costTransaction.amount);
-      console.log('costTransaction.correctedAmount (existing):', costTransaction.correctedAmount);
       console.log('transfer.amount (original):', transfer.amount);
-      console.log('transfer.correctedAmount (existing):', transfer.correctedAmount);
-      console.log('effectiveExpenseAmount (remaining to cover):', effectiveExpenseAmount);
+      console.log('effectiveExpenseAmount (amount to cover):', effectiveExpenseAmount);
       console.log('effectiveTransferAmount (available to use):', effectiveTransferAmount);
       console.log('amountToCover:', amountToCover);
       console.log('newCostCorrectedAmount:', newCostCorrectedAmount);
@@ -170,72 +237,71 @@ export const CostCoverageDialog: React.FC<CostCoverageDialogProps> = ({
 
 
       // Link both transactions using API calls
-      addMobileDebugLog('====================================');
-      addMobileDebugLog('📤 [API PREPARATION]');
-      addMobileDebugLog('====================================');
-      
+        
       const costUpdate = {
         id: selectedCost,
         data: {
           type: 'ExpenseClaim',
-          linkedTransactionId: transfer.id,
+          linkedCostId: transfer.id,  // Use linkedCostId instead of linkedTransactionId for cost coverage
           correctedAmount: Math.round(newCostCorrectedAmount), // Ensure it's an integer
           userDescription: `Utlägg täcks av betalning från ${transferAccountName}`,
           isManuallyChanged: 'true'
         }
       };
       
-      addMobileDebugLog(`📤 [API] Cost Update ID: ${costUpdate.id}`);
-      addMobileDebugLog(`📤 [API] Cost Update Type: ${costUpdate.data.type}`);
-      addMobileDebugLog(`📤 [API] Cost Update LinkedTo: ${costUpdate.data.linkedTransactionId}`);
-      addMobileDebugLog(`📤 [API] Cost Update CorrectedAmount: ${costUpdate.data.correctedAmount} öre`);
-      addMobileDebugLog(`📤 [API] Cost Update Description: ${costUpdate.data.userDescription}`);
 
       const transferUpdate = {
         id: transfer.id,
         data: {
           type: 'CostCoverage',
-          linkedTransactionId: selectedCost,
+          linkedCostId: selectedCost,  // Use linkedCostId instead of linkedTransactionId for cost coverage
           correctedAmount: Math.round(newTransferCorrectedAmount), // Ensure it's an integer
           userDescription: `Täcker utlägg från ${costAccountName}`,
           isManuallyChanged: 'true'
         }
       };
       
-      addMobileDebugLog(`📤 [API] Transfer Update ID: ${transferUpdate.id}`);
-      addMobileDebugLog(`📤 [API] Transfer Update Type: ${transferUpdate.data.type}`);
-      addMobileDebugLog(`📤 [API] Transfer Update LinkedTo: ${transferUpdate.data.linkedTransactionId}`);
-      addMobileDebugLog(`📤 [API] Transfer Update CorrectedAmount: ${transferUpdate.data.correctedAmount} öre`);
-      addMobileDebugLog(`📤 [API] Transfer Update Description: ${transferUpdate.data.userDescription}`);
 
       console.log('=== API UPDATES ===');
       console.log('Cost Update:', costUpdate);
       console.log('Transfer Update:', transferUpdate);
 
-      addMobileDebugLog('====================================');
-      addMobileDebugLog('🚀 [API CALLS EXECUTING]');
-      addMobileDebugLog('====================================');
+        
+      // Execute API calls with detailed error handling
+      let costResult, transferResult;
       
-      const results = await Promise.all([
-        // Update cost transaction (becomes ExpenseClaim)
-        updateTransactionMutation.mutateAsync(costUpdate),
-        // Update transfer transaction (becomes CostCoverage)
-        updateTransactionMutation.mutateAsync(transferUpdate)
-      ]);
+      addMobileDebugLog('🚀 [API CALLS] Starting transaction updates...');
+      addMobileDebugLog(`💸 [COST UPDATE] Will link to transfer: ${transfer.id}`);
+      addMobileDebugLog(`💰 [TRANSFER UPDATE] Will link to cost: ${selectedCost}`);
+      
+      try {
+        addMobileDebugLog('📡 [SQL SAVE 1] Starting cost transaction update...');
+        costResult = await updateTransactionMutation.mutateAsync(costUpdate);
+        addMobileDebugLog(`✅ [SQL SAVE 1] Cost transaction updated - ID: ${costResult?.id}, LinkedCostId: ${costResult?.linkedCostId}`);
+      } catch (error) {
+        addMobileDebugLog(`❌ [SQL SAVE 1] Cost transaction update FAILED: ${error}`);
+        throw new Error(`Cost transaction update failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      
+      try {
+        addMobileDebugLog('📡 [SQL SAVE 2] Starting transfer transaction update...');
+        transferResult = await updateTransactionMutation.mutateAsync(transferUpdate);
+        addMobileDebugLog(`✅ [SQL SAVE 2] Transfer transaction updated - ID: ${transferResult?.id}, LinkedCostId: ${transferResult?.linkedCostId}`);
+      } catch (error) {
+        addMobileDebugLog(`❌ [SQL SAVE 2] Transfer transaction update FAILED: ${error}`);
+        throw new Error(`Transfer transaction update failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      
+      const results = [costResult, transferResult];
 
       console.log('=== API RESULTS ===');
       console.log('Cost Result:', results[0]);
       console.log('Transfer Result:', results[1]);
+      
+      addMobileDebugLog('✅ [FINAL RESULTS] Both transactions updated successfully!');
+      addMobileDebugLog(`💸 [COST FINAL] ID: ${results[0]?.id}, LinkedCostId: ${results[0]?.linkedCostId}, CorrectedAmount: ${results[0]?.correctedAmount}`);
+      addMobileDebugLog(`💰 [TRANSFER FINAL] ID: ${results[1]?.id}, LinkedCostId: ${results[1]?.linkedCostId}, CorrectedAmount: ${results[1]?.correctedAmount}`);
 
-      addMobileDebugLog('====================================');
-      addMobileDebugLog('✅ [API RESULTS]');
-      addMobileDebugLog('====================================');
-      addMobileDebugLog(`✅ [RESULT 1 - Cost] ID: ${results[0]?.id ?? 'undefined'}`);
-      addMobileDebugLog(`✅ [RESULT 1 - Cost] Type: ${results[0]?.type ?? 'undefined'}`);
-      addMobileDebugLog(`✅ [RESULT 1 - Cost] CorrectedAmount: ${results[0]?.correctedAmount ?? 'undefined'} öre`);
-      addMobileDebugLog(`✅ [RESULT 2 - Transfer] ID: ${results[1]?.id ?? 'undefined'}`);
-      addMobileDebugLog(`✅ [RESULT 2 - Transfer] Type: ${results[1]?.type ?? 'undefined'}`);
-      addMobileDebugLog(`✅ [RESULT 2 - Transfer] CorrectedAmount: ${results[1]?.correctedAmount ?? 'undefined'} öre`);
 
       // Trigger refresh if callback provided
       if (onRefresh) {
@@ -244,20 +310,31 @@ export const CostCoverageDialog: React.FC<CostCoverageDialogProps> = ({
         addMobileDebugLog('✅ [REFRESH] onRefresh completed - UI will update with fresh data');
       }
       
-      addMobileDebugLog('====================================');
-      addMobileDebugLog('🎉 [TÄCK KOSTNAD COMPLETE]');
-      addMobileDebugLog('====================================');
+      // Force reload transactions to ensure UI shows updated data
+      try {
+        addMobileDebugLog('🔄 [FORCE REFRESH] Forcing transaction reload...');
+        const { forceReloadTransactions } = await import('../orchestrator/budgetOrchestrator');
+        await forceReloadTransactions();
+        addMobileDebugLog('✅ [FORCE REFRESH] Transaction reload completed');
+      } catch (error) {
+        addMobileDebugLog(`❌ [FORCE REFRESH] Failed: ${error}`);
+      }
+      
+        
+      addMobileDebugLog('🎉 [TÄCK KOSTNAD COMPLETE] Successfully linked transactions!');
       
       setIsProcessing(false);
       onClose();
 
     } catch (error) {
-      addMobileDebugLog('====================================');
       addMobileDebugLog('❌ [ERROR] TÄCK KOSTNAD FAILED');
-      addMobileDebugLog('====================================');
       addMobileDebugLog(`❌ [ERROR] Message: ${error instanceof Error ? error.message : String(error)}`);
-      addMobileDebugLog(`❌ [ERROR] Full details: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`);
+      
       console.error('Error linking cost coverage:', error);
+      
+      // Show user-friendly error message
+      alert(`Fel vid sparande till databas: ${error instanceof Error ? error.message : String(error)}`);
+      
       setIsProcessing(false);
     }
   };
@@ -271,7 +348,7 @@ export const CostCoverageDialog: React.FC<CostCoverageDialogProps> = ({
           <DialogTitle>Vilken kostnad täcker denna överföring?</DialogTitle>
           <DialogDescription>
             Du kategoriserar {formatOrenAsCurrency(Math.abs(transfer.amount))} som "Täck en kostnad".
-            Välj vilken kostnad från ett annat konto som denna överföring ska betala av.
+            Välj vilken negativ transaktion från samma konto som denna överföring ska betala av.
           </DialogDescription>
         </DialogHeader>
 
@@ -292,6 +369,13 @@ export const CostCoverageDialog: React.FC<CostCoverageDialogProps> = ({
               onValueChange={(value) => {
                 console.log('🔘 [RADIO] Selected cost ID:', value);
                 addMobileDebugLog(`🔘 [RADIO] Selected cost ID: ${value}`);
+                
+                // Log details about the newly selected cost
+                const newSelectedCost = potentialCosts.find(c => c.id === value);
+                if (newSelectedCost) {
+                  addMobileDebugLog(`💸 [NEW SELECTION] Cost: ${newSelectedCost.description}, Amount: ${newSelectedCost.amount}, LinkedCostId: ${newSelectedCost.linkedCostId || 'NONE'}`);
+                }
+                
                 setSelectedCost(value);
               }}
             >
@@ -307,7 +391,12 @@ export const CostCoverageDialog: React.FC<CostCoverageDialogProps> = ({
                         </span>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        Konto: {cost.accountId} • Kategori: {cost.appCategoryId || 'Okategoriserad'}
+                        Konto: {getAccountNameById(cost.accountId) || 'Okänt konto'} • Kategori: {cost.appCategoryId || 'Okategoriserad'}
+                        {cost.linkedCostId && (
+                          <span className="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded text-xs">
+                            Redan länkad (kommer att ändras)
+                          </span>
+                        )}
                       </div>
                     </Label>
                   </div>
@@ -329,7 +418,7 @@ export const CostCoverageDialog: React.FC<CostCoverageDialogProps> = ({
             </RadioGroup>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              {searchTerm ? 'Inga kostnader matchar sökningen.' : 'Inga kostnader hittades på samma konto.'}
+              {searchTerm ? 'Inga kostnader matchar sökningen.' : 'Inga negativa transaktioner hittades på samma konto.'}
             </div>
           )}
 

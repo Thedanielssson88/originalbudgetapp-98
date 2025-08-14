@@ -4,6 +4,8 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -29,6 +31,7 @@ import {
 } from 'lucide-react';
 import { BudgetState } from '@/types/budget';
 import { useAccounts } from '@/hooks/useAccounts';
+import { useAccountTypes } from '@/hooks/useAccountTypes';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useBudgetPosts } from '@/hooks/useBudgetPosts';
 import { useMonthlyAccountBalances } from '@/hooks/useMonthlyAccountBalances';
@@ -69,6 +72,7 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
   selectedMonth
 }) => {
   const { data: accounts = [] } = useAccounts();
+  const { data: accountTypes = [] } = useAccountTypes();
   const { data: transactions = [] } = useTransactions();
   const { data: budgetPosts = [] } = useBudgetPosts(selectedMonth);
   const { data: monthlyBalances = [] } = useMonthlyAccountBalances(selectedMonth);
@@ -79,6 +83,8 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
   
   const [activeView, setActiveView] = useState<'overview' | 'trends' | 'categories' | 'accounts'>('overview');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedAccountFilter, setSelectedAccountFilter] = useState<'all' | 'account-type' | string>('all');
+  const [selectedAccountTypeId, setSelectedAccountTypeId] = useState<string>('');
 
   // Get date range for the selected month
   const { startDate, endDate } = useMemo(() => {
@@ -93,6 +99,22 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
       return transactionDate >= new Date(startDate) && transactionDate <= new Date(endDate);
     });
   }, [transactions, startDate, endDate]);
+
+  // Filter transactions based on account filter (for trends analysis)
+  const filteredTransactionsForTrends = useMemo(() => {
+    if (selectedAccountFilter === 'all') {
+      return transactionsForPeriod;
+    } else if (selectedAccountFilter === 'account-type' && selectedAccountTypeId) {
+      // Filter by account type
+      const accountsOfType = accounts.filter(acc => acc.accountTypeId === selectedAccountTypeId);
+      const accountIds = accountsOfType.map(acc => acc.id);
+      return transactionsForPeriod.filter(t => accountIds.includes(t.accountId));
+    } else if (selectedAccountFilter !== 'all' && selectedAccountFilter !== 'account-type') {
+      // Filter by specific account ID
+      return transactionsForPeriod.filter(t => t.accountId === selectedAccountFilter);
+    }
+    return transactionsForPeriod;
+  }, [transactionsForPeriod, selectedAccountFilter, selectedAccountTypeId, accounts]);
 
   // Income breakdown by family member and source
   const incomeBreakdown = useMemo(() => {
@@ -321,24 +343,25 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
     });
   }, [accounts, monthlyBalances, transactionsForPeriod]);
 
-  // Daily spending trend
+  // Daily spending trend (use filtered transactions for trends view)
   const dailyTrend = useMemo(() => {
     const dailyData = new Map<string, { income: number; expenses: number }>();
     
-    transactionsForPeriod.forEach(t => {
-      // Only count Transaction type
-      if (t.type === 'Transaction') {
-        const date = new Date(t.date).toISOString().split('T')[0];
-        const existing = dailyData.get(date) || { income: 0, expenses: 0 };
-        
-        if (t.amount > 0) {
-          existing.income += t.amount;
-        } else {
-          existing.expenses += Math.abs(t.amount);
-        }
-        
-        dailyData.set(date, existing);
+    // Use filtered transactions if we're in trends view, otherwise use all transactions
+    const transactionsToUse = activeView === 'trends' ? filteredTransactionsForTrends : transactionsForPeriod;
+    
+    transactionsToUse.forEach(t => {
+      // Count ALL transaction types for comprehensive cash flow
+      const date = new Date(t.date).toISOString().split('T')[0];
+      const existing = dailyData.get(date) || { income: 0, expenses: 0 };
+      
+      if (t.amount > 0) {
+        existing.income += t.amount;
+      } else {
+        existing.expenses += Math.abs(t.amount);
       }
+      
+      dailyData.set(date, existing);
     });
 
     return Array.from(dailyData.entries())
@@ -348,7 +371,7 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
         income: data.income / 100,
         expenses: data.expenses / 100
       }));
-  }, [transactionsForPeriod]);
+  }, [transactionsForPeriod, filteredTransactionsForTrends, activeView]);
 
   // Category trend analysis - for selected categories
   const categoryTrend = useMemo(() => {
@@ -822,11 +845,127 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
           </TabsContent>
 
           <TabsContent value="trends" className="mt-6 space-y-6">
+            {/* Account Filter */}
+            <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50 to-indigo-50">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-blue-900">
+                  <Activity className="w-5 h-5" />
+                  Kontofiltrera Trender
+                </CardTitle>
+                <CardDescription className="text-blue-700">
+                  Välj vilka konton eller kontotyper du vill analysera i trenderna
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                  <div className="flex-1">
+                    <Label className="text-sm font-medium text-blue-800 mb-2 block">
+                      Filtrera efter:
+                    </Label>
+                    <Select value={selectedAccountFilter} onValueChange={setSelectedAccountFilter}>
+                      <SelectTrigger className="w-full bg-white">
+                        <SelectValue placeholder="Välj filter" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">
+                          <div className="flex items-center gap-2">
+                            <Wallet className="w-4 h-4" />
+                            Alla konton
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="account-type">
+                          <div className="flex items-center gap-2">
+                            <CreditCard className="w-4 h-4" />
+                            Filtrera efter kontotyp
+                          </div>
+                        </SelectItem>
+                        {accounts.map(account => (
+                          <SelectItem key={account.id} value={account.id}>
+                            <div className="flex items-center gap-2">
+                              <DollarSign className="w-4 h-4" />
+                              {account.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {selectedAccountFilter === 'account-type' && (
+                    <div className="flex-1">
+                      <Label className="text-sm font-medium text-blue-800 mb-2 block">
+                        Välj kontotyp:
+                      </Label>
+                      <Select value={selectedAccountTypeId} onValueChange={setSelectedAccountTypeId}>
+                        <SelectTrigger className="w-full bg-white">
+                          <SelectValue placeholder="Välj kontotyp" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {accountTypes.map(type => (
+                            <SelectItem key={type.id} value={type.id}>
+                              <div className="flex items-center gap-2">
+                                <PiggyBank className="w-4 h-4" />
+                                {type.name}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  
+                  {/* Filter Summary */}
+                  <div className="text-sm text-blue-600 bg-white rounded-lg p-3 border border-blue-200">
+                    <div className="font-medium mb-1">Aktuellt filter:</div>
+                    {selectedAccountFilter === 'all' && (
+                      <div className="flex items-center gap-1">
+                        <Badge variant="outline" className="text-blue-700 border-blue-300">
+                          Alla konton ({accounts.length})
+                        </Badge>
+                      </div>
+                    )}
+                    {selectedAccountFilter === 'account-type' && selectedAccountTypeId && (
+                      <div className="flex items-center gap-1">
+                        <Badge variant="outline" className="text-purple-700 border-purple-300">
+                          {accountTypes.find(t => t.id === selectedAccountTypeId)?.name || 'Okänd typ'}
+                        </Badge>
+                        <span className="text-xs">
+                          ({accounts.filter(a => a.accountTypeId === selectedAccountTypeId).length} konton)
+                        </span>
+                      </div>
+                    )}
+                    {selectedAccountFilter !== 'all' && selectedAccountFilter !== 'account-type' && (
+                      <div className="flex items-center gap-1">
+                        <Badge variant="outline" className="text-green-700 border-green-300">
+                          {accounts.find(a => a.id === selectedAccountFilter)?.name || 'Okänt konto'}
+                        </Badge>
+                      </div>
+                    )}
+                    <div className="text-xs text-blue-500 mt-1">
+                      {filteredTransactionsForTrends.length} transaktioner
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Daily Spending Trend */}
             <Card className="border-0 shadow-lg">
               <CardHeader>
-                <CardTitle>Daglig Utgifts- och Inkomsttrend</CardTitle>
-                <CardDescription>Översikt över dagliga transaktioner</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  Daglig Utgifts- och Inkomsttrend
+                  {selectedAccountFilter !== 'all' && (
+                    <Badge variant="outline" className="text-xs">
+                      Filtrerat
+                    </Badge>
+                  )}
+                </CardTitle>
+                <CardDescription>
+                  Översikt över dagliga transaktioner. Alla positiva transaktioner visas som inkomst, alla negativa som utgifter.
+                  {selectedAccountFilter !== 'all' && 
+                    ` (${filteredTransactionsForTrends.length} transaktioner i filter)`
+                  }
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
@@ -846,8 +985,21 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
             {/* Cumulative Balance Trend */}
             <Card className="border-0 shadow-lg">
               <CardHeader>
-                <CardTitle>Ackumulerat Kassaflöde</CardTitle>
-                <CardDescription>Hur ditt kassaflöde utvecklas över månaden från payday-saldo</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  Ackumulerat Kassaflöde
+                  {selectedAccountFilter !== 'all' && (
+                    <Badge variant="outline" className="text-xs">
+                      Filtrerat
+                    </Badge>
+                  )}
+                </CardTitle>
+                <CardDescription>
+                  Hur ditt kassaflöde utvecklas över månaden från payday-saldo. 
+                  Alla positiva transaktioner räknas som inkomst, alla negativa som utgifter.
+                  {selectedAccountFilter !== 'all' && 
+                    ` (${filteredTransactionsForTrends.length} transaktioner i filter)`
+                  }
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
@@ -880,19 +1032,22 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
                     let runningBalance = startingBalance;
                     
                     return dailyTrend.map((d, i) => {
-                      // Get transactions for this specific date
-                      const dayTransactions = transactionsForPeriod.filter(t => {
+                      // Get transactions for this specific date (use filtered transactions for trends)
+                      const transactionsToFilter = activeView === 'trends' ? filteredTransactionsForTrends : transactionsForPeriod;
+                      const dayTransactions = transactionsToFilter.filter(t => {
                         const transactionDate = new Date(t.date).toISOString().split('T')[0];
                         return transactionDate === d.date;
                       });
 
                       // Calculate net change for this day from actual transactions
+                      // Count ALL positive transactions as income (any transaction type with positive amount)
                       const dayIncomeTransactions = dayTransactions
-                        .filter(t => t.type === 'Income' && t.amount > 0)
+                        .filter(t => t.amount > 0)
                         .reduce((sum, t) => sum + t.amount, 0);
 
+                      // Count ALL negative transactions as costs (any transaction type with negative amount)
                       const dayCostTransactions = dayTransactions
-                        .filter(t => t.type === 'Transaction' && t.amount < 0)
+                        .filter(t => t.amount < 0)
                         .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
                       const netDayChange = dayIncomeTransactions - dayCostTransactions;
@@ -931,10 +1086,10 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
                                 {`Ackumulerat saldo: ${formatCurrency(data.cumulative * 100)}`}
                               </p>
                               <p className="text-green-600">
-                                {`Inkomst: ${formatCurrency(data.dailyIncome * 100)}`}
+                                {`Alla positiva transaktioner: ${formatCurrency(data.dailyIncome * 100)}`}
                               </p>
                               <p className="text-red-600">
-                                {`Kostnader: ${formatCurrency(data.dailyCosts * 100)}`}
+                                {`Alla negativa transaktioner: ${formatCurrency(data.dailyCosts * 100)}`}
                               </p>
                               <p className="text-blue-600">
                                 {`Nettoförändring: ${formatCurrency(data.netChange * 100)}`}

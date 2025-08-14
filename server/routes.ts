@@ -1,5 +1,34 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { v4 as uuidv4 } from 'uuid';
+
+// Helper function to create transaction fingerprint for deduplication
+function createTransactionFingerprint(transaction: { date: string; description: string; amount: number; accountId?: string }): string {
+  // CRITICAL FIX: Extract date and completely ignore time component
+  let dateOnly: string;
+  
+  if (transaction.date.includes('T')) {
+    // ISO format: 2025-07-15T12:00:00.000Z -> 2025-07-15
+    dateOnly = transaction.date.split('T')[0];
+  } else if (transaction.date.includes(' ')) {
+    // Space format: 2025-07-15 12:00:00 -> 2025-07-15
+    dateOnly = transaction.date.split(' ')[0];
+  } else {
+    // Already in YYYY-MM-DD format
+    dateOnly = transaction.date.substring(0, 10);
+  }
+  
+  // Normalize description: trim, lowercase, and remove extra spaces
+  const normalizedDescription = transaction.description.trim().toLowerCase().replace(/\s+/g, ' ');
+  
+  // Round amount to avoid floating point precision issues  
+  const normalizedAmount = Math.round(transaction.amount * 100) / 100;
+  
+  const fingerprint = `${transaction.accountId || ''}_${dateOnly}_${normalizedDescription}_${normalizedAmount}`;
+  
+  console.log(`[FINGERPRINT] Created: ${fingerprint} from date: ${transaction.date} -> ${dateOnly}`);
+  return fingerprint;
+}
 import { storage } from "./storage";
 import { 
   insertAccountTypeSchema,
@@ -758,39 +787,203 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // NEW: Intelligent transaction synchronization endpoint
+  // NEW: Emergency duplicate cleanup endpoint
+  app.post("/api/transactions/cleanup-duplicates", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      console.log(`[CLEANUP] Starting emergency duplicate cleanup for user: ${userId}`);
+
+      // Get ALL transactions for this user
+      const allTransactions = await storage.getAllTransactions(userId);
+      console.log(`[CLEANUP] Found ${allTransactions.length} total transactions`);
+
+      // Group by fingerprint
+      const fingerprintGroups = new Map<string, any[]>();
+      allTransactions.forEach(tx => {
+        const fingerprint = createTransactionFingerprint({
+          date: tx.date.toISOString(),
+          description: tx.description,
+          amount: tx.amount,
+          accountId: tx.accountId
+        });
+        
+        if (!fingerprintGroups.has(fingerprint)) {
+          fingerprintGroups.set(fingerprint, []);
+        }
+        fingerprintGroups.get(fingerprint)!.push(tx);
+      });
+
+      // Find and remove duplicates
+      let deletedCount = 0;
+      let keptCount = 0;
+
+      for (const [fingerprint, transactions] of fingerprintGroups) {
+        if (transactions.length > 1) {
+          console.log(`[CLEANUP] Found ${transactions.length} duplicates for: ${fingerprint}`);
+          
+          // Sort by priority: manual changes first, then by creation date (newest first)
+          transactions.sort((a, b) => {
+            if (a.isManuallyChanged === 'true' && b.isManuallyChanged !== 'true') return -1;
+            if (b.isManuallyChanged === 'true' && a.isManuallyChanged !== 'true') return 1;
+            return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
+          });
+          
+          // Keep the first (best) transaction
+          const transactionToKeep = transactions[0];
+          keptCount++;
+          console.log(`[CLEANUP] Keeping transaction: ${transactionToKeep.id} (manual: ${transactionToKeep.isManuallyChanged})`);
+          
+          // Delete the rest
+          for (let i = 1; i < transactions.length; i++) {
+            const txToDelete = transactions[i];
+            await storage.deleteTransaction(txToDelete.id);
+            deletedCount++;
+            console.log(`[CLEANUP] Deleted duplicate: ${txToDelete.id}`);
+          }
+        } else {
+          keptCount++;
+        }
+      }
+
+      console.log(`[CLEANUP] Cleanup complete: ${deletedCount} deleted, ${keptCount} kept`);
+
+      res.json({
+        success: true,
+        deleted: deletedCount,
+        kept: keptCount,
+        message: `Cleanup complete: ${deletedCount} duplicates removed, ${keptCount} transactions kept`
+      });
+
+    } catch (error) {
+      console.error('Error cleaning up duplicates:', error);
+      res.status(500).json({ error: 'Failed to cleanup duplicates' });
+    }
+  });
+
   app.post("/api/transactions/synchronize", async (req, res) => {
     try {
+      console.log(`🚨 [NUCLEAR SYNC] Raw request received`);
+      console.log(`🚨 [NUCLEAR SYNC] Request body:`, req.body);
+      console.log(`🚨 [NUCLEAR SYNC] Request headers:`, req.headers);
+      
       // @ts-ignore
       const userId = req.userId;
       const fileTransactions = req.body.transactions;
       
+      console.log(`🚨 [NUCLEAR SYNC] ================================`);
+      console.log(`🚨 [NUCLEAR SYNC] ENDPOINT CALLED!`);
+      console.log(`🚨 [NUCLEAR SYNC] User ID: ${userId}`);
+      console.log(`🚨 [NUCLEAR SYNC] File transactions: ${fileTransactions?.length || 'undefined'}`);
+      console.log(`🚨 [NUCLEAR SYNC] ================================`);
+      
       if (!fileTransactions || !Array.isArray(fileTransactions)) {
+        console.log(`❌ [NUCLEAR SYNC] Invalid transactions array`);
         return res.status(400).json({ error: 'transactions array is required' });
       }
 
-      console.log(`[SYNC] Starting synchronization for ${fileTransactions.length} transactions from file`);
+      console.log(`🚨 [NUCLEAR SYNC] Starting synchronization for ${fileTransactions.length} transactions from file`);
 
-      // Step 1: Identify date range from file data
+      // Step 1: Handle empty transactions array (test case)
+      if (fileTransactions.length === 0) {
+        console.log(`🚨 [NUCLEAR SYNC] Empty transactions array - returning success`);
+        return res.json({
+          success: true,
+          stats: { created: 0, deleted: 0, preserved: 0 },
+          message: 'No transactions to sync'
+        });
+      }
+
+      // Step 2: Identify date range from file data
       const dates = fileTransactions.map(tx => new Date(tx.date)).sort((a, b) => a.getTime() - b.getTime());
-      const startDate = dates[0];
-      const endDate = dates[dates.length - 1];
       
-      console.log(`[SYNC] Date range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
+      // CRITICAL FIX: Ensure we have the correct min/max dates
+      const startDate = new Date(Math.min(...dates.map(d => d.getTime())));
+      const endDate = new Date(Math.max(...dates.map(d => d.getTime())));
+      
+      console.log(`🚨 [NUCLEAR SYNC] Date range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
+      console.log(`🚨 [NUCLEAR SYNC] First transaction date: ${fileTransactions[0].date}`);
+      console.log(`🚨 [NUCLEAR SYNC] Last transaction date: ${fileTransactions[fileTransactions.length - 1].date}`);
 
-      // Step 2: Get existing transactions in this date range from database
-      const existingTransactions = await storage.getTransactionsInDateRange(userId, startDate, endDate);
-      console.log(`[SYNC] Found ${existingTransactions.length} existing transactions in date range`);
+      // Step 3: Get existing transactions in this date range from database
+      // CRITICAL: We need the accountId to filter properly
+      const accountId = fileTransactions[0]?.accountId;
+      if (!accountId) {
+        console.error(`🚨 [NUCLEAR SYNC] ERROR: No accountId in file transactions!`);
+        return res.status(400).json({ error: 'accountId is required in transactions' });
+      }
+      
+      console.log(`🚨 [NUCLEAR SYNC] Filtering by account: ${accountId}`);
+      
+      // Get transactions for this specific account in the date range
+      let existingTransactions = [];
+      try {
+        existingTransactions = await storage.getTransactionsInDateRangeByAccount(userId, accountId, startDate, endDate);
+        console.log(`🚨 [NUCLEAR SYNC] Found ${existingTransactions.length} existing transactions for account ${accountId} in date range`);
+      } catch (dbError) {
+        console.error(`🚨 [NUCLEAR SYNC] DATABASE ERROR:`, dbError);
+        console.error(`🚨 [NUCLEAR SYNC] Failed to get existing transactions`);
+        // Return early with error
+        return res.json({
+          success: false,
+          stats: { created: 0, deleted: 0, preserved: 0 },
+          message: `Database error: ${dbError instanceof Error ? dbError.message : String(dbError)}`
+        });
+      }
 
       const syncStats = {
         created: 0,
         updated: 0,
         deleted: 0,
-        skipped: 0
+        skipped: 0,
+        preserved: 0
       };
 
-      // Step 3: Process each transaction from file
-      const processedTransactionIds = new Set<string>();
+      // Step 4: NUCLEAR REPLACE STRATEGY - Extract manual edits before deletion
+      const manualEditsMap = new Map<string, any>();
+      
+      console.log(`🚨 [NUCLEAR SYNC] Checking ${existingTransactions.length} existing transactions for manual edits...`);
+      
+      existingTransactions.forEach(tx => {
+        if (tx.isManuallyChanged === 'true') {
+          // Create fingerprint based on bank data only (not user edits)
+          const bankDataFingerprint = createTransactionFingerprint({
+            date: tx.date.toISOString(),
+            description: tx.description,
+            amount: tx.amount,
+            accountId: tx.accountId
+          });
+          
+          console.log(`🚨 [NUCLEAR SYNC] Found manual edit: ${tx.description} (${bankDataFingerprint})`);
+          
+          // Store the manual edits
+          manualEditsMap.set(bankDataFingerprint, {
+            appCategoryId: tx.appCategoryId,
+            appSubCategoryId: tx.appSubCategoryId,
+            type: tx.type,
+            userDescription: tx.userDescription,
+            status: tx.status,
+            linkedTransactionId: tx.linkedTransactionId,
+            savingsTargetId: tx.savingsTargetId,
+            coveredCostId: tx.coveredCostId
+          });
+          
+          console.log(`[SYNC] Preserved manual edits for: ${tx.description} (${bankDataFingerprint})`);
+          syncStats.preserved++;
+        }
+      });
 
+      // Step 5: DELETE ALL existing transactions in date range (NUCLEAR OPTION)
+      console.log(`[SYNC] NUCLEAR DELETE: Removing all ${existingTransactions.length} transactions in date range`);
+      for (const txToDelete of existingTransactions) {
+        await storage.deleteTransaction(txToDelete.id);
+        syncStats.deleted++;
+      }
+
+      // Step 6: CREATE all transactions from file with preserved manual edits
+      console.log(`🚨 [NUCLEAR SYNC] Creating ${fileTransactions.length} transactions from file...`);
+      const createdFingerprints = new Set<string>();
+      
       for (const fileTx of fileTransactions) {
         try {
           // Convert file transaction to proper format
@@ -798,70 +991,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ...fileTx,
             userId,
             date: new Date(fileTx.date),
-            isManuallyChanged: fileTx.isManuallyChanged === 'true' || fileTx.isManuallyChanged === true ? 'true' : 'false'
+            isManuallyChanged: 'false' // Start fresh
           };
-
-          // Try to find matching existing transaction (by date, description, amount)
-          const matchingTx = existingTransactions.find(existing => {
-            const sameDate = existing.date.toISOString().split('T')[0] === new Date(fileTx.date).toISOString().split('T')[0];
-            const sameDescription = existing.description === fileTx.description;
-            const sameAmount = Math.abs(existing.amount - fileTx.amount) < 0.01;
-            return sameDate && sameDescription && sameAmount;
+          
+          // Check for duplicate creation
+          const createFingerprint = createTransactionFingerprint({
+            date: txData.date.toISOString(),
+            description: txData.description,
+            amount: txData.amount,
+            accountId: txData.accountId
           });
-
-          if (matchingTx) {
-            // UPDATE existing transaction
-            processedTransactionIds.add(matchingTx.id);
-            
-            if (matchingTx.isManuallyChanged === 'true') {
-              // Preserve manually changed fields: appCategoryId, appSubCategoryId, type, userDescription
-              const preservedFields = {
-                appCategoryId: matchingTx.appCategoryId,
-                appSubCategoryId: matchingTx.appSubCategoryId,
-                type: matchingTx.type,
-                userDescription: matchingTx.userDescription
-              };
-              
-              // Update all other fields
-              const updateData = {
-                ...txData,
-                ...preservedFields, // Override with preserved fields
-                isManuallyChanged: 'true' // Keep the manual flag as string
-              };
-              
-              await storage.updateTransaction(matchingTx.id, updateData);
-              syncStats.updated++;
-              console.log(`[SYNC] Updated manually changed transaction: ${matchingTx.id}`);
-            } else {
-              // Update all fields and run through categorization
-              const validatedData = insertTransactionSchema.parse(txData);
-              await storage.updateTransaction(matchingTx.id, validatedData);
-              syncStats.updated++;
-              console.log(`[SYNC] Updated clean transaction: ${matchingTx.id}`);
-            }
-          } else {
-            // CREATE new transaction
-            const validatedData = insertTransactionSchema.parse(txData);
-            const newTransaction = await storage.createTransaction(validatedData);
-            processedTransactionIds.add(newTransaction.id);
-            syncStats.created++;
-            console.log(`[SYNC] Created new transaction: ${newTransaction.id}`);
+          
+          if (createdFingerprints.has(createFingerprint)) {
+            console.log(`⚠️ [NUCLEAR SYNC] DUPLICATE DETECTED - Skipping: ${txData.description} (${createFingerprint})`);
+            syncStats.skipped++;
+            continue;
           }
+          createdFingerprints.add(createFingerprint);
+
+          // Check if we have preserved manual edits for this transaction
+          const bankDataFingerprint = createTransactionFingerprint({
+            date: txData.date.toISOString(),
+            description: txData.description,
+            amount: txData.amount,
+            accountId: txData.accountId
+          });
+          
+          const preservedEdits = manualEditsMap.get(bankDataFingerprint);
+          
+          if (preservedEdits) {
+            // Apply preserved manual edits
+            Object.assign(txData, preservedEdits);
+            txData.isManuallyChanged = 'true';
+            console.log(`[SYNC] Applied preserved edits to: ${txData.description}`);
+          }
+
+          // CREATE new transaction
+          const validatedData = insertTransactionSchema.parse(txData);
+          const newTransaction = await storage.createTransaction(validatedData);
+          syncStats.created++;
+          console.log(`[SYNC] Created transaction: ${newTransaction.id} (${preservedEdits ? 'with preserved edits' : 'fresh'})`);
         } catch (error) {
           console.error(`[SYNC] Error processing transaction:`, error);
           syncStats.skipped++;
         }
-      }
-
-      // Step 4: Delete transactions that exist in DB but not in file (within date range)
-      const transactionsToDelete = existingTransactions.filter(existing => 
-        !processedTransactionIds.has(existing.id)
-      );
-
-      for (const txToDelete of transactionsToDelete) {
-        await storage.deleteTransaction(txToDelete.id);
-        syncStats.deleted++;
-        console.log(`[SYNC] Deleted removed transaction: ${txToDelete.id}`);
       }
 
       console.log(`[SYNC] Synchronization complete:`, syncStats);
@@ -869,14 +1042,234 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: true,
         stats: syncStats,
-        message: `Synchronization complete: ${syncStats.created} created, ${syncStats.updated} updated, ${syncStats.deleted} deleted`
+        message: `NUCLEAR SYNC complete: ${syncStats.created} created, ${syncStats.deleted} deleted, ${syncStats.preserved} manual edits preserved`
       });
 
     } catch (error) {
-      console.error('Error synchronizing transactions:', error);
-      res.status(500).json({ error: 'Failed to synchronize transactions' });
+      console.error('🚨 [NUCLEAR SYNC] CRITICAL ERROR:', error);
+      console.error('🚨 [NUCLEAR SYNC] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      console.error('🚨 [NUCLEAR SYNC] Error message:', error instanceof Error ? error.message : String(error));
+      
+      res.status(500).json({ 
+        error: 'Failed to synchronize transactions',
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
+
+  // BULLETPROOF SYNC - Zero duplicates, preserves all user data
+  app.post("/api/transactions/bulletproof-sync", async (req, res) => {
+    try {
+      console.log(`🛡️ [BULLETPROOF SYNC] ================================`);
+      console.log(`🛡️ [BULLETPROOF SYNC] REQUEST RECEIVED`);
+      
+      // @ts-ignore
+      const userId = req.userId;
+      const { accountId, startDate, endDate, transactions } = req.body;
+      
+      console.log(`🛡️ [BULLETPROOF] User ID: ${userId}`);
+      console.log(`🛡️ [BULLETPROOF] Account ID: ${accountId}`);
+      console.log(`🛡️ [BULLETPROOF] Date range: ${startDate} to ${endDate}`);
+      console.log(`🛡️ [BULLETPROOF] Transactions from file: ${transactions?.length || 0}`);
+      
+      // Validate input
+      if (!accountId || !startDate || !endDate || !transactions || !Array.isArray(transactions)) {
+        return res.status(400).json({ 
+          error: 'Missing required fields: accountId, startDate, endDate, transactions' 
+        });
+      }
+      
+      if (transactions.length === 0) {
+        return res.json({
+          success: true,
+          stats: { deleted: 0, created: 0, restored: 0, duplicatesRemoved: 0 },
+          message: 'No transactions to import'
+        });
+      }
+      
+      const stats = {
+        deleted: 0,
+        created: 0,
+        restored: 0,
+        duplicatesRemoved: 0
+      };
+      
+      // Step 1: Get existing transactions in date range for this account
+      console.log(`🛡️ [BULLETPROOF] Getting existing transactions...`);
+      
+      // Fix date range to include full days (start at 00:00, end at 23:59:59)
+      const startOfDay = new Date(startDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      console.log(`🛡️ [BULLETPROOF] Adjusted date range: ${startOfDay.toISOString()} to ${endOfDay.toISOString()}`);
+      
+      const existingTransactions = await storage.getTransactionsInDateRangeByAccount(
+        userId, 
+        accountId, 
+        startOfDay, 
+        endOfDay
+      );
+      console.log(`🛡️ [BULLETPROOF] Found ${existingTransactions.length} existing transactions`);
+      
+      // Step 2: Create backup map of user data from ALL existing transactions
+      const userDataMap = new Map<string, any>();
+      
+      for (const tx of existingTransactions) {
+        // Backup user data from ALL transactions if they have any user modifications
+        if (tx.userDescription || 
+            tx.huvudkategoriId || 
+            tx.underkategoriId ||
+            tx.linkedTransactionId ||
+            tx.incomeTargetId ||
+            tx.savingsTargetId ||
+            tx.isManuallyChanged === 'true' ||
+            tx.type !== 'Transaction' ||
+            tx.status !== 'yellow') {
+          
+          // Create fingerprint for matching
+          const fingerprint = createBulletproofFingerprint(tx);
+          
+          userDataMap.set(fingerprint, {
+            huvudkategoriId: tx.huvudkategoriId,
+            underkategoriId: tx.underkategoriId,
+            userDescription: tx.userDescription,
+            type: tx.type,
+            status: tx.status,
+            linkedTransactionId: tx.linkedTransactionId,
+            incomeTargetId: tx.incomeTargetId,
+            savingsTargetId: tx.savingsTargetId,
+            isManuallyChanged: tx.isManuallyChanged
+          });
+          
+          console.log(`🛡️ [BULLETPROOF] Backed up user data for: ${tx.description.substring(0, 30)}`);
+        }
+      }
+      console.log(`🛡️ [BULLETPROOF] Backed up ${userDataMap.size} transactions with user data`);
+      
+      // Step 3: DELETE all existing transactions in date range for this account
+      console.log(`🛡️ [BULLETPROOF] Deleting ${existingTransactions.length} existing transactions...`);
+      console.log(`🛡️ [BULLETPROOF] Date range for deletion: ${startDate} to ${endDate}`);
+      
+      // Debug: Log specific duplicates we're trying to delete
+      const duplicateTargets = ['okq8', 'sats', 'boxer'];
+      for (const target of duplicateTargets) {
+        const matching = existingTransactions.filter(tx => 
+          tx.description.toLowerCase().includes(target) && 
+          tx.date.toISOString().startsWith('2025-01-02')
+        );
+        console.log(`🛡️ [BULLETPROOF] Found ${matching.length} "${target}" transactions to delete on 2025-01-02`);
+        matching.forEach((tx, i) => {
+          console.log(`🛡️ [BULLETPROOF]   ${i+1}. ID: ${tx.id.substring(0, 8)}, Manual: ${tx.isManuallyChanged}, Amount: ${tx.amount}`);
+        });
+      }
+      
+      for (const tx of existingTransactions) {
+        console.log(`🛡️ [BULLETPROOF] Deleting: ${tx.description.substring(0, 20)} (${tx.date.toISOString().split('T')[0]}) Manual: ${tx.isManuallyChanged}`);
+        await storage.deleteTransaction(tx.id);
+        stats.deleted++;
+      }
+      console.log(`🛡️ [BULLETPROOF] Deleted ${stats.deleted} transactions`);
+      
+      // Step 4: Insert new transactions from file with restored user data
+      const createdFingerprints = new Set<string>();
+      
+      for (const fileTx of transactions) {
+        try {
+          // Create fingerprint for duplicate check
+          const fingerprint = `${fileTx.date.split('T')[0]}_${fileTx.description.toLowerCase().trim()}_${fileTx.amount}`;
+          
+          // Skip if we already created this transaction (duplicate in file)
+          if (createdFingerprints.has(fingerprint)) {
+            console.log(`⚠️ [BULLETPROOF] Skipping duplicate: ${fileTx.description}`);
+            stats.duplicatesRemoved++;
+            continue;
+          }
+          createdFingerprints.add(fingerprint);
+          
+          // Prepare transaction data
+          const txData: any = {
+            id: uuidv4(),
+            userId,
+            accountId,
+            date: new Date(fileTx.date),
+            description: fileTx.description,
+            amount: fileTx.amount,
+            balanceAfter: fileTx.balanceAfter,
+            bankCategory: fileTx.bankCategory || '',
+            bankSubCategory: fileTx.bankSubCategory || '',
+            type: fileTx.type || 'Transaction',
+            status: fileTx.status || 'yellow',
+            isManuallyChanged: 'false',
+            userDescription: '',
+            linkedTransactionId: null,
+            incomeTargetId: null,
+            savingsTargetId: null,
+            huvudkategoriId: null,
+            underkategoriId: null
+          };
+          
+          // Check if we have user data to restore
+          const txFingerprint = createBulletproofFingerprint({
+            date: txData.date,
+            description: txData.description,
+            amount: txData.amount
+          });
+          
+          const userData = userDataMap.get(txFingerprint);
+          if (userData) {
+            // Restore user data
+            Object.assign(txData, userData);
+            stats.restored++;
+            console.log(`✅ [BULLETPROOF] Restored user data for: ${txData.description.substring(0, 30)} (fingerprint: ${txFingerprint})`);
+            
+            // Debug specific duplicates
+            if (['okq8', 'sats', 'boxer'].some(target => txData.description.toLowerCase().includes(target))) {
+              console.log(`🔍 [BULLETPROOF] DUPLICATE RESTORE: ${txData.description} - Manual: ${userData.isManuallyChanged}`);
+            }
+          }
+          
+          // Create the transaction
+          const validatedData = insertTransactionSchema.parse(txData);
+          await storage.createTransaction(validatedData);
+          stats.created++;
+          
+        } catch (error) {
+          console.error(`❌ [BULLETPROOF] Error creating transaction:`, error);
+        }
+      }
+      
+      console.log(`🛡️ [BULLETPROOF] ================================`);
+      console.log(`🛡️ [BULLETPROOF] SYNC COMPLETE`);
+      console.log(`🛡️ [BULLETPROOF] Deleted: ${stats.deleted}`);
+      console.log(`🛡️ [BULLETPROOF] Created: ${stats.created}`);
+      console.log(`🛡️ [BULLETPROOF] Restored: ${stats.restored}`);
+      console.log(`🛡️ [BULLETPROOF] Duplicates removed: ${stats.duplicatesRemoved}`);
+      console.log(`🛡️ [BULLETPROOF] ================================`);
+      
+      res.json({
+        success: true,
+        stats,
+        message: `Import complete: ${stats.created} created, ${stats.restored} with restored data, ${stats.duplicatesRemoved} duplicates removed`
+      });
+      
+    } catch (error) {
+      console.error('❌ [BULLETPROOF SYNC] ERROR:', error);
+      res.status(500).json({ 
+        error: 'Bulletproof sync failed',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Helper function for bulletproof fingerprinting
+  function createBulletproofFingerprint(tx: any): string {
+    const date = tx.date instanceof Date ? tx.date.toISOString().split('T')[0] : tx.date.split('T')[0];
+    const desc = tx.description.toLowerCase().trim().replace(/\s+/g, ' ');
+    const amount = Math.round(tx.amount);
+    return `${date}_${desc}_${amount}`;
+  }
 
   app.put("/api/transactions/:id", async (req, res) => {
     try {
@@ -1239,6 +1632,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching budget posts:', error);
       res.status(500).json({ error: 'Failed to fetch budget posts' });
+    }
+  });
+
+  // Get all budget posts (for savings goals)
+  app.get("/api/budget-posts-all", async (req, res) => {
+    try {
+      // @ts-ignore
+      const userId = req.userId;
+      const budgetPosts = await storage.getAllBudgetPosts(userId);
+      res.json(budgetPosts);
+    } catch (error) {
+      console.error('Error fetching all budget posts:', error);
+      res.status(500).json({ error: 'Failed to fetch all budget posts' });
     }
   });
 

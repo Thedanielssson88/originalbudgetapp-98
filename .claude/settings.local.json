@@ -11,7 +11,15 @@
       "Bash(node test-batch-apply.js)",
       "Bash(curl:*)",
       "Bash(lsof:*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(PORT=5001 npm run dev)",
+      "Bash(pkill:*)",
+      "Bash(npm run dev:*)",
+      "Bash(kill:*)",
+      "Bash(node:*)",
+      "Bash(touch:*)",
+      "Bash(true)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }
