@@ -45,7 +45,7 @@ export function getSession() {
       secure: isProduction, // Only secure in production (HTTPS)
       maxAge: sessionTtl,
       sameSite: 'lax', // Use lax for OAuth compatibility
-      domain: isProduction ? '.replit.app' : undefined, // Allow subdomain access in production
+      // Remove domain restriction for production to avoid cookie issues
     },
   });
 }
@@ -63,13 +63,28 @@ function updateUserSession(
 async function upsertUser(
   claims: any,
 ) {
-  await storage.upsertUser({
-    id: claims["sub"],
-    email: claims["email"],
-    firstName: claims["first_name"],
-    lastName: claims["last_name"],
-    profileImageUrl: claims["profile_image_url"],
-  });
+  try {
+    console.log('🔄 Creating/updating user with claims:', {
+      id: claims["sub"],
+      email: claims["email"],
+      firstName: claims["first_name"],
+      lastName: claims["last_name"]
+    });
+    
+    const user = await storage.upsertUser({
+      id: claims["sub"],
+      email: claims["email"],
+      firstName: claims["first_name"],
+      lastName: claims["last_name"],
+      profileImageUrl: claims["profile_image_url"],
+    });
+    
+    console.log('✅ User created/updated successfully:', user.id);
+    return user;
+  } catch (error) {
+    console.error('❌ Failed to create/update user:', error);
+    throw error;
+  }
 }
 
 export async function setupAuth(app: Express) {
@@ -84,16 +99,28 @@ export async function setupAuth(app: Express) {
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
     verified: passport.AuthenticateCallback
   ) => {
-    const user = {};
-    updateUserSession(user, tokens);
-    const claims = tokens.claims();
-    if (claims) {
-      console.log('🔐 OAuth successful! User authenticated:', claims.sub, claims.email || 'no email');
+    try {
+      console.log('🔄 OAuth verify function called');
+      const claims = tokens.claims();
+      console.log('🔄 OAuth claims received:', {
+        sub: claims.sub,
+        email: claims.email,
+        firstName: claims.first_name,
+        lastName: claims.last_name
+      });
+      
+      const user = {};
+      updateUserSession(user, tokens);
+      
+      console.log('🔄 Creating/updating user in database...');
       await upsertUser(claims);
-    } else {
-      console.error('❌ No claims found in tokens');
+      
+      console.log('✅ OAuth verification successful');
+      verified(null, user);
+    } catch (error) {
+      console.error('❌ OAuth verification failed:', error);
+      verified(error, null);
     }
-    verified(null, user);
   };
 
   console.log('🔍 REPLIT_DOMAINS env var:', process.env.REPLIT_DOMAINS);
