@@ -100,6 +100,8 @@ export async function setupAuth(app: Express) {
   console.log('🔍 REPL_ID env var:', process.env.REPL_ID);
   console.log('🔍 SESSION_SECRET env var:', process.env.SESSION_SECRET ? 'Set' : 'Missing');
   console.log('🔍 ISSUER_URL env var:', process.env.ISSUER_URL);
+  console.log('🔍 DATABASE_URL env var:', process.env.DATABASE_URL ? 'Set' : 'Missing');
+  console.log('🔍 NODE_ENV env var:', process.env.NODE_ENV);
   
   let domains = process.env.REPLIT_DOMAINS!.split(",");
   

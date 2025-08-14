@@ -99,7 +99,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       '/api/environment', 
       '/api/debug',
       '/api/debug/client-env',
-      '/api/test-auth'
+      '/api/test-auth',
+      '/api/callback-test'
     ];
     
     // Allow all debug endpoints without authentication for troubleshooting
@@ -148,7 +149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Environment status route
+  // Environment status route (public for troubleshooting)
   app.get("/api/environment", (req, res) => {
     const isDevelopment = process.env.NODE_ENV !== 'production';
     const environment = isDevelopment ? 'development' : 'production';
@@ -166,6 +167,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hasReplId: !!process.env.REPL_ID,
         hasSessionSecret: !!process.env.SESSION_SECRET && process.env.SESSION_SECRET !== 'your_session_secret_here_please_change_in_production'
       }
+    });
+  });
+
+  // Simple callback test endpoint (public for troubleshooting)
+  app.get("/api/callback-test", (req, res) => {
+    res.json({
+      message: "Callback test endpoint accessible",
+      hostname: req.hostname,
+      query: req.query,
+      url: req.url,
+      timestamp: new Date().toISOString()
     });
   });
 
