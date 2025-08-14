@@ -2,7 +2,16 @@
 
 This is a comprehensive budget management application built with React and TypeScript on the frontend and Express.js on the backend. The application allows users to import bank transactions, categorize expenses, create budgets, track savings goals, and analyze financial data across multiple accounts and time periods. It features sophisticated transaction matching, automated categorization rules, and detailed financial reporting capabilities.
 
-## Recent Critical Changes (January 2025)
+## Recent Critical Changes (August 2025)
+
+- **CRITICAL FIX - Production OAuth Authentication Resolved (August 2025)**: Successfully resolved the production authentication failure where users clicking "Allow" would cause app reload instead of completing OAuth flow:
+  - **Root Cause**: REPLIT_DOMAINS environment variable was truncating the production domain from `originalbudgetapp-98-andreasadaniels.replit.app` to `originalbudgetapp-98-andreasadaniels.replit.ap`
+  - **Solution**: Implemented domain detection and correction logic in `server/replitAuth.ts` to automatically fix truncated domains
+  - **Result**: Production OAuth callback now works correctly with proper domain matching for authentication strategies
+  - **Authentication Status**: Development uses mock user (test-user-123), Production uses full Replit OAuth with user creation in PostgreSQL database
+  - **Session Management**: PostgreSQL-backed session storage with secure cookies for production HTTPS domains
+
+## Previous Critical Changes (January 2025)
 
 - **FIXED - Database Configuration (August 2025)**: Successfully configured proper database setup with Neon as production database:
   - Current DATABASE_URL properly points to Neon database containing 3,840 real transactions

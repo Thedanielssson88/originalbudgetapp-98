@@ -54,21 +54,25 @@ import {
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Create the mock user for testing
-  try {
-    const mockUser = {
-      id: "test-user-123",
-      email: "test@example.com", 
-      firstName: "Test",
-      lastName: "User",
-      profileImageUrl: null,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    await storage.upsertUser(mockUser);
-    console.log("✅ Mock user created successfully");
-  } catch (error) {
-    console.error("❌ Failed to create mock user:", error);
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  
+  // Create mock user for development only
+  if (isDevelopment) {
+    try {
+      const mockUser = {
+        id: "test-user-123",
+        email: "test@example.com", 
+        firstName: "Test",
+        lastName: "User",
+        profileImageUrl: null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      await storage.upsertUser(mockUser);
+      console.log("✅ Mock user created for development");
+    } catch (error) {
+      console.error("❌ Failed to create mock user:", error);
+    }
   }
 
   // Enable Replit Auth
@@ -85,15 +89,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Middleware to add authenticated user ID to all API requests
   app.use('/api', (req: any, res, next) => {
     // Skip auth check for public endpoints
-    const publicEndpoints = ['/api/auth/user', '/api/login', '/api/callback', '/api/logout', '/api/environment'];
+    const publicEndpoints = ['/api/auth/user', '/api/login', '/api/callback', '/api/logout', '/api/environment', '/api/debug'];
     if (publicEndpoints.includes(req.path)) {
       return next();
     }
 
-    // For all other API endpoints, ensure authentication and add userId
+    // Get user ID from authentication or use mock for development
+    let userId = null;
+    
     if (req.user && req.user.claims && req.user.claims.sub) {
-      req.authenticatedUserId = req.user.claims.sub;
-      console.log('🔍 API request with authenticated user:', req.authenticatedUserId);
+      userId = req.user.claims.sub;
+    } else if (isDevelopment) {
+      // Use mock user in development
+      userId = "test-user-123";
+    }
+
+    if (userId) {
+      req.authenticatedUserId = userId;
+      console.log('🔍 API request with user:', userId, isDevelopment ? '(dev)' : '(prod)');
       next();
     } else {
       res.status(401).json({ error: 'Authentication required' });
@@ -134,6 +147,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       nodeEnv: process.env.NODE_ENV || 'development',
       timestamp: new Date().toISOString()
     });
+  });
+
+  // Debug endpoint for production auth troubleshooting
+  app.get("/api/debug", (req, res) => {
+    const hostname = req.hostname;
+    const debugInfo = {
+      timestamp: new Date().toISOString(),
+      server: {
+        hostname: hostname,
+        environment: process.env.NODE_ENV || 'development',
+        hasReplitDomains: !!process.env.REPLIT_DOMAINS,
+        replitDomains: process.env.REPLIT_DOMAINS ? process.env.REPLIT_DOMAINS.split(',') : [],
+        hasReplId: !!process.env.REPL_ID,
+        replId: process.env.REPL_ID || 'missing',
+        hasSessionSecret: !!process.env.SESSION_SECRET,
+        hasIssuerUrl: !!process.env.ISSUER_URL,
+        issuerUrl: process.env.ISSUER_URL || 'missing',
+        hasDatabaseUrl: !!process.env.DATABASE_URL,
+      },
+      auth: {
+        expectedStrategy: `replitauth:${hostname}`,
+        registeredDomains: process.env.REPLIT_DOMAINS ? process.env.REPLIT_DOMAINS.split(',') : [],
+        isDomainRegistered: process.env.REPLIT_DOMAINS ? process.env.REPLIT_DOMAINS.includes(hostname) : false,
+      },
+      request: {
+        hostname: req.hostname,
+        host: req.get('host'),
+        protocol: req.protocol,
+        url: req.url,
+        userAgent: req.get('user-agent'),
+      }
+    };
+    
+    res.json(debugInfo);
   });
 
   // Debug endpoint to check environment variables

@@ -6,7 +6,10 @@ import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
-import { storage } from "./storage";
+import { DatabaseStorage } from "./dbStorage";
+
+// Use the same storage instance as routes
+const storage = new DatabaseStorage();
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
@@ -41,7 +44,8 @@ export function getSession() {
       httpOnly: true,
       secure: isProduction, // Only secure in production (HTTPS)
       maxAge: sessionTtl,
-      sameSite: isProduction ? 'strict' : 'lax', // More flexible for dev
+      sameSite: 'lax', // Use lax for OAuth compatibility
+      domain: isProduction ? '.replit.app' : undefined, // Allow subdomain access in production
     },
   });
 }
@@ -83,13 +87,31 @@ export async function setupAuth(app: Express) {
     const user = {};
     updateUserSession(user, tokens);
     const claims = tokens.claims();
-    console.log('🔐 OAuth successful! User authenticated:', claims.sub, claims.email);
-    await upsertUser(claims);
+    if (claims) {
+      console.log('🔐 OAuth successful! User authenticated:', claims.sub, claims.email || 'no email');
+      await upsertUser(claims);
+    } else {
+      console.error('❌ No claims found in tokens');
+    }
     verified(null, user);
   };
 
   console.log('🔍 REPLIT_DOMAINS env var:', process.env.REPLIT_DOMAINS);
-  const domains = process.env.REPLIT_DOMAINS!.split(",");
+  console.log('🔍 REPL_ID env var:', process.env.REPL_ID);
+  console.log('🔍 SESSION_SECRET env var:', process.env.SESSION_SECRET ? 'Set' : 'Missing');
+  console.log('🔍 ISSUER_URL env var:', process.env.ISSUER_URL);
+  
+  let domains = process.env.REPLIT_DOMAINS!.split(",");
+  
+  // Fix truncated production domain
+  domains = domains.map(domain => {
+    if (domain === 'originalbudgetapp-98-andreasadaniels.replit.ap') {
+      console.log('🔧 Fixing truncated domain:', domain, '→', 'originalbudgetapp-98-andreasadaniels.replit.app');
+      return 'originalbudgetapp-98-andreasadaniels.replit.app';
+    }
+    return domain;
+  });
+  
   console.log('🔧 Registering Replit Auth strategies for domains:', domains);
   
   for (const domain of domains) {
@@ -111,8 +133,14 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
-    const hostname = req.hostname === 'localhost' ? 'localhost:5000' : req.hostname;
-    console.log('Login attempt for hostname:', hostname, 'Original:', req.hostname);
+    let hostname = req.hostname === 'localhost' ? 'localhost:5000' : req.hostname;
+    
+    // Fix truncated hostname for production
+    if (hostname === 'originalbudgetapp-98-andreasadaniels.replit.ap') {
+      hostname = 'originalbudgetapp-98-andreasadaniels.replit.app';
+    }
+    
+    console.log('🔐 Login attempt for hostname:', hostname, 'Original:', req.hostname);
     passport.authenticate(`replitauth:${hostname}`, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
@@ -120,8 +148,16 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/callback", (req, res, next) => {
-    const hostname = req.hostname === 'localhost' ? 'localhost:5000' : req.hostname;
-    console.log('Callback attempt for hostname:', hostname, 'Original:', req.hostname);
+    let hostname = req.hostname === 'localhost' ? 'localhost:5000' : req.hostname;
+    
+    // Fix truncated hostname for production
+    if (hostname === 'originalbudgetapp-98-andreasadaniels.replit.ap') {
+      hostname = 'originalbudgetapp-98-andreasadaniels.replit.app';
+    }
+    
+    console.log('🔄 Callback attempt for hostname:', hostname, 'Original:', req.hostname);
+    console.log('🔄 Request URL:', req.url);
+    console.log('🔄 Request query:', req.query);
     passport.authenticate(`replitauth:${hostname}`, {
       successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
