@@ -609,6 +609,8 @@ export class MemStorage implements IStorage {
       appCategoryId: transaction.appCategoryId ?? null,
       appSubCategoryId: transaction.appSubCategoryId ?? null,
       savingsTargetId: transaction.savingsTargetId ?? null,
+      incomeTargetId: transaction.incomeTargetId ?? null,
+      linkedCostId: transaction.linkedCostId ?? null,
     };
     this.transactions.set(id, newTransaction);
     return newTransaction;
