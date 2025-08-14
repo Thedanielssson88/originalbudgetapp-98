@@ -90,7 +90,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Middleware to add authenticated user ID to all API requests
   app.use('/api', (req: any, res, next) => {
-    // Skip auth check for public endpoints
+    // Skip auth check for public endpoints (including debug endpoints for troubleshooting)
     const publicEndpoints = [
       '/api/auth/user', 
       '/api/login', 
@@ -101,7 +101,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       '/api/debug/client-env',
       '/api/test-auth'
     ];
-    if (publicEndpoints.includes(req.path)) {
+    
+    // Allow all debug endpoints without authentication for troubleshooting
+    if (publicEndpoints.includes(req.path) || req.path.startsWith('/api/debug')) {
       return next();
     }
 
