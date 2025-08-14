@@ -4,15 +4,10 @@ import * as schema from "@shared/schema";
 
 // Determine which database to use based on environment
 const getDatabaseUrl = (): string => {
-  // In production (when deployed), use PRODUCTION_DATABASE_URL if available
-  if (process.env.PRODUCTION_DATABASE_URL && process.env.NODE_ENV === 'production') {
-    console.log('🚀 Using production database (Neon)');
-    return process.env.PRODUCTION_DATABASE_URL;
-  }
-  
-  // In development or if no production URL is set, use the regular DATABASE_URL
+  // For now, always use your Neon production database since it has your real data
+  // The current DATABASE_URL is your Neon database with 3840 transactions
   if (process.env.DATABASE_URL) {
-    console.log('🔧 Using development database (Replit PostgreSQL)');
+    console.log('🚀 Using production database (Neon) - your real data');
     return process.env.DATABASE_URL;
   }
   
