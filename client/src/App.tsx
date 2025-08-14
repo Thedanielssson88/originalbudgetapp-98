@@ -13,6 +13,7 @@ import SettingsPage from "./pages/SettingsPage";
 import CategoryManagement from "./pages/CategoryManagement";
 import NotFound from "./pages/NotFound";
 import ImportPage from "./pages/ImportPage";
+import AuthCallbackPage from "./pages/AuthCallbackPage";
 import { useInitializeApiStore } from "./hooks/useApiStore";
 import { usePrefetchAllTransactions } from "./hooks/useTransactions";
 import { useEffect } from "react";
@@ -91,6 +92,7 @@ const AppContent = () => {
             <Route path="/import" component={ImportPage} />
             <Route path="/ladda-upp-filer" component={ImportPage} />
             <Route path="/installningar" component={SettingsPage} />
+            <Route path="/auth/callback" component={AuthCallbackPage} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route component={NotFound} />
           </Switch>

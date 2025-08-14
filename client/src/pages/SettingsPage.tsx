@@ -13,6 +13,7 @@ import { MainCategoriesSettings } from "@/components/MainCategoriesSettings";
 import { PaydaySettings } from "@/components/PaydaySettings";
 import { UserManagement } from "@/components/UserManagement";
 import AccountTypesManager from "@/components/AccountTypesManager";
+import { NeonAuthSettings } from "@/components/NeonAuthSettings";
 import { useBudget } from "@/hooks/useBudget";
 import { useAccounts, useCreateAccount, useDeleteAccount, useUpdateAccount } from "@/hooks/useAccounts";
 import { useAccountTypes } from "@/hooks/useAccountTypes";
@@ -935,6 +936,10 @@ Kontrollera att filen är en giltig JSON-fil som exporterats från denna app.`);
               <CardContent className="space-y-6">
                 <MobileScrollingSettings />
                 <AutoUpdateBalanceSettings />
+                
+                <Separator />
+                
+                <NeonAuthSettings />
                 
                 <Separator />
                 

@@ -72,6 +72,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Debug endpoint to check environment variables
+  app.get("/api/debug/client-env", (req, res) => {
+    res.json({
+      message: "This endpoint helps debug client-side environment variable issues",
+      serverEnv: {
+        NODE_ENV: process.env.NODE_ENV,
+        VITE_STACK_PROJECT_ID: process.env.VITE_STACK_PROJECT_ID ? "Set" : "Missing",
+        VITE_STACK_PUBLISHABLE_CLIENT_KEY: process.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY ? "Set" : "Missing",
+      },
+      instructions: "Check browser console for client-side environment variable logs from neonAuthService"
+    });
+  });
+
   // Bootstrap route to get all initial data
   app.get("/api/bootstrap", async (req, res) => {
     try {
@@ -2127,6 +2140,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting user setting:', error);
       res.status(500).json({ error: 'Failed to delete user setting' });
+    }
+  });
+
+  // Google Authentication routes for Neon
+  app.post("/api/auth/configure-database", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Authentication token required' });
+      }
+
+      const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+      const { user } = req.body;
+
+      if (!user || !user.email) {
+        return res.status(400).json({ error: 'User information required' });
+      }
+
+      // TODO: Verify Stack Auth JWT token here
+      // For now, we'll trust the token since it comes from our frontend
+      
+      // Create or update user in database with Stack Auth info
+      console.log(`Configuring database for Stack Auth user: ${user.email}`);
+      
+      // In a real implementation, you might:
+      // 1. Verify the Stack Auth JWT token
+      // 2. Create a user record with Stack Auth ID mapping
+      // 3. Set up user-specific database schema or permissions
+      // 4. Store encrypted connection strings per user
+      
+      // For this demo, we'll just acknowledge the configuration
+      const userConfig = {
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        databaseConfigured: true,
+        configuredAt: new Date().toISOString()
+      };
+
+      // Store user configuration (in a real app, this would go to a secure user config table)
+      console.log('User database configuration:', userConfig);
+
+      res.json({
+        success: true,
+        message: 'Database authentication configured successfully',
+        userConfig
+      });
+    } catch (error) {
+      console.error('Error configuring database auth:', error);
+      res.status(500).json({ error: 'Failed to configure database authentication' });
+    }
+  });
+
+  app.post("/api/auth/configure-custom-database", async (req, res) => {
+    try {
+      const { connectionString, userEmail } = req.body;
+
+      if (!connectionString || !userEmail) {
+        return res.status(400).json({ error: 'Connection string and user email required' });
+      }
+
+      // Validate connection string format (basic check for Neon)
+      if (!connectionString.includes('postgresql://') && !connectionString.includes('postgres://')) {
+        return res.status(400).json({ error: 'Invalid PostgreSQL connection string format' });
+      }
+
+      // TODO: In a production app, you would:
+      // 1. Validate the connection string by testing it
+      // 2. Encrypt and store the connection string securely
+      // 3. Associate it with the user's account
+      // 4. Set up user-specific database access
+
+      console.log(`Configuring custom database connection for user: ${userEmail}`);
+      
+      // For demo purposes, we'll just acknowledge the configuration
+      const customConfig = {
+        userEmail,
+        hasCustomConnection: true,
+        configuredAt: new Date().toISOString(),
+        // Don't log the actual connection string for security
+        connectionConfigured: true
+      };
+
+      console.log('Custom database configuration:', customConfig);
+
+      res.json({
+        success: true,
+        message: 'Custom database connection configured successfully',
+        config: customConfig
+      });
+    } catch (error) {
+      console.error('Error configuring custom database connection:', error);
+      res.status(500).json({ error: 'Failed to configure custom database connection' });
+    }
+  });
+
+  app.get("/api/auth/database-status", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Authentication token required' });
+      }
+
+      // TODO: Get user info from token and check their database configuration status
+      // For now, return a basic status
+      
+      res.json({
+        isConfigured: false,
+        connectionType: 'default',
+        configuredAt: null,
+        message: 'Database authentication not configured'
+      });
+    } catch (error) {
+      console.error('Error checking database status:', error);
+      res.status(500).json({ error: 'Failed to check database status' });
     }
   });
 

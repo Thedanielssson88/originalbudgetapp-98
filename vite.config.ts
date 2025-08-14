@@ -16,6 +16,15 @@ export default defineConfig({
         ]
       : []),
   ],
+  define: {
+    global: 'globalThis',
+    'process.env': JSON.stringify(process.env),
+    'process.version': JSON.stringify(process.version),
+    'process.platform': JSON.stringify(process.platform),
+    // Explicitly define environment variables as fallback
+    __VITE_STACK_PROJECT_ID__: JSON.stringify(process.env.VITE_STACK_PROJECT_ID || ''),
+    __VITE_STACK_PUBLISHABLE_CLIENT_KEY__: JSON.stringify(process.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY || ''),
+  },
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
@@ -32,8 +41,19 @@ export default defineConfig({
     },
   },
   root: path.resolve(import.meta.dirname, "client"),
+  envDir: path.resolve(import.meta.dirname),  // Look for .env files in project root
+  optimizeDeps: {
+    exclude: ['@stackframe/stack'],
+    include: ['react', 'react-dom'],
+  },
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      external: (id) => {
+        // Don't externalize @stackframe/stack
+        return false;
+      }
+    }
   },
 });

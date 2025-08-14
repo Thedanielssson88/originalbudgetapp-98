@@ -1,6 +1,16 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { config } from "dotenv";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+
+// Load environment variables from .env file
+config();
+
+// Debug environment variables
+console.log('🔍 Environment variables loaded:');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('VITE_STACK_PROJECT_ID:', process.env.VITE_STACK_PROJECT_ID ? 'Set' : 'Missing');
+console.log('VITE_STACK_PUBLISHABLE_CLIENT_KEY:', process.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY ? 'Set' : 'Missing');
 
 const app = express();
 // Increase body size limit for large transaction synchronization requests
