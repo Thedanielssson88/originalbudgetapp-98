@@ -31,6 +31,8 @@ function createTransactionFingerprint(transaction: { date: string; description: 
   return fingerprint;
 }
 import { DatabaseStorage } from "./dbStorage";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 
 // Use DatabaseStorage for production with authentication
 const storage = new DatabaseStorage();
@@ -89,7 +91,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Middleware to add authenticated user ID to all API requests
   app.use('/api', (req: any, res, next) => {
     // Skip auth check for public endpoints
-    const publicEndpoints = ['/api/auth/user', '/api/login', '/api/callback', '/api/logout', '/api/environment', '/api/debug'];
+    const publicEndpoints = [
+      '/api/auth/user', 
+      '/api/login', 
+      '/api/callback', 
+      '/api/logout', 
+      '/api/environment', 
+      '/api/debug',
+      '/api/debug/client-env',
+      '/api/test-auth'
+    ];
     if (publicEndpoints.includes(req.path)) {
       return next();
     }
@@ -149,36 +160,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Debug endpoint for production auth troubleshooting
-  app.get("/api/debug", (req, res) => {
+  // Enhanced debug endpoint for production auth troubleshooting
+  app.get("/api/debug", async (req: any, res) => {
     const hostname = req.hostname;
+    const fullHostname = req.hostname === 'localhost' ? 'localhost:5000' : req.hostname;
+    
+    // Check basic database status
+    let dbStatus = 'configured';
+    let userCount = 'unknown';
+    let sessionCount = 'unknown';
+    
+    // Simple database connection test - just check if environment is set
+    if (!process.env.DATABASE_URL) {
+      dbStatus = 'not configured';
+    }
+    
+    // Check session status
+    const sessionInfo = {
+      hasSession: !!req.session,
+      sessionId: req.sessionID,
+      isAuthenticated: req.isAuthenticated(),
+      user: req.user ? {
+        id: (req.user as any).claims?.sub,
+        email: (req.user as any).claims?.email,
+        firstName: (req.user as any).claims?.first_name,
+        lastName: (req.user as any).claims?.last_name,
+        expiresAt: (req.user as any).expires_at
+      } : null,
+      cookie: req.session?.cookie ? {
+        httpOnly: req.session.cookie.httpOnly,
+        secure: req.session.cookie.secure,
+        sameSite: req.session.cookie.sameSite,
+        domain: req.session.cookie.domain,
+        maxAge: req.session.cookie.maxAge,
+        expires: req.session.cookie.expires
+      } : null
+    };
+    
+    // Check registered strategies
+    const registeredDomains = process.env.REPLIT_DOMAINS ? process.env.REPLIT_DOMAINS.split(',') : [];
+    const expectedStrategy = `replitauth:${fullHostname}`;
+    
     const debugInfo = {
       timestamp: new Date().toISOString(),
       server: {
         hostname: hostname,
-        environment: process.env.NODE_ENV || 'development',
+        fullHostname: fullHostname,
+        nodeEnv: process.env.NODE_ENV,
+        isDevelopment: isDevelopment,
         hasReplitDomains: !!process.env.REPLIT_DOMAINS,
-        replitDomains: process.env.REPLIT_DOMAINS ? process.env.REPLIT_DOMAINS.split(',') : [],
-        hasReplId: !!process.env.REPL_ID,
+        replitDomains: registeredDomains,
         replId: process.env.REPL_ID || 'missing',
-        hasSessionSecret: !!process.env.SESSION_SECRET,
-        hasIssuerUrl: !!process.env.ISSUER_URL,
-        issuerUrl: process.env.ISSUER_URL || 'missing',
-        hasDatabaseUrl: !!process.env.DATABASE_URL,
+        issuerUrl: process.env.ISSUER_URL || 'https://replit.com/oidc',
+        sessionSecretSet: !!process.env.SESSION_SECRET && process.env.SESSION_SECRET !== 'your_session_secret_here_please_change_in_production'
+      },
+      neonAuth: {
+        stackProjectId: process.env.VITE_STACK_PROJECT_ID || 'missing',
+        stackPublishableKey: process.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY ? 'set' : 'missing',
+        stackSecretKey: process.env.STACK_SECRET_SERVER_KEY ? 'set' : 'missing',
+        userProvided: {
+          // These are the values the user showed in their message
+          expectedProjectId: '9dcd4abe-925d-423b-ac64-d208074f0f61',
+          expectedPubKey: 'pck_2bq4y4eh5jjet23y21xvxxy44nxqza78y544g0y6fwzzr',
+          expectedSecretKey: 'ssk_hraz04g3jmhzp72ts1nkjw17bda7rdgp7mqk0338jyy8g'
+        },
+        matches: {
+          projectId: process.env.VITE_STACK_PROJECT_ID === '9dcd4abe-925d-423b-ac64-d208074f0f61',
+          pubKey: process.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY === 'pck_2bq4y4eh5jjet23y21xvxxy44nxqza78y544g0y6fwzzr',
+          secretKey: process.env.STACK_SECRET_SERVER_KEY === 'ssk_hraz04g3jmhzp72ts1nkjw17bda7rdgp7mqk0338jyy8g'
+        }
       },
       auth: {
-        expectedStrategy: `replitauth:${hostname}`,
-        registeredDomains: process.env.REPLIT_DOMAINS ? process.env.REPLIT_DOMAINS.split(',') : [],
-        isDomainRegistered: process.env.REPLIT_DOMAINS ? process.env.REPLIT_DOMAINS.includes(hostname) : false,
+        expectedStrategy: expectedStrategy,
+        isDomainRegistered: registeredDomains.includes(fullHostname),
+        registeredStrategies: registeredDomains.map(d => `replitauth:${d}`),
+        possibleIssues: []
       },
+      database: {
+        status: dbStatus,
+        connectionString: process.env.DATABASE_URL ? 'set (hidden)' : 'not set',
+        userCount: userCount,
+        sessionCount: sessionCount
+      },
+      session: sessionInfo,
       request: {
-        hostname: req.hostname,
-        host: req.get('host'),
         protocol: req.protocol,
-        url: req.url,
-        userAgent: req.get('user-agent'),
+        secure: req.secure,
+        originalUrl: req.originalUrl,
+        headers: {
+          host: req.headers.host,
+          origin: req.headers.origin,
+          referer: req.headers.referer,
+          'x-forwarded-proto': req.headers['x-forwarded-proto'],
+          'x-forwarded-host': req.headers['x-forwarded-host'],
+          cookie: req.headers.cookie ? 'present' : 'missing'
+        }
       }
     };
+    
+    // Identify possible issues
+    const issues = debugInfo.auth.possibleIssues as string[];
+    
+    if (!debugInfo.auth.isDomainRegistered) {
+      issues.push(`Domain '${fullHostname}' not in REPLIT_DOMAINS environment variable`);
+    }
+    
+    if (!debugInfo.server.sessionSecretSet) {
+      issues.push('SESSION_SECRET is not properly set for production');
+    }
+    
+    if (debugInfo.database.status !== 'connected') {
+      issues.push('Database connection failed');
+    }
+    
+    if (!debugInfo.server.replId) {
+      issues.push('REPL_ID environment variable is missing');
+    }
+    
+    if (hostname.endsWith('.replit.ap')) {
+      issues.push('Domain appears truncated (missing final "p" in .replit.app)');
+    }
+    
+    if (!isDevelopment && !req.secure) {
+      issues.push('Request is not secure (HTTPS) in production');
+    }
     
     res.json(debugInfo);
   });
@@ -194,6 +299,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       },
       instructions: "Check browser console for client-side environment variable logs from neonAuthService"
     });
+  });
+
+  // Test authentication endpoint
+  app.get("/api/test-auth", async (req: any, res) => {
+    try {
+      const authStatus = {
+        isAuthenticated: req.isAuthenticated(),
+        hasSession: !!req.session,
+        sessionId: req.sessionID,
+        user: null as any,
+        canAccessDatabase: false,
+        testUserCreation: null as any
+      };
+
+      if (req.user && (req.user as any).claims) {
+        const claims = (req.user as any).claims;
+        authStatus.user = {
+          id: claims.sub,
+          email: claims.email,
+          firstName: claims.first_name,
+          lastName: claims.last_name
+        };
+
+        // Test if we can create/update user in database
+        try {
+          await storage.upsertUser({
+            id: claims.sub,
+            email: claims.email,
+            firstName: claims.first_name,
+            lastName: claims.last_name,
+            profileImageUrl: claims.profile_image_url
+          });
+          authStatus.canAccessDatabase = true;
+          authStatus.testUserCreation = "success";
+        } catch (error: any) {
+          authStatus.testUserCreation = `failed: ${error.message}`;
+        }
+      }
+
+      res.json(authStatus);
+    } catch (error: any) {
+      res.status(500).json({ 
+        error: "Test auth failed", 
+        message: error.message,
+        stack: isDevelopment ? error.stack : undefined
+      });
+    }
   });
 
   // Bootstrap route to get all initial data

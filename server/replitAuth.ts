@@ -103,11 +103,12 @@ export async function setupAuth(app: Express) {
   
   let domains = process.env.REPLIT_DOMAINS!.split(",");
   
-  // Fix truncated production domain
+  // Fix truncated production domain (.replit.ap → .replit.app)
   domains = domains.map(domain => {
-    if (domain === 'originalbudgetapp-98-andreasadaniels.replit.ap') {
-      console.log('🔧 Fixing truncated domain:', domain, '→', 'originalbudgetapp-98-andreasadaniels.replit.app');
-      return 'originalbudgetapp-98-andreasadaniels.replit.app';
+    if (domain.endsWith('.replit.ap')) {
+      const fixedDomain = domain + 'p';
+      console.log('🔧 Fixing truncated domain:', domain, '→', fixedDomain);
+      return fixedDomain;
     }
     return domain;
   });
@@ -135,9 +136,10 @@ export async function setupAuth(app: Express) {
   app.get("/api/login", (req, res, next) => {
     let hostname = req.hostname === 'localhost' ? 'localhost:5000' : req.hostname;
     
-    // Fix truncated hostname for production
-    if (hostname === 'originalbudgetapp-98-andreasadaniels.replit.ap') {
-      hostname = 'originalbudgetapp-98-andreasadaniels.replit.app';
+    // Fix truncated hostname for production (.replit.ap → .replit.app)
+    if (hostname.endsWith('.replit.ap')) {
+      hostname = hostname + 'p';
+      console.log('🔧 Fixing truncated hostname:', req.hostname, '→', hostname);
     }
     
     console.log('🔐 Login attempt for hostname:', hostname, 'Original:', req.hostname);
@@ -150,9 +152,10 @@ export async function setupAuth(app: Express) {
   app.get("/api/callback", (req, res, next) => {
     let hostname = req.hostname === 'localhost' ? 'localhost:5000' : req.hostname;
     
-    // Fix truncated hostname for production
-    if (hostname === 'originalbudgetapp-98-andreasadaniels.replit.ap') {
-      hostname = 'originalbudgetapp-98-andreasadaniels.replit.app';
+    // Fix truncated hostname for production (.replit.ap → .replit.app)
+    if (hostname.endsWith('.replit.ap')) {
+      hostname = hostname + 'p';
+      console.log('🔧 Fixing truncated hostname:', req.hostname, '→', hostname);
     }
     
     console.log('🔄 Callback attempt for hostname:', hostname, 'Original:', req.hostname);
@@ -165,11 +168,19 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/logout", (req, res) => {
+    let hostname = req.hostname;
+    
+    // Fix truncated hostname for production (.replit.ap → .replit.app)
+    if (hostname.endsWith('.replit.ap')) {
+      hostname = hostname + 'p';
+      console.log('🔧 Fixing truncated logout hostname:', req.hostname, '→', hostname);
+    }
+    
     req.logout(() => {
       res.redirect(
         client.buildEndSessionUrl(config, {
           client_id: process.env.REPL_ID!,
-          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
+          post_logout_redirect_uri: `${req.protocol}://${hostname}`,
         }).href
       );
     });
