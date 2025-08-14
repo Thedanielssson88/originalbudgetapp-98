@@ -44,11 +44,8 @@ export function useInitializeApiStore() {
               return loadMonthlyAccountBalancesFromDatabase();
             })
             .then(() => {
-              console.log('✅ [HOOK] Monthly account balances loaded, now force reloading transactions...');
-              return forceReloadTransactions();
-            })
-            .then(() => {
-              console.log('✅ [HOOK] Force reload transactions completed!');
+              console.log('✅ [HOOK] Monthly account balances loaded');
+              // Removed duplicate forceReloadTransactions - it's already called in initializeApp
             })
             .catch(error => {
               console.error('[HOOK] Failed to initialize app, load balances, or load transactions:', error);

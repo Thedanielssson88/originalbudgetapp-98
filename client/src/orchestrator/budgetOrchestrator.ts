@@ -1924,52 +1924,11 @@ export async function forceReloadTransactions(): Promise<void> {
     console.log(`✅ [ORCHESTRATOR] FORCE RELOAD: Found ${dbTransactions.length} transactions in database`);
     addMobileDebugLog(`✅ [FORCE RELOAD] Found ${dbTransactions.length} transactions in database`);
     
-    // DEBUG: Check the first few transactions to see field names
-    if (dbTransactions && dbTransactions.length > 0) {
-      const sampleTx = dbTransactions[0];
-      const fieldNames = Object.keys(sampleTx);
-      console.log('🔍 [FORCE RELOAD DEBUG] Sample transaction field names:', fieldNames);
-      addMobileDebugLog(`🔍 [FORCE RELOAD] Sample fields: ${fieldNames.join(', ')}`);
-      
-      const savingsValues = {
-        savingsTargetId: sampleTx.savingsTargetId,
-        savings_target_id: (sampleTx as any).savings_target_id
-      };
-      console.log('🔍 [FORCE RELOAD DEBUG] Sample savingsTargetId values:', savingsValues);
-      addMobileDebugLog(`🔍 [FORCE RELOAD] Sample values: camelCase=${savingsValues.savingsTargetId}, snake_case=${savingsValues.savings_target_id}`);
-      
-      // Check specifically for LÖN transactions
-      const lonTransactions = dbTransactions.filter(tx => tx.description === 'LÖN');
-      console.log(`🔍 [FORCE RELOAD DEBUG] Found ${lonTransactions.length} LÖN transactions`);
-      addMobileDebugLog(`🔍 [FORCE RELOAD] Found ${lonTransactions.length} LÖN transactions`);
-      
-      lonTransactions.forEach((tx, i) => {
-        if (i < 3) { // Log first 3
-          console.log(`🔍 [FORCE RELOAD DEBUG] LÖN tx ${i}: id=${tx.id}, savingsTargetId=${tx.savingsTargetId}, savings_target_id=${(tx as any).savings_target_id}`);
-          addMobileDebugLog(`🔍 [FORCE RELOAD] LÖN ${i}: id=${tx.id}, camelCase=${tx.savingsTargetId}, snake_case=${(tx as any).savings_target_id}`);
-        }
-      });
-    }
+    // Debug logging removed for performance
 
     // Convert and store transactions
     const convertedTransactions = (dbTransactions || []).map((tx, index) => {
-      // CRITICAL DEBUG: Log what we're converting for first few transactions OR transactions with linking
-      const hasLinkedData = tx.linkedCostId || (tx as any).linked_cost_id || 
-                           tx.linkedTransactionId || (tx as any).linked_transaction_id || 
-                           tx.savingsTargetId || (tx as any).savings_target_id ||
-                           tx.correctedAmount !== null || (tx as any).corrected_amount !== null;
-      if (index < 3 || hasLinkedData) {
-        console.log(`[ORCHESTRATOR] FORCE RELOAD DEBUG ${index} (${tx.type}) - HAS LINKS: ${hasLinkedData}:`);
-        console.log(`  - TX ID: ${tx.id}`);
-        console.log(`  - TX type: ${tx.type}`);
-        console.log(`  - TX amount from DB: ${tx.amount} (type: ${typeof tx.amount})`);
-        console.log(`  - TX description: "${tx.description}"`);
-        console.log(`  - TX linkedCostId: ${tx.linkedCostId} / ${(tx as any).linked_cost_id}`);
-        console.log(`  - TX linkedTransactionId: ${tx.linkedTransactionId} / ${(tx as any).linked_transaction_id}`);
-        console.log(`  - TX correctedAmount: ${tx.correctedAmount} / ${(tx as any).corrected_amount}`);
-        console.log(`  - TX savingsTargetId: ${tx.savingsTargetId} / ${(tx as any).savings_target_id}`);
-        console.log(`  - All TX keys:`, Object.keys(tx));
-      }
+      // Debug logging removed for performance
       
       const converted = {
         id: tx.id,
@@ -2016,14 +1975,7 @@ export async function forceReloadTransactions(): Promise<void> {
     // Store in centralized transaction storage
     state.budgetState.allTransactions = convertedTransactions;
     
-    // DEBUG: Check what was actually stored
-    const storedLonTransactions = state.budgetState.allTransactions.filter(tx => tx.description === 'LÖN');
-    addMobileDebugLog(`🔍 [FORCE RELOAD] Stored ${storedLonTransactions.length} LÖN transactions in budgetState`);
-    storedLonTransactions.forEach((tx, i) => {
-      if (i < 3) {
-        addMobileDebugLog(`🔍 [FORCE RELOAD] Stored LÖN ${i}: id=${tx.id}, savingsTargetId=${tx.savingsTargetId}`);
-      }
-    });
+    // Debug logging removed for performance
     
     console.log(`✅ [ORCHESTRATOR] FORCE RELOAD: Stored ${convertedTransactions.length} transactions in state`);
     addMobileDebugLog(`✅ [FORCE RELOAD] Updated budget state with ${convertedTransactions.length} transactions`);
@@ -2112,13 +2064,7 @@ export async function initializeApp(): Promise<void> {
   await loadTransactionsFromDatabase();
   console.log('✅ [ORCHESTRATOR] loadTransactionsFromDatabase completed!');
   
-  // FINAL CHECK: Ensure transactions are still loaded
-  console.log(`🔍 [ORCHESTRATOR] FINAL CHECK: ${state.budgetState.allTransactions.length} transactions in state after all loading`);
-  if (state.budgetState.allTransactions.length === 0) {
-    console.log('⚠️ [ORCHESTRATOR] EMERGENCY: No transactions loaded, final force reload...');
-    await forceReloadTransactions();
-    console.log(`🔍 [ORCHESTRATOR] AFTER EMERGENCY RELOAD: ${state.budgetState.allTransactions.length} transactions in state`);
-  }
+  // Final check removed - duplicate loading removed for performance
   
   // CRITICAL: Final transaction count check before calculations
   console.log(`🔍 [ORCHESTRATOR] PRE-CALCULATION CHECK: ${state.budgetState.allTransactions.length} transactions in state`);

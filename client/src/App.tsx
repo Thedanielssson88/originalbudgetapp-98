@@ -15,6 +15,8 @@ import NotFound from "./pages/NotFound";
 import ImportPage from "./pages/ImportPage";
 import { useInitializeApiStore } from "./hooks/useApiStore";
 import { usePrefetchAllTransactions } from "./hooks/useTransactions";
+import { useEffect } from "react";
+import { addLog } from "./utils/mobileDebugLogger";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,6 +41,36 @@ const AppContent = () => {
   
   // STARTUP OPTIMIZATION: Prefetch all transactions for summaries and yearly analysis
   usePrefetchAllTransactions();
+  
+  // Show environment status on app start
+  useEffect(() => {
+    const checkEnvironment = async () => {
+      const isDevelopment = import.meta.env.DEV;
+      const clientEnv = isDevelopment ? 'DEVELOPMENT' : 'PRODUCTION';
+      const emoji = isDevelopment ? '🔧' : '🚀';
+      
+      // Log client environment
+      addLog('info', `${emoji} Client started in ${clientEnv} mode`, {
+        environment: clientEnv,
+        baseUrl: window.location.origin,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Fetch and log server environment
+      try {
+        const response = await fetch('/api/environment');
+        if (response.ok) {
+          const serverInfo = await response.json();
+          const serverEmoji = serverInfo.environment === 'development' ? '🔧' : '🚀';
+          addLog('info', `${serverEmoji} Server: ${serverInfo.environment.toUpperCase()} - Database: ${serverInfo.database}`, serverInfo);
+        }
+      } catch (error) {
+        addLog('error', 'Failed to fetch server environment', { error });
+      }
+    };
+    
+    checkEnvironment();
+  }, []);
   
   return (
     <TooltipProvider>

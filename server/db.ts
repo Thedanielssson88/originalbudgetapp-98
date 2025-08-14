@@ -4,10 +4,18 @@ import * as schema from "@shared/schema";
 
 // Determine which database to use based on environment
 const getDatabaseUrl = (): string => {
-  // For now, always use your Neon production database since it has your real data
-  // The current DATABASE_URL is your Neon database with 3840 transactions
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  // In production, use the EU production database
+  if (isProduction) {
+    const prodUrl = process.env.PRODUCTION_DATABASE_URL || 'postgresql://neondb_owner:npg_yXbewGR9jN7K@ep-soft-cell-abj1n4kw-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require';
+    console.log('🚀 Using production database (Neon EU)');
+    return prodUrl;
+  }
+  
+  // In development, use the current DATABASE_URL (US Neon database)
   if (process.env.DATABASE_URL) {
-    console.log('🚀 Using production database (Neon) - your real data');
+    console.log('🔧 Using development database (Neon US)');
     return process.env.DATABASE_URL;
   }
   

@@ -58,6 +58,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   });
 
+  // Environment status route
+  app.get("/api/environment", (req, res) => {
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    const environment = isDevelopment ? 'development' : 'production';
+    const database = isDevelopment ? 'Neon US (Dev)' : 'Neon EU (Prod)';
+    
+    res.json({
+      environment,
+      database,
+      nodeEnv: process.env.NODE_ENV || 'development',
+      timestamp: new Date().toISOString()
+    });
+  });
+
   // Bootstrap route to get all initial data
   app.get("/api/bootstrap", async (req, res) => {
     try {

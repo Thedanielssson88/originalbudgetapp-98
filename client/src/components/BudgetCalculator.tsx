@@ -685,24 +685,11 @@ const BudgetCalculator = () => {
     }));
     const selectedSource = transactionsFromAPI.length > 0 ? 'transactionsFromAPI' : 'budgetState.allTransactions';
     
-    console.log('🚨 [DATA SOURCE DEBUG] LÖN transactions from API:', apiDebugData);
-    console.log('🚨 [DATA SOURCE DEBUG] LÖN transactions from budgetState:', stateDebugData);
-    console.log('🚨 [DATA SOURCE DEBUG] Selected data source:', selectedSource);
+    // console.log('🚨 [DATA SOURCE DEBUG] LÖN transactions from API:', apiDebugData);
+    // console.log('🚨 [DATA SOURCE DEBUG] LÖN transactions from budgetState:', stateDebugData);
+    // console.log('🚨 [DATA SOURCE DEBUG] Selected data source:', selectedSource);
     
-    // Add to mobile debug log (only once per data change)
-    if (lonTransactionsFromAPI.length > 0 || lonTransactionsFromState.length > 0) {
-      setTimeout(() => {
-        addMobileDebugLog(`🚨 [DATA SOURCE] LÖN from API: ${lonTransactionsFromAPI.length} transactions`);
-        apiDebugData.forEach(t => {
-          addMobileDebugLog(`  API: ${t.id.slice(-8)} savingsTargetId=${t.savingsTargetId ? t.savingsTargetId.slice(-8) : 'MISSING'} hasProperty=${t.hasProperty}`);
-        });
-        addMobileDebugLog(`🚨 [DATA SOURCE] LÖN from budgetState: ${lonTransactionsFromState.length} transactions`);
-        stateDebugData.forEach(t => {
-          addMobileDebugLog(`  State: ${t.id.slice(-8)} savingsTargetId=${t.savingsTargetId ? t.savingsTargetId.slice(-8) : 'MISSING'} hasProperty=${t.hasProperty}`);
-        });
-        addMobileDebugLog(`🚨 [DATA SOURCE] Selected: ${selectedSource}`);
-      }, 0);
-    }
+    // Removed excessive debug logging for performance
     const processedData = getProcessedBudgetDataForMonth(
       budgetState, 
       selectedMonthKey, 

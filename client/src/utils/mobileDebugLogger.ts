@@ -51,3 +51,10 @@ export const mobileDebugLogger = new MobileDebugLogger();
 export const addMobileDebugLog = (message: string) => {
   mobileDebugLogger.addLog(message);
 };
+
+// Enhanced logging with severity levels and data
+export const addLog = (level: 'info' | 'error' | 'warn', message: string, data?: any) => {
+  const emoji = level === 'error' ? '❌' : level === 'warn' ? '⚠️' : 'ℹ️';
+  const fullMessage = data ? `${emoji} ${message} - ${JSON.stringify(data)}` : `${emoji} ${message}`;
+  mobileDebugLogger.addLog(fullMessage);
+};
