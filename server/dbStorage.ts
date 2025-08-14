@@ -19,6 +19,7 @@ import {
   inkomstkallorMedlem,
   userSettings,
   type User,
+  type UpsertUser,
   type InsertUser,
   type FamilyMember,
   type InsertFamilyMember,
@@ -99,10 +100,25 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  // User methods
+  // User methods - mandatory for Replit Auth
   async getUser(id: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.id, id));
     return result[0];
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {

@@ -14,10 +14,13 @@ import CategoryManagement from "./pages/CategoryManagement";
 import NotFound from "./pages/NotFound";
 import ImportPage from "./pages/ImportPage";
 import AuthCallbackPage from "./pages/AuthCallbackPage";
+import { useAuth } from "./hooks/useAuth";
 import { useInitializeApiStore } from "./hooks/useApiStore";
 import { usePrefetchAllTransactions } from "./hooks/useTransactions";
 import { useEffect } from "react";
 import { addLog } from "./utils/mobileDebugLogger";
+import Landing from "./pages/Landing";
+import Home from "./pages/Home";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,10 +40,12 @@ if (typeof window !== 'undefined') {
 }
 
 const AppContent = () => {
-  // Initialize the API store when the app starts
+  const { isAuthenticated, isLoading } = useAuth();
+  
+  // Initialize the API store when the app starts (only if authenticated)
   useInitializeApiStore();
   
-  // STARTUP OPTIMIZATION: Prefetch all transactions for summaries and yearly analysis
+  // STARTUP OPTIMIZATION: Prefetch all transactions for summaries and yearly analysis (only if authenticated)
   usePrefetchAllTransactions();
   
   // Show environment status on app start
@@ -73,32 +78,55 @@ const AppContent = () => {
     checkEnvironment();
   }, []);
   
+  // Show loading while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Laddar...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <TooltipProvider>
+    <>
+      <Router>
+        <TooltipProvider>
+          <Switch>
+            {!isAuthenticated ? (
+              <>
+                <Route path="/" component={Landing} />
+                <Route path="/auth/callback" component={AuthCallbackPage} />
+                <Route component={Landing} />
+              </>
+            ) : (
+              <>
+                <Route path="/" component={Home} />
+                <Route path="/budget" component={BudgetPage} />
+                <Route path="/inkomster" component={BudgetPage} />
+                <Route path="/sammanstallning" component={BudgetPage} />
+                <Route path="/overforing" component={BudgetPage} />
+                <Route path="/egen-budget" component={BudgetPage} />
+                <Route path="/historia" component={BudgetPage} />
+                <Route path="/sparmal" component={SavingsGoalsPage} />
+                <Route path="/transaktioner" component={TransactionsPage} />
+                <Route path="/kategorier" component={CategoryManagement} />
+                <Route path="/import" component={ImportPage} />
+                <Route path="/ladda-upp-filer" component={ImportPage} />
+                <Route path="/installningar" component={SettingsPage} />
+                <Route component={NotFound} />
+              </>
+            )}
+          </Switch>
+        </TooltipProvider>
+      </Router>
+      
+      <MobileDebugPanel />
       <Toaster />
       <Sonner />
-      <Router>
-        <AppLayout>
-          <Switch>
-            <Route path="/" component={BudgetPage} />
-            <Route path="/inkomster" component={BudgetPage} />
-            <Route path="/sammanstallning" component={BudgetPage} />
-            <Route path="/overforing" component={BudgetPage} />
-            <Route path="/egen-budget" component={BudgetPage} />
-            <Route path="/historia" component={BudgetPage} />
-            <Route path="/sparmal" component={SavingsGoalsPage} />
-            <Route path="/transaktioner" component={TransactionsPage} />
-            <Route path="/kategorier" component={CategoryManagement} />
-            <Route path="/import" component={ImportPage} />
-            <Route path="/ladda-upp-filer" component={ImportPage} />
-            <Route path="/installningar" component={SettingsPage} />
-            <Route path="/auth/callback" component={AuthCallbackPage} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route component={NotFound} />
-          </Switch>
-        </AppLayout>
-      </Router>
-    </TooltipProvider>
+    </>
   );
 };
 

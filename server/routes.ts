@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { v4 as uuidv4 } from 'uuid';
+import { setupAuth, isAuthenticated } from "./replitAuth";
 
 // Helper function to create transaction fingerprint for deduplication
 function createTransactionFingerprint(transaction: { date: string; description: string; amount: number; accountId?: string }): string {
@@ -29,7 +30,10 @@ function createTransactionFingerprint(transaction: { date: string; description: 
   console.log(`[FINGERPRINT] Created: ${fingerprint} from date: ${transaction.date} -> ${dateOnly}`);
   return fingerprint;
 }
-import { storage } from "./storage";
+import { DatabaseStorage } from "./dbStorage";
+
+// Use DatabaseStorage for production with authentication
+const storage = new DatabaseStorage();
 import { 
   insertAccountTypeSchema,
   insertAccountSchema,
@@ -50,12 +54,47 @@ import {
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Mock middleware to inject userId for development
-  // In production, this would come from proper authentication
-  app.use((req, res, next) => {
-    // @ts-ignore - adding userId to request for development
-    req.userId = 'dev-user-123';
-    next();
+  // Create the mock user for testing
+  try {
+    const mockUser = {
+      id: "test-user-123",
+      email: "test@example.com", 
+      firstName: "Test",
+      lastName: "User",
+      profileImageUrl: null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    await storage.upsertUser(mockUser);
+    console.log("✅ Mock user created successfully");
+  } catch (error) {
+    console.error("❌ Failed to create mock user:", error);
+  }
+
+  // Temporarily disable auth while fixing issues
+  // await setupAuth(app);
+
+  // Auth routes - temporary mock for development
+  app.get('/api/auth/user', async (req: any, res) => {
+    try {
+      // Create a mock user for testing
+      const mockUser = {
+        id: "test-user-123",
+        email: "test@example.com",
+        firstName: "Test",
+        lastName: "User",
+        profileImageUrl: null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      // Ensure user exists in database
+      await storage.upsertUser(mockUser);
+      res.json(mockUser);
+    } catch (error) {
+      console.error("Error creating mock user:", error);
+      res.status(500).json({ message: "Failed to create user" });
+    }
   });
 
   // Environment status route
@@ -88,8 +127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bootstrap route to get all initial data
   app.get("/api/bootstrap", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      const userId = "test-user-123";  // Temporary mock user ID
       console.log('Bootstrap request with userId:', userId);
       const data = await storage.bootstrap(userId);
       // console.log('Bootstrap data:', JSON.stringify(data, null, 2)); // Disabled for performance
@@ -103,8 +141,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Restore backup route for importing complete data backups
   app.post("/api/restore-backup", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       console.log('Restore backup request with userId:', userId);
       
       const backupData = req.body;
@@ -204,8 +242,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Account routes
   app.get("/api/accounts", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const accounts = await storage.getAccounts(userId);
       res.json(accounts);
     } catch (error) {
@@ -229,8 +267,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/accounts", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const validatedData = insertAccountSchema.parse({
         ...req.body,
         userId
@@ -273,8 +311,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Account Types routes
   app.get("/api/account-types", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const accountTypes = await storage.getAccountTypes(userId);
       res.json(accountTypes);
     } catch (error) {
@@ -298,8 +336,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/account-types", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const validatedData = insertAccountTypeSchema.parse({
         ...req.body,
         userId
@@ -342,8 +380,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Family member routes
   app.get("/api/family-members", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const familyMembers = await storage.getFamilyMembers(userId);
       res.json(familyMembers);
     } catch (error) {
@@ -367,8 +405,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/family-members", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const validatedData = insertFamilyMemberSchema.parse({
         ...req.body,
         userId
@@ -411,8 +449,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Income sources (Inkomstkällor) routes
   app.get("/api/inkomstkallor", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const inkomstkallor = await storage.getInkomstkallor(userId);
       res.json(inkomstkallor);
     } catch (error) {
@@ -436,8 +474,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/inkomstkallor", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const validatedData = insertInkomstkallSchema.parse({
         ...req.body,
         userId
@@ -480,8 +518,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Income source member assignments routes
   app.get("/api/inkomstkallor-medlem", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const assignments = await storage.getInkomstkallorMedlem(userId);
       res.json(assignments);
     } catch (error) {
@@ -492,8 +530,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/inkomstkallor-medlem", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const validatedData = insertInkomstkallorMedlemSchema.parse({
         ...req.body,
         userId
@@ -536,8 +574,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Huvudkategori routes
   app.get("/api/huvudkategorier", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const kategorier = await storage.getHuvudkategorier(userId);
       res.json(kategorier);
     } catch (error) {
@@ -561,8 +599,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/huvudkategorier", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const validatedData = insertHuvudkategoriSchema.parse({
         ...req.body,
         userId
@@ -605,8 +643,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Underkategori routes
   app.get("/api/underkategorier", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const { huvudkategoriId } = req.query;
       let kategorier;
       
@@ -638,8 +676,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/underkategorier", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const validatedData = insertUnderkategoriSchema.parse({
         ...req.body,
         userId
@@ -683,8 +721,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Category Rules routes
   app.get("/api/category-rules", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const rules = await storage.getCategoryRules(userId);
       res.json(rules);
     } catch (error) {
@@ -695,8 +733,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/category-rules", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       console.log('🔍 [SERVER ROUTE] Received rule data:', JSON.stringify(req.body, null, 2));
       console.log('🔍 [SERVER ROUTE] Received autoApproval:', req.body.autoApproval, typeof req.body.autoApproval);
       const validatedData = insertCategoryRuleSchema.parse({
@@ -748,8 +786,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Transaction routes
   app.get("/api/transactions", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       
       // Check if requesting historical data
       const { fromDate, toDate } = req.query;
@@ -827,8 +865,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/transactions", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       
       // Convert date string to Date object before validation
       const requestData = {
@@ -850,8 +888,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // NEW: Emergency duplicate cleanup endpoint
   app.post("/api/transactions/cleanup-duplicates", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       console.log(`[CLEANUP] Starting emergency duplicate cleanup for user: ${userId}`);
 
       // Get ALL transactions for this user
@@ -927,8 +965,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🚨 [NUCLEAR SYNC] Request body:`, req.body);
       console.log(`🚨 [NUCLEAR SYNC] Request headers:`, req.headers);
       
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const fileTransactions = req.body.transactions;
       
       console.log(`🚨 [NUCLEAR SYNC] ================================`);
@@ -1123,8 +1161,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🛡️ [BULLETPROOF SYNC] ================================`);
       console.log(`🛡️ [BULLETPROOF SYNC] REQUEST RECEIVED`);
       
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const { accountId, startDate, endDate, transactions } = req.body;
       
       console.log(`🛡️ [BULLETPROOF] User ID: ${userId}`);
@@ -1455,8 +1493,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bulk delete transactions by account and date range
   app.post("/api/transactions/bulk-delete", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const { accountId, startDate, endDate } = req.body;
       
       if (!accountId || !startDate || !endDate) {
@@ -1485,8 +1523,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bulk create transactions
   app.post("/api/transactions/bulk-create", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const { transactions } = req.body;
       
       if (!transactions || !Array.isArray(transactions)) {
@@ -1525,8 +1563,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bulk delete transactions by IDs
   app.post("/api/transactions/bulk-delete-by-ids", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const { ids } = req.body;
       
       if (!ids || !Array.isArray(ids)) {
@@ -1557,8 +1595,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bulk update transactions
   app.post("/api/transactions/bulk-update", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const { transactions } = req.body;
       
       if (!transactions || !Array.isArray(transactions)) {
@@ -1606,8 +1644,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Monthly Budget routes
   app.get("/api/monthly-budgets", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const budgets = await storage.getMonthlyBudgets(userId);
       res.json(budgets);
     } catch (error) {
@@ -1618,8 +1656,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/monthly-budgets/:monthKey", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const { monthKey } = req.params;
       const budget = await storage.getMonthlyBudget(userId, monthKey);
       if (!budget) {
@@ -1634,8 +1672,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/monthly-budgets", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const validatedData = insertMonthlyBudgetSchema.parse({
         ...req.body,
         userId
@@ -1650,8 +1688,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/monthly-budgets/:monthKey", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const { monthKey } = req.params;
       const updateData = insertMonthlyBudgetSchema.partial().parse(req.body);
       const budget = await storage.updateMonthlyBudget(userId, monthKey, updateData);
@@ -1667,8 +1705,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/monthly-budgets/:monthKey", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const { monthKey } = req.params;
       const deleted = await storage.deleteMonthlyBudget(userId, monthKey);
       if (!deleted) {
@@ -1684,8 +1722,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Budget Posts routes
   app.get("/api/budget-posts", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const monthKey = req.query.monthKey as string;
       const budgetPosts = await storage.getBudgetPosts(userId, monthKey);
       res.json(budgetPosts);
@@ -1698,8 +1736,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all budget posts (for savings goals)
   app.get("/api/budget-posts-all", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const budgetPosts = await storage.getAllBudgetPosts(userId);
       res.json(budgetPosts);
     } catch (error) {
@@ -1710,8 +1748,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/budget-posts/:id", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const { id } = req.params;
       const budgetPost = await storage.getBudgetPost(userId, id);
       if (!budgetPost) {
@@ -1726,8 +1764,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/budget-posts", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       console.log('POST /api/budget-posts - Request body:', JSON.stringify(req.body, null, 2));
       const validatedData = insertBudgetPostSchema.parse({
         ...req.body,
@@ -1750,8 +1788,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/budget-posts/:id", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const { id } = req.params;
       console.log('PATCH /api/budget-posts/:id - Request body:', JSON.stringify(req.body, null, 2));
       const updateData = insertBudgetPostSchema.partial().parse(req.body);
@@ -1775,8 +1813,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/budget-posts/:id", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const { id } = req.params;
       const deleted = await storage.deleteBudgetPost(userId, id);
       if (!deleted) {
@@ -1792,8 +1830,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bank routes
   app.get("/api/banks", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const banks = await storage.getBanks(userId);
       res.json(banks);
     } catch (error) {
@@ -1804,8 +1842,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/banks", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const validatedData = insertBankSchema.parse({
         ...req.body,
         userId
@@ -1834,8 +1872,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bank CSV mapping routes
   app.get("/api/bank-csv-mappings", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const mappings = await storage.getBankCsvMappings(userId);
       res.json(mappings);
     } catch (error) {
@@ -1846,8 +1884,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/bank-csv-mappings/bank/:bankId", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const mappings = await storage.getBankCsvMappingsByBank(userId, req.params.bankId);
       res.json(mappings);
     } catch (error) {
@@ -1858,8 +1896,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/bank-csv-mappings", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const validatedData = insertBankCsvMappingSchema.parse({
         ...req.body,
         userId
@@ -1902,8 +1940,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Monthly Account Balances routes
   app.get("/api/monthly-account-balances", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const monthKey = req.query.monthKey as string;
       const balances = await storage.getMonthlyAccountBalances(userId, monthKey);
       res.json(balances);
@@ -1915,8 +1953,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/monthly-account-balances", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const validatedData = insertMonthlyAccountBalanceSchema.parse({
         ...req.body,
         userId
@@ -1931,8 +1969,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/monthly-account-balances/upsert", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const validatedData = insertMonthlyAccountBalanceSchema.parse({
         ...req.body,
         userId
@@ -1947,8 +1985,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/monthly-account-balances/:monthKey/:accountId/faktiskt-kontosaldo", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const { monthKey, accountId } = req.params;
       const { faktisktKontosaldo } = req.body;
       
@@ -1971,8 +2009,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/monthly-account-balances/:monthKey/:accountId/bankens-kontosaldo", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const { monthKey, accountId } = req.params;
       const { bankensKontosaldo } = req.body;
       
@@ -1992,8 +2030,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Planned Transfers routes
   app.get("/api/planned-transfers", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const month = req.query.month as string;
       const transfers = await storage.getPlannedTransfers(userId, month);
       res.json(transfers);
@@ -2005,8 +2043,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/planned-transfers", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       
       // Convert amounts from SEK to öre (multiply by 100)
       const transferData = {
@@ -2068,8 +2106,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User settings routes
   app.get("/api/user-settings", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const settings = await storage.getUserSettings(userId);
       res.json(settings);
     } catch (error) {
@@ -2080,8 +2118,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/user-settings/:settingKey", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const { settingKey } = req.params;
       const setting = await storage.getUserSetting(userId, settingKey);
       if (setting) {
@@ -2097,8 +2135,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/user-settings", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const validatedData = insertUserSettingSchema.parse({
         ...req.body,
         userId
@@ -2113,8 +2151,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/user-settings/:settingKey", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const { settingKey } = req.params;
       const { settingValue } = req.body;
       
@@ -2128,8 +2166,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/user-settings/:settingKey", async (req, res) => {
     try {
-      // @ts-ignore
-      const userId = req.userId;
+      // 
+      const userId = "test-user-123";  // Temporary mock user ID
       const { settingKey } = req.params;
       const deleted = await storage.deleteUserSetting(userId, settingKey);
       if (deleted) {

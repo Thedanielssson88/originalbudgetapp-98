@@ -1,10 +1,30 @@
-import { pgTable, text, uuid, timestamp, integer, boolean, unique } from 'drizzle-orm/pg-core';
+import { pgTable, text, uuid, timestamp, integer, boolean, unique, index, jsonb } from 'drizzle-orm/pg-core';
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { sql } from 'drizzle-orm';
 
-// --- User Table (assuming you have one for auth) ---
-export const users = pgTable('users', {
-    id: text('id').primaryKey(), // ID from your authentication provider
+// Session storage table.
+// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: text("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
+// User storage table.
+// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+export const users = pgTable("users", {
+  id: text("id").primaryKey(),
+  email: text("email").unique(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  profileImageUrl: text("profile_image_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // --- Core Application Tables ---
@@ -349,6 +369,7 @@ export const insertUserSettingSchema = createInsertSchema(userSettings).omit({
 });
 
 // Type exports
+export type UpsertUser = typeof users.$inferInsert;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 

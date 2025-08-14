@@ -14,6 +14,7 @@ import {
   inkomstkallor,
   inkomstkallorMedlem,
   type User, 
+  type UpsertUser,
   type InsertUser,
   type FamilyMember,
   type InsertFamilyMember,
@@ -49,8 +50,9 @@ type InsertBankCsvMapping = typeof bankCsvMappings.$inferInsert;
 // you might need
 
 export interface IStorage {
-  // User CRUD
+  // User CRUD - mandatory for Replit Auth
   getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
   createUser(user: InsertUser): Promise<User>;
   
   // Family Member CRUD
@@ -253,8 +255,33 @@ export class MemStorage implements IStorage {
     return this.users.get(id);
   }
 
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const now = new Date();
+    const user: User = {
+      id: userData.id!,
+      email: userData.email || null,
+      firstName: userData.firstName || null,
+      lastName: userData.lastName || null,
+      profileImageUrl: userData.profileImageUrl || null,
+      createdAt: userData.createdAt || now,
+      updatedAt: now,
+    };
+    
+    this.users.set(user.id, user);
+    return user;
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
-    const user: User = { ...insertUser };
+    const now = new Date();
+    const user: User = {
+      id: insertUser.id,
+      email: insertUser.email || null,
+      firstName: insertUser.firstName || null,
+      lastName: insertUser.lastName || null,
+      profileImageUrl: insertUser.profileImageUrl || null,
+      createdAt: now,
+      updatedAt: now,
+    };
     this.users.set(user.id, user);
     return user;
   }
