@@ -31,6 +31,7 @@ export function getSession() {
     ttl: sessionTtl,
     tableName: "sessions",
   });
+  const isProduction = process.env.NODE_ENV === 'production';
   return session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
@@ -38,8 +39,9 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: isProduction, // Only secure in production (HTTPS)
       maxAge: sessionTtl,
+      sameSite: isProduction ? 'strict' : 'lax', // More flexible for dev
     },
   });
 }
@@ -80,18 +82,25 @@ export async function setupAuth(app: Express) {
   ) => {
     const user = {};
     updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
+    const claims = tokens.claims();
+    console.log('🔐 OAuth successful! User authenticated:', claims.sub, claims.email);
+    await upsertUser(claims);
     verified(null, user);
   };
 
-  for (const domain of process.env
-    .REPLIT_DOMAINS!.split(",")) {
+  console.log('🔍 REPLIT_DOMAINS env var:', process.env.REPLIT_DOMAINS);
+  const domains = process.env.REPLIT_DOMAINS!.split(",");
+  console.log('🔧 Registering Replit Auth strategies for domains:', domains);
+  
+  for (const domain of domains) {
+    console.log(`🔧 Registering strategy: replitauth:${domain}`);
+    const protocol = domain.includes('localhost') ? 'http' : 'https';
     const strategy = new Strategy(
       {
         name: `replitauth:${domain}`,
         config,
         scope: "openid email profile offline_access",
-        callbackURL: `https://${domain}/api/callback`,
+        callbackURL: `${protocol}://${domain}/api/callback`,
       },
       verify,
     );
@@ -102,14 +111,18 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    const hostname = req.hostname === 'localhost' ? 'localhost:5000' : req.hostname;
+    console.log('Login attempt for hostname:', hostname, 'Original:', req.hostname);
+    passport.authenticate(`replitauth:${hostname}`, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
 
   app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    const hostname = req.hostname === 'localhost' ? 'localhost:5000' : req.hostname;
+    console.log('Callback attempt for hostname:', hostname, 'Original:', req.hostname);
+    passport.authenticate(`replitauth:${hostname}`, {
       successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
     })(req, res, next);

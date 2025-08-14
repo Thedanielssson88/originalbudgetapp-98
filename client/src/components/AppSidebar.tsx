@@ -1,4 +1,4 @@
-import { Calculator, BarChart3, ArrowRightLeft, PieChart, History, Target, Upload, Settings } from "lucide-react";
+import { Calculator, BarChart3, ArrowRightLeft, PieChart, History, Target, Upload, Settings, LogOut } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 import {
@@ -28,6 +28,10 @@ export function AppSidebar() {
 
   const isActive = (path: string) => location === path;
 
+  const handleLogout = () => {
+    window.location.href = '/api/logout';
+  };
+
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
@@ -48,6 +52,19 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={handleLogout} className="hover:bg-red-50 hover:text-red-700">
+                  <LogOut className="h-4 w-4" />
+                  <span>Logga ut</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

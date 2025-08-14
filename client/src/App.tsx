@@ -99,10 +99,9 @@ const AppContent = () => {
               <>
                 <Route path="/" component={Landing} />
                 <Route path="/auth/callback" component={AuthCallbackPage} />
-                <Route component={Landing} />
               </>
             ) : (
-              <>
+              <AppLayout>
                 <Route path="/" component={Home} />
                 <Route path="/budget" component={BudgetPage} />
                 <Route path="/inkomster" component={BudgetPage} />
@@ -116,8 +115,7 @@ const AppContent = () => {
                 <Route path="/import" component={ImportPage} />
                 <Route path="/ladda-upp-filer" component={ImportPage} />
                 <Route path="/installningar" component={SettingsPage} />
-                <Route component={NotFound} />
-              </>
+              </AppLayout>
             )}
           </Switch>
         </TooltipProvider>

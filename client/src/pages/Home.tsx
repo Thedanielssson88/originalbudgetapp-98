@@ -1,6 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { AppLayout } from "@/components/AppLayout";
 import { Link } from "wouter";
 import { User } from "@shared/schema";
 
@@ -8,7 +7,6 @@ export default function Home() {
   const { user } = useAuth() as { user: User | undefined };
 
   return (
-    <AppLayout>
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 mb-8">
@@ -110,6 +108,5 @@ export default function Home() {
           </div>
         </div>
       </div>
-    </AppLayout>
   );
 }

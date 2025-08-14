@@ -26,7 +26,8 @@
       "Bash(npm install:*)",
       "WebFetch(domain:docs.stack-auth.com)",
       "WebSearch",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(REPLIT_DOMAINS=\"ac727294-c09b-4900-b61d-6d5483af8960-00-80o2hvzlzvkv.worf.replit.dev,localhost:5000\" npm run dev)"
     ],
     "deny": []
   }
