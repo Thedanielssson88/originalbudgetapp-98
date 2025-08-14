@@ -158,7 +158,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       environment,
       database,
       nodeEnv: process.env.NODE_ENV || 'development',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      // Add auth info for troubleshooting
+      authInfo: {
+        hasReplitDomains: !!process.env.REPLIT_DOMAINS,
+        replitDomainsCount: process.env.REPLIT_DOMAINS ? process.env.REPLIT_DOMAINS.split(',').length : 0,
+        hasReplId: !!process.env.REPL_ID,
+        hasSessionSecret: !!process.env.SESSION_SECRET && process.env.SESSION_SECRET !== 'your_session_secret_here_please_change_in_production'
+      }
     });
   });
 
