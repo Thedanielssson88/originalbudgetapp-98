@@ -20,6 +20,7 @@ import { useCategoryRules } from '@/hooks/useCategoryRules';
 import { CreateRuleDialog } from './CreateRuleDialog';
 import { useFamilyMembers } from '@/hooks/useFamilyMembers';
 import { useInkomstkallor } from '@/hooks/useInkomstkallor';
+import { addMobileDebugLog } from '@/utils/mobileDebugLogger';
 
 interface TransactionExpandableCardProps {
   transaction: ImportedTransaction;
@@ -70,9 +71,39 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   // Update local state when prop changes
   useEffect(() => {
     // Apply snake_case to camelCase conversion for linking fields, same as orchestrator
+    // WORKAROUND: For CostCoverage and ExpenseClaim transactions, if linkedCostId is missing but we have linkedTransactionId,
+    // check if the linkedTransactionId might actually be the linkedCostId based on the transaction context
+    let linkedCostId = propTransaction.linkedCostId || (propTransaction as any).linked_cost_id || null;
+    
+    // If this is a CostCoverage or ExpenseClaim transaction and we don't have linkedCostId but have linkedTransactionId,
+    // try to fetch the transaction directly from backend to get missing data
+    if ((propTransaction.type === 'CostCoverage' || propTransaction.type === 'ExpenseClaim') && !linkedCostId && propTransaction.linkedTransactionId) {
+      addMobileDebugLog(`🔧 [WORKAROUND] ${propTransaction.type} ${propTransaction.id?.slice(-8)}: Missing linkedCostId, fetching from backend`);
+      
+      // Fetch the transaction directly from backend
+      fetch(`/api/transactions/${propTransaction.id}`)
+        .then(response => response.json())
+        .then(backendData => {
+          if (backendData.linkedCostId) {
+            addMobileDebugLog(`🔧 [WORKAROUND] Got linkedCostId from backend: ${backendData.linkedCostId?.slice(-8)}`);
+            linkedCostId = backendData.linkedCostId;
+            
+            // Update the converted transaction with correct data
+            const fixedTransaction = {
+              ...convertedTransaction,
+              linkedCostId: linkedCostId
+            };
+            setTransaction(fixedTransaction);
+          }
+        })
+        .catch(error => {
+          addMobileDebugLog(`🔧 [WORKAROUND] Failed to fetch from backend: ${error.message}`);
+        });
+    }
+    
     const convertedTransaction = {
       ...propTransaction,
-      linkedCostId: propTransaction.linkedCostId || (propTransaction as any).linked_cost_id || null,
+      linkedCostId: linkedCostId,
       linkedTransactionId: propTransaction.linkedTransactionId || (propTransaction as any).linked_transaction_id || null,
       savingsTargetId: propTransaction.savingsTargetId || (propTransaction as any).savings_target_id || null,
       correctedAmount: propTransaction.correctedAmount !== undefined ? propTransaction.correctedAmount : (propTransaction as any).corrected_amount || null,
@@ -80,9 +111,27 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
     
     setTransaction(convertedTransaction);
     
+    // Debug for ALL transactions to see what's happening
+    if (propTransaction.id?.includes('ea19a8a5')) {
+      addMobileDebugLog(`🔄 [TransactionExpandableCard] Transaction ${propTransaction.id?.slice(-8)}: RAW linkedCostId=${propTransaction.linkedCostId || 'null'}, RAW linkedTransactionId=${propTransaction.linkedTransactionId || 'null'}, type=${propTransaction.type}`);
+      addMobileDebugLog(`🔄 [TransactionExpandableCard] Transaction ${propTransaction.id?.slice(-8)}: CONVERTED linkedCostId=${convertedTransaction.linkedCostId || 'null'}, CONVERTED linkedTransactionId=${convertedTransaction.linkedTransactionId || 'null'}`);
+    }
+    
     // Debug for ExpenseClaim/CostCoverage transactions
     if (propTransaction.type === 'ExpenseClaim' || propTransaction.type === 'CostCoverage') {
-      console.log('🔄 [TransactionExpandableCard] Linking transaction updated:', {
+      console.log('🔄 [TransactionExpandableCard] RAW PROP DATA:', {
+        id: propTransaction.id,
+        type: propTransaction.type,
+        // Raw fields from API
+        raw_linkedCostId: propTransaction.linkedCostId,
+        raw_linkedTransactionId: propTransaction.linkedTransactionId,  
+        raw_correctedAmount: propTransaction.correctedAmount,
+        raw_linked_cost_id: (propTransaction as any).linked_cost_id,
+        raw_linked_transaction_id: (propTransaction as any).linked_transaction_id,
+        raw_corrected_amount: (propTransaction as any).corrected_amount,
+      });
+      
+      console.log('🔄 [TransactionExpandableCard] CONVERTED DATA:', {
         id: propTransaction.id,
         type: propTransaction.type,
         linkedCostId: convertedTransaction.linkedCostId,
@@ -90,8 +139,6 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
         correctedAmount: convertedTransaction.correctedAmount,
         description: propTransaction.description,
         userDescription: propTransaction.userDescription,
-        raw_linked_cost_id: (propTransaction as any).linked_cost_id,
-        raw_corrected_amount: (propTransaction as any).corrected_amount,
         willShowCorrectedAmount: !!(convertedTransaction.linkedTransactionId || convertedTransaction.linkedCostId)
       });
     }
@@ -997,7 +1044,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                 {(transaction.linkedCostId || transaction.type === 'CostCoverage' || transaction.type === 'ExpenseClaim') && (
                   <div>
                     <label className="text-xs font-medium text-muted-foreground">
-                      Länkad transaktion för utlägg/kostnad
+                      Länkad transaktion för utlägg/kostnad [DEBUG: linkedCostId={transaction.linkedCostId || 'null'}, type={transaction.type}]
                     </label>
                     <div className="mt-1 p-2 bg-blue-50 border border-blue-200 rounded-md">
                       {(() => {
@@ -1012,6 +1059,16 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                           });
                         }
                         
+                        // Debug logging for linked cost section
+                        console.log('🔍 [LinkedCost Section] Transaction check:', {
+                          id: transaction.id?.slice(-8),
+                          type: transaction.type,
+                          linkedCostId: transaction.linkedCostId,
+                          linkedTransactionId: transaction.linkedTransactionId,
+                          description: transaction.description,
+                          userDescription: transaction.userDescription
+                        });
+                        
                         if (!transaction.linkedCostId) {
                           // Try to extract from description if ExpenseClaim
                           if (transaction.type === 'ExpenseClaim' && (transaction.description || transaction.userDescription)) {
@@ -1025,7 +1082,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                           
                           return (
                             <p className="text-sm text-orange-700">
-                              Ingen länkad transaktion
+                              Ingen länkad transaktion (linkedCostId: {transaction.linkedCostId || 'null'})
                             </p>
                           );
                         }

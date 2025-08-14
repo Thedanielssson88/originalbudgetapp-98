@@ -743,6 +743,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`📊 [API] Sending ${transactions.length} transactions to client`);
       if (transactions.length > 0) {
         console.log(`📊 [API] Date range: ${new Date(Math.min(...transactions.map(t => new Date(t.date).getTime()))).toLocaleDateString()} to ${new Date(Math.max(...transactions.map(t => new Date(t.date).getTime()))).toLocaleDateString()}`);
+        
+        // TEMP DEBUG: Check if linking fields exist in storage result
+        const sampleWithLinks = transactions.find(t => t.linkedCostId || t.correctedAmount !== null || t.linkedTransactionId);
+        if (sampleWithLinks) {
+          console.log(`🔍 [API TEMP DEBUG] Found transaction with links: ID=${sampleWithLinks.id?.slice(-8)}, linkedCostId=${sampleWithLinks.linkedCostId}, correctedAmount=${sampleWithLinks.correctedAmount}, linkedTransactionId=${sampleWithLinks.linkedTransactionId}`);
+        } else {
+          console.log(`🔍 [API TEMP DEBUG] No transactions with links found in storage result`);
+          // Check first transaction for all field names
+          const firstTx = transactions[0];
+          console.log(`🔍 [API TEMP DEBUG] First transaction fields:`, Object.keys(firstTx));
+          console.log(`🔍 [API TEMP DEBUG] linkedCostId field exists:`, 'linkedCostId' in firstTx, 'value:', firstTx.linkedCostId);
+          console.log(`🔍 [API TEMP DEBUG] correctedAmount field exists:`, 'correctedAmount' in firstTx, 'value:', firstTx.correctedAmount);
+        }
+        
+        // TEMP DEBUG: Look for the specific transactions we just updated (multiple possible IDs)
+        const expenseId = 'a35c1310-f573-4a2b-9f11-dd5dd6c7a5ea';
+        const paymentIds = ['01e4577d-50b7-4ef3-95fb-e2961d0cce8b', '0f1190b4-a5c6-414b-99e9-3e8507120ec2'];
+        
+        const recentExpense = transactions.find(t => t.id === expenseId);
+        if (recentExpense) {
+          console.log(`🔍 [API TEMP DEBUG] Recent expense transaction: ID=${recentExpense.id?.slice(-8)}, linkedCostId=${recentExpense.linkedCostId}, correctedAmount=${recentExpense.correctedAmount}, type=${recentExpense.type}, description='${recentExpense.description}'`);
+        } else {
+          console.log(`🔍 [API TEMP DEBUG] Recent expense transaction NOT FOUND: ${expenseId}`);
+        }
+        
+        paymentIds.forEach(paymentId => {
+          const recentPayment = transactions.find(t => t.id === paymentId);
+          if (recentPayment) {
+            console.log(`🔍 [API TEMP DEBUG] Recent payment transaction: ID=${recentPayment.id?.slice(-8)}, linkedCostId=${recentPayment.linkedCostId}, correctedAmount=${recentPayment.correctedAmount}, type=${recentPayment.type}, description='${recentPayment.description}'`);
+          } else {
+            console.log(`🔍 [API TEMP DEBUG] Recent payment transaction NOT FOUND: ${paymentId}`);
+          }
+        });
       }
       
       res.json(transactions);

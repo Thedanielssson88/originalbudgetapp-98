@@ -3206,6 +3206,7 @@ export function linkExpenseAndCoverage(negativeTxId: string, positiveTxId: strin
         type: 'ExpenseClaim',
         correctedAmount: newNegativeCorrectedAmount,
         linkedTransactionId: positiveTxId,
+        linkedCostId: positiveTxId, // CRITICAL FIX: Add linkedCostId for ExpenseClaim
         isManuallyChanged: true
       }
     },
@@ -3216,6 +3217,7 @@ export function linkExpenseAndCoverage(negativeTxId: string, positiveTxId: strin
         type: 'CostCoverage',
         correctedAmount: newPositiveCorrectedAmount,
         linkedTransactionId: negativeTxId,
+        linkedCostId: negativeTxId, // CRITICAL FIX: Add linkedCostId for CostCoverage
         isManuallyChanged: true
       }
     }
@@ -3271,6 +3273,9 @@ export function updateTransactionsForMonth(monthKey: string, transactions: Impor
     underkategori: tx.appSubCategoryId || '',
     transaktionstyp: tx.type || 'Transaction',
     linkedTransactionId: tx.linkedTransactionId,
+    linkedCostId: tx.linkedCostId, // CRITICAL FIX: Include linkedCostId field
+    savingsTargetId: tx.savingsTargetId, // Include savingsTargetId field
+    incomeTargetId: tx.incomeTargetId, // Include incomeTargetId field
     correctedAmount: tx.correctedAmount,
     type: tx.type || 'Transaction',
     status: tx.status || 'red', // Use status from ImportedTransaction
@@ -3448,6 +3453,24 @@ async function loadTransactionsFromDatabase(): Promise<void> {
     } else {
       console.log(`🔍 [ORCHESTRATOR] No transactions found with savingsTargetId or savings_target_id fields`);
       addMobileDebugLog(`🔍 [LOAD] No transactions found with savingsTargetId in database response`);
+    }
+    
+    // Debug: Check if any transactions have linkedCostId (for cost/expense links)
+    const transactionsWithCostLinks = dbTransactions.filter(t => t.linkedCostId || (t as any).linked_cost_id);
+    if (transactionsWithCostLinks.length > 0) {
+      console.log(`🔍 [ORCHESTRATOR] Found ${transactionsWithCostLinks.length} transactions with cost links:`, 
+        transactionsWithCostLinks.map(t => ({ 
+          id: t.id, 
+          description: t.description,
+          type: t.type,
+          linkedCostId: t.linkedCostId, 
+          linked_cost_id: (t as any).linked_cost_id 
+        }))
+      );
+      addMobileDebugLog(`🔍 [LOAD] Found ${transactionsWithCostLinks.length} transactions with linkedCostId in database response`);
+    } else {
+      console.log(`🔍 [ORCHESTRATOR] No transactions found with linkedCostId or linked_cost_id fields`);
+      addMobileDebugLog(`🔍 [LOAD] No transactions found with linkedCostId in database response`);
     }
     
     // DEBUG: Check the first few transactions to see field names

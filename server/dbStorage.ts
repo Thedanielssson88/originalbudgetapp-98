@@ -358,35 +358,19 @@ export class DatabaseStorage implements IStorage {
   // Transaction methods
   async getTransactions(userId: string): Promise<Transaction[]> {
     // Explicitly select all columns to ensure linkedCostId, correctedAmount etc. are included
-    const result = await db.select({
-      id: transactions.id,
-      userId: transactions.userId,
-      accountId: transactions.accountId,
-      description: transactions.description,
-      amount: transactions.amount,
-      date: transactions.date,
-      balanceAfter: transactions.balanceAfter,
-      userDescription: transactions.userDescription,
-      bankCategory: transactions.bankCategory,
-      bankSubCategory: transactions.bankSubCategory,
-      type: transactions.type,
-      status: transactions.status,
-      linkedTransactionId: transactions.linkedTransactionId,
-      linkedCostId: transactions.linkedCostId,
-      savingsTargetId: transactions.savingsTargetId,
-      incomeTargetId: transactions.incomeTargetId,
-      correctedAmount: transactions.correctedAmount,
-      isManuallyChanged: transactions.isManuallyChanged,
-      appCategoryId: transactions.appCategoryId,
-      appSubCategoryId: transactions.appSubCategoryId,
-      huvudkategoriId: transactions.huvudkategoriId,
-      underkategoriId: transactions.underkategoriId
-    }).from(transactions).where(eq(transactions.userId, userId));
+    // TEST: Use same approach as individual getTransaction to see if it fixes the issue
+    const result = await db.select().from(transactions).where(eq(transactions.userId, userId));
     
-    console.log(`📊 [DB] getTransactions - returning ${result.length} transactions with explicit field selection`);
+    console.log(`📊 [DB] getTransactions - returning ${result.length} transactions with SIMPLE select()`);
     if (result.length > 0) {
       const sampleTx = result[0];
       console.log(`📊 [DB] Sample transaction fields: linkedCostId=${sampleTx.linkedCostId}, correctedAmount=${sampleTx.correctedAmount}, savingsTargetId=${sampleTx.savingsTargetId}`);
+      
+      // Test specific transaction that we know has data
+      const testTx = result.find(t => t.id === '8871ea64-5b73-4b36-9768-f6253e5e774c');
+      if (testTx) {
+        console.log(`📊 [DB] TEST TRANSACTION FOUND: linkedCostId=${testTx.linkedCostId}, correctedAmount=${testTx.correctedAmount}`);
+      }
     }
     
     return result;
@@ -418,10 +402,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTransaction(id: string, transaction: Partial<InsertTransaction>): Promise<Transaction | undefined> {
+    console.log(`🔍 [DB UPDATE] Transaction ${id}: Update data:`, JSON.stringify(transaction));
+    console.log(`🔍 [DB UPDATE] linkedCostId in update:`, transaction.linkedCostId);
+    console.log(`🔍 [DB UPDATE] correctedAmount in update:`, transaction.correctedAmount);
+    
     const result = await db.update(transactions)
       .set(transaction)
       .where(eq(transactions.id, id))
       .returning();
+    
+    console.log(`🔍 [DB UPDATE] Database returned:`, JSON.stringify(result[0]));
+    console.log(`🔍 [DB UPDATE] DB result linkedCostId:`, result[0]?.linkedCostId);
+    console.log(`🔍 [DB UPDATE] DB result correctedAmount:`, result[0]?.correctedAmount);
+    
     return result[0];
   }
 

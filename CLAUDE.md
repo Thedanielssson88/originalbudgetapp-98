@@ -121,6 +121,99 @@ NODE_ENV     # development/production
 - **Import UI**: `TransactionImportEnhanced.tsx` - File upload and mapping
 - **Calculations**: `client/src/services/calculationService.ts` - Balance logic
 
+## Transaction Field Management (CRITICAL)
+
+### Common Issue: New transaction fields not displaying in UI
+When adding new fields to transactions (like `linkedCostId`, `correctedAmount`, etc.), the data flow is complex and requires updates in multiple places. Missing any step will cause fields to disappear.
+
+### Required Fixes for New Transaction Fields
+
+#### 1. Backend Data Retrieval (`server/dbStorage.ts`)
+**CRITICAL**: Never use explicit column selection in bulk queries with Drizzle ORM
+```typescript
+// ❌ WRONG - Fields will be missing/null
+const result = await db.select({
+  id: transactions.id,
+  newField: transactions.newField,
+}).from(transactions)
+
+// ✅ CORRECT - All fields included
+const result = await db.select().from(transactions)
+```
+
+#### 2. Transaction Processing Pipeline (`budgetOrchestrator.ts`)
+**CRITICAL**: Search for ALL `.map(tx => ({` patterns and add new fields to every conversion:
+
+- `forceReloadTransactions()` around line 1960
+- `setTransactionsForMonth()` around line 3260  
+- Any other ImportedTransaction → Transaction conversions
+
+```typescript
+// Must add new field in ALL conversion points
+const transactionsAsBaseType: Transaction[] = transactions.map(tx => ({
+  id: tx.id,
+  linkedTransactionId: tx.linkedTransactionId,
+  linkedCostId: tx.linkedCostId,           // Example existing field
+  savingsTargetId: tx.savingsTargetId,     // Example existing field 
+  newField: tx.newField,                   // NEW FIELD - Add everywhere
+  correctedAmount: tx.correctedAmount,
+}))
+```
+
+#### 3. Transaction Linking Functions (`budgetOrchestrator.ts`)
+**CRITICAL**: Update ALL linking functions to set new fields:
+- `linkExpenseAndCoverage()`
+- `coverCost()`
+- `applyExpenseClaim()`
+- Any other functions that create transaction relationships
+
+```typescript
+// Example: linkExpenseAndCoverage function
+updates: {
+  type: 'ExpenseClaim',
+  correctedAmount: newNegativeCorrectedAmount,
+  linkedTransactionId: positiveTxId,
+  linkedCostId: positiveTxId,         // Existing relationship field
+  newField: newValue,                 // NEW FIELD - Add to updates
+  isManuallyChanged: true
+}
+```
+
+#### 4. Frontend Snake_case Conversion (`TransactionExpandableCard.tsx`)
+**CRITICAL**: Add snake_case → camelCase conversion for database compatibility
+```typescript
+// In useEffect conversion logic
+let newField = propTransaction.newField || (propTransaction as any).new_field || null;
+
+const convertedTransaction = {
+  ...propTransaction,
+  newField: newField,  // Add converted field
+}
+```
+
+### Checklist for New Transaction Fields
+
+- [ ] Add field to database schema (`shared/schema.ts`)
+- [ ] Verify backend uses `select()` not `select({specific})` in `dbStorage.ts`
+- [ ] Search for ALL `.map(tx => ({` in `budgetOrchestrator.ts` and add field everywhere
+- [ ] Update ALL transaction linking functions to set the new field
+- [ ] Add snake_case → camelCase conversion in `TransactionExpandableCard.tsx`
+- [ ] Test both new transactions AND existing transactions work
+- [ ] If old transactions have null values, consider adding a frontend workaround
+
+### Why This Is Complex
+1. **Multiple data conversion points**: Data passes through DB → API → Orchestrator → State → UI
+2. **Drizzle ORM quirks**: Explicit column selection can fail silently
+3. **Legacy compatibility**: Old transactions may need workarounds
+4. **Snake_case vs camelCase**: Database uses snake_case, frontend uses camelCase
+
+### Example: linkedCostId Fix (January 2025)
+This exact issue occurred with `linkedCostId` and `correctedAmount` fields for ExpenseClaim/CostCoverage transactions. Required fixes at:
+1. `server/dbStorage.ts` - Switch to `select()` from explicit columns
+2. `budgetOrchestrator.ts:3274` - Add `linkedCostId` to transaction conversion
+3. `budgetOrchestrator.ts:3209` - Add `linkedCostId` to linking updates  
+4. `TransactionExpandableCard.tsx:80` - Extend workaround for ExpenseClaim
+
 ## Development Best Practices
 
 - **Always use UUIDs**: Never string-based entity lookups
