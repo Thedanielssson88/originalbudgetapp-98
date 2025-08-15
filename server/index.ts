@@ -7,15 +7,7 @@ import { setupVite, serveStatic, log } from "./vite";
 config();
 
 // CRITICAL: Set DATABASE_URL before any imports to ensure db.ts uses correct connection
-// For development, always use US dev database
-const isDev = process.env.NODE_ENV !== 'production';
-if (isDev) {
-  console.log('🔧 FORCING development to use US dev database');
-  process.env.DATABASE_URL = 'postgresql://neondb_owner:npg_csIURKah4TN5@ep-soft-salad-aeyhh2aj.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require';
-} else {
-  console.log('🚀 Production using EU production database');
-  process.env.DATABASE_URL = 'postgresql://neondb_owner:npg_yXbewGR9jN7K@ep-soft-cell-abj1n4kw-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require';
-}
+// Database configuration is handled by configureEnvironment() function below
 
 // Auto-configure environment based on deployment context
 function configureEnvironment() {
@@ -24,18 +16,23 @@ function configureEnvironment() {
   const replSlug = process.env.REPL_SLUG || '';
   const replOwner = process.env.REPL_OWNER || '';
   
-  // More precise detection: Only production if explicitly set to production
-  // AND the REPL_ID/SLUG matches the production environment
-  const isProduction = nodeEnv === 'production' && 
-                      (replSlug === 'originalbudgetapp-98-andreasadaniels' || 
-                       replId.includes('originalbudgetapp-98-andreasadaniels') ||
-                       replOwner === 'andreasadaniels');
+  // More precise detection: Production if ANY of these conditions are met:
+  // 1. NODE_ENV is explicitly set to production
+  // 2. REPL_SLUG matches the production app name
+  // 3. REPL_ID contains the production app name
+  const isProduction = nodeEnv === 'production' || 
+                      replSlug === 'originalbudgetapp-98-andreasadaniels' || 
+                      replId.includes('originalbudgetapp-98-andreasadaniels');
 
   console.log('🔍 Environment detection:');
   console.log('NODE_ENV:', nodeEnv);
   console.log('REPL_ID:', replId);
   console.log('REPL_SLUG:', replSlug);
   console.log('REPL_OWNER:', replOwner);
+  console.log('Production conditions:');
+  console.log('  NODE_ENV === production:', nodeEnv === 'production');
+  console.log('  REPL_SLUG === originalbudgetapp-98-andreasadaniels:', replSlug === 'originalbudgetapp-98-andreasadaniels');
+  console.log('  REPL_ID includes originalbudgetapp-98-andreasadaniels:', replId.includes('originalbudgetapp-98-andreasadaniels'));
   console.log('Is Production:', isProduction);
   
   if (isProduction) {
