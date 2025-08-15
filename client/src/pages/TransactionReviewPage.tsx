@@ -28,7 +28,7 @@ import {
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import { useBudget } from '@/hooks/useBudget';
-import { useTransactions, useUpdateTransaction } from '@/hooks/useTransactions';
+import { useTransactions } from '@/hooks/useTransactions';
 import { useHuvudkategorier, useUnderkategorier } from '@/hooks/useCategories';
 import { useCategoryRules, useCreateCategoryRule } from '@/hooks/useCategoryRules';
 import { formatOrenAsCurrency } from '@/utils/currencyUtils';
@@ -44,7 +44,6 @@ export function TransactionReviewPage() {
   const { data: huvudkategorier = [] } = useHuvudkategorier();
   const { data: underkategorier = [] } = useUnderkategorier();
   const createRuleMutation = useCreateCategoryRule();
-  const updateTransactionMutation = useUpdateTransaction();
 
   // Filter uncategorized transactions (red/yellow) for current month
   const uncategorizedTransactions = useMemo(() => {
@@ -111,15 +110,10 @@ export function TransactionReviewPage() {
     });
   };
 
-  // Handle transaction type update
-  const handleTypeUpdate = async (type: string) => {
-    if (!currentTransaction) return;
-    
-    await updateTransactionMutation.mutateAsync({
-      id: currentTransaction.id,
-      type: type
-    });
-
+  // Handle transaction type update (callback from TransactionTypeSelector)
+  const handleTypeUpdate = (type: string) => {
+    // The TransactionTypeSelector handles the mutation internally
+    // We just show a toast for user feedback
     toast({
       title: "Transaktionstyp uppdaterad",
       description: `Ändrad till ${type}`,
@@ -318,9 +312,8 @@ export function TransactionReviewPage() {
               <div className="space-y-2">
                 <Label>Transaktionstyp</Label>
                 <TransactionTypeSelector
-                  value={currentTransaction.type || 'Expense'}
-                  onChange={handleTypeUpdate}
-                  amount={currentTransaction.amount}
+                  transaction={currentTransaction}
+                  onTypeChange={handleTypeUpdate}
                 />
               </div>
 
