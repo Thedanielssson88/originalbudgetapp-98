@@ -6,20 +6,36 @@ import { setupVite, serveStatic, log } from "./vite";
 // Load environment variables from .env file
 config();
 
+// CRITICAL: Set DATABASE_URL before any imports to ensure db.ts uses correct connection
+// For development, always use US dev database
+const isDev = process.env.NODE_ENV !== 'production';
+if (isDev) {
+  console.log('🔧 FORCING development to use US dev database');
+  process.env.DATABASE_URL = 'postgresql://neondb_owner:npg_csIURKah4TN5@ep-soft-salad-aeyhh2aj.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require';
+} else {
+  console.log('🚀 Production using EU production database');
+  process.env.DATABASE_URL = 'postgresql://neondb_owner:npg_yXbewGR9jN7K@ep-soft-cell-abj1n4kw-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require';
+}
+
 // Auto-configure environment based on deployment context
 function configureEnvironment() {
-  const isDevelopment = process.env.NODE_ENV !== 'production';
+  const nodeEnv = process.env.NODE_ENV || 'development';
   const replId = process.env.REPL_ID || '';
-  const currentDomain = process.env.REPLIT_DB_URL || '';
+  const replSlug = process.env.REPL_SLUG || '';
+  const replOwner = process.env.REPL_OWNER || '';
   
-  // Detect if we're in production based on various signals
-  const isProduction = process.env.NODE_ENV === 'production' || 
-                      currentDomain.includes('originalbudgetapp-98-andreasadaniels.replit.app') ||
-                      replId.includes('originalbudgetapp');
+  // More precise detection: Only production if explicitly set to production
+  // AND the REPL_ID/SLUG matches the production environment
+  const isProduction = nodeEnv === 'production' && 
+                      (replSlug === 'originalbudgetapp-98-andreasadaniels' || 
+                       replId.includes('originalbudgetapp-98-andreasadaniels') ||
+                       replOwner === 'andreasadaniels');
 
   console.log('🔍 Environment detection:');
-  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('NODE_ENV:', nodeEnv);
   console.log('REPL_ID:', replId);
+  console.log('REPL_SLUG:', replSlug);
+  console.log('REPL_OWNER:', replOwner);
   console.log('Is Production:', isProduction);
   
   if (isProduction) {

@@ -628,77 +628,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const importMethods: Record<string, (items: any[]) => Promise<void>> = {
         accounts: async (items) => {
           for (const item of items) {
-            await storage.upsertAccount({ ...item, userId: targetUserId });
+            const { id, ...accountData } = item;
+            await storage.createAccount({ ...accountData, userId: targetUserId });
           }
         },
         accountTypes: async (items) => {
           for (const item of items) {
-            await storage.upsertAccountType({ ...item, userId: targetUserId });
+            const { id, ...typeData } = item;
+            await storage.createAccountType({ ...typeData, userId: targetUserId });
           }
         },
         transactions: async (items) => {
           for (const item of items) {
-            await storage.upsertTransaction({ ...item, userId: targetUserId });
+            const { id, ...transactionData } = item;
+            await storage.createTransaction({ ...transactionData, userId: targetUserId });
           }
         },
         huvudkategorier: async (items) => {
           for (const item of items) {
-            await storage.upsertHuvudkategori({ ...item, userId: targetUserId });
+            const { id, ...kategoriData } = item;
+            await storage.createHuvudkategori({ ...kategoriData, userId: targetUserId });
           }
         },
         underkategorier: async (items) => {
           for (const item of items) {
-            await storage.upsertUnderkategori({ ...item, userId: targetUserId });
+            const { id, ...subKategoriData } = item;
+            await storage.createUnderkategori({ ...subKategoriData, userId: targetUserId });
           }
         },
         categoryRules: async (items) => {
           for (const item of items) {
-            await storage.upsertCategoryRule({ ...item, userId: targetUserId });
+            const { id, ...ruleData } = item;
+            await storage.createCategoryRule({ ...ruleData, userId: targetUserId });
           }
         },
         familyMembers: async (items) => {
           for (const item of items) {
-            await storage.upsertFamilyMember({ ...item, userId: targetUserId });
+            const { id, ...memberData } = item;
+            await storage.createFamilyMember({ ...memberData, userId: targetUserId });
           }
         },
         inkomstkallor: async (items) => {
           for (const item of items) {
-            await storage.upsertInkomstkalla({ ...item, userId: targetUserId });
+            const { id, ...inkomstData } = item;
+            await storage.createInkomstkall({ ...inkomstData, userId: targetUserId });
           }
         },
         inkomstkallorMedlem: async (items) => {
           for (const item of items) {
-            await storage.upsertInkomstkallaForMedlem({ ...item, userId: targetUserId });
+            const { id, ...medlemData } = item;
+            await storage.createInkomstkallorMedlem({ ...medlemData, userId: targetUserId });
           }
         },
         monthlyAccountBalances: async (items) => {
           for (const item of items) {
-            await storage.upsertMonthlyAccountBalance({ ...item, userId: targetUserId });
+            const { id, ...balanceData } = item;
+            await storage.upsertMonthlyAccountBalance({ ...balanceData, userId: targetUserId });
           }
         },
         monthlyBudgets: async (items) => {
           for (const item of items) {
-            await storage.upsertMonthlyBudget({ ...item, userId: targetUserId });
+            const { id, ...budgetData } = item;
+            await storage.createMonthlyBudget({ ...budgetData, userId: targetUserId });
           }
         },
         budgetPosts: async (items) => {
           for (const item of items) {
-            await storage.upsertBudgetPost({ ...item, userId: targetUserId });
+            const { id, ...postData } = item;
+            await storage.createBudgetPost({ ...postData, userId: targetUserId });
           }
         },
         plannedTransfers: async (items) => {
           for (const item of items) {
-            await storage.upsertPlannedTransfer({ ...item, userId: targetUserId });
+            const { id, ...transferData } = item;
+            await storage.createPlannedTransfer({ ...transferData, userId: targetUserId });
           }
         },
         bankCsvMappings: async (items) => {
           for (const item of items) {
-            await storage.upsertBankCsvMapping({ ...item, userId: targetUserId });
+            const { id, ...mappingData } = item;
+            await storage.createBankCsvMapping({ ...mappingData, userId: targetUserId });
+          }
+        },
+        banks: async (items) => {
+          for (const item of items) {
+            const { id, ...bankData } = item;
+            await storage.createBank({ ...bankData, userId: targetUserId });
           }
         },
         userSettings: async (items) => {
           for (const item of items) {
-            await storage.upsertUserSetting({ ...item, userId: targetUserId });
+            await storage.upsertUserSetting(targetUserId, item.settingKey, item.settingValue);
           }
         }
       };

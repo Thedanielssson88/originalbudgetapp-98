@@ -491,6 +491,13 @@ Sidan laddas om för att visa importerad data.`);
           
           // Reload page to show imported data
           window.location.reload();
+        } else if (data.version === '5.0-selective') {
+          // This is a selective export - user should use the selective import instead
+          alert(`Detta är en selektiv export (version ${data.version}). 
+          
+Använd knappen "Importera selektiv data" istället för att importera denna fil.
+
+Selektiva exporter kan bara importeras via den selektiva importen.`);
         } else {
           // Legacy localStorage-based export
           alert(`Legacy format detected (version ${data.version || 'unknown'}). 

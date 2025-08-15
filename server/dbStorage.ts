@@ -373,23 +373,35 @@ export class DatabaseStorage implements IStorage {
 
   // Transaction methods
   async getTransactions(userId: string): Promise<Transaction[]> {
-    // Explicitly select all columns to ensure linkedCostId, correctedAmount etc. are included
-    // TEST: Use same approach as individual getTransaction to see if it fixes the issue
-    const result = await db.select().from(transactions).where(eq(transactions.userId, userId));
+    // DEBUG: Let's check the actual database connection and query
+    console.log(`📊 [DB] getTransactions called for userId: ${userId}`);
+    console.log(`📊 [DB] DATABASE_URL: ${process.env.DATABASE_URL?.substring(0, 50)}...`);
     
-    console.log(`📊 [DB] getTransactions - returning ${result.length} transactions with SIMPLE select()`);
-    if (result.length > 0) {
-      const sampleTx = result[0];
-      console.log(`📊 [DB] Sample transaction fields: linkedCostId=${sampleTx.linkedCostId}, correctedAmount=${sampleTx.correctedAmount}, savingsTargetId=${sampleTx.savingsTargetId}`);
+    try {
+      // Test raw query first
+      const rawResult = await db.execute(sql`SELECT COUNT(*) as count FROM transactions WHERE user_id = ${userId}`);
+      console.log(`📊 [DB] Raw count query result:`, rawResult);
       
-      // Test specific transaction that we know has data
-      const testTx = result.find(t => t.id === '8871ea64-5b73-4b36-9768-f6253e5e774c');
-      if (testTx) {
-        console.log(`📊 [DB] TEST TRANSACTION FOUND: linkedCostId=${testTx.linkedCostId}, correctedAmount=${testTx.correctedAmount}`);
+      // Now the normal query
+      const result = await db.select().from(transactions).where(eq(transactions.userId, userId));
+      
+      console.log(`📊 [DB] getTransactions - returning ${result.length} transactions with SIMPLE select()`);
+      if (result.length > 0) {
+        const sampleTx = result[0];
+        console.log(`📊 [DB] Sample transaction fields: linkedCostId=${sampleTx.linkedCostId}, correctedAmount=${sampleTx.correctedAmount}, savingsTargetId=${sampleTx.savingsTargetId}`);
+        
+        // Test specific transaction that we know has data
+        const testTx = result.find(t => t.id === '8871ea64-5b73-4b36-9768-f6253e5e774c');
+        if (testTx) {
+          console.log(`📊 [DB] TEST TRANSACTION FOUND: linkedCostId=${testTx.linkedCostId}, correctedAmount=${testTx.correctedAmount}`);
+        }
       }
+      
+      return result;
+    } catch (error) {
+      console.error(`❌ [DB] Error in getTransactions:`, error);
+      throw error;
     }
-    
-    return result;
   }
 
   async getRecentTransactions(userId: string, fromDate: Date): Promise<Transaction[]> {
