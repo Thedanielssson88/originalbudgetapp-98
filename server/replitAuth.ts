@@ -172,7 +172,22 @@ export async function setupAuth(app: Express) {
     }
     
     console.log('🔐 Login attempt for hostname:', hostname, 'Original:', req.hostname);
-    passport.authenticate(`replitauth:${hostname}`, {
+    console.log('🔐 Available strategies:', Object.keys(passport._strategies));
+    console.log('🔐 Looking for strategy:', `replitauth:${hostname}`);
+    
+    // Check if strategy exists
+    const strategyName = `replitauth:${hostname}`;
+    if (!passport._strategies[strategyName]) {
+      console.error('❌ Strategy not found:', strategyName);
+      console.error('❌ Available strategies:', Object.keys(passport._strategies));
+      return res.status(500).json({ 
+        error: 'Authentication strategy not found',
+        requested: strategyName,
+        available: Object.keys(passport._strategies)
+      });
+    }
+    
+    passport.authenticate(strategyName, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
@@ -190,8 +205,22 @@ export async function setupAuth(app: Express) {
     console.log('🔄 Callback attempt for hostname:', hostname, 'Original:', req.hostname);
     console.log('🔄 Request URL:', req.url);
     console.log('🔄 Request query:', req.query);
+    console.log('🔄 Available strategies:', Object.keys(passport._strategies));
+    console.log('🔄 Looking for strategy:', `replitauth:${hostname}`);
     
-    passport.authenticate(`replitauth:${hostname}`, (err, user, info) => {
+    // Check if strategy exists
+    const strategyName = `replitauth:${hostname}`;
+    if (!passport._strategies[strategyName]) {
+      console.error('❌ Callback strategy not found:', strategyName);
+      console.error('❌ Available strategies:', Object.keys(passport._strategies));
+      return res.status(500).json({ 
+        error: 'Authentication strategy not found for callback',
+        requested: strategyName,
+        available: Object.keys(passport._strategies)
+      });
+    }
+    
+    passport.authenticate(strategyName, (err, user, info) => {
       console.log('🔄 Callback result - err:', err, 'user:', !!user, 'info:', info);
       
       if (err) {
