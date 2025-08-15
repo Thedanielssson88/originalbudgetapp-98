@@ -50,6 +50,39 @@ export default function Landing() {
                 <span>Kom igång gratis</span>
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
+              
+              {/* Dev login button - only shown in development */}
+              {(window.location.hostname === 'localhost' || 
+                window.location.hostname.includes('.worf.replit.dev') ||
+                window.location.hostname.includes('.replit.dev')) && (
+                <Button 
+                  size="lg" 
+                  variant="outline"
+                  className="bg-white/10 backdrop-blur-sm text-white border-white/30 hover:bg-white/20 px-10 py-4 text-lg font-semibold rounded-2xl shadow-xl transform hover:scale-105 transition-all duration-300 min-w-[280px] sm:min-w-auto"
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/api/dev-login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include'
+                      });
+                      
+                      if (response.ok) {
+                        window.location.href = '/';
+                      } else {
+                        const error = await response.json();
+                        console.error('Dev login failed:', error);
+                        alert(`Dev login failed: ${error.message}`);
+                      }
+                    } catch (err) {
+                      console.error('Dev login error:', err);
+                      alert('Dev login error - check console');
+                    }
+                  }}
+                >
+                  <span>Dev Login (dev-user-123)</span>
+                </Button>
+              )}
             </div>
             
             {/* Trust indicators */}

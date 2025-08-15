@@ -28,7 +28,10 @@
       "WebSearch",
       "WebFetch(domain:github.com)",
       "Bash(REPLIT_DOMAINS=\"ac727294-c09b-4900-b61d-6d5483af8960-00-80o2hvzlzvkv.worf.replit.dev,localhost:5000\" npm run dev)",
-      "Bash(REPLIT_DOMAINS=\"ac727294-c09b-4900-b61d-6d5483af8960-00-80o2hvzlzvkv.worf.replit.dev,localhost:5000,originalbudgetapp-98-andreasadaniels.replit.app\" npm run dev)"
+      "Bash(REPLIT_DOMAINS=\"ac727294-c09b-4900-b61d-6d5483af8960-00-80o2hvzlzvkv.worf.replit.dev,localhost:5000,originalbudgetapp-98-andreasadaniels.replit.app\" npm run dev)",
+      "Bash(mv:*)",
+      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_csIURKah4TN5@ep-soft-salad-aeyhh2aj.us-east-2.aws.neon.tech/neondb?sslmode=require\" REPLIT_DOMAINS=\"ac727294-c09b-4900-b61d-6d5483af8960-00-80o2hvzlzvkv.worf.replit.dev,localhost:5000,originalbudgetapp-98-andreasadaniels.replit.app\" npm run dev)",
+      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_csIURKah4TN5@ep-soft-salad-aeyhh2aj.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require\" REPLIT_DOMAINS=\"ac727294-c09b-4900-b61d-6d5483af8960-00-80o2hvzlzvkv.worf.replit.dev,localhost:5000,originalbudgetapp-98-andreasadaniels.replit.app\" npm run dev)"
     ],
     "deny": []
   }

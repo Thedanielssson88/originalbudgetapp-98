@@ -100,7 +100,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       '/api/debug',
       '/api/debug/client-env',
       '/api/test-auth',
-      '/api/callback-test'
+      '/api/callback-test',
+      '/api/dev-login'
     ];
     
     // Allow all debug endpoints without authentication for troubleshooting
@@ -111,7 +112,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Get user ID from authentication or use mock for development
     let userId = null;
     
-    if (req.user && req.user.claims && req.user.claims.sub) {
+    // Check for dev session first
+    if (process.env.NODE_ENV !== 'production' && req.session?.devUser) {
+      userId = req.session.devUser.id;
+    } else if (req.user && req.user.claims && req.user.claims.sub) {
       userId = req.user.claims.sub;
     } else if (isDevelopment) {
       // Use mock user in development
@@ -120,7 +124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     if (userId) {
       req.authenticatedUserId = userId;
-      console.log('🔍 API request with user:', userId, isDevelopment ? '(dev)' : '(prod)');
+      console.log('🔍 API request with user:', userId, req.session?.devUser ? '(dev session)' : isDevelopment ? '(dev)' : '(prod)');
       next();
     } else {
       res.status(401).json({ error: 'Authentication required' });
@@ -128,28 +132,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Auth routes - real Replit authentication
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.get('/api/auth/user', async (req: any, res) => {
     try {
-      if (req.user && req.user.claims) {
-        const claims = req.user.claims;
-        const userData = {
-          id: claims.sub,
-          email: claims.email,
-          firstName: claims.first_name,
-          lastName: claims.last_name,
-          profileImageUrl: claims.profile_image_url,
-        };
-        res.json(userData);
-      } else {
-        res.status(401).json({ message: "Not authenticated" });
+      console.log('🔍 /api/auth/user called');
+      console.log('Session ID:', req.sessionID);
+      console.log('Session data:', req.session);
+      console.log('Has devUser:', !!req.session?.devUser);
+      console.log('Is authenticated:', req.isAuthenticated());
+      
+      // Check for dev session first (in development mode)
+      if (process.env.NODE_ENV !== 'production' && req.session?.devUser) {
+        console.log('✅ Returning dev user:', req.session.devUser);
+        return res.json(req.session.devUser);
       }
+      
+      // Check if user is authenticated through Replit auth
+      if (req.isAuthenticated() && req.user) {
+        const user = req.user;
+        
+        // Handle regular Replit auth session
+        if (user.claims) {
+          const userData = {
+            id: user.claims.sub,
+            email: user.claims.email,
+            firstName: user.claims.first_name,
+            lastName: user.claims.last_name,
+            profileImageUrl: user.claims.profile_image_url,
+          };
+          console.log('✅ Returning Replit user:', userData);
+          return res.json(userData);
+        }
+      }
+      
+      console.log('❌ No authentication found');
+      res.status(401).json({ message: "Not authenticated" });
     } catch (error) {
-      console.error("Error creating mock user:", error);
-      res.status(500).json({ message: "Failed to create user" });
+      console.error("Error in /api/auth/user:", error);
+      res.status(500).json({ message: "Failed to get user" });
     }
   });
 
   // Environment status route (public for troubleshooting)
+  // Dev login route - bypasses Replit auth for development
+  app.post("/api/dev-login", (req: any, res) => {
+    // Only allow in development mode
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ message: "Dev login not available in production" });
+    }
+    
+    console.log('🔐 Dev login attempt');
+    console.log('Session ID before:', req.sessionID);
+    console.log('Session data before:', req.session);
+    
+    // Set a simple session flag for dev login
+    req.session.devUser = {
+      id: 'dev-user-123',
+      email: 'dev@example.com',
+      firstName: 'Dev',
+      lastName: 'User'
+    };
+    
+    // Also set a flag to indicate this is a dev session
+    req.session.isDevLogin = true;
+    
+    req.session.save((err: any) => {
+      if (err) {
+        console.error('❌ Session save error:', err);
+        return res.status(500).json({ message: "Failed to save session", error: err.message });
+      }
+      
+      console.log('✅ Dev user session created');
+      console.log('Session ID after:', req.sessionID);
+      console.log('Session data after:', req.session);
+      console.log('Cookie settings:', req.session.cookie);
+      
+      res.json({ 
+        success: true, 
+        user: req.session.devUser,
+        sessionId: req.sessionID
+      });
+    });
+  });
+
   app.get("/api/environment", (req, res) => {
     const isDevelopment = process.env.NODE_ENV !== 'production';
     const environment = isDevelopment ? 'development' : 'production';
@@ -481,6 +545,192 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error restoring backup:', error);
       res.status(500).json({ error: 'Failed to restore backup: ' + (error instanceof Error ? error.message : String(error)) });
+    }
+  });
+
+  // Selective data export endpoint
+  app.post("/api/export-selective", async (req, res) => {
+    try {
+      const userId = req.authenticatedUserId;
+      const { tables } = req.body; // Array of table names to export
+      
+      console.log('Selective export request for user:', userId, 'tables:', tables);
+      
+      if (!Array.isArray(tables) || tables.length === 0) {
+        return res.status(400).json({ error: 'Please select at least one table to export' });
+      }
+      
+      // Define available tables and their corresponding storage methods
+      const availableTables: Record<string, () => Promise<any[]>> = {
+        accounts: () => storage.getAccounts(userId),
+        accountTypes: () => storage.getAccountTypes(userId),
+        transactions: () => storage.getTransactions(userId),
+        huvudkategorier: () => storage.getHuvudkategorier(userId),
+        underkategorier: () => storage.getUnderkategorier(userId),
+        categoryRules: () => storage.getCategoryRules(userId),
+        familyMembers: () => storage.getFamilyMembers(userId),
+        inkomstkallor: () => storage.getInkomstkallor(userId),
+        inkomstkallorMedlem: () => storage.getInkomstkallorMedlem(userId),
+        monthlyAccountBalances: () => storage.getMonthlyAccountBalances(userId),
+        monthlyBudgets: () => storage.getMonthlyBudgets(userId),
+        budgetPosts: () => storage.getBudgetPosts(userId),
+        plannedTransfers: () => storage.getPlannedTransfers(userId),
+        banks: () => storage.getBanks(),
+        bankCsvMappings: () => storage.getBankCsvMappings(userId),
+        userSettings: () => storage.getUserSettings(userId)
+      };
+      
+      const exportData: Record<string, any[]> = {};
+      
+      // Export selected tables
+      for (const tableName of tables) {
+        if (availableTables[tableName]) {
+          try {
+            exportData[tableName] = await availableTables[tableName]();
+            console.log(`Exported ${tableName}: ${exportData[tableName].length} records`);
+          } catch (error) {
+            console.error(`Error exporting ${tableName}:`, error);
+            exportData[tableName] = [];
+          }
+        } else {
+          console.warn(`Unknown table: ${tableName}`);
+        }
+      }
+      
+      const exportResult = {
+        exportDate: new Date().toISOString(),
+        version: '5.0-selective',
+        userId: userId,
+        tables: tables,
+        data: exportData
+      };
+      
+      res.json(exportResult);
+    } catch (error) {
+      console.error('Error in selective export:', error);
+      res.status(500).json({ error: 'Failed to export data: ' + (error instanceof Error ? error.message : String(error)) });
+    }
+  });
+
+  // Selective data import endpoint
+  app.post("/api/import-selective", async (req, res) => {
+    try {
+      const targetUserId = req.authenticatedUserId;
+      const { data, tables, sourceUserId } = req.body;
+      
+      console.log('Selective import request for target user:', targetUserId, 'source user:', sourceUserId, 'tables:', tables);
+      
+      if (!data || !Array.isArray(tables) || tables.length === 0) {
+        return res.status(400).json({ error: 'Invalid import data structure' });
+      }
+      
+      // Define table import methods with user ID mapping
+      const importMethods: Record<string, (items: any[]) => Promise<void>> = {
+        accounts: async (items) => {
+          for (const item of items) {
+            await storage.upsertAccount({ ...item, userId: targetUserId });
+          }
+        },
+        accountTypes: async (items) => {
+          for (const item of items) {
+            await storage.upsertAccountType({ ...item, userId: targetUserId });
+          }
+        },
+        transactions: async (items) => {
+          for (const item of items) {
+            await storage.upsertTransaction({ ...item, userId: targetUserId });
+          }
+        },
+        huvudkategorier: async (items) => {
+          for (const item of items) {
+            await storage.upsertHuvudkategori({ ...item, userId: targetUserId });
+          }
+        },
+        underkategorier: async (items) => {
+          for (const item of items) {
+            await storage.upsertUnderkategori({ ...item, userId: targetUserId });
+          }
+        },
+        categoryRules: async (items) => {
+          for (const item of items) {
+            await storage.upsertCategoryRule({ ...item, userId: targetUserId });
+          }
+        },
+        familyMembers: async (items) => {
+          for (const item of items) {
+            await storage.upsertFamilyMember({ ...item, userId: targetUserId });
+          }
+        },
+        inkomstkallor: async (items) => {
+          for (const item of items) {
+            await storage.upsertInkomstkalla({ ...item, userId: targetUserId });
+          }
+        },
+        inkomstkallorMedlem: async (items) => {
+          for (const item of items) {
+            await storage.upsertInkomstkallaForMedlem({ ...item, userId: targetUserId });
+          }
+        },
+        monthlyAccountBalances: async (items) => {
+          for (const item of items) {
+            await storage.upsertMonthlyAccountBalance({ ...item, userId: targetUserId });
+          }
+        },
+        monthlyBudgets: async (items) => {
+          for (const item of items) {
+            await storage.upsertMonthlyBudget({ ...item, userId: targetUserId });
+          }
+        },
+        budgetPosts: async (items) => {
+          for (const item of items) {
+            await storage.upsertBudgetPost({ ...item, userId: targetUserId });
+          }
+        },
+        plannedTransfers: async (items) => {
+          for (const item of items) {
+            await storage.upsertPlannedTransfer({ ...item, userId: targetUserId });
+          }
+        },
+        bankCsvMappings: async (items) => {
+          for (const item of items) {
+            await storage.upsertBankCsvMapping({ ...item, userId: targetUserId });
+          }
+        },
+        userSettings: async (items) => {
+          for (const item of items) {
+            await storage.upsertUserSetting({ ...item, userId: targetUserId });
+          }
+        }
+      };
+      
+      let importedCount = 0;
+      
+      // Import selected tables
+      for (const tableName of tables) {
+        if (data[tableName] && importMethods[tableName]) {
+          try {
+            await importMethods[tableName](data[tableName]);
+            importedCount += data[tableName].length;
+            console.log(`Imported ${tableName}: ${data[tableName].length} records`);
+          } catch (error) {
+            console.error(`Error importing ${tableName}:`, error);
+            return res.status(500).json({ 
+              error: `Failed to import ${tableName}: ${error instanceof Error ? error.message : String(error)}` 
+            });
+          }
+        }
+      }
+      
+      res.json({ 
+        success: true, 
+        importedTables: tables,
+        totalRecords: importedCount,
+        message: `Successfully imported ${importedCount} records from ${tables.length} tables` 
+      });
+      
+    } catch (error) {
+      console.error('Error in selective import:', error);
+      res.status(500).json({ error: 'Failed to import data: ' + (error instanceof Error ? error.message : String(error)) });
     }
   });
 

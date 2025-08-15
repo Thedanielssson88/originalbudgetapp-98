@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { MainCategoriesSettings } from "@/components/MainCategoriesSettings";
 import { PaydaySettings } from "@/components/PaydaySettings";
 import { UserManagement } from "@/components/UserManagement";
@@ -147,6 +148,11 @@ const SettingsPage = () => {
   const [googleBackupLastModified, setGoogleBackupLastModified] = useState('');
   const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
+
+  // Selective export/import states
+  const [selectedTables, setSelectedTables] = useState<string[]>(['accounts', 'transactions', 'huvudkategorier', 'underkategorier']);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
     // TODO: Load user settings from API instead of localStorage
@@ -509,6 +515,135 @@ Kontrollera att filen är en giltig JSON-fil som exporterats från denna app.`);
     event.target.value = '';
   };
 
+  // Available tables for selective export/import
+  const availableTables = [
+    { id: 'accounts', name: 'Konton', description: 'Bankkonton och saldo' },
+    { id: 'accountTypes', name: 'Kontotyper', description: 'Olika typer av konton' },
+    { id: 'transactions', name: 'Transaktioner', description: 'Alla transaktioner och betalningar' },
+    { id: 'huvudkategorier', name: 'Huvudkategorier', description: 'Primära utgiftskategorier' },
+    { id: 'underkategorier', name: 'Underkategorier', description: 'Detaljerade underkategorier' },
+    { id: 'categoryRules', name: 'Kategoriregler', description: 'Automatiska kategoriseringsregler' },
+    { id: 'familyMembers', name: 'Familjemedlemmar', description: 'Hushållsmedlemmar' },
+    { id: 'inkomstkallor', name: 'Inkomstkällor', description: 'Källor för inkomst' },
+    { id: 'inkomstkallorMedlem', name: 'Inkomst per medlem', description: 'Inkomstkällor kopplade till familjemedlemmar' },
+    { id: 'monthlyAccountBalances', name: 'Månadssaldo', description: 'Månatliga kontosaldo' },
+    { id: 'monthlyBudgets', name: 'Månadsbudgetar', description: 'Budgetinställningar per månad' },
+    { id: 'budgetPosts', name: 'Budgetposter', description: 'Individuella budgetposter' },
+    { id: 'plannedTransfers', name: 'Planerade överföringar', description: 'Automatiska överföringar' },
+    { id: 'banks', name: 'Banker', description: 'Bankinformation' },
+    { id: 'bankCsvMappings', name: 'CSV-mappningar', description: 'Kolumnmappningar för bankimport' },
+    { id: 'userSettings', name: 'Användarinställningar', description: 'Personliga inställningar' }
+  ];
+
+  const handleTableSelection = (tableId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedTables(prev => [...prev, tableId]);
+    } else {
+      setSelectedTables(prev => prev.filter(id => id !== tableId));
+    }
+  };
+
+  const handleSelectAll = () => {
+    setSelectedTables(availableTables.map(table => table.id));
+  };
+
+  const handleSelectNone = () => {
+    setSelectedTables([]);
+  };
+
+  const exportSelectedData = async () => {
+    if (selectedTables.length === 0) {
+      alert('Välj minst en tabell att exportera');
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const response = await fetch('/api/export-selective', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tables: selectedTables }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Export misslyckades: ${response.statusText}`);
+      }
+
+      const exportData = await response.json();
+      
+      // Create and download the file
+      const dataStr = JSON.stringify(exportData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `budgetdata-selective-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      alert(`Export slutförd! ${selectedTables.length} tabeller exporterade.`);
+    } catch (error) {
+      console.error('Export error:', error);
+      alert(`Export misslyckades: ${error instanceof Error ? error.message : 'Okänt fel'}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const importSelectedData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        setIsImporting(true);
+        const data = JSON.parse(e.target?.result as string);
+        
+        if (data.version !== '5.0-selective') {
+          throw new Error('Denna fil är inte en giltig selektiv export. Använd "Importera all data" för fullständiga exporter.');
+        }
+
+        const response = await fetch('/api/import-selective', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            data: data.data,
+            tables: data.tables,
+            sourceUserId: data.userId
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Import misslyckades: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        alert(`Import slutförd! ${result.totalRecords} poster importerade från ${result.importedTables.length} tabeller.`);
+        
+        // Reload the page to show imported data
+        window.location.reload();
+        
+      } catch (error) {
+        console.error('Import error:', error);
+        alert(`Import misslyckades: ${error instanceof Error ? error.message : 'Okänt fel'}`);
+      } finally {
+        setIsImporting(false);
+      }
+    };
+    
+    reader.readAsText(file);
+    event.target.value = '';
+  };
+
   return (
     <div className="container mx-auto p-6">
       <div className="max-w-6xl mx-auto">
@@ -746,6 +881,91 @@ Kontrollera att filen är en giltig JSON-fil som exporterats från denna app.`);
                       1. På enheten med data: Klicka "Exportera all data"<br/>
                       2. På den andra enheten: Klicka "Importera data" och välj filen<br/>
                       3. Sidan laddas om automatiskt med den importerade datan
+                    </AlertDescription>
+                  </Alert>
+                </div>
+
+                <Separator />
+
+                {/* Selective Export/Import Section */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Selektiv Dataexport/Import</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Välj specifika datatabeller att exportera eller importera. Exporterad data från inloggad användare kan importeras till vilken användare som helst.
+                  </p>
+                  
+                  {/* Table Selection */}
+                  <div className="space-y-4 mb-6">
+                    <div className="flex gap-2 mb-3">
+                      <Button onClick={handleSelectAll} variant="outline" size="sm">
+                        Välj alla
+                      </Button>
+                      <Button onClick={handleSelectNone} variant="outline" size="sm">
+                        Avmarkera alla
+                      </Button>
+                      <Badge variant="secondary" className="ml-auto">
+                        {selectedTables.length} av {availableTables.length} valda
+                      </Badge>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-60 overflow-y-auto border rounded-lg p-3">
+                      {availableTables.map((table) => (
+                        <div key={table.id} className="flex items-start space-x-3 p-2 hover:bg-muted rounded">
+                          <Checkbox
+                            id={table.id}
+                            checked={selectedTables.includes(table.id)}
+                            onCheckedChange={(checked) => handleTableSelection(table.id, !!checked)}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <label htmlFor={table.id} className="text-sm font-medium cursor-pointer">
+                              {table.name}
+                            </label>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {table.description}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Export/Import Buttons */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Button 
+                      onClick={exportSelectedData} 
+                      variant="secondary" 
+                      className="w-full"
+                      disabled={isExporting || selectedTables.length === 0}
+                    >
+                      {isExporting ? 'Exporterar...' : 'Exportera valda tabeller'}
+                    </Button>
+                    <div>
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={importSelectedData}
+                        style={{ display: 'none' }}
+                        id="import-selective-file"
+                        disabled={isImporting}
+                      />
+                      <Button 
+                        onClick={() => document.getElementById('import-selective-file')?.click()}
+                        variant="outline" 
+                        className="w-full"
+                        disabled={isImporting}
+                      >
+                        {isImporting ? 'Importerar...' : 'Importera selektiv data'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <Alert className="mt-4">
+                    <AlertDescription>
+                      <strong>Selektiv export/import:</strong><br/>
+                      1. Välj de tabeller du vill exportera<br/>
+                      2. Klicka "Exportera valda tabeller" för att ladda ner data<br/>
+                      3. På målanvändaren: Klicka "Importera selektiv data" och välj filen<br/>
+                      4. Data importeras till den inloggade användaren oavsett vem som exporterade
                     </AlertDescription>
                   </Alert>
                 </div>
