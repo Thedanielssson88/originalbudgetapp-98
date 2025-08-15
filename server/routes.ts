@@ -112,14 +112,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Get user ID from authentication or use mock for development
     let userId = null;
     
+    // Debug session information
+    console.log('🔍 [MIDDLEWARE DEBUG] Session ID:', req.sessionID);
+    console.log('🔍 [MIDDLEWARE DEBUG] Session data:', JSON.stringify(req.session, null, 2));
+    console.log('🔍 [MIDDLEWARE DEBUG] Has devUser:', !!req.session?.devUser);
+    console.log('🔍 [MIDDLEWARE DEBUG] NODE_ENV:', process.env.NODE_ENV);
+    
     // Check for dev session first
     if (process.env.NODE_ENV !== 'production' && req.session?.devUser) {
       userId = req.session.devUser.id;
+      console.log('✅ [MIDDLEWARE] Using dev session user:', userId);
     } else if (req.user && req.user.claims && req.user.claims.sub) {
       userId = req.user.claims.sub;
+      console.log('✅ [MIDDLEWARE] Using Replit auth user:', userId);
     } else if (isDevelopment) {
       // Use mock user in development
-      userId = "test-user-123";
+      userId = "dev-user-123";
+      console.log('✅ [MIDDLEWARE] Using mock dev user:', userId);
     }
 
     if (userId) {
@@ -1163,12 +1172,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { huvudkategoriId } = req.query;
       let kategorier;
       
+      console.log(`🔍 [API] UNDERKATEGORIER request from user: ${userId}, huvudkategoriId: ${huvudkategoriId}`);
+      
       if (huvudkategoriId) {
         kategorier = await storage.getUnderkategorierByHuvudkategori(huvudkategoriId as string, userId);
       } else {
         kategorier = await storage.getUnderkategorier(userId);
       }
       
+      // Force no caching with multiple headers
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+      res.set('Last-Modified', new Date().toUTCString());
+      res.set('ETag', `"${Date.now()}"`);
+      
+      console.log(`📊 [API] Returning ${kategorier.length} underkategorier for user ${userId}`);
+      if (kategorier.length > 0) {
+        console.log(`📊 [API] Sample underkategori: ${JSON.stringify(kategorier[0])}`);
+      }
       res.json(kategorier);
     } catch (error) {
       console.error('Error fetching underkategorier:', error);

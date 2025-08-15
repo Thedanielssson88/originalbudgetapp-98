@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db, getUserDatabase } from "./db";
 import { eq, and, gte, lte, like, sql, or } from "drizzle-orm";
 import {
   users,
@@ -218,7 +218,8 @@ export class DatabaseStorage implements IStorage {
 
   // Account Types methods
   async getAccountTypes(userId: string): Promise<AccountType[]> {
-    return await db.select().from(accountTypes).where(eq(accountTypes.userId, userId));
+    const userDb = getUserDatabase(userId);
+    return await userDb.select().from(accountTypes).where(eq(accountTypes.userId, userId));
   }
 
   async getAccountType(id: string): Promise<AccountType | undefined> {
@@ -250,7 +251,8 @@ export class DatabaseStorage implements IStorage {
   // Account methods
   async getAccounts(userId: string): Promise<Account[]> {
     console.log('Getting accounts for userId:', userId);
-    const result = await db.select().from(accounts).where(eq(accounts.userId, userId));
+    const userDb = getUserDatabase(userId);
+    const result = await userDb.select().from(accounts).where(eq(accounts.userId, userId));
     console.log('Found accounts:', result);
     return result;
   }
@@ -280,7 +282,8 @@ export class DatabaseStorage implements IStorage {
 
   // Huvudkategori methods
   async getHuvudkategorier(userId: string): Promise<Huvudkategori[]> {
-    return await db.select().from(huvudkategorier).where(eq(huvudkategorier.userId, userId));
+    const userDb = getUserDatabase(userId);
+    return await userDb.select().from(huvudkategorier).where(eq(huvudkategorier.userId, userId));
   }
 
   async getHuvudkategori(id: string): Promise<Huvudkategori | undefined> {
@@ -308,16 +311,22 @@ export class DatabaseStorage implements IStorage {
 
   // Underkategori methods
   async getUnderkategorier(userId: string): Promise<Underkategori[]> {
-    return await db.select().from(underkategorier).where(eq(underkategorier.userId, userId));
+    const userDb = getUserDatabase(userId);
+    const result = await userDb.select().from(underkategorier).where(eq(underkategorier.userId, userId));
+    console.log(`📊 [DB] getUnderkategorier for userId: ${userId} - found ${result.length} subcategories`);
+    return result;
   }
 
   async getUnderkategorierByHuvudkategori(huvudkategoriId: string, userId: string): Promise<Underkategori[]> {
-    return await db.select()
+    const userDb = getUserDatabase(userId);
+    const result = await userDb.select()
       .from(underkategorier)
       .where(and(
         eq(underkategorier.huvudkategoriId, huvudkategoriId),
         eq(underkategorier.userId, userId)
       ));
+    console.log(`📊 [DB] getUnderkategorierByHuvudkategori for userId: ${userId}, huvudkategoriId: ${huvudkategoriId} - found ${result.length} subcategories`);
+    return result;
   }
 
   async getUnderkategori(id: string): Promise<Underkategori | undefined> {
@@ -345,7 +354,8 @@ export class DatabaseStorage implements IStorage {
 
   // Category Rules methods
   async getCategoryRules(userId: string): Promise<CategoryRule[]> {
-    return await db.select().from(categoryRules).where(eq(categoryRules.userId, userId));
+    const userDb = getUserDatabase(userId);
+    return await userDb.select().from(categoryRules).where(eq(categoryRules.userId, userId));
   }
 
   async getCategoryRule(id: string): Promise<CategoryRule | undefined> {
@@ -375,15 +385,15 @@ export class DatabaseStorage implements IStorage {
   async getTransactions(userId: string): Promise<Transaction[]> {
     // DEBUG: Let's check the actual database connection and query
     console.log(`📊 [DB] getTransactions called for userId: ${userId}`);
-    console.log(`📊 [DB] DATABASE_URL: ${process.env.DATABASE_URL?.substring(0, 50)}...`);
+    const userDb = getUserDatabase(userId);
     
     try {
       // Test raw query first
-      const rawResult = await db.execute(sql`SELECT COUNT(*) as count FROM transactions WHERE user_id = ${userId}`);
+      const rawResult = await userDb.execute(sql`SELECT COUNT(*) as count FROM transactions WHERE user_id = ${userId}`);
       console.log(`📊 [DB] Raw count query result:`, rawResult);
       
       // Now the normal query
-      const result = await db.select().from(transactions).where(eq(transactions.userId, userId));
+      const result = await userDb.select().from(transactions).where(eq(transactions.userId, userId));
       
       console.log(`📊 [DB] getTransactions - returning ${result.length} transactions with SIMPLE select()`);
       if (result.length > 0) {
@@ -406,7 +416,8 @@ export class DatabaseStorage implements IStorage {
 
   async getRecentTransactions(userId: string, fromDate: Date): Promise<Transaction[]> {
     console.log(`📊 [DB] Loading transactions from ${fromDate.toISOString()}`);
-    const result = await db.select()
+    const userDb = getUserDatabase(userId);
+    const result = await userDb.select()
       .from(transactions)
       .where(
         and(
@@ -537,7 +548,8 @@ export class DatabaseStorage implements IStorage {
 
   // Monthly Budget methods
   async getMonthlyBudgets(userId: string): Promise<MonthlyBudget[]> {
-    return await db.select().from(monthlyBudgets).where(eq(monthlyBudgets.userId, userId));
+    const userDb = getUserDatabase(userId);
+    return await userDb.select().from(monthlyBudgets).where(eq(monthlyBudgets.userId, userId));
   }
 
   async getMonthlyBudget(userId: string, monthKey: string): Promise<MonthlyBudget | undefined> {
@@ -571,7 +583,8 @@ export class DatabaseStorage implements IStorage {
 
   // Bank methods
   async getBanks(userId: string): Promise<Bank[]> {
-    return await db.select().from(banks).where(eq(banks.userId, userId));
+    const userDb = getUserDatabase(userId);
+    return await userDb.select().from(banks).where(eq(banks.userId, userId));
   }
 
   async getBank(id: string): Promise<Bank | undefined> {
@@ -599,11 +612,13 @@ export class DatabaseStorage implements IStorage {
 
   // Bank CSV Mapping methods
   async getBankCsvMappings(userId: string): Promise<BankCsvMapping[]> {
-    return await db.select().from(bankCsvMappings).where(eq(bankCsvMappings.userId, userId));
+    const userDb = getUserDatabase(userId);
+    return await userDb.select().from(bankCsvMappings).where(eq(bankCsvMappings.userId, userId));
   }
 
   async getBankCsvMappingsByBank(userId: string, bankId: string): Promise<BankCsvMapping[]> {
-    return await db.select().from(bankCsvMappings)
+    const userDb = getUserDatabase(userId);
+    return await userDb.select().from(bankCsvMappings)
       .where(and(eq(bankCsvMappings.userId, userId), eq(bankCsvMappings.bankId, bankId)));
   }
 
@@ -931,7 +946,8 @@ export class DatabaseStorage implements IStorage {
 
   // User settings methods
   async getUserSettings(userId: string): Promise<UserSetting[]> {
-    return await db.select().from(userSettings).where(eq(userSettings.userId, userId));
+    const userDb = getUserDatabase(userId);
+    return await userDb.select().from(userSettings).where(eq(userSettings.userId, userId));
   }
 
   async getUserSetting(userId: string, settingKey: string): Promise<UserSetting | undefined> {

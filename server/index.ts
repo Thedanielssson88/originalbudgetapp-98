@@ -9,49 +9,19 @@ config();
 // CRITICAL: Set DATABASE_URL before any imports to ensure db.ts uses correct connection
 // Database configuration is handled by configureEnvironment() function below
 
-// Auto-configure environment based on deployment context
+// Configure environment - ALWAYS use production database by default
+// Only switch to dev database when using dev login (dev-user-123)
 function configureEnvironment() {
-  const nodeEnv = process.env.NODE_ENV || 'development';
-  const replId = process.env.REPL_ID || '';
-  const replSlug = process.env.REPL_SLUG || '';
-  const replOwner = process.env.REPL_OWNER || '';
+  console.log('🚀 Configuring environment: ALWAYS PRODUCTION DATABASE by default');
   
-  // More precise detection: Production if ANY of these conditions are met:
-  // 1. NODE_ENV is explicitly set to production
-  // 2. REPL_SLUG matches the production app name
-  // 3. REPL_ID contains the production app name
-  const isProduction = nodeEnv === 'production' || 
-                      replSlug === 'originalbudgetapp-98-andreasadaniels' || 
-                      replId.includes('originalbudgetapp-98-andreasadaniels');
-
-  console.log('🔍 Environment detection:');
-  console.log('NODE_ENV:', nodeEnv);
-  console.log('REPL_ID:', replId);
-  console.log('REPL_SLUG:', replSlug);
-  console.log('REPL_OWNER:', replOwner);
-  console.log('Production conditions:');
-  console.log('  NODE_ENV === production:', nodeEnv === 'production');
-  console.log('  REPL_SLUG === originalbudgetapp-98-andreasadaniels:', replSlug === 'originalbudgetapp-98-andreasadaniels');
-  console.log('  REPL_ID includes originalbudgetapp-98-andreasadaniels:', replId.includes('originalbudgetapp-98-andreasadaniels'));
-  console.log('Is Production:', isProduction);
+  // Always use production configuration by default
+  process.env.DATABASE_URL = 'postgresql://neondb_owner:npg_yXbewGR9jN7K@ep-soft-cell-abj1n4kw-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require';
+  process.env.VITE_STACK_PROJECT_ID = '9dcd4abe-925d-423b-ac64-d208074f0f61';
+  process.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY = 'pck_mffzj51gqpjeargacr5nth5j1hc2cn2y2weq600h7g5m8';
+  process.env.STACK_SECRET_SERVER_KEY = 'ssk_91t6ztvrjcqqgzdzbyyjdsz30cvbxvp3as5bfbnwr6v98';
   
-  if (isProduction) {
-    // Production environment - use EU database
-    console.log('🚀 Configuring PRODUCTION environment');
-    process.env.DATABASE_URL = 'postgresql://neondb_owner:npg_yXbewGR9jN7K@ep-soft-cell-abj1n4kw-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require';
-    process.env.VITE_STACK_PROJECT_ID = '9dcd4abe-925d-423b-ac64-d208074f0f61';
-    process.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY = 'pck_mffzj51gqpjeargacr5nth5j1hc2cn2y2weq600h7g5m8';
-    process.env.STACK_SECRET_SERVER_KEY = 'ssk_91t6ztvrjcqqgzdzbyyjdsz30cvbxvp3as5bfbnwr6v98';
-  } else {
-    // Development environment - use US database
-    console.log('🔧 Configuring DEVELOPMENT environment');
-    process.env.DATABASE_URL = 'postgresql://neondb_owner:npg_csIURKah4TN5@ep-soft-salad-aeyhh2aj.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require';
-    process.env.VITE_STACK_PROJECT_ID = '9dcd4abe-925d-423b-ac64-d208074f0f61';
-    process.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY = 'pck_2bq4y4eh5jjet23y21xvxxy44nxqza78y544g0y6fwzzr';
-    process.env.STACK_SECRET_SERVER_KEY = 'ssk_hraz04g3jmhzp72ts1nkjw17bda7rdgp7mqk0338jyy8g';
-  }
-  
-  console.log('Database configured for:', isProduction ? 'PRODUCTION (EU)' : 'DEVELOPMENT (US)');
+  console.log('✅ Production database configured for all users');
+  console.log('💡 Dev users (dev-user-123) will use dev database via per-request switching');
 }
 
 // Configure environment before anything else
