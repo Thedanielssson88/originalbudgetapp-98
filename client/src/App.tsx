@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import BudgetPage from "./pages/BudgetPage";
 import { SavingsGoalsPage } from "./pages/SavingsGoalsPage";
 import TransactionsPage from "./pages/TransactionsPage";
+import { TransactionReviewPage } from "./pages/TransactionReviewPage";
 import SettingsPage from "./pages/SettingsPage";
 import CategoryManagement from "./pages/CategoryManagement";
 import NotFound from "./pages/NotFound";
@@ -111,6 +112,7 @@ const AppContent = () => {
                 <Route path="/historia" component={BudgetPage} />
                 <Route path="/sparmal" component={SavingsGoalsPage} />
                 <Route path="/transaktioner" component={TransactionsPage} />
+                <Route path="/granska" component={TransactionReviewPage} />
                 <Route path="/kategorier" component={CategoryManagement} />
                 <Route path="/import" component={ImportPage} />
                 <Route path="/ladda-upp-filer" component={ImportPage} />

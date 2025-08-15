@@ -38,7 +38,8 @@
       "Bash(NODE_ENV=production tsx server/index.ts)",
       "Bash(REPLIT_DOMAINS=\"originalbudgetapp-98-andreasadaniels.replit.app,ac727294-c09b-4900-b61d-6d5483af8960-00-80o2hvzlzvkv.worf.replit.dev,localhost:5000\" npm run dev)",
       "Bash(NODE_ENV=development DATABASE_URL=\"postgresql://neondb_owner:npg_csIURKah4TN5@ep-soft-salad-aeyhh2aj.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require\" psql $DATABASE_URL -c \"SELECT COUNT(*) FROM underkategorier WHERE user_id = ''dev-user-123'';\")",
-      "Bash(NODE_ENV=development DATABASE_URL=\"postgresql://neondb_owner:npg_csIURKah4TN5@ep-soft-salad-aeyhh2aj.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require\" psql $DATABASE_URL -c \"SELECT id, name, huvudkategori_id FROM underkategorier WHERE user_id = ''dev-user-123'';\")"
+      "Bash(NODE_ENV=development DATABASE_URL=\"postgresql://neondb_owner:npg_csIURKah4TN5@ep-soft-salad-aeyhh2aj.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require\" psql $DATABASE_URL -c \"SELECT id, name, huvudkategori_id FROM underkategorier WHERE user_id = ''dev-user-123'';\")",
+      "Bash(git commit:*)"
     ],
     "deny": []
   }
