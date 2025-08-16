@@ -296,37 +296,42 @@ function autoMatchInternalTransfers(
   
   console.log(`[BATCH RULES] Found ${unmatchedTransfers.length} unmatched internal transfers`);
   
-  unmatchedTransfers.forEach(transaction => {
-    // Skip if already processed
-    if (processedIds.has(transaction.id)) {
-      return;
+  // Pre-analyze all transactions to find groups by date+amount to avoid triangles
+  const transactionGroups = new Map<string, ImportedTransaction[]>();
+  
+  unmatchedTransfers.forEach(tx => {
+    const key = `${tx.date}_${Math.abs(tx.amount)}`;
+    if (!transactionGroups.has(key)) {
+      transactionGroups.set(key, []);
     }
-    
-    // Find potential matches on the same date with opposite signs on different accounts
-    const potentialMatches = transactions.filter(t => {
-      return t.id !== transaction.id &&
-        t.accountId !== transaction.accountId && // Different account
-        t.date === transaction.date && // Same date only
-        // Opposite signs (positive matches negative, negative matches positive)
-        ((transaction.amount > 0 && t.amount < 0) || (transaction.amount < 0 && t.amount > 0)) &&
-        Math.abs(Math.abs(t.amount) - Math.abs(transaction.amount)) < 0.01 && // Same absolute amount
-        !t.linkedTransactionId && // Not already linked
-        !processedIds.has(t.id); // Not already processed
-    });
-    
-    // If exactly one match found, auto-link them
-    if (potentialMatches.length === 1) {
-      const matchedTransaction = potentialMatches[0];
-      console.log(`[BATCH RULES] Auto-matching ${transaction.id} with ${matchedTransaction.id}`);
+    transactionGroups.get(key)!.push(tx);
+  });
+  
+  // Only process groups that have exactly 2 transactions (1 positive, 1 negative)
+  transactionGroups.forEach((group, key) => {
+    if (group.length === 2) {
+      const [tx1, tx2] = group;
       
-      matches.push({
-        transaction1Id: transaction.id,
-        transaction2Id: matchedTransaction.id
+      // Verify they have opposite signs and different accounts
+      if (((tx1.amount > 0 && tx2.amount < 0) || (tx1.amount < 0 && tx2.amount > 0)) &&
+          tx1.accountId !== tx2.accountId &&
+          Math.abs(Math.abs(tx1.amount) - Math.abs(tx2.amount)) < 0.01) {
+        
+        console.log(`[BATCH RULES] Auto-matching pair ${tx1.id} (${tx1.date}, ${tx1.amount}) with ${tx2.id} (${tx2.date}, ${tx2.amount})`);
+        
+        matches.push({
+          transaction1Id: tx1.id,
+          transaction2Id: tx2.id
+        });
+        
+        processedIds.add(tx1.id);
+        processedIds.add(tx2.id);
+      }
+    } else if (group.length > 2) {
+      console.warn(`[BATCH RULES] Multiple transactions (${group.length}) found for ${key} - SKIPPING auto-link to prevent triangles`);
+      group.forEach(tx => {
+        console.warn(`  - ${tx.id}: ${tx.description} (${tx.amount}, account: ${tx.accountId})`);
       });
-      
-      // Mark both as processed to avoid duplicate matching
-      processedIds.add(transaction.id);
-      processedIds.add(matchedTransaction.id);
     }
   });
   
@@ -431,8 +436,11 @@ export async function applyRulesToTransactionsBatch(
   huvudkategorier: any[] = [],
   underkategorier: any[] = []
 ): Promise<BatchRuleResult> {
+  // Force mobile logging to appear
+  console.log(`🔴 [BATCH RULES START] Function called with ${transactions.length} transactions and ${rules.length} rules`);
   console.log(`🚀 [BATCH RULES] Starting optimized batch processing: ${transactions.length} transactions, ${rules.length} rules`);
   
+  try {
   const stats = {
     processed: 0,
     updated: 0,
@@ -501,6 +509,7 @@ export async function applyRulesToTransactionsBatch(
   }
   
   console.log(`📊 [BATCH RULES] Processing complete: ${batchUpdates.length} updates to apply`);
+  console.log(`🔍 [DEBUG] batchUpdates contents:`, batchUpdates.slice(0, 3)); // Show first 3 updates
   
   // Auto-match internal transfer transactions first
   const transferMatches = autoMatchInternalTransfers(transactions);
@@ -559,7 +568,10 @@ export async function applyRulesToTransactionsBatch(
   }
   
   // Apply all updates in a single bulk operation
+  console.log(`🔍 [DEBUG] About to check API condition: batchUpdates.length = ${batchUpdates.length}`);
+  let databaseUpdateSucceeded = false;
   if (batchUpdates.length > 0) {
+    console.log(`✅ [DEBUG] API condition met, making bulk update call...`);
     try {
       console.log(`🔄 [BATCH RULES] Applying ${batchUpdates.length} updates via bulk API...`);
       
@@ -589,6 +601,8 @@ export async function applyRulesToTransactionsBatch(
       } else {
         const result = await response.json();
         console.log(`✅ [BATCH RULES] Bulk update successful: ${result.updatedCount} transactions updated`);
+        console.log(`✅ [DATABASE UPDATE] Successfully persisted ${result.updatedCount} transaction updates to SQL database`);
+        databaseUpdateSucceeded = true;
       }
     } catch (error) {
       console.error(`❌ [BATCH RULES] Bulk update error:`, error);
@@ -596,6 +610,9 @@ export async function applyRulesToTransactionsBatch(
       console.warn(`⚠️ [BATCH RULES] Continuing with local state update despite server error`);
       // Don't return early - continue with local state update
     }
+  } else {
+    console.log(`📝 [BATCH RULES] No updates to apply, database update not needed`);
+    databaseUpdateSucceeded = true; // No updates needed = success
   }
   
   // Create updated transactions array
@@ -616,12 +633,29 @@ export async function applyRulesToTransactionsBatch(
     return tx;
   });
   
-  console.log(`✅ [BATCH RULES] Batch rule application complete!`);
+  console.log(`${databaseUpdateSucceeded ? '✅' : '❌'} [BATCH RULES] Batch rule application complete! Database update: ${databaseUpdateSucceeded ? 'SUCCESS' : 'FAILED'}`);
   console.log(`📊 [BATCH RULES] Final stats:`, stats);
   
   return {
-    success: true,
+    success: databaseUpdateSucceeded,
     stats,
     updatedTransactions
   };
+  } catch (error) {
+    console.error(`🔴🔴🔴 [BATCH RULES FATAL ERROR]:`, error);
+    console.error(`Stack trace:`, error instanceof Error ? error.stack : 'No stack trace');
+    // Return failure result
+    return {
+      success: false,
+      stats: {
+        processed: 0,
+        updated: 0,
+        rulesApplied: 0,
+        autoMatched: 0,
+        autoApproved: 0,
+        bankMatched: 0
+      },
+      updatedTransactions: []
+    };
+  }
 }

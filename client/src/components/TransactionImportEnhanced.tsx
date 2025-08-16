@@ -48,6 +48,7 @@ import * as XLSX from 'xlsx';
 import { Bank, BankCSVMapping } from '@/types/bank';
 import { determineTransactionStatus, getDateRangeForMonth } from '@/services/calculationService';
 import { Account as BudgetAccount } from '@/types/budget';
+import type { Account } from '@shared/schema';
 import { recalculateAllTransactionStatuses } from '@/orchestrator/budgetOrchestrator';
 import { AddBankDialog } from './AddBankDialog';
 import { TransactionExpandableCard } from './TransactionExpandableCard';
@@ -337,8 +338,6 @@ const CategoryManagementSection: React.FC<CategoryManagementSectionProps> = ({ c
   );
 };
 
-// Use the database Account type from shared schema
-type Account = import('@shared/schema').Account;
 
 export const TransactionImportEnhanced: React.FC = () => {
   // CRITICAL DEBUG: Log component render
@@ -714,17 +713,8 @@ export const TransactionImportEnhanced: React.FC = () => {
   console.log('[TX IMPORT] 🚨 refreshKey:', refreshKey);
   console.log('[TX IMPORT] 🚨 allTransactions (from useMemo) length:', allTransactions.length);
 
-  // Use actual accounts from API instead of budget state, converting to Account format
-  const accounts: Account[] = (accountsFromAPI || []).map(acc => ({
-    id: acc.id,
-    name: acc.name,
-    balance: acc.balance || 0,
-    userId: acc.userId,
-    assignedTo: acc.assignedTo,
-    bankTemplateId: acc.bankTemplateId,
-    accountTypeId: acc.accountTypeId,
-    lastUpdate: acc.lastUpdate
-  }));
+  // Use actual accounts from API directly - no conversion needed (shared schema types)
+  const accounts = accountsFromAPI || [];
   
   // Get main categories from actual budget data
   const mainCategories = budgetState?.mainCategories || [];
@@ -1245,24 +1235,6 @@ export const TransactionImportEnhanced: React.FC = () => {
             console.warn('Failed to clear accounts cache:', e);
           }
           
-          // Force multiple rounds of cache clearing AND page refresh
-          setTimeout(async () => {
-            console.log('🔄 [CACHE] Second round of cache clearing...');
-            queryClient.removeQueries({ queryKey: ['/api/accounts'] });
-            await queryClient.refetchQueries({ queryKey: ['/api/accounts'] });
-          }, 500);
-          
-          setTimeout(async () => {
-            console.log('🔄 [CACHE] Final round of cache clearing...');
-            queryClient.removeQueries({ queryKey: ['/api/accounts'] });
-            await queryClient.refetchQueries({ queryKey: ['/api/accounts'] });
-            
-            // NUCLEAR OPTION: Force page refresh if cache still not updating
-            console.log('🚨 [CACHE] Forcing page refresh to ensure lastUpdate appears...');
-            setTimeout(() => {
-              window.location.reload();
-            }, 1000);
-          }, 2000);
         } else {
           console.error(`❌ [BULLETPROOF] Import failed:`, bulletproofResult.message);
         }
@@ -1299,24 +1271,6 @@ export const TransactionImportEnhanced: React.FC = () => {
             console.warn('Failed to clear accounts cache:', e);
           }
           
-          // Force multiple rounds of cache clearing AND page refresh
-          setTimeout(async () => {
-            console.log('🔄 [CACHE] Second round of cache clearing...');
-            queryClient.removeQueries({ queryKey: ['/api/accounts'] });
-            await queryClient.refetchQueries({ queryKey: ['/api/accounts'] });
-          }, 500);
-          
-          setTimeout(async () => {
-            console.log('🔄 [CACHE] Final round of cache clearing...');
-            queryClient.removeQueries({ queryKey: ['/api/accounts'] });
-            await queryClient.refetchQueries({ queryKey: ['/api/accounts'] });
-            
-            // NUCLEAR OPTION: Force page refresh if cache still not updating
-            console.log('🚨 [CACHE] Forcing page refresh to ensure lastUpdate appears...');
-            setTimeout(() => {
-              window.location.reload();
-            }, 1000);
-          }, 2000);
         } else {
           console.error(`❌ [BULLETPROOF FALLBACK] Import failed:`, bulletproofResult.message);
         }
@@ -2638,10 +2592,11 @@ export const TransactionImportEnhanced: React.FC = () => {
       baseTransactions = baseTransactions.filter(t => t.appSubCategoryId === appSubCategoryFilter);
     }
     
-    // Filter by description (case insensitive search)
+    // Filter by description or UUID (case insensitive search)
     if (descriptionFilter.trim()) {
       baseTransactions = baseTransactions.filter(t => 
-        t.description.toLowerCase().includes(descriptionFilter.toLowerCase())
+        t.description.toLowerCase().includes(descriptionFilter.toLowerCase()) ||
+        t.id.toLowerCase().includes(descriptionFilter.toLowerCase())
       );
     }
     
@@ -2973,7 +2928,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                           setDescriptionFilter(tempDescriptionFilter);
                         }
                       }}
-                      placeholder="Sök i beskrivning..."
+                      placeholder="Sök i beskrivning eller UUID..."
                       className="h-8"
                     />
                     <Button

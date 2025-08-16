@@ -111,8 +111,8 @@ export function useTransactions(dateRange?: { fromDate?: string; toDate?: string
     initialData: (!dateRange?.fromDate && !dateRange?.toDate && cachedTransactions.length > 0) 
       ? cachedTransactions 
       : undefined,
-    // STARTUP OPTIMIZATION: Longer cache times for all transactions used by summaries/analysis
-    staleTime: dateRange?.fromDate || dateRange?.toDate ? 60000 : 10 * 60 * 1000, // Filtered: 1 min, All: 10 minutes 
+    // STARTUP OPTIMIZATION: Shorter cache for immediate updates after rule application
+    staleTime: dateRange?.fromDate || dateRange?.toDate ? 30000 : 60000, // Filtered: 30 sec, All: 1 minute 
     gcTime: dateRange?.fromDate || dateRange?.toDate ? 300000 : 30 * 60 * 1000, // Filtered: 5 min, All: 30 minutes
     retry: false, // Don't retry since we handle errors in queryFn
     refetchOnWindowFocus: false, // Prevent unnecessary refetches

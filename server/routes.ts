@@ -33,7 +33,6 @@ function createTransactionFingerprint(transaction: { date: string; description: 
 }
 import { DatabaseStorage } from "./dbStorage";
 import { db } from "./db";
-import { sql } from "drizzle-orm";
 
 // Use DatabaseStorage for production with authentication
 const storage = new DatabaseStorage();

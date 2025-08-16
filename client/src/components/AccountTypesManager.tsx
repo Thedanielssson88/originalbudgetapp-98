@@ -37,16 +37,16 @@ const AccountTypesManager = () => {
       const result = await createAccountTypeMutation.mutateAsync({
         name: newTypeName.trim(),
         description: newTypeDescription.trim() || null,
-        // Remove userId - the API will add it automatically
-      });
+        // @ts-ignore - userId will be added by the backend
+      } as any);
       
       console.log("Account type created successfully:", result);
       setNewTypeName("");
       setNewTypeDescription("");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create account type:", error);
       // Show the error to the user
-      alert(`Fel vid skapande av kontotyp: ${error.message || error}`);
+      alert(`Fel vid skapande av kontotyp: ${error?.message || error}`);
     }
   };
 

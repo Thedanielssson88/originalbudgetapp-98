@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -30,10 +29,7 @@ import {
   PiggyBank,
   Trash2,
   Zap,
-  RotateCcw,
-  Filter,
-  ChevronDown,
-  ChevronUp
+  RotateCcw
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
@@ -60,36 +56,8 @@ import { setSelectedBudgetMonth } from '@/orchestrator/budgetOrchestrator';
 export function TransactionReviewPage() {
   const { toast } = useToast();
   const { budgetState } = useBudget();
+  const availableMonths = budgetState?.historicalData ? Object.keys(budgetState.historicalData).sort() : [];
   const { data: transactions = [], refetch: refetchTransactions } = useTransactions();
-  
-  // Calculate available months from actual transaction data
-  const availableMonths = useMemo(() => {
-    if (transactions.length === 0) return [];
-    
-    const months = new Set<string>();
-    transactions.forEach(tx => {
-      if (tx.date) {
-        const monthKey = tx.date.substring(0, 7); // YYYY-MM format
-        months.add(monthKey);
-      }
-    });
-    
-    return Array.from(months).sort();
-  }, [transactions]);
-  
-  // Ensure the selected month exists in transaction data, fallback to latest month
-  const effectiveSelectedMonth = useMemo(() => {
-    const selected = budgetState?.selectedMonthKey;
-    // If "all" is selected, return "all"
-    if (selected === 'all') {
-      return 'all';
-    }
-    if (selected && availableMonths.includes(selected)) {
-      return selected;
-    }
-    // Fallback to the latest month if current selection is not in transaction data
-    return availableMonths.length > 0 ? availableMonths[availableMonths.length - 1] : selected;
-  }, [budgetState?.selectedMonthKey, availableMonths]);
   const { data: huvudkategorier = [] } = useHuvudkategorier();
   const { data: underkategorier = [] } = useUnderkategorier();
   const { data: accounts = [] } = useAccounts();
@@ -114,99 +82,35 @@ export function TransactionReviewPage() {
   const [applyRulesResults, setApplyRulesResults] = useState<any>(null);
   const [isApplyingRules, setIsApplyingRules] = useState(false);
   
-  // Filter state
-  const [filtersExpanded, setFiltersExpanded] = useState(false);
-  const [accountFilter, setAccountFilter] = useState('all');
-  const [transactionTypeFilter, setTransactionTypeFilter] = useState('all');
-  const [transactionFilter, setTransactionFilter] = useState('all'); // Positive/Negative/All
-  const [monthFilter, setMonthFilter] = useState('current'); // Will use current month by default
-  const [bankCategoryFilter, setBankCategoryFilter] = useState('all');
-  const [bankSubCategoryFilter, setBankSubCategoryFilter] = useState('all');
-  const [descriptionFilter, setDescriptionFilter] = useState('');
-  
-  // Removed complex local state - using React Query optimistic updates instead
+  // Local UI state for immediate updates
+  const [localTransactionUpdates, setLocalTransactionUpdates] = useState<Record<string, Partial<any>>>({});
 
-  // Get all unique values for filter dropdowns
-  const uniqueTransactionTypes = useMemo(() => 
-    [...new Set(transactions.map(tx => tx.type).filter(Boolean))].sort(),
-    [transactions]
-  );
-  
-  const uniqueBankCategories = useMemo(() => 
-    [...new Set(transactions.map(tx => tx.bankCategory).filter(Boolean))].sort(),
-    [transactions]
-  );
-  
-  const uniqueBankSubCategories = useMemo(() => 
-    [...new Set(transactions.map(tx => tx.bankSubCategory).filter(Boolean))].sort(),
-    [transactions]
-  );
-
-  // Get transactions with all filters applied
+  // Get transactions for current month (including green ones to prevent index shifting)
   const monthTransactions = useMemo(() => {
-    const currentMonth = monthFilter === 'current' 
-      ? effectiveSelectedMonth 
-      : monthFilter;
-    
+    const currentMonth = budgetState.selectedMonthKey;
     return transactions.filter(tx => {
       const txMonth = tx.date ? tx.date.substring(0, 7) : '';
-      
-      // Month filter - handle both main selector "all" and filter "all"
-      if (monthFilter !== 'all' && currentMonth !== 'all' && txMonth !== currentMonth) return false;
-      
-      // Account filter
-      if (accountFilter !== 'all' && tx.accountId !== accountFilter) return false;
-      
-      // Transaction type filter
-      if (transactionTypeFilter !== 'all' && tx.type !== transactionTypeFilter) return false;
-      
-      // Transaction direction filter (Positive/Negative)
-      if (transactionFilter === 'positive' && tx.amount <= 0) return false;
-      if (transactionFilter === 'negative' && tx.amount >= 0) return false;
-      
-      // Bank category filter
-      if (bankCategoryFilter !== 'all' && tx.bankCategory !== bankCategoryFilter) return false;
-      
-      // Bank subcategory filter
-      if (bankSubCategoryFilter !== 'all' && tx.bankSubCategory !== bankSubCategoryFilter) return false;
-      
-      // Description filter (search in description, userDescription, or ID)
-      if (descriptionFilter) {
-        const searchTerm = descriptionFilter.toLowerCase();
-        const description = (tx.description || '').toLowerCase();
-        const userDescription = (tx.userDescription || '').toLowerCase();
-        const id = (tx.id || '').toLowerCase();
-        if (!description.includes(searchTerm) && !userDescription.includes(searchTerm) && !id.includes(searchTerm)) return false;
-      }
-      
-      return tx.amount !== 0;
+      return txMonth === currentMonth && tx.amount !== 0;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [
-    transactions, 
-    effectiveSelectedMonth, 
-    monthFilter,
-    accountFilter,
-    transactionTypeFilter,
-    transactionFilter,
-    bankCategoryFilter,
-    bankSubCategoryFilter,
-    descriptionFilter
-  ]);
+  }, [transactions, budgetState.selectedMonthKey]);
 
   // Filter for uncategorized for count purposes, but use all for navigation
   const uncategorizedTransactions = useMemo(() => {
     const filtered = monthTransactions.filter(tx => 
       tx.status === 'red' || tx.status === 'yellow'
     );
-    console.log(`📊 [TRANSACTION COUNT] ${filtered.length} uncategorized transactions for ${effectiveSelectedMonth || 'current month'} (red/yellow status)`);
+    console.log(`📊 [TRANSACTION COUNT] ${filtered.length} uncategorized transactions for ${budgetState?.selectedMonthKey || 'current month'} (red/yellow status)`);
     return filtered;
   }, [monthTransactions]);
 
   // Get current transaction but check if it still exists in the filtered list
   const baseTransaction = uncategorizedTransactions[currentIndex];
   
-  // Current transaction (React Query handles optimistic updates automatically)
-  const currentTransaction = baseTransaction;
+  // Apply local updates to current transaction for immediate UI feedback
+  const currentTransaction = baseTransaction ? {
+    ...baseTransaction,
+    ...localTransactionUpdates[baseTransaction.id]
+  } : null;
 
   // Transform budget posts into savings goals for the dialog, filtered by current transaction's account
   const savingsGoals = useMemo(() => {
@@ -230,18 +134,13 @@ export function TransactionReviewPage() {
   
   // Removed auto-categorization handler - no automatic navigation
 
-  // Reset index when filters change to prevent out-of-bounds
-  useEffect(() => {
-    setCurrentIndex(0);
-  }, [
-    accountFilter,
-    transactionTypeFilter,
-    transactionFilter,
-    monthFilter,
-    bankCategoryFilter,
-    bankSubCategoryFilter,
-    descriptionFilter
-  ]);
+  // Don't auto-adjust index - let user manually navigate
+  // This prevents automatic switching when transactions are categorized
+  // React.useEffect(() => {
+  //   if (uncategorizedTransactions.length > 0 && currentIndex >= uncategorizedTransactions.length) {
+  //     setCurrentIndex(Math.max(0, uncategorizedTransactions.length - 1));
+  //   }
+  // }, [uncategorizedTransactions.length, currentIndex]);
 
   // Handle swipe/navigation
   const handleNext = useCallback(() => {
@@ -249,7 +148,8 @@ export function TransactionReviewPage() {
       setDirection(1);
       setCurrentIndex(prev => prev + 1);
       setEditMode(null);
-      // Navigation cleared (React Query handles state)
+      // Clear local updates when navigating
+      setLocalTransactionUpdates({});
     }
   }, [currentIndex, uncategorizedTransactions.length]);
 
@@ -258,7 +158,8 @@ export function TransactionReviewPage() {
       setDirection(-1);
       setCurrentIndex(prev => prev - 1);
       setEditMode(null);
-      // Navigation cleared (React Query handles state)
+      // Clear local updates when navigating
+      setLocalTransactionUpdates({});
     }
   }, [currentIndex]);
 
@@ -292,7 +193,21 @@ export function TransactionReviewPage() {
     const hasSubCategory = !!actualUnderkategoriId;
     const newStatus: 'green' | 'yellow' | 'red' = (hasMainCategory && hasSubCategory) ? 'yellow' : 'red';
 
-    // React Query handles optimistic updates automatically
+    // IMMEDIATELY UPDATE LOCAL UI STATE
+    // NOTE: We don't update status locally to prevent transaction from disappearing from list
+    const localUpdate = {
+      appCategoryId: huvudkategoriId,
+      appSubCategoryId: actualUnderkategoriId || null,
+      isManuallyChanged: 'true'
+    };
+    
+    setLocalTransactionUpdates(prev => ({
+      ...prev,
+      [currentTransaction.id]: {
+        ...prev[currentTransaction.id],
+        ...localUpdate
+      }
+    }));
 
     console.log(`🎯 [TRANSACTION PAGE] Updating category: ${huvudkat?.name}${actualUnderkategoriId && underkat ? ` - ${underkat.name}` : ''}`);
     console.log(`🎯 [TRANSACTION PAGE] Transaction ID: ${currentTransaction.id}`);
@@ -339,7 +254,11 @@ export function TransactionReviewPage() {
     }, {
       onSuccess: () => {
         // Clear local updates since server confirmed the change
-        // Local updates removed - React Query handles this
+        setLocalTransactionUpdates(prev => {
+          const newUpdates = { ...prev };
+          delete newUpdates[currentTransaction.id];
+          return newUpdates;
+        });
         
         toast({
           title: "Kategori uppdaterad!",
@@ -351,7 +270,11 @@ export function TransactionReviewPage() {
       },
       onError: (error) => {
         // Rollback local updates on error
-        // Local updates removed - React Query handles this
+        setLocalTransactionUpdates(prev => {
+          const newUpdates = { ...prev };
+          delete newUpdates[currentTransaction.id];
+          return newUpdates;
+        });
         
         const errorMessage = error instanceof Error ? error.message : String(error);
         toast({
@@ -579,7 +502,7 @@ export function TransactionReviewPage() {
   // Apply rules to all filtered transactions
   const handleApplyRulesToFiltered = async () => {
     console.log(`🟡 [BUTTON CLICKED] Apply rules button was clicked!`);
-    console.log(`🟡 [DATA CHECK] Month: ${effectiveSelectedMonth}, Uncategorized: ${uncategorizedTransactions.length}, Rules: ${categoryRules.length}`);
+    console.log(`🟡 [DATA CHECK] Month: ${budgetState?.selectedMonthKey}, Uncategorized: ${uncategorizedTransactions.length}, Rules: ${categoryRules.length}`);
     setIsApplyingRules(true);
     
     try {
@@ -595,12 +518,13 @@ export function TransactionReviewPage() {
       if (result.success) {
         // Mobile debug log for successful rule application
         console.log(`✅ [RULES APPLIED] Database updated successfully!`);
-        console.log(`📊 [STATS] Month: ${effectiveSelectedMonth}, Updated: ${result.stats.updated}, Auto-approved: ${result.stats.autoApproved}`);
+        console.log(`📊 [STATS] Month: ${budgetState?.selectedMonthKey}, Updated: ${result.stats.updated}, Auto-approved: ${result.stats.autoApproved}`);
         
         // Force refresh of all transaction data
         await queryClient.refetchQueries({ queryKey: ['/api/transactions'] });
         
-        // Local state reset removed - React Query handles this
+        // Reset local state
+        setLocalTransactionUpdates({});
         
         // Show results dialog
         setApplyRulesResults(result);
@@ -632,17 +556,29 @@ export function TransactionReviewPage() {
   };
 
 
+  if (uncategorizedTransactions.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[80vh] p-8">
+        <CheckCircle2 className="h-16 w-16 text-green-500 mb-4" />
+        <h2 className="text-2xl font-bold mb-2">Allt är kategoriserat!</h2>
+        <p className="text-muted-foreground">Du har inga transaktioner att granska just nu.</p>
+      </div>
+    );
+  }
+
+  if (!currentTransaction) return null;
+
   // Progress based on how many transactions are categorized vs total month transactions
   const categorizedCount = monthTransactions.length - uncategorizedTransactions.length;
   const progress = monthTransactions.length > 0 ? (categorizedCount / monthTransactions.length) * 100 : 0;
-  const huvudkategoriForTransaction = currentTransaction ? huvudkategorier.find(h => h.id === currentTransaction.appCategoryId) : null;
-  const underkategorierForHuvud = currentTransaction?.appCategoryId 
+  const huvudkategoriForTransaction = huvudkategorier.find(h => h.id === currentTransaction.appCategoryId);
+  const underkategorierForHuvud = currentTransaction.appCategoryId 
     ? underkategorier.filter(u => u.huvudkategoriId === currentTransaction.appCategoryId)
     : [];
 
   return (
     <div className="container max-w-2xl mx-auto p-4 pb-20">
-      {/* Header with progress - Always visible */}
+      {/* Header with progress */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-2xl font-bold">Granska transaktioner</h1>
@@ -651,11 +587,11 @@ export function TransactionReviewPage() {
           </Badge>
         </div>
         
-        {/* Month selector and Filter button */}
+        {/* Month selector */}
         <div className="flex items-center gap-2 mb-3">
           <Calendar className="h-4 w-4 text-muted-foreground" />
           <Select
-            value={effectiveSelectedMonth || ''}
+            value={budgetState?.selectedMonthKey || ''}
             onValueChange={(value) => {
               console.log(`📅 [MONTH CHANGE] Switching to month: ${value}`);
               setSelectedBudgetMonth(value);
@@ -666,7 +602,6 @@ export function TransactionReviewPage() {
               <SelectValue placeholder="Välj månad" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Alla månader</SelectItem>
               {availableMonths.map((month) => (
                 <SelectItem key={month} value={month}>
                   {new Date(month + '-01').toLocaleDateString('sv-SE', { 
@@ -677,157 +612,15 @@ export function TransactionReviewPage() {
               ))}
             </SelectContent>
           </Select>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setFiltersExpanded(!filtersExpanded)}
-            className="ml-auto"
-          >
-            <Filter className="h-4 w-4 mr-2" />
-            Filter
-            {filtersExpanded ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
-          </Button>
+          <span className="text-sm text-muted-foreground">
+            {uncategorizedTransactions.length} transaktioner att granska
+          </span>
         </div>
-        
-        <div className="text-sm text-muted-foreground mb-3">
-          {uncategorizedTransactions.length} transaktioner att granska
-        </div>
-        
-        {/* Expandable filters */}
-        <Collapsible open={filtersExpanded}>
-          <CollapsibleContent>
-            <Card className="mb-4">
-              <CardContent className="space-y-4 p-4">
-                {/* First row: Konto, Transaktionstyp, Transaktion, Månad */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="flex items-center space-x-2">
-                    <Label className="text-sm whitespace-nowrap">Konto:</Label>
-                    <Select value={accountFilter} onValueChange={setAccountFilter}>
-                      <SelectTrigger className="h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Alla</SelectItem>
-                        {accounts.map(account => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Label className="text-sm whitespace-nowrap">Transaktionstyp:</Label>
-                    <Select value={transactionTypeFilter} onValueChange={setTransactionTypeFilter}>
-                      <SelectTrigger className="h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Alla</SelectItem>
-                        {uniqueTransactionTypes.map(type => (
-                          <SelectItem key={type} value={type}>
-                            {type}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Label className="text-sm whitespace-nowrap">Transaktion:</Label>
-                    <Select value={transactionFilter} onValueChange={setTransactionFilter}>
-                      <SelectTrigger className="h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Alla</SelectItem>
-                        <SelectItem value="positive">Positiva</SelectItem>
-                        <SelectItem value="negative">Negativa</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Label className="text-sm whitespace-nowrap">Månad:</Label>
-                    <Select value={monthFilter} onValueChange={setMonthFilter}>
-                      <SelectTrigger className="h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="current">Aktuell</SelectItem>
-                        <SelectItem value="all">Alla månader</SelectItem>
-                        {availableMonths.map((month) => (
-                          <SelectItem key={month} value={month}>
-                            {new Date(month + '-01').toLocaleDateString('sv-SE', { 
-                              year: 'numeric', 
-                              month: 'long' 
-                            })}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Second row: Bankkategori, Bankunderkategori */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="flex items-center space-x-2">
-                    <Label className="text-sm whitespace-nowrap">Bankkategori:</Label>
-                    <Select value={bankCategoryFilter} onValueChange={setBankCategoryFilter}>
-                      <SelectTrigger className="h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Alla</SelectItem>
-                        {uniqueBankCategories.map(category => (
-                          <SelectItem key={category} value={category}>
-                            {category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Label className="text-sm whitespace-nowrap">Bankunderkategori:</Label>
-                    <Select value={bankSubCategoryFilter} onValueChange={setBankSubCategoryFilter}>
-                      <SelectTrigger className="h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Alla</SelectItem>
-                        {uniqueBankSubCategories.map(subCategory => (
-                          <SelectItem key={subCategory} value={subCategory}>
-                            {subCategory}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Third row: Description search - Full width */}
-                <div className="flex items-center space-x-2">
-                  <Label className="text-sm whitespace-nowrap">Beskrivning:</Label>
-                  <Input
-                    type="text"
-                    placeholder="Sök i beskrivning, egen text eller UUID"
-                    value={descriptionFilter}
-                    onChange={(e) => setDescriptionFilter(e.target.value)}
-                    className="h-8 flex-1"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </CollapsibleContent>
-        </Collapsible>
         
         <Progress value={progress} className="h-2" />
         <div className="flex items-center justify-between mt-2">
           <p className="text-sm text-muted-foreground">
-            {uncategorizedTransactions.length} transaktioner kvar att granska
+            {uncategorizedTransactions.length - currentIndex - 1} transaktioner kvar att granska
           </p>
           <Button
             onClick={handleApplyRulesToFiltered}
@@ -851,16 +644,7 @@ export function TransactionReviewPage() {
         </div>
       </div>
 
-      {/* Conditional content based on uncategorized transactions */}
-      {uncategorizedTransactions.length === 0 ? (
-        <div className="flex flex-col items-center justify-center min-h-[50vh] p-8">
-          <CheckCircle2 className="h-16 w-16 text-green-500 mb-4" />
-          <h2 className="text-2xl font-bold mb-2">Allt är kategoriserat!</h2>
-          <p className="text-muted-foreground">Du har inga transaktioner att granska just nu.</p>
-        </div>
-      ) : currentTransaction ? (
-        <>
-          {/* Swipeable transaction card */}
+      {/* Swipeable transaction card */}
       <AnimatePresence mode="wait" custom={direction}>
         <motion.div
           key={currentTransaction.id}
@@ -2005,8 +1789,6 @@ export function TransactionReviewPage() {
           </DialogContent>
         </Dialog>
       )}
-        </>
-      ) : null}
     </div>
   );
 }

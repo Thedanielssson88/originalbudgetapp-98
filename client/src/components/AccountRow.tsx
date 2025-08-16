@@ -98,9 +98,7 @@ export const AccountRow: React.FC<AccountRowProps> = ({
       description: transfer.description,
       transferType: transfer.transferType,
       dailyAmount: transfer.dailyAmount,
-      transferDays: transfer.transferDays,
-      huvudkategoriId: transfer.huvudkategoriId,
-      underkategoriId: transfer.underkategoriId
+      transferDays: transfer.transferDays
     });
     setShowNewTransferForm(false);
   };

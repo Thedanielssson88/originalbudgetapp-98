@@ -1055,53 +1055,18 @@ export function applyCategorizationRules(
  * Green: User approved OR fully linked special types
  */
 export function determineTransactionStatus(transaction: any): 'red' | 'yellow' | 'green' {
-  // Special handling for internal transfers - they MUST have a linked transaction to be green
-  if (transaction.type === 'InternalTransfer') {
-    if (transaction.linkedTransactionId) {
-      // Internal transfer with link can be green if it has categories
-      const hasMainCategory = transaction.appCategoryId;
-      const hasSubCategory = transaction.appSubCategoryId;
-      return (hasMainCategory && hasSubCategory) ? 'green' : 'yellow';
-    } else {
-      // Internal transfer without link is always yellow, regardless of approval status
-      return 'yellow';
-    }
-  }
+  // Helper function to check if transaction has both required categories
+  const hasBothCategories = () => {
+    return transaction.appCategoryId && transaction.appSubCategoryId;
+  };
   
-  // Special handling for Savings transactions - they MUST have a savingsTargetId to be green
-  if (transaction.type === 'Savings' || transaction.type === 'Sparande') {
-    if (transaction.savingsTargetId) {
-      // Savings transaction with target can be green if it has categories
-      const hasMainCategory = transaction.appCategoryId;
-      const hasSubCategory = transaction.appSubCategoryId || transaction.savingsTargetId; // savingsTargetId acts as subcategory
-      return (hasMainCategory && hasSubCategory) ? 'green' : 'yellow';
-    } else {
-      // Savings transaction without target is always yellow/red
-      const hasMainCategory = transaction.appCategoryId;
-      return hasMainCategory ? 'yellow' : 'red';
-    }
-  }
-  
-  // Special handling for ExpenseClaim and CostCoverage - they need linked transactions
-  if (transaction.type === 'ExpenseClaim' || transaction.type === 'CostCoverage') {
-    if (transaction.linkedTransactionId) {
-      const hasMainCategory = transaction.appCategoryId;
-      const hasSubCategory = transaction.appSubCategoryId;
-      return (hasMainCategory && hasSubCategory) ? 'green' : 'yellow';
-    } else {
-      // These types without link are always yellow
-      return 'yellow';
-    }
-  }
-  
-  // For other types, if already green (user approved), keep it green
+  // IMPORTANT: Only keep green status if manually approved or auto-approved by rules
+  // Never automatically make transactions green based on linking alone
   if (transaction.status === 'green') {
     return 'green';
   }
   
-  // Check if both main category and subcategory are present
-  const hasMainCategory = transaction.appCategoryId;
-  const hasSubCategory = transaction.appSubCategoryId;
-  
-  return (hasMainCategory && hasSubCategory) ? 'yellow' : 'red';
+  // For ALL transaction types: both categories required for yellow, otherwise red
+  // Linking, savings targets, etc. are separate concerns from status
+  return hasBothCategories() ? 'yellow' : 'red';
 }

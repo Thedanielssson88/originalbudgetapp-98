@@ -3,6 +3,9 @@
 // Import Account type from shared schema
 import type { Account } from '@shared/schema';
 
+// Re-export Account type for other modules
+export type { Account };
+
 export interface Transaction {
   id: string; // Ett unikt ID, t.ex. från bankens referens + datum
   accountId: string; // Vilket av våra konton den tillhör

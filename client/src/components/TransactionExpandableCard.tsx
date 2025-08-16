@@ -573,10 +573,10 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   };
 
   return (
-    <Card className={`border-l-4 ${getStatusBorderColor(transaction.status)} hover:shadow-md transition-shadow`}>
+    <Card className={`border-l-4 ${getStatusBorderColor(transaction.status)} hover:shadow-lg transition-all duration-200 bg-gradient-to-r from-white to-gray-50/30 dark:from-gray-900 dark:to-gray-800/30`}>
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <CollapsibleTrigger asChild>
-          <CardContent className="p-4 cursor-pointer">
+          <CardContent className="p-5 cursor-pointer">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3 flex-1 min-w-0">
                 {/* Status indicator */}
@@ -591,72 +591,80 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                   />
                 </div>
 
-                {/* Main content - 8 columns for the new layout: Account, Bank Category, Bank Subcategory, Description, App Main Category, App Subcategory, Amount, Actions */}
-                <div className="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3">
-                  {/* Account */}
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">Konto</p>
-                    <p className="font-medium text-sm truncate">{account?.name || transaction.accountId}</p>
-                  </div>
-                  
-                  {/* Bank Category (Raw from file) */}
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">Bankkategori</p>
-                    <p className="text-sm truncate bg-blue-50 dark:bg-blue-950 px-2 py-1 rounded text-blue-800 dark:text-blue-200" title={transaction.bankCategory || 'Tom från banken'}>
-                      {transaction.bankCategory || 'Tom från banken'}
-                    </p>
-                  </div>
-                  
-                  {/* Bank Subcategory (Raw from file) */}
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">Bankunderkategori</p>
-                    <p className="text-sm truncate bg-blue-50 dark:bg-blue-950 px-2 py-1 rounded text-blue-800 dark:text-blue-200" title={transaction.bankSubCategory || 'Tom från banken'}>
-                      {transaction.bankSubCategory || 'Tom från banken'}
-                    </p>
-                  </div>
-                  
-                  {/* Description */}
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">Beskrivning</p>
-                    <div className="space-y-1">
-                      <p className="text-sm truncate" title={displayDescription}>
-                        {hasUserDescription && (
-                          <span className="text-primary font-medium">{displayDescription}</span>
-                        )}
-                        {!hasUserDescription && displayDescription}
-                      </p>
-                      {/* Show linked transaction indicator in main view */}
-                      {(transaction.linkedTransactionId || transaction.linkedCostId) && (
-                        <p className="text-xs text-blue-600 font-medium">
-                          {transaction.type === 'ExpenseClaim' 
-                            ? (transaction.linkedCostId 
-                                ? `Länkad till Utlägg/Kostnad: ${transaction.linkedCostId.slice(0, 8)}...` 
-                                : `Utlägg täcks av: ${transaction.linkedTransactionId?.slice(0, 8)}...`)
-                            : transaction.type === 'CostCoverage'
-                              ? `Täcker kostnad: ${(transaction.linkedTransactionId || transaction.linkedCostId)?.slice(0, 8)}...`
-                              : transaction.type === 'InternalTransfer'
-                                ? `Intern överföring: ${transaction.linkedTransactionId?.slice(0, 8)}...`
-                                : `Länkad: ${(transaction.linkedTransactionId || transaction.linkedCostId)?.slice(0, 8)}...`
-                          }
-                        </p>
-                      )}
-                      {/* Show savings link indicator */}
-                      {transaction.savingsTargetId && (transaction.type === 'Savings' || transaction.type === 'Sparande') && (
-                        <p className="text-xs text-green-600 font-medium">
-                          Länkad till sparpost: {transaction.savingsTargetId.slice(0, 8)}...
-                        </p>
-                      )}
-                      {/* Show income link indicator */}
-                      {transaction.incomeTargetId && transaction.type === 'Inkomst' && (
-                        <p className="text-xs text-green-600 font-medium">
-                          Länkad till inkomst: {transaction.incomeTargetId.slice(0, 8)}...
-                        </p>
+                {/* Beautiful card layout */}
+                <div className="flex-1 min-w-0">
+                  {/* Top section: Amount and Balance */}
+                  <div className="flex justify-between items-start mb-4 p-3 bg-gradient-to-r from-blue-50/50 to-purple-50/50 dark:from-blue-950/20 dark:to-purple-950/20 rounded-lg border border-blue-100/50 dark:border-blue-800/30">
+                    <div>
+                      {/* Amount */}
+                      <div className={`text-xl font-bold ${transaction.amount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {transaction.amount >= 0 ? '+' : ''}{(transaction.amount / 100).toFixed(2)} kr
+                      </div>
+                      {/* Balance after transaction - smaller text under amount */}
+                      {(transaction.balanceAfter !== undefined && !isNaN(transaction.balanceAfter)) && (
+                        <div className="text-sm text-muted-foreground mt-1 font-medium">
+                          Saldo efter transaktion: {((transaction.balanceAfter || 0) / 100).toFixed(2)} kr
+                        </div>
                       )}
                     </div>
+                    <div className="text-right">
+                      <div className="text-xs text-muted-foreground uppercase tracking-wide">Konto</div>
+                      <div className="font-semibold text-sm text-gray-700 dark:text-gray-300">{account?.name || 'Okänt konto'}</div>
+                    </div>
                   </div>
-                  
-                  {/* App Main Category with dropdown */}
-                  <div className="min-w-0" onClick={(e) => e.stopPropagation()}>
+
+                  {/* Description and User Note Row */}
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs text-muted-foreground">Beskrivning / Egen text</div>
+                      <div className="text-xs text-muted-foreground">{transaction.date}</div>
+                    </div>
+                    <div className="text-sm font-medium truncate" title={displayDescription}>
+                      {hasUserDescription && (
+                        <span className="text-primary">{displayDescription}</span>
+                      )}
+                      {!hasUserDescription && displayDescription}
+                    </div>
+                    {/* Show linked transaction indicator */}
+                    {(transaction.linkedTransactionId || transaction.linkedCostId) && (
+                      <div className="text-xs text-blue-600 font-medium mt-1">
+                        {transaction.type === 'ExpenseClaim' 
+                          ? (transaction.linkedCostId 
+                              ? `Länkad till Utlägg/Kostnad: ${transaction.linkedCostId.slice(0, 8)}...` 
+                              : `Utlägg täcks av: ${transaction.linkedTransactionId?.slice(0, 8)}...`)
+                          : transaction.type === 'CostCoverage'
+                            ? `Täcker kostnad: ${(transaction.linkedTransactionId || transaction.linkedCostId)?.slice(0, 8)}...`
+                            : transaction.type === 'InternalTransfer'
+                              ? `Intern överföring: ${transaction.linkedTransactionId?.slice(0, 8)}...`
+                              : `Länkad: ${(transaction.linkedTransactionId || transaction.linkedCostId)?.slice(0, 8)}...`
+                        }
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Bank Categories Row */}
+                  <div className="mb-4 p-3 bg-gradient-to-r from-gray-50/70 to-blue-50/40 dark:from-gray-800/40 dark:to-blue-900/20 rounded-lg border border-gray-200/50 dark:border-gray-700/50">
+                    <div className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wide">Bankkategorier</div>
+                    <div className="flex gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Bankkategori:</span>
+                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/50 dark:text-blue-200 dark:border-blue-700">
+                          {transaction.bankCategory || 'Nöje & fritid'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Bank Underkategori:</span>
+                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200 dark:bg-purple-900/50 dark:text-purple-200 dark:border-purple-700">
+                          {transaction.bankSubCategory || 'Kafé & restaurang'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* App Categories Section */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* App Main Category with dropdown */}
+                    <div className="min-w-0" onClick={(e) => e.stopPropagation()}>
                     <p className="text-xs text-muted-foreground">Huvudkategori (App)</p>
                     <Select
                       value={transaction.appCategoryId || ''}
@@ -741,72 +749,31 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                       }
                     })()}
                   </div>
-
-                  {/* Transaction Type (text only) */}
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">Transaktionstyp</p>
-                    <p className="text-sm truncate">
-                      {transaction.savingsTargetId && 'Länkad Transaktion'}
-                      {!transaction.savingsTargetId && transaction.type === 'Transaction' && 'Transaktion'}
-                      {!transaction.savingsTargetId && transaction.type === 'InternalTransfer' && 'Intern överföring'}
-                      {!transaction.savingsTargetId && transaction.type === 'Savings' && 'Sparande'}
-                      {!transaction.savingsTargetId && transaction.type === 'CostCoverage' && 'Kostnadstäckning'}
-                      {!transaction.savingsTargetId && transaction.type === 'ExpenseClaim' && 'Utlägg'}
-                    </p>
                   </div>
 
-                  {/* Amount from Database (amount / 100) */}
-                  <div className="min-w-0">
-                    {/* For any transaction with links (ExpenseClaim/CostCoverage/InternalTransfer), show both original (crossed) and corrected amount */}
-                    {(transaction.linkedTransactionId || transaction.linkedCostId) ? (
-                      <>
-                        <p className="text-xs text-muted-foreground">Belopp</p>
-                        <p className={`font-semibold text-sm line-through opacity-60 ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {transaction.amount >= 0 ? '+' : ''}{(transaction.amount / 100).toFixed(2)} kr
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">Korrigerat Belopp</p>
-                        <p className={`font-semibold text-sm ${(transaction.correctedAmount !== null ? transaction.correctedAmount : transaction.amount) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {(transaction.correctedAmount !== null ? transaction.correctedAmount : transaction.amount) >= 0 ? '+' : ''}{((transaction.correctedAmount !== null ? transaction.correctedAmount : transaction.amount) / 100).toFixed(2)} kr
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-xs text-muted-foreground">Belopp</p>
-                        <p className={`font-semibold text-sm ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {transaction.amount >= 0 ? '+' : ''}{(transaction.amount / 100).toFixed(2)} kr
-                        </p>
-                      </>
+                  {/* Quick Actions Section */}
+                  <div className="flex gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                    {transaction.amount < 0 && transaction.type !== 'InternalTransfer' && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 px-3 text-xs"
+                        onClick={() => onTransferMatch?.(transaction)}
+                      >
+                        Matcha överföring
+                      </Button>
+                    )}
+                    {transaction.amount > 0 && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 px-3 text-xs"
+                        onClick={() => onSavingsLink?.(transaction)}
+                      >
+                        Länka sparande
+                      </Button>
                     )}
                   </div>
-                   
-                   {/* Actions - Quick Access Buttons */}
-                   <div className="min-w-0" onClick={(e) => e.stopPropagation()}>
-                     <p className="text-xs text-muted-foreground">Åtgärder</p>
-                     <div className="flex gap-1">
-                       {transaction.amount < 0 && transaction.type !== 'InternalTransfer' && (
-                         <Button 
-                           variant="outline" 
-                           size="sm" 
-                           className="h-6 px-2 text-xs"
-                           onClick={() => onTransferMatch?.(transaction)}
-                           title="Matcha överföring"
-                         >
-                           Ö
-                         </Button>
-                       )}
-                       {transaction.amount > 0 && (
-                         <Button 
-                           variant="outline" 
-                           size="sm" 
-                           className="h-6 px-2 text-xs"
-                           onClick={() => onSavingsLink?.(transaction)}
-                           title="Länka sparande"
-                         >
-                           S
-                         </Button>
-                       )}
-                     </div>
-                   </div>
                 </div>
               </div>
 
