@@ -15,7 +15,7 @@ function configureEnvironment() {
   console.log('🚀 Configuring environment: ALWAYS PRODUCTION DATABASE by default');
   
   // Always use production configuration by default
-  process.env.DATABASE_URL = 'postgresql://neondb_owner:npg_yXbewGR9jN7K@ep-soft-cell-abj1n4kw-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require';
+  process.env.DATABASE_URL = 'postgresql://neondb_owner:npg_yXbewGR9jN7K@ep-soft-cell-abj1n4kw-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
   process.env.VITE_STACK_PROJECT_ID = '9dcd4abe-925d-423b-ac64-d208074f0f61';
   process.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY = 'pck_mffzj51gqpjeargacr5nth5j1hc2cn2y2weq600h7g5m8';
   process.env.STACK_SECRET_SERVER_KEY = 'ssk_91t6ztvrjcqqgzdzbyyjdsz30cvbxvp3as5bfbnwr6v98';
