@@ -45,8 +45,8 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
       return suggestions;
     }
     
-    // Hide already linked transactions from initial same-date view
-    return sameDateSuggestions.filter(s => !s.linkedTransactionId);
+    // Show all same-date transactions, including already linked ones
+    return sameDateSuggestions;
   }, [suggestions, transaction, showAllSuggestions]);
 
   // Auto-select the best match when suggestions change
@@ -130,11 +130,77 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
       
       console.log('🔗 [SimpleTransferMatchDialog] Linking transactions with API calls');
       
+      // === UNLINKING EXISTING CONNECTIONS ===
+      // Check if either transaction is already linked and unlink them first
+      const transactionsToUnlink = [];
+      
+      if (transaction.linkedTransactionId) {
+        addMobileDebugLog(`🗑️ [UNLINK] Transaction 1 (${transaction.id}) is linked to ${transaction.linkedTransactionId}`);
+        transactionsToUnlink.push({
+          id: transaction.id,
+          currentlyLinkedTo: transaction.linkedTransactionId
+        });
+      }
+      
+      if (selectedTransaction.linkedTransactionId) {
+        addMobileDebugLog(`🗑️ [UNLINK] Transaction 2 (${selectedTransaction.id}) is linked to ${selectedTransaction.linkedTransactionId}`);
+        transactionsToUnlink.push({
+          id: selectedTransaction.id,
+          currentlyLinkedTo: selectedTransaction.linkedTransactionId
+        });
+      }
+      
+      // Unlink existing connections
+      if (transactionsToUnlink.length > 0) {
+        addMobileDebugLog(`🗑️ [UNLINK] Unlinking ${transactionsToUnlink.length} existing connections...`);
+        
+        const unlinkPromises = [];
+        
+        for (const txToUnlink of transactionsToUnlink) {
+          // Unlink the transaction itself
+          unlinkPromises.push(
+            updateTransactionMutation.mutateAsync({
+              id: txToUnlink.id,
+              data: {
+                type: 'Transaction',
+                linkedTransactionId: null,
+                userDescription: '',
+                isManuallyChanged: 'true'
+              }
+            })
+          );
+          
+          // Unlink the transaction it was connected to
+          unlinkPromises.push(
+            updateTransactionMutation.mutateAsync({
+              id: txToUnlink.currentlyLinkedTo,
+              data: {
+                type: 'Transaction',
+                linkedTransactionId: null,
+                userDescription: '',
+                isManuallyChanged: 'true'
+              }
+            })
+          );
+        }
+        
+        try {
+          await Promise.all(unlinkPromises);
+          addMobileDebugLog('✅ [UNLINK] Successfully unlinked all existing connections');
+        } catch (unlinkError) {
+          addMobileDebugLog(`❌ [UNLINK ERROR] Failed to unlink existing connections: ${unlinkError}`);
+          throw new Error(`Failed to unlink existing connections: ${unlinkError instanceof Error ? unlinkError.message : String(unlinkError)}`);
+        }
+      }
+      
       // === MOBILE DEBUG: API call preparation ===
+      // Use the original transaction's categories for both transactions
       const update1Data = {
         type: 'InternalTransfer',
         linkedTransactionId: selectedTransaction.id,
         userDescription: `Överföring till ${account2Name}, ${selectedTransaction.date}`,
+        appCategoryId: transaction.appCategoryId || null,
+        appSubCategoryId: transaction.appSubCategoryId || null,
         isManuallyChanged: 'true'
       };
       
@@ -142,6 +208,8 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
         type: 'InternalTransfer', 
         linkedTransactionId: transaction.id,
         userDescription: `Överföring från ${account1Name}, ${transaction.date}`,
+        appCategoryId: transaction.appCategoryId || null,
+        appSubCategoryId: transaction.appSubCategoryId || null,
         isManuallyChanged: 'true'
       };
       
@@ -262,6 +330,11 @@ export const SimpleTransferMatchDialog: React.FC<SimpleTransferMatchDialogProps>
                           Typ: {suggestion.type || 'Transaktion'}
                           {suggestion.type !== 'InternalTransfer' && (
                             <span className="ml-2 text-orange-600">(kommer konverteras till Intern Överföring)</span>
+                          )}
+                          {suggestion.linkedTransactionId && (
+                            <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-800 rounded text-xs">
+                              Redan länkad (kommer att kopplas ur)
+                            </span>
                           )}
                         </div>
                       </Label>

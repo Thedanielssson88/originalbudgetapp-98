@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronUp, Edit3, Trash2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ImportedTransaction } from '@/types/transaction';
 import { StorageKey, get } from '@/services/storageService';
 import { TransactionTypeSelector } from './TransactionTypeSelector';
@@ -193,6 +194,8 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
   const [localNoteValue, setLocalNoteValue] = useState(transaction.userDescription || '');
   const [subcategoriesData, setSubcategoriesData] = useState<Record<string, string[]>>({});
   const [isCreateRuleDialogOpen, setIsCreateRuleDialogOpen] = useState(false);
+  const [showLinkedTransactionDialog, setShowLinkedTransactionDialog] = useState(false);
+  const [linkedTransactionToShow, setLinkedTransactionToShow] = useState<any>(null);
   const { budgetState } = useBudget();
   const { data: familyMembers = [] } = useFamilyMembers();
   const { data: inkomstkallor = [] } = useInkomstkallor();
@@ -537,6 +540,35 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
       }
 
     } catch (error) {
+    }
+  };
+
+  // Handle linked transaction view
+  const handleLinkedTransactionClick = (linkedTransactionId: string) => {
+    console.log('🔍 [TransactionExpandableCard] Looking for linked transaction:', linkedTransactionId);
+    
+    // Try to find the linked transaction in the allTransactions from budgetState
+    const linkedTransaction = budgetState?.allTransactions?.find(tx => tx.id === linkedTransactionId);
+    
+    if (linkedTransaction) {
+      console.log('✅ [TransactionExpandableCard] Found linked transaction:', linkedTransaction);
+      setLinkedTransactionToShow(linkedTransaction);
+      setShowLinkedTransactionDialog(true);
+    } else {
+      console.log('❌ [TransactionExpandableCard] Linked transaction not found in budgetState.allTransactions');
+      console.log('Available transactions count:', budgetState?.allTransactions?.length || 0);
+      
+      // Fallback: try to construct a basic transaction object with available data
+      const fallbackTransaction = {
+        id: linkedTransactionId,
+        description: 'Länkad transaktion (detaljer ej tillgängliga)',
+        amount: 0,
+        date: new Date().toISOString().split('T')[0],
+        status: 'yellow'
+      };
+      
+      setLinkedTransactionToShow(fallbackTransaction);
+      setShowLinkedTransactionDialog(true);
     }
   };
 
@@ -1363,6 +1395,155 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
                    </div>
                  </div>
                ) : null}
+
+               {/* Comprehensive Linked Transactions Section */}
+               <div className="mt-6 border-t pt-4">
+                 <h4 className="text-sm font-medium text-muted-foreground mb-3">
+                   Länkade transaktioner
+                 </h4>
+                 <div className="space-y-3">
+                   
+                   {/* Länkad intern överföring (linkedTransactionId) */}
+                   <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                     <div className="flex-1">
+                       <span className="text-sm font-medium">Länkad intern överföring:</span>
+                       <span className="text-sm ml-2">
+                         {transaction.linkedTransactionId ? (
+                           <div className="inline-flex items-center gap-2">
+                             <span 
+                               className="text-green-600 cursor-pointer hover:text-green-700 hover:underline"
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 handleLinkedTransactionClick(transaction.linkedTransactionId);
+                               }}
+                               title="Klicka för att visa länkad transaktion"
+                             >
+                               ✓ Länkad ({transaction.linkedTransactionId.slice(-8)})
+                             </span>
+                             <button
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 handleUnlinkInternalTransfer();
+                               }}
+                               className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                               title="Ta bort länkning"
+                             >
+                               <Trash2 className="h-3 w-3" />
+                             </button>
+                           </div>
+                         ) : (
+                           <span className="text-gray-500">Ingen länkning</span>
+                         )}
+                       </span>
+                     </div>
+                     <Badge variant={transaction.linkedTransactionId ? "default" : "secondary"} className="text-xs">
+                       {transaction.linkedTransactionId ? "Aktiv" : "Ej länkad"}
+                     </Badge>
+                   </div>
+
+                   {/* Länkad transaktion för utlägg/kostnad (linkedCostId) */}
+                   <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                     <div className="flex-1">
+                       <span className="text-sm font-medium">Länkad transaktion för utlägg/kostnad:</span>
+                       <span className="text-sm ml-2">
+                         {transaction.linkedCostId ? (
+                           <div className="inline-flex items-center gap-2">
+                             <span 
+                               className="text-green-600 cursor-pointer hover:text-green-700 hover:underline"
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 handleLinkedTransactionClick(transaction.linkedCostId);
+                               }}
+                               title="Klicka för att visa länkad transaktion"
+                             >
+                               ✓ Länkad ({transaction.linkedCostId.slice(-8)})
+                             </span>
+                             <button
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 handleUnlinkExpenseClaim();
+                               }}
+                               className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                               title="Ta bort länkning"
+                             >
+                               <Trash2 className="h-3 w-3" />
+                             </button>
+                           </div>
+                         ) : (
+                           <span className="text-gray-500">Ingen länkning</span>
+                         )}
+                       </span>
+                     </div>
+                     <Badge variant={transaction.linkedCostId ? "default" : "secondary"} className="text-xs">
+                       {transaction.linkedCostId ? "Aktiv" : "Ej länkad"}
+                     </Badge>
+                   </div>
+
+                   {/* Länkat sparande/sparmål (savingsTargetId) */}
+                   <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                     <div className="flex-1">
+                       <span className="text-sm font-medium">Länkat sparande/sparmål:</span>
+                       <span className="text-sm ml-2">
+                         {transaction.savingsTargetId ? (
+                           <div className="inline-flex items-center gap-2">
+                             <span className="text-green-600">
+                               ✓ Länkad ({transaction.savingsTargetId.slice(-8)})
+                             </span>
+                             <button
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 handleUnlinkSavings();
+                               }}
+                               className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                               title="Ta bort länkning"
+                             >
+                               <Trash2 className="h-3 w-3" />
+                             </button>
+                           </div>
+                         ) : (
+                           <span className="text-gray-500">Ingen länkning</span>
+                         )}
+                       </span>
+                     </div>
+                     <Badge variant={transaction.savingsTargetId ? "default" : "secondary"} className="text-xs">
+                       {transaction.savingsTargetId ? "Aktiv" : "Ej länkad"}
+                     </Badge>
+                   </div>
+
+                   {/* Länkad inkomst (incomeTargetId) */}
+                   <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                     <div className="flex-1">
+                       <span className="text-sm font-medium">Länkad inkomst:</span>
+                       <span className="text-sm ml-2">
+                         {transaction.incomeTargetId ? (
+                           <div className="inline-flex items-center gap-2">
+                             <span className="text-green-600">
+                               ✓ Länkad ({transaction.incomeTargetId.slice(-8)})
+                             </span>
+                             {/* Note: Income unlinking not implemented yet */}
+                           </div>
+                         ) : (
+                           <span className="text-gray-500">Ingen länkning</span>
+                         )}
+                       </span>
+                     </div>
+                     <Badge variant={transaction.incomeTargetId ? "default" : "secondary"} className="text-xs">
+                       {transaction.incomeTargetId ? "Aktiv" : "Ej länkad"}
+                     </Badge>
+                   </div>
+
+                   {/* Summary count */}
+                   <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+                     Totalt antal aktiva länkar: {[
+                       transaction.linkedTransactionId,
+                       transaction.linkedCostId, 
+                       transaction.savingsTargetId,
+                       transaction.incomeTargetId
+                     ].filter(Boolean).length} av 4
+                   </div>
+                 </div>
+               </div>
+
              </div>
            </CardContent>
          </CollapsibleContent>
@@ -1377,6 +1558,76 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
         availableBankCategories={availableBankCategories}
         availableBankSubCategories={availableBankSubCategories}
       />
+
+      {/* Linked Transaction Dialog */}
+      {showLinkedTransactionDialog && linkedTransactionToShow && (
+        <Dialog open={showLinkedTransactionDialog} onOpenChange={setShowLinkedTransactionDialog}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Länkad transaktion</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6">
+              {/* Transaction header */}
+              <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
+                <div>
+                  <h3 className="text-lg font-semibold">{linkedTransactionToShow.description}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {linkedTransactionToShow.date} • {accounts.find(acc => acc.id === linkedTransactionToShow.accountId)?.name || 'Okänt konto'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className={`text-lg font-bold ${linkedTransactionToShow.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatOrenAsCurrency(linkedTransactionToShow.amount)}
+                  </p>
+                  <Badge variant={linkedTransactionToShow.status === 'green' ? 'default' : linkedTransactionToShow.status === 'yellow' ? 'secondary' : 'destructive'} className="text-xs">
+                    {linkedTransactionToShow.status === 'green' ? 'Godkänd' : linkedTransactionToShow.status === 'yellow' ? 'Under granskning' : 'Felaktig'}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Transaction details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Typ</label>
+                    <p className="text-sm">{linkedTransactionToShow.type || 'Transaction'}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Bank kategori</label>
+                    <p className="text-sm">{linkedTransactionToShow.bankCategory || '-'}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Bank underkategori</label>
+                    <p className="text-sm">{linkedTransactionToShow.bankSubCategory || '-'}</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Status</label>
+                    <p className="text-sm">{linkedTransactionToShow.status || 'yellow'}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Saldo efter</label>
+                    <p className="text-sm">{linkedTransactionToShow.balanceAfter ? formatOrenAsCurrency(linkedTransactionToShow.balanceAfter) : '-'}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Manuellt ändrad</label>
+                    <p className="text-sm">{linkedTransactionToShow.isManuallyChanged === 'true' ? 'Ja' : 'Nej'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* User description */}
+              {linkedTransactionToShow.userDescription && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Egen anteckning</label>
+                  <p className="text-sm mt-1 p-2 bg-gray-50 rounded">{linkedTransactionToShow.userDescription}</p>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </Card>
   );
 });

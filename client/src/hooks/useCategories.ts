@@ -14,8 +14,10 @@ async function apiRequest(url: string, options?: RequestInit) {
 // Huvudkategori hooks
 export function useHuvudkategorier() {
   return useQuery<Huvudkategori[]>({
-    queryKey: ['/api/huvudkategorier'],
+    queryKey: ['/api/huvudkategorier', 'db-fix-20250816'], // Cache busting for database routing fix
     queryFn: () => apiRequest('/api/huvudkategorier'),
+    staleTime: 0, // Force fresh data
+    gcTime: 0, // Don't cache
   });
 }
 
@@ -78,14 +80,16 @@ export function useDeleteHuvudkategori() {
 export function useUnderkategorier(huvudkategoriId?: string) {
   return useQuery<Underkategori[]>({
     queryKey: huvudkategoriId 
-      ? ['/api/underkategorier', { huvudkategoriId }]
-      : ['/api/underkategorier'],
+      ? ['/api/underkategorier', { huvudkategoriId }, 'db-fix-20250816']
+      : ['/api/underkategorier', 'db-fix-20250816'], // Cache busting for database routing fix
     queryFn: () => {
       const url = huvudkategoriId 
         ? `/api/underkategorier?huvudkategoriId=${huvudkategoriId}`
         : '/api/underkategorier';
       return apiRequest(url);
     },
+    staleTime: 0, // Force fresh data
+    gcTime: 0, // Don't cache
   });
 }
 

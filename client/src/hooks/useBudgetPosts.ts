@@ -123,6 +123,7 @@ export function useCreateBudgetPost() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/budget-posts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/budget-posts', 'all'] });
       // Clear cache to force refresh
       localStorage.removeItem(BUDGET_POSTS_CACHE_KEY);
     },
@@ -141,6 +142,7 @@ export function useUpdateBudgetPost() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/budget-posts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/budget-posts', 'all'] });
       // Clear cache to force refresh
       localStorage.removeItem(BUDGET_POSTS_CACHE_KEY);
     },
@@ -157,6 +159,7 @@ export function useDeleteBudgetPost() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/budget-posts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/budget-posts', 'all'] });
       // Clear cache to force refresh
       localStorage.removeItem(BUDGET_POSTS_CACHE_KEY);
     },

@@ -184,71 +184,108 @@ export function useUpdateTransaction() {
   
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<InsertTransaction> }) => {
-      console.log(`🔄 [UPDATE] Sending update for transaction ${id}:`, data);
+      console.log(`💾 [SIMPLE UPDATE] Starting mutation for transaction ${id}`);
+      console.log(`💾 [SIMPLE UPDATE] Data to update:`, data);
+      
       const result = await apiRequest(`/api/transactions/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      console.log(`🔄 [UPDATE] Received response for transaction ${id}:`, {
-        linkedCostId: result.linkedCostId,
-        correctedAmount: result.correctedAmount,
-        type: result.type
-      });
+      
+      console.log(`✅ [SIMPLE UPDATE] SQL updated successfully`);
       return result;
     },
     onMutate: async ({ id, data }) => {
-      // OPTIMISTIC UPDATE: Update all transaction caches immediately
-      console.log(`🔄 [OPTIMISTIC] Updating transaction ${id} with:`, data);
+      // OPTIMISTIC UPDATE: Update UI immediately
+      console.log(`🔄 [OPTIMISTIC] Updating transaction ${id} in UI first`);
       
-      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      // Cancel outgoing queries to prevent race conditions
       await queryClient.cancelQueries({ queryKey: ['/api/transactions'] });
       
-      // Get snapshots of current queries for potential rollback
-      const previousAllTransactions = queryClient.getQueryData(ALL_TRANSACTIONS_QUERY_KEY);
+      // Get current data for rollback
+      const previousData = queryClient.getQueryData(['/api/transactions']);
       
-      // Update all cached transaction queries optimistically
-      queryClient.setQueriesData(
-        { queryKey: ['/api/transactions'] },
-        (oldData: any) => {
-          if (!oldData || !Array.isArray(oldData)) return oldData;
-          
-          return oldData.map((transaction: any) => 
-            transaction.id === id 
-              ? { ...transaction, ...data, isManuallyChanged: 'true' }
-              : transaction
-          );
-        }
-      );
-      
-      // Update localStorage cache immediately
-      try {
-        const cachedTransactions = getCachedTransactions();
-        const updatedCache = cachedTransactions.map((transaction: any) =>
+      // Update cache optimistically for ALL transaction query keys
+      queryClient.setQueryData(['/api/transactions'], (oldData: any) => {
+        if (!oldData || !Array.isArray(oldData)) return oldData;
+        
+        const newData = oldData.map((transaction: any) => 
           transaction.id === id 
             ? { ...transaction, ...data, isManuallyChanged: 'true' }
             : transaction
         );
-        cacheTransactions(updatedCache);
-        console.log(`🔄 [OPTIMISTIC] Updated localStorage cache for transaction ${id}`);
-      } catch (error) {
-        console.log('[OPTIMISTIC] Failed to update localStorage cache:', error);
-      }
+        
+        console.log(`🔄 [OPTIMISTIC] Updated transaction ${id} with:`, data);
+        console.log(`🔄 [OPTIMISTIC] New transaction data:`, newData.find(t => t.id === id));
+        
+        return newData;
+      });
       
-      // Return context for potential rollback
-      return { previousAllTransactions };
+      // Also update the ALL_TRANSACTIONS cache if it exists
+      queryClient.setQueryData(ALL_TRANSACTIONS_QUERY_KEY, (oldData: any) => {
+        if (!oldData || !Array.isArray(oldData)) return oldData;
+        
+        return oldData.map((transaction: any) => 
+          transaction.id === id 
+            ? { ...transaction, ...data, isManuallyChanged: 'true' }
+            : transaction
+        );
+      });
+      
+      return { previousData };
     },
-    onError: (error, { id }, context) => {
-      // ROLLBACK: Restore previous state on error
-      console.error(`❌ [ROLLBACK] Rolling back optimistic update for transaction ${id}:`, error);
-      if (context?.previousAllTransactions) {
-        queryClient.setQueryData(ALL_TRANSACTIONS_QUERY_KEY, context.previousAllTransactions);
+    onError: (error, variables, context) => {
+      // Rollback on error
+      console.error(`❌ [ROLLBACK] Rolling back optimistic update:`, error);
+      if (context?.previousData) {
+        queryClient.setQueryData(['/api/transactions'], context.previousData);
       }
     },
-    onSuccess: () => {
-      // Invalidate to ensure we have fresh data from server
-      console.log('✅ [SUCCESS] Transaction update confirmed, invalidating queries');
-      queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
+    onSuccess: (updatedTransaction, { id }) => {
+      console.log(`✅ [SUCCESS] SQL update confirmed, updating cache with server data`);
+      
+      // Update cache with confirmed server data for ALL transaction query keys
+      queryClient.setQueryData(['/api/transactions'], (oldData: any) => {
+        if (!oldData || !Array.isArray(oldData)) return oldData;
+        
+        return oldData.map((transaction: any) => 
+          transaction.id === id 
+            ? { ...transaction, ...updatedTransaction }
+            : transaction
+        );
+      });
+      
+      // Also update the ALL_TRANSACTIONS cache
+      queryClient.setQueryData(ALL_TRANSACTIONS_QUERY_KEY, (oldData: any) => {
+        if (!oldData || !Array.isArray(oldData)) return oldData;
+        
+        return oldData.map((transaction: any) => 
+          transaction.id === id 
+            ? { ...transaction, ...updatedTransaction }
+            : transaction
+        );
+      });
+      
+      // Invalidate all transaction queries to force re-render
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/transactions'],
+        refetchType: 'none'
+      });
+      
+      // Update localStorage cache
+      try {
+        const cachedTransactions = getCachedTransactions();
+        const updatedCache = cachedTransactions.map((transaction: any) =>
+          transaction.id === id 
+            ? { ...transaction, ...updatedTransaction }
+            : transaction
+        );
+        cacheTransactions(updatedCache);
+        console.log(`📦 [SUCCESS] Updated localStorage cache`);
+      } catch (error) {
+        console.log('[SUCCESS] Failed to update localStorage cache:', error);
+      }
     },
   });
 }

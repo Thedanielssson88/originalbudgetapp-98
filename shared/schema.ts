@@ -83,6 +83,8 @@ export const accounts = pgTable('accounts', {
     bankTemplateId: text('bank_template_id'),
     // Account type reference
     accountTypeId: uuid('account_type_id').references(() => accountTypes.id, { onDelete: 'set null' }),
+    // Last update timestamp for CSV/XLSX imports
+    lastUpdate: timestamp('last_update'),
 });
 
 // Monthly account balances calculated from last transaction before 25th

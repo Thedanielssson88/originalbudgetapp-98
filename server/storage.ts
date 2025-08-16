@@ -114,10 +114,10 @@ export interface IStorage {
   
   // Transaction CRUD
   getTransactions(userId: string): Promise<Transaction[]>;
-  getTransaction(id: string): Promise<Transaction | undefined>;
+  getTransaction(id: string, userId?: string): Promise<Transaction | undefined>;
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
-  updateTransaction(id: string, transaction: Partial<InsertTransaction>): Promise<Transaction | undefined>;
-  deleteTransaction(id: string): Promise<boolean>;
+  updateTransaction(id: string, transaction: Partial<InsertTransaction>, userId?: string): Promise<Transaction | undefined>;
+  deleteTransaction(id: string, userId?: string): Promise<boolean>;
   getTransactionsInDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]>;
   getTransactionsInDateRangeByAccount(userId: string, accountId: string, startDate: Date, endDate: Date): Promise<Transaction[]>;
   
@@ -613,7 +613,7 @@ export class MemStorage implements IStorage {
     return Array.from(this.transactions.values()).filter(trans => trans.userId === userId);
   }
 
-  async getTransaction(id: string): Promise<Transaction | undefined> {
+  async getTransaction(id: string, userId?: string): Promise<Transaction | undefined> {
     return this.transactions.get(id);
   }
 
@@ -643,7 +643,7 @@ export class MemStorage implements IStorage {
     return newTransaction;
   }
 
-  async updateTransaction(id: string, transaction: Partial<InsertTransaction>): Promise<Transaction | undefined> {
+  async updateTransaction(id: string, transaction: Partial<InsertTransaction>, userId?: string): Promise<Transaction | undefined> {
     const existing = this.transactions.get(id);
     if (!existing) return undefined;
     
@@ -655,7 +655,7 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
-  async deleteTransaction(id: string): Promise<boolean> {
+  async deleteTransaction(id: string, userId?: string): Promise<boolean> {
     return this.transactions.delete(id);
   }
 

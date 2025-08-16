@@ -1911,11 +1911,12 @@ export function resetInitialization(): void {
 
 // NEW: Force reload transactions from database (for debugging)
 export async function forceReloadTransactions(): Promise<void> {
-  console.log('🔄 [ORCHESTRATOR] FORCE RELOAD: Loading transactions from PostgreSQL...');
+  const timestamp = new Date().toISOString();
+  console.log(`🔄 [ORCHESTRATOR] FORCE RELOAD: Loading transactions from PostgreSQL at ${timestamp}`);
   
   // Also log to mobile debug logger
   const { addMobileDebugLog } = await import('../utils/mobileDebugLogger');
-  addMobileDebugLog('🔄 [FORCE RELOAD] Starting transaction reload...');
+  addMobileDebugLog(`🔄 [FORCE RELOAD] Starting transaction reload at ${timestamp}...`);
   
   try {
     const { apiStore } = await import('../store/apiStore');

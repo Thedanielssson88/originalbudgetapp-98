@@ -39,7 +39,9 @@
       "Bash(REPLIT_DOMAINS=\"originalbudgetapp-98-andreasadaniels.replit.app,ac727294-c09b-4900-b61d-6d5483af8960-00-80o2hvzlzvkv.worf.replit.dev,localhost:5000\" npm run dev)",
       "Bash(NODE_ENV=development DATABASE_URL=\"postgresql://neondb_owner:npg_csIURKah4TN5@ep-soft-salad-aeyhh2aj.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require\" psql $DATABASE_URL -c \"SELECT COUNT(*) FROM underkategorier WHERE user_id = ''dev-user-123'';\")",
       "Bash(NODE_ENV=development DATABASE_URL=\"postgresql://neondb_owner:npg_csIURKah4TN5@ep-soft-salad-aeyhh2aj.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require\" psql $DATABASE_URL -c \"SELECT id, name, huvudkategori_id FROM underkategorier WHERE user_id = ''dev-user-123'';\")",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(NODE_ENV=development DATABASE_URL=\"postgresql://neondb_owner:npg_csIURKah4TN5@ep-soft-salad-aeyhh2aj.us-east-2.aws.neon.tech/neondb?sslmode=require\" psql $DATABASE_URL -c \"\nINSERT INTO transactions (\n  user_id, \n  account_id, \n  description, \n  amount, \n  date, \n  type,\n  status\n) VALUES (\n  ''dev-user-123'',\n  ''5303e234-112a-422b-91e3-07de66030b81'',\n  ''Regular Transaction without Correction'',\n  -3000,\n  CURRENT_DATE,\n  ''Transaction'',\n  ''yellow''\n) RETURNING id, description, amount;\n\")",
+      "Bash(NODE_ENV=development DATABASE_URL=\"postgresql://neondb_owner:npg_csIURKah4TN5@ep-soft-salad-aeyhh2aj.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require\" psql $DATABASE_URL -c \"\n-- Check how many transactions have invalid linkedTransactionId\nSELECT COUNT(*) as invalid_count \nFROM transactions \nWHERE user_id = ''dev-user-123'' \nAND linked_transaction_id IS NOT NULL \nAND linked_transaction_id NOT IN (SELECT id FROM transactions WHERE user_id = ''dev-user-123'');\n\")"
     ],
     "deny": []
   }

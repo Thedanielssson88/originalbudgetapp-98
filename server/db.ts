@@ -27,9 +27,13 @@ const devDb = drizzle({ client: devPool, schema });
 export function getUserDatabase(userId?: string) {
   if (userId === 'dev-user-123') {
     console.log(`🔧 Using DEV database for user: ${userId}`);
+    console.log(`🔍 FULL DEV database URL: ${DEV_DATABASE_URL}`);
+    console.log(`🔍 DEV connection pool config:`, devPool.options.connectionString);
     return devDb;
   } else {
     console.log(`🚀 Using PROD database for user: ${userId || 'anonymous'}`);
+    console.log(`🔍 FULL PROD database URL: ${process.env.DATABASE_URL}`);
+    console.log(`🔍 PROD connection pool config:`, pool.options.connectionString);
     return db;
   }
 }

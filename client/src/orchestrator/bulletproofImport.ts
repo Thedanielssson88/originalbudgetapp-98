@@ -98,28 +98,16 @@ export async function bulletproofImport(
       }
       fingerprintSet.add(fingerprint);
       
-      let processed: any = { ...transaction };
-      
-      // Apply category rules based on description matching
-      for (const rule of categoryRules.filter(r => r.isActive === 'true')) {
-        const pattern = new RegExp(rule.pattern, 'i');
-        if (pattern.test(transaction.description)) {
-          processed.huvudkategoriId = rule.huvudkategoriId;
-          processed.underkategoriId = rule.underkategoriId;
-          console.log(`✅ [BULLETPROOF] Applied rule "${rule.pattern}" to: ${transaction.description.substring(0, 30)}`);
-          break; // Apply first matching rule only
-        }
-      }
-      
+      // No automatic rule application - import raw transactions only
       processedTransactions.push({
-        date: processed.date,
-        description: processed.description,
-        amount: Math.round(processed.amount), // Convert to öre
-        balanceAfter: Math.round(processed.balanceAfter || 0),
-        bankCategory: processed.bankCategory || '',
-        bankSubCategory: processed.bankSubCategory || '',
-        status: processed.status || 'yellow',
-        type: processed.type || 'Transaction'
+        date: transaction.date,
+        description: transaction.description,
+        amount: Math.round(transaction.amount), // Convert to öre
+        balanceAfter: Math.round(transaction.balanceAfter || 0),
+        bankCategory: transaction.bankCategory || '',
+        bankSubCategory: transaction.bankSubCategory || '',
+        status: transaction.status || 'yellow',
+        type: transaction.type || 'Transaction'
       });
     }
     
@@ -147,6 +135,8 @@ export async function bulletproofImport(
       transactionCount: processedTransactions.length
     });
     
+    console.log(`🌐 [BULLETPROOF] Making API call to /api/transactions/bulletproof-sync...`);
+    addMobileDebugLog(`🌐 Making API call to server...`);
     const response = await fetch('/api/transactions/bulletproof-sync', {
       method: 'POST',
       headers: {
@@ -160,8 +150,13 @@ export async function bulletproofImport(
       })
     });
     
+    console.log(`📡 [BULLETPROOF] API response status:`, response.status);
+    console.log(`📡 [BULLETPROOF] API response ok:`, response.ok);
+    addMobileDebugLog(`📡 API response: ${response.status} (${response.ok ? 'OK' : 'FAILED'})`);
+    
     const duration = Math.round((Date.now() - startTime) / 1000);
     console.log(`⏱️ [BULLETPROOF] Sync took ${duration} seconds`);
+    addMobileDebugLog(`⏱️ Sync took ${duration}s - Account ${accountId} should now have lastUpdate set`);
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -170,6 +165,19 @@ export async function bulletproofImport(
     
     const result = await response.json();
     console.log(`✅ [BULLETPROOF] Sync completed:`, result.stats);
+    
+    // Debug the server result to see if account update was mentioned
+    addMobileDebugLog(`✅ Server result: created ${result.stats.created}, deleted ${result.stats.deleted}`);
+    if (result.accountUpdateReached) {
+      if (result.accountUpdated) {
+        addMobileDebugLog(`🎯 Account lastUpdate was set successfully`);
+      } else {
+        addMobileDebugLog(`⚠️ Account update code reached but failed`);
+      }
+    } else {
+      addMobileDebugLog(`❌ Account update code was NEVER reached!`);
+    }
+    
     addMobileDebugLog(`✅ Bulletproof: ${result.stats.created} created, ${result.stats.deleted} deleted, ${result.stats.restored} restored`);
     
     return {

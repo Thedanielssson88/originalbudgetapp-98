@@ -73,7 +73,6 @@ import { formatOrenAsCurrency } from '@/utils/currencyUtils';
 import { ColumnMappingDialog } from './ColumnMappingDialog';
 import { addCategoryRule, updateCategoryRule, deleteCategoryRule, saveCsvMapping, getCsvMapping, linkAccountToBankTemplate } from '../orchestrator/budgetOrchestrator';
 import { bulletproofImport } from '../orchestrator/bulletproofImport';
-import { applyRulesToTransactionsBatch } from '../orchestrator/batchRuleApplication';
 import { getCurrentState, setMainCategories, updateSelectedBudgetMonth } from '../orchestrator/budgetOrchestrator';
 import { StorageKey, get, set } from '../services/storageService';
 import { clearExpansionState } from '@/hooks/useTransactionExpansion';
@@ -532,6 +531,18 @@ export const TransactionImportEnhanced: React.FC = () => {
   
   // Use API data for accounts instead of budgetState.accounts
   const { data: accountsFromAPI = [], isLoading: accountsLoading } = useAccounts();
+  
+  // Debug: Log account data to see lastUpdate values
+  useEffect(() => {
+    if (accountsFromAPI.length > 0) {
+      console.log('🔍 [ACCOUNTS DEBUG] Current accounts data:', accountsFromAPI.map(acc => ({
+        name: acc.name,
+        id: acc.id,
+        lastUpdate: acc.lastUpdate,
+        lastUpdateType: typeof acc.lastUpdate
+      })));
+    }
+  }, [accountsFromAPI]);
   
   // Direct API mutation hook (Phase 1 Migration)
   const updateTransactionMutation = useUpdateTransaction();
@@ -1221,9 +1232,36 @@ export const TransactionImportEnhanced: React.FC = () => {
         if (bulletproofResult.success) {
           console.log(`✅ [BULLETPROOF] Import successful:`, bulletproofResult.stats);
           
-          // Trigger UI refresh
+          // AGGRESSIVE cache invalidation - force fresh data
+          console.log('🔄 [CACHE] Starting aggressive cache invalidation...');
           await queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
-          await queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
+          
+          // Remove accounts from cache entirely and force refetch
+          console.log('🗑️ [CACHE] Removing accounts queries from cache...');
+          queryClient.removeQueries({ queryKey: ['/api/accounts'] });
+          
+          console.log('🔄 [CACHE] Force refetching accounts...');
+          const freshAccounts = await queryClient.refetchQueries({ queryKey: ['/api/accounts'] });
+          console.log('📊 [CACHE] Fresh accounts fetched:', freshAccounts);
+          
+          // Clear localStorage cache as well
+          try {
+            localStorage.removeItem('accounts_cache');
+            console.log('🗑️ [CACHE] Cleared localStorage accounts_cache');
+          } catch (e) {
+            console.warn('Failed to clear accounts cache:', e);
+          }
+          
+          // Force multiple rounds of cache clearing
+          setTimeout(async () => {
+            queryClient.removeQueries({ queryKey: ['/api/accounts'] });
+            await queryClient.refetchQueries({ queryKey: ['/api/accounts'] });
+          }, 500);
+          
+          setTimeout(async () => {
+            queryClient.removeQueries({ queryKey: ['/api/accounts'] });
+            await queryClient.refetchQueries({ queryKey: ['/api/accounts'] });
+          }, 2000);
         } else {
           console.error(`❌ [BULLETPROOF] Import failed:`, bulletproofResult.message);
         }
@@ -1249,9 +1287,30 @@ export const TransactionImportEnhanced: React.FC = () => {
         if (bulletproofResult.success) {
           console.log(`✅ [BULLETPROOF FALLBACK] Import successful:`, bulletproofResult.stats);
           
-          // Trigger UI refresh
+          // AGGRESSIVE cache invalidation - force fresh data
           await queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
-          await queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
+          
+          // Remove accounts from cache entirely and force refetch
+          queryClient.removeQueries({ queryKey: ['/api/accounts'] });
+          await queryClient.refetchQueries({ queryKey: ['/api/accounts'] });
+          
+          // Clear localStorage cache as well
+          try {
+            localStorage.removeItem('accounts_cache');
+          } catch (e) {
+            console.warn('Failed to clear accounts cache:', e);
+          }
+          
+          // Force multiple rounds of cache clearing
+          setTimeout(async () => {
+            queryClient.removeQueries({ queryKey: ['/api/accounts'] });
+            await queryClient.refetchQueries({ queryKey: ['/api/accounts'] });
+          }, 500);
+          
+          setTimeout(async () => {
+            queryClient.removeQueries({ queryKey: ['/api/accounts'] });
+            await queryClient.refetchQueries({ queryKey: ['/api/accounts'] });
+          }, 2000);
         } else {
           console.error(`❌ [BULLETPROOF FALLBACK] Import failed:`, bulletproofResult.message);
         }
@@ -1938,53 +1997,6 @@ export const TransactionImportEnhanced: React.FC = () => {
     return false; // No unique match found
   };
 
-  // OPTIMIZED: Apply all rules to filtered transactions using batch processing
-  const applyRulesToFilteredTransactions = async () => {
-    console.log(`🚀 [OPTIMIZED RULES] Starting batch processing: ${postgresqlRules.length} rules, ${filteredTransactions.length} transactions`);
-    
-    try {
-      // Use the optimized batch rule application
-      const result = await applyRulesToTransactionsBatch(
-        filteredTransactions,
-        postgresqlRules,
-        huvudkategorier,
-        underkategorier
-      );
-      
-      if (result.success) {
-        // Update local transaction state
-        if (result.updatedTransactions) {
-          allTransactionsRef.current = result.updatedTransactions;
-        }
-        
-        // Show success toast with stats
-        toast({
-          title: "Regler applicerade!",
-          description: `${result.stats.updated} transaktioner uppdaterade (${result.stats.rulesApplied} regeltrĂ¤ffar, ${result.stats.bankMatched} banktrĂ¤ffar, ${result.stats.autoApproved} auto-godkända)`,
-        });
-        
-        console.log(`✅ [OPTIMIZED RULES] Batch processing successful:`, result.stats);
-        
-        // Refresh UI
-        await queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
-        setRefreshKey(prev => prev + 1);
-        
-      } else {
-        toast({
-          title: "Fel vid regelapplikation",
-          description: "Något gick fel vid applicering av regler",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
-      console.error('❌ [OPTIMIZED RULES] Error applying rules:', error);
-      toast({
-        title: "Fel vid regelapplikation",
-        description: "Ett oväntat fel inträffade",
-        variant: "destructive"
-      });
-    }
-  };
 
   // Main upload step - shows accounts and upload status
   const renderUploadStep = () => {
@@ -2015,7 +2027,13 @@ export const TransactionImportEnhanced: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <CardTitle className="text-base sm:text-lg truncate">{account.name}</CardTitle>
                       <CardDescription className="text-sm">
-                        Balance: {(account.balance || 0).toLocaleString('sv-SE')} kr
+                        Senast uppdaterad: {account.lastUpdate ? new Date(account.lastUpdate).toLocaleDateString('sv-SE') : 'Aldrig'}
+                        {/* Debug: Show raw lastUpdate value */}
+                        {process.env.NODE_ENV === 'development' && (
+                          <span className="text-xs text-gray-400 ml-2">
+                            (raw: {JSON.stringify(account.lastUpdate)})
+                          </span>
+                        )}
                       </CardDescription>
                       {/* Progress bar for import */}
                       {importProgress.isImporting && (
@@ -2064,7 +2082,7 @@ export const TransactionImportEnhanced: React.FC = () => {
                         disabled={(!account.bankTemplateId && !selectedBanks[account.id]) || importProgress.isImporting}
                       >
                         <Upload className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                        {importProgress.isImporting ? "Importerar..." : (hasTransactions ? "Ändra fil" : "Ladda upp CSV/XLSX")}
+                        {importProgress.isImporting ? "Importerar..." : "Ladda upp CSV/XLSX"}
                       </Button>
                       {rawCsvData[account.id]?.headers && (
                         <Button
@@ -3029,26 +3047,6 @@ export const TransactionImportEnhanced: React.FC = () => {
                     </Button>
                   </div>
                   
-                  <div className="w-full">
-                    <Button
-                      onClick={() => {
-                        console.log(`🔍 [APPLY RULES] Button clicked - postgresqlRules: ${postgresqlRules.length}, filteredTransactions: ${filteredTransactions.length}`);
-                        console.log(`🔍 [APPLY RULES] PostgreSQL rules:`, postgresqlRules);
-                        console.log(`🔍 [APPLY RULES] PostgreSQL rules loading:`, rulesLoading);
-                        if (rulesError) {
-                          console.log(`🔍 [APPLY RULES] PostgreSQL rules error:`, rulesError);
-                        }
-                        applyRulesToFilteredTransactions();
-                      }}
-                      disabled={postgresqlRules.length === 0 || filteredTransactions.length === 0}
-                      size="sm"
-                      variant="default"
-                      className="w-full text-sm font-medium"
-                    >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Applicera regler på filtrerade transaktioner ({postgresqlRules.length} regler)
-                    </Button>
-                  </div>
                 </div>
               </CardContent>
             </CollapsibleContent>
@@ -3229,20 +3227,6 @@ export const TransactionImportEnhanced: React.FC = () => {
                   </div>
                 )}
                 
-                {/* Apply rules button for all transactions tab */}
-                {filteredTransactions.length > 0 && (
-                  <div className="flex justify-center mt-6">
-                    <Button
-                      onClick={applyRulesToFilteredTransactions}
-                      disabled={categoryRules.length === 0 || filteredTransactions.length === 0}
-                      variant="secondary"
-                      className="text-sm"
-                    >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Applicera regler på filtrerade transaktioner
-                    </Button>
-                  </div>
-                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -3394,21 +3378,6 @@ export const TransactionImportEnhanced: React.FC = () => {
               );
             })}
             
-            {/* Apply rules button for account tab */}
-            {filteredTransactions.length > 0 && (
-              <div className="flex justify-center mt-4">
-                <Button
-                  onClick={applyRulesToFilteredTransactions}
-                  disabled={categoryRules.length === 0 || filteredTransactions.length === 0}
-                  size="sm"
-                  variant="secondary"
-                  className="text-xs sm:text-sm"
-                >
-                  <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                  Applicera regler på filtrerade transaktioner
-                </Button>
-              </div>
-            )}
           </TabsContent>
 
           {/* Date Range Dialog */}
@@ -3914,201 +3883,6 @@ export const TransactionImportEnhanced: React.FC = () => {
         }}
       />
 
-      {/* Debug/Cleanup Section - Emergency Controls */}
-      <Card className="mt-8 border-red-200 bg-red-50/50">
-        <CardHeader>
-          <CardTitle className="text-red-800 flex items-center gap-2">
-            🚨 Emergency Cleanup Controls
-          </CardTitle>
-          <CardDescription className="text-red-700">
-            Use these buttons to debug and fix duplicate transaction issues
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Button 
-              variant="outline" 
-              onClick={async () => {
-                console.log('🔍 DEBUGGING IMPORT PROCESS...');
-                
-                try {
-                  // Check current transactions
-                  const response = await fetch('/api/transactions');
-                  const transactions = await response.json();
-                  
-                  console.log(`📊 Current total transactions: ${transactions.length}`);
-                  
-                  // Group by fingerprint to see duplicates
-                  function createFingerprint(tx: any) {
-                    const dateOnly = tx.date.includes('T') ? tx.date.split('T')[0] : tx.date.substring(0, 10);
-                    const normalizedDesc = tx.description.trim().toLowerCase().replace(/\s+/g, ' ');
-                    const normalizedAmount = Math.round(tx.amount * 100) / 100;
-                    return `${tx.accountId || ''}_${dateOnly}_${normalizedDesc}_${normalizedAmount}`;
-                  }
-                  
-                  const groups = new Map();
-                  transactions.forEach((tx: any) => {
-                    const fingerprint = createFingerprint(tx);
-                    if (!groups.has(fingerprint)) {
-                      groups.set(fingerprint, []);
-                    }
-                    groups.get(fingerprint).push(tx);
-                  });
-                  
-                  // Show duplicates
-                  let duplicateCount = 0;
-                  for (const [fingerprint, txs] of groups) {
-                    if (txs.length > 1) {
-                      duplicateCount += txs.length - 1;
-                      console.log(`🔍 DUPLICATE GROUP (${txs.length}):`, fingerprint);
-                      
-                      // Parse fingerprint for mobile debug
-                      const parts = fingerprint.split('_');
-                      const accountId = parts[0] || 'no-account';
-                      const date = parts[1] || 'no-date';
-                      const desc = parts[2] || 'no-desc';
-                      const amount = parts[3] || '0';
-                      
-                      
-                      txs.forEach((tx: any, idx: number) => {
-                        console.log(`  - ID: ${tx.id}, Date: ${tx.date}, Manual: ${tx.isManuallyChanged}, Created: ${tx.createdAt || 'unknown'}`);
-                      });
-                    }
-                  }
-                  
-                  console.log(`📊 Found ${duplicateCount} duplicates across ${groups.size} unique transactions`);
-                  
-                  toast({
-                    title: "Debug Complete",
-                    description: `Found ${duplicateCount} duplicates. Check console for details.`,
-                    variant: duplicateCount > 0 ? "destructive" : "default"
-                  });
-                  
-                } catch (error) {
-                  console.error('❌ Debug failed:', error);
-                  toast({
-                    title: "Debug Failed", 
-                    description: "Check console for error details",
-                    variant: "destructive"
-                  });
-                }
-              }}
-            >
-              🔍 Debug Duplicates
-            </Button>
-
-            <Button 
-              variant="destructive"
-              onClick={async () => {
-                if (!confirm('Are you sure? This will delete ALL duplicate transactions and keep the best version of each.')) {
-                  return;
-                }
-                
-                console.log('🚨 EMERGENCY DUPLICATE CLEANUP STARTING...');
-                
-                try {
-                  // Create improved fingerprint function
-                  function createFingerprint(tx: any) {
-                    const dateOnly = tx.date.includes('T') ? tx.date.split('T')[0] : tx.date.substring(0, 10);
-                    const normalizedDesc = tx.description.trim().toLowerCase().replace(/\s+/g, ' ');
-                    const normalizedAmount = Math.round(tx.amount * 100) / 100;
-                    return `${tx.accountId || ''}_${dateOnly}_${normalizedDesc}_${normalizedAmount}`;
-                  }
-                  
-                  // Get all transactions
-                  const response = await fetch('/api/transactions');
-                  const allTransactionsData = await response.json();
-                  console.log(`📊 Found ${allTransactionsData.length} total transactions`);
-                  
-                  // Group by fingerprint
-                  const groups = new Map();
-                  allTransactionsData.forEach((tx: any) => {
-                    const fingerprint = createFingerprint(tx);
-                    if (!groups.has(fingerprint)) {
-                      groups.set(fingerprint, []);
-                    }
-                    groups.get(fingerprint).push(tx);
-                  });
-                  
-                  // Find and delete duplicates
-                  let duplicateCount = 0;
-                  let deletedCount = 0;
-                  
-                  for (const [fingerprint, transactions] of groups) {
-                    if (transactions.length > 1) {
-                      duplicateCount += transactions.length - 1;
-                      console.log(`🔍 Found ${transactions.length} duplicates:`, fingerprint);
-                      
-                      // Sort by priority: manual changes first, then newest
-                      transactions.sort((a: any, b: any) => {
-                        if (a.isManuallyChanged === 'true' && b.isManuallyChanged !== 'true') return -1;
-                        if (b.isManuallyChanged === 'true' && a.isManuallyChanged !== 'true') return 1;
-                        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
-                      });
-                      
-                      // Keep the first, delete the rest
-                      const keep = transactions[0];
-                      console.log(`✅ Keeping:`, keep.id, keep.description, keep.isManuallyChanged);
-                      
-                      for (let i = 1; i < transactions.length; i++) {
-                        const toDelete = transactions[i];
-                        console.log(`🗑️ Deleting:`, toDelete.id, toDelete.description);
-                        
-                        try {
-                          const deleteResponse = await fetch(`/api/transactions/${toDelete.id}`, {
-                            method: 'DELETE'
-                          });
-                          if (deleteResponse.ok) {
-                            deletedCount++;
-                            console.log(`✅ Deleted: ${toDelete.id}`);
-                          } else {
-                            console.error(`❌ Failed to delete: ${toDelete.id}`);
-                          }
-                        } catch (error) {
-                          console.error(`❌ Error deleting ${toDelete.id}:`, error);
-                        }
-                      }
-                    }
-                  }
-                  
-                  console.log(`🎉 CLEANUP COMPLETE!`);
-                  console.log(`📊 Found ${duplicateCount} duplicates`);
-                  console.log(`🗑️ Successfully deleted ${deletedCount} duplicate transactions`);
-                  
-                  toast({
-                    title: "Cleanup Complete!",
-                    description: `Deleted ${deletedCount} duplicate transactions. Refresh page to see results.`,
-                  });
-                  
-                  // Refresh the page automatically after a short delay
-                  setTimeout(() => {
-                    window.location.reload();
-                  }, 2000);
-                  
-                } catch (error) {
-                  console.error('❌ Emergency cleanup failed:', error);
-                  toast({
-                    title: "Cleanup Failed", 
-                    description: "Check console for error details",
-                    variant: "destructive"
-                  });
-                }
-              }}
-            >
-              🗑️ Emergency Cleanup
-            </Button>
-          </div>
-          
-          <div className="text-sm text-red-600 bg-red-100 p-3 rounded">
-            <strong>Instructions:</strong>
-            <ol className="list-decimal list-inside mt-2 space-y-1">
-              <li><strong>Debug Duplicates:</strong> Check console to see how many duplicates exist and test API</li>
-              <li><strong>Emergency Cleanup:</strong> Delete all duplicates, keeping the best version of each</li>
-              <li><strong>After cleanup:</strong> Page will refresh automatically to show clean results</li>
-            </ol>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

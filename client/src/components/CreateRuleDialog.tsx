@@ -140,8 +140,8 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
       setNewRule({
         condition: { type: 'exactText', value: transaction.description || '' },
         action: { 
-          appMainCategoryId: transaction.appCategoryId || '', 
-          appSubCategoryId: transaction.appSubCategoryId || '', 
+          appMainCategoryId: '', // Don't pre-fill - let user select
+          appSubCategoryId: '', // Don't pre-fill - let user select
           positiveTransactionType: transaction.amount > 0 ? 'Transaction' : 'Transaction',
           negativeTransactionType: transaction.amount < 0 ? 'Transaction' : 'Transaction',
           applicableAccountIds: accountIds
@@ -149,10 +149,10 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
         transactionDirection: transactionDirection,
         priority: 100,
         isActive: 'true',
-        bankCategory: transaction.bankCategory || 'Alla Bankkategorier',
-        bankSubCategory: transaction.bankSubCategory || 'Alla Bankunderkategorier',
-        bankhuvudkategori: transaction.bankCategory || 'Alla Bankkategorier',
-        bankunderkategori: transaction.bankSubCategory || 'Alla Bankunderkategorier'
+        bankCategory: transaction.bankKategori || transaction.bankCategory || 'Alla Bankkategorier',
+        bankSubCategory: transaction.bankUnderkategori || transaction.bankSubCategory || 'Alla Bankunderkategorier',
+        bankhuvudkategori: transaction.bankKategori || transaction.bankCategory || 'Alla Bankkategorier',
+        bankunderkategori: transaction.bankUnderkategori || transaction.bankSubCategory || 'Alla Bankunderkategorier'
       });
       
       setAutoApprove(false);

@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { v4 as uuidv4 } from 'uuid';
+import { sql } from 'drizzle-orm';
 import { setupAuth, isAuthenticated } from "./replitAuth";
 
 // Helper function to create transaction fingerprint for deduplication
@@ -475,7 +476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await Promise.all([
           // Delete in order to avoid foreign key constraints
           storage.getTransactions ? storage.getTransactions(userId).then(transactions => 
-            Promise.all(transactions.map(t => storage.deleteTransaction(t.id)))) : Promise.resolve(),
+            Promise.all(transactions.map(t => storage.deleteTransaction(t.id, userId)))) : Promise.resolve(),
           storage.getCategoryRules ? storage.getCategoryRules(userId).then(rules => 
             Promise.all(rules.map(r => storage.deleteCategoryRule(r.id)))) : Promise.resolve(),
           storage.getUnderkategorier ? storage.getUnderkategorier(userId).then(underKats => 
@@ -1100,7 +1101,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // 
       const userId = req.authenticatedUserId;
+      console.log(`🔍 [API] HUVUDKATEGORIER request from user: ${userId}`);
       const kategorier = await storage.getHuvudkategorier(userId);
+      console.log(`📊 [API] Returning ${kategorier.length} huvudkategorier for user ${userId}`);
+      if (kategorier.length > 0) {
+        console.log(`📊 [API] Sample huvudkategori:`, JSON.stringify(kategorier[0]));
+      }
       res.json(kategorier);
     } catch (error) {
       console.error('Error fetching huvudkategorier:', error);
@@ -1334,10 +1340,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Load transactions within date range
         const startDate = fromDate ? new Date(fromDate as string) : new Date('2000-01-01');
         const endDate = toDate ? new Date(toDate as string) : new Date();
+        console.log(`📊 [API] Loading historical transactions for user ${userId} (${userId === 'dev-user-123' ? 'DEV DB' : 'PROD DB'}) from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`);
         transactions = await storage.getTransactionsInDateRange(userId, startDate, endDate);
-        console.log(`📊 [API] Loading historical transactions from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`);
       } else {
         // Default behavior - load all (for backward compatibility)
+        console.log(`📊 [API] Loading ALL transactions for user ${userId} (${userId === 'dev-user-123' ? 'DEV DB' : 'PROD DB'})`);
         transactions = await storage.getTransactions(userId);
       }
       
@@ -1387,18 +1394,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/transactions/:id", async (req, res) => {
-    try {
-      const transaction = await storage.getTransaction(req.params.id);
-      if (!transaction) {
-        return res.status(404).json({ error: 'Transaction not found' });
-      }
-      res.json(transaction);
-    } catch (error) {
-      console.error('Error fetching transaction:', error);
-      res.status(500).json({ error: 'Failed to fetch transaction' });
-    }
-  });
 
   app.post("/api/transactions", async (req, res) => {
     try {
@@ -1472,7 +1467,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Delete the rest
           for (let i = 1; i < transactions.length; i++) {
             const txToDelete = transactions[i];
-            await storage.deleteTransaction(txToDelete.id);
+            await storage.deleteTransaction(txToDelete.id, userId);
             deletedCount++;
             console.log(`[CLEANUP] Deleted duplicate: ${txToDelete.id}`);
           }
@@ -1611,7 +1606,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Step 5: DELETE ALL existing transactions in date range (NUCLEAR OPTION)
       console.log(`[SYNC] NUCLEAR DELETE: Removing all ${existingTransactions.length} transactions in date range`);
       for (const txToDelete of existingTransactions) {
-        await storage.deleteTransaction(txToDelete.id);
+        await storage.deleteTransaction(txToDelete.id, userId);
         syncStats.deleted++;
       }
 
@@ -1694,13 +1689,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // BULLETPROOF SYNC - Zero duplicates, preserves all user data
   app.post("/api/transactions/bulletproof-sync", async (req, res) => {
+    console.log(`🛡️ [BULLETPROOF SYNC] ================================`);
+    console.log(`🛡️ [BULLETPROOF SYNC] REQUEST RECEIVED`);
+    console.log(`🛡️ [BULLETPROOF SYNC] Request body keys:`, Object.keys(req.body || {}));
+    console.log(`🛡️ [BULLETPROOF SYNC] User ID:`, req.authenticatedUserId);
     try {
-      console.log(`🛡️ [BULLETPROOF SYNC] ================================`);
-      console.log(`🛡️ [BULLETPROOF SYNC] REQUEST RECEIVED`);
       
       // 
       const userId = req.authenticatedUserId;
       const { accountId, startDate, endDate, transactions } = req.body;
+      
+      // Initialize account update tracking
+      let accountUpdateReached = false;
       
       console.log(`🛡️ [BULLETPROOF] User ID: ${userId}`);
       console.log(`🛡️ [BULLETPROOF] Account ID: ${accountId}`);
@@ -1802,7 +1802,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       for (const tx of existingTransactions) {
         console.log(`🛡️ [BULLETPROOF] Deleting: ${tx.description.substring(0, 20)} (${tx.date.toISOString().split('T')[0]}) Manual: ${tx.isManuallyChanged}`);
-        await storage.deleteTransaction(tx.id);
+        await storage.deleteTransaction(tx.id, userId);
         stats.deleted++;
       }
       console.log(`🛡️ [BULLETPROOF] Deleted ${stats.deleted} transactions`);
@@ -1875,6 +1875,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Step 5: Update account lastUpdate timestamp
+      console.log(`🔍 [BULLETPROOF] About to start account update for ${accountId}`);
+      accountUpdateReached = true;
+      let accountUpdateSuccess = false;
+      try {
+        const updateTimestamp = new Date();
+        console.log(`🛡️ [BULLETPROOF] Attempting to update account ${accountId} with lastUpdate: ${updateTimestamp.toISOString()}`);
+        const updatedAccount = await storage.updateAccount(accountId, { lastUpdate: updateTimestamp });
+        console.log(`🛡️ [BULLETPROOF] Account update result:`, updatedAccount);
+        if (updatedAccount) {
+          console.log(`✅ [BULLETPROOF] Successfully updated account lastUpdate timestamp to: ${updatedAccount.lastUpdate}`);
+          accountUpdateSuccess = true;
+        } else {
+          console.error(`❌ [BULLETPROOF] Account update returned null/undefined`);
+        }
+      } catch (error) {
+        console.error(`❌ [BULLETPROOF] Failed to update account lastUpdate:`, error);
+        // Don't fail the entire import if this fails
+      }
+      
       console.log(`🛡️ [BULLETPROOF] ================================`);
       console.log(`🛡️ [BULLETPROOF] SYNC COMPLETE`);
       console.log(`🛡️ [BULLETPROOF] Deleted: ${stats.deleted}`);
@@ -1882,10 +1902,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🛡️ [BULLETPROOF] Restored: ${stats.restored}`);
       console.log(`🛡️ [BULLETPROOF] Duplicates removed: ${stats.duplicatesRemoved}`);
       console.log(`🛡️ [BULLETPROOF] ================================`);
+      console.log(`🔍 [BULLETPROOF] About to send response - accountUpdateReached: ${accountUpdateReached}`);
       
       res.json({
         success: true,
         stats,
+        accountUpdated: accountUpdateSuccess, // Indicate if account update actually succeeded
+        accountUpdateReached: accountUpdateReached, // Indicate if we reached the account update code
         message: `Import complete: ${stats.created} created, ${stats.restored} with restored data, ${stats.duplicatesRemoved} duplicates removed`
       });
       
@@ -1966,17 +1989,132 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/transactions/:id", async (req, res) => {
+  app.get("/api/transactions/:id", async (req, res) => {
     try {
-      const updateData = insertTransactionSchema.partial().parse(req.body);
-      const transaction = await storage.updateTransaction(req.params.id, updateData);
+      console.log(`🔍 [API] GET /api/transactions/${req.params.id} for user ${req.authenticatedUserId}`);
+      console.log(`📱 [MOBILE DEBUG] GET /api/transactions/${req.params.id} for user ${req.authenticatedUserId}`);
+      console.log(`🔧 [API] Using database: ${req.authenticatedUserId === 'dev-user-123' ? 'DEV' : 'PROD'}`);
+      
+      const transaction = await storage.getTransaction(req.params.id, req.authenticatedUserId);
       if (!transaction) {
+        const notFoundMsg = `❌ [API] Transaction ${req.params.id} not found for user ${req.authenticatedUserId} in ${req.authenticatedUserId === 'dev-user-123' ? 'DEV' : 'PROD'} database`;
+        console.log(notFoundMsg);
+        console.log(`📱 [MOBILE DEBUG] ${notFoundMsg}`);
         return res.status(404).json({ error: 'Transaction not found' });
       }
+      const foundMsg = `✅ [API] Transaction found: ${transaction.id} - ${transaction.description}`;
+      console.log(foundMsg);
+      console.log(`📱 [MOBILE DEBUG] ${foundMsg}`);
       res.json(transaction);
     } catch (error) {
-      console.error('Error updating transaction:', error);
-      res.status(400).json({ error: 'Failed to update transaction' });
+      const errorMsg = `❌ [API] Error getting transaction: ${error instanceof Error ? error.message : String(error)}`;
+      console.error(errorMsg);
+      console.log(`📱 [MOBILE DEBUG] ${errorMsg}`);
+      res.status(500).json({ error: 'Failed to get transaction' });
+    }
+  });
+
+  app.patch("/api/transactions/:id", async (req, res) => {
+    try {
+      console.log(`🔍 [API] PATCH /api/transactions/${req.params.id}`);
+      console.log(`🔍 [API] Request body:`, JSON.stringify(req.body, null, 2));
+      console.log(`🔍 [API] User ID:`, req.authenticatedUserId);
+      
+      // Add to mobile debug log - just use console.log since mobile debug import doesn't work from server
+      console.log(`📱 [MOBILE DEBUG] PATCH /api/transactions/${req.params.id}`);
+      console.log(`📱 [MOBILE DEBUG] User ID: ${req.authenticatedUserId}`);
+      console.log(`📱 [MOBILE DEBUG] Request body: ${JSON.stringify(req.body)}`);
+      
+      // First check if transaction exists BEFORE trying to update
+      const existingTransaction = await storage.getTransaction(req.params.id, req.authenticatedUserId);
+      if (!existingTransaction) {
+        const errorMsg = `❌ [API] Transaction ${req.params.id} NOT FOUND in database for user ${req.authenticatedUserId}`;
+        console.error(errorMsg);
+        console.log(`📱 [MOBILE DEBUG] ${errorMsg}`);
+        return res.status(404).json({ error: 'Transaction not found' });
+      }
+      const successMsg = `✅ [API] Transaction exists: ${existingTransaction.id} - ${existingTransaction.description}`;
+      console.log(successMsg);
+      console.log(`📱 [MOBILE DEBUG] ${successMsg}`);
+      
+      const updateData = insertTransactionSchema.partial().parse(req.body);
+      console.log(`🔍 [API] Parsed update data:`, JSON.stringify(updateData, null, 2));
+      console.log(`📱 [MOBILE DEBUG] Parsed update data: ${JSON.stringify(updateData)}`);
+      
+      const transaction = await storage.updateTransaction(req.params.id, updateData, req.authenticatedUserId);
+      if (!transaction) {
+        const notFoundMsg = `❌ [API] Update failed - Transaction ${req.params.id} not found after update`;
+        console.error(notFoundMsg);
+        console.log(`📱 [MOBILE DEBUG] ${notFoundMsg}`);
+        return res.status(404).json({ error: 'Transaction not found' });
+      }
+      
+      const updateSuccessMsg = `✅ [API] Transaction updated successfully: ${transaction.id}`;
+      console.log(updateSuccessMsg);
+      console.log(`📱 [MOBILE DEBUG] ${updateSuccessMsg}`);
+      res.json(transaction);
+    } catch (error) {
+      const errorMsg = `❌ [API] Error updating transaction: ${error instanceof Error ? error.message : String(error)}`;
+      console.error(errorMsg);
+      console.log(`📱 [MOBILE DEBUG] ${errorMsg}`);
+      console.log(`📱 [MOBILE DEBUG] Error details: ${JSON.stringify({
+        message: error instanceof Error ? error.message : String(error),
+        body: req.body,
+        params: req.params
+      })}`);
+      res.status(400).json({ error: 'Failed to update transaction: ' + (error instanceof Error ? error.message : String(error)) });
+    }
+  });
+
+  // Simple test endpoint to verify API is working
+  app.get("/api/test", (req, res) => {
+    console.log(`📱 [MOBILE DEBUG] TEST endpoint hit!`);
+    res.json({ 
+      success: true, 
+      message: "API is working!", 
+      userId: req.authenticatedUserId || 'no-user',
+      timestamp: new Date().toISOString() 
+    });
+  });
+
+  // Test endpoint to debug transaction updates
+  app.get("/api/debug-transaction/:id", async (req, res) => {
+    try {
+      console.log(`🔍 [DEBUG] Getting transaction ${req.params.id} for user ${req.authenticatedUserId}`);
+      console.log(`📱 [MOBILE DEBUG] DEBUG: Getting transaction ${req.params.id} for user ${req.authenticatedUserId}`);
+      
+      // First check auth
+      if (!req.authenticatedUserId) {
+        const authError = `❌ [DEBUG] No authenticated user ID found`;
+        console.log(authError);
+        console.log(`📱 [MOBILE DEBUG] ${authError}`);
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      // Then check transaction
+      const transaction = await storage.getTransaction(req.params.id, req.authenticatedUserId);
+      if (!transaction) {
+        const notFoundMsg = `❌ [DEBUG] Transaction not found in ${req.authenticatedUserId === 'dev-user-123' ? 'DEV' : 'PROD'} database`;
+        console.log(notFoundMsg);
+        console.log(`📱 [MOBILE DEBUG] ${notFoundMsg}`);
+        return res.status(404).json({ error: 'Transaction not found' });
+      }
+      
+      const successMsg = `✅ [DEBUG] Transaction found: ${transaction.id}`;
+      console.log(successMsg);
+      console.log(`📱 [MOBILE DEBUG] ${successMsg}`);
+      
+      res.json({
+        success: true,
+        transactionId: transaction.id,
+        userId: req.authenticatedUserId,
+        database: req.authenticatedUserId === 'dev-user-123' ? 'DEV' : 'PROD'
+      });
+    } catch (error) {
+      const errorMsg = `❌ [DEBUG] Error: ${error instanceof Error ? error.message : String(error)}`;
+      console.error(errorMsg);
+      console.log(`📱 [MOBILE DEBUG] ${errorMsg}`);
+      res.status(500).json({ error: 'Failed to get transaction' });
     }
   });
 
@@ -2015,7 +2153,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/transactions/:id", async (req, res) => {
     try {
-      const deleted = await storage.deleteTransaction(req.params.id);
+      const deleted = await storage.deleteTransaction(req.params.id, req.authenticatedUserId);
       if (!deleted) {
         return res.status(404).json({ error: 'Transaction not found' });
       }
@@ -2045,7 +2183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let deletedCount = 0;
       for (const tx of transactionsToDelete) {
-        const deleted = await storage.deleteTransaction(tx.id);
+        const deleted = await storage.deleteTransaction(tx.id, userId);
         if (deleted) deletedCount++;
       }
       
@@ -2114,7 +2252,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       for (const id of ids) {
         try {
-          const success = await storage.deleteTransaction(id);
+          const success = await storage.deleteTransaction(id, userId);
           if (success) deletedCount++;
         } catch (error) {
           console.warn(`[BULK DELETE BY IDS] Failed to delete transaction ${id}:`, error);
@@ -2175,6 +2313,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error bulk updating transactions:', error);
       res.status(500).json({ error: 'Failed to bulk update transactions' });
+    }
+  });
+
+  // Fix invalid linked IDs in transactions
+  app.post("/api/transactions/fix-linked-ids", async (req, res) => {
+    try {
+      const userId = req.authenticatedUserId;
+      const { transactionIds, field } = req.body;
+
+      if (!transactionIds || !Array.isArray(transactionIds) || !field) {
+        return res.status(400).json({ error: 'transactionIds array and field are required' });
+      }
+
+      // Validate field is one of the allowed linked fields
+      const allowedFields = ['linkedTransactionId', 'savingsTargetId', 'incomeTargetId', 'linkedCostId'];
+      if (!allowedFields.includes(field)) {
+        return res.status(400).json({ error: `Invalid field. Must be one of: ${allowedFields.join(', ')}` });
+      }
+
+      console.log(`[FIX LINKED IDS] Fixing ${field} for ${transactionIds.length} transactions`);
+
+      let updatedCount = 0;
+
+      for (const transactionId of transactionIds) {
+        try {
+          // Create update object with the specific field set to null
+          const updateData: any = {};
+          updateData[field] = null;
+
+          const success = await storage.updateTransaction(transactionId, updateData, userId);
+          if (success) {
+            updatedCount++;
+            console.log(`[FIX LINKED IDS] Cleared ${field} for transaction ${transactionId}`);
+          } else {
+            console.log(`[FIX LINKED IDS] Failed to update transaction ${transactionId}`);
+          }
+        } catch (error) {
+          console.error(`[FIX LINKED IDS] Error updating transaction ${transactionId}:`, error);
+        }
+      }
+
+      console.log(`[FIX LINKED IDS] Successfully cleared ${field} for ${updatedCount}/${transactionIds.length} transactions`);
+      res.json({ updatedCount, field, totalRequested: transactionIds.length });
+    } catch (error) {
+      console.error('Error fixing linked IDs:', error);
+      res.status(500).json({ error: 'Failed to fix linked IDs' });
     }
   });
 
@@ -2830,6 +3014,141 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error checking database status:', error);
       res.status(500).json({ error: 'Failed to check database status' });
+    }
+  });
+
+  // DEBUG ENDPOINT - Reset all user data (DANGEROUS)
+  app.post("/api/debug/reset-all-data", async (req, res) => {
+    try {
+      const userId = req.authenticatedUserId;
+      
+      console.log(`⚠️ [DANGER] User ${userId} requested complete data reset`);
+      console.log(`🔍 [DEBUG] userId type: ${typeof userId}, value: '${userId}', strict equal to 'dev-user-123': ${userId === 'dev-user-123'}`);
+      
+      // Special handling for dev user - use direct SQL deletion
+      if (userId === 'dev-user-123') {
+        console.log('🔧 [DEV RESET] Using direct SQL deletion for dev user');
+        
+        try {
+          // Get the dev database connection
+          const { getUserDatabase } = await import('./db.js');
+          const devDb = getUserDatabase(userId);
+          
+          // Import schema tables
+          const { transactions, monthlyAccountBalances, monthlyBudgets, budgetPosts } = await import('../shared/schema.js');
+          const { eq } = await import('drizzle-orm');
+          
+          // Count before deletion
+          const [transactionCount, balanceCount, budgetCount, postCount] = await Promise.all([
+            devDb.select({ count: sql`count(*)` }).from(transactions).where(eq(transactions.userId, userId)),
+            devDb.select({ count: sql`count(*)` }).from(monthlyAccountBalances).where(eq(monthlyAccountBalances.userId, userId)),
+            devDb.select({ count: sql`count(*)` }).from(monthlyBudgets).where(eq(monthlyBudgets.userId, userId)),
+            devDb.select({ count: sql`count(*)` }).from(budgetPosts).where(eq(budgetPosts.userId, userId))
+          ]);
+          
+          const stats = {
+            deletedTransactions: parseInt(transactionCount[0]?.count || '0'),
+            deletedBalances: parseInt(balanceCount[0]?.count || '0'),
+            deletedBudgets: parseInt(budgetCount[0]?.count || '0'),
+            deletedPosts: parseInt(postCount[0]?.count || '0')
+          };
+          
+          console.log(`🗑️ [DEV RESET] Will delete:`, stats);
+          
+          // Perform bulk deletions with direct SQL
+          console.log(`🗑️ [DEV RESET] Starting deletions for userId: ${userId}`);
+          await Promise.all([
+            devDb.delete(transactions).where(eq(transactions.userId, userId))
+              .then(() => console.log('✅ [DEV RESET] Transactions deleted'))
+              .catch(err => { console.error('❌ [DEV RESET] Failed to delete transactions:', err); throw err; }),
+            devDb.delete(monthlyAccountBalances).where(eq(monthlyAccountBalances.userId, userId))
+              .then(() => console.log('✅ [DEV RESET] Balances deleted'))
+              .catch(err => { console.error('❌ [DEV RESET] Failed to delete balances:', err); throw err; }),
+            devDb.delete(monthlyBudgets).where(eq(monthlyBudgets.userId, userId))
+              .then(() => console.log('✅ [DEV RESET] Budgets deleted'))
+              .catch(err => { console.error('❌ [DEV RESET] Failed to delete budgets:', err); throw err; }),
+            devDb.delete(budgetPosts).where(eq(budgetPosts.userId, userId))
+              .then(() => console.log('✅ [DEV RESET] Posts deleted'))
+              .catch(err => { console.error('❌ [DEV RESET] Failed to delete posts:', err); throw err; })
+          ]);
+          
+          console.log(`✅ [DEV RESET] Successfully deleted all data for dev user:`, stats);
+          
+          res.json({
+            success: true,
+            message: 'All dev user data has been permanently deleted',
+            deletedTransactions: stats.deletedTransactions,
+            deletedBalances: stats.deletedBalances,
+            deletedBudgets: stats.deletedBudgets,
+            deletedPosts: stats.deletedPosts,
+            totalDeleted: stats.deletedTransactions + stats.deletedBalances + stats.deletedBudgets + stats.deletedPosts
+          });
+          
+          return;
+        } catch (devError) {
+          console.error('❌ [DEV RESET ERROR] Failed to reset dev user data:', devError);
+          res.status(500).json({ 
+            error: 'Failed to reset dev user data',
+            details: devError instanceof Error ? devError.message : 'Unknown error'
+          });
+          return;
+        }
+      }
+      
+      // Original logic for production users with proper UUIDs
+      const stats = {
+        deletedTransactions: 0,
+        deletedBalances: 0,
+        deletedBudgets: 0,
+        deletedPosts: 0
+      };
+      
+      // Get counts first
+      const existingTransactions = await storage.getTransactions(userId);
+      const existingBalances = await storage.getMonthlyAccountBalances(userId);
+      const existingBudgets = await storage.getMonthlyBudgets(userId);
+      const existingPosts = await storage.getBudgetPosts(userId);
+      
+      stats.deletedTransactions = existingTransactions.length;
+      stats.deletedBalances = existingBalances.length;
+      stats.deletedBudgets = existingBudgets.length;
+      stats.deletedPosts = existingPosts.length;
+      
+      console.log(`🗑️ [RESET] Will delete:`, stats);
+      
+      // Perform the deletions
+      await Promise.all([
+        // Delete all transactions
+        ...existingTransactions.map(tx => storage.deleteTransaction(tx.id, userId)),
+        
+        // Delete all monthly account balances
+        ...existingBalances.map(bal => storage.deleteMonthlyAccountBalance(userId, bal.id)),
+        
+        // Delete all monthly budgets
+        ...existingBudgets.map(budget => storage.deleteMonthlyBudget(userId, budget.id)),
+        
+        // Delete all budget posts
+        ...existingPosts.map(post => storage.deleteBudgetPost(userId, post.id))
+      ]);
+      
+      console.log(`✅ [RESET] Successfully deleted all user data for ${userId}:`, stats);
+      
+      res.json({
+        success: true,
+        message: 'All user data has been permanently deleted',
+        deletedTransactions: stats.deletedTransactions,
+        deletedBalances: stats.deletedBalances,
+        deletedBudgets: stats.deletedBudgets,
+        deletedPosts: stats.deletedPosts,
+        totalDeleted: stats.deletedTransactions + stats.deletedBalances + stats.deletedBudgets + stats.deletedPosts
+      });
+      
+    } catch (error) {
+      console.error('❌ [RESET ERROR] Failed to reset user data:', error);
+      res.status(500).json({ 
+        error: 'Failed to reset user data',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 

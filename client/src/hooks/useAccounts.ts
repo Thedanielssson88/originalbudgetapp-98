@@ -47,7 +47,7 @@ export function useAccounts() {
     },
     // CRITICAL FIX: Don't use localStorage as initial data to prevent legacy data interference
     // Always fetch fresh data from SQL first, then use cache only for subsequent renders
-    staleTime: 5000, // Cache for 5 seconds to reduce API calls
+    staleTime: 1000, // Reduced to 1 second for faster lastUpdate refresh
   });
   
   // FIXED: Only return SQL data, never mix with localStorage fallback

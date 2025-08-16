@@ -1,4 +1,4 @@
-import { Calculator, BarChart3, ArrowRightLeft, PieChart, History, Target, Upload, Settings, LogOut, CreditCard } from "lucide-react";
+import { Calculator, BarChart3, ArrowRightLeft, PieChart, History, Target, Upload, Settings, LogOut, CreditCard, Bug } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 import {
@@ -22,6 +22,7 @@ const items = [
   { title: "Transaktioner", url: "/granska", icon: CreditCard },
   { title: "Ladda upp CSV-filer", url: "/transaktioner", icon: Upload },
   { title: "Inställningar", url: "/installningar", icon: Settings },
+  { title: "DEBUG-Mode", url: "/debug", icon: Bug },
 ];
 
 export function AppSidebar() {

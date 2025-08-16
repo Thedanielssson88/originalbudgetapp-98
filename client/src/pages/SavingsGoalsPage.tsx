@@ -316,7 +316,7 @@ export function SavingsGoalsPage() {
     const goalTransactions = transactionsFromAPI.filter(transaction => {
       const transactionDate = new Date(transaction.date);
       const isInDateRange = transactionDate >= startDate && transactionDate <= endDate;
-      const isSavingsType = transaction.type === 'Savings' || transaction.type === 'Sparande';
+      const isSavingsType = transaction.type === 'Savings' || transaction.type === 'Sparande' || transaction.type === 'savings';
       const isLinkedToGoal = transaction.savingsTargetId === goal.id;
       const isCorrectAccount = transaction.accountId === goal.accountId;
       return isInDateRange && isSavingsType && (isLinkedToGoal || isCorrectAccount);
@@ -1440,7 +1440,7 @@ export function SavingsGoalsPage() {
               const goalTransactions = transactionsFromAPI.filter(transaction => {
                 const transactionDate = new Date(transaction.date);
                 const isInDateRange = transactionDate >= startDate && transactionDate <= endDate;
-                const isSavingsType = transaction.type === 'Savings' || transaction.type === 'Sparande';
+                const isSavingsType = transaction.type === 'Savings' || transaction.type === 'Sparande' || transaction.type === 'savings';
                 const isCorrectAccount = transaction.accountId === selectedGoalForTransactions.accountId;
                 const isLinkedToGoal = transaction.savingsTargetId === selectedGoalForTransactions.id;
                 return isInDateRange && isSavingsType && isCorrectAccount;

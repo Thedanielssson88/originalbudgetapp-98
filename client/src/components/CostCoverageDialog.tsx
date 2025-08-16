@@ -20,18 +20,51 @@ import { addMobileDebugLog } from '@/utils/mobileDebugLogger';
 interface CostCoverageDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  coverageTransaction?: ImportedTransaction;
+  transactions?: ImportedTransaction[];
+  onLink?: (costTxId: string) => void;
+  // Legacy props for backward compatibility
   transfer?: ImportedTransaction;
   potentialCosts?: ImportedTransaction[];
-  onRefresh?: () => void; // Add refresh callback
+  onRefresh?: () => void;
 }
 
 export const CostCoverageDialog: React.FC<CostCoverageDialogProps> = ({
   isOpen,
   onClose,
-  transfer,
-  potentialCosts = [],
+  coverageTransaction,
+  transactions = [],
+  onLink,
+  // Legacy props
+  transfer: legacyTransfer,
+  potentialCosts: legacyPotentialCosts,
   onRefresh
 }) => {
+  // Use new props if provided, otherwise fall back to legacy props
+  const transfer = coverageTransaction || legacyTransfer;
+  const potentialCosts = React.useMemo(() => {
+    if (legacyPotentialCosts && legacyPotentialCosts.length > 0) {
+      return legacyPotentialCosts;
+    }
+    
+    // Filter transactions to find potential costs (negative transactions)
+    if (!transfer || transactions.length === 0) return [];
+    
+    const transferDate = new Date(transfer.date);
+    const startDate = new Date(transferDate);
+    startDate.setDate(startDate.getDate() - 30);
+    const endDate = new Date(transferDate);
+    endDate.setDate(endDate.getDate() + 30);
+    
+    return transactions.filter(tx => {
+      const txDate = new Date(tx.date);
+      return tx.amount < 0 && 
+             txDate >= startDate && 
+             txDate <= endDate &&
+             tx.id !== transfer.id &&
+             tx.accountId === transfer.accountId; // Same account
+    });
+  }, [legacyPotentialCosts, transfer, transactions]);
   const [selectedCost, setSelectedCost] = React.useState<string>('');
   const [searchTerm, setSearchTerm] = React.useState<string>('');
   const [isProcessing, setIsProcessing] = React.useState<boolean>(false);
@@ -310,17 +343,21 @@ export const CostCoverageDialog: React.FC<CostCoverageDialogProps> = ({
         addMobileDebugLog('✅ [REFRESH] onRefresh completed - UI will update with fresh data');
       }
       
-      // Force reload transactions to ensure UI shows updated data
-      try {
-        addMobileDebugLog('🔄 [FORCE REFRESH] Forcing transaction reload...');
-        const { forceReloadTransactions } = await import('../orchestrator/budgetOrchestrator');
-        await forceReloadTransactions();
-        addMobileDebugLog('✅ [FORCE REFRESH] Transaction reload completed');
-      } catch (error) {
-        addMobileDebugLog(`❌ [FORCE REFRESH] Failed: ${error}`);
+      // If using new interface, call the onLink callback
+      if (onLink) {
+        onLink(selectedCost);
+      } else {
+        // Legacy: Force reload transactions to ensure UI shows updated data
+        try {
+          addMobileDebugLog('🔄 [FORCE REFRESH] Forcing transaction reload...');
+          const { forceReloadTransactions } = await import('../orchestrator/budgetOrchestrator');
+          await forceReloadTransactions();
+          addMobileDebugLog('✅ [FORCE REFRESH] Transaction reload completed');
+        } catch (error) {
+          addMobileDebugLog(`❌ [FORCE REFRESH] Failed: ${error}`);
+        }
       }
       
-        
       addMobileDebugLog('🎉 [TÄCK KOSTNAD COMPLETE] Successfully linked transactions!');
       
       setIsProcessing(false);
