@@ -121,12 +121,14 @@ NODE_ENV     # development/production
 - **Import UI**: `TransactionImportEnhanced.tsx` - File upload and mapping
 - **Calculations**: `client/src/services/calculationService.ts` - Balance logic
 
-## Transaction Field Management (CRITICAL)
+## Field Mapping Management (CRITICAL)
 
-### Common Issue: New transaction fields not displaying in UI
-When adding new fields to transactions (like `linkedCostId`, `correctedAmount`, etc.), the data flow is complex and requires updates in multiple places. Missing any step will cause fields to disappear.
+### MOST COMMON BUG: New fields not displaying in UI
+When adding new fields to ANY entity (transactions, accounts, etc.), the data flow is complex and requires updates in MULTIPLE places. Missing any step will cause fields to disappear or show as empty/null.
 
-### Required Fixes for New Transaction Fields
+**ROOT CAUSE**: Manual object mapping without including all fields from the API/database.
+
+### UNIVERSAL CHECKLIST for New Fields
 
 #### 1. Backend Data Retrieval (`server/dbStorage.ts`)
 **CRITICAL**: Never use explicit column selection in bulk queries with Drizzle ORM
@@ -141,7 +143,27 @@ const result = await db.select({
 const result = await db.select().from(transactions)
 ```
 
-#### 2. Transaction Processing Pipeline (`budgetOrchestrator.ts`)
+#### 2. Frontend Data Mapping - SEARCH ALL .map() FUNCTIONS
+**CRITICAL**: Search codebase for ALL `.map(item => ({` patterns and add new fields to EVERY conversion.
+
+**EXAMPLE BUG (January 2025)**: `TransactionImportEnhanced.tsx:718` mapped accounts but omitted `lastUpdate` field:
+```typescript
+// ❌ WRONG - Missing lastUpdate field
+const accounts: Account[] = accountsFromAPI.map(acc => ({
+  id: acc.id,
+  name: acc.name,
+  // Missing: lastUpdate: acc.lastUpdate
+}));
+
+// ✅ CORRECT - Include ALL fields
+const accounts: Account[] = accountsFromAPI.map(acc => ({
+  id: acc.id,
+  name: acc.name,
+  lastUpdate: acc.lastUpdate, // MUST include new fields
+}));
+```
+
+#### 3. Transaction Processing Pipeline (`budgetOrchestrator.ts`)
 **CRITICAL**: Search for ALL `.map(tx => ({` patterns and add new fields to every conversion:
 
 - `forceReloadTransactions()` around line 1960
@@ -191,20 +213,31 @@ const convertedTransaction = {
 }
 ```
 
-### Checklist for New Transaction Fields
+### UNIVERSAL Checklist for New Fields (Any Entity)
 
 - [ ] Add field to database schema (`shared/schema.ts`)
-- [ ] Verify backend uses `select()` not `select({specific})` in `dbStorage.ts`
-- [ ] Search for ALL `.map(tx => ({` in `budgetOrchestrator.ts` and add field everywhere
-- [ ] Update ALL transaction linking functions to set the new field
-- [ ] Add snake_case → camelCase conversion in `TransactionExpandableCard.tsx`
-- [ ] Test both new transactions AND existing transactions work
-- [ ] If old transactions have null values, consider adding a frontend workaround
+- [ ] Verify backend uses `select()` not `select({specific})` in `dbStorage.ts`  
+- [ ] **CRITICAL**: Search ENTIRE codebase for `.map(item => ({` and add field to ALL conversions
+- [ ] Search for entity-specific processing functions and add field everywhere
+- [ ] Add snake_case → camelCase conversion if needed
+- [ ] Test both new records AND existing records work
+- [ ] If old records have null values, consider adding a frontend workaround
 
-### Why This Is Complex
-1. **Multiple data conversion points**: Data passes through DB → API → Orchestrator → State → UI
-2. **Drizzle ORM quirks**: Explicit column selection can fail silently
-3. **Legacy compatibility**: Old transactions may need workarounds
+### Why This Bug Keeps Happening
+1. **Multiple data conversion points**: Data passes through DB → API → Components → UI
+2. **Manual object mapping**: Developers manually reconstruct objects instead of spreading all fields
+3. **No TypeScript enforcement**: Missing fields don't cause compile errors, just runtime nulls
+4. **Forgotten conversions**: Easy to miss one of many `.map()` functions in large codebase
+
+### Future Prevention Strategy
+**ALWAYS search for `.map(` when adding new fields to ANY entity. This is the #1 source of "field works in API but not in UI" bugs.**
+
+Example search commands:
+```bash
+# Find ALL object mapping functions
+grep -rn "\.map.*=> ({" client/src/
+grep -rn "\.map.*=>" client/src/ | grep "{"
+```
 4. **Snake_case vs camelCase**: Database uses snake_case, frontend uses camelCase
 
 ### Example: linkedCostId Fix (January 2025)

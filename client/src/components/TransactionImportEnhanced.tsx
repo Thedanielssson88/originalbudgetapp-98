@@ -722,7 +722,8 @@ export const TransactionImportEnhanced: React.FC = () => {
     userId: acc.userId,
     assignedTo: acc.assignedTo,
     bankTemplateId: acc.bankTemplateId,
-    accountTypeId: acc.accountTypeId
+    accountTypeId: acc.accountTypeId,
+    lastUpdate: acc.lastUpdate
   }));
   
   // Get main categories from actual budget data
@@ -1232,17 +1233,9 @@ export const TransactionImportEnhanced: React.FC = () => {
         if (bulletproofResult.success) {
           console.log(`✅ [BULLETPROOF] Import successful:`, bulletproofResult.stats);
           
-          // AGGRESSIVE cache invalidation - force fresh data
-          console.log('🔄 [CACHE] Starting aggressive cache invalidation...');
+          // Invalidate cache to refresh data
           await queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
-          
-          // Remove accounts from cache entirely and force refetch
-          console.log('🗑️ [CACHE] Removing accounts queries from cache...');
-          queryClient.removeQueries({ queryKey: ['/api/accounts'] });
-          
-          console.log('🔄 [CACHE] Force refetching accounts...');
-          const freshAccounts = await queryClient.refetchQueries({ queryKey: ['/api/accounts'] });
-          console.log('📊 [CACHE] Fresh accounts fetched:', freshAccounts);
+          await queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
           
           // Clear localStorage cache as well
           try {
@@ -1252,15 +1245,23 @@ export const TransactionImportEnhanced: React.FC = () => {
             console.warn('Failed to clear accounts cache:', e);
           }
           
-          // Force multiple rounds of cache clearing
+          // Force multiple rounds of cache clearing AND page refresh
           setTimeout(async () => {
+            console.log('🔄 [CACHE] Second round of cache clearing...');
             queryClient.removeQueries({ queryKey: ['/api/accounts'] });
             await queryClient.refetchQueries({ queryKey: ['/api/accounts'] });
           }, 500);
           
           setTimeout(async () => {
+            console.log('🔄 [CACHE] Final round of cache clearing...');
             queryClient.removeQueries({ queryKey: ['/api/accounts'] });
             await queryClient.refetchQueries({ queryKey: ['/api/accounts'] });
+            
+            // NUCLEAR OPTION: Force page refresh if cache still not updating
+            console.log('🚨 [CACHE] Forcing page refresh to ensure lastUpdate appears...');
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
           }, 2000);
         } else {
           console.error(`❌ [BULLETPROOF] Import failed:`, bulletproofResult.message);
@@ -1287,12 +1288,9 @@ export const TransactionImportEnhanced: React.FC = () => {
         if (bulletproofResult.success) {
           console.log(`✅ [BULLETPROOF FALLBACK] Import successful:`, bulletproofResult.stats);
           
-          // AGGRESSIVE cache invalidation - force fresh data
+          // Invalidate cache to refresh data
           await queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
-          
-          // Remove accounts from cache entirely and force refetch
-          queryClient.removeQueries({ queryKey: ['/api/accounts'] });
-          await queryClient.refetchQueries({ queryKey: ['/api/accounts'] });
+          await queryClient.invalidateQueries({ queryKey: ['/api/accounts'] });
           
           // Clear localStorage cache as well
           try {
@@ -1301,15 +1299,23 @@ export const TransactionImportEnhanced: React.FC = () => {
             console.warn('Failed to clear accounts cache:', e);
           }
           
-          // Force multiple rounds of cache clearing
+          // Force multiple rounds of cache clearing AND page refresh
           setTimeout(async () => {
+            console.log('🔄 [CACHE] Second round of cache clearing...');
             queryClient.removeQueries({ queryKey: ['/api/accounts'] });
             await queryClient.refetchQueries({ queryKey: ['/api/accounts'] });
           }, 500);
           
           setTimeout(async () => {
+            console.log('🔄 [CACHE] Final round of cache clearing...');
             queryClient.removeQueries({ queryKey: ['/api/accounts'] });
             await queryClient.refetchQueries({ queryKey: ['/api/accounts'] });
+            
+            // NUCLEAR OPTION: Force page refresh if cache still not updating
+            console.log('🚨 [CACHE] Forcing page refresh to ensure lastUpdate appears...');
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
           }, 2000);
         } else {
           console.error(`❌ [BULLETPROOF FALLBACK] Import failed:`, bulletproofResult.message);
@@ -2028,12 +2034,6 @@ export const TransactionImportEnhanced: React.FC = () => {
                       <CardTitle className="text-base sm:text-lg truncate">{account.name}</CardTitle>
                       <CardDescription className="text-sm">
                         Senast uppdaterad: {account.lastUpdate ? new Date(account.lastUpdate).toLocaleDateString('sv-SE') : 'Aldrig'}
-                        {/* Debug: Show raw lastUpdate value */}
-                        {process.env.NODE_ENV === 'development' && (
-                          <span className="text-xs text-gray-400 ml-2">
-                            (raw: {JSON.stringify(account.lastUpdate)})
-                          </span>
-                        )}
                       </CardDescription>
                       {/* Progress bar for import */}
                       {importProgress.isImporting && (
