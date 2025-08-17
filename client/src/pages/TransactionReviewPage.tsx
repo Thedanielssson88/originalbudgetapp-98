@@ -144,6 +144,8 @@ export function TransactionReviewPage() {
   const [linkedTransactionToShow, setLinkedTransactionToShow] = useState<any>(null);
   const [showApplyRulesResults, setShowApplyRulesResults] = useState(false);
   const [applyRulesResults, setApplyRulesResults] = useState<any>(null);
+  const [showRuleDetailsDialog, setShowRuleDetailsDialog] = useState(false);
+  const [applicableRulesForDialog, setApplicableRulesForDialog] = useState<any[]>([]);
   const [isApplyingRules, setIsApplyingRules] = useState(false);
   
   // Filter state
@@ -613,25 +615,139 @@ export function TransactionReviewPage() {
     if (!currentTransaction || categoryRules.length === 0) return false;
     
     return categoryRules.some(rule => {
-      // Check if description pattern matches
-      const descriptionMatches = rule.descriptionPattern ? 
-        new RegExp(rule.descriptionPattern, 'i').test(currentTransaction.description) : true;
-      
-      // Check if account matches
-      const accountMatches = rule.accountId ? rule.accountId === currentTransaction.accountId : true;
-      
-      // Check if amount matches
-      let amountMatches = true;
-      if (rule.minAmount !== null && rule.minAmount !== undefined) {
-        amountMatches = amountMatches && Math.abs(currentTransaction.amount) >= Math.abs(rule.minAmount * 100); // Convert to öre
-      }
-      if (rule.maxAmount !== null && rule.maxAmount !== undefined) {
-        amountMatches = amountMatches && Math.abs(currentTransaction.amount) <= Math.abs(rule.maxAmount * 100); // Convert to öre
+      // Skip inactive rules - handle both string and boolean types
+      const isActive = rule.isActive === 'true' || rule.isActive === true;
+      if (!isActive) {
+        return false;
       }
       
-      return descriptionMatches && accountMatches && amountMatches;
+      // Check account restrictions
+      if (rule.applicableAccountIds && rule.applicableAccountIds !== '[]') {
+        try {
+          const accountIds = JSON.parse(rule.applicableAccountIds);
+          if (accountIds.length > 0 && !accountIds.includes(currentTransaction.accountId)) {
+            return false;
+          }
+        } catch (e) {
+          // If parsing fails, assume no restrictions
+        }
+      }
+      
+      // Check transaction direction
+      if (rule.transactionDirection === 'positive' && currentTransaction.amount < 0) {
+        return false;
+      }
+      if (rule.transactionDirection === 'negative' && currentTransaction.amount >= 0) {
+        return false;
+      }
+      
+      // Check rule type and matching logic
+      const ruleType = rule.ruleType || 'textContains';
+      const transactionText = currentTransaction.description?.toLowerCase() || '';
+      const ruleText = rule.transactionName?.toLowerCase() || '';
+      
+      // Handle wildcard (*) - matches all transactions
+      if (ruleText === '*') {
+        return true;
+      }
+      
+      // Bank category matching
+      if (ruleType === 'categoryMatch') {
+        if (rule.bankhuvudkategori && rule.bankunderkategori) {
+          return currentTransaction.bankCategory === rule.bankhuvudkategori && 
+                 currentTransaction.bankSubCategory === rule.bankunderkategori;
+        } else if (rule.bankhuvudkategori) {
+          return currentTransaction.bankCategory === rule.bankhuvudkategori;
+        }
+        return false;
+      }
+      
+      // Text-based matching
+      switch (ruleType) {
+        case 'exactText':
+          return transactionText === ruleText;
+        case 'textStartsWith':
+          return transactionText.startsWith(ruleText);
+        case 'textContains':
+        default:
+          return transactionText.includes(ruleText);
+      }
     });
   }, [currentTransaction, categoryRules]);
+
+  // Function to get applicable rules for current transaction (detailed version)
+  const getApplicableRulesForTransaction = useCallback((transaction: any) => {
+    if (!transaction || categoryRules.length === 0) return [];
+    
+    return categoryRules.filter(rule => {
+      // Skip inactive rules - handle both string and boolean types
+      const isActive = rule.isActive === 'true' || rule.isActive === true;
+      if (!isActive) {
+        return false;
+      }
+      
+      // Check account restrictions
+      if (rule.applicableAccountIds && rule.applicableAccountIds !== '[]') {
+        try {
+          const accountIds = JSON.parse(rule.applicableAccountIds);
+          if (accountIds.length > 0 && !accountIds.includes(transaction.accountId)) {
+            return false;
+          }
+        } catch (e) {
+          // If parsing fails, assume no restrictions
+        }
+      }
+      
+      // Check transaction direction
+      if (rule.transactionDirection === 'positive' && transaction.amount < 0) {
+        return false;
+      }
+      if (rule.transactionDirection === 'negative' && transaction.amount >= 0) {
+        return false;
+      }
+      
+      // Check rule type and matching logic
+      const ruleType = rule.ruleType || 'textContains';
+      const transactionText = transaction.description?.toLowerCase() || '';
+      const ruleText = rule.transactionName?.toLowerCase() || '';
+      
+      // Handle wildcard (*) - matches all transactions
+      if (ruleText === '*') {
+        return true;
+      }
+      
+      // Bank category matching
+      if (ruleType === 'categoryMatch') {
+        if (rule.bankhuvudkategori && rule.bankunderkategori) {
+          return transaction.bankCategory === rule.bankhuvudkategori && 
+                 transaction.bankSubCategory === rule.bankunderkategori;
+        } else if (rule.bankhuvudkategori) {
+          return transaction.bankCategory === rule.bankhuvudkategori;
+        }
+        return false;
+      }
+      
+      // Text-based matching
+      switch (ruleType) {
+        case 'exactText':
+          return transactionText === ruleText;
+        case 'textStartsWith':
+          return transactionText.startsWith(ruleText);
+        case 'textContains':
+        default:
+          return transactionText.includes(ruleText);
+      }
+    });
+  }, [categoryRules]);
+
+  // Function to show rule details dialog
+  const handleShowRuleDetails = () => {
+    if (currentTransaction) {
+      const applicableRules = getApplicableRulesForTransaction(currentTransaction);
+      setApplicableRulesForDialog(applicableRules);
+      setShowRuleDetailsDialog(true);
+    }
+  };
 
   // Apply rules to all filtered transactions
   const handleApplyRulesToFiltered = async () => {
@@ -956,7 +1072,11 @@ export function TransactionReviewPage() {
                       </Badge>
                     )}
                     {hasApplicableRules && (
-                      <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-300 dark:bg-green-900/50 dark:text-green-200 dark:border-green-600">
+                      <Badge 
+                        variant="outline" 
+                        className="text-xs bg-green-100 text-green-700 border-green-300 dark:bg-green-900/50 dark:text-green-200 dark:border-green-600 cursor-pointer hover:bg-green-200 transition-colors"
+                        onClick={handleShowRuleDetails}
+                      >
                         Automatiska regler
                       </Badge>
                     )}
@@ -1304,6 +1424,7 @@ export function TransactionReviewPage() {
                     size="sm"
                     onClick={() => setShowRuleDialog(true)}
                     className="justify-start"
+                    disabled={hasApplicableRules}
                   >
                     <Sparkles className="h-4 w-4 mr-2" />
                     Skapa regel
@@ -2074,6 +2195,121 @@ export function TransactionReviewPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Rule Details Dialog */}
+      <Dialog open={showRuleDetailsDialog} onOpenChange={setShowRuleDetailsDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Automatiska regler för denna transaktion</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {applicableRulesForDialog.length > 0 ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Följande {applicableRulesForDialog.length} regel{applicableRulesForDialog.length !== 1 ? 'er' : ''} kan appliceras på denna transaktion:
+                </p>
+                {applicableRulesForDialog.map((rule, index) => (
+                  <div key={rule.id} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-lg">{rule.ruleName}</h3>
+                      <Badge variant="outline" className="text-xs">
+                        Regel #{index + 1}
+                      </Badge>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium text-muted-foreground">Regeltyp:</span>
+                        <p className="mt-1">
+                          {rule.ruleType === 'textContains' && 'Text innehåller'}
+                          {rule.ruleType === 'exactText' && 'Exakt text'}
+                          {rule.ruleType === 'textStartsWith' && 'Text börjar med'}
+                          {rule.ruleType === 'categoryMatch' && 'Bankkategori-matchning'}
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <span className="font-medium text-muted-foreground">Söktext:</span>
+                        <p className="mt-1 font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                          {rule.transactionName || 'Ej angiven'}
+                        </p>
+                      </div>
+                      
+                      {rule.ruleType === 'categoryMatch' && (
+                        <>
+                          <div>
+                            <span className="font-medium text-muted-foreground">Bankhuvudkategori:</span>
+                            <p className="mt-1">{rule.bankhuvudkategori || 'Ej angiven'}</p>
+                          </div>
+                          <div>
+                            <span className="font-medium text-muted-foreground">Bankunderkategori:</span>
+                            <p className="mt-1">{rule.bankunderkategori || 'Ej angiven'}</p>
+                          </div>
+                        </>
+                      )}
+                      
+                      <div>
+                        <span className="font-medium text-muted-foreground">Transaktionsriktning:</span>
+                        <p className="mt-1">
+                          {rule.transactionDirection === 'positive' && 'Endast positiva'}
+                          {rule.transactionDirection === 'negative' && 'Endast negativa'}
+                          {(!rule.transactionDirection || rule.transactionDirection === 'all') && 'Alla riktningar'}
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <span className="font-medium text-muted-foreground">Automatisk godkännande:</span>
+                        <p className="mt-1">
+                          {rule.autoApproval ? 'Ja' : 'Nej'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {rule.applicableAccountIds && rule.applicableAccountIds !== '[]' && (
+                      <div>
+                        <span className="font-medium text-muted-foreground">Begränsad till konton:</span>
+                        <p className="mt-1 text-xs">
+                          {(() => {
+                            try {
+                              const accountIds = JSON.parse(rule.applicableAccountIds);
+                              const accountNames = accountIds.map((id: string) => {
+                                const account = accounts.find(acc => acc.id === id);
+                                return account ? account.name : `Okänt konto (${id})`;
+                              });
+                              return accountNames.join(', ');
+                            } catch {
+                              return 'Kunde inte läsa kontobegränsningar';
+                            }
+                          })()}
+                        </p>
+                      </div>
+                    )}
+                    
+                    <div className="pt-2 border-t">
+                      <span className="font-medium text-muted-foreground">Status:</span>
+                      <p className="mt-1">
+                        <Badge variant={rule.isActive === 'true' || rule.isActive === true ? 'default' : 'destructive'}>
+                          {rule.isActive === 'true' || rule.isActive === true ? 'Aktiv' : 'Inaktiv'}
+                        </Badge>
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Inga regler kan appliceras på denna transaktion.
+              </p>
+            )}
+            
+            <div className="flex justify-end pt-4">
+              <Button onClick={() => setShowRuleDetailsDialog(false)}>
+                Stäng
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
         </>
       ) : null}
     </div>
