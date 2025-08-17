@@ -1261,42 +1261,48 @@ Kontrollera att filen är en giltig JSON-fil som exporterats från denna app.`);
                   </CardHeader>
                   <CardContent className="space-y-6">
                 <div className="space-y-4">
-                  <div className="flex gap-3">
+                  {/* Mobile-friendly layout: Account name on its own row */}
+                  <div className="space-y-3">
                     <Input
                       value={newAccountName}
                       onChange={(e) => setNewAccountName(e.target.value)}
                       placeholder="Namn på nytt konto"
-                      className="flex-1"
+                      className="w-full"
                     />
-                    <Select value={newAccountType} onValueChange={setNewAccountType}>
-                      <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Välj kontotyp" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Ingen kontotyp</SelectItem>
-                        {accountTypes?.map((accountType) => (
-                          <SelectItem key={accountType.id} value={accountType.id}>
-                            {accountType.name}
-                          </SelectItem>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <Select value={newAccountType} onValueChange={setNewAccountType}>
+                        <SelectTrigger className="w-full sm:flex-1">
+                          <SelectValue placeholder="Välj kontotyp" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Ingen kontotyp</SelectItem>
+                          {accountTypes?.map((accountType) => (
+                            <SelectItem key={accountType.id} value={accountType.id}>
+                              {accountType.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={newAccountOwner} onValueChange={setNewAccountOwner}>
+                        <SelectTrigger className="w-full sm:flex-1">
+                          <SelectValue placeholder="Välj ägare" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="gemensamt">Gemensamt</SelectItem>
+                          {familyMembers?.map((member) => (
+                            <SelectItem key={member.id} value={member.id}>
+                              {member.name}
+                            </SelectItem>
                         ))}
                       </SelectContent>
-                    </Select>
-                    <Select value={newAccountOwner} onValueChange={setNewAccountOwner}>
-                      <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Välj ägare" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="gemensamt">Gemensamt</SelectItem>
-                        {familyMembers?.map((member) => (
-                          <SelectItem key={member.id} value={member.id}>
-                            {member.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button onClick={addAccountHandler}>
-                      Lägg till konto
-                    </Button>
+                      </Select>
+                      <Button 
+                        onClick={addAccountHandler}
+                        className="w-full sm:w-auto"
+                      >
+                        Lägg till konto
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
