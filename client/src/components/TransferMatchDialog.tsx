@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { ImportedTransaction } from '@/types/transaction';
 import { getAccountNameById } from '../orchestrator/budgetOrchestrator';
 import { useUpdateTransaction } from '@/hooks/useTransactions';
+import { useAccounts } from '@/hooks/useAccounts';
 import { formatOrenAsCurrency } from '@/utils/currencyUtils';
 import { addMobileDebugLog } from '@/utils/mobileDebugLogger';
 
@@ -34,6 +35,20 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
   const [selectedMatch, setSelectedMatch] = React.useState<string>('');
   const [showAllSuggestions, setShowAllSuggestions] = React.useState<boolean>(false);
   const updateTransactionMutation = useUpdateTransaction();
+  const { data: accounts = [] } = useAccounts();
+  
+  // Debug logging to check if accounts are loaded
+  React.useEffect(() => {
+    console.log('TransferMatchDialog accounts:', accounts.length, accounts);
+    addMobileDebugLog(`TransferMatchDialog accounts loaded: ${accounts.length} accounts`);
+  }, [accounts]);
+
+  // Helper function to get account name with debugging
+  const getAccountName = (accountId: string) => {
+    const name = getAccountNameById(accountId, accounts);
+    addMobileDebugLog(`getAccountName(${accountId}) = "${name}" (accounts: ${accounts.length})`);
+    return name || accountId;
+  };
 
   // Filter suggestions to show only same-date initially, with option to show all 7-day range
   const filteredSuggestions = React.useMemo(() => {
@@ -105,8 +120,8 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
     try {
       // Get account names for descriptions
       addMobileDebugLog('🔍 [TRANSFER MATCH] Getting account names from orchestrator...');
-      const account1Name = getAccountNameById(transaction.accountId) || 'Unknown Account';
-      const account2Name = getAccountNameById(selectedTransaction.accountId) || 'Unknown Account';
+      const account1Name = getAccountNameById(transaction.accountId, accounts) || 'Unknown Account';
+      const account2Name = getAccountNameById(selectedTransaction.accountId, accounts) || 'Unknown Account';
       
       addMobileDebugLog(`🏦 [TRANSFER MATCH] Account 1: ${account1Name} (${transaction.accountId})`);
       addMobileDebugLog(`🏦 [TRANSFER MATCH] Account 2: ${account2Name} (${selectedTransaction.accountId})`);
@@ -213,7 +228,7 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
         <DialogHeader>
           <DialogTitle>Matcha överföring</DialogTitle>
           <DialogDescription>
-            Matcha denna transaktion på {formatOrenAsCurrency(Math.abs(transaction.amount))} från {getAccountNameById(transaction.accountId)}
+            Matcha denna transaktion på {formatOrenAsCurrency(Math.abs(transaction.amount))} från {getAccountNameById(transaction.accountId, accounts)}
             med en motsvarande transaktion. Båda transaktionerna kommer att konverteras till interna överföringar och länkas.
           </DialogDescription>
         </DialogHeader>
@@ -222,7 +237,8 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
           <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
             <h4 className="font-medium text-blue-900">Transaktion att matcha:</h4>
             <div className="text-sm text-blue-700 mt-1">
-              <div className="font-medium">{getAccountNameById(transaction.accountId)}</div>
+              <div className="font-medium">{getAccountNameById(transaction.accountId, accounts)}</div>
+              <div className="text-xs text-gray-600">{transaction.id}</div>
               <div>{transaction.date}: {transaction.description} ({formatOrenAsCurrency(transaction.amount)})</div>
             </div>
           </div>
@@ -257,7 +273,8 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
                       <Label htmlFor={suggestion.id} className="flex-1 cursor-pointer">
                         <div className="flex justify-between items-center">
                           <div className="flex-1">
-                            <div className="font-medium text-blue-900">{getAccountNameById(suggestion.accountId)}</div>
+                            <div className="font-medium text-blue-900">{getAccountNameById(suggestion.accountId, accounts)}</div>
+                            <div className="text-xs text-gray-600">{suggestion.id}</div>
                             <div className="text-sm text-gray-700">{suggestion.date}: {suggestion.description}</div>
                           </div>
                           <span className={`font-medium ml-4 ${suggestion.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>

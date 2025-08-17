@@ -128,4 +128,16 @@ All colors MUST be HSL.
     @apply w-full border-collapse;
     min-width: 600px; /* Ensure table doesn't get too cramped */
   }
+  
+  /* Text selection utilities */
+  .select-text {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+  }
+  
+  .cursor-text {
+    cursor: text !important;
+  }
 }

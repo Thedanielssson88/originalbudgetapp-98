@@ -574,17 +574,17 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async updateTransaction(id: string, transaction: Partial<InsertTransaction>, userId?: string): Promise<Transaction | undefined> {
-    console.log(`🔍 [DB UPDATE] Transaction ${id}: Update data:`, JSON.stringify(transaction));
-    console.log(`🔍 [DB UPDATE] linkedCostId in update:`, transaction.linkedCostId);
-    console.log(`🔍 [DB UPDATE] correctedAmount in update:`, transaction.correctedAmount);
+  async updateTransaction(id: string, updateData: Partial<InsertTransaction>, userId?: string): Promise<Transaction | undefined> {
+    console.log(`🔍 [DB UPDATE] Transaction ${id}: Update data:`, JSON.stringify(updateData));
+    console.log(`🔍 [DB UPDATE] linkedCostId in update:`, updateData.linkedCostId);
+    console.log(`🔍 [DB UPDATE] correctedAmount in update:`, updateData.correctedAmount);
     console.log(`🔍 [DB UPDATE] User ID:`, userId);
     
     // Use the correct database based on user ID
     const userDb = getUserDatabase(userId);
     
     const result = await userDb.update(transactions)
-      .set(transaction)
+      .set(updateData)
       .where(eq(transactions.id, id))
       .returning();
     
@@ -593,6 +593,35 @@ export class DatabaseStorage implements IStorage {
     console.log(`🔍 [DB UPDATE] DB result correctedAmount:`, result[0]?.correctedAmount);
     
     return result[0];
+  }
+  
+  // NEW: Efficient bulk update method
+  async bulkUpdateTransactions(transactionUpdates: Array<{id: string, updates: Partial<InsertTransaction>}>, userId: string): Promise<{updatedCount: number, transactions: Transaction[]}> {
+    console.log(`🚀 [BULK DB UPDATE] Updating ${transactionUpdates.length} transactions for user: ${userId}`);
+    
+    const userDb = getUserDatabase(userId);
+    const updatedTransactions: Transaction[] = [];
+    let updatedCount = 0;
+    
+    // Process updates in a single transaction for efficiency
+    for (const {id, updates} of transactionUpdates) {
+      try {
+        const result = await userDb.update(transactions)
+          .set(updates)
+          .where(eq(transactions.id, id))
+          .returning();
+          
+        if (result[0]) {
+          updatedTransactions.push(result[0]);
+          updatedCount++;
+        }
+      } catch (error) {
+        console.warn(`[BULK DB UPDATE] Failed to update transaction ${id}:`, error);
+      }
+    }
+    
+    console.log(`✅ [BULK DB UPDATE] Successfully updated ${updatedCount}/${transactionUpdates.length} transactions`);
+    return { updatedCount, transactions: updatedTransactions };
   }
 
   async deleteTransaction(id: string, userId?: string): Promise<boolean> {

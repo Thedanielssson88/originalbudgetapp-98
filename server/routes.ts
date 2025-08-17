@@ -58,13 +58,27 @@ import {
 export async function registerRoutes(app: Express): Promise<Server> {
   const isDevelopment = process.env.NODE_ENV !== 'production';
   
+  // Universal request logger - logs ALL incoming requests
+  app.use('*', (req, res, next) => {
+    const timestamp = new Date().toISOString();
+    console.log(`\n🔍 [REQUEST] ${timestamp} - ${req.method} ${req.originalUrl}`);
+    
+    // Only log bulk-update requests in detail to avoid spam
+    if (req.originalUrl.includes('bulk-update')) {
+      console.log(`🔍 [REQUEST DETAIL] Headers: ${JSON.stringify(req.headers, null, 2)}`);
+      console.log(`🔍 [REQUEST DETAIL] Body type: ${typeof req.body}`);
+    }
+    
+    next();
+  });
+  
   // Create mock user for development only
   if (isDevelopment) {
     try {
       const mockUser = {
-        id: "test-user-123",
-        email: "test@example.com", 
-        firstName: "Test",
+        id: "dev-user-123",
+        email: "dev@example.com", 
+        firstName: "Dev",
         lastName: "User",
         profileImageUrl: null,
         createdAt: new Date(),
@@ -2268,20 +2282,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Bulk update transactions
   app.post("/api/transactions/bulk-update", async (req, res) => {
+    console.log(`[BULK UPDATE] ===== ENDPOINT CALLED =====`);
+    console.log(`[BULK UPDATE] Request received at: ${new Date().toISOString()}`);
+    console.log(`[BULK UPDATE] Request method: ${req.method}`);
+    console.log(`[BULK UPDATE] Request URL: ${req.url}`);
+    console.log(`[BULK UPDATE] Request headers:`, JSON.stringify(req.headers, null, 2));
+    console.log(`[BULK UPDATE] Content-Type: ${req.get('Content-Type')}`);
+    console.log(`[BULK UPDATE] Content-Length: ${req.get('Content-Length')}`);
+    
     try {
-      // 
       const userId = req.authenticatedUserId;
       const { transactions } = req.body;
+      
+      console.log(`[BULK UPDATE] UserId: ${userId}, Transactions array: ${transactions ? transactions.length : 'null'}`);
+      console.log(`[BULK UPDATE] Request body keys:`, Object.keys(req.body || {}));
+      console.log(`[BULK UPDATE] Raw request body type: ${typeof req.body}`);
+      console.log(`[BULK UPDATE] Raw request body:`, JSON.stringify(req.body).substring(0, 500) + '...');
       
       if (!transactions || !Array.isArray(transactions)) {
         return res.status(400).json({ error: 'transactions array is required' });
       }
       
-      console.log(`[BULK UPDATE] Updating ${transactions.length} transactions`);
+      console.log(`[BULK UPDATE] Preparing ${transactions.length} transactions for bulk update`);
       
-      let updatedCount = 0;
-      const updatedTransactions = [];
-      
+      // Prepare all transaction updates
+      const transactionUpdates = [];
       for (const txData of transactions) {
         try {
           if (!txData.id) {
@@ -2297,15 +2322,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             date: updateData.date ? new Date(updateData.date) : undefined
           });
           
-          const transaction = await storage.updateTransaction(id, validatedData);
-          if (transaction) {
-            updatedTransactions.push(transaction);
-            updatedCount++;
-          }
+          transactionUpdates.push({ id, updates: validatedData });
         } catch (error) {
-          console.warn(`[BULK UPDATE] Failed to update transaction:`, error);
+          console.error(`[BULK UPDATE] Failed to validate transaction ${txData.id}:`, error);
         }
       }
+      
+      console.log(`[BULK UPDATE] Executing bulk update for ${transactionUpdates.length} validated transactions`);
+      const { updatedCount, transactions: updatedTransactions } = await storage.bulkUpdateTransactions(transactionUpdates, userId);
       
       console.log(`[BULK UPDATE] Successfully updated ${updatedCount}/${transactions.length} transactions`);
       res.json({ updatedCount, transactions: updatedTransactions });

@@ -220,7 +220,7 @@ export function TransactionReviewPage() {
       )
       .map(post => ({
         id: post.id,
-        name: post.description || 'Unnamed Goal',
+        name: post.name || post.description || 'Unnamed Goal',
         targetAmount: post.amount ? post.amount / 100 : undefined, // Convert from öre to SEK
         currentAmount: 0, // Would need to be calculated from linked transactions
         mainCategoryId: post.huvudkategoriId,
@@ -576,6 +576,31 @@ export function TransactionReviewPage() {
     }
   };
 
+  // Helper function to check if there are applicable rules for a transaction
+  const hasApplicableRules = useMemo(() => {
+    if (!currentTransaction || categoryRules.length === 0) return false;
+    
+    return categoryRules.some(rule => {
+      // Check if description pattern matches
+      const descriptionMatches = rule.descriptionPattern ? 
+        new RegExp(rule.descriptionPattern, 'i').test(currentTransaction.description) : true;
+      
+      // Check if account matches
+      const accountMatches = rule.accountId ? rule.accountId === currentTransaction.accountId : true;
+      
+      // Check if amount matches
+      let amountMatches = true;
+      if (rule.minAmount !== null && rule.minAmount !== undefined) {
+        amountMatches = amountMatches && Math.abs(currentTransaction.amount) >= Math.abs(rule.minAmount * 100); // Convert to öre
+      }
+      if (rule.maxAmount !== null && rule.maxAmount !== undefined) {
+        amountMatches = amountMatches && Math.abs(currentTransaction.amount) <= Math.abs(rule.maxAmount * 100); // Convert to öre
+      }
+      
+      return descriptionMatches && accountMatches && amountMatches;
+    });
+  }, [currentTransaction, categoryRules]);
+
   // Apply rules to all filtered transactions
   const handleApplyRulesToFiltered = async () => {
     console.log(`🟡 [BUTTON CLICKED] Apply rules button was clicked!`);
@@ -609,10 +634,11 @@ export function TransactionReviewPage() {
         // Mobile debug log after refresh
         console.log(`🔄 [REFRESH] Transaction data refreshed from database`);
         console.log(`📉 [COUNT] Uncategorized before: ${uncategorizedTransactions.length}, Updates applied: ${result.stats.updated}`);
+        console.log(`🔗 [AUTO-MATCH] Auto-matched: ${result.stats.autoMatched} internal transfers`);
         
         toast({
           title: "Regler applicerade!",
-          description: `${result.stats.updated} transaktioner uppdaterade (${result.stats.rulesApplied} regelträffar, ${result.stats.autoApproved} auto-godkända)`,
+          description: `${result.stats.updated} transaktioner uppdaterade (${result.stats.rulesApplied} regelträffar, ${result.stats.autoMatched} auto-matchade, ${result.stats.autoApproved} auto-godkända)`,
         });
         
         console.log(`✅ [APPLY RULES] Successfully applied rules:`, result.stats);
@@ -874,6 +900,7 @@ export function TransactionReviewPage() {
           dragElastic={0.2}
           onDragEnd={handleDragEnd}
           className="touch-pan-y"
+          style={{ userSelect: 'text' }}
         >
           <Card className={cn(
             "border-2 shadow-xl hover:shadow-2xl transition-all duration-200 bg-gradient-to-br from-white to-gray-50/50 dark:from-gray-900 dark:to-gray-800/50",
@@ -896,22 +923,32 @@ export function TransactionReviewPage() {
                         {currentTransaction.type}
                       </Badge>
                     )}
+                    {hasApplicableRules && (
+                      <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-300 dark:bg-green-900/50 dark:text-green-200 dark:border-green-600">
+                        Automatiska regler
+                      </Badge>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    <span>{format(new Date(currentTransaction.date), 'PPP', { locale: sv })}</span>
+                  <div className="space-y-1">
+                    <div className="text-xs text-muted-foreground font-mono select-text cursor-text" title="Transaction ID">
+                      ID: {currentTransaction.id}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground select-text">
+                      <Calendar className="h-4 w-4" />
+                      <span className="select-text cursor-text">{format(new Date(currentTransaction.date), 'PPP', { locale: sv })}</span>
+                    </div>
                   </div>
                 </div>
                 <div className="text-right">
                   {currentTransaction.correctedAmount !== null && currentTransaction.correctedAmount !== undefined ? (
                     <div>
                       <p className={cn(
-                        "text-2xl font-bold",
+                        "text-2xl font-bold select-text cursor-text",
                         currentTransaction.correctedAmount < 0 ? "text-red-600" : "text-green-600"
                       )}>
                         {formatOrenAsCurrency(currentTransaction.correctedAmount)}
                       </p>
-                      <p className="text-sm text-muted-foreground line-through">
+                      <p className="text-sm text-muted-foreground line-through select-text cursor-text">
                         Ursprungligt: {formatOrenAsCurrency(currentTransaction.amount)}
                       </p>
                       <p className="text-xs text-blue-600 font-medium">
@@ -921,14 +958,14 @@ export function TransactionReviewPage() {
                   ) : (
                     <div>
                       <p className={cn(
-                        "text-2xl font-bold",
+                        "text-2xl font-bold select-text cursor-text",
                         currentTransaction.amount < 0 ? "text-red-600" : "text-green-600"
                       )}>
                         {formatOrenAsCurrency(currentTransaction.amount)}
                       </p>
                       {/* Balance after transaction - smaller text under the amount */}
                       {(currentTransaction.balanceAfter !== undefined && !isNaN(currentTransaction.balanceAfter)) && (
-                        <p className="text-sm text-muted-foreground mt-1 font-medium">
+                        <p className="text-sm text-muted-foreground mt-1 font-medium select-text cursor-text">
                           Saldo efter transaktion<br/>{formatOrenAsCurrency(currentTransaction.balanceAfter)}
                         </p>
                       )}
@@ -949,7 +986,7 @@ export function TransactionReviewPage() {
               {/* Account info */}
               <div className="flex items-center gap-2 p-3 bg-background rounded-lg">
                 <Building2 className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">
+                <span className="text-sm font-medium select-text cursor-text">
                   {accounts.find(a => a.id === currentTransaction.accountId)?.name || currentTransaction.accountName || 'Okänt konto'}
                 </span>
               </div>
@@ -1037,7 +1074,7 @@ export function TransactionReviewPage() {
                       </div>
                     ) : (
                       <div className="p-3 bg-white/80 dark:bg-gray-900/80 rounded-md border border-gray-200/60 dark:border-gray-700/60 min-h-[44px] flex items-center">
-                        <p className="font-medium text-sm">
+                        <p className="font-medium text-sm select-text cursor-text">
                           {currentTransaction.userDescription || currentTransaction.description || 'Ingen beskrivning'}
                         </p>
                       </div>
@@ -1140,7 +1177,7 @@ export function TransactionReviewPage() {
                             </div>
                             <div className="p-3 bg-white/80 dark:bg-gray-900/80 rounded-md border border-gray-200/60 dark:border-gray-700/60 min-h-[44px] flex items-center">
                               {currentTransaction.appCategoryId ? (
-                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/50 dark:text-green-200 dark:border-green-700">
+                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/50 dark:text-green-200 dark:border-green-700 select-text cursor-text">
                                   {huvudkategoriForTransaction?.name}
                                 </span>
                               ) : (
@@ -1156,7 +1193,7 @@ export function TransactionReviewPage() {
                             </div>
                             <div className="p-3 bg-white/80 dark:bg-gray-900/80 rounded-md border border-gray-200/60 dark:border-gray-700/60 min-h-[44px] flex items-center">
                               {currentTransaction.appSubCategoryId ? (
-                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-200 dark:border-emerald-700">
+                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-200 dark:border-emerald-700 select-text cursor-text">
                                   {underkategorier.find(u => u.id === currentTransaction.appSubCategoryId)?.name}
                                 </span>
                               ) : (
@@ -1172,7 +1209,7 @@ export function TransactionReviewPage() {
                             {/* Bank Huvudkategori */}
                             <div className="space-y-2">
                               <div className="p-3 bg-white/60 dark:bg-gray-900/60 rounded-md border border-gray-200/40 dark:border-gray-700/40 min-h-[44px] flex items-center">
-                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/50 dark:text-blue-200 dark:border-blue-700">
+                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/50 dark:text-blue-200 dark:border-blue-700 select-text cursor-text">
                                   Bank: {currentTransaction.bankCategory || currentTransaction.bankKategori || 'Övriga inkomster'}
                                 </span>
                               </div>
@@ -1181,7 +1218,7 @@ export function TransactionReviewPage() {
                             {/* Bank Underkategori */}
                             <div className="space-y-2">
                               <div className="p-3 bg-white/60 dark:bg-gray-900/60 rounded-md border border-gray-200/40 dark:border-gray-700/40 min-h-[44px] flex items-center">
-                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200 dark:bg-purple-900/50 dark:text-purple-200 dark:border-purple-700">
+                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200 dark:bg-purple-900/50 dark:text-purple-200 dark:border-purple-700 select-text cursor-text">
                                   Bank: {currentTransaction.bankSubCategory || currentTransaction.bankUnderkategori || 'Överföring egna konton'}
                                 </span>
                               </div>

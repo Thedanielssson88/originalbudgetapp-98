@@ -116,7 +116,8 @@ export interface IStorage {
   getTransactions(userId: string): Promise<Transaction[]>;
   getTransaction(id: string, userId?: string): Promise<Transaction | undefined>;
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
-  updateTransaction(id: string, transaction: Partial<InsertTransaction>, userId?: string): Promise<Transaction | undefined>;
+  updateTransaction(id: string, updateData: Partial<InsertTransaction>, userId?: string): Promise<Transaction | undefined>;
+  bulkUpdateTransactions(transactionUpdates: Array<{id: string, updates: Partial<InsertTransaction>}>, userId: string): Promise<{updatedCount: number, transactions: Transaction[]}>;
   deleteTransaction(id: string, userId?: string): Promise<boolean>;
   getTransactionsInDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]>;
   getTransactionsInDateRangeByAccount(userId: string, accountId: string, startDate: Date, endDate: Date): Promise<Transaction[]>;
@@ -653,6 +654,21 @@ export class MemStorage implements IStorage {
     };
     this.transactions.set(id, updated);
     return updated;
+  }
+  
+  async bulkUpdateTransactions(transactionUpdates: Array<{id: string, updates: Partial<InsertTransaction>}>, userId: string): Promise<{updatedCount: number, transactions: Transaction[]}> {
+    const updatedTransactions: Transaction[] = [];
+    let updatedCount = 0;
+    
+    for (const {id, updates} of transactionUpdates) {
+      const updated = await this.updateTransaction(id, updates, userId);
+      if (updated) {
+        updatedTransactions.push(updated);
+        updatedCount++;
+      }
+    }
+    
+    return { updatedCount, transactions: updatedTransactions };
   }
 
   async deleteTransaction(id: string, userId?: string): Promise<boolean> {
