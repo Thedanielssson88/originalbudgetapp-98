@@ -339,7 +339,8 @@ function autoMatchInternalTransfers(
                        internalTransfer.id === '3142764c-04c2-4245-8b98-50d9a34b02e9';
     
     // Look for potential counterpart with SAME description and opposite amount on same date
-    const sameDescriptionCounterparts = unmatchedInternalTransfers.filter(tx => {
+    // FIX: Search among ALL transactions, not just unmatchedInternalTransfers
+    const sameDescriptionCounterparts = transactions.filter(tx => {
       const sameId = tx.id === internalTransfer.id;
       const alreadyProcessed = processedIds.has(tx.id);
       const hasExistingLink = !!tx.linkedTransactionId;
@@ -412,7 +413,8 @@ function autoMatchInternalTransfers(
                        internalTransfer.id === '3142764c-04c2-4245-8b98-50d9a34b02e9';
     
     // Look for potential counterpart with ANY description and opposite amount on same date
-    const potentialCounterparts = unmatchedInternalTransfers.filter(tx => {
+    // FIX: Search among ALL transactions, not just unmatchedInternalTransfers
+    const potentialCounterparts = transactions.filter(tx => {
       const sameId = tx.id === internalTransfer.id;
       const alreadyProcessed = processedIds.has(tx.id);
       const hasExistingLink = !!tx.linkedTransactionId;

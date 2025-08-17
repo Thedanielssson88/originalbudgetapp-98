@@ -756,10 +756,12 @@ export function TransactionReviewPage() {
     setIsApplyingRules(true);
     
     try {
-      console.log(`🚀 [APPLY RULES] Starting rule application to ${uncategorizedTransactions.length} filtered transactions`);
+      console.log(`🚀 [APPLY RULES] Starting rule application to ${transactions.length} total transactions (${uncategorizedTransactions.length} filtered)`);
       
+      // IMPORTANT: Pass ALL transactions for proper transfer matching
+      // Transfer matching needs to find counterparts across all accounts, not just filtered ones
       const result = await applyRulesToTransactionsBatch(
-        uncategorizedTransactions,
+        transactions, // Pass ALL transactions, not just uncategorizedTransactions
         categoryRules,
         huvudkategorier,
         underkategorier
