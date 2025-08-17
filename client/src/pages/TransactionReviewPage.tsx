@@ -61,12 +61,19 @@ export function TransactionReviewPage() {
   const { toast } = useToast();
   const { budgetState } = useBudget();
   const { data: transactions = [], refetch: refetchTransactions } = useTransactions();
-  
-  // Calculate available months from actual transaction data
+  const { data: huvudkategorier = [] } = useHuvudkategorier();
+  const { data: underkategorier = [] } = useUnderkategorier();
+  const { data: accounts = [] } = useAccounts();
+  const { data: budgetPosts = [] } = useBudgetPosts();
+  const { data: categoryRules = [] } = useCategoryRules();
+  const updateTransactionMutation = useUpdateTransaction();
+  const queryClient = useQueryClient();
+
+  // Calculate available months from transaction data AND budget posts - ALL months from first to last
   const availableMonths = useMemo(() => {
-    if (transactions.length === 0) return [];
-    
     const months = new Set<string>();
+    
+    // Add months from transactions
     transactions.forEach(tx => {
       if (tx.date) {
         const monthKey = tx.date.substring(0, 7); // YYYY-MM format
@@ -74,9 +81,41 @@ export function TransactionReviewPage() {
       }
     });
     
-    return Array.from(months).sort();
-  }, [transactions]);
-  
+    // Add months from budget posts
+    budgetPosts.forEach(post => {
+      if (post.monthKey) {
+        months.add(post.monthKey);
+      }
+    });
+    
+    const sortedMonths = Array.from(months).sort();
+    if (sortedMonths.length === 0) return [];
+    
+    // Generate all months from first to last (inclusive)
+    const firstMonth = sortedMonths[0];
+    const lastMonth = sortedMonths[sortedMonths.length - 1];
+    
+    const allMonths: string[] = [];
+    const [firstYear, firstMonthNum] = firstMonth.split('-').map(Number);
+    const [lastYear, lastMonthNum] = lastMonth.split('-').map(Number);
+    
+    let currentYear = firstYear;
+    let currentMonth = firstMonthNum;
+    
+    while (currentYear < lastYear || (currentYear === lastYear && currentMonth <= lastMonthNum)) {
+      const monthKey = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+      allMonths.push(monthKey);
+      
+      currentMonth++;
+      if (currentMonth > 12) {
+        currentMonth = 1;
+        currentYear++;
+      }
+    }
+    
+    return allMonths;
+  }, [transactions, budgetPosts]);
+
   // Ensure the selected month exists in transaction data, fallback to latest month
   const effectiveSelectedMonth = useMemo(() => {
     const selected = budgetState?.selectedMonthKey;
@@ -90,13 +129,6 @@ export function TransactionReviewPage() {
     // Fallback to the latest month if current selection is not in transaction data
     return availableMonths.length > 0 ? availableMonths[availableMonths.length - 1] : selected;
   }, [budgetState?.selectedMonthKey, availableMonths]);
-  const { data: huvudkategorier = [] } = useHuvudkategorier();
-  const { data: underkategorier = [] } = useUnderkategorier();
-  const { data: accounts = [] } = useAccounts();
-  const { data: budgetPosts = [] } = useBudgetPosts();
-  const { data: categoryRules = [] } = useCategoryRules();
-  const updateTransactionMutation = useUpdateTransaction();
-  const queryClient = useQueryClient();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0);

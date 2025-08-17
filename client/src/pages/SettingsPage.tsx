@@ -19,6 +19,8 @@ import { useBudget } from "@/hooks/useBudget";
 import { useAccounts, useCreateAccount, useDeleteAccount, useUpdateAccount } from "@/hooks/useAccounts";
 import { useAccountTypes } from "@/hooks/useAccountTypes";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
+import { useTransactions } from "@/hooks/useTransactions";
+import { useBudgetPosts } from "@/hooks/useBudgetPosts";
 import { getCurrentState, updateSelectedBudgetMonth } from "@/orchestrator/budgetOrchestrator";
 import { apiStore } from "@/store/apiStore";
 import { simpleGoogleDriveService } from "@/services/simpleGoogleDriveService";
@@ -93,6 +95,8 @@ const SettingsPage = () => {
   
   // Use API accounts instead of budgetState.accounts
   const { data: accountsFromAPI = [] } = useAccounts();
+  const { data: transactions = [] } = useTransactions();
+  const { data: budgetPosts = [] } = useBudgetPosts();
   const { data: accountTypes = [] } = useAccountTypes();
   const { data: familyMembers } = useFamilyMembers();
   const createAccountMutation = useCreateAccount();
@@ -707,13 +711,77 @@ Kontrollera att filen är en giltig JSON-fil som exporterats från denna app.`);
                       'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
                     ];
                     
-                    const availableMonths = Object.keys(budgetState.historicalData || {});
-                    const currentDate = new Date();
-                    const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                    // Calculate available months from transaction data AND budget posts - ALL months from first to last
+                    const months = new Set<string>();
                     
-                    const allMonths = new Set([currentMonthKey, ...availableMonths]);
+                    // Add months from transactions
+                    transactions.forEach(tx => {
+                      if (tx.date) {
+                        const monthKey = tx.date.substring(0, 7); // YYYY-MM format
+                        months.add(monthKey);
+                      }
+                    });
                     
-                    return Array.from(allMonths).sort().reverse().map(monthKey => {
+                    // Add months from budget posts
+                    budgetPosts.forEach(post => {
+                      if (post.monthKey) {
+                        months.add(post.monthKey);
+                      }
+                    });
+                    
+                    // Fallback if no data available
+                    if (months.size === 0) {
+                      // Fallback to historical data if no transactions or budget posts
+                      const availableMonths = Object.keys(budgetState.historicalData || {});
+                      const currentDate = new Date();
+                      const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                      
+                      const allMonths = new Set([currentMonthKey, ...availableMonths]);
+                      
+                      return Array.from(allMonths).sort().reverse().map(monthKey => {
+                        const [year, month] = monthKey.split('-');
+                        const monthIndex = parseInt(month) - 1;
+                        const displayName = `${monthNames[monthIndex]} ${year}`;
+                        
+                        return (
+                          <SelectItem key={monthKey} value={monthKey}>
+                            {displayName}
+                          </SelectItem>
+                        );
+                      });
+                    }
+                    
+                    const sortedMonths = Array.from(months).sort();
+                    if (sortedMonths.length === 0) {
+                      // Fallback to current month if no transaction months found
+                      const currentDate = new Date();
+                      const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                      sortedMonths.push(currentMonthKey);
+                    }
+                    
+                    // Generate all months from first to last (inclusive)
+                    const firstMonth = sortedMonths[0];
+                    const lastMonth = sortedMonths[sortedMonths.length - 1];
+                    
+                    const allMonths: string[] = [];
+                    const [firstYear, firstMonthNum] = firstMonth.split('-').map(Number);
+                    const [lastYear, lastMonthNum] = lastMonth.split('-').map(Number);
+                    
+                    let currentYear = firstYear;
+                    let currentMonth = firstMonthNum;
+                    
+                    while (currentYear < lastYear || (currentYear === lastYear && currentMonth <= lastMonthNum)) {
+                      const monthKey = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+                      allMonths.push(monthKey);
+                      
+                      currentMonth++;
+                      if (currentMonth > 12) {
+                        currentMonth = 1;
+                        currentYear++;
+                      }
+                    }
+                    
+                    return allMonths.reverse().map(monthKey => {
                       const [year, month] = monthKey.split('-');
                       const monthIndex = parseInt(month) - 1;
                       const displayName = `${monthNames[monthIndex]} ${year}`;

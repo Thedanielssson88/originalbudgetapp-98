@@ -279,10 +279,13 @@ function applyBankCategoryFallback(
 }
 
 /**
- * Auto-match internal transfer transactions based on date, amount, and account
- * Returns matched transaction pairs
+ * Auto-match internal transfer transactions based on date, amount, and description priority
+ * Returns matched transaction pairs with proper bidirectional linking
  * 
- * UPDATED: Now considers pending type updates from rules when finding InternalTransfer transactions
+ * IMPROVED: 
+ * 1. Ensures bidirectional linking (A->B means B->A)
+ * 2. Skips already linked transactions 
+ * 3. Prioritizes same description matches first
  */
 function autoMatchInternalTransfers(
   transactions: ImportedTransaction[],
@@ -302,16 +305,30 @@ function autoMatchInternalTransfers(
     }
   });
   
+  // Create a map of pending linked transaction updates to avoid conflicts
+  const linkedUpdates = new Map<string, string>();
+  batchUpdates.forEach(update => {
+    if (update.updates.linkedTransactionId) {
+      linkedUpdates.set(update.id, update.updates.linkedTransactionId);
+    }
+  });
+  
   // Find all transactions that are or will be InternalTransfer type and don't have linked transactions
+  // IMPORTANT: Check both existing linkedTransactionId AND pending updates
   const unmatchedInternalTransfers = transactions.filter(tx => {
     const effectiveType = typeUpdates.get(tx.id) || tx.type;
-    return effectiveType === 'InternalTransfer' && !tx.linkedTransactionId;
+    const hasExistingLink = !!tx.linkedTransactionId;
+    const hasPendingLink = linkedUpdates.has(tx.id);
+    return effectiveType === 'InternalTransfer' && !hasExistingLink && !hasPendingLink;
   });
   
   console.log(`🔍 [AUTO-MATCH] Found ${unmatchedInternalTransfers.length} unmatched internal transfers (including pending type changes)`);
   addMobileDebugLog(`🔍 [AUTO-MATCH] Found ${unmatchedInternalTransfers.length} unmatched internal transfers`);
   
-  // For each unmatched internal transfer, try to find its counterpart
+  // PHASE 1: Match transactions with identical descriptions first (higher priority)
+  console.log('📋 [AUTO-MATCH] Phase 1: Matching identical descriptions...');
+  addMobileDebugLog('📋 [AUTO-MATCH] Phase 1: Matching identical descriptions...');
+  
   unmatchedInternalTransfers.forEach(internalTransfer => {
     if (processedIds.has(internalTransfer.id)) {
       return; // Already processed this transaction
@@ -320,69 +337,40 @@ function autoMatchInternalTransfers(
     // Specific logging for the two transactions mentioned by user
     const isSpecialTx = internalTransfer.id === 'f22f3f23-9e0f-40cb-9a6a-c16ca867b8a2' || 
                        internalTransfer.id === '3142764c-04c2-4245-8b98-50d9a34b02e9';
-    if (isSpecialTx) {
-      const specialMsg = `🎯 [SPECIAL-TX] Processing special transaction: ${internalTransfer.id} - ${internalTransfer.description} (${(internalTransfer.amount/100).toFixed(2)} kr) - Date: ${internalTransfer.date}`;
-      console.log(specialMsg);
-      addMobileDebugLog(specialMsg);
-    }
     
-    // Only log for special transactions
-    if (isSpecialTx) {
-      const searchMsg = `🔎 [AUTO-MATCH] Searching match for: ${internalTransfer.description} (${(internalTransfer.amount/100).toFixed(2)} kr)`;
-      console.log(searchMsg);
-      addMobileDebugLog(searchMsg);
-    }
-    
-    // Look for potential counterpart with opposite amount on same date
-    // The counterpart could be ANY transaction type (not necessarily InternalTransfer yet)
-    const potentialCounterparts = transactions.filter(tx => {
+    // Look for potential counterpart with SAME description and opposite amount on same date
+    const sameDescriptionCounterparts = unmatchedInternalTransfers.filter(tx => {
       const sameId = tx.id === internalTransfer.id;
       const alreadyProcessed = processedIds.has(tx.id);
-      const alreadyLinked = !!tx.linkedTransactionId;
+      const hasExistingLink = !!tx.linkedTransactionId;
+      const hasPendingLink = linkedUpdates.has(tx.id);
       const sameDate = tx.date === internalTransfer.date;
+      const sameDescription = tx.description.trim() === internalTransfer.description.trim();
       const differentAccount = tx.accountId !== internalTransfer.accountId;
       const equalAmounts = Math.abs(Math.abs(tx.amount) - Math.abs(internalTransfer.amount)) < 0.01;
       const oppositeSigns = (internalTransfer.amount > 0 && tx.amount < 0) || (internalTransfer.amount < 0 && tx.amount > 0);
       
       // Special logging for the two transactions mentioned by user
-      if (isSpecialTx && !sameId && sameDate) {
-        const detailMsg = `🎯 [SPECIAL-TX] Checking potential match: ${tx.id} - ${tx.description} (${(tx.amount/100).toFixed(2)} kr) - Account: ${tx.accountId}`;
+      if (isSpecialTx && !sameId && sameDate && sameDescription) {
+        const detailMsg = `🎯 [SPECIAL-TX] Checking same-description match: ${tx.id} - ${tx.description} (${(tx.amount/100).toFixed(2)} kr)`;
         console.log(detailMsg);
         addMobileDebugLog(detailMsg);
-        
-        const checkMsg = `🎯 [SPECIAL-TX] Match criteria: alreadyProcessed=${alreadyProcessed}, alreadyLinked=${alreadyLinked}, differentAccount=${differentAccount}, equalAmounts=${equalAmounts}, oppositeSigns=${oppositeSigns}`;
-        console.log(checkMsg);
-        addMobileDebugLog(checkMsg);
       }
       
-      // Only log detailed rejections for special transactions
-      if (isSpecialTx && !sameId && !alreadyProcessed && !alreadyLinked && sameDate) {
-        let rejectMsg = '';
-        if (!differentAccount) {
-          rejectMsg = `  ⚠️ Same account: ${tx.description}`;
-        } else if (!equalAmounts) {
-          rejectMsg = `  ⚠️ Wrong amount: ${tx.description} (${(tx.amount/100).toFixed(2)} kr)`;
-        } else if (!oppositeSigns) {
-          rejectMsg = `  ⚠️ Same direction: ${tx.description}`;
-        }
-        if (rejectMsg) {
-          console.log(rejectMsg);
-          addMobileDebugLog(rejectMsg);
-        }
-      }
-      
-      return !sameId && !alreadyProcessed && !alreadyLinked && sameDate && differentAccount && equalAmounts && oppositeSigns;
+      return !sameId && !alreadyProcessed && !hasExistingLink && !hasPendingLink && 
+             sameDate && sameDescription && differentAccount && equalAmounts && oppositeSigns;
     });
     
-    if (potentialCounterparts.length === 1) {
-      // Found exactly one matching counterpart
-      const counterpart = potentialCounterparts[0];
+    if (sameDescriptionCounterparts.length === 1) {
+      // Found exactly one matching counterpart with same description
+      const counterpart = sameDescriptionCounterparts[0];
       
-      console.log(`✅ [AUTO-MATCH] MATCHED! ${internalTransfer.description} ↔️ ${counterpart.description}`);
+      console.log(`✅ [AUTO-MATCH] SAME-DESC MATCHED! ${internalTransfer.description} ↔️ ${counterpart.description}`);
+      addMobileDebugLog(`✅ [AUTO-MATCH] Same-desc match: ${internalTransfer.description}`);
       
       // Special logging for the two transactions mentioned by user
       if (isSpecialTx) {
-        const specialMatchMsg = `🎯 [SPECIAL-TX] SUCCESS! Special transaction ${internalTransfer.id} matched with ${counterpart.id}`;
+        const specialMatchMsg = `🎯 [SPECIAL-TX] SUCCESS! Special transaction ${internalTransfer.id} matched with same description ${counterpart.id}`;
         console.log(specialMatchMsg);
         addMobileDebugLog(specialMatchMsg);
       }
@@ -392,21 +380,95 @@ function autoMatchInternalTransfers(
         transaction2Id: counterpart.id
       });
       
+      // Add to pending linked updates to prevent conflicts
+      linkedUpdates.set(internalTransfer.id, counterpart.id);
+      linkedUpdates.set(counterpart.id, internalTransfer.id);
+      
       processedIds.add(internalTransfer.id);
       processedIds.add(counterpart.id);
-    } else if (potentialCounterparts.length > 1) {
-      console.warn(`⚠️ [AUTO-MATCH] Multiple matches for ${internalTransfer.description} - SKIPPING`);
+    } else if (sameDescriptionCounterparts.length > 1) {
+      console.warn(`⚠️ [AUTO-MATCH] Multiple same-description matches for ${internalTransfer.description} - SKIPPING`);
+      
+      if (isSpecialTx) {
+        const specialMultiMsg = `🎯 [SPECIAL-TX] WARNING! Special transaction ${internalTransfer.id} has multiple same-description matches`;
+        console.warn(specialMultiMsg);
+        addMobileDebugLog(specialMultiMsg);
+      }
+    }
+    // If no same-description match found, will be handled in Phase 2
+  });
+  
+  // PHASE 2: Match remaining transactions with different descriptions
+  console.log('📋 [AUTO-MATCH] Phase 2: Matching different descriptions...');
+  addMobileDebugLog('📋 [AUTO-MATCH] Phase 2: Matching different descriptions...');
+  
+  unmatchedInternalTransfers.forEach(internalTransfer => {
+    if (processedIds.has(internalTransfer.id)) {
+      return; // Already processed this transaction
+    }
+    
+    // Specific logging for the two transactions mentioned by user
+    const isSpecialTx = internalTransfer.id === 'f22f3f23-9e0f-40cb-9a6a-c16ca867b8a2' || 
+                       internalTransfer.id === '3142764c-04c2-4245-8b98-50d9a34b02e9';
+    
+    // Look for potential counterpart with ANY description and opposite amount on same date
+    const potentialCounterparts = unmatchedInternalTransfers.filter(tx => {
+      const sameId = tx.id === internalTransfer.id;
+      const alreadyProcessed = processedIds.has(tx.id);
+      const hasExistingLink = !!tx.linkedTransactionId;
+      const hasPendingLink = linkedUpdates.has(tx.id);
+      const sameDate = tx.date === internalTransfer.date;
+      const differentAccount = tx.accountId !== internalTransfer.accountId;
+      const equalAmounts = Math.abs(Math.abs(tx.amount) - Math.abs(internalTransfer.amount)) < 0.01;
+      const oppositeSigns = (internalTransfer.amount > 0 && tx.amount < 0) || (internalTransfer.amount < 0 && tx.amount > 0);
+      
+      // Special logging for the two transactions mentioned by user
+      if (isSpecialTx && !sameId && sameDate) {
+        const detailMsg = `🎯 [SPECIAL-TX] Checking different-description match: ${tx.id} - ${tx.description} (${(tx.amount/100).toFixed(2)} kr)`;
+        console.log(detailMsg);
+        addMobileDebugLog(detailMsg);
+      }
+      
+      return !sameId && !alreadyProcessed && !hasExistingLink && !hasPendingLink && 
+             sameDate && differentAccount && equalAmounts && oppositeSigns;
+    });
+    
+    if (potentialCounterparts.length === 1) {
+      // Found exactly one matching counterpart
+      const counterpart = potentialCounterparts[0];
+      
+      console.log(`✅ [AUTO-MATCH] DIFF-DESC MATCHED! ${internalTransfer.description} ↔️ ${counterpart.description}`);
       
       // Special logging for the two transactions mentioned by user
       if (isSpecialTx) {
-        const specialMultiMsg = `🎯 [SPECIAL-TX] WARNING! Special transaction ${internalTransfer.id} has multiple potential matches - this may indicate an issue`;
+        const specialMatchMsg = `🎯 [SPECIAL-TX] SUCCESS! Special transaction ${internalTransfer.id} matched with different description ${counterpart.id}`;
+        console.log(specialMatchMsg);
+        addMobileDebugLog(specialMatchMsg);
+      }
+      
+      matches.push({
+        transaction1Id: internalTransfer.id,
+        transaction2Id: counterpart.id
+      });
+      
+      // Add to pending linked updates to prevent conflicts
+      linkedUpdates.set(internalTransfer.id, counterpart.id);
+      linkedUpdates.set(counterpart.id, internalTransfer.id);
+      
+      processedIds.add(internalTransfer.id);
+      processedIds.add(counterpart.id);
+    } else if (potentialCounterparts.length > 1) {
+      console.warn(`⚠️ [AUTO-MATCH] Multiple diff-description matches for ${internalTransfer.description} - SKIPPING`);
+      
+      if (isSpecialTx) {
+        const specialMultiMsg = `🎯 [SPECIAL-TX] WARNING! Special transaction ${internalTransfer.id} has multiple different-description matches`;
         console.warn(specialMultiMsg);
         addMobileDebugLog(specialMultiMsg);
       }
     } else {
       // Special logging for the two transactions mentioned by user
       if (isSpecialTx) {
-        const specialNoMatchMsg = `🎯 [SPECIAL-TX] PROBLEM! Special transaction ${internalTransfer.id} could not be auto-matched - verify rules and data`;
+        const specialNoMatchMsg = `🎯 [SPECIAL-TX] PROBLEM! Special transaction ${internalTransfer.id} could not be auto-matched in either phase`;
         console.warn(specialNoMatchMsg);
         addMobileDebugLog(specialNoMatchMsg);
       }
@@ -638,7 +700,7 @@ export async function applyRulesToTransactionsBatch(
   if (transferMatches.length > 0) {
     console.log(`🔗 [BATCH RULES] Applying ${transferMatches.length} auto-matched internal transfers`);
     
-    // Apply the matched links to batch updates
+    // Apply the matched links to batch updates with STRICT bidirectional enforcement
     transferMatches.forEach(match => {
       // Check if we already have updates for these transactions
       let update1 = batchUpdates.find(u => u.id === match.transaction1Id);
@@ -659,6 +721,10 @@ export async function applyRulesToTransactionsBatch(
       }
       update2.updates.linkedTransactionId = match.transaction1Id;
       update2.updates.type = 'InternalTransfer';
+      
+      // ENFORCE BIDIRECTIONAL LINKING: Verify both sides point to each other
+      console.log(`🔗 [AUTO-MATCH] Bidirectional link created: ${match.transaction1Id} ↔️ ${match.transaction2Id}`);
+      addMobileDebugLog(`🔗 [AUTO-MATCH] Bidirectional link: ${match.transaction1Id} ↔️ ${match.transaction2Id}`);
       
       // If both transactions have categories and one is set to auto-approve, approve both
       const tx1 = transactions.find(t => t.id === match.transaction1Id);
@@ -703,12 +769,8 @@ export async function applyRulesToTransactionsBatch(
   }
   
   // Apply all updates in a single bulk operation
-  console.log(`🔍 [DEBUG] About to check API condition: batchUpdates.length = ${batchUpdates.length}`);
-  addMobileDebugLog(`🔍 [DEBUG] About to check API condition: batchUpdates.length = ${batchUpdates.length}`);
   let databaseUpdateSucceeded = false;
   if (batchUpdates.length > 0) {
-    console.log(`✅ [DEBUG] API condition met, making bulk update call...`);
-    addMobileDebugLog(`✅ [DEBUG] API condition met, making bulk update call...`);
     try {
       console.log(`🔄 [BATCH RULES] Applying ${batchUpdates.length} updates via bulk API...`);
       addMobileDebugLog(`🔄 [BATCH RULES] Applying ${batchUpdates.length} updates via bulk API...`);
@@ -721,20 +783,8 @@ export async function applyRulesToTransactionsBatch(
         linkedTransactionId: update.updates.linkedTransactionId || undefined
       }));
       
-      console.log(`📦 [BATCH RULES] Sending bulk update with ${transactionsToUpdate.length} transactions`);
-      addMobileDebugLog(`📦 [BATCH RULES] Sending bulk update with ${transactionsToUpdate.length} transactions`);
-      
-      console.log(`🌐 [FETCH] About to call fetch('/api/transactions/bulk-update')`);
-      addMobileDebugLog(`🌐 [FETCH] About to call fetch('/api/transactions/bulk-update')`);
-      console.log(`🌐 [FETCH] Request body size: ${JSON.stringify({ transactions: transactionsToUpdate }).length} characters`);
-      console.log(`🌐 [FETCH] Current URL: ${window.location.href}`);
-      addMobileDebugLog(`🌐 [FETCH] Current URL: ${window.location.href}`);
-      
-      // Add detailed request information
+      // Prepare the transactions data for the bulk update
       const requestBody = JSON.stringify({ transactions: transactionsToUpdate });
-      console.log(`🌐 [FETCH] Full request body preview: ${requestBody.substring(0, 500)}...`);
-      addMobileDebugLog(`🌐 [FETCH] First transaction ID: ${transactionsToUpdate[0]?.id}`);
-      addMobileDebugLog(`🌐 [FETCH] First transaction updates: ${JSON.stringify(transactionsToUpdate[0])}`);
       
       const response = await fetch('/api/transactions/bulk-update', {
         method: 'POST',
@@ -742,48 +792,33 @@ export async function applyRulesToTransactionsBatch(
         body: requestBody
       });
       
-      console.log(`🌐 [FETCH] Response received! Status: ${response.status}, StatusText: ${response.statusText}`);
-      console.log(`🌐 [FETCH] Response headers:`, Object.fromEntries(response.headers.entries()));
-      addMobileDebugLog(`📡 [BATCH RULES] API response status: ${response.status}`);
-      addMobileDebugLog(`📡 [BATCH RULES] Response URL: ${response.url}`);
+      console.log(`📡 [BATCH RULES] API response status: ${response.status}`);
       
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`❌ [BATCH RULES] Bulk update failed: ${response.status} - ${errorText}`);
-        addMobileDebugLog(`❌ [BATCH RULES] Bulk update failed: ${response.status} - ${errorText}`);
-        // Continue with local updates even if server update fails
-        console.warn(`⚠️ [BATCH RULES] Continuing with local state update despite server error`);
-        addMobileDebugLog(`⚠️ [BATCH RULES] Continuing with local state update despite server error`);
+        addMobileDebugLog(`❌ [BATCH RULES] Bulk update failed: ${response.status}`);
       } else {
         const responseText = await response.text();
-        console.log(`🌐 [FETCH] Raw response text: ${responseText}`);
-        addMobileDebugLog(`📡 [BATCH RULES] Raw response: ${responseText.substring(0, 200)}`);
         
         let result;
         try {
           result = JSON.parse(responseText);
           console.log(`✅ [BATCH RULES] Bulk update successful: ${result.updatedCount} transactions updated`);
-          addMobileDebugLog(`✅ [BATCH RULES] Bulk update successful: ${result.updatedCount} transactions updated`);
-          console.log(`✅ [DATABASE UPDATE] Successfully persisted ${result.updatedCount} transaction updates to SQL database`);
-          addMobileDebugLog(`✅ [DATABASE UPDATE] Successfully persisted ${result.updatedCount} transaction updates to SQL database`);
+          addMobileDebugLog(`✅ [BATCH RULES] ${result.updatedCount} transactions updated in database`);
         } catch (parseError) {
           console.error(`❌ [BATCH RULES] Failed to parse JSON response: ${parseError}`);
-          addMobileDebugLog(`❌ [BATCH RULES] Failed to parse JSON response: ${parseError}`);
+          addMobileDebugLog(`❌ [BATCH RULES] Response parsing failed`);
           result = { updatedCount: 0 };
         }
         databaseUpdateSucceeded = true;
       }
     } catch (error) {
       console.error(`❌ [BATCH RULES] Bulk update error:`, error);
-      addMobileDebugLog(`❌ [BATCH RULES] Bulk update error: ${error}`);
-      // Continue with local updates even if server update fails
-      console.warn(`⚠️ [BATCH RULES] Continuing with local state update despite server error`);
-      addMobileDebugLog(`⚠️ [BATCH RULES] Continuing with local state update despite server error`);
-      // Don't return early - continue with local state update
+      addMobileDebugLog(`❌ [BATCH RULES] Network error during update`);
     }
   } else {
-    console.log(`📝 [BATCH RULES] No updates to apply, database update not needed`);
-    addMobileDebugLog(`📝 [BATCH RULES] No updates to apply, database update not needed`);
+    console.log(`📝 [BATCH RULES] No updates to apply`);
     databaseUpdateSucceeded = true; // No updates needed = success
   }
   

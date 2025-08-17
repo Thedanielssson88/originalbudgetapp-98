@@ -67,6 +67,7 @@ import { useBudget } from '@/hooks/useBudget';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions, useUpdateTransaction } from '@/hooks/useTransactions';
 import { useCategoryRules, useCreateCategoryRule } from '@/hooks/useCategoryRules';
+import { useBudgetPosts } from '@/hooks/useBudgetPosts';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCategoryNames, useHuvudkategorier, useUnderkategorier } from '@/hooks/useCategories';
 import { useBanks, useCreateBank, useBankCsvMappings } from '@/hooks/useBanks';
@@ -516,6 +517,7 @@ export const TransactionImportEnhanced: React.FC = () => {
     data: transactionsFromAPI = [], 
     isLoading: transactionsLoading 
   } = useTransactions(); // Use all transactions and filter in component
+  const { data: budgetPosts = [] } = useBudgetPosts();
   
   const { getHuvudkategoriName, getUnderkategoriName } = useCategoryNames();
   const queryClient = useQueryClient();
@@ -2805,11 +2807,65 @@ export const TransactionImportEnhanced: React.FC = () => {
                       <SelectContent>
                         <SelectItem value="all">Visa alla</SelectItem>
                         <SelectItem value="current">Aktuell månad</SelectItem>
-                        {Object.keys(budgetState?.historicalData || {}).sort().reverse().map(monthKey => (
-                          <SelectItem key={monthKey} value={monthKey}>
-                            {new Date(monthKey + '-01').toLocaleDateString('sv-SE', { year: 'numeric', month: 'long' })}
-                          </SelectItem>
-                        ))}
+                        {(() => {
+                          // Calculate available months from transaction data AND budget posts - ALL months from first to last
+                          const months = new Set<string>();
+                          
+                          // Add months from transactions
+                          transactionsFromAPI.forEach(tx => {
+                            if (tx.date) {
+                              const monthKey = tx.date.substring(0, 7); // YYYY-MM format
+                              months.add(monthKey);
+                            }
+                          });
+                          
+                          // Add months from budget posts
+                          budgetPosts.forEach(post => {
+                            if (post.monthKey) {
+                              months.add(post.monthKey);
+                            }
+                          });
+                          
+                          // Fallback if no data available
+                          if (months.size === 0) {
+                            return Object.keys(budgetState?.historicalData || {}).sort().reverse().map(monthKey => (
+                              <SelectItem key={monthKey} value={monthKey}>
+                                {new Date(monthKey + '-01').toLocaleDateString('sv-SE', { year: 'numeric', month: 'long' })}
+                              </SelectItem>
+                            ));
+                          }
+                          
+                          const sortedMonths = Array.from(months).sort();
+                          if (sortedMonths.length === 0) return [];
+                          
+                          // Generate all months from first to last (inclusive)
+                          const firstMonth = sortedMonths[0];
+                          const lastMonth = sortedMonths[sortedMonths.length - 1];
+                          
+                          const allMonths: string[] = [];
+                          const [firstYear, firstMonthNum] = firstMonth.split('-').map(Number);
+                          const [lastYear, lastMonthNum] = lastMonth.split('-').map(Number);
+                          
+                          let currentYear = firstYear;
+                          let currentMonth = firstMonthNum;
+                          
+                          while (currentYear < lastYear || (currentYear === lastYear && currentMonth <= lastMonthNum)) {
+                            const monthKey = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+                            allMonths.push(monthKey);
+                            
+                            currentMonth++;
+                            if (currentMonth > 12) {
+                              currentMonth = 1;
+                              currentYear++;
+                            }
+                          }
+                          
+                          return allMonths.reverse().map(monthKey => (
+                            <SelectItem key={monthKey} value={monthKey}>
+                              {new Date(monthKey + '-01').toLocaleDateString('sv-SE', { year: 'numeric', month: 'long' })}
+                            </SelectItem>
+                          ));
+                        })()}
                       </SelectContent>
                     </Select>
                   </div>

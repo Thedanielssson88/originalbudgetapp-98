@@ -146,6 +146,71 @@ const BudgetCalculator = () => {
   const { data: huvudkategorier = [], isLoading: huvudkategorierLoading } = useHuvudkategorier();
   const { data: underkategorier = [], isLoading: underkategorierLoading } = useUnderkategorier();
 
+  // Function to get available months (all saved months including future ones)
+  const getAvailableMonths = () => {
+    // Calculate available months from transaction data AND budget posts - ALL months from first to last
+    const months = new Set<string>();
+    
+    // Add months from transactions
+    transactionsFromAPI.forEach(tx => {
+      if (tx.date) {
+        const monthKey = tx.date.substring(0, 7); // YYYY-MM format
+        months.add(monthKey);
+      }
+    });
+    
+    // Add months from budget posts
+    allBudgetPostsFromAPI.forEach(post => {
+      if (post.monthKey) {
+        months.add(post.monthKey);
+      }
+    });
+    
+    // Add months from historical data as fallback
+    Object.keys(budgetState.historicalData || {}).forEach(monthKey => {
+      months.add(monthKey);
+    });
+    
+    const sortedMonths = Array.from(months).sort();
+    if (sortedMonths.length === 0) {
+      // Fallback to current month if no data
+      const currentDate = new Date();
+      const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+      return [currentMonthKey];
+    }
+    
+    // Generate all months from first to last (inclusive)
+    const firstMonth = sortedMonths[0];
+    const lastMonth = sortedMonths[sortedMonths.length - 1];
+    
+    const allMonths: string[] = [];
+    const [firstYear, firstMonthNum] = firstMonth.split('-').map(Number);
+    const [lastYear, lastMonthNum] = lastMonth.split('-').map(Number);
+    
+    let currentYear = firstYear;
+    let currentMonth = firstMonthNum;
+    
+    while (currentYear < lastYear || (currentYear === lastYear && currentMonth <= lastMonthNum)) {
+      const monthKey = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+      allMonths.push(monthKey);
+      
+      currentMonth++;
+      if (currentMonth > 12) {
+        currentMonth = 1;
+        currentYear++;
+      }
+    }
+    
+    return allMonths.sort((a, b) => b.localeCompare(a)); // Sort newest first
+  };
+
+  // Centralized month list logic for consistent dropdown behavior - USE SQL DATA
+  const availableMonths = useMemo(() => {
+    const months = getAvailableMonths();
+    console.log(`🔍 availableMonths recalculated using getAvailableMonths():`, months);
+    return months;
+  }, [transactionsFromAPI, allBudgetPostsFromAPI, budgetState.historicalData]);
+
   // Convert PostgreSQL budget posts to legacy format for display with proper hierarchy
   const budgetPostsAsLegacyGroups = useMemo(() => {
     // Filter budget posts by types
@@ -1494,12 +1559,6 @@ const BudgetCalculator = () => {
     console.log(`   - Will be used as opening balance for October`);
   };
 
-  // Centralized month list logic for consistent dropdown behavior
-  const availableMonths = useMemo(() => {
-    const keys = Object.keys(historicalData).sort((a, b) => a.localeCompare(b));
-    console.log(`🔍 availableMonths recalculated. historicalData keys:`, keys);
-    return keys;
-  }, [historicalData]);
 
   // Calculate structured account data for table view
   const accountDataRows: AccountDataRow[] = React.useMemo(() => {
@@ -2808,14 +2867,7 @@ const BudgetCalculator = () => {
     ));
   };
 
-  // Function to get available months (all saved months including future ones)
-  const getAvailableMonths = () => {
-    // Include all months with saved historical data (including future months)
-    const availableMonths = Object.keys(historicalData)
-      .sort((a, b) => b.localeCompare(a)); // Sort newest first
-    
-    return availableMonths;
-  };
+
 
   // Function to add a new month with data copied from latest historical month
   const addNewBudgetMonth = (monthKey: string, copyFromCurrent: boolean = true) => {

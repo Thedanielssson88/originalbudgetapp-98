@@ -292,20 +292,14 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
       const balance = monthlyBalances.find(b => b.accountId === account.id);
       const accountTransactions = transactionsForPeriod.filter(t => t.accountId === account.id);
       
-      // Inkommande överföringar: InternalTransfer positive + Savings positive
+      // Inkommande överföringar: All positive transactions that are transfers (InternalTransfer type OR have linkedTransactionId)
       const incomingTransfers = accountTransactions
-        .filter(t => 
-          (t.type === 'InternalTransfer' && t.amount > 0) ||
-          (t.type === 'Savings' && t.amount > 0)
-        )
+        .filter(t => t.amount > 0 && (t.type === 'InternalTransfer' || t.linkedTransactionId))
         .reduce((sum, t) => sum + t.amount, 0);
 
-      // Utgående överföringar: InternalTransfer negative + Savings negative (though Savings is typically positive)
+      // Utgående överföringar: All negative transactions that are transfers (InternalTransfer type OR have linkedTransactionId)
       const outgoingTransfers = accountTransactions
-        .filter(t => 
-          (t.type === 'InternalTransfer' && t.amount < 0) ||
-          (t.type === 'Savings' && t.amount < 0)
-        )
+        .filter(t => t.amount < 0 && (t.type === 'InternalTransfer' || t.linkedTransactionId))
         .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
       // Inkomster: Transaction type "Income" (should be positive)
