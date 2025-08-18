@@ -724,6 +724,14 @@ export const CategoryRuleManagerAdvanced: React.FC<CategoryRuleManagerAdvancedPr
                                   {rule.autoApproval ? 'Ja' : 'Nej'}
                                 </p>
                               </div>
+                              {(rule.positiveTransactionType === 'InternalTransfer' || rule.negativeTransactionType === 'InternalTransfer') && (
+                                <div className="md:col-span-2">
+                                  <Label className="text-xs font-medium text-muted-foreground">Automatisk godkännande för matchad transaktion</Label>
+                                  <p className="font-medium">
+                                    {rule.autoApproveLinked === true ? 'Ja' : 'Nej'}
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           </CardContent>
                         </Card>

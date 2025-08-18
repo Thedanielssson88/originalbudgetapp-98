@@ -165,6 +165,7 @@ export const categoryRules = pgTable('category_rules', {
     priority: integer('priority').default(100).notNull(),
     isActive: text('is_active').default('true').notNull(),
     autoApproval: boolean('auto_approval').default(false).notNull(), // NEW: Auto-approve transactions when rule is applied
+    autoApproveLinked: boolean('auto_approve_linked').default(false).notNull(), // NEW: Auto-approve linked transaction for internal transfers
 });
 
 // Banks table for storing bank information

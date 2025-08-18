@@ -1293,14 +1293,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.authenticatedUserId;
       console.log('🔍 [SERVER ROUTE] Received rule data:', JSON.stringify(req.body, null, 2));
       console.log('🔍 [SERVER ROUTE] Received autoApproval:', req.body.autoApproval, typeof req.body.autoApproval);
+      console.log('🔍 [SERVER ROUTE] Received autoApproveLinked:', req.body.autoApproveLinked, typeof req.body.autoApproveLinked);
+      
       const validatedData = insertCategoryRuleSchema.parse({
         ...req.body,
         userId
       });
       console.log('🔍 [SERVER ROUTE] Validated rule data:', JSON.stringify(validatedData, null, 2));
       console.log('🔍 [SERVER ROUTE] Validated autoApproval:', validatedData.autoApproval, typeof validatedData.autoApproval);
+      console.log('🔍 [SERVER ROUTE] Validated autoApproveLinked:', validatedData.autoApproveLinked, typeof validatedData.autoApproveLinked);
+      
       const rule = await storage.createCategoryRule(validatedData);
       console.log('🔍 [SERVER ROUTE] Created rule:', JSON.stringify(rule, null, 2));
+      
       res.status(201).json(rule);
     } catch (error) {
       console.error('Error creating category rule:', error);
@@ -1438,7 +1443,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[CLEANUP] Starting emergency duplicate cleanup for user: ${userId}`);
 
       // Get ALL transactions for this user
-      const allTransactions = await storage.getAllTransactions(userId);
+      const allTransactions = await storage.getTransactions(userId);
       console.log(`[CLEANUP] Found ${allTransactions.length} total transactions`);
 
       // Group by fingerprint
@@ -2382,6 +2387,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fixing linked IDs:', error);
       res.status(500).json({ error: 'Failed to fix linked IDs' });
+    }
+  });
+
+  // Cleanup specific transaction field (set to null and status to yellow)
+  app.post("/api/transactions/cleanup-field", async (req, res) => {
+    try {
+      const userId = req.authenticatedUserId;
+      const { field } = req.body;
+
+      if (!field) {
+        return res.status(400).json({ error: 'field is required' });
+      }
+
+      // Validate field is one of the allowed fields
+      const allowedFields = ['linkedTransactionId', 'savingsTargetId', 'incomeTargetId', 'linkedCostId'];
+      if (!allowedFields.includes(field)) {
+        return res.status(400).json({ error: `Invalid field. Must be one of: ${allowedFields.join(', ')}` });
+      }
+
+      console.log(`[CLEANUP FIELD] Starting cleanup of ${field} for all transactions of user ${userId}`);
+
+      // Get all transactions for the user that have this field set
+      const allTransactions = await storage.getTransactions(userId);
+      const transactionsToUpdate = allTransactions.filter(tx => tx[field] !== null && tx[field] !== undefined);
+      
+      console.log(`[CLEANUP FIELD] Found ${transactionsToUpdate.length} transactions with ${field} set`);
+
+      let updatedCount = 0;
+
+      for (const transaction of transactionsToUpdate) {
+        try {
+          // Create update object with the specific field set to null and status to yellow
+          const updateData: any = {
+            status: 'yellow'
+          };
+          updateData[field] = null;
+
+          const success = await storage.updateTransaction(transaction.id, updateData, userId);
+          if (success) {
+            updatedCount++;
+          }
+        } catch (error) {
+          console.error(`[CLEANUP FIELD] Error updating transaction ${transaction.id}:`, error);
+        }
+      }
+
+      console.log(`[CLEANUP FIELD] Successfully cleaned ${field} for ${updatedCount}/${transactionsToUpdate.length} transactions`);
+      const responseData = { updatedCount, field, totalFound: transactionsToUpdate.length };
+      console.log(`[CLEANUP FIELD] Sending response:`, responseData);
+      res.json(responseData);
+    } catch (error) {
+      console.error('Error cleaning up field:', error);
+      res.status(500).json({ error: 'Failed to cleanup field' });
+    }
+  });
+
+  // Reset all green transactions to yellow
+  app.post("/api/transactions/reset-green-to-yellow", async (req, res) => {
+    try {
+      const userId = req.authenticatedUserId;
+
+      console.log(`[RESET STATUS] Resetting all green transactions to yellow for user ${userId}`);
+
+      // Get all green transactions for the user
+      const allTransactions = await storage.getTransactions(userId);
+      const greenTransactions = allTransactions.filter(tx => tx.status === 'green');
+      
+      console.log(`[RESET STATUS] Found ${greenTransactions.length} green transactions`);
+
+      let updatedCount = 0;
+
+      for (const transaction of greenTransactions) {
+        try {
+          const success = await storage.updateTransaction(transaction.id, { status: 'yellow' }, userId);
+          if (success) {
+            updatedCount++;
+          }
+        } catch (error) {
+          console.error(`[RESET STATUS] Error updating transaction ${transaction.id}:`, error);
+        }
+      }
+
+      console.log(`[RESET STATUS] Successfully reset ${updatedCount}/${greenTransactions.length} transactions to yellow`);
+      res.json({ updatedCount, totalFound: greenTransactions.length });
+    } catch (error) {
+      console.error('Error resetting status:', error);
+      res.status(500).json({ error: 'Failed to reset status' });
     }
   });
 

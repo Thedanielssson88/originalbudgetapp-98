@@ -15,6 +15,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ImportedTransaction } from '@/types/transaction';
 import { useBudget } from '@/hooks/useBudget';
 import { BankCategorySelector } from './BankCategorySelector';
+import { addMobileDebugLog } from '@/utils/mobileDebugLogger';
 
 interface CreateRuleDialogProps {
   open: boolean;
@@ -67,6 +68,7 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
   const [availableSubcategories, setAvailableSubcategories] = useState<string[]>([]);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [autoApprove, setAutoApprove] = useState(false);
+  const [autoApproveLinked, setAutoApproveLinked] = useState(false);
   const [useRuleType, setUseRuleType] = useState(true);
   const [useBankCategories, setUseBankCategories] = useState(false);
   const [newRule, setNewRule] = useState<Partial<{
@@ -156,6 +158,7 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
       });
       
       setAutoApprove(false);
+      setAutoApproveLinked(false);
     } else if (open && !transaction) {
       // Reset to defaults when opening without transaction
       setUseRuleType(true);
@@ -196,6 +199,8 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
     
     if (newRule.action && hasMainCategory && hasSubCategory) {
       try {
+        addMobileDebugLog(`📝 [CREATE RULE] Starting rule creation with autoApproveLinked: ${autoApproveLinked}`);
+        
         const rulePayload = {
           ruleName: useRuleType ? (
             newRule.condition?.type === 'categoryMatch' ? 
@@ -230,10 +235,12 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
           priority: newRule.priority || 100,
           isActive: 'true',
           autoApproval: autoApprove || false,
+          autoApproveLinked: autoApproveLinked || false,
           userId: 'dev-user-123'
         };
 
         console.log('Creating rule with payload:', rulePayload);
+        addMobileDebugLog(`📤 [RULE PAYLOAD] autoApproveLinked in payload: ${rulePayload.autoApproveLinked}`);
         
         const response = await fetch('/api/category-rules', {
           method: 'POST',
@@ -248,6 +255,7 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
 
         const result = await response.json();
         console.log('✅ Rule created successfully:', result);
+        addMobileDebugLog(`✅ [RULE CREATED] Returned autoApproveLinked: ${result.autoApproveLinked}`);
         
         // Refresh the rules list
         await queryClient.invalidateQueries({ queryKey: ['/api/category-rules'] });
@@ -614,6 +622,26 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
                   <p className="text-xs text-muted-foreground mt-1">
                     Transaktioner blir gröna direkt
                   </p>
+                  
+                  {/* Show auto-approve linked option for internal transfers */}
+                  {(newRule.action?.positiveTransactionType === 'InternalTransfer' || 
+                    newRule.action?.negativeTransactionType === 'InternalTransfer') && (
+                    <div className="mt-3">
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          id="auto-approve-linked"
+                          checked={autoApproveLinked}
+                          onCheckedChange={(checked) => setAutoApproveLinked(checked as boolean)}
+                        />
+                        <label htmlFor="auto-approve-linked" className="text-sm cursor-pointer">
+                          Markera matchad transaktion som godkänd
+                        </label>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Godkänner automatiskt båda transaktionerna i överföringen
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>

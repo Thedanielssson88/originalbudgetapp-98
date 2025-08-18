@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -33,17 +34,19 @@ import {
   RotateCcw,
   Filter,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Users,
+  Target
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import { useBudget } from '@/hooks/useBudget';
 import { useTransactions, useUpdateTransaction } from '@/hooks/useTransactions';
-import { useHuvudkategorier, useUnderkategorier } from '@/hooks/useCategories';
+import { useHuvudkategorier, useUnderkategorier, useCategoryNames } from '@/hooks/useCategories';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useBudgetPosts } from '@/hooks/useBudgetPosts';
 import { useCategoryRules } from '@/hooks/useCategoryRules';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { formatOrenAsCurrency } from '@/utils/currencyUtils';
 import { applyRulesToTransactionsBatch } from '@/orchestrator/batchRuleApplication';
 import { TransactionTypeSelector } from '@/components/TransactionTypeSelector';
@@ -63,11 +66,46 @@ export function TransactionReviewPage() {
   const { data: transactions = [], refetch: refetchTransactions } = useTransactions();
   const { data: huvudkategorier = [] } = useHuvudkategorier();
   const { data: underkategorier = [] } = useUnderkategorier();
+  const { getHuvudkategoriName, getUnderkategoriName } = useCategoryNames();
   const { data: accounts = [] } = useAccounts();
   const { data: budgetPosts = [] } = useBudgetPosts();
   const { data: categoryRules = [] } = useCategoryRules();
   const updateTransactionMutation = useUpdateTransaction();
   const queryClient = useQueryClient();
+  
+  // Delete rule mutation
+  const deleteRuleMutation = useMutation({
+    mutationFn: async (ruleId: string) => {
+      const response = await fetch(`/api/category-rules/${ruleId}`, {
+        method: 'DELETE'
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete rule');
+      }
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Regel borttagen',
+        description: 'Regeln har tagits bort framgångsrikt.',
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/category-rules'] });
+      setShowRuleDetailsDialog(false);
+    },
+    onError: (error) => {
+      toast({
+        title: 'Fel',
+        description: 'Kunde inte ta bort regeln. Försök igen.',
+        variant: 'destructive',
+      });
+      console.error('Error deleting rule:', error);
+    }
+  });
+  
+  const handleDeleteRule = (ruleId: string, ruleName: string) => {
+    if (window.confirm(`Är du säker på att du vill ta bort regeln "${ruleName}"? Detta kan inte ångras.`)) {
+      deleteRuleMutation.mutate(ruleId);
+    }
+  };
 
   // Calculate available months from transaction data AND budget posts - ALL months from first to last
   const availableMonths = useMemo(() => {
@@ -236,8 +274,9 @@ export function TransactionReviewPage() {
     return filtered;
   }, [monthTransactions]);
 
-  // Get current transaction but check if it still exists in the filtered list
-  const baseTransaction = uncategorizedTransactions[currentIndex];
+  // Get current transaction - use all filtered transactions when searching, uncategorized when not
+  const transactionsForNavigation = descriptionFilter ? monthTransactions : uncategorizedTransactions;
+  const baseTransaction = transactionsForNavigation[currentIndex];
   
   // Current transaction (React Query handles optimistic updates automatically)
   const currentTransaction = baseTransaction;
@@ -279,13 +318,13 @@ export function TransactionReviewPage() {
 
   // Handle swipe/navigation
   const handleNext = useCallback(() => {
-    if (currentIndex < uncategorizedTransactions.length - 1) {
+    if (currentIndex < transactionsForNavigation.length - 1) {
       setDirection(1);
       setCurrentIndex(prev => prev + 1);
       setEditMode(null);
       // Navigation cleared (React Query handles state)
     }
-  }, [currentIndex, uncategorizedTransactions.length]);
+  }, [currentIndex, transactionsForNavigation.length]);
 
   const handlePrevious = useCallback(() => {
     if (currentIndex > 0) {
@@ -756,15 +795,16 @@ export function TransactionReviewPage() {
     setIsApplyingRules(true);
     
     try {
-      console.log(`🚀 [APPLY RULES] Starting rule application to ${transactions.length} total transactions (${uncategorizedTransactions.length} filtered)`);
+      console.log(`🚀 [APPLY RULES] Starting rule application to ${uncategorizedTransactions.length} filtered transactions (${transactions.length} total for linking)`);
       
-      // IMPORTANT: Pass ALL transactions for proper transfer matching
+      // IMPORTANT: Pass ALL transactions for proper transfer matching, but only process rules on filtered ones
       // Transfer matching needs to find counterparts across all accounts, not just filtered ones
       const result = await applyRulesToTransactionsBatch(
-        transactions, // Pass ALL transactions, not just uncategorizedTransactions
+        transactions, // ALL transactions for linking/matching
         categoryRules,
         huvudkategorier,
-        underkategorier
+        underkategorier,
+        uncategorizedTransactions // Only process rules on these filtered transactions
       );
       
       if (result.success) {
@@ -823,42 +863,44 @@ export function TransactionReviewPage() {
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-2xl font-bold">Granska transaktioner</h1>
           <Badge variant="outline" className="text-lg px-3 py-1">
-            {currentIndex + 1} / {uncategorizedTransactions.length}
+            {currentIndex + 1} / {transactionsForNavigation.length}
           </Badge>
         </div>
         
-        {/* Month selector and Filter button */}
-        <div className="flex items-center gap-2 mb-3">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <Select
-            value={effectiveSelectedMonth || ''}
-            onValueChange={(value) => {
-              console.log(`📅 [MONTH CHANGE] Switching to month: ${value}`);
-              setSelectedBudgetMonth(value);
-              setCurrentIndex(0); // Reset to first transaction when month changes
-            }}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Välj månad" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Alla månader</SelectItem>
-              {availableMonths.map((month) => (
-                <SelectItem key={month} value={month}>
-                  {new Date(month + '-01').toLocaleDateString('sv-SE', { 
-                    year: 'numeric', 
-                    month: 'long' 
-                  })}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Month selector and Filter button - Mobile optimized */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+          <div className="flex items-center gap-2 flex-1">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <Select
+              value={effectiveSelectedMonth || ''}
+              onValueChange={(value) => {
+                console.log(`📅 [MONTH CHANGE] Switching to month: ${value}`);
+                setSelectedBudgetMonth(value);
+                setCurrentIndex(0); // Reset to first transaction when month changes
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Välj månad" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alla månader</SelectItem>
+                {availableMonths.map((month) => (
+                  <SelectItem key={month} value={month}>
+                    {new Date(month + '-01').toLocaleDateString('sv-SE', { 
+                      year: 'numeric', 
+                      month: 'long' 
+                    })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           
           <Button
             variant="outline"
-            size="sm"
+            size="default"
             onClick={() => setFiltersExpanded(!filtersExpanded)}
-            className="ml-auto"
+            className="w-full sm:w-auto justify-center"
           >
             <Filter className="h-4 w-4 mr-2" />
             Filter
@@ -875,125 +917,131 @@ export function TransactionReviewPage() {
           <CollapsibleContent>
             <Card className="mb-4">
               <CardContent className="space-y-4 p-4">
-                {/* First row: Konto, Transaktionstyp, Transaktion, Månad */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="flex items-center space-x-2">
-                    <Label className="text-sm whitespace-nowrap">Konto:</Label>
-                    <Select value={accountFilter} onValueChange={setAccountFilter}>
-                      <SelectTrigger className="h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Alla</SelectItem>
-                        {accounts.map(account => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Label className="text-sm whitespace-nowrap">Transaktionstyp:</Label>
-                    <Select value={transactionTypeFilter} onValueChange={setTransactionTypeFilter}>
-                      <SelectTrigger className="h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Alla</SelectItem>
-                        {uniqueTransactionTypes.map(type => (
-                          <SelectItem key={type} value={type}>
-                            {type}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Label className="text-sm whitespace-nowrap">Transaktion:</Label>
-                    <Select value={transactionFilter} onValueChange={setTransactionFilter}>
-                      <SelectTrigger className="h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Alla</SelectItem>
-                        <SelectItem value="positive">Positiva</SelectItem>
-                        <SelectItem value="negative">Negativa</SelectItem>
-                      </SelectContent>
-                    </Select>
+                {/* Mobile-first responsive layout - Stack on mobile, group on larger screens */}
+                <div className="space-y-4">
+                  {/* Row 1: Account and Transaction Type */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Konto:</Label>
+                      <Select value={accountFilter} onValueChange={setAccountFilter}>
+                        <SelectTrigger className="h-10 w-full">
+                          <SelectValue placeholder="Alla" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Alla</SelectItem>
+                          {accounts.map(account => (
+                            <SelectItem key={account.id} value={account.id}>
+                              {account.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Transaktionstyp:</Label>
+                      <Select value={transactionTypeFilter} onValueChange={setTransactionTypeFilter}>
+                        <SelectTrigger className="h-10 w-full">
+                          <SelectValue placeholder="Alla" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Alla</SelectItem>
+                          {uniqueTransactionTypes.map(type => (
+                            <SelectItem key={type} value={type}>
+                              {type}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
-                  <div className="flex items-center space-x-2">
-                    <Label className="text-sm whitespace-nowrap">Månad:</Label>
-                    <Select value={monthFilter} onValueChange={setMonthFilter}>
-                      <SelectTrigger className="h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="current">Aktuell</SelectItem>
-                        <SelectItem value="all">Alla månader</SelectItem>
-                        {availableMonths.map((month) => (
-                          <SelectItem key={month} value={month}>
-                            {new Date(month + '-01').toLocaleDateString('sv-SE', { 
-                              year: 'numeric', 
-                              month: 'long' 
-                            })}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                  {/* Row 2: Transaction Direction and Month */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Transaktion:</Label>
+                      <Select value={transactionFilter} onValueChange={setTransactionFilter}>
+                        <SelectTrigger className="h-10 w-full">
+                          <SelectValue placeholder="Alla" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Alla</SelectItem>
+                          <SelectItem value="positive">Positiva</SelectItem>
+                          <SelectItem value="negative">Negativa</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                {/* Second row: Bankkategori, Bankunderkategori */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="flex items-center space-x-2">
-                    <Label className="text-sm whitespace-nowrap">Bankkategori:</Label>
-                    <Select value={bankCategoryFilter} onValueChange={setBankCategoryFilter}>
-                      <SelectTrigger className="h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Alla</SelectItem>
-                        {uniqueBankCategories.map(category => (
-                          <SelectItem key={category} value={category}>
-                            {category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Månad:</Label>
+                      <Select value={monthFilter} onValueChange={setMonthFilter}>
+                        <SelectTrigger className="h-10 w-full">
+                          <SelectValue placeholder="Aktuell" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="current">Aktuell</SelectItem>
+                          <SelectItem value="all">Alla månader</SelectItem>
+                          {availableMonths.map((month) => (
+                            <SelectItem key={month} value={month}>
+                              {new Date(month + '-01').toLocaleDateString('sv-SE', { 
+                                year: 'numeric', 
+                                month: 'long' 
+                              })}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Label className="text-sm whitespace-nowrap">Bankunderkategori:</Label>
-                    <Select value={bankSubCategoryFilter} onValueChange={setBankSubCategoryFilter}>
-                      <SelectTrigger className="h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Alla</SelectItem>
-                        {uniqueBankSubCategories.map(subCategory => (
-                          <SelectItem key={subCategory} value={subCategory}>
-                            {subCategory}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
 
-                {/* Third row: Description search - Full width */}
-                <div className="flex items-center space-x-2">
-                  <Label className="text-sm whitespace-nowrap">Beskrivning:</Label>
-                  <Input
-                    type="text"
-                    placeholder="Sök i beskrivning, egen text eller UUID"
-                    value={descriptionFilter}
-                    onChange={(e) => setDescriptionFilter(e.target.value)}
-                    className="h-8 flex-1"
-                  />
+                  {/* Row 3: Bank Categories */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Bankkategori:</Label>
+                      <Select value={bankCategoryFilter} onValueChange={setBankCategoryFilter}>
+                        <SelectTrigger className="h-10 w-full">
+                          <SelectValue placeholder="Alla" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Alla</SelectItem>
+                          {uniqueBankCategories.map(category => (
+                            <SelectItem key={category} value={category}>
+                              {category}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Bankunderkategori:</Label>
+                      <Select value={bankSubCategoryFilter} onValueChange={setBankSubCategoryFilter}>
+                        <SelectTrigger className="h-10 w-full">
+                          <SelectValue placeholder="Alla" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Alla</SelectItem>
+                          {uniqueBankSubCategories.map(subCategory => (
+                            <SelectItem key={subCategory} value={subCategory}>
+                              {subCategory}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Row 4: Description Search - Full width */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Beskrivning:</Label>
+                    <Input
+                      type="text"
+                      placeholder="Sök i beskrivning, egen text eller UUID"
+                      value={descriptionFilter}
+                      onChange={(e) => setDescriptionFilter(e.target.value)}
+                      className="h-10 w-full"
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1001,16 +1049,21 @@ export function TransactionReviewPage() {
         </Collapsible>
         
         <Progress value={progress} className="h-2" />
-        <div className="flex items-center justify-between mt-2">
-          <p className="text-sm text-muted-foreground">
-            {uncategorizedTransactions.length} transaktioner kvar att granska
+        
+        {/* Mobile-friendly status and apply rules section */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-3">
+          <p className="text-sm text-muted-foreground order-2 sm:order-1">
+            {descriptionFilter ? 
+              `${transactionsForNavigation.length} ${transactionsForNavigation.length === 1 ? 'transaktion' : 'transaktioner'} att granska` :
+              `${uncategorizedTransactions.length} transaktioner kvar att granska`
+            }
           </p>
           <Button
             onClick={handleApplyRulesToFiltered}
-            disabled={isApplyingRules || monthTransactions.length === 0 || categoryRules.length === 0}
-            size="sm"
-            variant="outline"
-            className="ml-4"
+            disabled={isApplyingRules || uncategorizedTransactions.length === 0 || categoryRules.length === 0}
+            size="default"
+            variant="default"
+            className="w-full sm:w-auto order-1 sm:order-2 bg-blue-600 hover:bg-blue-700 text-white"
           >
             {isApplyingRules ? (
               <>
@@ -1020,19 +1073,24 @@ export function TransactionReviewPage() {
             ) : (
               <>
                 <Zap className="h-4 w-4 mr-2" />
-                Applicera regler ({monthTransactions.length} transaktioner)
+                <span className="hidden sm:inline">Applicera regler ({uncategorizedTransactions.length} transaktioner)</span>
+                <span className="sm:hidden">Applicera regler ({uncategorizedTransactions.length})</span>
               </>
             )}
           </Button>
         </div>
       </div>
 
-      {/* Conditional content based on uncategorized transactions */}
-      {uncategorizedTransactions.length === 0 ? (
+      {/* Conditional content based on available transactions to review */}
+      {(!descriptionFilter && uncategorizedTransactions.length === 0) || (descriptionFilter && transactionsForNavigation.length === 0) ? (
         <div className="flex flex-col items-center justify-center min-h-[50vh] p-8">
           <CheckCircle2 className="h-16 w-16 text-green-500 mb-4" />
-          <h2 className="text-2xl font-bold mb-2">Allt är kategoriserat!</h2>
-          <p className="text-muted-foreground">Du har inga transaktioner att granska just nu.</p>
+          <h2 className="text-2xl font-bold mb-2">
+            {descriptionFilter ? 'Inga transaktioner hittades!' : 'Allt är kategoriserat!'}
+          </h2>
+          <p className="text-muted-foreground">
+            {descriptionFilter ? 'Inga transaktioner matchade din sökning.' : 'Du har inga transaktioner att granska just nu.'}
+          </p>
         </div>
       ) : currentTransaction ? (
         <>
@@ -1329,7 +1387,7 @@ export function TransactionReviewPage() {
                                 </Badge>
                               )}
                             </div>
-                            <div className="p-3 bg-white/80 dark:bg-gray-900/80 rounded-md border border-gray-200/60 dark:border-gray-700/60 min-h-[44px] flex items-center">
+                            <div className="p-3 bg-white/80 dark:bg-gray-900/80 rounded-md border border-gray-200/60 dark:border-gray-700/60 min-h-[44px] flex flex-col items-start justify-center gap-2">
                               {currentTransaction.appCategoryId ? (
                                 <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/50 dark:text-green-200 dark:border-green-700 select-text cursor-text">
                                   {huvudkategoriForTransaction?.name}
@@ -1337,6 +1395,10 @@ export function TransactionReviewPage() {
                               ) : (
                                 <span className="text-muted-foreground text-sm italic">Ingen huvudkategori vald</span>
                               )}
+                              {/* Bank Huvudkategori underneath */}
+                              <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/50 dark:text-blue-200 dark:border-blue-700 select-text cursor-text">
+                                Bank: {currentTransaction.bankCategory || currentTransaction.bankKategori || 'Övriga inkomster'}
+                              </span>
                             </div>
                           </div>
                           
@@ -1345,7 +1407,7 @@ export function TransactionReviewPage() {
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Underkategori:</span>
                             </div>
-                            <div className="p-3 bg-white/80 dark:bg-gray-900/80 rounded-md border border-gray-200/60 dark:border-gray-700/60 min-h-[44px] flex items-center">
+                            <div className="p-3 bg-white/80 dark:bg-gray-900/80 rounded-md border border-gray-200/60 dark:border-gray-700/60 min-h-[44px] flex flex-col items-start justify-center gap-2">
                               {currentTransaction.appSubCategoryId ? (
                                 <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-200 dark:border-emerald-700 select-text cursor-text">
                                   {underkategorier.find(u => u.id === currentTransaction.appSubCategoryId)?.name}
@@ -1353,32 +1415,14 @@ export function TransactionReviewPage() {
                               ) : (
                                 <span className="text-muted-foreground text-sm italic">Ingen underkategori vald</span>
                               )}
+                              {/* Bank Underkategori underneath */}
+                              <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200 dark:bg-purple-900/50 dark:text-purple-200 dark:border-purple-700 select-text cursor-text">
+                                Bank: {currentTransaction.bankSubCategory || currentTransaction.bankUnderkategori || 'Överföring egna konton'}
+                              </span>
                             </div>
                           </div>
                         </div>
 
-                        {/* Bank Categories - Always shown below app categories */}
-                        <div className="border-t border-gray-200/50 dark:border-gray-700/50 pt-3">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Bank Huvudkategori */}
-                            <div className="space-y-2">
-                              <div className="p-3 bg-white/60 dark:bg-gray-900/60 rounded-md border border-gray-200/40 dark:border-gray-700/40 min-h-[44px] flex items-center">
-                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/50 dark:text-blue-200 dark:border-blue-700 select-text cursor-text">
-                                  Bank: {currentTransaction.bankCategory || currentTransaction.bankKategori || 'Övriga inkomster'}
-                                </span>
-                              </div>
-                            </div>
-                            
-                            {/* Bank Underkategori */}
-                            <div className="space-y-2">
-                              <div className="p-3 bg-white/60 dark:bg-gray-900/60 rounded-md border border-gray-200/40 dark:border-gray-700/40 min-h-[44px] flex items-center">
-                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200 dark:bg-purple-900/50 dark:text-purple-200 dark:border-purple-700 select-text cursor-text">
-                                  Bank: {currentTransaction.bankSubCategory || currentTransaction.bankUnderkategori || 'Överföring egna konton'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
                       </div>
                     )}
                   </div>
@@ -1627,7 +1671,7 @@ export function TransactionReviewPage() {
             variant="outline"
             size="icon"
             onClick={handleNext}
-            disabled={currentIndex === uncategorizedTransactions.length - 1}
+            disabled={currentIndex === transactionsForNavigation.length - 1}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -2094,12 +2138,19 @@ export function TransactionReviewPage() {
               {/* Statistics Summary */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">{applyRulesResults.stats.processed}</div>
-                  <div className="text-sm text-muted-foreground">Behandlade</div>
+                  <div className="text-2xl font-bold text-blue-600">{applyRulesResults.stats.filteredProcessed}</div>
+                  <div className="text-sm text-muted-foreground">Filtrerade behandlade</div>
                 </div>
                 <div className="text-center p-4 bg-green-50 rounded-lg">
                   <div className="text-2xl font-bold text-green-600">{applyRulesResults.stats.updated}</div>
-                  <div className="text-sm text-muted-foreground">Uppdaterade</div>
+                  <div className="text-sm text-muted-foreground">
+                    Totalt uppdaterade
+                    {applyRulesResults.stats.counterpartUpdated > 0 && (
+                      <div className="text-xs text-green-600 mt-1">
+                        (inkl. {applyRulesResults.stats.counterpartUpdated} matchade)
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="text-center p-4 bg-purple-50 rounded-lg">
                   <div className="text-2xl font-bold text-purple-600">{applyRulesResults.stats.rulesApplied}</div>
@@ -2115,7 +2166,7 @@ export function TransactionReviewPage() {
                 </div>
                 <div className="text-center p-4 bg-indigo-50 rounded-lg">
                   <div className="text-2xl font-bold text-indigo-600">{applyRulesResults.stats.autoMatched}</div>
-                  <div className="text-sm text-muted-foreground">Auto-matchade</div>
+                  <div className="text-sm text-muted-foreground">Auto-matchade (av filtrerade)</div>
                 </div>
               </div>
 
@@ -2126,7 +2177,9 @@ export function TransactionReviewPage() {
                   <div>
                     <h4 className="font-medium text-green-800">Regelapplicering slutförd</h4>
                     <p className="text-sm text-green-700 mt-1">
-                      {applyRulesResults.stats.updated} av {applyRulesResults.stats.processed} transaktioner uppdaterades.
+                      {applyRulesResults.stats.filteredProcessed} filtrerade transaktioner behandlades, 
+                      {applyRulesResults.stats.updated} totalt uppdaterades
+                      {applyRulesResults.stats.counterpartUpdated > 0 && ` (inkl. ${applyRulesResults.stats.counterpartUpdated} matchade motparter)`}.
                       {applyRulesResults.stats.autoApproved > 0 && ` ${applyRulesResults.stats.autoApproved} transaktioner godkändes automatiskt.`}
                     </p>
                   </div>
@@ -2156,17 +2209,25 @@ export function TransactionReviewPage() {
                     )}
                     {applyRulesResults.stats.autoMatched > 0 && (
                       <div className="flex items-center justify-between p-2 bg-indigo-50 rounded">
-                        <span>Automatiskt matchade överföringar</span>
+                        <span>Automatiskt matchade överföringar (filtrerade)</span>
                         <Badge variant="outline" className="bg-indigo-100 text-indigo-700">
                           {applyRulesResults.stats.autoMatched}
                         </Badge>
                       </div>
                     )}
-                    {applyRulesResults.stats.autoApproved > 0 && (
+                    {applyRulesResults.stats.autoApprovedFiltered > 0 && (
                       <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                        <span>Automatiskt godkända</span>
+                        <span>Automatiskt godkända (filtrerade)</span>
                         <Badge variant="outline" className="bg-green-100 text-green-700">
-                          {applyRulesResults.stats.autoApproved}
+                          {applyRulesResults.stats.autoApprovedFiltered}
+                        </Badge>
+                      </div>
+                    )}
+                    {applyRulesResults.stats.autoApprovedMatched > 0 && (
+                      <div className="flex items-center justify-between p-2 bg-emerald-50 rounded">
+                        <span>Automatiskt godkända (matchade)</span>
+                        <Badge variant="outline" className="bg-emerald-100 text-emerald-700">
+                          {applyRulesResults.stats.autoApprovedMatched}
                         </Badge>
                       </div>
                     )}
@@ -2200,7 +2261,7 @@ export function TransactionReviewPage() {
 
       {/* Rule Details Dialog */}
       <Dialog open={showRuleDetailsDialog} onOpenChange={setShowRuleDetailsDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Automatiska regler för denna transaktion</DialogTitle>
           </DialogHeader>
@@ -2210,93 +2271,189 @@ export function TransactionReviewPage() {
                 <p className="text-sm text-muted-foreground">
                   Följande {applicableRulesForDialog.length} regel{applicableRulesForDialog.length !== 1 ? 'er' : ''} kan appliceras på denna transaktion:
                 </p>
-                {applicableRulesForDialog.map((rule, index) => (
-                  <div key={rule.id} className="border rounded-lg p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-lg">{rule.ruleName}</h3>
-                      <Badge variant="outline" className="text-xs">
-                        Regel #{index + 1}
-                      </Badge>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="font-medium text-muted-foreground">Regeltyp:</span>
-                        <p className="mt-1">
-                          {rule.ruleType === 'textContains' && 'Text innehåller'}
-                          {rule.ruleType === 'exactText' && 'Exakt text'}
-                          {rule.ruleType === 'textStartsWith' && 'Text börjar med'}
-                          {rule.ruleType === 'categoryMatch' && 'Bankkategori-matchning'}
-                        </p>
-                      </div>
-                      
-                      <div>
-                        <span className="font-medium text-muted-foreground">Söktext:</span>
-                        <p className="mt-1 font-mono text-xs bg-gray-100 px-2 py-1 rounded">
-                          {rule.transactionName || 'Ej angiven'}
-                        </p>
-                      </div>
-                      
-                      {rule.ruleType === 'categoryMatch' && (
-                        <>
-                          <div>
-                            <span className="font-medium text-muted-foreground">Bankhuvudkategori:</span>
-                            <p className="mt-1">{rule.bankhuvudkategori || 'Ej angiven'}</p>
+                {applicableRulesForDialog.map((rule, index) => {
+                  const applicableAccounts = rule.applicableAccountIds ? 
+                    (JSON.parse(rule.applicableAccountIds || '[]').length === 0 ? 
+                      ['Alla konton'] : 
+                      JSON.parse(rule.applicableAccountIds).map((id: string) => {
+                        const account = accounts.find(acc => acc.id === id);
+                        return account ? account.name : `Okänt konto (${id})`;
+                      })
+                    ) : ['Alla konton'];
+                  
+                  const showLinkedApproval = rule.positiveTransactionType === 'InternalTransfer' || 
+                                           rule.negativeTransactionType === 'InternalTransfer';
+                  
+                  return (
+                    <Card key={rule.id} className="border-gray-200">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Badge variant={rule.isActive === 'true' || rule.isActive === true ? "default" : "secondary"}>
+                              #{rule.priority || 100}
+                            </Badge>
+                            <h3 className="font-medium text-sm">
+                              {rule.ruleType === 'textStartsWith' && 'Börjar med'}
+                              {rule.ruleType === 'textContains' && 'Innehåller'}
+                              {rule.ruleType === 'exactText' && 'Exakt text'}
+                              {rule.ruleType === 'categoryMatch' && 'Bankkategori'}
+                              {rule.transactionName && ` • "${rule.transactionName}"`}
+                              {' → '}
+                              {getHuvudkategoriName(rule.huvudkategoriId) || 'Okänd'} / {getUnderkategoriName(rule.underkategoriId) || 'Okänd'}
+                            </h3>
                           </div>
-                          <div>
-                            <span className="font-medium text-muted-foreground">Bankunderkategori:</span>
-                            <p className="mt-1">{rule.bankunderkategori || 'Ej angiven'}</p>
+                          {rule.isActive === 'false' || rule.isActive === false ? (
+                            <Badge variant="outline" className="text-orange-600 border-orange-200">
+                              Inaktiv
+                            </Badge>
+                          ) : null}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {rule.positiveTransactionType === 'InternalTransfer' || rule.negativeTransactionType === 'InternalTransfer' ? 
+                            'Intern överföring' : 'Standard transaktionstyper'}
+                        </p>
+                        {applicableAccounts[0] !== 'Alla konton' && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {applicableAccounts.map((accountName, i) => (
+                              <Badge key={i} variant="outline" className="text-xs">
+                                {accountName}
+                              </Badge>
+                            ))}
                           </div>
-                        </>
-                      )}
+                        )}
+                      </CardHeader>
                       
-                      <div>
-                        <span className="font-medium text-muted-foreground">Transaktionsriktning:</span>
-                        <p className="mt-1">
-                          {rule.transactionDirection === 'positive' && 'Endast positiva'}
-                          {rule.transactionDirection === 'negative' && 'Endast negativa'}
-                          {(!rule.transactionDirection || rule.transactionDirection === 'all') && 'Alla riktningar'}
-                        </p>
-                      </div>
-                      
-                      <div>
-                        <span className="font-medium text-muted-foreground">Automatisk godkännande:</span>
-                        <p className="mt-1">
-                          {rule.autoApproval ? 'Ja' : 'Nej'}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {rule.applicableAccountIds && rule.applicableAccountIds !== '[]' && (
-                      <div>
-                        <span className="font-medium text-muted-foreground">Begränsad till konton:</span>
-                        <p className="mt-1 text-xs">
-                          {(() => {
-                            try {
-                              const accountIds = JSON.parse(rule.applicableAccountIds);
-                              const accountNames = accountIds.map((id: string) => {
-                                const account = accounts.find(acc => acc.id === id);
-                                return account ? account.name : `Okänt konto (${id})`;
-                              });
-                              return accountNames.join(', ');
-                            } catch {
-                              return 'Kunde inte läsa kontobegränsningar';
-                            }
-                          })()}
-                        </p>
-                      </div>
-                    )}
-                    
-                    <div className="pt-2 border-t">
-                      <span className="font-medium text-muted-foreground">Status:</span>
-                      <p className="mt-1">
-                        <Badge variant={rule.isActive === 'true' || rule.isActive === true ? 'default' : 'destructive'}>
-                          {rule.isActive === 'true' || rule.isActive === true ? 'Aktiv' : 'Inaktiv'}
-                        </Badge>
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                      <CardContent className="space-y-4">
+                        {/* Section 1: Regeln gäller för */}
+                        <Card className="border-blue-200 bg-blue-50/30">
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-sm flex items-center gap-2">
+                              <Filter className="h-4 w-4 text-blue-600" />
+                              Regeln gäller för
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            <div className="grid gap-3 md:grid-cols-2 text-sm">
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Regeltyp</Label>
+                                <p className="font-medium mt-1">
+                                  {rule.ruleType === 'textContains' && 'Text innehåller'}
+                                  {rule.ruleType === 'textStartsWith' && 'Text börjar med'}
+                                  {rule.ruleType === 'exactText' && 'Exakt text'}
+                                  {rule.ruleType === 'categoryMatch' && 'Bankens kategori'}
+                                </p>
+                              </div>
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Villkor</Label>
+                                <p className="font-medium mt-1">
+                                  {rule.transactionName || 'Inget villkor'}
+                                </p>
+                              </div>
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Transaktionsriktning</Label>
+                                <p className="font-medium mt-1">
+                                  {rule.transactionDirection === 'all' && 'Alla transaktioner'}
+                                  {rule.transactionDirection === 'positive' && 'Endast inkomster (+)'}
+                                  {rule.transactionDirection === 'negative' && 'Endast utgifter (-)'}
+                                </p>
+                              </div>
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Bankkategorier</Label>
+                                <p className="font-medium mt-1">
+                                  {rule.bankhuvudkategori && rule.bankhuvudkategori !== 'Alla Bankkategorier'
+                                    ? `${rule.bankhuvudkategori}${rule.bankunderkategori && rule.bankunderkategori !== 'Alla Bankunderkategorier' ? ` / ${rule.bankunderkategori}` : ''}`
+                                    : 'Alla bankkategorier'}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                        
+                        {/* Section 2: Konton */}
+                        <Card className="border-green-200 bg-green-50/30">
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-sm flex items-center gap-2">
+                              <Users className="h-4 w-4 text-green-600" />
+                              Konton som regeln gäller för
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="flex flex-wrap gap-1">
+                              {applicableAccounts.map((accountName, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">
+                                  {accountName}
+                                </Badge>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                        
+                        {/* Section 3: Kategorisering & Åtgärder */}
+                        <Card className="border-purple-200 bg-purple-50/30">
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-sm flex items-center gap-2">
+                              <Target className="h-4 w-4 text-purple-600" />
+                              Kategorisering & Åtgärder
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            <div className="grid gap-3 md:grid-cols-2 text-sm">
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Huvudkategori</Label>
+                                <p className="font-medium mt-1">
+                                  {getHuvudkategoriName(rule.huvudkategoriId) || 'Okänd kategori'}
+                                </p>
+                              </div>
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Underkategori</Label>
+                                <p className="font-medium mt-1">
+                                  {getUnderkategoriName(rule.underkategoriId) || 'Okänd underkategori'}
+                                </p>
+                              </div>
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Positiva belopp</Label>
+                                <p className="font-medium mt-1">
+                                  {rule.positiveTransactionType === 'Income' ? 'Inkomst' : (rule.positiveTransactionType || 'Transaction')}
+                                </p>
+                              </div>
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Negativa belopp</Label>
+                                <p className="font-medium mt-1">
+                                  {rule.negativeTransactionType === 'Income' ? 'Inkomst' : (rule.negativeTransactionType || 'Transaction')}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            <Separator />
+                            
+                            <div className="grid gap-3 md:grid-cols-2 text-sm">
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Prioritet</Label>
+                                <p className="font-medium mt-1">
+                                  {rule.priority || 100} <span className="text-xs text-muted-foreground">(lägre = högre prioritet)</span>
+                                </p>
+                              </div>
+                              <div>
+                                <Label className="text-xs font-medium text-muted-foreground">Automatiskt godkännande</Label>
+                                <p className="font-medium mt-1">
+                                  {rule.autoApproval ? 'Ja' : 'Nej'}
+                                </p>
+                              </div>
+                              {showLinkedApproval && (
+                                <div className="md:col-span-2">
+                                  <Label className="text-xs font-medium text-muted-foreground">Automatisk godkännande för matchad transaktion</Label>
+                                  <p className="font-medium mt-1">
+                                    {rule.autoApproveLinked === true ? 'Ja' : 'Nej'}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </>
             ) : (
               <p className="text-sm text-muted-foreground">
@@ -2304,7 +2461,21 @@ export function TransactionReviewPage() {
               </p>
             )}
             
-            <div className="flex justify-end pt-4">
+            <div className="flex justify-between pt-4">
+              <div className="flex gap-2">
+                {applicableRulesForDialog.map((rule, index) => (
+                  <Button 
+                    key={rule.id}
+                    variant="destructive" 
+                    onClick={() => handleDeleteRule(rule.id, rule.ruleName)}
+                    disabled={deleteRuleMutation.isPending}
+                    className="flex items-center gap-2"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Ta bort regel {applicableRulesForDialog.length > 1 ? `#${index + 1}` : ''}
+                  </Button>
+                ))}
+              </div>
               <Button onClick={() => setShowRuleDetailsDialog(false)}>
                 Stäng
               </Button>

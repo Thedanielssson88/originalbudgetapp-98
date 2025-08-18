@@ -26,6 +26,7 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { useAllBudgetPosts } from '@/hooks/useBudgetPosts';
 import { useToast } from '@/hooks/use-toast';
 import { formatOrenAsCurrency } from '@/utils/currencyUtils';
+import { addMobileDebugLog } from '@/utils/mobileDebugLogger';
 
 interface VerificationError {
   transactionId: string;
@@ -54,6 +55,7 @@ export function DebugModePage() {
   const [isDuplicateChecking, setIsDuplicateChecking] = useState(false);
   const [isCleaningUp, setIsCleaningUp] = useState(false);
   const [isResettingData, setIsResettingData] = useState(false);
+  const [isCleaningTransactionData, setIsCleaningTransactionData] = useState(false);
   const [activeTab, setActiveTab] = useState('verification');
   const [fixingProgress, setFixingProgress] = useState<{field: string; current: number; total: number} | null>(null);
 
@@ -533,6 +535,119 @@ export function DebugModePage() {
       });
     } finally {
       setFixingProgress(null);
+    }
+  };
+
+  // Transaction data cleanup functions
+  const cleanupTransactionField = async (field: string, description: string) => {
+    addMobileDebugLog(`🧹 [CLEANUP] Starting cleanup of ${field}`);
+    
+    if (!confirm(`⚠️ This will remove all ${field} values and set affected transactions to yellow status. Continue?`)) {
+      addMobileDebugLog(`🧹 [CLEANUP] User cancelled cleanup of ${field}`);
+      return;
+    }
+
+    setIsCleaningTransactionData(true);
+    addMobileDebugLog(`🧹 [CLEANUP] Sending request to cleanup ${field}`);
+
+    try {
+      const response = await fetch('/api/transactions/cleanup-field', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ field }),
+      });
+
+      addMobileDebugLog(`🧹 [CLEANUP] Response status: ${response.status}`);
+      console.log('Cleanup response status:', response.status);
+      console.log('Cleanup response headers:', [...response.headers.entries()]);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        addMobileDebugLog(`🧹 [CLEANUP] Error response: ${errorText}`);
+        console.error('Cleanup error response:', errorText);
+        throw new Error(`Failed to cleanup ${field}: ${errorText}`);
+      }
+
+      const responseText = await response.text();
+      addMobileDebugLog(`🧹 [CLEANUP] Response text: ${responseText}`);
+      console.log('Cleanup response text:', responseText);
+      
+      if (!responseText) {
+        addMobileDebugLog(`🧹 [CLEANUP] Empty response from server`);
+        throw new Error('Empty response from server');
+      }
+
+      const result = JSON.parse(responseText);
+
+      addMobileDebugLog(`🧹 [CLEANUP] Success! Updated ${result.updatedCount} transactions`);
+      
+      toast({
+        title: `✅ ${description} cleanup completed`,
+        description: `Updated ${result.updatedCount} transactions`,
+      });
+
+      // Refresh data
+      await refetchTransactions();
+    } catch (error) {
+      addMobileDebugLog(`🧹 [CLEANUP] Error: ${error instanceof Error ? error.message : "Unknown error"}`);
+      console.error(`${field} cleanup error:`, error);
+      toast({
+        title: `Error cleaning up ${description}`,
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCleaningTransactionData(false);
+    }
+  };
+
+  const resetAllGreenToYellow = async () => {
+    if (!confirm('⚠️ This will change ALL green transactions to yellow status. Continue?')) {
+      return;
+    }
+
+    setIsCleaningTransactionData(true);
+
+    try {
+      const response = await fetch('/api/transactions/reset-green-to-yellow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      console.log('Reset status response status:', response.status);
+      console.log('Reset status response headers:', [...response.headers.entries()]);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Reset status error response:', errorText);
+        throw new Error(`Failed to reset status: ${errorText}`);
+      }
+
+      const responseText = await response.text();
+      console.log('Reset status response text:', responseText);
+      
+      if (!responseText) {
+        throw new Error('Empty response from server');
+      }
+
+      const result = JSON.parse(responseText);
+
+      toast({
+        title: "✅ Status reset completed",
+        description: `Changed ${result.updatedCount} transactions from green to yellow`,
+      });
+
+      // Refresh data
+      await refetchTransactions();
+    } catch (error) {
+      console.error('Status reset error:', error);
+      toast({
+        title: "Error resetting transaction status",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCleaningTransactionData(false);
     }
   };
 
@@ -1019,6 +1134,126 @@ export function DebugModePage() {
                 <Alert>
                   <AlertDescription>
                     No duplicates detected. Run duplicate check first.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-orange-200 dark:border-orange-800">
+            <CardHeader>
+              <CardTitle className="text-orange-600 dark:text-orange-400">
+                Rensning av transaktionsdata
+              </CardTitle>
+              <CardDescription>
+                Rensa specifika fält från transaktioner och återställ status
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                <h3 className="font-semibold mb-2">Vad dessa operationer gör:</h3>
+                <ul className="list-disc list-inside space-y-1 text-sm">
+                  <li>Sätter specifika fält till NULL</li>
+                  <li>Ändrar transaktionsstatus till gul (yellow)</li>
+                  <li>Bevarar all annan transaktionsdata</li>
+                  <li>Använd för att rensa korrupta länkar eller återställa status</li>
+                </ul>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Button 
+                  onClick={() => cleanupTransactionField('linkedTransactionId', 'Länkade transaktioner')}
+                  disabled={isCleaningTransactionData}
+                  variant="outline"
+                  className="justify-start h-auto p-4"
+                >
+                  <div className="text-left">
+                    <div className="flex items-center gap-2">
+                      <Link2 className="h-4 w-4" />
+                      <span className="font-medium">Rensa länkade transaktioner</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Ta bort alla linkedTransactionId
+                    </div>
+                  </div>
+                </Button>
+
+                <Button 
+                  onClick={() => cleanupTransactionField('savingsTargetId', 'Sparmål')}
+                  disabled={isCleaningTransactionData}
+                  variant="outline"
+                  className="justify-start h-auto p-4"
+                >
+                  <div className="text-left">
+                    <div className="flex items-center gap-2">
+                      <Target className="h-4 w-4" />
+                      <span className="font-medium">Rensa sparmål</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Ta bort alla savingsTargetId
+                    </div>
+                  </div>
+                </Button>
+
+                <Button 
+                  onClick={() => cleanupTransactionField('incomeTargetId', 'Inkomstmål')}
+                  disabled={isCleaningTransactionData}
+                  variant="outline"
+                  className="justify-start h-auto p-4"
+                >
+                  <div className="text-left">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      <span className="font-medium">Rensa inkomstmål</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Ta bort alla incomeTargetId
+                    </div>
+                  </div>
+                </Button>
+
+                <Button 
+                  onClick={() => cleanupTransactionField('linkedCostId', 'Länkade kostnader')}
+                  disabled={isCleaningTransactionData}
+                  variant="outline"
+                  className="justify-start h-auto p-4"
+                >
+                  <div className="text-left">
+                    <div className="flex items-center gap-2">
+                      <Link2 className="h-4 w-4" />
+                      <span className="font-medium">Rensa länkade kostnader</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Ta bort alla linkedCostId
+                    </div>
+                  </div>
+                </Button>
+              </div>
+
+              <div className="border-t pt-4">
+                <Button 
+                  onClick={resetAllGreenToYellow}
+                  disabled={isCleaningTransactionData}
+                  variant="outline"
+                  className="w-full h-auto p-4"
+                >
+                  <div className="text-left w-full">
+                    <div className="flex items-center gap-2">
+                      <RefreshCw className="h-4 w-4" />
+                      <span className="font-medium">Återställ alla gröna transaktioner till gul</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Ändra status från green till yellow för alla transaktioner
+                    </div>
+                  </div>
+                </Button>
+              </div>
+
+              {isCleaningTransactionData && (
+                <Alert>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <AlertDescription>
+                    Rensning pågår...
                   </AlertDescription>
                 </Alert>
               )}

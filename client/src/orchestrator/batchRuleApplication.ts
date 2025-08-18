@@ -21,6 +21,12 @@ interface BatchRuleResult {
     autoMatched: number;
     autoApproved: number;
     bankMatched: number;
+    linkedUpdated: number; // NEW: Count of linked transactions updated
+    // NEW: Separate counters for clarity
+    filteredProcessed: number; // How many filtered transactions were processed
+    counterpartUpdated: number; // How many counterpart (non-filtered) transactions were updated
+    autoApprovedFiltered: number; // How many filtered transactions were auto-approved
+    autoApprovedMatched: number; // How many matched counterpart transactions were auto-approved
   };
   updatedTransactions: ImportedTransaction[];
 }
@@ -41,6 +47,7 @@ interface OptimizedRule {
   isActive: boolean;
   priority: number;
   autoApproval?: boolean;
+  autoApproveLinked?: boolean;
 }
 
 interface BatchUpdate {
@@ -53,6 +60,7 @@ interface BatchUpdate {
     isManuallyChanged?: string;
     linkedTransactionId?: string;
   };
+  appliedRule?: OptimizedRule; // Track which rule was applied
 }
 
 /**
@@ -76,7 +84,8 @@ function preprocessRules(rules: any[]): OptimizedRule[] {
       applicableAccountIds: rule.applicableAccountIds,
       isActive: true,
       priority: rule.priority || 100,
-      autoApproval: rule.autoApproval === true
+      autoApproval: rule.autoApproval === true,
+      autoApproveLinked: rule.autoApproveLinked === true
     }))
     .sort((a, b) => a.priority - b.priority); // Sort by priority
 }
@@ -234,7 +243,7 @@ function applyRuleToTransaction(
   // Mark as rule-processed (not manually changed)
   updates.isManuallyChanged = 'false';
   
-  return hasUpdates ? { id: transaction.id, updates } : null;
+  return hasUpdates ? { id: transaction.id, updates, appliedRule: rule } : null;
 }
 
 /**
@@ -289,12 +298,17 @@ function applyBankCategoryFallback(
  */
 function autoMatchInternalTransfers(
   transactions: ImportedTransaction[],
-  batchUpdates: BatchUpdate[]
-): Array<{ transaction1Id: string; transaction2Id: string }> {
-  console.log('🔍 [BATCH RULES] Auto-matching internal transfer transactions...');
-  addMobileDebugLog(`🔍 [AUTO-MATCH] Starting auto-match: ${transactions.length} transactions`);
+  batchUpdates: BatchUpdate[],
+  optimizedRules?: OptimizedRule[],
+  transactionsToProcess?: ImportedTransaction[] // NEW: Scope to specific transactions
+): Array<{ transaction1Id: string; transaction2Id: string; rulesApplied: OptimizedRule[] }> {
+  // Determine which transactions to consider for auto-matching
+  const scopedTransactions = transactionsToProcess || transactions;
   
-  const matches: Array<{ transaction1Id: string; transaction2Id: string }> = [];
+  console.log('🔍 [BATCH RULES] Auto-matching internal transfer transactions...');
+  addMobileDebugLog(`🔍 [AUTO-MATCH] Starting auto-match: ${scopedTransactions.length} scoped, ${transactions.length} total for counterpart search`);
+  
+  const matches: Array<{ transaction1Id: string; transaction2Id: string; rulesApplied: OptimizedRule[] }> = [];
   const processedIds = new Set<string>();
   
   // Create a map of pending type updates
@@ -313,9 +327,9 @@ function autoMatchInternalTransfers(
     }
   });
   
-  // Find all transactions that are or will be InternalTransfer type and don't have linked transactions
+  // Find unmatched internal transfers ONLY from scoped transactions (filtered transactions)
   // IMPORTANT: Check both existing linkedTransactionId AND pending updates
-  const unmatchedInternalTransfers = transactions.filter(tx => {
+  const unmatchedInternalTransfers = scopedTransactions.filter(tx => {
     const effectiveType = typeUpdates.get(tx.id) || tx.type;
     const hasExistingLink = !!tx.linkedTransactionId;
     const hasPendingLink = linkedUpdates.has(tx.id);
@@ -376,14 +390,18 @@ function autoMatchInternalTransfers(
         addMobileDebugLog(specialMatchMsg);
       }
       
+      // Check which rules apply to these transactions
+      const appliedRules = optimizedRules ? optimizedRules.filter(rule => {
+        const matchesTx1 = findMatchingRule(internalTransfer, [rule]) !== null;
+        const matchesTx2 = findMatchingRule(counterpart, [rule]) !== null;
+        return matchesTx1 || matchesTx2;
+      }) : [];
+      
       matches.push({
         transaction1Id: internalTransfer.id,
-        transaction2Id: counterpart.id
+        transaction2Id: counterpart.id,
+        rulesApplied: appliedRules
       });
-      
-      // Add to pending linked updates to prevent conflicts
-      linkedUpdates.set(internalTransfer.id, counterpart.id);
-      linkedUpdates.set(counterpart.id, internalTransfer.id);
       
       processedIds.add(internalTransfer.id);
       processedIds.add(counterpart.id);
@@ -448,14 +466,18 @@ function autoMatchInternalTransfers(
         addMobileDebugLog(specialMatchMsg);
       }
       
+      // Check which rules apply to these transactions
+      const appliedRules = optimizedRules ? optimizedRules.filter(rule => {
+        const matchesTx1 = findMatchingRule(internalTransfer, [rule]) !== null;
+        const matchesTx2 = findMatchingRule(counterpart, [rule]) !== null;
+        return matchesTx1 || matchesTx2;
+      }) : [];
+      
       matches.push({
         transaction1Id: internalTransfer.id,
-        transaction2Id: counterpart.id
+        transaction2Id: counterpart.id,
+        rulesApplied: appliedRules
       });
-      
-      // Add to pending linked updates to prevent conflicts
-      linkedUpdates.set(internalTransfer.id, counterpart.id);
-      linkedUpdates.set(counterpart.id, internalTransfer.id);
       
       processedIds.add(internalTransfer.id);
       processedIds.add(counterpart.id);
@@ -479,7 +501,8 @@ function autoMatchInternalTransfers(
   
   // Also check for pairs of transactions that BOTH should be InternalTransfer but aren't marked yet
   // This handles the case where rules mark both sides as InternalTransfer in the same batch
-  const unmatchedTransfers = transactions.filter(tx => {
+  // BUT: Only consider scoped transactions as potential candidates for matching
+  const unmatchedTransfers = scopedTransactions.filter(tx => {
     const effectiveType = typeUpdates.get(tx.id) || tx.type;
     return effectiveType === 'InternalTransfer' && !tx.linkedTransactionId && !processedIds.has(tx.id);
   });
@@ -507,9 +530,17 @@ function autoMatchInternalTransfers(
         
         console.log(`✅ [AUTO-MATCH] Pair matched: ${tx1.description} ↔️ ${tx2.description}`);
         
+        // Check which rules apply to these transactions
+        const appliedRules = optimizedRules ? optimizedRules.filter(rule => {
+          const matchesTx1 = findMatchingRule(tx1, [rule]) !== null;
+          const matchesTx2 = findMatchingRule(tx2, [rule]) !== null;
+          return matchesTx1 || matchesTx2;
+        }) : [];
+        
         matches.push({
           transaction1Id: tx1.id,
-          transaction2Id: tx2.id
+          transaction2Id: tx2.id,
+          rulesApplied: appliedRules
         });
         
         processedIds.add(tx1.id);
@@ -600,9 +631,19 @@ function synchronizeLinkedTransactions(
     // Synchronize type
     linkedUpdate.updates.type = 'InternalTransfer';
     
-    // IMPORTANT: Do NOT auto-approve the linked transaction
-    // The linked transaction must be manually reviewed and approved
-    // Remove any auto-approval synchronization
+    // Check if the rule has autoApproveLinked enabled
+    // Find the original update for this transaction
+    const originalUpdate = batchUpdates.find(u => u.id === transaction.id);
+    if (originalUpdate && originalUpdate.appliedRule) {
+      const rule = originalUpdate.appliedRule;
+      
+      // If the rule has autoApproveLinked and this is an internal transfer with auto-approval
+      if (rule.autoApproveLinked && originalUpdate.updates.status === 'green') {
+        // Apply auto-approval to the linked transaction as well
+        linkedUpdate.updates.status = 'green';
+        console.log(`✅ [BATCH RULES] Auto-approved linked transaction ${linkedTransaction.id} due to autoApproveLinked rule`);
+      }
+    }
     
     // Mark as rule-processed
     linkedUpdate.updates.isManuallyChanged = 'false';
@@ -620,11 +661,15 @@ export async function applyRulesToTransactionsBatch(
   transactions: ImportedTransaction[],
   rules: any[],
   huvudkategorier: any[] = [],
-  underkategorier: any[] = []
+  underkategorier: any[] = [],
+  transactionsToProcess?: ImportedTransaction[] // Optional: specific transactions to apply rules to
 ): Promise<BatchRuleResult> {
+  // Determine which transactions to process rules on
+  const transactionsForRuleProcessing = transactionsToProcess || transactions;
+  
   // Force mobile logging to appear
   console.log(`🔴 [BATCH RULES START] Function called with ${transactions.length} transactions and ${rules.length} rules`);
-  console.log(`🚀 [BATCH RULES] Starting optimized batch processing: ${transactions.length} transactions, ${rules.length} rules`);
+  console.log(`🎯 [BATCH RULES] Processing rules on ${transactionsForRuleProcessing.length} transactions, with access to ${transactions.length} total transactions for linking`);
   
   try {
   const stats = {
@@ -633,8 +678,16 @@ export async function applyRulesToTransactionsBatch(
     rulesApplied: 0,
     autoMatched: 0,
     autoApproved: 0,
-    bankMatched: 0
+    bankMatched: 0,
+    linkedUpdated: 0,
+    filteredProcessed: transactionsForRuleProcessing.length,
+    counterpartUpdated: 0,
+    autoApprovedFiltered: 0,
+    autoApprovedMatched: 0
   };
+  
+  // Track unique auto-approved transactions to prevent double-counting
+  const autoApprovedTransactionIds = new Set<string>();
   
   // Pre-process rules for optimal performance
   const optimizedRules = preprocessRules(rules);
@@ -645,8 +698,8 @@ export async function applyRulesToTransactionsBatch(
   
   // Process transactions in batches for better performance
   const BATCH_SIZE = 100;
-  for (let i = 0; i < transactions.length; i += BATCH_SIZE) {
-    const batch = transactions.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < transactionsForRuleProcessing.length; i += BATCH_SIZE) {
+    const batch = transactionsForRuleProcessing.slice(i, i + BATCH_SIZE);
     
     for (const transaction of batch) {
       stats.processed++;
@@ -666,10 +719,10 @@ export async function applyRulesToTransactionsBatch(
           batchUpdates.push(ruleUpdate);
           updatedTransactionIds.add(transaction.id);
           stats.rulesApplied++;
-          stats.updated++;
+          // Note: stats.updated will be set to batchUpdates.length at the end
           
           if (ruleUpdate.updates.status === 'green') {
-            stats.autoApproved++;
+            autoApprovedTransactionIds.add(transaction.id);
           }
         }
       } else {
@@ -679,10 +732,10 @@ export async function applyRulesToTransactionsBatch(
           batchUpdates.push(bankUpdate);
           updatedTransactionIds.add(transaction.id);
           stats.bankMatched++;
-          stats.updated++;
+          // Note: stats.updated will be set to batchUpdates.length at the end
           
           if (bankUpdate.updates.status === 'green') {
-            stats.autoApproved++;
+            autoApprovedTransactionIds.add(transaction.id);
           }
         }
       }
@@ -690,7 +743,7 @@ export async function applyRulesToTransactionsBatch(
     
     // Progress logging (minimal)
     if (i % 500 === 0) {
-      console.log(`📊 [BATCH RULES] Progress: ${i}/${transactions.length} (${Math.round(i/transactions.length*100)}%)`);
+      console.log(`📊 [BATCH RULES] Progress: ${i}/${transactionsForRuleProcessing.length} (${Math.round(i/transactionsForRuleProcessing.length*100)}%)`);
     }
   }
   
@@ -698,7 +751,8 @@ export async function applyRulesToTransactionsBatch(
   console.log(`🔍 [DEBUG] batchUpdates contents:`, batchUpdates.slice(0, 3)); // Show first 3 updates
   
   // Auto-match internal transfer transactions, considering pending type updates from rules
-  const transferMatches = autoMatchInternalTransfers(transactions, batchUpdates);
+  // Pass both all transactions (for counterpart search) and scoped transactions (for candidates)
+  const transferMatches = autoMatchInternalTransfers(transactions, batchUpdates, optimizedRules, transactionsForRuleProcessing);
   if (transferMatches.length > 0) {
     console.log(`🔗 [BATCH RULES] Applying ${transferMatches.length} auto-matched internal transfers`);
     
@@ -752,23 +806,82 @@ export async function applyRulesToTransactionsBatch(
           }
         }
         
-        // IMPORTANT: Do NOT auto-approve the linked transaction
-        // Only the transaction that was matched by a rule with auto-approval should be auto-approved
-        // The linked counterpart must be manually reviewed and approved
-        // The auto-approval status is already set by the rule application above if applicable
+        // NOW CHECK FOR AUTO-APPROVAL: If a rule with auto-approval was applied to a transaction
+        // and now that it's linked, auto-approve ONLY the transaction the rule was applied to
+        
+        // Check if any of the rules applied to this match have auto-approval enabled
+        // ONLY auto-approve the transaction that the rule was directly applied to, not both
+        const autoApprovalRules = match.rulesApplied.filter(rule => rule.autoApproval);
+        
+        if (autoApprovalRules.length > 0) {
+          // Check which transaction(s) had the auto-approval rule applied
+          autoApprovalRules.forEach(rule => {
+            const tx1Matched = findMatchingRule(tx1, [rule]) !== null;
+            const tx2Matched = findMatchingRule(tx2, [rule]) !== null;
+            
+            // Only auto-approve the transaction that the rule was applied to
+            if (tx1Matched && tx1HasCategory && tx1HasSubCategory) {
+              console.log(`✅ [AUTO-MATCH] Auto-approving transaction ${tx1.id} (rule-matched) after linking`);
+              update1.updates.status = 'green';
+              autoApprovedTransactionIds.add(tx1.id);
+            }
+            if (tx2Matched && tx2HasCategory && tx2HasSubCategory) {
+              console.log(`✅ [AUTO-MATCH] Auto-approving transaction ${tx2.id} (rule-matched) after linking`);
+              update2.updates.status = 'green';
+              autoApprovedTransactionIds.add(tx2.id);
+            }
+          });
+        }
       }
     });
     
-    stats.autoMatched += transferMatches.length * 2; // Count both transactions in each match
-    stats.updated += transferMatches.length * 2;
+    // Count how many of the FILTERED transactions were auto-matched (not total transactions matched)
+    let filteredTransactionsMatched = 0;
+    const filteredTransactionIds = new Set(transactionsForRuleProcessing.map(t => t.id));
+    
+    transferMatches.forEach(match => {
+      if (filteredTransactionIds.has(match.transaction1Id)) {
+        filteredTransactionsMatched++;
+      }
+      if (filteredTransactionIds.has(match.transaction2Id)) {
+        filteredTransactionsMatched++;
+      }
+    });
+    
+    stats.autoMatched += filteredTransactionsMatched;
+    // Note: Don't add to stats.updated here - we'll count the final batchUpdates.length instead
   }
+  
+  // Track how many updates we had before synchronization
+  const updatesBeforeSynchronization = batchUpdates.length;
   
   // Synchronize linked internal transfer transactions
   const synchronizedCount = synchronizeLinkedTransactions(transactions, batchUpdates);
   if (synchronizedCount > 0) {
     console.log(`🔄 [BATCH RULES] Synchronized ${synchronizedCount} additional linked transactions`);
-    stats.updated += synchronizedCount;
+    stats.linkedUpdated += synchronizedCount;
   }
+  
+  // Set the total updated count based on final batch size (avoids double-counting)
+  stats.updated = batchUpdates.length;
+  
+  // Calculate how many counterpart (non-filtered) transactions were updated  
+  const filteredTransactionIds = new Set(transactionsForRuleProcessing.map(t => t.id));
+  stats.counterpartUpdated = batchUpdates.filter(update => 
+    !filteredTransactionIds.has(update.id)
+  ).length;
+  
+  // Calculate separate auto-approved counts for filtered vs matched counterparts
+  autoApprovedTransactionIds.forEach(txId => {
+    if (filteredTransactionIds.has(txId)) {
+      stats.autoApprovedFiltered++;
+    } else {
+      stats.autoApprovedMatched++;
+    }
+  });
+  
+  // Set the final total auto-approved count from unique transactions
+  stats.autoApproved = autoApprovedTransactionIds.size;
   
   // Apply all updates in a single bulk operation
   let databaseUpdateSucceeded = false;
@@ -862,7 +975,12 @@ export async function applyRulesToTransactionsBatch(
         rulesApplied: 0,
         autoMatched: 0,
         autoApproved: 0,
-        bankMatched: 0
+        bankMatched: 0,
+        linkedUpdated: 0,
+        filteredProcessed: 0,
+        counterpartUpdated: 0,
+        autoApprovedFiltered: 0,
+        autoApprovedMatched: 0
       },
       updatedTransactions: []
     };
