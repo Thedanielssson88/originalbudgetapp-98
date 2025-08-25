@@ -36,12 +36,13 @@ import {
   ChevronDown,
   ChevronUp,
   Users,
-  Target
+  Target,
+  Star
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import { useBudget } from '@/hooks/useBudget';
-import { useTransactions, useUpdateTransaction } from '@/hooks/useTransactions';
+import { useTransactions, useUpdateTransaction, useHistoricalCategoryMatches } from '@/hooks/useTransactions';
 import { useHuvudkategorier, useUnderkategorier, useCategoryNames } from '@/hooks/useCategories';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useBudgetPosts } from '@/hooks/useBudgetPosts';
@@ -196,6 +197,7 @@ export function TransactionReviewPage() {
   const [bankSubCategoryFilter, setBankSubCategoryFilter] = useState('all');
   const [descriptionFilter, setDescriptionFilter] = useState('');
   
+  
   // Removed complex local state - using React Query optimistic updates instead
 
   // Get all unique values for filter dropdowns
@@ -281,6 +283,11 @@ export function TransactionReviewPage() {
   // Current transaction (React Query handles optimistic updates automatically)
   const currentTransaction = baseTransaction;
 
+  // Get historical category matches for the current transaction
+  const { data: historicalMatches = [] } = useHistoricalCategoryMatches(
+    currentTransaction?.id
+  );
+
   // Transform budget posts into savings goals for the dialog, filtered by current transaction's account
   const savingsGoals = useMemo(() => {
     const currentTransactionAccountId = currentTransaction?.accountId;
@@ -301,8 +308,6 @@ export function TransactionReviewPage() {
       }));
   }, [budgetPosts, currentTransaction?.accountId]);
   
-  // Removed auto-categorization handler - no automatic navigation
-
   // Reset index when filters change to prevent out-of-bounds
   useEffect(() => {
     setCurrentIndex(0);
@@ -322,7 +327,6 @@ export function TransactionReviewPage() {
       setDirection(1);
       setCurrentIndex(prev => prev + 1);
       setEditMode(null);
-      // Navigation cleared (React Query handles state)
     }
   }, [currentIndex, transactionsForNavigation.length]);
 
@@ -331,7 +335,6 @@ export function TransactionReviewPage() {
       setDirection(-1);
       setCurrentIndex(prev => prev - 1);
       setEditMode(null);
-      // Navigation cleared (React Query handles state)
     }
   }, [currentIndex]);
 
@@ -407,7 +410,8 @@ export function TransactionReviewPage() {
         appCategoryId: huvudkategoriId,
         appSubCategoryId: actualUnderkategoriId || null,
         status: newStatus, // Server gets the correct status
-        isManuallyChanged: 'true'
+        isManuallyChanged: 'true',
+        wasHistoricallyAssigned: 'false' // Remove star when manually changed
       }
     }, {
       onSuccess: () => {
@@ -788,6 +792,83 @@ export function TransactionReviewPage() {
     }
   };
 
+  // Apply historical category matches to transactions
+  const applyHistoricalMatches = async (transactionsToProcess: any[]) => {
+    console.log(`🌟 [HISTORICAL] Starting historical matching for ${transactionsToProcess.length} transactions`);
+    
+    // Limit to first 50 transactions for performance during testing
+    const limitedTransactions = transactionsToProcess.slice(0, 50);
+    if (limitedTransactions.length < transactionsToProcess.length) {
+      console.log(`⚠️ [HISTORICAL] Processing only first ${limitedTransactions.length} transactions for performance`);
+    }
+    
+    const historicallyUpdated = new Set<string>();
+    const updates = [];
+    
+    for (const transaction of limitedTransactions) {
+      // Debug: Log transaction being processed
+      console.log(`🔍 [HISTORICAL] Processing transaction ${transaction.id} (${transaction.description})`);
+      
+      // Only process transactions without categories (both must be missing)
+      if (!transaction.appCategoryId && !transaction.appSubCategoryId) {
+        console.log(`✅ [HISTORICAL] Transaction ${transaction.id} has no categories, checking for matches`);
+        try {
+          // Find historical matches
+          const matches = await fetch(`/api/transactions/${transaction.id}/historical-matches`)
+            .then(res => res.ok ? res.json() : [])
+            .catch(() => []);
+          
+          if (matches.length > 0) {
+            const bestMatch = matches[0];
+            if (bestMatch.appCategoryId && bestMatch.appSubCategoryId) {
+              console.log(`🌟 [HISTORICAL] Found match for ${transaction.description} -> ${bestMatch.appCategoryId}`);
+              
+              updates.push({
+                id: transaction.id,
+                data: {
+                  appCategoryId: bestMatch.appCategoryId,
+                  appSubCategoryId: bestMatch.appSubCategoryId,
+                  type: bestMatch.type, // Copy the transaction type as well
+                  wasHistoricallyAssigned: 'true' // Mark as historically assigned for star display
+                }
+              });
+              
+              historicallyUpdated.add(transaction.id);
+            }
+          }
+        } catch (error) {
+          console.warn(`Failed to get historical matches for ${transaction.id}:`, error);
+        }
+      }
+    }
+    
+    // Apply updates in batch if any
+    if (updates.length > 0) {
+      try {
+        // Use individual updates to avoid overwhelming the server
+        console.log(`🌟 [HISTORICAL] Applying ${updates.length} historical matches...`);
+        
+        for (const update of updates) {
+          try {
+            await updateTransactionMutation.mutateAsync(update);
+            console.log(`✅ [HISTORICAL] Updated transaction ${update.id}`);
+          } catch (error) {
+            console.error(`❌ [HISTORICAL] Failed to update transaction ${update.id}:`, error);
+          }
+        }
+        
+        // Star display is now handled via database field wasHistoricallyAssigned
+        
+        console.log(`🌟 [HISTORICAL] Applied historical matches to ${updates.length} transactions`);
+        console.log(`⭐ [MOBILE DEBUG] Total transactions with stars: ${historicallyUpdated.size}`);
+      } catch (error) {
+        console.error('Failed to apply historical matches:', error);
+      }
+    }
+    
+    return { updatedCount: updates.length, updatedTransactionIds: historicallyUpdated };
+  };
+
   // Apply rules to all filtered transactions
   const handleApplyRulesToFiltered = async () => {
     console.log(`🟡 [BUTTON CLICKED] Apply rules button was clicked!`);
@@ -797,6 +878,15 @@ export function TransactionReviewPage() {
     try {
       console.log(`🚀 [APPLY RULES] Starting rule application to ${uncategorizedTransactions.length} filtered transactions (${transactions.length} total for linking)`);
       
+      // STEP 1: Apply historical matches first
+      console.log(`🌟 [STEP 1] Applying historical matches to uncategorized transactions`);
+      const historicalResult = await applyHistoricalMatches(uncategorizedTransactions);
+      
+      // Refetch transactions after historical matches to get latest data
+      await queryClient.refetchQueries({ queryKey: ['/api/transactions'] });
+      
+      // STEP 2: Apply category rules (which may override historical matches)
+      console.log(`🔧 [STEP 2] Applying category rules`);
       // IMPORTANT: Pass ALL transactions for proper transfer matching, but only process rules on filtered ones
       // Transfer matching needs to find counterparts across all accounts, not just filtered ones
       const result = await applyRulesToTransactionsBatch(
@@ -811,6 +901,48 @@ export function TransactionReviewPage() {
         // Mobile debug log for successful rule application
         console.log(`✅ [RULES APPLIED] Database updated successfully!`);
         console.log(`📊 [STATS] Month: ${effectiveSelectedMonth}, Updated: ${result.stats.updated}, Auto-approved: ${result.stats.autoApproved}`);
+        
+        // STEP 3: Remove stars from transactions that were actually overridden by rules
+        // Only remove stars if rules actually CHANGED the categories from historical matches
+        if (result.updatedTransactions && result.updatedTransactions.length > 0 && historicalResult.updatedTransactionIds.size > 0) {
+          const actuallyOverridden = [];
+          
+          for (const updatedTx of result.updatedTransactions) {
+            // Only check transactions that had historical matches applied
+            if (historicalResult.updatedTransactionIds.has(updatedTx.id)) {
+              // Get the original transaction data before any updates
+              const originalTx = transactions.find(t => t.id === updatedTx.id);
+              
+              // Check if the rule actually changed categories from what historical matching set
+              const categoriesChanged = 
+                updatedTx.appCategoryId !== originalTx?.appCategoryId ||
+                updatedTx.appSubCategoryId !== originalTx?.appSubCategoryId;
+              
+              if (categoriesChanged) {
+                actuallyOverridden.push(updatedTx.id);
+                console.log(`⭐ [RULE OVERRIDE] Transaction ${updatedTx.id} categories actually changed by rules`);
+              } else {
+                console.log(`✅ [RULE CONFIRM] Transaction ${updatedTx.id} categories confirmed by rules, keeping star`);
+              }
+            }
+          }
+          
+          if (actuallyOverridden.length > 0) {
+            console.log(`⭐ [STAR REMOVAL] Removing stars from ${actuallyOverridden.length} transactions actually overridden by rules`);
+            // Update database to remove historical assignment flag for truly overridden transactions
+            for (const txId of actuallyOverridden) {
+              try {
+                await updateTransactionMutation.mutateAsync({
+                  id: txId,
+                  data: { wasHistoricallyAssigned: 'false' }
+                });
+                console.log(`🚫 [MOBILE DEBUG] Transaction ${txId} STAR REMOVED (actually overridden by rules)`);
+              } catch (error) {
+                console.error(`Failed to remove star from transaction ${txId}:`, error);
+              }
+            }
+          }
+        }
         
         // Force refresh of all transaction data
         await queryClient.refetchQueries({ queryKey: ['/api/transactions'] });
@@ -1370,7 +1502,17 @@ export function TransactionReviewPage() {
                           {/* Huvudkategori display */}
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Huvudkategori:</span>
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Huvudkategori:</span>
+                                {currentTransaction.wasHistoricallyAssigned === 'true' && (
+                                  <div className="group relative">
+                                    <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
+                                    <div className="absolute left-1/2 transform -translate-x-1/2 bottom-full mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                                      Uppdaterad baserat på historik
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                               {!currentTransaction.savingsTargetId && (
                                 <Button
                                   size="sm"

@@ -2477,6 +2477,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Find historical category matches for a transaction
+  app.get("/api/transactions/:id/historical-matches", async (req, res) => {
+    try {
+      const transactionId = req.params.id;
+      const userId = req.authenticatedUserId;
+      
+      console.log(`🔍 [API] GET /api/transactions/${transactionId}/historical-matches for user ${userId}`);
+      
+      // Get the current transaction
+      const currentTransaction = await storage.getTransaction(transactionId, userId);
+      if (!currentTransaction) {
+        return res.status(404).json({ error: 'Transaction not found' });
+      }
+      
+      // Find historical matches
+      const historicalMatches = await storage.findHistoricalCategoryMatches(
+        currentTransaction.description, 
+        currentTransaction.accountId,
+        userId,
+        transactionId // exclude current transaction
+      );
+      
+      console.log(`✅ [API] Found ${historicalMatches.length} historical matches`);
+      res.json(historicalMatches);
+    } catch (error) {
+      console.error('Error finding historical matches:', error);
+      res.status(500).json({ error: 'Failed to find historical matches' });
+    }
+  });
+
   // Monthly Budget routes
   app.get("/api/monthly-budgets", async (req, res) => {
     try {

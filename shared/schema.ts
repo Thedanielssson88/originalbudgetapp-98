@@ -137,6 +137,7 @@ export const transactions = pgTable('transactions', {
     incomeTargetId: uuid('income_target_id'), // Links to budget_posts.id for income sources - reference added below after budgetPosts definition
     correctedAmount: integer('corrected_amount'),
     isManuallyChanged: text('is_manually_changed').default('false').notNull(),
+    wasHistoricallyAssigned: text('was_historically_assigned').default('false').notNull(),
     appCategoryId: uuid('app_category_id').references(() => huvudkategorier.id, { onDelete: 'set null' }),
     appSubCategoryId: uuid('app_sub_category_id').references(() => underkategorier.id, { onDelete: 'set null' }),
     // Keep legacy references for backward compatibility

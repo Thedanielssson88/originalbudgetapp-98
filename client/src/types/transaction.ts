@@ -35,6 +35,7 @@ export interface ImportedTransaction {
   
   // Metadata
   isManuallyChanged?: boolean; // If user manually changed category, don't override on re-import
+  wasHistoricallyAssigned?: string; // If categories were assigned through historical matching
   importedAt: string;
   fileSource: string; // Which CSV file this came from
 }

@@ -630,6 +630,36 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
+  // Find transactions with the same description and account that have categories assigned
+  async findHistoricalCategoryMatches(
+    description: string, 
+    accountId: string, 
+    userId: string, 
+    excludeTransactionId: string
+  ): Promise<Transaction[]> {
+    console.log(`🔍 [DB] Finding historical matches for description: "${description}", account: ${accountId}`);
+    
+    const userDb = getUserDatabase(userId);
+    const result = await userDb
+      .select()
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.userId, userId),
+          eq(transactions.description, description),
+          eq(transactions.accountId, accountId),
+          sql`${transactions.id} != ${excludeTransactionId}`, // exclude current transaction
+          sql`${transactions.appCategoryId} IS NOT NULL`, // has huvudkategori
+          sql`${transactions.appSubCategoryId} IS NOT NULL` // has underkategori
+        )
+      )
+      .orderBy(sql`${transactions.date} DESC`) // most recent first
+      .limit(5); // limit to prevent too many results
+    
+    console.log(`✅ [DB] Found ${result.length} historical matches`);
+    return result;
+  }
+
   // NEW: Get transactions within a date range for synchronization
   async getTransactionsInDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
     console.log(`Getting transactions for userId: ${userId} between ${startDate.toISOString()} and ${endDate.toISOString()}`);

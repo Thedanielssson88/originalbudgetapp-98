@@ -303,3 +303,14 @@ export function useDeleteTransaction() {
     },
   });
 }
+
+// Hook for finding historical category matches
+export function useHistoricalCategoryMatches(transactionId?: string) {
+  return useQuery<Transaction[]>({
+    queryKey: ['/api/transactions', transactionId, 'historical-matches'],
+    queryFn: () => apiRequest(`/api/transactions/${transactionId}/historical-matches`),
+    enabled: !!transactionId,
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    retry: false,
+  });
+}
