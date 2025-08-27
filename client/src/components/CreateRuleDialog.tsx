@@ -582,6 +582,7 @@ export const CreateRuleDialog: React.FC<CreateRuleDialogProps> = ({
                       <SelectItem value="Transaction">Transaktion</SelectItem>
                       <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
                       <SelectItem value="ExpenseClaim">Utlägg</SelectItem>
+                      <SelectItem value="Payment">Utbetalning</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

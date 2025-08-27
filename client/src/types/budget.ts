@@ -17,13 +17,14 @@ export interface Transaction {
   amount: number; // Originalbelopp från banken, ändras aldrig
   balanceAfter: number; // Saldo efter transaktion
   status: 'red' | 'yellow' | 'green'; // Röd=kräver åtgärd, Gul=automatisk, Grön=godkänd
-  type: 'Transaction' | 'InternalTransfer' | 'Savings' | 'CostCoverage' | 'ExpenseClaim' | 'Inkomst';
+  type: 'Transaction' | 'InternalTransfer' | 'Savings' | 'CostCoverage' | 'ExpenseClaim' | 'Inkomst' | 'Payment';
   appCategoryId?: string; // Koppling till vår egen kategori
   appSubCategoryId?: string;
   linkedTransactionId?: string; // För att para ihop överföringar
   correctedAmount?: number; // För "Täck en kostnad"-logiken
   savingsTargetId?: string; // ID för kopplat sparmål eller sparkategori
   incomeTargetId?: string; // ID för kopplad inkomst budget post
+  linkedPerson?: string; // ID för kopplad familjemedlem för utbetalningar
   isManuallyChanged?: boolean; // Håller reda på om användaren gjort en ändring
 }
 

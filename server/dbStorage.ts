@@ -578,6 +578,7 @@ export class DatabaseStorage implements IStorage {
     console.log(`🔍 [DB UPDATE] Transaction ${id}: Update data:`, JSON.stringify(updateData));
     console.log(`🔍 [DB UPDATE] linkedCostId in update:`, updateData.linkedCostId);
     console.log(`🔍 [DB UPDATE] correctedAmount in update:`, updateData.correctedAmount);
+    console.log(`🔍 [DB UPDATE] linkedPerson in update:`, updateData.linkedPerson);
     console.log(`🔍 [DB UPDATE] User ID:`, userId);
     
     // Use the correct database based on user ID
@@ -591,6 +592,7 @@ export class DatabaseStorage implements IStorage {
     console.log(`🔍 [DB UPDATE] Database returned:`, JSON.stringify(result[0]));
     console.log(`🔍 [DB UPDATE] DB result linkedCostId:`, result[0]?.linkedCostId);
     console.log(`🔍 [DB UPDATE] DB result correctedAmount:`, result[0]?.correctedAmount);
+    console.log(`🔍 [DB UPDATE] DB result linkedPerson:`, result[0]?.linkedPerson);
     
     return result[0];
   }

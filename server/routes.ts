@@ -1687,10 +1687,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[SYNC] Synchronization complete:`, syncStats);
 
+      // Update budget_posts with account balance from last transaction before payday
+      try {
+        console.log(`🚨 [NUCLEAR SYNC] Updating budget_posts with account balance for account ${accountId}...`);
+        
+        const allAccountTransactions = await storage.getTransactionsInDateRangeByAccount(
+          userId, 
+          accountId, 
+          new Date('2020-01-01'), 
+          new Date('2030-12-31')
+        );
+        
+        // Group by month using Swedish payday logic
+        const transactionsByMonth = new Map<string, any[]>();
+        
+        allAccountTransactions.forEach(tx => {
+          const txDate = new Date(tx.date);
+          let monthYear: Date;
+          if (txDate.getDate() >= 25) {
+            monthYear = new Date(txDate.getFullYear(), txDate.getMonth(), 1);
+          } else {
+            monthYear = new Date(txDate.getFullYear(), txDate.getMonth() - 1, 1);
+          }
+          const monthKey = `${monthYear.getFullYear()}-${String(monthYear.getMonth() + 1).padStart(2, '0')}`;
+          
+          if (!transactionsByMonth.has(monthKey)) {
+            transactionsByMonth.set(monthKey, []);
+          }
+          transactionsByMonth.get(monthKey)!.push(tx);
+        });
+        
+        let balancesUpdated = 0;
+        
+        for (const [monthKey, monthTransactions] of transactionsByMonth.entries()) {
+          const transactionsBeforePayday = monthTransactions.filter(tx => {
+            const txDate = new Date(tx.date);
+            return txDate.getDate() <= 24;
+          });
+          
+          if (transactionsBeforePayday.length === 0) continue;
+          
+          const lastTransaction = transactionsBeforePayday.sort((a, b) => 
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+          )[0];
+          
+          if (!lastTransaction.balanceAfter) continue;
+          
+          console.log(`🚨 [NUCLEAR SYNC] Processing ${monthKey}: Last balance before payday = ${lastTransaction.balanceAfter / 100} kr`);
+          
+          // Check if budget_post exists for this month/account/type
+          const allPosts = await storage.getBudgetPosts(userId, monthKey);
+          const existingPost = allPosts.find(post => 
+            post.type === 'Balance' && post.accountId === accountId
+          );
+          
+          if (existingPost) {
+            // Update existing budget_post
+            console.log(`🚨 [NUCLEAR SYNC] Updating existing budget_post ${existingPost.id}`);
+            await storage.updateBudgetPost(existingPost.id, {
+              accountBalance: lastTransaction.balanceAfter,
+              description: `Bank balance from CSV import (${lastTransaction.date})`
+            });
+          } else {
+            // Create new budget_post
+            console.log(`🚨 [NUCLEAR SYNC] Creating new budget_post for ${monthKey}`);
+            await storage.createBudgetPost({
+              userId,
+              monthKey,
+              type: 'Balance',
+              accountId,
+              amount: 0,
+              accountBalance: lastTransaction.balanceAfter,
+              description: `Bank balance from CSV import (${lastTransaction.date})`,
+              huvudkategoriId: null,
+              underkategoriId: null
+            });
+          }
+          
+          balancesUpdated++;
+          console.log(`🚨 [NUCLEAR SYNC] Updated balance for ${monthKey}: ${lastTransaction.balanceAfter / 100} kr`);
+        }
+        
+        syncStats.balancesUpdated = balancesUpdated;
+        console.log(`🚨 [NUCLEAR SYNC] Updated ${balancesUpdated} budget_posts with account balances`);
+        
+      } catch (balanceError) {
+        console.error(`🚨 [NUCLEAR SYNC] Error updating budget_posts:`, balanceError);
+      }
+
       res.json({
         success: true,
         stats: syncStats,
-        message: `NUCLEAR SYNC complete: ${syncStats.created} created, ${syncStats.deleted} deleted, ${syncStats.preserved} manual edits preserved`
+        message: `NUCLEAR SYNC complete: ${syncStats.created} created, ${syncStats.deleted} deleted, ${syncStats.preserved} manual edits preserved, ${syncStats.balancesUpdated || 0} balances updated`
       });
 
     } catch (error) {
@@ -1913,12 +2001,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Don't fail the entire import if this fails
       }
       
+      // Update budget_posts with account balance from last transaction before payday
+      try {
+        console.log(`🛡️ [BULLETPROOF] Updating budget_posts with account balance for account ${accountId}...`);
+        
+        const allAccountTransactions = await storage.getTransactionsInDateRangeByAccount(
+          userId, 
+          accountId, 
+          new Date('2020-01-01'), 
+          new Date('2030-12-31')
+        );
+        
+        // Group by month using Swedish payday logic
+        const transactionsByMonth = new Map<string, any[]>();
+        
+        allAccountTransactions.forEach(tx => {
+          const txDate = new Date(tx.date);
+          let monthYear: Date;
+          if (txDate.getDate() >= 25) {
+            monthYear = new Date(txDate.getFullYear(), txDate.getMonth(), 1);
+          } else {
+            monthYear = new Date(txDate.getFullYear(), txDate.getMonth() - 1, 1);
+          }
+          const monthKey = `${monthYear.getFullYear()}-${String(monthYear.getMonth() + 1).padStart(2, '0')}`;
+          
+          if (!transactionsByMonth.has(monthKey)) {
+            transactionsByMonth.set(monthKey, []);
+          }
+          transactionsByMonth.get(monthKey)!.push(tx);
+        });
+        
+        let balancesUpdated = 0;
+        
+        for (const [monthKey, monthTransactions] of transactionsByMonth.entries()) {
+          const transactionsBeforePayday = monthTransactions.filter(tx => {
+            const txDate = new Date(tx.date);
+            return txDate.getDate() <= 24;
+          });
+          
+          if (transactionsBeforePayday.length === 0) continue;
+          
+          const lastTransaction = transactionsBeforePayday.sort((a, b) => 
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+          )[0];
+          
+          if (!lastTransaction.balanceAfter) continue;
+          
+          console.log(`🛡️ [BULLETPROOF] Processing ${monthKey}: Last balance before payday = ${lastTransaction.balanceAfter / 100} kr`);
+          
+          // Check if budget_post exists for this month/account/type
+          const allPosts = await storage.getBudgetPosts(userId, monthKey);
+          const existingPost = allPosts.find(post => 
+            post.type === 'Balance' && post.accountId === accountId
+          );
+          
+          if (existingPost) {
+            // Update existing budget_post
+            console.log(`🛡️ [BULLETPROOF] Updating existing budget_post ${existingPost.id}`);
+            await storage.updateBudgetPost(existingPost.id, {
+              accountBalance: lastTransaction.balanceAfter,
+              description: `Bank balance from CSV import (${lastTransaction.date})`
+            });
+          } else {
+            // Create new budget_post
+            console.log(`🛡️ [BULLETPROOF] Creating new budget_post for ${monthKey}`);
+            await storage.createBudgetPost({
+              userId,
+              monthKey,
+              type: 'Balance',
+              accountId,
+              amount: 0,
+              accountBalance: lastTransaction.balanceAfter,
+              description: `Bank balance from CSV import (${lastTransaction.date})`,
+              huvudkategoriId: null,
+              underkategoriId: null
+            });
+          }
+          
+          balancesUpdated++;
+          console.log(`🛡️ [BULLETPROOF] Updated balance for ${monthKey}: ${lastTransaction.balanceAfter / 100} kr`);
+        }
+        
+        stats.balancesUpdated = balancesUpdated;
+        console.log(`🛡️ [BULLETPROOF] Updated ${balancesUpdated} budget_posts with account balances`);
+        
+      } catch (balanceError) {
+        console.error(`🛡️ [BULLETPROOF] Error updating budget_posts:`, balanceError);
+      }
+
       console.log(`🛡️ [BULLETPROOF] ================================`);
       console.log(`🛡️ [BULLETPROOF] SYNC COMPLETE`);
       console.log(`🛡️ [BULLETPROOF] Deleted: ${stats.deleted}`);
       console.log(`🛡️ [BULLETPROOF] Created: ${stats.created}`);
       console.log(`🛡️ [BULLETPROOF] Restored: ${stats.restored}`);
       console.log(`🛡️ [BULLETPROOF] Duplicates removed: ${stats.duplicatesRemoved}`);
+      console.log(`🛡️ [BULLETPROOF] Balances updated: ${stats.balancesUpdated || 0}`);
       console.log(`🛡️ [BULLETPROOF] ================================`);
       console.log(`🔍 [BULLETPROOF] About to send response - accountUpdateReached: ${accountUpdateReached}`);
       
@@ -1927,7 +2104,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         stats,
         accountUpdated: accountUpdateSuccess, // Indicate if account update actually succeeded
         accountUpdateReached: accountUpdateReached, // Indicate if we reached the account update code
-        message: `Import complete: ${stats.created} created, ${stats.restored} with restored data, ${stats.duplicatesRemoved} duplicates removed`
+        message: `Import complete: ${stats.created} created, ${stats.restored} with restored data, ${stats.duplicatesRemoved} duplicates removed, ${stats.balancesUpdated || 0} balances updated`
       });
       
     } catch (error) {
@@ -2474,6 +2651,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error resetting status:', error);
       res.status(500).json({ error: 'Failed to reset status' });
+    }
+  });
+
+  // Reset green uncategorized transactions to yellow
+  app.post("/api/transactions/reset-green-uncategorized-to-yellow", async (req, res) => {
+    try {
+      const userId = req.authenticatedUserId;
+      console.log(`[RESET UNCATEGORIZED] Resetting green uncategorized transactions to yellow for user ${userId}`);
+      
+      // Get all transactions for the user
+      const allTransactions = await storage.getTransactions(userId);
+      
+      // Filter for green transactions that are missing categories
+      const greenUncategorized = allTransactions.filter(tx => 
+        tx.status === 'green' && 
+        (!tx.appCategoryId || !tx.appSubCategoryId)
+      );
+      
+      console.log(`[RESET UNCATEGORIZED] Found ${greenUncategorized.length} green uncategorized transactions`);
+      
+      let updatedCount = 0;
+      for (const transaction of greenUncategorized) {
+        try {
+          const success = await storage.updateTransaction(transaction.id, { status: 'yellow' }, userId);
+          if (success) {
+            updatedCount++;
+            console.log(`[RESET UNCATEGORIZED] Updated transaction ${transaction.id}: ${transaction.description}`);
+          }
+        } catch (error) {
+          console.error(`[RESET UNCATEGORIZED] Error updating transaction ${transaction.id}:`, error);
+        }
+      }
+      
+      console.log(`[RESET UNCATEGORIZED] Successfully reset ${updatedCount}/${greenUncategorized.length} uncategorized transactions to yellow`);
+      res.json({ updatedCount, totalFound: greenUncategorized.length });
+    } catch (error) {
+      console.error('Error resetting uncategorized status:', error);
+      res.status(500).json({ error: 'Failed to reset uncategorized status' });
     }
   });
 

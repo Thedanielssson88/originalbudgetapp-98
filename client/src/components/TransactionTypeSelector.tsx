@@ -59,6 +59,7 @@ export const TransactionTypeSelector: React.FC<TransactionTypeSelectorProps> = (
             <SelectItem value="Transaction">Transaktion</SelectItem>
             <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
             <SelectItem value="ExpenseClaim">Utlägg</SelectItem>
+            <SelectItem value="Payment">Utbetalning</SelectItem>
           </>
         ) : (
           // Alternativ för positiva transaktioner

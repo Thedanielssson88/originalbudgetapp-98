@@ -1946,6 +1946,7 @@ export async function forceReloadTransactions(): Promise<void> {
         savingsTargetId: tx.savingsTargetId || (tx as any).savings_target_id, // CRITICAL FIX: Include savingsTargetId field (handle both field names)
         incomeTargetId: tx.incomeTargetId || (tx as any).income_target_id, // Handle snake_case
         correctedAmount: tx.correctedAmount ?? (tx as any).corrected_amount ?? null, // Handle snake_case and null values
+        linkedPerson: tx.linkedPerson || (tx as any).linked_person, // CRITICAL FIX: Include linkedPerson field (handle both field names)
         isManuallyChanged: tx.isManuallyChanged === 'true',
         appCategoryId: tx.appCategoryId || (tx as any).app_category_id,
         appSubCategoryId: tx.appSubCategoryId || (tx as any).app_sub_category_id,
@@ -3224,6 +3225,7 @@ export function updateTransactionsForMonth(monthKey: string, transactions: Impor
     savingsTargetId: tx.savingsTargetId, // Include savingsTargetId field
     incomeTargetId: tx.incomeTargetId, // Include incomeTargetId field
     correctedAmount: tx.correctedAmount,
+    linkedPerson: tx.linkedPerson, // CRITICAL FIX: Include linkedPerson field
     type: tx.type || 'Transaction',
     status: tx.status || 'red', // Use status from ImportedTransaction
     isManuallyChanged: tx.isManuallyChanged || false,

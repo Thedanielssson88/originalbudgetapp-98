@@ -66,6 +66,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
       linkedTransactionId: propTransaction.linkedTransactionId || (propTransaction as any).linked_transaction_id || null,
       savingsTargetId: propTransaction.savingsTargetId || (propTransaction as any).savings_target_id || null,
       correctedAmount: propTransaction.correctedAmount !== undefined ? propTransaction.correctedAmount : (propTransaction as any).corrected_amount || null,
+      linkedPerson: propTransaction.linkedPerson || (propTransaction as any).linked_person || null,
     };
   });
   
@@ -108,6 +109,7 @@ export const TransactionExpandableCard: React.FC<TransactionExpandableCardProps>
       linkedTransactionId: propTransaction.linkedTransactionId || (propTransaction as any).linked_transaction_id || null,
       savingsTargetId: propTransaction.savingsTargetId || (propTransaction as any).savings_target_id || null,
       correctedAmount: propTransaction.correctedAmount !== undefined ? propTransaction.correctedAmount : (propTransaction as any).corrected_amount || null,
+      linkedPerson: propTransaction.linkedPerson || (propTransaction as any).linked_person || null,
     };
     
     setTransaction(convertedTransaction);

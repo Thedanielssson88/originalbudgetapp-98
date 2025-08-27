@@ -219,25 +219,32 @@ function applyRuleToTransaction(
   
   // For InternalTransfer type, only auto-approve if transaction has a linked transaction
   // Otherwise, do not auto-approve even if the rule says to
-  if (rule.autoApproval && rule.huvudkategoriId && rule.underkategoriId && transaction.status !== 'green') {
-    // Check if this is an InternalTransfer rule
-    const isInternalTransferRule = 
-      newType === 'InternalTransfer' || 
-      transaction.type === 'InternalTransfer' ||
-      (rule.positiveTransactionType === 'InternalTransfer' || rule.negativeTransactionType === 'InternalTransfer');
+  // CRITICAL: Only auto-approve if categories were ACTUALLY applied
+  if (rule.autoApproval && transaction.status !== 'green') {
+    // Check that categories were actually applied in this update
+    const categoriesApplied = updates.appCategoryId && updates.appSubCategoryId;
     
-    if (isInternalTransferRule) {
-      // Only auto-approve if transaction has a linked transaction
-      if (transaction.linkedTransactionId) {
+    if (categoriesApplied) {
+      // Check if this is an InternalTransfer rule
+      const isInternalTransferRule = 
+        newType === 'InternalTransfer' || 
+        transaction.type === 'InternalTransfer' ||
+        (rule.positiveTransactionType === 'InternalTransfer' || rule.negativeTransactionType === 'InternalTransfer');
+      
+      if (isInternalTransferRule) {
+        // Only auto-approve if transaction has a linked transaction
+        if (transaction.linkedTransactionId) {
+          updates.status = 'green';
+          hasUpdates = true;
+        }
+        // Do not auto-approve unlinked internal transfers
+      } else {
+        // Regular transactions can be auto-approved
         updates.status = 'green';
         hasUpdates = true;
       }
-      // Do not auto-approve unlinked internal transfers
-    } else {
-      // Regular transactions can be auto-approved
-      updates.status = 'green';
-      hasUpdates = true;
     }
+    // If categories weren't applied, don't auto-approve even if rule says to
   }
   
   // Mark as rule-processed (not manually changed)
@@ -639,9 +646,18 @@ function synchronizeLinkedTransactions(
       
       // If the rule has autoApproveLinked and this is an internal transfer with auto-approval
       if (rule.autoApproveLinked && originalUpdate.updates.status === 'green') {
-        // Apply auto-approval to the linked transaction as well
-        linkedUpdate.updates.status = 'green';
-        console.log(`✅ [BATCH RULES] Auto-approved linked transaction ${linkedTransaction.id} due to autoApproveLinked rule`);
+        // CRITICAL: Only auto-approve linked transaction if it will have categories
+        const linkedWillHaveCategories = 
+          (linkedUpdate.updates.appCategoryId || linkedTransaction.appCategoryId) &&
+          (linkedUpdate.updates.appSubCategoryId || linkedTransaction.appSubCategoryId);
+        
+        if (linkedWillHaveCategories) {
+          // Apply auto-approval to the linked transaction as well
+          linkedUpdate.updates.status = 'green';
+          console.log(`✅ [BATCH RULES] Auto-approved linked transaction ${linkedTransaction.id} due to autoApproveLinked rule`);
+        } else {
+          console.log(`⚠️ [BATCH RULES] Skipped auto-approval of linked transaction ${linkedTransaction.id} - missing categories`);
+        }
       }
     }
     

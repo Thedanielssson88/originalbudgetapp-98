@@ -27,7 +27,8 @@ import {
   Zap,
   Trophy,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Users
 } from 'lucide-react';
 import { BudgetState } from '@/types/budget';
 import { useAccounts } from '@/hooks/useAccounts';
@@ -83,6 +84,8 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
   
   const [activeView, setActiveView] = useState<'overview' | 'trends' | 'categories' | 'accounts'>('overview');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([]);
+  const [showSubcategories, setShowSubcategories] = useState<boolean>(false);
   const [selectedAccountFilter, setSelectedAccountFilter] = useState<'all' | 'account-type' | string>('all');
   const [selectedAccountTypeId, setSelectedAccountTypeId] = useState<string>('');
 
@@ -165,6 +168,47 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
     
     return result;
   }, [budgetPosts, familyMembers, inkomstkallor]);
+
+  // Payment breakdown by family member (linked_person)
+  const paymentBreakdown = useMemo(() => {
+    // Get all Payment type transactions with linkedPerson
+    const paymentTransactions = transactionsForPeriod.filter(tx => 
+      tx.type === 'Payment' && tx.amount < 0 && tx.linkedPerson
+    );
+    
+    // Group by family member
+    const breakdown = new Map();
+    
+    paymentTransactions.forEach(tx => {
+      const memberId = tx.linkedPerson;
+      const amount = Math.abs(tx.amount);
+      
+      if (!breakdown.has(memberId)) {
+        breakdown.set(memberId, 0);
+      }
+      
+      breakdown.set(memberId, breakdown.get(memberId) + amount);
+    });
+    
+    // Convert to structured data with percentages
+    const totalPayments = Array.from(breakdown.values()).reduce((sum, amount) => sum + amount, 0);
+    
+    const result = [];
+    breakdown.forEach((amount, memberId) => {
+      const member = familyMembers.find(m => m.id === memberId);
+      const percentage = totalPayments > 0 ? (amount / totalPayments) * 100 : 0;
+      
+      result.push({
+        memberId,
+        memberName: member?.name || 'Okänd',
+        amount,
+        percentage: Math.round(percentage)
+      });
+    });
+    
+    // Sort by amount descending
+    return result.sort((a, b) => b.amount - a.amount);
+  }, [transactionsForPeriod, familyMembers]);
 
   // Calculate key metrics
   const metrics = useMemo(() => {
@@ -281,10 +325,62 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
       }
     });
 
-    return Array.from(categorySpending.values())
+    // Add uncategorized transactions
+    const uncategorizedAmount = transactionsForPeriod
+      .filter(t => t.type === 'Transaction' && t.amount < 0 && (!t.appCategoryId || !t.appSubCategoryId))
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
+    const result = Array.from(categorySpending.values());
+    
+    // Add uncategorized if there are any
+    if (uncategorizedAmount > 0) {
+      result.push({
+        budgeted: 0,
+        actual: uncategorizedAmount,
+        name: 'Okategoriserad',
+        subCategories: new Map()
+      });
+    }
+
+    return result
       .sort((a, b) => b.actual - a.actual) // Sort by actual spending instead of budgeted
       .slice(0, 8); // Top 8 categories
   }, [budgetPosts, transactionsForPeriod, huvudkategorier]);
+
+  // Subcategory analysis for selected categories
+  const subcategoryAnalysis = useMemo(() => {
+    const subcategorySpending = new Map<string, { 
+      actual: number; 
+      name: string; 
+      categoryId: string; 
+      categoryName: string; 
+    }>();
+
+    transactionsForPeriod.forEach(transaction => {
+      if (transaction.type === 'Transaction' && transaction.amount < 0 && 
+          transaction.appCategoryId && transaction.appSubCategoryId &&
+          selectedCategories.includes(transaction.appCategoryId)) {
+        
+        const subcategory = underkategorier.find(uk => uk.id === transaction.appSubCategoryId);
+        const category = huvudkategorier.find(hk => hk.id === transaction.appCategoryId);
+        
+        if (subcategory && category) {
+          const amount = Math.abs(transaction.amount);
+          const existing = subcategorySpending.get(subcategory.id) || {
+            actual: 0,
+            name: subcategory.name,
+            categoryId: category.id,
+            categoryName: category.name
+          };
+          existing.actual += amount;
+          subcategorySpending.set(subcategory.id, existing);
+        }
+      }
+    });
+
+    return Array.from(subcategorySpending.values())
+      .sort((a, b) => b.actual - a.actual);
+  }, [transactionsForPeriod, underkategorier, huvudkategorier, selectedCategories]);
 
   // Account balances summary with detailed transaction breakdown
   const accountSummary = useMemo(() => {
@@ -369,13 +465,12 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
 
   // Category trend analysis - for selected categories
   const categoryTrend = useMemo(() => {
-    if (selectedCategories.length === 0) return [];
+    if (selectedCategories.length === 0 && selectedSubcategories.length === 0) return [];
     
     const dailyData = new Map<string, Map<string, number>>();
     
     transactionsForPeriod.forEach(t => {
-      // Only count negative Transaction type with selected categories
-      if (t.type === 'Transaction' && t.amount < 0 && t.appCategoryId && selectedCategories.includes(t.appCategoryId)) {
+      if (t.type === 'Transaction' && t.amount < 0) {
         const date = new Date(t.date).toISOString().split('T')[0];
         
         if (!dailyData.has(date)) {
@@ -383,26 +478,61 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
         }
         
         const dateCategories = dailyData.get(date)!;
-        const currentAmount = dateCategories.get(t.appCategoryId) || 0;
-        dateCategories.set(t.appCategoryId, currentAmount + Math.abs(t.amount));
+        
+        // Handle main categories (if showing aggregated)
+        if (!showSubcategories) {
+          // Handle properly categorized transactions
+          if (t.appCategoryId && t.appSubCategoryId && selectedCategories.includes(t.appCategoryId)) {
+            const currentAmount = dateCategories.get(t.appCategoryId) || 0;
+            dateCategories.set(t.appCategoryId, currentAmount + Math.abs(t.amount));
+          }
+          // Handle uncategorized transactions (missing either main or sub category)
+          else if ((!t.appCategoryId || !t.appSubCategoryId) && selectedCategories.includes('uncategorized')) {
+            const currentAmount = dateCategories.get('uncategorized') || 0;
+            dateCategories.set('uncategorized', currentAmount + Math.abs(t.amount));
+          }
+        }
+        
+        // Handle subcategories
+        if (showSubcategories && t.appSubCategoryId && selectedSubcategories.includes(t.appSubCategoryId)) {
+          const currentAmount = dateCategories.get(t.appSubCategoryId) || 0;
+          dateCategories.set(t.appSubCategoryId, currentAmount + Math.abs(t.amount));
+        }
       }
     });
 
     // Convert to array format for chart
     const result = Array.from(dailyData.entries())
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([date, categories]) => {
+      .map(([date, data]) => {
         const dataPoint: any = { date };
-        selectedCategories.forEach(catId => {
-          const category = huvudkategorier.find(h => h.id === catId);
-          const categoryName = category?.name || 'Okänd';
-          dataPoint[categoryName] = (categories.get(catId) || 0) / 100;
-        });
+        
+        if (showSubcategories) {
+          // Show subcategories
+          selectedSubcategories.forEach(subCatId => {
+            const subcategory = underkategorier.find(uk => uk.id === subCatId);
+            const category = huvudkategorier.find(hk => hk.id === subcategory?.huvudkategoriId);
+            const displayName = subcategory ? `${category?.name} - ${subcategory.name}` : 'Okänd';
+            dataPoint[displayName] = data.get(subCatId) || 0;
+          });
+        } else {
+          // Show main categories
+          selectedCategories.forEach(catId => {
+            if (catId === 'uncategorized') {
+              dataPoint['Okategoriserad'] = data.get('uncategorized') || 0;
+            } else {
+              const category = huvudkategorier.find(h => h.id === catId);
+              const categoryName = category?.name || 'Okänd';
+              dataPoint[categoryName] = data.get(catId) || 0;
+            }
+          });
+        }
+        
         return dataPoint;
       });
 
     return result;
-  }, [transactionsForPeriod, selectedCategories, huvudkategorier]);
+  }, [transactionsForPeriod, selectedCategories, selectedSubcategories, showSubcategories, huvudkategorier, underkategorier]);
 
   // Format currency
   const formatCurrency = (amount: number) => formatOrenAsCurrency(amount);
@@ -675,9 +805,92 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
                           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                           <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
                           <YAxis />
-                          <Tooltip formatter={(value: any) => formatCurrency(value * 100)} />
+                          <Tooltip formatter={(value: any) => formatCurrency(value)} />
                           <Bar dataKey="amount" fill="#10b981" radius={[8, 8, 0, 0]} />
                         </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Payment Breakdown Section */}
+            {paymentBreakdown.length > 0 && (
+              <Card className="border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-orange-500" />
+                    Utbetalning
+                  </CardTitle>
+                  <CardDescription>
+                    Fördelning av utbetalningar per familjemedlem
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Per Person</h4>
+                      <div className="space-y-3">
+                        {paymentBreakdown.map((member) => (
+                          <div key={member.memberId} className="flex items-center justify-between p-3 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-200">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                                <Users className="w-5 h-5 text-orange-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-900">{member.memberName}</p>
+                                <p className="text-sm text-gray-600">{member.percentage}%</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold text-orange-900">{formatCurrency(member.amount)}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Total Payment Summary */}
+                    <div className="p-4 bg-gradient-to-r from-orange-100 to-amber-100 rounded-lg border border-orange-300">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600">Total utbetalningar</p>
+                          <p className="text-2xl font-bold text-orange-900">
+                            {formatCurrency(paymentBreakdown.reduce((sum, m) => sum + m.amount, 0))}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-gray-600">Antal personer</p>
+                          <p className="text-xl font-semibold text-orange-800">{paymentBreakdown.length}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Payment Distribution Chart */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Visualisering</h4>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <RePieChart>
+                          <Pie
+                            data={paymentBreakdown.map(member => ({
+                              name: member.memberName,
+                              value: member.amount
+                            }))}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            outerRadius={80}
+                            fill="#f97316"
+                            dataKey="value"
+                          >
+                            {paymentBreakdown.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={['#f97316', '#fb923c', '#fdba74', '#fed7aa'][index % 4]} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value: any) => formatCurrency(value)} />
+                        </RePieChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
@@ -1162,78 +1375,278 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
           </TabsContent>
 
           <TabsContent value="categories" className="mt-6 space-y-6">
-            {/* Category Performance with Interactive Selection */}
+            {/* Enhanced Category Performance with Subcategories */}
             <Card className="border-0 shadow-lg">
               <CardHeader>
                 <CardTitle>Kategoriprestation</CardTitle>
-                <CardDescription>Välj kategorier för att se deras utgiftstrend över månaden</CardDescription>
+                <CardDescription>Välj kategorier och underkategorier för att se deras utgiftstrend över månaden</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {/* Category Selection */}
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Välj kategorier att jämföra:</p>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                      {categoryAnalysis.map((cat) => (
-                        <div key={cat.name} className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id={cat.name}
-                            checked={selectedCategories.includes(huvudkategorier.find(h => h.name === cat.name)?.id || '')}
-                            onChange={(e) => {
-                              const catId = huvudkategorier.find(h => h.name === cat.name)?.id;
-                              if (catId) {
-                                if (e.target.checked) {
-                                  setSelectedCategories([...selectedCategories, catId]);
-                                } else {
-                                  setSelectedCategories(selectedCategories.filter(id => id !== catId));
-                                }
-                              }
-                            }}
-                            className="rounded border-gray-300"
-                          />
-                          <label htmlFor={cat.name} className="text-sm cursor-pointer">
-                            {cat.name} ({formatCurrency(cat.actual)})
-                          </label>
-                        </div>
-                      ))}
+                <div className="space-y-6">
+                  {/* Display Mode Toggle */}
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          id="show-categories"
+                          name="display-mode"
+                          checked={!showSubcategories}
+                          onChange={() => {
+                            setShowSubcategories(false);
+                            setSelectedSubcategories([]);
+                          }}
+                          className="w-4 h-4 text-blue-600"
+                        />
+                        <label htmlFor="show-categories" className="text-sm font-medium cursor-pointer">
+                          Visa huvudkategorier
+                        </label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          id="show-subcategories"
+                          name="display-mode"
+                          checked={showSubcategories}
+                          onChange={() => setShowSubcategories(true)}
+                          className="w-4 h-4 text-blue-600"
+                        />
+                        <label htmlFor="show-subcategories" className="text-sm font-medium cursor-pointer">
+                          Visa underkategorier
+                        </label>
+                      </div>
                     </div>
+                    {selectedCategories.length > 0 && !showSubcategories && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedCategories([])}
+                      >
+                        Rensa alla
+                      </Button>
+                    )}
+                    {selectedSubcategories.length > 0 && showSubcategories && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedSubcategories([])}
+                      >
+                        Rensa alla
+                      </Button>
+                    )}
                   </div>
 
-                  {/* Category Trend Chart */}
-                  {selectedCategories.length > 0 && (
+                  {!showSubcategories ? (
+                    /* Main Categories Selection */
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">Välj huvudkategorier att jämföra:</p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const allCatIds = categoryAnalysis.map(cat => 
+                              huvudkategorier.find(h => h.name === cat.name)?.id
+                            ).filter(Boolean) as string[];
+                            setSelectedCategories(allCatIds);
+                          }}
+                        >
+                          Välj alla
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {/* Include Uncategorized transactions */}
+                        <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50">
+                          <input
+                            type="checkbox"
+                            id="uncategorized"
+                            checked={selectedCategories.includes('uncategorized')}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedCategories([...selectedCategories, 'uncategorized']);
+                              } else {
+                                setSelectedCategories(selectedCategories.filter(id => id !== 'uncategorized'));
+                              }
+                            }}
+                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <label htmlFor="uncategorized" className="text-sm cursor-pointer flex-1">
+                            <div className="font-medium text-gray-700">Okategoriserad</div>
+                            <div className="text-xs text-gray-500">
+                              {formatCurrency(
+                                transactionsForPeriod
+                                  .filter(t => t.type === 'Transaction' && t.amount < 0 && (!t.appCategoryId || !t.appSubCategoryId))
+                                  .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+                              )}
+                            </div>
+                          </label>
+                        </div>
+                        {categoryAnalysis.map((cat) => {
+                          const catId = huvudkategorier.find(h => h.name === cat.name)?.id;
+                          if (!catId) return null;
+                          return (
+                            <div key={cat.name} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50">
+                              <input
+                                type="checkbox"
+                                id={cat.name}
+                                checked={selectedCategories.includes(catId)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedCategories([...selectedCategories, catId]);
+                                  } else {
+                                    setSelectedCategories(selectedCategories.filter(id => id !== catId));
+                                  }
+                                }}
+                                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              />
+                              <label htmlFor={cat.name} className="text-sm cursor-pointer flex-1">
+                                <div className="font-medium text-gray-700">{cat.name}</div>
+                                <div className="text-xs text-gray-500">{formatCurrency(cat.actual)}</div>
+                              </label>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedCategories([catId]);
+                                  setShowSubcategories(true);
+                                  const subCatIds = subcategoryAnalysis
+                                    .filter(sub => sub.categoryId === catId)
+                                    .map(sub => underkategorier.find(uk => uk.name === sub.name)?.id)
+                                    .filter(Boolean) as string[];
+                                  setSelectedSubcategories(subCatIds);
+                                }}
+                                className="text-xs h-6 px-2"
+                              >
+                                Visa underkategorier
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    /* Subcategories Selection */
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">Välj underkategorier att jämföra:</p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const allSubCatIds = subcategoryAnalysis
+                              .map(sub => underkategorier.find(uk => uk.name === sub.name)?.id)
+                              .filter(Boolean) as string[];
+                            setSelectedSubcategories(allSubCatIds);
+                          }}
+                        >
+                          Välj alla
+                        </Button>
+                      </div>
+                      {selectedCategories.length > 0 ? (
+                        <div className="space-y-4">
+                          {selectedCategories.map(catId => {
+                            const category = huvudkategorier.find(h => h.id === catId);
+                            const categorySubcategories = subcategoryAnalysis.filter(sub => sub.categoryId === catId);
+                            if (!category || categorySubcategories.length === 0) return null;
+                            
+                            return (
+                              <div key={catId} className="border rounded-lg p-4">
+                                <h4 className="font-medium text-gray-800 mb-3">{category.name}</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                  {categorySubcategories.map(sub => {
+                                    const subCatId = underkategorier.find(uk => uk.name === sub.name)?.id;
+                                    if (!subCatId) return null;
+                                    
+                                    return (
+                                      <div key={subCatId} className="flex items-center space-x-3 p-2 rounded hover:bg-gray-50">
+                                        <input
+                                          type="checkbox"
+                                          id={subCatId}
+                                          checked={selectedSubcategories.includes(subCatId)}
+                                          onChange={(e) => {
+                                            if (e.target.checked) {
+                                              setSelectedSubcategories([...selectedSubcategories, subCatId]);
+                                            } else {
+                                              setSelectedSubcategories(selectedSubcategories.filter(id => id !== subCatId));
+                                            }
+                                          }}
+                                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        <label htmlFor={subCatId} className="text-sm cursor-pointer flex-1">
+                                          <div className="font-medium text-gray-700">{sub.name}</div>
+                                          <div className="text-xs text-gray-500">{formatCurrency(sub.actual)}</div>
+                                        </label>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <AlertCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                          <p>Välj först huvudkategorier för att se underkategorier</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Enhanced Category Trend Chart */}
+                  {((selectedCategories.length > 0 && !showSubcategories) || (selectedSubcategories.length > 0 && showSubcategories)) && (
                     <div className="mt-6">
-                      <h4 className="text-sm font-medium mb-3">Daglig utgiftstrend för valda kategorier</h4>
-                      <ResponsiveContainer width="100%" height={300}>
+                      <h4 className="text-sm font-medium mb-3">
+                        Daglig utgiftstrend för valda {showSubcategories ? 'underkategorier' : 'kategorier'}
+                      </h4>
+                      <ResponsiveContainer width="100%" height={400}>
                         <LineChart data={categoryTrend}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                           <XAxis dataKey="date" />
                           <YAxis />
-                          <Tooltip formatter={(value: any) => formatCurrency(value * 100)} />
+                          <Tooltip formatter={(value: any) => formatCurrency(value)} />
                           <Legend />
-                          {selectedCategories.map((catId, index) => {
-                            const category = huvudkategorier.find(h => h.id === catId);
-                            const categoryName = category?.name || 'Okänd';
-                            return (
-                              <Line
-                                key={catId}
-                                type="monotone"
-                                dataKey={categoryName}
-                                stroke={COLORS[index % COLORS.length]}
-                                strokeWidth={2}
-                                dot={{ r: 3 }}
-                              />
-                            );
-                          })}
+                          {showSubcategories ? (
+                            selectedSubcategories.map((subCatId, index) => {
+                              const subcategory = underkategorier.find(uk => uk.id === subCatId);
+                              const category = huvudkategorier.find(hk => hk.id === subcategory?.huvudkategoriId);
+                              const displayName = subcategory ? `${category?.name} - ${subcategory.name}` : 'Okänd';
+                              return (
+                                <Line
+                                  key={subCatId}
+                                  type="monotone"
+                                  dataKey={displayName}
+                                  stroke={COLORS[index % COLORS.length]}
+                                  strokeWidth={2}
+                                  dot={{ r: 3 }}
+                                />
+                              );
+                            })
+                          ) : (
+                            selectedCategories.map((catId, index) => {
+                              const categoryName = catId === 'uncategorized' ? 'Okategoriserad' : 
+                                (huvudkategorier.find(h => h.id === catId)?.name || 'Okänd');
+                              return (
+                                <Line
+                                  key={catId}
+                                  type="monotone"
+                                  dataKey={categoryName}
+                                  stroke={COLORS[index % COLORS.length]}
+                                  strokeWidth={2}
+                                  dot={{ r: 3 }}
+                                />
+                              );
+                            })
+                          )}
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
                   )}
 
-                  {selectedCategories.length === 0 && (
+                  {selectedCategories.length === 0 && selectedSubcategories.length === 0 && (
                     <div className="text-center py-8 text-muted-foreground">
                       <AlertCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                      <p>Välj minst en kategori för att se utgiftstrend</p>
+                      <p>Välj minst en {showSubcategories ? 'underkategori' : 'kategori'} för att se utgiftstrend</p>
                     </div>
                   )}
                 </div>
@@ -1267,7 +1680,7 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value: any) => formatCurrency(value * 100)} />
+                      <Tooltip formatter={(value: any) => formatCurrency(value)} />
                     </RePieChart>
                   </ResponsiveContainer>
                 </CardContent>

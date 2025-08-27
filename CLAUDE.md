@@ -247,6 +247,32 @@ This exact issue occurred with `linkedCostId` and `correctedAmount` fields for E
 3. `budgetOrchestrator.ts:3209` - Add `linkedCostId` to linking updates  
 4. `TransactionExpandableCard.tsx:80` - Extend workaround for ExpenseClaim
 
+### Case Study: linkedPerson Field Fix (August 2025)
+**Problem**: Payment transactions could be linked to family members via "Koppla Utbetalning" feature, but the linkedPerson field would not persist after page refresh. The field was saved to database correctly but disappeared from the UI.
+
+**Root Cause**: Classic field mapping issue - linkedPerson was missing from multiple frontend data conversion functions, causing it to be filtered out during data processing.
+
+**Symptoms**:
+- ✅ Backend API correctly saved linkedPerson to `linked_person` database column
+- ✅ Direct API calls returned linkedPerson in JSON response  
+- ❌ UI showed linkedPerson after update but lost it after page refresh
+- ❌ Sammanställning "Utbetalning" section showed no linked data
+
+**Critical Fix Points**:
+1. **budgetOrchestrator.ts:1949** - Add `linkedPerson: tx.linkedPerson || (tx as any).linked_person` to `forceReloadTransactions()`
+2. **budgetOrchestrator.ts:3227** - Add `linkedPerson: tx.linkedPerson` to `setTransactionsForMonth()`  
+3. **TransactionExpandableCard.tsx:69,112** - Add snake_case conversion in useState and useEffect
+4. **types/transaction.ts:35** - Add `linkedPerson?: string` to ImportedTransaction interface
+5. **types/budget.ts:27** - Add `linkedPerson?: string` to Transaction interface
+6. **types/*.ts** - Add `Payment` to transaction type unions
+
+**Additional Issues Found**:
+- Missing `Users` icon import in `Sammanstallning.tsx:31` (runtime error)
+- Multiple server instances causing request routing issues
+
+**Prevention Strategy**: 
+Always search for `.map(` functions when adding new fields to ANY entity. Use: `grep -rn "\.map.*=> ({" client/src/`
+
 ## Development Best Practices
 
 - **Always use UUIDs**: Never string-based entity lookups

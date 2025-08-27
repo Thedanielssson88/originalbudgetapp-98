@@ -45,17 +45,20 @@ import { useBudget } from '@/hooks/useBudget';
 import { useTransactions, useUpdateTransaction, useHistoricalCategoryMatches } from '@/hooks/useTransactions';
 import { useHuvudkategorier, useUnderkategorier, useCategoryNames } from '@/hooks/useCategories';
 import { useAccounts } from '@/hooks/useAccounts';
+import { useFamilyMembers } from '@/hooks/useFamilyMembers';
 import { useBudgetPosts } from '@/hooks/useBudgetPosts';
 import { useCategoryRules } from '@/hooks/useCategoryRules';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { formatOrenAsCurrency } from '@/utils/currencyUtils';
 import { applyRulesToTransactionsBatch } from '@/orchestrator/batchRuleApplication';
+import { getDateRangeForMonth } from '@/services/calculationService';
 import { TransactionTypeSelector } from '@/components/TransactionTypeSelector';
 import { CreateRuleDialog } from '@/components/CreateRuleDialog';
 import { ExpenseLinkDialog } from '@/components/ExpenseLinkDialog';
 import { CostCoverageDialog } from '@/components/CostCoverageDialog';
 import { SavingsGoalLinkDialog } from '@/components/SavingsGoalLinkDialog';
 import { SimpleTransferMatchDialog } from '@/components/SimpleTransferMatchDialog';
+import { UtbetalningLinkDialog } from '@/components/UtbetalningLinkDialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { setSelectedBudgetMonth } from '@/orchestrator/budgetOrchestrator';
@@ -71,6 +74,7 @@ export function TransactionReviewPage() {
   const { data: accounts = [] } = useAccounts();
   const { data: budgetPosts = [] } = useBudgetPosts();
   const { data: categoryRules = [] } = useCategoryRules();
+  const { data: familyMembers = [] } = useFamilyMembers();
   const updateTransactionMutation = useUpdateTransaction();
   const queryClient = useQueryClient();
   
@@ -176,6 +180,7 @@ export function TransactionReviewPage() {
   const [showCostCoverageDialog, setShowCostCoverageDialog] = useState(false);
   const [showSavingsDialog, setShowSavingsDialog] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const [showUtbetalningDialog, setShowUtbetalningDialog] = useState(false);
   const [editMode, setEditMode] = useState<'note' | 'amount' | null>(null);
   const [tempNote, setTempNote] = useState('');
   const [tempAmount, setTempAmount] = useState('');
@@ -189,10 +194,13 @@ export function TransactionReviewPage() {
   
   // Filter state
   const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('red-yellow'); // Default to red+yellow
   const [accountFilter, setAccountFilter] = useState('all');
   const [transactionTypeFilter, setTransactionTypeFilter] = useState('all');
   const [transactionFilter, setTransactionFilter] = useState('all'); // Positive/Negative/All
   const [monthFilter, setMonthFilter] = useState('current'); // Will use current month by default
+  const [appHuvudkategoriFilter, setAppHuvudkategoriFilter] = useState('all');
+  const [appUnderkategoriFilter, setAppUnderkategoriFilter] = useState('all');
   const [bankCategoryFilter, setBankCategoryFilter] = useState('all');
   const [bankSubCategoryFilter, setBankSubCategoryFilter] = useState('all');
   const [descriptionFilter, setDescriptionFilter] = useState('');
@@ -216,17 +224,37 @@ export function TransactionReviewPage() {
     [transactions]
   );
 
-  // Get transactions with all filters applied
-  const monthTransactions = useMemo(() => {
+  // Get date range for the selected month using payday logic (matches Sammanställning)
+  const { startDate, endDate } = useMemo(() => {
     const currentMonth = monthFilter === 'current' 
       ? effectiveSelectedMonth 
       : monthFilter;
-    
-    return transactions.filter(tx => {
-      const txMonth = tx.date ? tx.date.substring(0, 7) : '';
       
-      // Month filter - handle both main selector "all" and filter "all"
-      if (monthFilter !== 'all' && currentMonth !== 'all' && txMonth !== currentMonth) return false;
+    if (monthFilter === 'all' || currentMonth === 'all') {
+      // For "all months", don't restrict date range
+      return { startDate: null, endDate: null };
+    }
+    
+    const payday = budgetState.settings?.payday || 25;
+    return getDateRangeForMonth(currentMonth, payday);
+  }, [monthFilter, effectiveSelectedMonth, budgetState.settings?.payday]);
+
+  // Get transactions with all filters applied
+  const monthTransactions = useMemo(() => {
+    return transactions.filter(tx => {
+      // Month filter using payday-based date ranges (matches Sammanställning logic)
+      if (startDate && endDate) {
+        const transactionDate = new Date(tx.date);
+        if (transactionDate < new Date(startDate) || transactionDate > new Date(endDate)) return false;
+      }
+      
+      // Status filter
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'red' && tx.status !== 'red') return false;
+        if (statusFilter === 'yellow' && tx.status !== 'yellow') return false;
+        if (statusFilter === 'green' && tx.status !== 'green') return false;
+        if (statusFilter === 'red-yellow' && tx.status !== 'red' && tx.status !== 'yellow') return false;
+      }
       
       // Account filter
       if (accountFilter !== 'all' && tx.accountId !== accountFilter) return false;
@@ -237,6 +265,26 @@ export function TransactionReviewPage() {
       // Transaction direction filter (Positive/Negative)
       if (transactionFilter === 'positive' && tx.amount <= 0) return false;
       if (transactionFilter === 'negative' && tx.amount >= 0) return false;
+      
+      // App huvudkategori filter
+      if (appHuvudkategoriFilter !== 'all') {
+        if (appHuvudkategoriFilter === 'uncategorized') {
+          // Show transactions missing EITHER huvudkategori OR underkategori (matches Sammanställning logic)
+          if (tx.appCategoryId && tx.appSubCategoryId) return false;
+        } else {
+          if (tx.appCategoryId !== appHuvudkategoriFilter) return false;
+        }
+      }
+      
+      // App underkategori filter
+      if (appUnderkategoriFilter !== 'all') {
+        if (appUnderkategoriFilter === 'uncategorized') {
+          // Show transactions missing EITHER huvudkategori OR underkategori (matches Sammanställning logic)
+          if (tx.appCategoryId && tx.appSubCategoryId) return false;
+        } else {
+          if (tx.appSubCategoryId !== appUnderkategoriFilter) return false;
+        }
+      }
       
       // Bank category filter
       if (bankCategoryFilter !== 'all' && tx.bankCategory !== bankCategoryFilter) return false;
@@ -257,11 +305,14 @@ export function TransactionReviewPage() {
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [
     transactions, 
-    effectiveSelectedMonth, 
-    monthFilter,
+    startDate,
+    endDate,
+    statusFilter,
     accountFilter,
     transactionTypeFilter,
     transactionFilter,
+    appHuvudkategoriFilter,
+    appUnderkategoriFilter,
     bankCategoryFilter,
     bankSubCategoryFilter,
     descriptionFilter
@@ -312,14 +363,30 @@ export function TransactionReviewPage() {
   useEffect(() => {
     setCurrentIndex(0);
   }, [
+    statusFilter,
     accountFilter,
     transactionTypeFilter,
     transactionFilter,
     monthFilter,
+    appHuvudkategoriFilter,
+    appUnderkategoriFilter,
     bankCategoryFilter,
     bankSubCategoryFilter,
     descriptionFilter
   ]);
+
+  // Reset app underkategori filter when huvudkategori filter changes
+  useEffect(() => {
+    if (appHuvudkategoriFilter !== 'all' && appHuvudkategoriFilter !== 'uncategorized') {
+      const validSubCategories = underkategorier.filter(sub => sub.huvudkategoriId === appHuvudkategoriFilter);
+      if (appUnderkategoriFilter !== 'all' && appUnderkategoriFilter !== 'uncategorized') {
+        const isCurrentSubCategoryValid = validSubCategories.some(sub => sub.id === appUnderkategoriFilter);
+        if (!isCurrentSubCategoryValid) {
+          setAppUnderkategoriFilter('all');
+        }
+      }
+    }
+  }, [appHuvudkategoriFilter, appUnderkategoriFilter, underkategorier]);
 
   // Handle swipe/navigation
   const handleNext = useCallback(() => {
@@ -1051,7 +1118,24 @@ export function TransactionReviewPage() {
               <CardContent className="space-y-4 p-4">
                 {/* Mobile-first responsive layout - Stack on mobile, group on larger screens */}
                 <div className="space-y-4">
-                  {/* Row 1: Account and Transaction Type */}
+                  {/* Row 1: Status Filter */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Visa bara status:</Label>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="h-10 w-full">
+                        <SelectValue placeholder="Röd + Gul" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Alla</SelectItem>
+                        <SelectItem value="red">Röd</SelectItem>
+                        <SelectItem value="yellow">Gul</SelectItem>
+                        <SelectItem value="green">Grön</SelectItem>
+                        <SelectItem value="red-yellow">Röd + Gul</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Row 2: Account and Transaction Type */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Konto:</Label>
@@ -1126,7 +1210,49 @@ export function TransactionReviewPage() {
                     </div>
                   </div>
 
-                  {/* Row 3: Bank Categories */}
+                  {/* Row 3: App Categories */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Huvudkategori (App):</Label>
+                      <Select value={appHuvudkategoriFilter} onValueChange={setAppHuvudkategoriFilter}>
+                        <SelectTrigger className="h-10 w-full">
+                          <SelectValue placeholder="Alla" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Alla</SelectItem>
+                          <SelectItem value="uncategorized">Okategoriserat</SelectItem>
+                          {huvudkategorier.map(category => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Underkategori (App):</Label>
+                      <Select value={appUnderkategoriFilter} onValueChange={setAppUnderkategoriFilter}>
+                        <SelectTrigger className="h-10 w-full">
+                          <SelectValue placeholder="Alla" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Alla</SelectItem>
+                          <SelectItem value="uncategorized">Okategoriserat</SelectItem>
+                          {underkategorier
+                            .filter(sub => appHuvudkategoriFilter === 'all' || sub.huvudkategoriId === appHuvudkategoriFilter)
+                            .map(subCategory => (
+                              <SelectItem key={subCategory.id} value={subCategory.id}>
+                                {subCategory.name}
+                              </SelectItem>
+                            ))
+                          }
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Row 4: Bank Categories */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Bankkategori:</Label>
@@ -1163,7 +1289,7 @@ export function TransactionReviewPage() {
                     </div>
                   </div>
 
-                  {/* Row 4: Description Search - Full width */}
+                  {/* Row 5: Description Search - Full width */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Beskrivning:</Label>
                     <Input
@@ -1245,7 +1371,9 @@ export function TransactionReviewPage() {
           <Card className={cn(
             "border-2 shadow-xl hover:shadow-2xl transition-all duration-200 bg-gradient-to-br from-white to-gray-50/50 dark:from-gray-900 dark:to-gray-800/50",
             currentTransaction.status === 'red' 
-              ? "border-red-300 bg-gradient-to-br from-red-50/80 to-white dark:from-red-950/20 dark:to-gray-900" 
+              ? "border-red-300 bg-gradient-to-br from-red-50/80 to-white dark:from-red-950/20 dark:to-gray-900"
+              : currentTransaction.status === 'green'
+              ? "border-green-300 bg-gradient-to-br from-green-50/80 to-white dark:from-green-950/20 dark:to-gray-900"
               : "border-yellow-300 bg-gradient-to-br from-yellow-50/80 to-white dark:from-yellow-950/20 dark:to-gray-900"
           )}>
             <CardHeader className="pb-4">
@@ -1253,10 +1381,19 @@ export function TransactionReviewPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
                     <Badge 
-                      variant={currentTransaction.status === 'red' ? "destructive" : "default"}
-                      className="text-xs"
+                      variant={
+                        currentTransaction.status === 'red' ? "destructive" 
+                        : currentTransaction.status === 'green' ? "default"  
+                        : "default"
+                      }
+                      className={cn(
+                        "text-xs",
+                        currentTransaction.status === 'green' && "bg-green-100 text-green-800 border-green-300"
+                      )}
                     >
-                      {currentTransaction.status === 'red' ? 'Ej kategoriserad' : 'Delvis kategoriserad'}
+                      {currentTransaction.status === 'red' ? 'Ej kategoriserad' 
+                       : currentTransaction.status === 'green' ? 'Godkänd'
+                       : 'Delvis kategoriserad'}
                     </Badge>
                     {currentTransaction.type && (
                       <Badge variant="outline" className="text-xs">
@@ -1340,6 +1477,26 @@ export function TransactionReviewPage() {
                 transaction={currentTransaction}
                 onTypeChange={handleTypeUpdate}
               />
+
+              {/* Koppla Utbetalning button - appears when type is Payment */}
+              {currentTransaction.type === 'Payment' && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowUtbetalningDialog(true)}
+                    className="flex items-center gap-2"
+                  >
+                    <Users className="h-4 w-4" />
+                    Koppla Utbetalning
+                  </Button>
+                  {currentTransaction.linkedPerson && (
+                    <span className="text-xs text-muted-foreground">
+                      Kopplad till familjemedlem
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Description Section - Simplified single field */}
               <div className="space-y-3">
@@ -1773,10 +1930,51 @@ export function TransactionReviewPage() {
                       )}
                     </div>
                     
+                    {/* Linked Person (Utbetalning) */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Länkad utbetalning</span>
+                        {currentTransaction.linkedPerson ? (
+                          <div className="flex items-center gap-2">
+                            <Badge variant="default" className="bg-orange-100 text-orange-700 border-orange-300">
+                              Länkad
+                            </Badge>
+                            <button
+                              onClick={() => {
+                                updateTransactionMutation.mutate({
+                                  id: currentTransaction.id,
+                                  data: { linkedPerson: null, isManuallyChanged: 'true' }
+                                });
+                                toast({
+                                  title: "Utbetalningslänkning borttagen",
+                                  description: "Transaktionen är inte längre länkad till en familjemedlem."
+                                });
+                              }}
+                              className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                              title="Ta bort länkning"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <Badge variant="outline" className="bg-gray-50 text-gray-600">
+                            Ej länkad
+                          </Badge>
+                        )}
+                      </div>
+                      {currentTransaction.linkedPerson && (
+                        <div className="text-xs text-muted-foreground pl-4 border-l-2 border-orange-200">
+                          Familjemedlem: <strong>{familyMembers.find(member => member.id === currentTransaction.linkedPerson)?.name || 'Okänd'}</strong>
+                          <br />
+                          ID: {currentTransaction.linkedPerson.substring(0, 8)}...
+                        </div>
+                      )}
+                    </div>
+                    
                     {/* Summary */}
                     <div className="mt-6 p-3 bg-gray-50 rounded-lg">
                       <div className="text-xs text-muted-foreground text-center">
-                        {[currentTransaction.linkedTransactionId, currentTransaction.linkedCostId, currentTransaction.savingsTargetId, currentTransaction.incomeTargetId].filter(Boolean).length} av 4 möjliga länkningar aktiva
+                        {[currentTransaction.linkedTransactionId, currentTransaction.linkedCostId, currentTransaction.savingsTargetId, currentTransaction.incomeTargetId, currentTransaction.linkedPerson].filter(Boolean).length} av 5 möjliga länkningar aktiva
                       </div>
                     </div>
                   </div>
@@ -2625,6 +2823,15 @@ export function TransactionReviewPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Utbetalning link dialog */}
+      {showUtbetalningDialog && currentTransaction && (
+        <UtbetalningLinkDialog
+          isOpen={showUtbetalningDialog}
+          onClose={() => setShowUtbetalningDialog(false)}
+          transaction={currentTransaction}
+        />
+      )}
         </>
       ) : null}
     </div>

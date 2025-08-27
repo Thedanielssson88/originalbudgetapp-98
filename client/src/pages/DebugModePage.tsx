@@ -651,6 +651,56 @@ export function DebugModePage() {
     }
   };
 
+  const resetGreenUncategorizedToYellow = async () => {
+    if (!confirm('⚠️ This will change green transactions without categories to yellow status. Continue?')) {
+      return;
+    }
+
+    setIsCleaningTransactionData(true);
+
+    try {
+      const response = await fetch('/api/transactions/reset-green-uncategorized-to-yellow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      console.log('Reset uncategorized status response status:', response.status);
+      console.log('Reset uncategorized status response headers:', [...response.headers.entries()]);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Reset uncategorized status error response:', errorText);
+        throw new Error(`Failed to reset uncategorized status: ${errorText}`);
+      }
+
+      const responseText = await response.text();
+      console.log('Reset uncategorized status response text:', responseText);
+      
+      if (!responseText) {
+        throw new Error('Empty response from server');
+      }
+
+      const result = JSON.parse(responseText);
+
+      toast({
+        title: "✅ Uncategorized status reset completed",
+        description: `Changed ${result.updatedCount} uncategorized green transactions to yellow`,
+      });
+
+      // Refresh data
+      await refetchTransactions();
+    } catch (error) {
+      console.error('Uncategorized status reset error:', error);
+      toast({
+        title: "Error resetting uncategorized transaction status",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCleaningTransactionData(false);
+    }
+  };
+
   // NUCLEAR OPTION - Reset all user data
   const performDataReset = async () => {
     const confirmText = 'RESET ALL DATA';
@@ -1230,7 +1280,7 @@ export function DebugModePage() {
                 </Button>
               </div>
 
-              <div className="border-t pt-4">
+              <div className="border-t pt-4 space-y-4">
                 <Button 
                   onClick={resetAllGreenToYellow}
                   disabled={isCleaningTransactionData}
@@ -1244,6 +1294,23 @@ export function DebugModePage() {
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
                       Ändra status från green till yellow för alla transaktioner
+                    </div>
+                  </div>
+                </Button>
+
+                <Button 
+                  onClick={resetGreenUncategorizedToYellow}
+                  disabled={isCleaningTransactionData}
+                  variant="outline"
+                  className="w-full h-auto p-4"
+                >
+                  <div className="text-left w-full">
+                    <div className="flex items-center gap-2">
+                      <Tags className="h-4 w-4" />
+                      <span className="font-medium">Återställ gröna okategoriserade till gul</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Ändra status från green till yellow för transaktioner som saknar huvudkategori eller underkategori
                     </div>
                   </div>
                 </Button>
