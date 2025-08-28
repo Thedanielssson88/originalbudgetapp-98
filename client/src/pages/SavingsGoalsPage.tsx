@@ -43,6 +43,7 @@ export function SavingsGoalsPage() {
     underkategoriId: '',
     name: '',
     accountId: '',
+    fromAccountId: '',
     targetAmount: '',
     startDate: '',
     endDate: ''
@@ -465,7 +466,7 @@ export function SavingsGoalsPage() {
         endDate: formData.endDate, // CRITICAL FIX: Use dedicated endDate field
         amount: Math.round(parseFloat(formData.targetAmount) * 100), // Convert to öre
         accountId: formData.accountId,
-        accountIdFrom: null,
+        accountIdFrom: formData.fromAccountId || null,
         financedFrom: 'Löpande kostnad',
         transferType: 'monthly',
         dailyAmount: null,
@@ -483,7 +484,7 @@ export function SavingsGoalsPage() {
       // since we now load from SQL via useBudgetPosts hook which automatically
       // updates the allSavingsGoals useMemo when the mutation succeeds
       setIsCreateDialogOpen(false);
-      setFormData({ huvudkategoriId: '', underkategoriId: '', name: '', accountId: '', targetAmount: '', startDate: '', endDate: '' });
+      setFormData({ huvudkategoriId: '', underkategoriId: '', name: '', accountId: '', fromAccountId: '', targetAmount: '', startDate: '', endDate: '' });
     } catch (error) {
       console.error('🔍 [ERROR] Failed to create savings goal:', error);
       // Could add error toast here
@@ -500,6 +501,7 @@ export function SavingsGoalsPage() {
       underkategoriId: budgetPost?.underkategoriId || '',
       name: goal.name,
       accountId: goal.accountId,
+      fromAccountId: budgetPost?.accountIdFrom || '',
       targetAmount: goal.targetAmount.toString(),
       startDate: goal.startDate,
       endDate: goal.endDate
@@ -523,6 +525,7 @@ export function SavingsGoalsPage() {
         endDate: formData.endDate,
         amount: Math.round(parseFloat(formData.targetAmount) * 100), // Convert to öre
         accountId: formData.accountId,
+        accountIdFrom: formData.fromAccountId || null,
       };
 
       
@@ -533,7 +536,7 @@ export function SavingsGoalsPage() {
       
       setIsEditDialogOpen(false);
       setEditingGoal(null);
-      setFormData({ huvudkategoriId: '', underkategoriId: '', name: '', accountId: '', targetAmount: '', startDate: '', endDate: '' });
+      setFormData({ huvudkategoriId: '', underkategoriId: '', name: '', accountId: '', fromAccountId: '', targetAmount: '', startDate: '', endDate: '' });
     } catch (error) {
       console.error('🔍 [ERROR] Failed to update savings goal:', error);
     }
@@ -834,7 +837,24 @@ export function SavingsGoalsPage() {
               </div>
               
               <div className="grid gap-2">
-                <Label htmlFor="account">Konto</Label>
+                <Label htmlFor="fromAccount">Konto från</Label>
+                <Select value={formData.fromAccountId} onValueChange={(value) => 
+                  setFormData(prev => ({...prev, fromAccountId: value}))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Välj konto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accountsFromAPI.map(account => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="account">Konto till</Label>
                 <Select value={formData.accountId} onValueChange={(value) => 
                   setFormData(prev => ({...prev, accountId: value}))}>
                   <SelectTrigger>
@@ -972,7 +992,24 @@ export function SavingsGoalsPage() {
               </div>
               
               <div className="grid gap-2">
-                <Label htmlFor="edit-account">Konto</Label>
+                <Label htmlFor="edit-fromAccount">Konto från</Label>
+                <Select value={formData.fromAccountId} onValueChange={(value) => 
+                  setFormData(prev => ({...prev, fromAccountId: value}))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Välj konto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accountsFromAPI.map(account => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="edit-account">Konto till</Label>
                 <Select value={formData.accountId} onValueChange={(value) => 
                   setFormData(prev => ({...prev, accountId: value}))}>
                   <SelectTrigger>

@@ -5634,47 +5634,20 @@ const BudgetCalculator = () => {
                 )}
               </Card>
 
-              {/* Kontosaldo Kopia Section */}
+              {/* Budgetplanering Section */}
               <Card className="shadow-lg border-0 bg-indigo-50/50 backdrop-blur-sm">
                 <CardHeader>
                   <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('accountBalancesCopy')}>
                     <div>
                       <CardTitle className="flex items-center gap-2 text-indigo-800">
                         <TrendingUp className="h-5 w-5" />
-                        Kontosaldo Kopia
+                        Budgetplanering
                       </CardTitle>
                       <CardDescription className="text-indigo-700">
-                        {(() => {
-                          if (!budgetState.selectedMonthKey) return 'Dagen före lönedatum';
-                          
-                          const [year, month] = budgetState.selectedMonthKey.split('-').map(Number);
-                          const payday = budgetState?.payday || 25;
-                          
-                          const monthNames = [
-                            'januari', 'februari', 'mars', 'april', 'maj', 'juni',
-                            'juli', 'augusti', 'september', 'oktober', 'november', 'december'
-                          ];
-                          
-                          // For the payday date, we show the payday of the PREVIOUS month
-                          let payYear = year;
-                          let payMonth = month - 1;
-                          
-                          if (payMonth === 0) {
-                            payMonth = 12;
-                            payYear = year - 1;
-                          }
-                          
-                          // Calculate total from budget posts with Balance type or use 0 if none exist
-                          const balancePosts = budgetPostsFromAPI.filter((post: any) => post.type === 'Balance');
-                          const total = balancePosts.reduce((sum: number, post: any) => {
-                            if (post.accountUserBalance !== null && post.accountUserBalance !== undefined) {
-                              return sum + (post.accountUserBalance / 100); // Convert from öre to kronor
-                            }
-                            return sum;
-                          }, 0);
-                          
-                          return `Totalt saldo den ${payday} ${monthNames[payMonth - 1]}: ${formatCurrency(total)}`;
-                        })()}
+                        {/* Use a placeholder that will be replaced by KontosaldoKopia's actual values */}
+                        <span id="budget-summary-header">
+                          {budgetState.selectedMonthKey ? 'Laddar budgetöversikt...' : 'Ingen månad vald'}
+                        </span>
                       </CardDescription>
                     </div>
                     <ChevronDown className={`h-4 w-4 transition-transform text-indigo-800 ${expandedSections.accountBalancesCopy ? 'rotate-180' : ''}`} />

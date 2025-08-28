@@ -26,6 +26,7 @@ interface SavingsSectionProps {
     name: string;
     amount: number;
     account: string;
+    fromAccount?: string;
   }) => void;
   onEditSavingsGroup: (group: BudgetGroup) => void;
   onDeleteSavingsGroup: (id: string) => void;
@@ -60,12 +61,16 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
     name: string;
     amount: number;
     accountId: string;
+    fromAccountId: string;
   }) => {
     const mainCategory = getHuvudkategoriName(item.huvudkategoriId) || 'Unknown';
     const subcategory = getUnderkategoriName(item.underkategoriId) || 'Unknown';
     const account = item.accountId === '' || item.accountId === 'none' 
       ? '' 
       : accounts.find(acc => acc.id === item.accountId)?.name || '';
+    const fromAccount = item.fromAccountId === '' || item.fromAccountId === 'none'
+      ? ''
+      : accounts.find(acc => acc.id === item.fromAccountId)?.name || '';
 
     // Convert to legacy format for backwards compatibility
     onAddSavingsItem({
@@ -73,7 +78,8 @@ export const SavingsSection: React.FC<SavingsSectionProps> = ({
       subcategory,
       name: item.name,
       amount: item.amount,
-      account
+      account,
+      fromAccount
     });
   };
 

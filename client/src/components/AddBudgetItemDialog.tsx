@@ -377,7 +377,7 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
           ) : (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="fromAccount">Från Konto</Label>
+                <Label htmlFor="fromAccount">Konto från</Label>
                 <Select 
                   value={formData.fromAccountId} 
                   onValueChange={(value) => setFormData({ ...formData, fromAccountId: value })}
@@ -404,7 +404,7 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="toAccount">Till Konto</Label>
+                <Label htmlFor="toAccount">Konto till</Label>
                 <Select 
                   value={formData.toAccountId} 
                   onValueChange={(value) => setFormData({ ...formData, toAccountId: value })}

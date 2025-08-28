@@ -16,6 +16,7 @@ interface AddSavingsItemDialogProps {
     name: string;
     amount: number;
     accountId: string;
+    fromAccountId: string;
   }) => void;
   accounts: Account[];
 }
@@ -33,7 +34,8 @@ export const AddSavingsItemDialog: React.FC<AddSavingsItemDialogProps> = ({
     underkategoriId: '',
     name: '',
     amount: 0,
-    accountId: 'none'
+    accountId: 'none',
+    fromAccountId: 'none'
   });
   
   const [availableUnderkategorier, setAvailableUnderkategorier] = useState<Array<{id: string, name: string}>>([]);
@@ -55,7 +57,8 @@ export const AddSavingsItemDialog: React.FC<AddSavingsItemDialogProps> = ({
         underkategoriId: formData.underkategoriId,
         name: formData.name,
         amount: formData.amount,
-        accountId: formData.accountId === 'none' ? '' : formData.accountId
+        accountId: formData.accountId === 'none' ? '' : formData.accountId,
+        fromAccountId: formData.fromAccountId === 'none' ? '' : formData.fromAccountId
       };
       onSave(itemToSave);
       setFormData({
@@ -63,7 +66,8 @@ export const AddSavingsItemDialog: React.FC<AddSavingsItemDialogProps> = ({
         underkategoriId: '',
         name: '',
         amount: 0,
-        accountId: 'none'
+        accountId: 'none',
+        fromAccountId: 'none'
       });
       onClose();
     }
@@ -75,7 +79,8 @@ export const AddSavingsItemDialog: React.FC<AddSavingsItemDialogProps> = ({
       underkategoriId: '',
       name: '',
       amount: 0,
-      accountId: 'none'
+      accountId: 'none',
+      fromAccountId: 'none'
     });
     onClose();
   };
@@ -150,7 +155,27 @@ export const AddSavingsItemDialog: React.FC<AddSavingsItemDialogProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="account">Konto</Label>
+            <Label htmlFor="fromAccount">Konto från</Label>
+            <Select 
+              value={formData.fromAccountId} 
+              onValueChange={(value) => setFormData({ ...formData, fromAccountId: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Välj konto" />
+              </SelectTrigger>
+              <SelectContent className="bg-popover border border-border shadow-lg z-50">
+                <SelectItem value="none">Inget konto</SelectItem>
+                {accounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="account">Konto till</Label>
             <Select 
               value={formData.accountId} 
               onValueChange={(value) => setFormData({ ...formData, accountId: value })}

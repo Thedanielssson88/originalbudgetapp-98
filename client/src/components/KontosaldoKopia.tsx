@@ -11,11 +11,14 @@ import { AddBudgetItemDialog } from '@/components/AddBudgetItemDialog';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useBudgetPosts, useCreateBudgetPost, useUpdateBudgetPost } from '@/hooks/useBudgetPosts';
 import { useFamilyMembers } from '@/hooks/useFamilyMembers';
+import { useHuvudkategorier, useUnderkategorier } from '@/hooks/useCategories';
 import { formatOrenAsCurrency, kronoraToOren } from '@/utils/currencyUtils';
 import { useToast } from '@/hooks/use-toast';
 import { useBudget } from '@/hooks/useBudget';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useQueryClient } from '@tanstack/react-query';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 interface KontosaldoKopiaProps {
   monthKey: string;
@@ -51,11 +54,13 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
   const [dialogInputValue, setDialogInputValue] = useState<string>('');
   const [dialogSelection, setDialogSelection] = useState<'custom' | 'bank'>('custom');
   const [expandedAccountDetails, setExpandedAccountDetails] = useState<{ [accountId: string]: boolean }>({});
+  const [expandedBudgetSections, setExpandedBudgetSections] = useState<{ [key: string]: boolean }>({});
   const [showNewTransferForm, setShowNewTransferForm] = useState(false);
   const [showAddBudgetDialog, setShowAddBudgetDialog] = useState<{ isOpen: boolean; type: 'cost' | 'savings' }>({ 
     isOpen: false, 
     type: 'cost' 
   });
+  const [showSavingsPostDialog, setShowSavingsPostDialog] = useState(false);
   
   // Set all accounts as expanded by default on first load
   useEffect(() => {
@@ -128,6 +133,15 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
     
     setCalculatedBankBalances(newBankBalances);
   }, [allTransactions, accounts, monthKey]);
+
+  // Update the BudgetCalculator header with correct values
+  useEffect(() => {
+    const headerElement = document.getElementById('budget-summary-header');
+    if (headerElement) {
+      const summaryText = `Ingående saldo: ${formatCurrency(calculateGrandTotal())} - Kostnadsposter: -${formatCurrency(calculateTotalExpenses())} - Sparande: -${formatCurrency(calculateTotalSavings())}`;
+      headerElement.textContent = summaryText;
+    }
+  }, [calculatedBankBalances, budgetPosts, accounts]);
   
   // Group accounts by owner (using assignedTo field)
   const accountsByOwner = accounts.reduce((acc, account) => {
@@ -460,9 +474,17 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
   // Get planned transfers for an account
   const transferPosts = budgetPosts.filter(post => post.type === 'transfer');
   
-  // Get outgoing transfers from an account
+  // Get outgoing transfers from an account (includes savings transfers and sparmål)
   const getAccountOutgoingTransfers = (accountId: string) => {
-    return transferPosts.filter(post => post.accountIdFrom === accountId);
+    // Get regular transfers
+    const regularTransfers = transferPosts.filter(post => post.accountIdFrom === accountId);
+    
+    // Get savings posts and sparmål posts that transfer FROM this account
+    const savingsTransfers = budgetPosts.filter(post => 
+      (post.type === 'savings' || post.type === 'sparmål') && post.accountIdFrom === accountId
+    );
+    
+    return [...regularTransfers, ...savingsTransfers];
   };
   
   // Get incoming transfers to an account
@@ -473,7 +495,7 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
   // Get savings goals for an account - use sparmål type posts
   const getAccountSavings = (accountId: string) => {
     return budgetPosts.filter(post => 
-      post.type === 'sparmål' && post.accountId === accountId
+      (post.type === 'sparmål' || post.type === 'savings') && post.accountId === accountId
     );
   };
 
@@ -510,6 +532,17 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
   
   // Calculate monthly amount for a sparmål goal using the same logic as main Sparmål section
   const calculateSavingsMonthlyAmount = (savingsPost: any): number => {
+    // For savings transfers (type = 'savings'), just return the amount as-is
+    if (savingsPost.type === 'savings') {
+      return savingsPost.amount || 0;
+    }
+    
+    // For sparmål posts that are being used as transfers (have accountIdFrom), return the amount as-is
+    if (savingsPost.type === 'sparmål' && savingsPost.accountIdFrom) {
+      return savingsPost.amount || 0;
+    }
+    
+    // For regular sparmål posts, calculate based on target and timeline
     // If no end date, return a reasonable monthly amount (target / 12 months)
     if (!savingsPost.endDate) {
       const targetAmount = savingsPost.amount || 0;
@@ -546,6 +579,14 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
   
   // Check if a sparmål should be visible in the current month
   const isSavingsGoalVisibleInMonth = (savingsPost: any): boolean => {
+    // Savings transfers (type = 'savings') are filtered by month_key already in budgetPosts
+    // Since we're using useBudgetPosts(monthKey), they're already filtered for the current month
+    if (savingsPost.type === 'savings') return true;
+    
+    // Sparmål posts that have accountIdFrom are transfers and should always be visible in their month
+    if (savingsPost.type === 'sparmål' && savingsPost.accountIdFrom) return true;
+    
+    // For regular sparmål posts, check date range
     if (!savingsPost.startDate || !savingsPost.endDate) return true;
     
     const [currentYear, currentMonth] = monthKey.split('-').map(Number);
@@ -567,15 +608,30 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
     }));
   };
   
+  // Toggle budget section expansion
+  const toggleBudgetSection = (accountId: string, sectionType: string) => {
+    const key = `${accountId}-${sectionType}`;
+    setExpandedBudgetSections(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+  
+  // Check if budget section is expanded
+  const isBudgetSectionExpanded = (accountId: string, sectionType: string) => {
+    const key = `${accountId}-${sectionType}`;
+    return expandedBudgetSections[key] || false;
+  };
+  
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
-        <h3 className="text-xl font-semibold mb-2 text-gray-800">
-          Kontosaldo {getPaydayDateText()}
+        <h3 className="text-xl font-semibold mb-3 text-gray-800">
+          Budgetplanering
         </h3>
-        <p className="text-sm text-gray-600">
-          Visar kontosaldo från sista transaktionen före lönedag. Klicka på pennan för att ange faktiskt saldo.
+        <p className="text-sm text-gray-700">
+          Ingående saldo: {formatCurrency(calculateGrandTotal())} - Kostnadsposter: -{formatCurrency(calculateTotalExpenses())} - Sparande: -{formatCurrency(calculateTotalSavings())}
         </p>
       </div>
 
@@ -598,6 +654,15 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
         >
           <Plus className="h-4 w-4 mr-2" />
           Ny kostnadspost
+        </Button>
+        <Button 
+          size="sm"
+          variant="outline"
+          className="border-green-300 text-green-800 hover:bg-green-200"
+          onClick={() => setShowSavingsPostDialog(true)}
+        >
+          <PiggyBank className="h-4 w-4 mr-2" />
+          Lägg till sparandepost
         </Button>
       </div>
       
@@ -694,12 +759,24 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
                       {/* Expenses */}
                       {getAccountExpenses(account.id).length > 0 && (
                         <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-sm font-medium text-red-700">
-                            <Minus className="w-4 h-4" />
-                            <span>Kostnader</span>
+                          <div 
+                            className="flex items-center justify-between cursor-pointer hover:bg-red-25 p-2 rounded"
+                            onClick={() => toggleBudgetSection(account.id, 'expenses')}
+                          >
+                            <div className="flex items-center gap-2 text-sm font-medium text-red-700">
+                              <Minus className="w-4 h-4" />
+                              <span>Kostnader</span>
+                              {isBudgetSectionExpanded(account.id, 'expenses') ? 
+                                <ChevronDown className="w-4 h-4" /> : 
+                                <ChevronRight className="w-4 h-4" />
+                              }
+                            </div>
+                            <span className="text-sm font-medium text-red-700">
+                              -{formatCurrency(getAccountExpenses(account.id).reduce((sum, expense) => sum + expense.amount, 0))}
+                            </span>
                           </div>
-                          {getAccountExpenses(account.id).map(expense => (
-                            <div key={expense.id} className="flex justify-between items-center py-2 px-3 bg-red-50 rounded border-l-4 border-red-200">
+                          {isBudgetSectionExpanded(account.id, 'expenses') && getAccountExpenses(account.id).map(expense => (
+                            <div key={expense.id} className="flex justify-between items-center py-2 px-3 bg-red-50 rounded border-l-4 border-red-200 ml-6">
                               <div>
                                 <div className="font-medium text-red-800">{expense.name || expense.description}</div>
                                 <div className="text-xs text-red-600">
@@ -717,22 +794,49 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
                       {/* Savings Goals - Show each sparmål separately */}
                       {getAccountSavings(account.id).filter(isSavingsGoalVisibleInMonth).length > 0 && (
                         <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-sm font-medium text-green-700">
-                            <PiggyBank className="w-4 h-4" />
-                            <span>Sparmål</span>
+                          <div 
+                            className="flex items-center justify-between cursor-pointer hover:bg-green-25 p-2 rounded"
+                            onClick={() => toggleBudgetSection(account.id, 'savings')}
+                          >
+                            <div className="flex items-center gap-2 text-sm font-medium text-green-700">
+                              <PiggyBank className="w-4 h-4" />
+                              <span>Sparande</span>
+                              {isBudgetSectionExpanded(account.id, 'savings') ? 
+                                <ChevronDown className="w-4 h-4" /> : 
+                                <ChevronRight className="w-4 h-4" />
+                              }
+                            </div>
+                            <span className="text-sm font-medium text-green-700">
+                              +{formatCurrency(getAccountSavings(account.id)
+                                .filter(isSavingsGoalVisibleInMonth)
+                                .reduce((sum, savings) => sum + calculateSavingsMonthlyAmount(savings), 0))}
+                            </span>
                           </div>
-                          {getAccountSavings(account.id)
+                          {isBudgetSectionExpanded(account.id, 'savings') && getAccountSavings(account.id)
                             .filter(isSavingsGoalVisibleInMonth)
                             .map(savings => {
                               const monthlyAmount = calculateSavingsMonthlyAmount(savings);
+                              const fromAccount = savings.accountIdFrom ? 
+                                accounts.find(acc => acc.id === savings.accountIdFrom) : null;
+                              const isSavingsTransfer = savings.type === 'savings';
+                              
                               return (
-                                <div key={savings.id} className="flex justify-between items-center py-2 px-3 bg-green-50 rounded border-l-4 border-green-200">
+                                <div key={savings.id} className="flex justify-between items-center py-2 px-3 bg-green-50 rounded border-l-4 border-green-200 ml-6">
                                   <div>
-                                    <div className="font-medium text-green-800">{savings.name || savings.description}</div>
+                                    <div className="font-medium text-green-800">
+                                      {savings.name || savings.description}
+                                    </div>
                                     <div className="text-xs text-green-600">
-                                      <span>Målbelopp {formatCurrency(savings.amount)}</span>
-                                      {savings.startDate && savings.endDate && (
-                                        <span className="ml-2">{savings.startDate} till {savings.endDate}</span>
+                                      {isSavingsTransfer && fromAccount && (
+                                        <span>Från {fromAccount.name} (Sparande)</span>
+                                      )}
+                                      {!isSavingsTransfer && (
+                                        <>
+                                          <span>Målbelopp {formatCurrency(savings.amount)}</span>
+                                          {savings.startDate && savings.endDate && (
+                                            <span className="ml-2">{savings.startDate} till {savings.endDate}</span>
+                                          )}
+                                        </>
                                       )}
                                     </div>
                                   </div>
@@ -748,16 +852,32 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
                       {/* Outgoing Transfers */}
                       {getAccountOutgoingTransfers(account.id).length > 0 && (
                         <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-sm font-medium text-blue-700">
-                            <ArrowRight className="w-4 h-4" />
-                            <span>Utgående överföringar</span>
+                          <div 
+                            className="flex items-center justify-between cursor-pointer hover:bg-blue-25 p-2 rounded"
+                            onClick={() => toggleBudgetSection(account.id, 'outgoing-transfers')}
+                          >
+                            <div className="flex items-center gap-2 text-sm font-medium text-blue-700">
+                              <ArrowRight className="w-4 h-4" />
+                              <span>Utgående överföringar</span>
+                              {isBudgetSectionExpanded(account.id, 'outgoing-transfers') ? 
+                                <ChevronDown className="w-4 h-4" /> : 
+                                <ChevronRight className="w-4 h-4" />
+                              }
+                            </div>
+                            <span className="text-sm font-medium text-blue-700">
+                              -{formatCurrency(getAccountOutgoingTransfers(account.id).reduce((sum, transfer) => sum + transfer.amount, 0))}
+                            </span>
                           </div>
-                          {getAccountOutgoingTransfers(account.id).map(transfer => {
+                          {isBudgetSectionExpanded(account.id, 'outgoing-transfers') && getAccountOutgoingTransfers(account.id).map(transfer => {
                             const toAccount = accounts.find(acc => acc.id === transfer.accountId);
+                            const isSavingsTransfer = transfer.type === 'savings' || transfer.type === 'sparmål';
                             return (
-                              <div key={transfer.id} className="flex justify-between items-center py-2 px-3 bg-blue-50 rounded border-l-4 border-blue-200">
+                              <div key={transfer.id} className="flex justify-between items-center py-2 px-3 bg-blue-50 rounded border-l-4 border-blue-200 ml-6">
                                 <div>
-                                  <div className="font-medium text-blue-800">{transfer.description}</div>
+                                  <div className="font-medium text-blue-800">
+                                    {transfer.description || transfer.name}
+                                    {isSavingsTransfer && ' (Sparande)'}
+                                  </div>
                                   <div className="text-xs text-blue-600">
                                     Till {toAccount?.name || 'Okänt konto'}
                                   </div>
@@ -774,14 +894,26 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
                       {/* Incoming Transfers */}
                       {getAccountIncomingTransfers(account.id).length > 0 && (
                         <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-sm font-medium text-green-700">
-                            <ArrowLeft className="w-4 h-4" />
-                            <span>Inkommande överföringar</span>
+                          <div 
+                            className="flex items-center justify-between cursor-pointer hover:bg-green-25 p-2 rounded"
+                            onClick={() => toggleBudgetSection(account.id, 'incoming-transfers')}
+                          >
+                            <div className="flex items-center gap-2 text-sm font-medium text-green-700">
+                              <ArrowLeft className="w-4 h-4" />
+                              <span>Inkommande överföringar</span>
+                              {isBudgetSectionExpanded(account.id, 'incoming-transfers') ? 
+                                <ChevronDown className="w-4 h-4" /> : 
+                                <ChevronRight className="w-4 h-4" />
+                              }
+                            </div>
+                            <span className="text-sm font-medium text-green-700">
+                              +{formatCurrency(getAccountIncomingTransfers(account.id).reduce((sum, transfer) => sum + transfer.amount, 0))}
+                            </span>
                           </div>
-                          {getAccountIncomingTransfers(account.id).map(transfer => {
+                          {isBudgetSectionExpanded(account.id, 'incoming-transfers') && getAccountIncomingTransfers(account.id).map(transfer => {
                             const fromAccount = accounts.find(acc => acc.id === transfer.accountIdFrom);
                             return (
-                              <div key={transfer.id} className="flex justify-between items-center py-2 px-3 bg-green-50 rounded border-l-4 border-green-200">
+                              <div key={transfer.id} className="flex justify-between items-center py-2 px-3 bg-green-50 rounded border-l-4 border-green-200 ml-6">
                                 <div>
                                   <div className="font-medium text-green-800">{transfer.description}</div>
                                   <div className="text-xs text-green-600">
@@ -800,12 +932,24 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
                       {/* Income section */}
                       {getAccountIncome(account.id).length > 0 && (
                         <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-sm font-medium text-yellow-700">
-                            <Plus className="h-4 w-4" />
-                            <span>Inkomst</span>
+                          <div 
+                            className="flex items-center justify-between cursor-pointer hover:bg-yellow-25 p-2 rounded"
+                            onClick={() => toggleBudgetSection(account.id, 'income')}
+                          >
+                            <div className="flex items-center gap-2 text-sm font-medium text-yellow-700">
+                              <Plus className="h-4 w-4" />
+                              <span>Inkomst</span>
+                              {isBudgetSectionExpanded(account.id, 'income') ? 
+                                <ChevronDown className="w-4 h-4" /> : 
+                                <ChevronRight className="w-4 h-4" />
+                              }
+                            </div>
+                            <span className="text-sm font-medium text-yellow-700">
+                              +{formatCurrency(getAccountIncome(account.id).reduce((sum, income) => sum + income.amount, 0))}
+                            </span>
                           </div>
-                          {getAccountIncome(account.id).map(income => (
-                            <div key={income.id} className="flex justify-between items-center py-2 px-3 bg-yellow-50 rounded border-l-4 border-yellow-200">
+                          {isBudgetSectionExpanded(account.id, 'income') && getAccountIncome(account.id).map(income => (
+                            <div key={income.id} className="flex justify-between items-center py-2 px-3 bg-yellow-50 rounded border-l-4 border-yellow-200 ml-6">
                               <div>
                                 <div className="font-medium text-yellow-800">{income.description || income.name}</div>
                                 <div className="text-xs text-yellow-600">
@@ -862,7 +1006,7 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
             
             {/* Sparmål */}
             <div className="flex justify-between items-center">
-              <span className="text-base font-medium text-green-700">Sparmål:</span>
+              <span className="text-base font-medium text-green-700">Sparande:</span>
               <span className="font-mono font-medium text-green-700">
                 -{formatCurrency(calculateTotalSavings())}
               </span>
