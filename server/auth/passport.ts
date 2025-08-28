@@ -6,28 +6,33 @@ import { eq } from 'drizzle-orm';
 
 // Configure Google OAuth strategy
 const getCallbackURL = () => {
-  // Use environment variable if set
+  // Use environment variable if set (highest priority)
   if (process.env.GOOGLE_REDIRECT_URI) {
     return process.env.GOOGLE_REDIRECT_URI;
   }
   
-  // Determine callback URL based on environment
-  const isDev = process.env.NODE_ENV === 'development';
-  const isLocalhost = process.env.REPLIT_DOMAINS?.includes('localhost:5000') || 
-                      process.env.PORT === '5000';
+  // Check if running in production environment
+  const isProduction = process.env.NODE_ENV === 'production';
+  const hasReplitDomain = process.env.REPLIT_DOMAINS && process.env.REPLIT_DOMAINS.includes('originalbudgetapp-98-andreasadaniels.replit.app');
   
-  if (isDev || isLocalhost) {
+  if (isProduction || hasReplitDomain) {
+    // Production: use Replit app domain
+    return "https://originalbudgetapp-98-andreasadaniels.replit.app/auth/google/callback";
+  } else {
     // Development: use localhost callback
     const port = process.env.PORT || '5000';
     return `http://localhost:${port}/auth/google/callback`;
-  } else {
-    // Production: use Replit app domain
-    return "https://originalbudgetapp-98-andreasadaniels.replit.app/auth/google/callback";
   }
 };
 
 const callbackURL = getCallbackURL();
 console.log('🔧 Google OAuth callback URL:', callbackURL);
+console.log('🔍 Environment debug:', {
+  NODE_ENV: process.env.NODE_ENV,
+  REPLIT_DOMAINS: process.env.REPLIT_DOMAINS,
+  PORT: process.env.PORT,
+  GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI ? 'SET' : 'NOT SET'
+});
 
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID || "33688457598-p9tkuk8kfnqqpr2502tglbd6agsk2jrg.apps.googleusercontent.com",
