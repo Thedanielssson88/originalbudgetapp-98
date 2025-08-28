@@ -1,7 +1,9 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { config } from "dotenv";
+import session from "express-session";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import passport from "./auth/passport";
 
 // Load environment variables from .env file
 config();
@@ -38,6 +40,22 @@ const app = express();
 // Increase body size limit for large transaction synchronization requests
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
+
+// Session configuration
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-super-secret-session-key-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false, // Set to false for development/Replit
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
 
 app.use((req, res, next) => {
   const start = Date.now();

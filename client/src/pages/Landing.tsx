@@ -45,9 +45,9 @@ export default function Landing() {
               <Button 
                 size="lg" 
                 className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-10 py-4 text-lg font-semibold rounded-2xl shadow-2xl transform hover:scale-105 transition-all duration-300 border-0 min-w-[280px] sm:min-w-auto"
-                onClick={() => window.location.href = '/api/login'}
+                onClick={() => window.location.href = '/auth/google'}
               >
-                <span>Kom igång gratis</span>
+                <span>Fortsätt med Google</span>
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
               
@@ -145,7 +145,7 @@ export default function Landing() {
         {/* Footer */}
         <div className="text-center py-8 px-4">
           <p className="text-gray-400 text-sm">
-            Säker inloggning via Replit • Dina data krypteras och skyddas • GDPR-kompatibel
+            Säker inloggning via Google OAuth • Dina data krypteras och skyddas • GDPR-kompatibel
           </p>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { v4 as uuidv4 } from 'uuid';
 import { sql } from 'drizzle-orm';
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import passport from "./auth/passport";
 
 // Helper function to create transaction fingerprint for deduplication
 function createTransactionFingerprint(transaction: { date: string; description: string; amount: number; accountId?: string }): string {
@@ -136,6 +137,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (process.env.NODE_ENV !== 'production' && req.session?.devUser) {
       userId = req.session.devUser.id;
       console.log('✅ [MIDDLEWARE] Using dev session user:', userId);
+    } else if (req.user && req.user.id) {
+      // Google OAuth user (via Passport)
+      userId = req.user.id;
+      console.log('✅ [MIDDLEWARE] Using Google OAuth user:', userId);
     } else if (req.user && req.user.claims && req.user.claims.sub) {
       userId = req.user.claims.sub;
       console.log('✅ [MIDDLEWARE] Using Replit auth user:', userId);
@@ -169,9 +174,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(req.session.devUser);
       }
       
-      // Check if user is authenticated through Replit auth
+      // Check if user is authenticated through Google OAuth or Replit auth
       if (req.isAuthenticated() && req.user) {
         const user = req.user;
+        
+        // Handle Google OAuth user (direct user object from database)
+        if (user.id && user.email && !user.claims) {
+          const userData = {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            profileImageUrl: user.profileImageUrl,
+          };
+          console.log('✅ Returning Google OAuth user:', userData);
+          return res.json(userData);
+        }
         
         // Handle regular Replit auth session
         if (user.claims) {
@@ -233,6 +251,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true, 
         user: req.session.devUser,
         sessionId: req.sessionID
+      });
+    });
+  });
+
+  // Google OAuth routes
+  app.get('/auth/google', 
+    passport.authenticate('google', { scope: ['profile', 'email'] })
+  );
+
+  app.get('/auth/google/callback', 
+    passport.authenticate('google', { failureRedirect: '/login' }),
+    (req: any, res) => {
+      // Successful authentication, redirect to dashboard
+      res.redirect('/');
+    }
+  );
+
+  // Logout route
+  app.get('/auth/logout', (req: any, res) => {
+    req.logout((err: any) => {
+      if (err) {
+        console.error('Logout error:', err);
+        return res.status(500).json({ message: 'Logout failed' });
+      }
+      req.session.destroy(() => {
+        res.clearCookie('connect.sid');
+        res.redirect('/');
       });
     });
   });
