@@ -1832,7 +1832,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         deleted: 0,
         created: 0,
         restored: 0,
-        duplicatesRemoved: 0
+        duplicatesRemoved: 0,
+        brokenLinksFixed: 0
       };
       
       // Step 1: Get existing transactions in date range for this account
@@ -1863,6 +1864,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             tx.huvudkategoriId || 
             tx.underkategoriId ||
             tx.linkedTransactionId ||
+            tx.linkedCostId ||
             tx.incomeTargetId ||
             tx.savingsTargetId ||
             tx.isManuallyChanged === 'true' ||
@@ -1879,6 +1881,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             type: tx.type,
             status: tx.status,
             linkedTransactionId: tx.linkedTransactionId,
+            linkedCostId: tx.linkedCostId,
             incomeTargetId: tx.incomeTargetId,
             savingsTargetId: tx.savingsTargetId,
             isManuallyChanged: tx.isManuallyChanged
@@ -2089,6 +2092,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error(`🛡️ [BULLETPROOF] Error updating budget_posts:`, balanceError);
       }
 
+      // Step 6: Validate and clean up broken UUID links
+      // After import, some linked_transaction_id or linked_cost_id values may point to deleted transactions
+      console.log(`🔍 [BULLETPROOF] Step 6: Validating UUID links...`);
+      let brokenLinksFixed = 0;
+      
+      try {
+        // Get all transactions for this user to check for broken links
+        const allUserTransactions = await storage.getTransactions(userId);
+        
+        // Create a set of all valid transaction IDs for quick lookup
+        const validTransactionIds = new Set(allUserTransactions.map((tx: any) => tx.id));
+        
+        // Check each transaction for broken links
+        for (const tx of allUserTransactions) {
+          let needsUpdate = false;
+          const updates: any = {};
+          
+          // Check linked_transaction_id (snake_case in database)
+          if (tx.linkedTransactionId && !validTransactionIds.has(tx.linkedTransactionId)) {
+            console.log(`⚠️ [BULLETPROOF] Found broken linked_transaction_id in transaction ${tx.id} (${tx.description}): ${tx.linkedTransactionId} doesn't exist`);
+            updates.linkedTransactionId = null;
+            updates.status = 'yellow'; // Reset to yellow status
+            needsUpdate = true;
+          }
+          
+          // Check linked_cost_id (snake_case in database)
+          if (tx.linkedCostId && !validTransactionIds.has(tx.linkedCostId)) {
+            console.log(`⚠️ [BULLETPROOF] Found broken linked_cost_id in transaction ${tx.id} (${tx.description}): ${tx.linkedCostId} doesn't exist`);
+            updates.linkedCostId = null;
+            updates.status = 'yellow'; // Reset to yellow status
+            needsUpdate = true;
+          }
+          
+          // If transaction has broken links, update it
+          if (needsUpdate) {
+            await storage.updateTransaction(tx.id, updates, userId);
+            brokenLinksFixed++;
+            console.log(`✅ [BULLETPROOF] Fixed broken links in transaction ${tx.id}, reset to yellow status`);
+          }
+        }
+        
+        if (brokenLinksFixed > 0) {
+          console.log(`🔧 [BULLETPROOF] Fixed ${brokenLinksFixed} transactions with broken UUID links`);
+          stats.brokenLinksFixed = brokenLinksFixed;
+        } else {
+          console.log(`✅ [BULLETPROOF] No broken UUID links found`);
+        }
+        
+      } catch (error) {
+        console.error(`❌ [BULLETPROOF] Error validating UUID links:`, error);
+        // Don't fail the entire import if validation fails
+      }
+
       console.log(`🛡️ [BULLETPROOF] ================================`);
       console.log(`🛡️ [BULLETPROOF] SYNC COMPLETE`);
       console.log(`🛡️ [BULLETPROOF] Deleted: ${stats.deleted}`);
@@ -2096,6 +2152,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🛡️ [BULLETPROOF] Restored: ${stats.restored}`);
       console.log(`🛡️ [BULLETPROOF] Duplicates removed: ${stats.duplicatesRemoved}`);
       console.log(`🛡️ [BULLETPROOF] Balances updated: ${stats.balancesUpdated || 0}`);
+      console.log(`🛡️ [BULLETPROOF] Broken links fixed: ${stats.brokenLinksFixed || 0}`);
       console.log(`🛡️ [BULLETPROOF] ================================`);
       console.log(`🔍 [BULLETPROOF] About to send response - accountUpdateReached: ${accountUpdateReached}`);
       
@@ -2104,7 +2161,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         stats,
         accountUpdated: accountUpdateSuccess, // Indicate if account update actually succeeded
         accountUpdateReached: accountUpdateReached, // Indicate if we reached the account update code
-        message: `Import complete: ${stats.created} created, ${stats.restored} with restored data, ${stats.duplicatesRemoved} duplicates removed, ${stats.balancesUpdated || 0} balances updated`
+        message: `Import complete: ${stats.created} created, ${stats.restored} with restored data, ${stats.duplicatesRemoved} duplicates removed, ${stats.balancesUpdated || 0} balances updated, ${stats.brokenLinksFixed || 0} broken links fixed`
       });
       
     } catch (error) {

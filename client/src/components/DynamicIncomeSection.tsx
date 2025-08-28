@@ -8,10 +8,12 @@ import { useFamilyMembers } from '@/hooks/useFamilyMembers';
 import { useInkomstkallor, useInkomstkallorMedlem } from '@/hooks/useInkomstkallor';
 import { useBudgetPosts, useCreateBudgetPost, useUpdateBudgetPost } from '@/hooks/useBudgetPosts';
 import { useTransactions, useUpdateTransaction } from '@/hooks/useTransactions';
+import { useAccounts } from '@/hooks/useAccounts';
 import { IncomeLinkDialog } from './IncomeLinkDialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useQueryClient } from '@tanstack/react-query';
 import { addMobileDebugLog } from '../utils/mobileDebugLogger';
-import type { FamilyMember, Inkomstkall, BudgetPost, Transaction } from '@shared/schema';
+import type { FamilyMember, Inkomstkall, BudgetPost, Transaction, Account } from '@shared/schema';
 
 interface DynamicIncomeSectionProps {
   monthKey: string;
@@ -26,6 +28,7 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
   const { data: inkomstkallor } = useInkomstkallor();
   const { data: assignments } = useInkomstkallorMedlem();
   const { data: budgetPosts } = useBudgetPosts(monthKey);
+  const { data: accounts = [] } = useAccounts();
   // Use default transactions (recent only) for better performance
   const { data: transactions = [] } = useTransactions();
   
@@ -41,6 +44,13 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
     source: Inkomstkall | null;
     budgetPost: BudgetPost | null;
   }>({ isOpen: false, member: null, source: null, budgetPost: null });
+  
+  const [accountSelectionDialog, setAccountSelectionDialog] = useState<{
+    isOpen: boolean;
+    budgetPost: BudgetPost | null;
+    member: FamilyMember | null;
+    source: Inkomstkall | null;
+  }>({ isOpen: false, budgetPost: null, member: null, source: null });
 
   // Filter family members who contribute to budget
   const contributingMembers = familyMembers?.filter((m: any) => m.contributesToBudget) || [];
@@ -228,6 +238,7 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
           type: 'Inkomst',
           description: `${linkDialogState.member.name} - ${linkDialogState.source.text}`,
           amount: transaction.amount,
+          accountId: transaction.accountId, // Save the transaction's account ID
           familjemedlemId: linkDialogState.member.id,
           idInkomstkalla: linkDialogState.source.id,
           budgetType: 'Inkomst',
@@ -240,10 +251,13 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
       } else {
         addMobileDebugLog(`🔗 [INCOME LINK] Updating existing budget post: ${budgetPost.id}`);
         console.log('🔗 [INCOME LINK] Updating existing budget post:', budgetPost.id);
-        // Update budget post amount to match transaction
+        // Update budget post amount and account ID to match transaction
         await updateBudgetPostMutation.mutateAsync({
           id: budgetPost.id,
-          data: { amount: transaction.amount }
+          data: { 
+            amount: transaction.amount,
+            accountId: transaction.accountId // Save the transaction's account ID
+          }
         });
         addMobileDebugLog('🔗 [INCOME LINK] Budget post updated');
         console.log('🔗 [INCOME LINK] Budget post updated');
@@ -347,20 +361,59 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
     return transactions.find(t => t.incomeTargetId === budgetPostId);
   };
 
+  // Open account selection dialog
+  const openAccountSelectionDialog = (member: FamilyMember, source: Inkomstkall) => {
+    const budgetPost = getIncomeBudgetPost(member.id, source.id);
+    setAccountSelectionDialog({
+      isOpen: true,
+      budgetPost,
+      member,
+      source
+    });
+  };
+
+  // Handle account selection
+  const handleAccountSelection = async (accountId: string) => {
+    const { budgetPost } = accountSelectionDialog;
+    if (!budgetPost) return;
+
+    try {
+      await updateBudgetPostMutation.mutateAsync({
+        id: budgetPost.id,
+        data: { accountId }
+      });
+      
+      // Close dialog
+      setAccountSelectionDialog({ isOpen: false, budgetPost: null, member: null, source: null });
+      
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['budgetPosts'] });
+      if (onIncomeUpdate) onIncomeUpdate();
+    } catch (error) {
+      console.error('Failed to set account:', error);
+    }
+  };
+
   const getButtonStatus = (member: any, source: Inkomstkall) => {
     const budgetPost = getIncomeBudgetPost(member.id, source.id);
-    if (!budgetPost) return { text: 'Hämta belopp', color: 'yellow', isLinked: false, isEditable: true };
+    if (!budgetPost) return { text: 'Hämta belopp', color: 'yellow', isLinked: false, isEditable: true, needsAccount: false };
     
     const linkedTransaction = getLinkedTransaction(budgetPost.id);
     if (linkedTransaction) {
-      return { text: 'Länkad', color: 'green', isLinked: true, isEditable: false };
+      return { text: 'Länkad', color: 'green', isLinked: true, isEditable: false, needsAccount: false };
+    }
+    
+    // Check if budget post exists but has no account assigned
+    if (!budgetPost.accountId) {
+      return { text: 'Hämta belopp', color: 'yellow', isLinked: false, isEditable: true, needsAccount: true };
     }
     
     if (budgetPost.amount === 0) {
-      return { text: 'Inget belopp', color: 'gray', isLinked: false, isEditable: false };
+      return { text: 'Inget belopp', color: 'gray', isLinked: false, isEditable: false, needsAccount: false };
     }
     
-    return { text: 'Hämta belopp', color: 'yellow', isLinked: false, isEditable: true };
+    // Budget post has account_id and amount > 0, but is not linked to a transaction
+    return { text: 'Hämta belopp', color: 'yellow', isLinked: false, isEditable: true, needsAccount: false, hasAccount: true };
   };
 
   // Calculate total income for display
@@ -422,14 +475,34 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
                       <Label htmlFor={key} className="text-green-700">
                         {source.text}
                       </Label>
-                      <Button
-                        size="sm"
-                        onClick={() => openLinkDialog(member, source)}
-                        className={getButtonClassName()}
-                      >
-                        {buttonStatus.isLinked ? <Unlink2 size={16} /> : <Link2 size={16} />}
-                        {buttonStatus.text}
-                      </Button>
+                      <div className="flex gap-2">
+                        {buttonStatus.needsAccount && (
+                          <Button
+                            size="sm"
+                            onClick={() => openAccountSelectionDialog(member, source)}
+                            className="bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500"
+                          >
+                            Välj konto
+                          </Button>
+                        )}
+                        {buttonStatus.hasAccount && (
+                          <Button
+                            size="sm"
+                            onClick={() => openAccountSelectionDialog(member, source)}
+                            className="bg-green-600 hover:bg-green-700 text-white border-green-600"
+                          >
+                            Konto valt
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          onClick={() => openLinkDialog(member, source)}
+                          className={getButtonClassName()}
+                        >
+                          {buttonStatus.isLinked ? <Unlink2 size={16} /> : <Link2 size={16} />}
+                          {buttonStatus.text}
+                        </Button>
+                      </div>
                     </div>
                     <Input
                       id={key}
@@ -474,6 +547,46 @@ export const DynamicIncomeSection: React.FC<DynamicIncomeSectionProps> = ({
           monthKey={monthKey}
         />
       )}
+
+      {/* Account Selection Dialog */}
+      <Dialog open={accountSelectionDialog.isOpen} onOpenChange={(open) => {
+        if (!open) {
+          setAccountSelectionDialog({ isOpen: false, budgetPost: null, member: null, source: null });
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Välj konto</DialogTitle>
+            <DialogDescription>
+              Välj vilket konto som {accountSelectionDialog.source?.text?.toLowerCase()} för {accountSelectionDialog.member?.name} ska kopplas till.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {accounts.map((account: Account) => (
+              <Button
+                key={account.id}
+                variant="outline"
+                className="w-full justify-start h-auto p-3"
+                onClick={() => handleAccountSelection(account.id)}
+              >
+                <div className="text-left">
+                  <div className="font-medium">{account.name}</div>
+                </div>
+              </Button>
+            ))}
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setAccountSelectionDialog({ isOpen: false, budgetPost: null, member: null, source: null })}
+            >
+              Avbryt
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
