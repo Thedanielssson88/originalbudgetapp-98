@@ -99,7 +99,10 @@
       "Bash(NODE_ENV=development DATABASE_URL=\"postgresql://neondb_owner:npg_csIURKah4TN5@ep-soft-salad-aeyhh2aj.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require\" npm run db:push)",
       "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_csIURKah4TN5@ep-soft-salad-aeyhh2aj.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require\" psql \"$DATABASE_URL\" -c \"SELECT bp.id, bp.description, bp.name, bp.amount, bp.type, bp.account_id, bp.account_id_from, a1.name as dest_account, a2.name as from_account FROM budget_posts bp LEFT JOIN accounts a1 ON bp.account_id = a1.id LEFT JOIN accounts a2 ON bp.account_id_from = a2.id WHERE bp.user_id = ''dev-user-123'' AND bp.type = ''sparmål'' AND bp.month_key = ''2025-08'' LIMIT 5;\")",
       "Bash(find:*)",
-      "WebFetch(domain:ibb.co)"
+      "WebFetch(domain:ibb.co)",
+      "Bash(NODE_ENV=development DATABASE_URL=\"postgresql://neondb_owner:npg_csIURKah4TN5@ep-soft-salad-aeyhh2aj.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require\" psql $DATABASE_URL -c \"SELECT type, SUM(ABS(amount)) as total_ore, SUM(ABS(amount))/100 as total_kr, COUNT(*) as count FROM budget_posts WHERE user_id = ''dev-user-123'' AND month_key = ''2025-08'' GROUP BY type ORDER BY type;\")",
+      "Bash(NODE_ENV=development DATABASE_URL=\"postgresql://neondb_owner:npg_csIURKah4TN5@ep-soft-salad-aeyhh2aj.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require\" psql $DATABASE_URL -c \"SELECT type, description, amount/100 as amount_kr FROM budget_posts WHERE user_id = ''dev-user-123'' AND month_key = ''2025-08'' AND type IN (''cost'', ''savings'', ''sparmål'') ORDER BY type, description;\")",
+      "Bash(NODE_ENV=development DATABASE_URL=\"postgresql://neondb_owner:npg_csIURKah4TN5@ep-soft-salad-aeyhh2aj.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require\" psql $DATABASE_URL -c \"SELECT type, description, name, amount/100 as amount_kr FROM budget_posts WHERE user_id = ''dev-user-123'' AND month_key = ''2025-08'' ORDER BY type, description;\")"
     ],
     "deny": []
   }

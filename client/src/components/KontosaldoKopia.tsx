@@ -102,6 +102,7 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
     
     console.log(`[KontosaldoKopia] Calculating bank balances for ${monthKey}`);
     console.log(`[KontosaldoKopia] Need balance from before ${previousMonthPayday.toISOString().split('T')[0]}`);
+    console.log(`[KontosaldoKopia] Date calculation: year=${year}, month=${month}, payday=${payday}`);
     
     const newBankBalances: { [accountId: string]: number | null } = {};
     
@@ -114,6 +115,17 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
           return txDate < previousMonthPayday;
         })
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      // Special debug for Överföring account
+      if (account.name === 'Överföring') {
+        console.log(`[KontosaldoKopia] *** DEBUG Överföring account ***`);
+        console.log(`[KontosaldoKopia] Account ID: ${account.id}`);
+        console.log(`[KontosaldoKopia] All transactions for this account:`, accountTransactions.length);
+        console.log(`[KontosaldoKopia] Previous month payday cutoff: ${previousMonthPayday.toISOString().split('T')[0]}`);
+        accountTransactions.slice(0, 5).forEach((tx, i) => {
+          console.log(`[KontosaldoKopia] Transaction ${i}: ${tx.date} - ${tx.description} - balance: ${tx.balanceAfter}`);
+        });
+      }
       
       if (accountTransactions.length > 0) {
         const lastTransaction = accountTransactions[0];

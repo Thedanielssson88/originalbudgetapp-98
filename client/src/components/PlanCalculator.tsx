@@ -30,6 +30,7 @@ import { AccountSelector } from '@/components/AccountSelector';
 import { MainCategoriesSettings } from '@/components/MainCategoriesSettings';
 import { PaydaySettings } from '@/components/PaydaySettings';
 import { AddBudgetItemDialog } from '@/components/AddBudgetItemDialog';
+import { NewTransferForm } from '@/components/NewTransferForm';
 import { TransactionImportEnhanced } from '@/components/TransactionImportEnhanced';
 import { TransactionDrillDownDialog } from '@/components/TransactionDrillDownDialog';
 import { SavingsSection } from '@/components/SavingsSection';
@@ -39,6 +40,7 @@ import { KontosaldoKopia } from '@/components/KontosaldoKopia';
 import { Sammanstallning } from '@/components/Sammanstallning';
 import { MonthSelector } from '@/components/MonthSelector';
 import { ModernIncomeSection } from '@/components/ModernIncomeSection';
+import { BudgetPlanningSection } from '@/components/BudgetPlanningSection';
 import { 
   calculateAccountEndBalances, 
   getTransactionsForPeriod, 
@@ -54,7 +56,7 @@ import { useFamilyMembers } from '@/hooks/useFamilyMembers';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useInkomstkallor, useInkomstkallorMedlem } from '@/hooks/useInkomstkallor';
 import { useTransactions } from '@/hooks/useTransactions';
-import { useBudgetPosts, useAllBudgetPosts, useDeleteBudgetPost } from '@/hooks/useBudgetPosts';
+import { useBudgetPosts, useAllBudgetPosts, useDeleteBudgetPost, useCreateBudgetPost } from '@/hooks/useBudgetPosts';
 import { useMonthlyAccountBalances, useUpdateFaktisktKontosaldo } from '@/hooks/useMonthlyAccountBalances';
 import { 
   createSavingsGoal,
@@ -132,16 +134,26 @@ const PlanCalculator = () => {
   // BudgetCalculator component starting
   // Use the original useBudget hook - fix hook ordering instead
   const { isLoading, budgetState, calculated } = useBudget();
+  
+  // Define selectedBudgetMonth early so it can be used in hooks
+  const selectedBudgetMonth = budgetState.selectedMonthKey;
+  
   const { data: familyMembers } = useFamilyMembers();
   const { data: inkomstkallor } = useInkomstkallor();
   const { data: inkomstkallorMedlem } = useInkomstkallorMedlem();
   const { data: accountsFromAPI = [], isLoading: accountsLoading, error: accountsError } = useAccounts();
   const { data: transactionsFromAPI = [], isLoading: transactionsLoading } = useTransactions();
-  const { data: budgetPostsFromAPI = [], isLoading: budgetPostsLoading } = useBudgetPosts(budgetState.selectedMonthKey);
+  const { data: budgetPostsFromAPI = [], isLoading: budgetPostsLoading } = useBudgetPosts(selectedBudgetMonth || budgetState.selectedMonthKey);
   const { data: allBudgetPostsFromAPI = [] } = useAllBudgetPosts();
   const deleteBudgetPostMutation = useDeleteBudgetPost();
-  const currentMonthlyBudget = useMonthlyBudget(budgetState.selectedMonthKey);
+  const createBudgetPost = useCreateBudgetPost();
+  const currentMonthlyBudget = useMonthlyBudget(selectedBudgetMonth || budgetState.selectedMonthKey);
   const { toast } = useToast();
+  
+  // Local state for selected month in Plan page
+  const [localSelectedMonth, setLocalSelectedMonth] = useState<string>(() => {
+    return `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  });
   
   // API hooks for categories - declare early as they're needed in useMemo
   const { data: huvudkategorier = [], isLoading: huvudkategorierLoading } = useHuvudkategorier();
@@ -342,7 +354,7 @@ const PlanCalculator = () => {
   }, [budgetPostsFromAPI, huvudkategorier, underkategorier, accountsFromAPI]);
 
   // Hooks for monthly account balances (SQL database)
-  const { data: monthlyBalances = [] } = useMonthlyAccountBalances(budgetState.selectedMonthKey);
+  const { data: monthlyBalances = [] } = useMonthlyAccountBalances(selectedBudgetMonth || budgetState.selectedMonthKey);
   const updateFaktisktKontosaldoMutation = useUpdateFaktisktKontosaldo();
   
   // Import UUID category resolution system
@@ -560,6 +572,9 @@ const PlanCalculator = () => {
     isOpen: boolean;
     type: 'cost' | 'savings';
   }>({ isOpen: false, type: 'cost' });
+  
+  // New transfer form state (same as KontosaldoKopia)
+  const [showNewTransferForm, setShowNewTransferForm] = useState(false);
 
   // Sparmål state
   const [isCreateSavingsGoalDialogOpen, setIsCreateSavingsGoalDialogOpen] = useState<boolean>(false);
@@ -638,7 +653,6 @@ const PlanCalculator = () => {
   const results = calculated.results;
   const historicalData = appHistoricalData;
   const selectedHistoricalMonth = budgetState.selectedHistoricalMonth;
-  const selectedBudgetMonth = selectedMonthKey;
   
   // Personal budget values from current month data
   const andreasPersonalCosts = (currentMonthData as any).andreasPersonalCosts || 0;
@@ -816,14 +830,14 @@ const PlanCalculator = () => {
   // Calculate accountEndBalances dynamically from next month's accountBalances
   const accountEndBalances = calculateAccountEndBalances(
     budgetState.historicalData, 
-    budgetState.selectedMonthKey, 
+    selectedBudgetMonth || budgetState.selectedMonthKey, 
     accountsFromAPI || []
   );
   const accountEndBalancesSet = {}; // No longer used since it's calculated
 
   // Helper function to check if next month's balance is set for an account
   const isNextMonthBalanceSet = (accountName: string): boolean => {
-    const [year, month] = (budgetState.selectedMonthKey || '').split('-').map(Number);
+    const [year, month] = (selectedBudgetMonth || budgetState.selectedMonthKey || '').split('-').map(Number);
     const nextMonth = month === 12 ? 1 : month + 1;
     const nextYear = month === 12 ? year + 1 : year;
     const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
@@ -834,7 +848,7 @@ const PlanCalculator = () => {
 
   // Helper function to get next month name
   const getNextMonthName = (): string => {
-    const [year, month] = (budgetState.selectedMonthKey || '').split('-').map(Number);
+    const [year, month] = (selectedBudgetMonth || budgetState.selectedMonthKey || '').split('-').map(Number);
     const nextMonth = month === 12 ? 1 : month + 1;
     const monthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 
                        'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
@@ -1373,7 +1387,7 @@ const PlanCalculator = () => {
     
     const incomePosts = budgetPostsFromAPI.filter(post => 
       post.type === 'Inkomst' && 
-      post.monthKey === budgetState.selectedMonthKey
+      post.monthKey === (selectedBudgetMonth || budgetState.selectedMonthKey)
     );
     
     const incomeFromPosts = incomePosts.reduce((total, post) => total + (post.amount || 0), 0);
@@ -1772,6 +1786,54 @@ const PlanCalculator = () => {
     console.log('🔍 [DEBUG] Legacy mainCategory:', legacyItem.mainCategory);
     console.log('🔍 [DEBUG] Legacy subcategory:', legacyItem.subcategory);
     handleAddCostItem(legacyItem);
+  };
+
+  // Handle transfer creation (same as KontosaldoKopia)
+  const handleCreateTransfer = async (transfer: {
+    fromAccountId: string;
+    toAccountId: string;
+    amount: number;
+    description?: string;
+    transferType: 'monthly' | 'daily';
+    dailyAmount?: number;
+    transferDays?: number[];
+    huvudkategoriId?: string;
+    underkategoriId?: string;
+  }) => {
+    try {
+      // Convert amount to öre using same utility as KontosaldoKopia
+      const budgetPostData = {
+        monthKey: selectedBudgetMonth || budgetState.selectedMonthKey,
+        huvudkategoriId: transfer.huvudkategoriId || null,
+        underkategoriId: transfer.underkategoriId || null,
+        description: transfer.description || 'Planerad överföring',
+        amount: kronoraToOren(transfer.amount),
+        accountId: transfer.toAccountId,
+        accountIdFrom: transfer.fromAccountId,
+        financedFrom: `Från ${accountsFromAPI.find(acc => acc.id === transfer.fromAccountId)?.name || 'okänt konto'}`,
+        type: 'transfer',
+        userId: 'dev-user-123'
+      };
+
+      // Use the existing createBudgetPost mutation
+      await createBudgetPost.mutateAsync(budgetPostData);
+      
+      toast({
+        title: "Överföring skapad",
+        description: "Din överföring har skapats.",
+      });
+      
+      // Close the form
+      setShowNewTransferForm(false);
+      
+    } catch (error) {
+      console.error('Error creating transfer:', error);
+      toast({
+        title: "Fel",
+        description: "Kunde inte skapa överföring.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Delete savings group function
@@ -3079,10 +3141,10 @@ const PlanCalculator = () => {
     
     // NEW: Save to SQL database instead of localStorage
     const accountObj = accountsFromAPI.find(acc => acc.name === account);
-    if (accountObj && budgetState.selectedMonthKey) {
+    if (accountObj && (selectedBudgetMonth || budgetState.selectedMonthKey)) {
       const balanceInOre = Math.round(balance * 100); // Convert to öre
       updateFaktisktKontosaldoMutation.mutate({
-        monthKey: budgetState.selectedMonthKey,
+        monthKey: selectedBudgetMonth || budgetState.selectedMonthKey,
         accountId: accountObj.id,
         faktisktKontosaldo: balanceInOre
       });
@@ -3106,9 +3168,9 @@ const PlanCalculator = () => {
     
     // NEW: Save to SQL database instead of localStorage
     const accountObj = accountsFromAPI.find(acc => acc.name === account);
-    if (accountObj && budgetState.selectedMonthKey) {
+    if (accountObj && (selectedBudgetMonth || budgetState.selectedMonthKey)) {
       updateFaktisktKontosaldoMutation.mutate({
-        monthKey: budgetState.selectedMonthKey,
+        monthKey: selectedBudgetMonth || budgetState.selectedMonthKey,
         accountId: accountObj.id,
         faktisktKontosaldo: null
       });
@@ -5402,27 +5464,7 @@ const PlanCalculator = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background p-4">
       {loadingOverlay}
       <div className="max-w-6xl mx-auto">
-        {/* Month Selector in top left */}
-        <div className="mb-6">
-          <MonthSelector
-            selectedMonth={selectedBudgetMonth || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
-            onMonthChange={(month) => {
-              // Check if month exists
-              if (!availableMonths.includes(month)) {
-                // Create new month if it doesn't exist
-                const [year, monthNum] = month.split('-').map(Number);
-                const targetMonth = new Date(year, monthNum - 1);
-                budgetState.orchestrator?.copyNonStaticBudgetItems(selectedBudgetMonth, month);
-                createNewMonth(targetMonth);
-              }
-              setSelectedBudgetMonth(month);
-              budgetState.orchestrator?.selectMonth(month);
-            }}
-            availableMonths={availableMonths}
-            minYear={2020}
-            maxYear={2030}
-          />
-        </div>
+        {/* Month selector moved to sticky header */}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Hidden TabsList for programmatic navigation only */}
@@ -5500,41 +5542,17 @@ const PlanCalculator = () => {
                   : ""
             }`}>
               <div className="space-y-6">
-              {/* Modern Income Section */}
-              <ModernIncomeSection
-                totalIncome={calculateTotalIncomeFromBudgetPosts()}
-                selectedMonth={selectedBudgetMonth || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
-                budgetState={budgetState}
-                accounts={accounts}
-                budgetPosts={budgetPostsFromAPI}
-                monthlyBudget={monthlyBudget}
-              />
+              {/* Income section moved to sticky header */}
 
-              {/* Budgetplanering Section */}
-              <Card className="shadow-lg border-0 bg-indigo-50/50 backdrop-blur-sm">
-                <CardHeader>
-                  <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('accountBalancesCopy')}>
-                    <div>
-                      <CardTitle className="flex items-center gap-2 text-indigo-800">
-                        <TrendingUp className="h-5 w-5" />
-                        Budgetplanering
-                      </CardTitle>
-                      <CardDescription className="text-indigo-700">
-                        {/* Use a placeholder that will be replaced by KontosaldoKopia's actual values */}
-                        <span id="budget-summary-header">
-                          {budgetState.selectedMonthKey ? 'Laddar budgetöversikt...' : 'Ingen månad vald'}
-                        </span>
-                      </CardDescription>
-                    </div>
-                    <ChevronDown className={`h-4 w-4 transition-transform text-indigo-800 ${expandedSections.accountBalancesCopy ? 'rotate-180' : ''}`} />
-                  </div>
-                </CardHeader>
-                {expandedSections.accountBalancesCopy && (
-                  <CardContent className="space-y-4">
-                    <KontosaldoKopia monthKey={budgetState.selectedMonthKey} />
-                  </CardContent>
-                )}
-              </Card>
+              {/* Budgetplanering Section - Always Expanded */}
+              <BudgetPlanningSection
+                accounts={accountsFromAPI}
+                budgetPosts={budgetPostsFromAPI}
+                selectedMonth={selectedBudgetMonth || budgetState.selectedMonthKey}
+                onNewTransfer={() => setShowNewTransferForm(true)}
+                onNewCost={() => setShowAddBudgetDialog({ isOpen: true, type: 'cost' })}
+                onNewSaving={() => setShowAddBudgetDialog({ isOpen: true, type: 'savings' })}
+              />
 
 
               {/* Budgetkategorier Section - REMOVED FOR PLAN PAGE */}
@@ -6940,6 +6958,20 @@ const PlanCalculator = () => {
         budgetAmount={drillDownDialog.budgetAmount}
         actualAmount={drillDownDialog.actualAmount}
       />
+      
+      {/* New Transfer Form Modal */}
+      {showNewTransferForm && (
+        <NewTransferForm
+          availableAccounts={accountsFromAPI}
+          selectedMonth={selectedBudgetMonth || budgetState.selectedMonthKey}
+          budgetState={{
+            historicalData: budgetState.historicalData,
+            allTransactions: transactionsFromAPI || []
+          }}
+          onSubmit={handleCreateTransfer}
+          onCancel={() => setShowNewTransferForm(false)}
+        />
+      )}
       
       {/* Bottom padding for better visual spacing */}
       <div className="h-16"></div>

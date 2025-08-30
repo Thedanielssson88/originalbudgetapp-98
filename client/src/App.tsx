@@ -8,6 +8,7 @@ import { MobileDebugPanel } from "./components/MobileDebugPanel";
 import Index from "./pages/Index";
 import BudgetPage from "./pages/BudgetPage";
 import PlanPage from "./pages/PlanPage";
+import PlanPageWithHeader from "./components/PlanPageWithHeader";
 import { SavingsGoalsPage } from "./pages/SavingsGoalsPage";
 import TransactionsPage from "./pages/TransactionsPage";
 import { TransactionReviewPage } from "./pages/TransactionReviewPage";
@@ -104,24 +105,29 @@ const AppContent = () => {
                 <Route path="/auth/callback" component={AuthCallbackPage} />
               </>
             ) : (
-              <AppLayout>
-                <Route path="/" component={Home} />
-                <Route path="/budget" component={BudgetPage} />
-                <Route path="/inkomster" component={BudgetPage} />
-                <Route path="/sammanstallning" component={BudgetPage} />
-                <Route path="/overforing" component={BudgetPage} />
-                <Route path="/egen-budget" component={BudgetPage} />
-                <Route path="/historia" component={BudgetPage} />
-                <Route path="/plan" component={PlanPage} />
-                <Route path="/sparmal" component={SavingsGoalsPage} />
-                <Route path="/transaktioner" component={TransactionsPage} />
-                <Route path="/granska" component={TransactionReviewPage} />
-                <Route path="/kategorier" component={CategoryManagement} />
-                <Route path="/import" component={ImportPage} />
-                <Route path="/ladda-upp-filer" component={ImportPage} />
-                <Route path="/installningar" component={SettingsPage} />
-                <Route path="/debug" component={DebugModePage} />
-              </AppLayout>
+              <>
+                {/* Plan page has its own AppLayout wrapper */}
+                <Route path="/plan" component={PlanPageWithHeader} />
+                
+                {/* All other pages use standard AppLayout */}
+                <AppLayout>
+                  <Route path="/" component={Home} />
+                  <Route path="/budget" component={BudgetPage} />
+                  <Route path="/inkomster" component={BudgetPage} />
+                  <Route path="/sammanstallning" component={BudgetPage} />
+                  <Route path="/overforing" component={BudgetPage} />
+                  <Route path="/egen-budget" component={BudgetPage} />
+                  <Route path="/historia" component={BudgetPage} />
+                  <Route path="/sparmal" component={SavingsGoalsPage} />
+                  <Route path="/transaktioner" component={TransactionsPage} />
+                  <Route path="/granska" component={TransactionReviewPage} />
+                  <Route path="/kategorier" component={CategoryManagement} />
+                  <Route path="/import" component={ImportPage} />
+                  <Route path="/ladda-upp-filer" component={ImportPage} />
+                  <Route path="/installningar" component={SettingsPage} />
+                  <Route path="/debug" component={DebugModePage} />
+                </AppLayout>
+              </>
             )}
           </Switch>
         </TooltipProvider>
