@@ -5507,7 +5507,7 @@ const PlanCalculator = () => {
                 budgetState={budgetState}
                 accounts={accounts}
                 budgetPosts={budgetPostsFromAPI}
-                monthlyBudget={monthlyBudgetFromAPI}
+                monthlyBudget={monthlyBudget}
               />
 
               {/* Budgetplanering Section */}
