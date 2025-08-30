@@ -98,7 +98,8 @@
       "Bash(NODE_ENV=development DATABASE_URL=\"postgresql://neondb_owner:npg_csIURKah4TN5@ep-soft-salad-aeyhh2aj.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require\" psql $DATABASE_URL -c \"SELECT id, description, name, account_id, amount FROM budget_posts WHERE user_id = ''dev-user-123'' AND type = ''Inkomst'' AND account_id IS NOT NULL ORDER BY description, account_id;\")",
       "Bash(NODE_ENV=development DATABASE_URL=\"postgresql://neondb_owner:npg_csIURKah4TN5@ep-soft-salad-aeyhh2aj.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require\" npm run db:push)",
       "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_csIURKah4TN5@ep-soft-salad-aeyhh2aj.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require\" psql \"$DATABASE_URL\" -c \"SELECT bp.id, bp.description, bp.name, bp.amount, bp.type, bp.account_id, bp.account_id_from, a1.name as dest_account, a2.name as from_account FROM budget_posts bp LEFT JOIN accounts a1 ON bp.account_id = a1.id LEFT JOIN accounts a2 ON bp.account_id_from = a2.id WHERE bp.user_id = ''dev-user-123'' AND bp.type = ''sparmål'' AND bp.month_key = ''2025-08'' LIMIT 5;\")",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "WebFetch(domain:ibb.co)"
     ],
     "deny": []
   }

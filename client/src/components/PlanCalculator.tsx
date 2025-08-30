@@ -38,6 +38,7 @@ import { DynamicIncomeSection } from '@/components/DynamicIncomeSection';
 import { KontosaldoKopia } from '@/components/KontosaldoKopia';
 import { Sammanstallning } from '@/components/Sammanstallning';
 import { MonthSelector } from '@/components/MonthSelector';
+import { ModernIncomeSection } from '@/components/ModernIncomeSection';
 import { 
   calculateAccountEndBalances, 
   getTransactionsForPeriod, 
@@ -5499,37 +5500,15 @@ const PlanCalculator = () => {
                   : ""
             }`}>
               <div className="space-y-6">
-              {/* Intäkter Section */}
-              <Card className="shadow-lg border-0 bg-green-50/50 backdrop-blur-sm">
-                <CardHeader>
-                  <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleSection('incomeDetails')}>
-                    <div>
-                      <CardTitle className="flex items-center gap-2 text-green-800">
-                        <DollarSign className="h-5 w-5" />
-                        Intäkter
-                      </CardTitle>
-                      <CardDescription className="text-green-700">
-                        {formatCurrency(calculateTotalIncomeFromBudgetPosts())}
-                      </CardDescription>
-                    </div>
-                    <ChevronDown className={`h-4 w-4 transition-transform text-green-800 ${expandedSections.incomeDetails ? 'rotate-180' : ''}`} />
-                  </div>
-                </CardHeader>
-                {expandedSections.incomeDetails && (
-                  <CardContent className="space-y-6 bg-green-50/30">
-                    <DynamicIncomeSection 
-                      monthKey={budgetState.selectedMonthKey}
-                      onIncomeUpdate={() => {
-                        // Trigger any necessary updates after income change
-                        const currentDate = new Date();
-                        const currentMonthKey = selectedBudgetMonth || `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-                        resetMonthFinalBalancesFlag(currentMonthKey);
-                      }}
-                    />
-
-                  </CardContent>
-                )}
-              </Card>
+              {/* Modern Income Section */}
+              <ModernIncomeSection
+                totalIncome={calculateTotalIncomeFromBudgetPosts()}
+                selectedMonth={selectedBudgetMonth || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
+                budgetState={budgetState}
+                accounts={accounts}
+                budgetPosts={budgetPostsFromAPI}
+                monthlyBudget={monthlyBudgetFromAPI}
+              />
 
               {/* Budgetplanering Section */}
               <Card className="shadow-lg border-0 bg-indigo-50/50 backdrop-blur-sm">
