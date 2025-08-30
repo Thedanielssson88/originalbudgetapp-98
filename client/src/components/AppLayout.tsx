@@ -7,6 +7,7 @@ interface AppLayoutProps {
 
 const pageTitles: Record<string, string> = {
   "/inkomster": "Min Månadsbudget",
+  "/plan": "Planering",
   "/sammanstallning": "Sammanställning",
   "/overforing": "Överföring",
   "/egen-budget": "Egen Budget",

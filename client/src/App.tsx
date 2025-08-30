@@ -7,6 +7,7 @@ import { AppLayout } from "./components/AppLayout";
 import { MobileDebugPanel } from "./components/MobileDebugPanel";
 import Index from "./pages/Index";
 import BudgetPage from "./pages/BudgetPage";
+import PlanPage from "./pages/PlanPage";
 import { SavingsGoalsPage } from "./pages/SavingsGoalsPage";
 import TransactionsPage from "./pages/TransactionsPage";
 import { TransactionReviewPage } from "./pages/TransactionReviewPage";
@@ -111,6 +112,7 @@ const AppContent = () => {
                 <Route path="/overforing" component={BudgetPage} />
                 <Route path="/egen-budget" component={BudgetPage} />
                 <Route path="/historia" component={BudgetPage} />
+                <Route path="/plan" component={PlanPage} />
                 <Route path="/sparmal" component={SavingsGoalsPage} />
                 <Route path="/transaktioner" component={TransactionsPage} />
                 <Route path="/granska" component={TransactionReviewPage} />

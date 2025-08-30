@@ -1,4 +1,4 @@
-import { Calculator, BarChart3, ArrowRightLeft, PieChart, History, Target, Upload, Settings, LogOut, CreditCard, Bug, MoreHorizontal } from "lucide-react";
+import { Calculator, BarChart3, ArrowRightLeft, PieChart, History, Target, Upload, Settings, LogOut, CreditCard, Bug, MoreHorizontal, FileText } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useState, useRef, useEffect } from "react";
@@ -12,6 +12,7 @@ import {
 
 const items = [
   { title: "Budget", url: "/inkomster", icon: Calculator },
+  { title: "Plan", url: "/plan", icon: FileText },
   { title: "Översikt", url: "/sammanstallning", icon: BarChart3 },
   { title: "Överföring", url: "/overforing", icon: ArrowRightLeft },
   { title: "Min Budget", url: "/egen-budget", icon: PieChart },
