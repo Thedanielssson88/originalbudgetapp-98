@@ -577,11 +577,11 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
             </TabsTrigger>
             <TabsTrigger value="categories" className="flex items-center gap-2">
               <PieChart className="w-4 h-4" />
-              Kategorier
+              Alla konton
             </TabsTrigger>
             <TabsTrigger value="accounts" className="flex items-center gap-2">
               <Wallet className="w-4 h-4" />
-              Konton
+              Kategorier
             </TabsTrigger>
           </TabsList>
 
@@ -1077,7 +1077,7 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
                         <SelectItem value="all">
                           <div className="flex items-center gap-2">
                             <Wallet className="w-4 h-4" />
-                            Alla konton
+                            Kategorier
                           </div>
                         </SelectItem>
                         <SelectItem value="account-type">
@@ -1127,7 +1127,7 @@ export const Sammanstallning: React.FC<SammanstallningProps> = ({
                     {selectedAccountFilter === 'all' && (
                       <div className="flex items-center gap-1">
                         <Badge variant="outline" className="text-blue-700 border-blue-300">
-                          Alla konton ({accounts.length})
+                          Kategorier ({accounts.length})
                         </Badge>
                       </div>
                     )}

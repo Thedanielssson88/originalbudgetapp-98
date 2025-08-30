@@ -4,14 +4,22 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { X } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ChevronDown, ChevronRight, Plus, ArrowRightLeft, PiggyBank, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatOrenAsCurrency, kronoraToOren } from '@/utils/currencyUtils';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useToast } from '@/hooks/use-toast';
 import { useUpdateBudgetPost, useCreateBudgetPost } from '@/hooks/useBudgetPosts';
+import { useFamilyMembers } from '@/hooks/useFamilyMembers';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface Account {
@@ -33,9 +41,9 @@ interface BudgetPlanningProps {
   accounts: Account[];
   budgetPosts: any[];
   selectedMonth: string;
-  onNewTransfer: () => void;
-  onNewCost: () => void;
-  onNewSaving: () => void;
+  onNewTransfer: (accountIdFrom?: string) => void;
+  onNewCost: (accountId?: string) => void;
+  onNewSaving: (accountIdTo?: string) => void;
 }
 
 interface AccountGroup {
@@ -53,6 +61,7 @@ export function BudgetPlanningSection({
 }: BudgetPlanningProps) {
   // Get transactions using the same hook as KontosaldoKopia
   const { data: allTransactions = [] } = useTransactions();
+  const { data: familyMembers = [] } = useFamilyMembers();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const updateBudgetPostMutation = useUpdateBudgetPost();
@@ -69,6 +78,9 @@ export function BudgetPlanningSection({
   
   const [expandedAccounts, setExpandedAccounts] = useState<{ [accountId: string]: boolean }>({});
   const [expandedCategories, setExpandedCategories] = useState<{ [key: string]: boolean }>({});
+  const [expandedGroups, setExpandedGroups] = useState<{ [groupName: string]: boolean }>({
+    'Gemensamt': true // Gemensamt starts expanded by default
+  });
   const [calculatedBankBalances, setCalculatedBankBalances] = useState<{ [accountId: string]: number | null }>({});
   const [editDialog, setEditDialog] = useState<EditDialogState>({
     isOpen: false,
@@ -79,6 +91,9 @@ export function BudgetPlanningSection({
   });
   const [dialogInputValue, setDialogInputValue] = useState<string>('');
   const [dialogSelection, setDialogSelection] = useState<'custom' | 'bank'>('custom');
+  const [actionModalOpen, setActionModalOpen] = useState(false);
+  const [selectedAccountForAction, setSelectedAccountForAction] = useState<{ id: string; name: string } | null>(null);
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
 
   // Calculate bank balances from transactions (same logic as KontosaldoKopia)
   useEffect(() => {
@@ -269,17 +284,26 @@ export function BudgetPlanningSection({
       groups[assignedTo].push(account);
     });
 
-    // Convert to array and sort
-    return Object.entries(groups).map(([name, accounts]) => ({
-      name,
-      accounts: accounts.sort((a, b) => a.name.localeCompare(b.name))
-    })).sort((a, b) => {
+    // Convert to array and resolve UUIDs to family member names
+    return Object.entries(groups).map(([name, accounts]) => {
+      // Try to find family member by ID if name looks like a UUID
+      let displayName = name;
+      if (name.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        const familyMember = familyMembers.find((member: any) => member.id === name);
+        displayName = familyMember ? familyMember.name : name;
+      }
+      
+      return {
+        name: displayName,
+        accounts: accounts.sort((a, b) => a.name.localeCompare(b.name))
+      };
+    }).sort((a, b) => {
       // Put "Gemensamt" first
       if (a.name === 'Gemensamt') return -1;
       if (b.name === 'Gemensamt') return 1;
       return a.name.localeCompare(b.name);
     });
-  }, [accounts]);
+  }, [accounts, familyMembers]);
 
   const toggleAccountExpansion = (accountId: string) => {
     setExpandedAccounts(prev => ({
@@ -293,6 +317,75 @@ export function BudgetPlanningSection({
       ...prev,
       [key]: !prev[key]
     }));
+  };
+
+  const toggleGroupExpansion = (groupName: string) => {
+    setExpandedGroups(prev => ({
+      ...prev,
+      [groupName]: !prev[groupName]
+    }));
+  };
+
+  // Handle long press start
+  const handleLongPressStart = (accountId: string, accountName: string) => (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    
+    const timer = setTimeout(() => {
+      console.log(`[Action Modal] Opening for account "${accountName}" (${accountId})`);
+      setSelectedAccountForAction({ id: accountId, name: accountName });
+      setActionModalOpen(true);
+    }, 500); // 500ms hold time
+    setLongPressTimer(timer);
+  };
+
+  // Handle long press end
+  const handleLongPressEnd = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+
+  // Handle modal actions
+  const handleModalAction = (action: 'transfer' | 'cost' | 'saving') => {
+    if (!selectedAccountForAction) return;
+    
+    console.log(`[Action Modal] Action ${action} for account ${selectedAccountForAction.name} (${selectedAccountForAction.id})`);
+    
+    // Close modal
+    setActionModalOpen(false);
+    setSelectedAccountForAction(null);
+    
+    switch (action) {
+      case 'transfer':
+        onNewTransfer(selectedAccountForAction.id); // Pass accountId as "from" account
+        break;
+      case 'cost':
+        onNewCost(selectedAccountForAction.id); // Pass accountId as cost account
+        break;
+      case 'saving':
+        onNewSaving(selectedAccountForAction.id); // Pass accountId as "to" account
+        break;
+    }
+  };
+
+  // Close modal
+  const closeModal = () => {
+    setActionModalOpen(false);
+    setSelectedAccountForAction(null);
+  };
+
+  // Get display name for budget post, resolving account IDs to names
+  const getPostDisplayName = (post: any): string => {
+    const rawName = post.description || post.name || 'Unnamed';
+    
+    // Check if the name looks like a UUID and try to resolve it to an account name
+    if (rawName.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      const account = accounts.find(acc => acc.id === rawName);
+      return account ? account.name : rawName;
+    }
+    
+    return rawName;
   };
 
   // Calculate monthly amount for sparmål (savings goals)
@@ -342,8 +435,12 @@ export function BudgetPlanningSection({
   const getAccountCategoryPosts = (accountId: string, type: string) => {
     if (type === 'savings') {
       // Include both 'savings' and 'sparmål' types for Sparande section
+      // BUT only show where this account is the TO account (destination)
+      // Exclude savings where this account is the FROM account (those show in Utgående Överföringar)
       return budgetPosts.filter(post => 
-        post.accountId === accountId && (post.type === 'savings' || post.type === 'sparmål')
+        post.accountId === accountId && 
+        (post.type === 'savings' || post.type === 'sparmål') &&
+        post.accountIdFrom !== accountId // Exclude if this account is the source
       );
     }
     
@@ -389,25 +486,51 @@ export function BudgetPlanningSection({
   const calculateAfterBudget = (account: Account): number => {
     const bankBalance = getBankBalance(account);
     
-    // Get all budget posts for this account
-    const accountBudgetPosts = budgetPosts.filter(post => 
-      post.accountId === account.id || post.accountIdFrom === account.id
-    );
+    let afterBudget = bankBalance;
     
-    // Calculate net effect of budget posts
-    let budgetEffect = 0;
-    accountBudgetPosts.forEach(post => {
-      if (post.accountId === account.id) {
-        // Money going into this account (positive)
-        budgetEffect += post.amount || 0;
-      }
-      if (post.accountIdFrom === account.id) {
-        // Money going out of this account (negative)
-        budgetEffect -= post.amount || 0;
-      }
+    // Add Intäkter (Income) - positive
+    const incomePosts = budgetPosts.filter(post => 
+      post.accountId === account.id && post.type === 'Inkomst'
+    );
+    incomePosts.forEach(post => {
+      afterBudget += Math.abs(post.amount || 0);
     });
     
-    return bankBalance + budgetEffect;
+    // Add Ingående Överföringar (Incoming transfers) - positive
+    const incomingTransfers = budgetPosts.filter(post => 
+      post.accountId === account.id && post.type === 'transfer'
+    );
+    incomingTransfers.forEach(post => {
+      afterBudget += Math.abs(post.amount || 0);
+    });
+    
+    // Add Sparande (Savings coming in) - positive
+    const savingsIn = budgetPosts.filter(post => 
+      post.accountId === account.id && (post.type === 'savings' || post.type === 'sparmål')
+    );
+    savingsIn.forEach(post => {
+      const amount = calculateMonthlySparmålAmount(post);
+      afterBudget += Math.abs(amount);
+    });
+    
+    // Subtract Kostnader (Costs) - negative
+    const costs = budgetPosts.filter(post => 
+      post.accountId === account.id && post.type === 'cost'
+    );
+    costs.forEach(post => {
+      afterBudget -= Math.abs(post.amount || 0);
+    });
+    
+    // Subtract Utgående Överföringar (Outgoing transfers) - negative
+    const outgoingTransfers = budgetPosts.filter(post => 
+      post.accountIdFrom === account.id && (post.type === 'transfer' || post.type === 'sparmål' || post.type === 'savings')
+    );
+    outgoingTransfers.forEach(post => {
+      const amount = post.type === 'sparmål' ? calculateMonthlySparmålAmount(post) : (post.amount || 0);
+      afterBudget -= Math.abs(amount);
+    });
+    
+    return afterBudget;
   };
 
   const renderAccountCategories = (account: Account) => {
@@ -415,7 +538,7 @@ export function BudgetPlanningSection({
       { 
         name: 'Intäkter', 
         type: 'Inkomst', 
-        color: 'text-green-700 bg-green-50 border-green-200',
+        color: 'text-yellow-700 bg-yellow-50 border-yellow-200',
         posts: getAccountCategoryPosts(account.id, 'Inkomst')
       },
       { 
@@ -427,7 +550,7 @@ export function BudgetPlanningSection({
       { 
         name: 'Ingående Överföringar', 
         type: 'transfer-in', 
-        color: 'text-blue-700 bg-blue-50 border-blue-200',
+        color: 'text-green-700 bg-green-50 border-green-200',
         posts: budgetPosts.filter(post => post.accountId === account.id && post.type === 'transfer')
       },
       { 
@@ -435,7 +558,7 @@ export function BudgetPlanningSection({
         type: 'transfer-out', 
         color: 'text-blue-700 bg-blue-50 border-blue-200',
         posts: budgetPosts.filter(post => 
-          post.accountIdFrom === account.id && (post.type === 'transfer' || post.type === 'sparmål')
+          post.accountIdFrom === account.id && (post.type === 'transfer' || post.type === 'sparmål' || post.type === 'savings')
         )
       },
       { 
@@ -447,14 +570,14 @@ export function BudgetPlanningSection({
     ];
 
     return (
-      <div className="ml-6 mt-2 space-y-1">
+      <div className="mt-2 space-y-1">
         {categories.map(category => {
           const categoryKey = `${account.id}-${category.type}`;
           const isExpanded = expandedCategories[categoryKey];
-          // For outgoing transfers (including sparmål), show negative amounts
+          // For outgoing transfers (including sparmål) and costs, show negative amounts
           const totalAmount = category.posts.reduce((sum, post) => {
             const amount = calculateMonthlySparmålAmount(post);
-            return sum + (category.type === 'transfer-out' ? -Math.abs(amount) : amount);
+            return sum + (category.type === 'transfer-out' || category.type === 'cost' ? -Math.abs(amount) : amount);
           }, 0);
 
           if (category.posts.length === 0) return null;
@@ -464,33 +587,33 @@ export function BudgetPlanningSection({
               <button
                 onClick={() => toggleCategoryExpansion(categoryKey)}
                 className={cn(
-                  "w-full flex items-center justify-between p-2 rounded-md border transition-colors hover:opacity-80",
+                  "w-full flex items-center justify-between p-2 sm:p-3 rounded-md border transition-colors hover:opacity-80",
                   category.color
                 )}
               >
-                <div className="flex items-center gap-2">
-                  {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                  <span className="font-medium text-sm">{category.name}</span>
-                  <Badge variant="secondary" className="text-xs">
+                <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+                  {isExpanded ? <ChevronDown className="h-4 w-4 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 flex-shrink-0" />}
+                  <span className="font-medium text-xs sm:text-sm truncate">{category.name}</span>
+                  <Badge variant="secondary" className="text-xs flex-shrink-0">
                     {category.posts.length}
                   </Badge>
                 </div>
-                <span className="font-medium text-sm">
+                <span className="font-medium text-xs sm:text-sm">
                   {formatOrenAsCurrency(totalAmount)}
                 </span>
               </button>
 
               {isExpanded && (
-                <div className="ml-6 mt-1 space-y-1">
+                <div className="ml-4 mt-1 space-y-1">
                   {category.posts.map(post => {
                     // Use monthly amount for sparmål, regular amount for others
                     const monthlyAmount = calculateMonthlySparmålAmount(post);
-                    // For outgoing transfers (including sparmål), show negative amounts
-                    const displayAmount = category.type === 'transfer-out' ? -Math.abs(monthlyAmount) : monthlyAmount;
+                    // For outgoing transfers (including sparmål) and costs, show negative amounts
+                    const displayAmount = (category.type === 'transfer-out' || category.type === 'cost') ? -Math.abs(monthlyAmount) : monthlyAmount;
                     return (
-                      <div key={post.id} className="flex justify-between items-center p-2 bg-white rounded border text-xs">
-                        <span>{post.description || post.name}</span>
-                        <span className="font-medium">{formatOrenAsCurrency(displayAmount)}</span>
+                      <div key={post.id} className="flex justify-between items-center p-2 bg-white rounded border text-xs sm:text-sm">
+                        <span className="truncate mr-2">{getPostDisplayName(post)}</span>
+                        <span className="font-medium flex-shrink-0">{formatOrenAsCurrency(displayAmount)}</span>
                       </div>
                     );
                   })}
@@ -545,43 +668,67 @@ export function BudgetPlanningSection({
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {accountGroups.map(group => (
+        {/* Account Table Header - Only show once at the top */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 px-2 sm:px-4 py-2 bg-indigo-100/50 rounded-md font-medium text-xs sm:text-sm text-indigo-800">
+          <div className="text-left">Kontonamn</div>
+          <div className="text-center sm:text-right">Banksaldo</div>
+          <div className="text-right">Efter budget</div>
+        </div>
+
+        {accountGroups.map((group, groupIndex) => (
           <div key={group.name} className="space-y-3">
-            {/* Group Header */}
+            {/* Group Header with totals - clickable to expand/collapse */}
             <div className="border-b border-indigo-200 pb-2">
-              <h3 className="font-semibold text-indigo-900 text-lg">{group.name}</h3>
+              <button
+                onClick={() => toggleGroupExpansion(group.name)}
+                className="w-full text-left hover:bg-indigo-50/50 rounded-md transition-colors"
+              >
+                <div className="grid grid-cols-3 gap-2 sm:gap-4 px-2 sm:px-4 py-2">
+                  <div className="flex items-center gap-2">
+                    {expandedGroups[group.name] ? 
+                      <ChevronDown className="h-4 w-4 text-indigo-700" /> : 
+                      <ChevronRight className="h-4 w-4 text-indigo-700" />
+                    }
+                    <h3 className="font-semibold text-indigo-900 text-lg">{group.name}</h3>
+                  </div>
+                  <div className="text-center sm:text-right font-semibold text-indigo-900">
+                    {formatOrenAsCurrency(group.accounts.reduce((sum, acc) => sum + getBankBalance(acc), 0))}
+                  </div>
+                  <div className="text-right font-semibold text-indigo-900">
+                    {formatOrenAsCurrency(group.accounts.reduce((sum, acc) => sum + calculateAfterBudget(acc), 0))}
+                  </div>
+                </div>
+              </button>
             </div>
 
-            {/* Account Table Header */}
-            <div className="grid grid-cols-3 gap-4 px-4 py-2 bg-indigo-100/50 rounded-md font-medium text-sm text-indigo-800">
-              <div>Kontonamn</div>
-              <div className="text-right">Banksaldo</div>
-              <div className="text-right">Efter budget</div>
-            </div>
-
-            {/* Accounts */}
-            {group.accounts.map(account => {
+            {/* Accounts - only show when group is expanded */}
+            {expandedGroups[group.name] && group.accounts.map(account => {
               const isExpanded = expandedAccounts[account.id];
               const afterBudget = calculateAfterBudget(account);
               
               return (
                 <div key={account.id} className="space-y-2">
-                  {/* Account Row */}
+                  {/* Account Row - Click to expand */}
                   <button
                     onClick={() => toggleAccountExpansion(account.id)}
-                    className="w-full grid grid-cols-3 gap-4 px-4 py-3 bg-white rounded-md border border-indigo-200 hover:bg-indigo-50/50 transition-colors text-left"
+                    onMouseDown={handleLongPressStart(account.id, account.name)}
+                    onMouseUp={handleLongPressEnd}
+                    onMouseLeave={handleLongPressEnd}
+                    onTouchStart={handleLongPressStart(account.id, account.name)}
+                    onTouchEnd={handleLongPressEnd}
+                    className="w-full grid grid-cols-3 gap-2 sm:gap-4 px-2 sm:px-4 py-3 bg-white rounded-md border border-indigo-200 hover:bg-indigo-50/50 transition-colors text-left"
                   >
-                    <div className="flex items-center gap-2">
-                      {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                      <span className="font-medium">{account.name}</span>
+                    <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+                      {isExpanded ? <ChevronDown className="h-4 w-4 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 flex-shrink-0" />}
+                      <span className="font-medium text-sm sm:text-base truncate">{account.name}</span>
                     </div>
-                    <div className="text-right">
+                    <div className="flex justify-center sm:justify-end items-center">
                       <button
                         onClick={(e) => {
                           e.stopPropagation(); // Prevent account expansion
                           openEditDialog(account.id, account.name);
                         }}
-                        className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors flex items-center gap-1"
+                        className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors flex items-center gap-1 text-sm sm:text-base"
                       >
                         {(() => {
                           const balance = getBankBalance(account);
@@ -608,10 +755,11 @@ export function BudgetPlanningSection({
                         })()}
                       </button>
                     </div>
-                    <div className="text-right font-medium">
+                    <div className="text-right font-medium text-sm sm:text-base">
                       {formatOrenAsCurrency(afterBudget)}
                     </div>
                   </button>
+
 
                   {/* Expanded Account Categories */}
                   {isExpanded && renderAccountCategories(account)}
@@ -622,6 +770,53 @@ export function BudgetPlanningSection({
         ))}
       </CardContent>
       </Card>
+
+      {/* Action Selection Modal */}
+      <Dialog open={actionModalOpen} onOpenChange={setActionModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Välj åtgärd</DialogTitle>
+            <DialogDescription>
+              {selectedAccountForAction ? `Vad vill du göra med kontot "${selectedAccountForAction.name}"?` : 'Välj en åtgärd'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-3 py-4">
+            <Button
+              onClick={() => handleModalAction('transfer')}
+              className="w-full justify-start h-12 text-left bg-blue-50 hover:bg-blue-100 text-blue-800 border-blue-200"
+              variant="outline"
+            >
+              <ArrowRightLeft className="mr-3 h-5 w-5" />
+              Skapa ny överföring
+            </Button>
+            
+            <Button
+              onClick={() => handleModalAction('cost')}
+              className="w-full justify-start h-12 text-left bg-red-50 hover:bg-red-100 text-red-800 border-red-200"
+              variant="outline"
+            >
+              <Plus className="mr-3 h-5 w-5" />
+              Skapa ny kostnadspost
+            </Button>
+            
+            <Button
+              onClick={() => handleModalAction('saving')}
+              className="w-full justify-start h-12 text-left bg-green-50 hover:bg-green-100 text-green-800 border-green-200"
+              variant="outline"
+            >
+              <PiggyBank className="mr-3 h-5 w-5" />
+              Skapa nytt sparande
+            </Button>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={closeModal}>
+              Avbryt
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Dialog - Same as KontosaldoKopia */}
     <Dialog open={editDialog.isOpen} onOpenChange={(open) => setEditDialog(prev => ({ ...prev, isOpen: open }))}>

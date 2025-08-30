@@ -43,6 +43,7 @@ interface AddBudgetItemDialogProps {
   onSave: (item: BudgetItem) => void;
   type: 'cost' | 'savings';
   monthKey: string;
+  preselectedAccountId?: string;
 }
 
 export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({ 
@@ -50,7 +51,8 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
   onClose, 
   onSave, 
   type,
-  monthKey
+  monthKey,
+  preselectedAccountId
 }) => {
   // Fetch data from SQL database
   const { data: huvudkategorier = [], isLoading: isLoadingHuvud } = useHuvudkategorier();
@@ -82,16 +84,16 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
         subCategoryId: '',
         description: '',
         amount: 0,
-        accountId: 'none',
+        accountId: type === 'cost' && preselectedAccountId ? preselectedAccountId : 'none',
         fromAccountId: 'none',
-        toAccountId: 'none',
+        toAccountId: type === 'savings' && preselectedAccountId ? preselectedAccountId : 'none',
         financedFrom: 'Löpande kostnad' as 'Löpande kostnad' | 'Enskild kostnad',
         transferType: 'monthly' as 'monthly' | 'daily',
         dailyAmount: 0,
         transferDays: [] as number[]
       });
     }
-  }, [isOpen]);
+  }, [isOpen, type, preselectedAccountId]);
 
   // Filter subcategories based on selected main category
   const currentAvailableSubcategories = useMemo(() => {

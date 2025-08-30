@@ -86,7 +86,7 @@ export default function Home() {
               <Link href="/categories">
                 <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-lg cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors">
                   <h3 className="text-lg font-semibold text-red-900 dark:text-red-100 mb-2">
-                    Kategorier
+                    Alla konton
                   </h3>
                   <p className="text-red-700 dark:text-red-200">
                     Hantera kategorier och regler
