@@ -1,29 +1,45 @@
-import { AppSidebar } from "./AppSidebar";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { BottomNavigation } from "./BottomNavigation";
+import { useLocation } from "wouter";
 
 interface AppLayoutProps {
   children: React.ReactNode;
 }
 
+const pageTitles: Record<string, string> = {
+  "/inkomster": "Min Månadsbudget",
+  "/sammanstallning": "Sammanställning",
+  "/overforing": "Överföring",
+  "/egen-budget": "Egen Budget",
+  "/historia": "Historia",
+  "/sparmal": "Sparmål",
+  "/granska": "Transaktioner",
+  "/transaktioner": "Ladda upp CSV-filer",
+  "/installningar": "Inställningar",
+  "/debug": "DEBUG-Mode",
+};
+
 export function AppLayout({ children }: AppLayoutProps) {
+  const [location] = useLocation();
+  const pageTitle = pageTitles[location] || "Budget Kalkylator";
+
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full">
-        <AppSidebar />
-        <div className="flex-1 flex flex-col">
-          <header className="h-12 flex items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <SidebarTrigger className="ml-3" />
-            <div className="flex-1 text-center">
-              <h1 className="text-lg font-semibold">Budget Kalkylator</h1>
-            </div>
-          </header>
-          <main className="flex-1 overflow-auto">
-            <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-              {children}
-            </div>
-          </main>
+    <div className="min-h-screen flex flex-col">
+      {/* Header */}
+      <header className="h-14 flex items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
+        <div className="flex-1 text-center px-4">
+          <h1 className="text-lg font-semibold truncate">{pageTitle}</h1>
         </div>
-      </div>
-    </SidebarProvider>
+      </header>
+
+      {/* Main content with padding for bottom nav */}
+      <main className="flex-1 overflow-auto pb-16">
+        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {children}
+        </div>
+      </main>
+
+      {/* Bottom Navigation */}
+      <BottomNavigation />
+    </div>
   );
 }
