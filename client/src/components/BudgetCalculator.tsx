@@ -25,7 +25,6 @@ import { useSwipeGestures } from '@/hooks/useSwipeGestures';
 import { useBooleanSetting } from '@/hooks/useUserSettings';
 import { AccountDataTable, AccountDataRow } from '@/components/AccountDataTable';
 import { MonthlyAccountBalances } from '@/components/MonthlyAccountBalances';
-import CreateMonthDialog from './CreateMonthDialog';
 import { CustomLineChart } from './CustomLineChart';
 import { AccountSelector } from '@/components/AccountSelector';
 import { MainCategoriesSettings } from '@/components/MainCategoriesSettings';
@@ -38,6 +37,7 @@ import { TransfersAnalysis } from '@/components/TransfersAnalysis';
 import { DynamicIncomeSection } from '@/components/DynamicIncomeSection';
 import { KontosaldoKopia } from '@/components/KontosaldoKopia';
 import { Sammanstallning } from '@/components/Sammanstallning';
+import { MonthSelector } from '@/components/MonthSelector';
 import { 
   calculateAccountEndBalances, 
   getTransactionsForPeriod, 
@@ -550,13 +550,9 @@ const BudgetCalculator = () => {
   const [andreasShareChecked, setAndreasShareChecked] = useState<boolean>(false);
   const [susannaShareChecked, setSusannaShareChecked] = useState<boolean>(false);
 
-  // Create month dialog state
-  const [isCreateMonthDialogOpen, setIsCreateMonthDialogOpen] = useState<boolean>(false);
-  
   // Cost item edit dialog state
   const [isEditDialogOpen, setIsEditDialogOpen] = useState<boolean>(false);
   const [editingItem, setEditingItem] = useState<(SubCategory & { groupId: string; categoryName: string }) | null>(null);
-  const [createMonthDirection, setCreateMonthDirection] = useState<'previous' | 'next'>('next');
   
   // Add budget item dialog state
   const [showAddBudgetDialog, setShowAddBudgetDialog] = useState<{
@@ -3561,10 +3557,7 @@ const BudgetCalculator = () => {
       
       // Re-render is automatically handled by useBudget hook
       
-      // Close the dialog after a brief delay to ensure state updates complete
-      setTimeout(() => {
-        setIsCreateMonthDialogOpen(false);
-      }, 100);
+      // Creation successful
     } else {
       console.error(`❌ Failed to create month data`);
     }
@@ -5408,123 +5401,27 @@ const BudgetCalculator = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background p-4">
       {loadingOverlay}
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            Familjens Budgetkalkylator
-          </h1>
-          <p className="text-muted-foreground text-lg">
-            Beräkna era gemensamma utgifter och individuella bidrag
-          </p>
+        {/* Month Selector in top left */}
+        <div className="mb-6">
+          <MonthSelector
+            selectedMonth={selectedBudgetMonth || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
+            onMonthChange={(month) => {
+              // Check if month exists
+              if (!availableMonths.includes(month)) {
+                // Create new month if it doesn't exist
+                const [year, monthNum] = month.split('-').map(Number);
+                const targetMonth = new Date(year, monthNum - 1);
+                budgetState.orchestrator?.copyNonStaticBudgetItems(selectedBudgetMonth, month);
+                createNewMonth(targetMonth);
+              }
+              setSelectedBudgetMonth(month);
+              budgetState.orchestrator?.selectMonth(month);
+            }}
+            availableMonths={availableMonths}
+            minYear={2020}
+            maxYear={2030}
+          />
         </div>
-
-
-        {/* Month Selector */}
-        <Card className="mb-6">
-          <CardHeader className="text-center">
-            <CardTitle className={`text-xl ${monthFinalBalances[selectedBudgetMonth || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`] === true ? 'text-foreground' : 'text-red-500'}`}>
-              Aktuell månad
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* Current Month Display with Navigation and Dropdown */}
-            <div className="flex items-center justify-center gap-4">
-              <Button
-                variant="ghost"
-                size="lg"
-                onClick={canNavigatePrevious() ? navigateToPreviousMonth : () => {
-                  setCreateMonthDirection('previous');
-                  setIsCreateMonthDialogOpen(true);
-                }}
-                className={`p-3 h-12 w-12 text-primary hover:text-primary/80`}
-              >
-                {canNavigatePrevious() ? (
-                  <ChevronLeft className="h-6 w-6" />
-                ) : (
-                  <Plus className="h-6 w-6" />
-                )}
-              </Button>
-              
-              <Select 
-                value={selectedBudgetMonth} 
-                onValueChange={(value) => {
-                  console.log(`🔄 === DROPDOWN MONTH CHANGE ===`);
-                  console.log(`📅 Switching from ${selectedBudgetMonth} to ${value}`);
-                  
-                  // Use the same logic as navigation buttons to ensure consistency
-                  handleBudgetMonthChange(value);
-                  
-                  console.log(`🔄 === END DROPDOWN MONTH CHANGE ===`);
-                }}
-              >
-                <SelectTrigger className="w-auto min-w-[200px] border-none bg-transparent text-xl font-semibold text-primary hover:bg-muted/50 transition-colors text-center justify-center">
-                  <SelectValue>
-                    {(() => {
-                      const monthNames = [
-                        'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
-                        'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
-                      ];
-                      
-                      if (selectedBudgetMonth) {
-                        const [year, month] = selectedBudgetMonth.split('-');
-                        const monthIndex = parseInt(month) - 1;
-                        return `${monthNames[monthIndex]} ${year}`;
-                      } else {
-                        const currentDate = new Date();
-                        return `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
-                      }
-                    })()}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {(() => {
-                    const monthNames = [
-                      'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
-                      'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
-                    ];
-                    
-                    // Generate options for current month and all historical months using centralized availableMonths
-                    const currentDate = new Date();
-                    const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-                    
-                    const allMonths = new Set([currentMonthKey, ...availableMonths]);
-                    
-                    return Array.from(allMonths).sort().reverse().map(monthKey => {
-                      const [year, month] = monthKey.split('-');
-                      const monthIndex = parseInt(month) - 1;
-                      const displayName = `${monthNames[monthIndex]} ${year}`;
-                      
-                      return (
-                        <SelectItem key={monthKey} value={monthKey}>
-                          {displayName}
-                        </SelectItem>
-                      );
-                    });
-                  })()}
-                </SelectContent>
-              </Select>
-
-              <Button
-                variant="ghost"
-                size="lg"
-                onClick={canNavigateNext() ? navigateToNextMonth : () => {
-                  setCreateMonthDirection('next');
-                  setIsCreateMonthDialogOpen(true);
-                }}
-                className={`p-3 h-12 w-12 text-primary hover:text-primary/80`}
-              >
-                {canNavigateNext() ? (
-                  <ChevronRight className="h-6 w-6" />
-                ) : (
-                  <Plus className="h-6 w-6" />
-                )}
-              </Button>
-            </div>
-            
-
-          </CardContent>
-        </Card>
-
-
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Hidden TabsList for programmatic navigation only */}
@@ -7027,18 +6924,6 @@ const BudgetCalculator = () => {
         </TabsContent>
       </Tabs>
       </div>
-
-      {/* Create Month Dialog */}
-      <CreateMonthDialog
-        isOpen={isCreateMonthDialogOpen}
-        onClose={() => setIsCreateMonthDialogOpen(false)}
-        onCreateMonth={handleCreateMonthFromDialog}
-        budgetTemplates={budgetTemplates}
-        selectedBudgetMonth={selectedBudgetMonth}
-        direction={createMonthDirection}
-        historicalData={historicalData}
-        availableMonths={availableMonths}
-      />
 
       {/* Cost Item Edit Dialog */}
       {editingItem && (
