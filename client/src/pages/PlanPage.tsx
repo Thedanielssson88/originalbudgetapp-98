@@ -1,12 +1,12 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
-import BudgetCalculator from "@/components/BudgetCalculator";
+import PlanCalculator from "@/components/PlanCalculator";
 
 const PlanPage = () => {
   const [location] = useLocation();
 
   useEffect(() => {
-    // Map routes to tab names that the BudgetCalculator expects
+    // Map routes to tab names that the PlanCalculator expects
     const routeToTabMap: { [key: string]: string } = {
       '/plan': 'inkomster',
       '/plan/inkomster': 'inkomster',
@@ -18,14 +18,14 @@ const PlanPage = () => {
 
     const targetTab = routeToTabMap[location] || 'inkomster';
     
-    // Find the BudgetCalculator component and set its active tab
-    // This is a bit of a hack, but since BudgetCalculator uses internal state for tabs,
+    // Find the PlanCalculator component and set its active tab
+    // This is a bit of a hack, but since PlanCalculator uses internal state for tabs,
     // we need to trigger a custom event or find another way to sync
     const event = new CustomEvent('setActiveTab', { detail: targetTab });
     window.dispatchEvent(event);
   }, [location]);
 
-  return <BudgetCalculator />;
+  return <PlanCalculator />;
 };
 
 export default PlanPage;
