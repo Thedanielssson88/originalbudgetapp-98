@@ -60,7 +60,6 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
     isOpen: false, 
     type: 'cost' 
   });
-  const [showSavingsPostDialog, setShowSavingsPostDialog] = useState(false);
   
   // Set all accounts as expanded by default on first load
   useEffect(() => {
@@ -294,7 +293,7 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
       // Convert amount to öre
       const budgetPostData = {
         monthKey: monthKey,
-        hovedkategoriId: transfer.huvudkategoriId || null,
+        huvudkategoriId: transfer.huvudkategoriId || null,
         underkategoriId: transfer.underkategoriId || null,
         description: transfer.description || 'Planerad överföring',
         amount: kronoraToOren(transfer.amount),
@@ -305,28 +304,16 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
         userId: 'dev-user-123'
       };
 
-      const response = await fetch('/api/budget-posts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(budgetPostData),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      await response.json();
+      // Use the same mutation hook as AddBudgetItemDialog for consistency
+      await createBudgetPost.mutateAsync(budgetPostData);
       
       toast({
         title: "Överföring skapad",
         description: "Din överföring har skapats.",
       });
       
-      // Refresh budget posts data
-      await queryClient.invalidateQueries({ queryKey: ['budgetPosts'] });
-      await queryClient.invalidateQueries({ queryKey: ['budget-posts'] });
+      // Close the form
+      setShowNewTransferForm(false);
       
     } catch (error) {
       console.error('Error creating transfer:', error);
@@ -335,8 +322,6 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
         description: "Kunde inte skapa överföring.",
         variant: "destructive",
       });
-    } finally {
-      setShowNewTransferForm(false);
     }
   };
 
@@ -659,7 +644,7 @@ export const KontosaldoKopia: React.FC<KontosaldoKopiaProps> = ({ monthKey }) =>
           size="sm"
           variant="outline"
           className="border-green-300 text-green-800 hover:bg-green-200"
-          onClick={() => setShowSavingsPostDialog(true)}
+          onClick={() => setShowAddBudgetDialog({ isOpen: true, type: 'savings' })}
         >
           <PiggyBank className="h-4 w-4 mr-2" />
           Lägg till sparandepost

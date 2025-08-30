@@ -121,9 +121,14 @@ export function useCreateBudgetPost() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       }),
-    onSuccess: () => {
+    onSuccess: (result, variables) => {
+      // Invalidate all budget post queries including the specific monthKey
       queryClient.invalidateQueries({ queryKey: ['/api/budget-posts'] });
       queryClient.invalidateQueries({ queryKey: ['/api/budget-posts', 'all'] });
+      // Also invalidate the specific month if monthKey was provided
+      if (variables.monthKey) {
+        queryClient.invalidateQueries({ queryKey: ['/api/budget-posts', variables.monthKey] });
+      }
       // Clear cache to force refresh
       localStorage.removeItem(BUDGET_POSTS_CACHE_KEY);
     },
@@ -140,9 +145,13 @@ export function useUpdateBudgetPost() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       }),
-    onSuccess: () => {
+    onSuccess: (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/budget-posts'] });
       queryClient.invalidateQueries({ queryKey: ['/api/budget-posts', 'all'] });
+      // Also invalidate the specific month if monthKey was provided in the data
+      if (variables.data.monthKey) {
+        queryClient.invalidateQueries({ queryKey: ['/api/budget-posts', variables.data.monthKey] });
+      }
       // Clear cache to force refresh
       localStorage.removeItem(BUDGET_POSTS_CACHE_KEY);
     },
