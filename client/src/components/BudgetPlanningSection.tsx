@@ -72,6 +72,37 @@ export function BudgetPlanningSection({
   const updateBudgetPostMutation = useUpdateBudgetPost();
   const createBudgetPostMutation = useCreateBudgetPost();
   
+  // Scroll detection state
+  const [isScrolling, setIsScrolling] = useState(false);
+  
+  // Add scroll detection
+  useEffect(() => {
+    let scrollTimeout: NodeJS.Timeout;
+    
+    const handleScroll = () => {
+      setIsScrolling(true);
+      // Cancel any ongoing long-press timers when scrolling starts
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        setLongPressTimer(null);
+      }
+      
+      // Reset scroll state after scrolling stops
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        setIsScrolling(false);
+      }, 150); // 150ms after scroll ends
+    };
+    
+    // Listen to scroll events on the window
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      clearTimeout(scrollTimeout);
+    };
+  }, [longPressTimer]);
+  
   console.log('[BudgetPlanningSection] RENDER - Component loading with:', {
     accounts: accounts.length,
     transactions: allTransactions.length,
@@ -339,6 +370,11 @@ export function BudgetPlanningSection({
     e.preventDefault();
     
     const timer = setTimeout(() => {
+      // Double-check if we're still not scrolling when timer fires
+      if (isScrolling) {
+        console.log(`[Action Modal] Prevented opening during scroll for account "${accountName}"`);
+        return;
+      }
       console.log(`[Action Modal] Opening for account "${accountName}" (${accountId})`);
       setSelectedAccountForAction({ id: accountId, name: accountName, type: 'account' });
       setActionModalOpen(true);
@@ -351,6 +387,11 @@ export function BudgetPlanningSection({
     e.preventDefault();
     
     const timer = setTimeout(() => {
+      // Double-check if we're still not scrolling when timer fires
+      if (isScrolling) {
+        console.log(`[Action Modal] Prevented opening during scroll for huvudkategori "${hovedkategoriName}"`);
+        return;
+      }
       console.log(`[Action Modal] Opening for huvudkategori "${hovedkategoriName}" (${hovedkategoriId})`);
       setSelectedAccountForAction({ id: hovedkategoriId, name: hovedkategoriName, type: 'huvudkategori' });
       setActionModalOpen(true);
@@ -363,6 +404,11 @@ export function BudgetPlanningSection({
     e.preventDefault();
     
     const timer = setTimeout(() => {
+      // Double-check if we're still not scrolling when timer fires
+      if (isScrolling) {
+        console.log(`[Action Modal] Prevented opening during scroll for underkategori "${underkategoriName}"`);
+        return;
+      }
       console.log(`[Action Modal] Opening for underkategori "${underkategoriName}" (${underkategoriId})`);
       setSelectedAccountForAction({ id: underkategoriId, name: underkategoriName, type: 'underkategori' });
       setActionModalOpen(true);
@@ -470,6 +516,12 @@ export function BudgetPlanningSection({
   // Handle direct dialog opening for category amounts
   const handleCategoryAmountClick = (underkategoriId: string, type: 'savings' | 'cost', e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent triggering the expand/collapse
+    
+    // Prevent dialog opening during scrolling
+    if (isScrolling) {
+      console.log(`[Direct Dialog] Prevented opening during scroll for ${type} in ${underkategoriId}`);
+      return;
+    }
     
     // Find the underkategori and its parent huvudkategori
     const underkategori = underkategorier.find(u => u.id === underkategoriId);
