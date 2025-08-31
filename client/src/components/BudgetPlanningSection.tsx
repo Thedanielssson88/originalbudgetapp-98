@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ChevronDown, ChevronRight, Plus, ArrowRightLeft, PiggyBank, Target } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, ArrowRightLeft, PiggyBank, Target, Home, ShoppingCart, Car, Heart, Gamepad2, GraduationCap, Wallet, TrendingUp, Baby, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatOrenAsCurrency, kronoraToOren } from '@/utils/currencyUtils';
 import { useTransactions } from '@/hooks/useTransactions';
@@ -71,6 +71,43 @@ export function BudgetPlanningSection({
   const queryClient = useQueryClient();
   const updateBudgetPostMutation = useUpdateBudgetPost();
   const createBudgetPostMutation = useCreateBudgetPost();
+
+  // Function to get icon based on category name
+  const getCategoryIcon = (categoryName: string) => {
+    const name = categoryName.toLowerCase();
+    if (name.includes('boende') || name.includes('hem')) return Home;
+    if (name.includes('mat') || name.includes('livsmedel')) return ShoppingCart;
+    if (name.includes('transport') || name.includes('bil')) return Car;
+    if (name.includes('barn') || name.includes('familj')) return Baby;
+    if (name.includes('nöje') || name.includes('fritid')) return Gamepad2;
+    if (name.includes('utbildning') || name.includes('skola')) return GraduationCap;
+    if (name.includes('hälsa') || name.includes('vård')) return Heart;
+    if (name.includes('sparande') || name.includes('spar')) return PiggyBank;
+    if (name.includes('övrigt')) return Wallet;
+    return TrendingUp; // Default icon
+  };
+
+  // Calculate actual spending for a category in the selected month
+  const calculateActualSpending = (huvudkategoriId: string, underkategoriId?: string) => {
+    // Get month start and end dates
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0);
+
+    // Filter transactions for this month and category
+    const categoryTransactions = allTransactions.filter(tx => {
+      const txDate = new Date(tx.date);
+      const inMonth = txDate >= startDate && txDate <= endDate;
+      const matchesCategory = underkategoriId 
+        ? tx.underkategoriId === underkategoriId
+        : tx.huvudkategoriId === huvudkategoriId;
+      const isExpense = tx.amount < 0;
+      return inMonth && matchesCategory && isExpense;
+    });
+
+    // Sum the absolute values
+    return categoryTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+  };
   
   // Scroll detection state
   const [isScrolling, setIsScrolling] = useState(false);
@@ -872,19 +909,21 @@ export function BudgetPlanningSection({
 
   return (
     <>
-      <Card className="mx-4 p-3 bg-indigo-50 border-indigo-200 shadow-sm">
-        <div className="space-y-4">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <h3 className="flex items-center gap-2 text-lg font-semibold text-indigo-800">
-              <Target className="h-5 w-5" />
-              Budgetplanering
-            </h3>
-          </div>
+      <div className="mx-4 space-y-4">
+        {activeView === 'spotlights' ? (
+          /* Accounts View with Card */
+          <Card className="p-3 bg-indigo-50 border-indigo-200 shadow-sm">
+            <div className="space-y-4">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <h3 className="flex items-center gap-2 text-lg font-semibold text-indigo-800">
+                  <Target className="h-5 w-5" />
+                  Budgetplanering
+                </h3>
+              </div>
 
-          {/* Content */}
-          {activeView === 'accounts' ? (
-            <div>
+              {/* Accounts Content */}
+              <div>
               {/* Account Table Header */}
               <div className="grid grid-cols-3 gap-2 sm:gap-4 py-2 text-sm font-medium text-indigo-700">
                 <div className="text-left">Kontonamn</div>
@@ -983,125 +1022,219 @@ export function BudgetPlanningSection({
             })}
           </div>
         ))}
-            </div>
-          ) : (
-            <div>
-              {/* Category Table Header */}
-              <div className="grid grid-cols-3 gap-2 sm:gap-4 py-2 text-sm font-medium text-indigo-700">
-                <div className="text-left">Kategorinamn</div>
-                <div className="text-center sm:text-right">Sparande</div>
-                <div className="text-right">Kostnader</div>
               </div>
+            </div>
+          </Card>
+        ) : (
+          /* Categories View without Card */
+          <div className="space-y-4">
+              {huvudkategorier.map(huvudkategori => {
+                // Get underkategorier for this huvudkategori
+                const relatedUnderkategorier = underkategorier.filter(under => under.huvudkategoriId === huvudkategori.id);
+                
+                // Calculate budget and actual spending for huvudkategori
+                const huvudkategoriBudget = budgetPosts
+                  .filter(post => post.huvudkategoriId === huvudkategori.id && post.type === 'cost')
+                  .reduce((sum, post) => sum + Math.abs(post.amount || 0), 0);
+                
+                const huvudkategoriActual = calculateActualSpending(huvudkategori.id);
+                const huvudkategoriSavings = budgetPosts
+                  .filter(post => post.huvudkategoriId === huvudkategori.id && (post.type === 'savings' || post.type === 'sparmål'))
+                  .reduce((sum, post) => sum + calculateMonthlySparmålAmount(post), 0);
 
-            {huvudkategorier.map(huvudkategori => {
-              // Get underkategorier for this huvudkategori
-              const relatedUnderkategorier = underkategorier.filter(under => under.huvudkategoriId === huvudkategori.id);
-              
-              // Calculate totals for this huvudkategori
-              const huvudkategoriSavings = budgetPosts
-                .filter(post => post.huvudkategoriId === huvudkategori.id && (post.type === 'savings' || post.type === 'sparmål'))
-                .reduce((sum, post) => sum + calculateMonthlySparmålAmount(post), 0);
-              
-              const huvudkategoriCosts = budgetPosts
-                .filter(post => post.huvudkategoriId === huvudkategori.id && post.type === 'cost')
-                .reduce((sum, post) => sum + Math.abs(post.amount || 0), 0);
+                const isHuvudExpanded = expandedGroups[huvudkategori.id];
+                const Icon = getCategoryIcon(huvudkategori.name);
+                
+                // Calculate percentage and determine color
+                const percentage = huvudkategoriBudget > 0 ? (huvudkategoriActual / huvudkategoriBudget) * 100 : 0;
+                const progressColor = percentage > 100 ? 'bg-red-500' : percentage > 80 ? 'bg-yellow-500' : 'bg-emerald-500';
+                const borderColor = percentage > 100 ? 'border-red-200' : percentage > 80 ? 'border-yellow-200' : 'border-emerald-200';
+                const bgColor = percentage > 100 ? 'bg-red-50' : percentage > 80 ? 'bg-yellow-50' : 'bg-emerald-50';
 
-              const isHuvudExpanded = expandedGroups[huvudkategori.id];
-
-              return (
-                <div key={huvudkategori.id} className="border-t border-indigo-200 pt-2">
-                  {/* Huvudkategori Header */}
-                  <button
-                    onClick={() => toggleGroupExpansion(huvudkategori.id)}
-                    onMouseDown={handleHuvudkategoriLongPressStart(huvudkategori.id, huvudkategori.name)}
-                    onMouseUp={handleLongPressEnd}
-                    onMouseLeave={handleLongPressEnd}
-                    onTouchStart={handleHuvudkategoriLongPressStart(huvudkategori.id, huvudkategori.name)}
-                    onTouchEnd={handleLongPressEnd}
-                    className="w-full text-left hover:bg-white/50 rounded-md transition-colors p-2"
-                  >
-                    <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                        <div className="flex items-center gap-2">
-                          {isHuvudExpanded ? 
-                            <ChevronDown className="h-4 w-4 text-indigo-700" /> : 
-                            <ChevronRight className="h-4 w-4 text-indigo-700" />
-                          }
-                          <h3 className="font-semibold text-indigo-900 text-lg">{huvudkategori.name}</h3>
-                        </div>
-                        <div className="text-center sm:text-right font-semibold text-green-700">
-                          {formatOrenAsCurrency(huvudkategoriSavings)}
-                        </div>
-                        <div className="text-right font-semibold text-red-700">
-                          {formatOrenAsCurrency(-huvudkategoriCosts)}
-                        </div>
-                    </div>
-                  </button>
-
-                  {/* Underkategorier - only show when huvudkategori is expanded */}
-                  {isHuvudExpanded && relatedUnderkategorier.map(underkategori => {
-                    // Calculate totals for this underkategori
-                    const underSavings = budgetPosts
-                      .filter(post => post.underkategoriId === underkategori.id && (post.type === 'savings' || post.type === 'sparmål'))
-                      .reduce((sum, post) => sum + calculateMonthlySparmålAmount(post), 0);
-                    
-                    const underCosts = budgetPosts
-                      .filter(post => post.underkategoriId === underkategori.id && post.type === 'cost')
-                      .reduce((sum, post) => sum + Math.abs(post.amount || 0), 0);
-
-                    const isUnderExpanded = expandedAccounts[underkategori.id];
-
-                    return (
-                      <div key={underkategori.id} className="space-y-2 ml-4">
-                        {/* Underkategori Row */}
-                        <button
-                          onClick={() => toggleAccountExpansion(underkategori.id)}
-                          onMouseDown={handleUnderkategoriLongPressStart(underkategori.id, underkategori.name)}
-                          onMouseUp={handleLongPressEnd}
-                          onMouseLeave={handleLongPressEnd}
-                          onTouchStart={handleUnderkategoriLongPressStart(underkategori.id, underkategori.name)}
-                          onTouchEnd={handleLongPressEnd}
-                          className="w-full grid grid-cols-3 gap-2 sm:gap-4 p-2 pl-8 hover:bg-white/70 rounded-md transition-colors text-left"
-                        >
-                          <div className="flex items-center gap-1 sm:gap-2 min-w-0">
-                            {isUnderExpanded ? <ChevronDown className="h-4 w-4 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 flex-shrink-0" />}
-                            <span className="font-medium text-sm sm:text-base truncate">{underkategori.name}</span>
+                return (
+                  <Card key={huvudkategori.id} className={cn(
+                    "overflow-hidden transition-all duration-200 hover:shadow-md",
+                    bgColor,
+                    borderColor
+                  )}>
+                    {/* Huvudkategori Header */}
+                    <button
+                      onClick={() => toggleGroupExpansion(huvudkategori.id)}
+                      onMouseDown={handleHuvudkategoriLongPressStart(huvudkategori.id, huvudkategori.name)}
+                      onMouseUp={handleLongPressEnd}
+                      onMouseLeave={handleLongPressEnd}
+                      onTouchStart={handleHuvudkategoriLongPressStart(huvudkategori.id, huvudkategori.name)}
+                      onTouchEnd={handleLongPressEnd}
+                      className="w-full text-left p-4 hover:bg-white/30 transition-colors"
+                    >
+                      <div className="space-y-3">
+                        {/* Header Row */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "p-2 rounded-lg",
+                              percentage > 100 ? "bg-red-100" : percentage > 80 ? "bg-yellow-100" : "bg-emerald-100"
+                            )}>
+                              <Icon className={cn(
+                                "h-5 w-5",
+                                percentage > 100 ? "text-red-600" : percentage > 80 ? "text-yellow-600" : "text-emerald-600"
+                              )} />
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-lg text-gray-900 flex items-center gap-2">
+                                {huvudkategori.name}
+                                {isHuvudExpanded ? 
+                                  <ChevronDown className="h-4 w-4 text-gray-500" /> : 
+                                  <ChevronRight className="h-4 w-4 text-gray-500" />
+                                }
+                              </h3>
+                              <p className="text-sm text-gray-600">
+                                {relatedUnderkategorier.length} underkategorier
+                              </p>
+                            </div>
                           </div>
-                          <div className="flex justify-center sm:justify-end items-center">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation(); // Prevent underkategori expansion
-                                handleCategoryAmountClick(underkategori.id, 'savings', e);
-                              }}
-                              className="font-medium text-green-700 hover:text-green-900 hover:underline cursor-pointer transition-colors text-sm sm:text-base"
-                            >
-                              {formatOrenAsCurrency(underSavings)}
-                            </button>
+                          
+                          {/* Status Badge */}
+                          <div className="text-right">
+                            {percentage > 100 && (
+                              <Badge variant="destructive" className="mb-1">
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                                Över budget
+                              </Badge>
+                            )}
+                            <p className="text-2xl font-bold text-gray-900">
+                              {formatOrenAsCurrency(huvudkategoriActual)}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              av {formatOrenAsCurrency(huvudkategoriBudget)}
+                            </p>
                           </div>
-                          <div className="flex justify-end items-center">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation(); // Prevent underkategori expansion
-                                handleCategoryAmountClick(underkategori.id, 'cost', e);
-                              }}
-                              className="font-medium text-red-700 hover:text-red-900 hover:underline cursor-pointer transition-colors text-sm sm:text-base"
-                            >
-                              {formatOrenAsCurrency(-underCosts)}
-                            </button>
-                          </div>
-                        </button>
+                        </div>
 
-                        {/* Expanded Underkategori Categories */}
-                        {isUnderExpanded && renderUnderkategoriCategories(underkategori.id)}
+                        {/* Progress Bar */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs text-gray-600">
+                            <span>Förbrukning</span>
+                            <span className="font-medium">{percentage.toFixed(0)}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                            <div 
+                              className={cn(progressColor, "h-2 rounded-full transition-all duration-500 ease-out")}
+                              style={{ width: `${Math.min(100, percentage)}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Optional: Savings indicator */}
+                        {huvudkategoriSavings > 0 && (
+                          <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-100 rounded-md px-2 py-1">
+                            <PiggyBank className="h-4 w-4" />
+                            <span>Sparande: {formatOrenAsCurrency(huvudkategoriSavings)}</span>
+                          </div>
+                        )}
                       </div>
-                    );
-                  })}
+                    </button>
+
+                    {/* Underkategorier - only show when huvudkategori is expanded */}
+                    {isHuvudExpanded && (
+                      <div className="px-4 pb-4 space-y-2">
+                        {relatedUnderkategorier.map(underkategori => {
+                          // Calculate budget and actual for underkategori
+                          const underBudget = budgetPosts
+                            .filter(post => post.underkategoriId === underkategori.id && post.type === 'cost')
+                            .reduce((sum, post) => sum + Math.abs(post.amount || 0), 0);
+                          
+                          const underActual = calculateActualSpending(huvudkategori.id, underkategori.id);
+                          const underSavings = budgetPosts
+                            .filter(post => post.underkategoriId === underkategori.id && (post.type === 'savings' || post.type === 'sparmål'))
+                            .reduce((sum, post) => sum + calculateMonthlySparmålAmount(post), 0);
+
+                          const isUnderExpanded = expandedAccounts[underkategori.id];
+                          const underPercentage = underBudget > 0 ? (underActual / underBudget) * 100 : 0;
+                          const underProgressColor = underPercentage > 100 ? 'bg-red-400' : underPercentage > 80 ? 'bg-yellow-400' : 'bg-emerald-400';
+
+                          return (
+                            <div key={underkategori.id} className="bg-white rounded-lg p-3 border border-gray-200 hover:shadow-sm transition-all">
+                              <button
+                                onClick={() => toggleAccountExpansion(underkategori.id)}
+                                onMouseDown={handleUnderkategoriLongPressStart(underkategori.id, underkategori.name)}
+                                onMouseUp={handleLongPressEnd}
+                                onMouseLeave={handleLongPressEnd}
+                                onTouchStart={handleUnderkategoriLongPressStart(underkategori.id, underkategori.name)}
+                                onTouchEnd={handleLongPressEnd}
+                                className="w-full text-left"
+                              >
+                                <div className="space-y-2">
+                                  {/* Underkategori Header */}
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      {isUnderExpanded ? 
+                                        <ChevronDown className="h-4 w-4 text-gray-500" /> : 
+                                        <ChevronRight className="h-4 w-4 text-gray-500" />
+                                      }
+                                      <span className="font-medium text-gray-900">{underkategori.name}</span>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="text-lg font-semibold text-gray-900">
+                                        {formatOrenAsCurrency(underActual)}
+                                      </p>
+                                      <p className="text-xs text-gray-600">
+                                        av {formatOrenAsCurrency(underBudget)}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  {/* Mini Progress Bar */}
+                                  <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                    <div 
+                                      className={cn(underProgressColor, "h-1.5 rounded-full transition-all duration-300")}
+                                      style={{ width: `${Math.min(100, underPercentage)}%` }}
+                                    />
+                                  </div>
+
+                                  {/* Action Buttons */}
+                                  <div className="flex gap-2 justify-end">
+                                    {underBudget === 0 && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleCategoryAmountClick(underkategori.id, 'cost', e);
+                                        }}
+                                        className="text-xs"
+                                      >
+                                        <Plus className="h-3 w-3 mr-1" />
+                                        Lägg till budget
+                                      </Button>
+                                    )}
+                                    {underSavings > 0 && (
+                                      <Badge variant="outline" className="text-xs">
+                                        <PiggyBank className="h-3 w-3 mr-1" />
+                                        {formatOrenAsCurrency(underSavings)}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </button>
+
+                              {/* Expanded Underkategori Categories */}
+                              {isUnderExpanded && (
+                                <div className="mt-2 pt-2 border-t border-gray-100">
+                                  {renderUnderkategoriCategories(underkategori.id)}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                 </div>
               );
             })}
-            </div>
-          )}
-        </div>
-      </Card>
+          </div>
+        )}
+      </div>
 
       {/* Action Selection Modal */}
       <Dialog open={actionModalOpen} onOpenChange={setActionModalOpen}>
