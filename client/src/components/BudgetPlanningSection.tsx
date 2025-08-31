@@ -846,6 +846,63 @@ export function BudgetPlanningSection({
       .reduce((sum, post) => sum + (post.amount || 0), 0);
   };
 
+  // Calculate income for an account in the selected month
+  const calculateAccountIncome = (account: Account): number => {
+    const { startDate, endDate } = getDateRangeForMonth(selectedMonth, 25);
+    
+    const incomeTransactions = allTransactions.filter(tx => 
+      tx.accountId === account.id && 
+      tx.date >= startDate && 
+      tx.date <= endDate &&
+      tx.type === 'Income' &&
+      tx.amount > 0
+    );
+    
+    return incomeTransactions.reduce((sum, tx) => {
+      const amount = tx.correctedAmount !== null ? tx.correctedAmount : tx.amount;
+      return sum + amount;
+    }, 0);
+  };
+
+  // Calculate budgeted income for an account
+  const calculateBudgetedIncome = (account: Account): number => {
+    return budgetPosts
+      .filter(post => 
+        post.accountId === account.id && 
+        post.monthKey === selectedMonth && 
+        post.type === 'income'
+      )
+      .reduce((sum, post) => sum + (post.amount || 0), 0);
+  };
+
+  // Calculate transfers (net: incoming - outgoing) for an account
+  const calculateAccountTransfers = (account: Account): number => {
+    const { startDate, endDate } = getDateRangeForMonth(selectedMonth, 25);
+    
+    const transferTransactions = allTransactions.filter(tx => 
+      tx.accountId === account.id && 
+      tx.date >= startDate && 
+      tx.date <= endDate &&
+      tx.type === 'InternalTransfer'
+    );
+    
+    return transferTransactions.reduce((sum, tx) => {
+      const amount = tx.correctedAmount !== null ? tx.correctedAmount : tx.amount;
+      return sum + amount; // Net transfers (positive = incoming, negative = outgoing)
+    }, 0);
+  };
+
+  // Calculate budgeted transfers for an account
+  const calculateBudgetedTransfers = (account: Account): number => {
+    return budgetPosts
+      .filter(post => 
+        post.accountId === account.id && 
+        post.monthKey === selectedMonth && 
+        post.type === 'transfer'
+      )
+      .reduce((sum, post) => sum + (post.amount || 0), 0);
+  };
+
   // Get cost transactions for an account (for popup)
   const getAccountCostTransactions = (account: Account) => {
     const { startDate, endDate } = getDateRangeForMonth(selectedMonth, 25);
@@ -872,18 +929,62 @@ export function BudgetPlanningSection({
     );
   };
 
-  // Handle clicking on account costs/savings amounts
+  // Get income transactions for an account (for popup)
+  const getAccountIncomeTransactions = (account: Account) => {
+    const { startDate, endDate } = getDateRangeForMonth(selectedMonth, 25);
+    
+    return allTransactions.filter(tx => 
+      tx.accountId === account.id && 
+      tx.date >= startDate && 
+      tx.date <= endDate &&
+      tx.type === 'Income' &&
+      tx.amount > 0
+    );
+  };
+
+  // Get transfer transactions for an account (for popup)
+  const getAccountTransferTransactions = (account: Account) => {
+    const { startDate, endDate } = getDateRangeForMonth(selectedMonth, 25);
+    
+    return allTransactions.filter(tx => 
+      tx.accountId === account.id && 
+      tx.date >= startDate && 
+      tx.date <= endDate &&
+      tx.type === 'InternalTransfer'
+    );
+  };
+
+  // Handle clicking on account amounts
   const handleAccountAmountClick = (
     account: Account,
-    type: 'costs' | 'savings',
+    type: 'income' | 'costs' | 'savings' | 'transfers',
     budgetAmount: number,
     actualAmount: number
   ) => {
-    const transactions = type === 'costs' 
-      ? getAccountCostTransactions(account)
-      : getAccountSavingsTransactions(account);
+    let transactions;
+    let categoryName;
     
-    const categoryName = `${account.name} - ${type === 'costs' ? 'Kostnader' : 'Sparande'}`;
+    switch (type) {
+      case 'income':
+        transactions = getAccountIncomeTransactions(account);
+        categoryName = `${account.name} - Inkomster`;
+        break;
+      case 'costs':
+        transactions = getAccountCostTransactions(account);
+        categoryName = `${account.name} - Kostnader`;
+        break;
+      case 'savings':
+        transactions = getAccountSavingsTransactions(account);
+        categoryName = `${account.name} - Sparande`;
+        break;
+      case 'transfers':
+        transactions = getAccountTransferTransactions(account);
+        categoryName = `${account.name} - Överföringar`;
+        break;
+      default:
+        transactions = [];
+        categoryName = account.name;
+    }
     
     setTransactionDetailsDialog({
       isOpen: true,
@@ -1116,179 +1217,209 @@ export function BudgetPlanningSection({
     <>
       <div className="mx-4 space-y-4">
         {activeView === 'spotlights' ? (
-          /* Accounts View with Card */
-          <Card className="p-3 bg-indigo-50 border-indigo-200 shadow-sm">
-            <div className="space-y-4">
-              {/* Header */}
-              <div className="flex items-center justify-between">
-                <h3 className="flex items-center gap-2 text-lg font-semibold text-indigo-800">
-                  <Target className="h-5 w-5" />
-                  Budgetplanering
-                </h3>
-              </div>
+          /* Modern Card-based Accounts View */
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+                <Target className="h-5 w-5" />
+                Alla konton
+              </h3>
+            </div>
 
-              {/* Accounts Content */}
-              <div>
-              {/* Account Table Header - Reordered columns */}
-              <div className="grid grid-cols-5 gap-2 sm:gap-3 py-2 text-xs sm:text-sm font-medium text-indigo-700">
-                <div className="col-span-1 text-left">Konto</div>
-                <div className="text-center">Banksaldo</div>
-                <div className="text-center">Kostnader</div>
-                <div className="text-center">Sparande</div>
-                <div className="text-center">Efter budget</div>
-              </div>
-
-              {accountGroups.map((group, groupIndex) => (
-                <div key={group.name} className="border-t border-indigo-200 pt-2">
-                  {/* Group Header with totals - clickable to expand/collapse */}
+            {accountGroups.map((group, groupIndex) => (
+              <div key={group.name} className="space-y-3">
+                {/* Group Header Card */}
+                <Card className="bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-200">
                   <button
                     onClick={() => toggleGroupExpansion(group.name)}
-                    className="w-full text-left hover:bg-white/50 rounded-md transition-colors p-2"
+                    className="w-full p-4 text-left"
                   >
-                    <div className="grid grid-cols-5 gap-2 sm:gap-3">
-                  <div className="col-span-1 flex items-center gap-2">
-                    {expandedGroups[group.name] ? 
-                      <ChevronDown className="h-4 w-4 text-indigo-700" /> : 
-                      <ChevronRight className="h-4 w-4 text-indigo-700" />
-                    }
-                    <h3 className="font-semibold text-indigo-900 text-sm sm:text-lg">{group.name}</h3>
-                  </div>
-                  <div className="text-center font-semibold text-indigo-900 text-xs sm:text-sm">
-                    {formatOrenAsCurrency(group.accounts.reduce((sum, acc) => sum + getBankBalance(acc), 0))}
-                  </div>
-                  <div className="text-center font-semibold text-indigo-900 text-xs">
-                    <div className="text-gray-600">
-                      {formatOrenAsCurrency(group.accounts.reduce((sum, acc) => sum + calculateBudgetedCosts(acc), 0))} <span className="text-xs">(B)</span>
-                    </div>
-                    <div className="text-red-600">
-                      {formatOrenAsCurrency(group.accounts.reduce((sum, acc) => sum + calculateAccountCosts(acc), 0))} <span className="text-xs">(F)</span>
-                    </div>
-                  </div>
-                  <div className="text-center font-semibold text-indigo-900 text-xs">
-                    <div className="text-gray-600">
-                      {formatOrenAsCurrency(group.accounts.reduce((sum, acc) => sum + calculateBudgetedSavings(acc), 0))} <span className="text-xs">(B)</span>
-                    </div>
-                    <div className="text-green-600">
-                      {formatOrenAsCurrency(group.accounts.reduce((sum, acc) => sum + calculateAccountSavings(acc), 0))} <span className="text-xs">(F)</span>
-                    </div>
-                  </div>
-                  <div className="text-center font-semibold text-indigo-900 text-xs sm:text-sm">
-                    {formatOrenAsCurrency(group.accounts.reduce((sum, acc) => sum + calculateAfterBudget(acc), 0))}
-                  </div>
-                </div>
-              </button>
-
-            {/* Accounts - only show when group is expanded */}
-            {expandedGroups[group.name] && group.accounts.map(account => {
-              const isExpanded = expandedAccounts[account.id];
-              const afterBudget = calculateAfterBudget(account);
-              
-              return (
-                <div key={account.id} className="space-y-2">
-                  {/* Account Row - Click to expand */}
-                  <button
-                    onClick={() => toggleAccountExpansion(account.id)}
-                    onMouseDown={handleLongPressStart(account.id, account.name)}
-                    onMouseUp={handleLongPressEnd}
-                    onMouseLeave={handleLongPressEnd}
-                    onTouchStart={handleLongPressStart(account.id, account.name)}
-                    onTouchEnd={handleLongPressEnd}
-                    className="w-full grid grid-cols-5 gap-2 sm:gap-3 p-2 pl-8 hover:bg-white/70 rounded-md transition-colors text-left"
-                  >
-                    {/* Account Name */}
-                    <div className="col-span-1 flex items-center gap-1 sm:gap-2 min-w-0">
-                      {isExpanded ? <ChevronDown className="h-4 w-4 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 flex-shrink-0" />}
-                      <span className="font-medium text-xs sm:text-sm truncate">{account.name}</span>
-                    </div>
-                    
-                    {/* Banksaldo */}
-                    <div className="flex justify-center items-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation(); // Prevent account expansion
-                          openEditDialog(account.id, account.name);
-                        }}
-                        className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors flex items-center gap-1 text-xs sm:text-sm"
-                      >
-                        {(() => {
-                          const balance = getBankBalance(account);
-                          console.log(`[BudgetPlanningSection] RENDER balance for ${account.name}: ${balance}`);
-                          
-                          // Check if balance is manually set (from budget_posts with type='Balance')
-                          const userBalancePost = budgetPosts.find(post => 
-                            post.accountId === account.id && 
-                            post.type === 'Balance' &&
-                            post.monthKey === selectedMonth
-                          );
-                          const isManual = userBalancePost?.accountUserBalance !== null && userBalancePost?.accountUserBalance !== undefined;
-                          
-                          return (
-                            <>
-                              {formatOrenAsCurrency(balance)}
-                              {isManual && (
-                                <span className="text-xs bg-blue-100 text-blue-700 px-1 rounded font-semibold">
-                                  M
-                                </span>
-                              )}
-                            </>
-                          );
-                        })()}
-                      </button>
-                    </div>
-                    
-                    {/* Kostnader - Budgeted/Actual Stacked */}
-                    <div className="text-center font-medium text-xs">
-                      <div className="text-gray-600">
-                        {formatOrenAsCurrency(calculateBudgetedCosts(account))} <span className="text-xs opacity-70">(B)</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {expandedGroups[group.name] ? 
+                          <ChevronDown className="h-5 w-5 text-indigo-700" /> : 
+                          <ChevronRight className="h-5 w-5 text-indigo-700" />
+                        }
+                        <h3 className="font-bold text-lg text-indigo-900">{group.name}</h3>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const budgetedAmount = calculateBudgetedCosts(account);
-                          const actualAmount = calculateAccountCosts(account);
-                          handleAccountAmountClick(account, 'costs', budgetedAmount, actualAmount);
-                        }}
-                        className="text-red-600 hover:text-red-800 hover:underline transition-colors cursor-pointer"
-                      >
-                        {formatOrenAsCurrency(calculateAccountCosts(account))} <span className="text-xs opacity-70">(F)</span>
-                      </button>
-                    </div>
-                    
-                    {/* Sparande - Budgeted/Actual Stacked */}
-                    <div className="text-center font-medium text-xs">
-                      <div className="text-gray-600">
-                        {formatOrenAsCurrency(calculateBudgetedSavings(account))} <span className="text-xs opacity-70">(B)</span>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-indigo-900">
+                          {formatOrenAsCurrency(group.accounts.reduce((sum, acc) => sum + getBankBalance(acc), 0))}
+                        </div>
+                        <div className="text-sm text-indigo-700">Banksaldo</div>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const budgetedAmount = calculateBudgetedSavings(account);
-                          const actualAmount = calculateAccountSavings(account);
-                          handleAccountAmountClick(account, 'savings', budgetedAmount, actualAmount);
-                        }}
-                        className="text-green-600 hover:text-green-800 hover:underline transition-colors cursor-pointer"
-                      >
-                        {formatOrenAsCurrency(calculateAccountSavings(account))} <span className="text-xs opacity-70">(F)</span>
-                      </button>
-                    </div>
-                    
-                    {/* Efter Budget */}
-                    <div className="text-center font-medium text-xs sm:text-sm">
-                      {formatOrenAsCurrency(afterBudget)}
                     </div>
                   </button>
+                </Card>
 
+                {/* Account Cards - only show when group is expanded */}
+                {expandedGroups[group.name] && (
+                  <div className="space-y-3 ml-4">
+                    {group.accounts.map(account => {
+                      const isExpanded = expandedAccounts[account.id];
+                      const afterBudget = calculateAfterBudget(account);
+                      const budgetedIncome = calculateBudgetedIncome(account);
+                      const actualIncome = calculateAccountIncome(account);
+                      const budgetedCosts = calculateBudgetedCosts(account);
+                      const actualCosts = calculateAccountCosts(account);
+                      const budgetedSavings = calculateBudgetedSavings(account);
+                      const actualSavings = calculateAccountSavings(account);
+                      const budgetedTransfers = calculateBudgetedTransfers(account);
+                      const actualTransfers = calculateAccountTransfers(account);
+                      
+                      return (
+                        <Card key={account.id} className="overflow-hidden transition-all duration-200 hover:shadow-md border-gray-200">
+                          <div className="p-4 space-y-4">
+                            {/* Header with Account Name */}
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={() => toggleAccountExpansion(account.id)}
+                                className="flex items-center gap-2 hover:text-indigo-700 transition-colors"
+                              >
+                                {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                <span className="font-semibold text-xl text-gray-900">{account.name}</span>
+                              </button>
+                            </div>
 
-                  {/* Expanded Account Categories */}
-                  {isExpanded && renderAccountCategories(account)}
-                </div>
-              );
-            })}
-          </div>
-        ))}
+                            {/* Banksaldo Card - Like Categories */}
+                            <Card className="p-3 bg-blue-50 border-blue-200 shadow-sm cursor-pointer hover:bg-blue-100 transition-colors"
+                                  onClick={() => openEditDialog(account.id, account.name)}>
+                              <div className="flex items-center justify-between">
+                                <h4 className="text-lg font-semibold text-blue-800">Banksaldo</h4>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-2xl font-bold text-blue-800">
+                                    {(() => {
+                                      const balance = getBankBalance(account);
+                                      return formatOrenAsCurrency(balance);
+                                    })()}
+                                  </p>
+                                  {(() => {
+                                    const userBalancePost = budgetPosts.find(post => 
+                                      post.accountId === account.id && 
+                                      post.type === 'Balance' &&
+                                      post.monthKey === selectedMonth
+                                    );
+                                    const isManual = userBalancePost?.accountUserBalance !== null && userBalancePost?.accountUserBalance !== undefined;
+                                    return isManual && (
+                                      <span className="text-xs bg-blue-700 text-white px-2 py-1 rounded font-semibold">M</span>
+                                    );
+                                  })()}
+                                </div>
+                              </div>
+                            </Card>
+
+                            {/* 4 Box Grid: Inkomster, Kostnader, Sparande, Överföringar */}
+                            <div className="grid grid-cols-2 gap-4">
+                              {/* Inkomster - Only show if there's income */}
+                              {(actualIncome > 0 || budgetedIncome > 0) && (
+                                <Card className="p-3 bg-emerald-50 border-emerald-200 shadow-sm">
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <h4 className="text-sm font-semibold text-emerald-800">Inkomster</h4>
+                                    </div>
+                                    <div className="text-center">
+                                      <button
+                                        onClick={() => handleAccountAmountClick(account, 'income', budgetedIncome, actualIncome)}
+                                        className="text-2xl font-bold text-emerald-600 hover:text-emerald-800 hover:underline transition-colors block w-full"
+                                      >
+                                        {formatOrenAsCurrency(actualIncome)}
+                                      </button>
+                                      <p className="text-sm text-gray-600">
+                                        av {formatOrenAsCurrency(budgetedIncome)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </Card>
+                              )}
+
+                              {/* Kostnader */}
+                              <Card className="p-3 bg-red-50 border-red-200 shadow-sm">
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <h4 className="text-sm font-semibold text-red-800">Kostnader</h4>
+                                  </div>
+                                  <div className="text-center">
+                                    <button
+                                      onClick={() => handleAccountAmountClick(account, 'costs', budgetedCosts, actualCosts)}
+                                      className="text-2xl font-bold text-red-600 hover:text-red-800 hover:underline transition-colors block w-full"
+                                    >
+                                      {formatOrenAsCurrency(actualCosts)}
+                                    </button>
+                                    <p className="text-sm text-gray-600">
+                                      av {formatOrenAsCurrency(budgetedCosts)}
+                                    </p>
+                                  </div>
+                                </div>
+                              </Card>
+
+                              {/* Sparande */}
+                              <Card className="p-3 bg-green-50 border-green-200 shadow-sm">
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <h4 className="text-sm font-semibold text-green-800">Sparande</h4>
+                                  </div>
+                                  <div className="text-center">
+                                    <button
+                                      onClick={() => handleAccountAmountClick(account, 'savings', budgetedSavings, actualSavings)}
+                                      className="text-2xl font-bold text-green-600 hover:text-green-800 hover:underline transition-colors block w-full"
+                                    >
+                                      {formatOrenAsCurrency(actualSavings)}
+                                    </button>
+                                    <p className="text-sm text-gray-600">
+                                      av {formatOrenAsCurrency(budgetedSavings)}
+                                    </p>
+                                  </div>
+                                </div>
+                              </Card>
+
+                              {/* Överföringar - Only show if there are transfers */}
+                              {(actualTransfers !== 0 || budgetedTransfers !== 0) && (
+                                <Card className="p-3 bg-purple-50 border-purple-200 shadow-sm">
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <h4 className="text-sm font-semibold text-purple-800">Överföringar</h4>
+                                    </div>
+                                    <div className="text-center">
+                                      <button
+                                        onClick={() => handleAccountAmountClick(account, 'transfers', budgetedTransfers, actualTransfers)}
+                                        className="text-2xl font-bold text-purple-600 hover:text-purple-800 hover:underline transition-colors block w-full"
+                                      >
+                                        {formatOrenAsCurrency(actualTransfers)}
+                                      </button>
+                                      <p className="text-sm text-gray-600">
+                                        av {formatOrenAsCurrency(budgetedTransfers)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </Card>
+                              )}
+                            </div>
+
+                            {/* Efter Budget Card */}
+                            <Card className="p-3 bg-yellow-50 border-yellow-200 shadow-sm">
+                              <div className="flex items-center justify-between">
+                                <h4 className="text-lg font-semibold text-yellow-800">Efter budget</h4>
+                                <p className="text-2xl font-bold text-yellow-800">
+                                  {formatOrenAsCurrency(afterBudget)}
+                                </p>
+                              </div>
+                            </Card>
+
+                            {/* Expanded Account Categories */}
+                            {isExpanded && (
+                              <div className="border-t pt-4 mt-4">
+                                {renderAccountCategories(account)}
+                              </div>
+                            )}
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          </Card>
+            ))}
+          </div>
         ) : (
           /* Categories View without Card */
           <div className="space-y-4">
