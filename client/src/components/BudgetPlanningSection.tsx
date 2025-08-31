@@ -74,6 +74,7 @@ export function BudgetPlanningSection({
   
   // Scroll detection state
   const [isScrolling, setIsScrolling] = useState(false);
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
   
   // Add scroll detection
   useEffect(() => {
@@ -129,7 +130,6 @@ export function BudgetPlanningSection({
   const [dialogSelection, setDialogSelection] = useState<'custom' | 'bank'>('custom');
   const [actionModalOpen, setActionModalOpen] = useState(false);
   const [selectedAccountForAction, setSelectedAccountForAction] = useState<{ id: string; name: string; type: 'account' | 'huvudkategori' | 'underkategori' } | null>(null);
-  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
   
   // Map header view mode to our internal logic
   const activeView = viewMode === 'categories' ? 'categories' : 'accounts';
