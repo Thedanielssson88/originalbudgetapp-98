@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -872,35 +872,34 @@ export function BudgetPlanningSection({
 
   return (
     <>
-      <Card className="shadow-lg border-0 bg-indigo-50/50 backdrop-blur-sm">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-indigo-800">
-            <Target className="h-5 w-5" />
-            Budgetplanering
-          </CardTitle>
-        </div>
-      </CardHeader>
+      <Card className="mx-4 p-3 bg-indigo-50 border-indigo-200 shadow-sm">
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-lg font-semibold text-indigo-800">
+              <Target className="h-5 w-5" />
+              Budgetplanering
+            </h3>
+          </div>
 
-      <CardContent className="space-y-4">
-        {activeView === 'accounts' ? (
-          <div className="space-y-4">
-        {/* Account Table Header - Only show once at the top */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-4 px-2 sm:px-4 py-2 text-green-700 bg-green-50 border-green-200 rounded-md border font-medium text-xs sm:text-sm">
-          <div className="text-left">Kontonamn</div>
-          <div className="text-center sm:text-right">Banksaldo</div>
-          <div className="text-right">Efter budget</div>
-        </div>
+          {/* Content */}
+          {activeView === 'accounts' ? (
+            <div>
+              {/* Account Table Header */}
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 py-2 text-sm font-medium text-indigo-700">
+                <div className="text-left">Kontonamn</div>
+                <div className="text-center sm:text-right">Banksaldo</div>
+                <div className="text-right">Efter budget</div>
+              </div>
 
-        {accountGroups.map((group, groupIndex) => (
-          <div key={group.name} className="space-y-3">
-            {/* Group Header with totals - clickable to expand/collapse */}
-            <div className="border-b border-indigo-200 pb-2">
-              <button
-                onClick={() => toggleGroupExpansion(group.name)}
-                className="w-full text-left hover:bg-indigo-50/50 rounded-md transition-colors"
-              >
-                <div className="grid grid-cols-3 gap-2 sm:gap-4 px-2 sm:px-4 py-2">
+              {accountGroups.map((group, groupIndex) => (
+                <div key={group.name} className="border-t border-indigo-200 pt-2">
+                  {/* Group Header with totals - clickable to expand/collapse */}
+                  <button
+                    onClick={() => toggleGroupExpansion(group.name)}
+                    className="w-full text-left hover:bg-white/50 rounded-md transition-colors p-2"
+                  >
+                    <div className="grid grid-cols-3 gap-2 sm:gap-4">
                   <div className="flex items-center gap-2">
                     {expandedGroups[group.name] ? 
                       <ChevronDown className="h-4 w-4 text-indigo-700" /> : 
@@ -916,7 +915,6 @@ export function BudgetPlanningSection({
                   </div>
                 </div>
               </button>
-            </div>
 
             {/* Accounts - only show when group is expanded */}
             {expandedGroups[group.name] && group.accounts.map(account => {
@@ -933,7 +931,7 @@ export function BudgetPlanningSection({
                     onMouseLeave={handleLongPressEnd}
                     onTouchStart={handleLongPressStart(account.id, account.name)}
                     onTouchEnd={handleLongPressEnd}
-                    className="w-full grid grid-cols-3 gap-2 sm:gap-4 px-2 sm:px-4 py-3 bg-white rounded-md border border-indigo-200 hover:bg-indigo-50/50 transition-colors text-left"
+                    className="w-full grid grid-cols-3 gap-2 sm:gap-4 p-2 pl-8 hover:bg-white/70 rounded-md transition-colors text-left"
                   >
                     <div className="flex items-center gap-1 sm:gap-2 min-w-0">
                       {isExpanded ? <ChevronDown className="h-4 w-4 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 flex-shrink-0" />}
@@ -985,15 +983,15 @@ export function BudgetPlanningSection({
             })}
           </div>
         ))}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {/* Category Table Header */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-4 px-2 sm:px-4 py-2 text-green-700 bg-green-50 border-green-200 rounded-md border font-medium text-xs sm:text-sm">
-              <div className="text-left">Kategorinamn</div>
-              <div className="text-center sm:text-right">Sparande</div>
-              <div className="text-right">Kostnader</div>
             </div>
+          ) : (
+            <div>
+              {/* Category Table Header */}
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 py-2 text-sm font-medium text-indigo-700">
+                <div className="text-left">Kategorinamn</div>
+                <div className="text-center sm:text-right">Sparande</div>
+                <div className="text-right">Kostnader</div>
+              </div>
 
             {huvudkategorier.map(huvudkategori => {
               // Get underkategorier for this huvudkategori
@@ -1011,19 +1009,18 @@ export function BudgetPlanningSection({
               const isHuvudExpanded = expandedGroups[huvudkategori.id];
 
               return (
-                <div key={huvudkategori.id} className="space-y-3">
+                <div key={huvudkategori.id} className="border-t border-indigo-200 pt-2">
                   {/* Huvudkategori Header */}
-                  <div className="border-b border-indigo-200 pb-2">
-                    <button
-                      onClick={() => toggleGroupExpansion(huvudkategori.id)}
-                      onMouseDown={handleHuvudkategoriLongPressStart(huvudkategori.id, huvudkategori.name)}
-                      onMouseUp={handleLongPressEnd}
-                      onMouseLeave={handleLongPressEnd}
-                      onTouchStart={handleHuvudkategoriLongPressStart(huvudkategori.id, huvudkategori.name)}
-                      onTouchEnd={handleLongPressEnd}
-                      className="w-full text-left hover:bg-indigo-50/50 rounded-md transition-colors"
-                    >
-                      <div className="grid grid-cols-3 gap-2 sm:gap-4 px-2 sm:px-4 py-2">
+                  <button
+                    onClick={() => toggleGroupExpansion(huvudkategori.id)}
+                    onMouseDown={handleHuvudkategoriLongPressStart(huvudkategori.id, huvudkategori.name)}
+                    onMouseUp={handleLongPressEnd}
+                    onMouseLeave={handleLongPressEnd}
+                    onTouchStart={handleHuvudkategoriLongPressStart(huvudkategori.id, huvudkategori.name)}
+                    onTouchEnd={handleLongPressEnd}
+                    className="w-full text-left hover:bg-white/50 rounded-md transition-colors p-2"
+                  >
+                    <div className="grid grid-cols-3 gap-2 sm:gap-4">
                         <div className="flex items-center gap-2">
                           {isHuvudExpanded ? 
                             <ChevronDown className="h-4 w-4 text-indigo-700" /> : 
@@ -1037,9 +1034,8 @@ export function BudgetPlanningSection({
                         <div className="text-right font-semibold text-red-700">
                           {formatOrenAsCurrency(-huvudkategoriCosts)}
                         </div>
-                      </div>
-                    </button>
-                  </div>
+                    </div>
+                  </button>
 
                   {/* Underkategorier - only show when huvudkategori is expanded */}
                   {isHuvudExpanded && relatedUnderkategorier.map(underkategori => {
@@ -1064,7 +1060,7 @@ export function BudgetPlanningSection({
                           onMouseLeave={handleLongPressEnd}
                           onTouchStart={handleUnderkategoriLongPressStart(underkategori.id, underkategori.name)}
                           onTouchEnd={handleLongPressEnd}
-                          className="w-full grid grid-cols-3 gap-2 sm:gap-4 px-2 sm:px-4 py-3 bg-white rounded-md border border-indigo-200 hover:bg-indigo-50/50 transition-colors text-left"
+                          className="w-full grid grid-cols-3 gap-2 sm:gap-4 p-2 pl-8 hover:bg-white/70 rounded-md transition-colors text-left"
                         >
                           <div className="flex items-center gap-1 sm:gap-2 min-w-0">
                             {isUnderExpanded ? <ChevronDown className="h-4 w-4 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 flex-shrink-0" />}
@@ -1102,9 +1098,9 @@ export function BudgetPlanningSection({
                 </div>
               );
             })}
-          </div>
-        )}
-      </CardContent>
+            </div>
+          )}
+        </div>
       </Card>
 
       {/* Action Selection Modal */}

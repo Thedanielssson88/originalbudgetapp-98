@@ -5471,9 +5471,9 @@ const PlanCalculator = ({ viewMode }: PlanCalculatorProps = {}) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background p-4">
+    <div className="min-h-screen bg-white">
       {loadingOverlay}
-      <div className="max-w-6xl mx-auto">
+      <div className="w-full">
         {/* Month selector moved to sticky header */}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

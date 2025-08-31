@@ -67,7 +67,7 @@ export function AppLayout({ children, planHeaderData }: AppLayoutProps) {
 
       {/* Main content with padding for bottom nav */}
       <main className="flex-1 overflow-auto pb-16">
-        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="w-full">
           {children}
         </div>
       </main>
