@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import PlanCalculator from './PlanCalculator';
 import { AppLayout } from './AppLayout';
@@ -11,6 +11,9 @@ import { setSelectedBudgetMonth } from '../orchestrator/budgetOrchestrator';
 const PlanPageWithHeader = () => {
   const [location] = useLocation();
   const { budgetState } = useBudget();
+  
+  // Add viewMode state for header tabs
+  const [viewMode, setViewMode] = useState<'categories' | 'spotlights'>('categories');
   
   // Get the selected month from budgetState
   const selectedMonth = budgetState.selectedMonthKey || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
@@ -177,11 +180,13 @@ const PlanPageWithHeader = () => {
     totalCosts,
     totalSavings,
     onMonthChange: handleMonthChange,
+    viewMode,
+    setViewMode,
   };
 
   return (
     <AppLayout planHeaderData={planHeaderData}>
-      <PlanCalculator />
+      <PlanCalculator viewMode={viewMode} />
     </AppLayout>
   );
 };

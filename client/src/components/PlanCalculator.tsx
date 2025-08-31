@@ -130,7 +130,11 @@ interface BudgetGroup {
   financedFrom?: 'Löpande kostnad' | 'Enskild kostnad';
 }
 
-const PlanCalculator = () => {
+interface PlanCalculatorProps {
+  viewMode?: 'categories' | 'spotlights';
+}
+
+const PlanCalculator = ({ viewMode }: PlanCalculatorProps = {}) => {
   // BudgetCalculator component starting
   // Use the original useBudget hook - fix hook ordering instead
   const { isLoading, budgetState, calculated } = useBudget();
@@ -572,9 +576,15 @@ const PlanCalculator = () => {
     isOpen: boolean;
     type: 'cost' | 'savings';
   }>({ isOpen: false, type: 'cost' });
+  const [preselectedBudgetAccountId, setPreselectedBudgetAccountId] = useState<string>('');
+  const [preselectedHuvudkategoriId, setPreselectedHuvudkategoriId] = useState<string>('');
+  const [preselectedUnderkategoriId, setPreselectedUnderkategoriId] = useState<string>('');
+  const [preselectedFromAccountId, setPreselectedFromAccountId] = useState<string>('');
+  const [preselectedToAccountId, setPreselectedToAccountId] = useState<string>('');
   
   // New transfer form state (same as KontosaldoKopia)
   const [showNewTransferForm, setShowNewTransferForm] = useState(false);
+  const [preselectedTransferFromAccountId, setPreselectedTransferFromAccountId] = useState<string>('');
 
   // Sparmål state
   const [isCreateSavingsGoalDialogOpen, setIsCreateSavingsGoalDialogOpen] = useState<boolean>(false);
@@ -5500,33 +5510,6 @@ const PlanCalculator = () => {
             <TabsTrigger value="installningar">Inställningar</TabsTrigger>
           </TabsList>
 
-          {/* Current page title */}
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-center">
-              {activeTab === 'inkomster' && (() => {
-                const monthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 
-                                  'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
-                
-                if (selectedBudgetMonth) {
-                  const [year, month] = selectedBudgetMonth.split('-');
-                  const monthIndex = parseInt(month) - 1;
-                  return `Min Månadsbudget - ${monthNames[monthIndex]} ${year}`;
-                } else {
-                  const currentDate = new Date();
-                  const currentMonth = monthNames[currentDate.getMonth()];
-                  const currentYear = currentDate.getFullYear();
-                  return `Min Månadsbudget - ${currentMonth} ${currentYear}`;
-                }
-              })()}
-              {activeTab === 'sammanstallning' && 'Sammanställning'}
-              {activeTab === 'overforing' && 'Överföring'}
-              {activeTab === 'egen-budget' && 'Egen Budget'}
-              {activeTab === 'historia' && 'Historia'}
-              {activeTab === 'sparmal' && 'Sparmål'}
-              {activeTab === 'transaktioner' && 'Läs in transaktioner'}
-              {activeTab === 'installningar' && 'Inställningar'}
-            </h1>
-          </div>
 
           {/* Tab 1: Inkomster och Utgifter */}
           <TabsContent value="inkomster" className="mt-0">
@@ -5549,9 +5532,27 @@ const PlanCalculator = () => {
                 accounts={accountsFromAPI}
                 budgetPosts={budgetPostsFromAPI}
                 selectedMonth={selectedBudgetMonth || budgetState.selectedMonthKey}
-                onNewTransfer={() => setShowNewTransferForm(true)}
-                onNewCost={() => setShowAddBudgetDialog({ isOpen: true, type: 'cost' })}
-                onNewSaving={() => setShowAddBudgetDialog({ isOpen: true, type: 'savings' })}
+                viewMode={viewMode}
+                onNewTransfer={(accountIdFrom?: string) => {
+                  setPreselectedTransferFromAccountId(accountIdFrom || '');
+                  setShowNewTransferForm(true);
+                }}
+                onNewCost={(accountId?: string, huvudkategoriId?: string, underkategoriId?: string, fromAccountId?: string, toAccountId?: string) => {
+                  setPreselectedBudgetAccountId(accountId || '');
+                  setPreselectedHuvudkategoriId(huvudkategoriId || '');
+                  setPreselectedUnderkategoriId(underkategoriId || '');
+                  setPreselectedFromAccountId(fromAccountId || '');
+                  setPreselectedToAccountId(toAccountId || '');
+                  setShowAddBudgetDialog({ isOpen: true, type: 'cost' });
+                }}
+                onNewSaving={(accountIdTo?: string, huvudkategoriId?: string, underkategoriId?: string, fromAccountId?: string, toAccountId?: string) => {
+                  setPreselectedBudgetAccountId(accountIdTo || '');
+                  setPreselectedHuvudkategoriId(huvudkategoriId || '');
+                  setPreselectedUnderkategoriId(underkategoriId || '');
+                  setPreselectedFromAccountId(fromAccountId || '');
+                  setPreselectedToAccountId(toAccountId || '');
+                  setShowAddBudgetDialog({ isOpen: true, type: 'savings' });
+                }}
               />
 
 
@@ -6943,10 +6944,22 @@ const PlanCalculator = () => {
       {/* Add Budget Item Dialog */}
       <AddBudgetItemDialog
         isOpen={showAddBudgetDialog.isOpen}
-        onClose={() => setShowAddBudgetDialog({ isOpen: false, type: 'cost' })}
+        onClose={() => {
+          setShowAddBudgetDialog({ isOpen: false, type: 'cost' });
+          setPreselectedBudgetAccountId('');
+          setPreselectedHuvudkategoriId('');
+          setPreselectedUnderkategoriId('');
+          setPreselectedFromAccountId('');
+          setPreselectedToAccountId('');
+        }}
         onSave={handleAddBudgetItem}
         type={showAddBudgetDialog.type}
         monthKey={selectedBudgetMonth || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
+        preselectedAccountId={preselectedBudgetAccountId}
+        preselectedHuvudkategoriId={preselectedHuvudkategoriId}
+        preselectedUnderkategoriId={preselectedUnderkategoriId}
+        preselectedFromAccountId={preselectedFromAccountId}
+        preselectedToAccountId={preselectedToAccountId}
       />
       
       {/* Transaction Drill Down Dialog */}
@@ -6968,8 +6981,12 @@ const PlanCalculator = () => {
             historicalData: budgetState.historicalData,
             allTransactions: transactionsFromAPI || []
           }}
+          preselectedFromAccountId={preselectedFromAccountId}
           onSubmit={handleCreateTransfer}
-          onCancel={() => setShowNewTransferForm(false)}
+          onCancel={() => {
+            setShowNewTransferForm(false);
+            setPreselectedFromAccountId('');
+          }}
         />
       )}
       

@@ -10,12 +10,14 @@ interface AppLayoutProps {
     totalCosts: number;
     totalSavings: number;
     onMonthChange?: (month: string) => void;
+    viewMode?: 'categories' | 'spotlights';
+    setViewMode?: (mode: 'categories' | 'spotlights') => void;
   };
 }
 
 const pageTitles: Record<string, string> = {
   "/inkomster": "Min Månadsbudget",
-  "/plan": "Planering",
+  "/plan": "",
   "/sammanstallning": "Sammanställning",
   "/overforing": "Överföring",
   "/egen-budget": "Egen Budget",
@@ -31,6 +33,13 @@ export function AppLayout({ children, planHeaderData }: AppLayoutProps) {
   const [location] = useLocation();
   const pageTitle = pageTitles[location] || "Budget Kalkylator";
 
+  console.log('[AppLayout] Debug:', {
+    location,
+    pageTitle,
+    hasPlanHeaderData: !!planHeaderData,
+    shouldShowPlanHeader: location === "/plan" && planHeaderData
+  });
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
@@ -42,14 +51,18 @@ export function AppLayout({ children, planHeaderData }: AppLayoutProps) {
             totalCosts={planHeaderData.totalCosts}
             totalSavings={planHeaderData.totalSavings}
             onMonthChange={planHeaderData.onMonthChange}
+            viewMode={planHeaderData.viewMode}
+            setViewMode={planHeaderData.setViewMode}
           />
         </header>
       ) : (
-        <header className="h-14 flex items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
-          <div className="flex-1 text-center px-4">
-            <h1 className="text-lg font-semibold truncate">{pageTitle}</h1>
-          </div>
-        </header>
+        pageTitle ? (
+          <header className="h-14 flex items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
+            <div className="flex-1 text-center px-4">
+              <h1 className="text-lg font-semibold truncate">{pageTitle}</h1>
+            </div>
+          </header>
+        ) : null
       )}
 
       {/* Main content with padding for bottom nav */}

@@ -13,6 +13,8 @@ interface PlanHeaderProps {
   totalCosts: number;
   totalSavings: number;
   onMonthChange?: (month: string) => void;
+  viewMode?: 'categories' | 'spotlights';
+  setViewMode?: (mode: 'categories' | 'spotlights') => void;
 }
 
 export function PlanHeader({ 
@@ -20,10 +22,16 @@ export function PlanHeader({
   totalIncome, 
   totalCosts, 
   totalSavings,
-  onMonthChange
+  onMonthChange,
+  viewMode: externalViewMode,
+  setViewMode: externalSetViewMode
 }: PlanHeaderProps) {
-  const [viewMode, setViewMode] = useState<'categories' | 'spotlights'>('categories');
+  // Use local state as fallback if external props not provided
+  const [localViewMode, setLocalViewMode] = useState<'categories' | 'spotlights'>('categories');
   const [isIncomeDialogOpen, setIsIncomeDialogOpen] = useState(false);
+  
+  const viewMode = externalViewMode || localViewMode;
+  const setViewMode = externalSetViewMode || setLocalViewMode;
 
   // Calculate available to assign (Lön - kostnader - sparande)
   const availableToAssign = totalIncome - totalCosts - totalSavings;
@@ -39,7 +47,8 @@ export function PlanHeader({
       </div>
 
       {/* Second row: Categories/Spotlights selector (Premium YNAB style) */}
-      <div className="inline-flex bg-gray-100 rounded-lg p-1 shadow-inner">
+      <div className="flex justify-center">
+        <div className="inline-flex bg-gray-100 rounded-lg p-1 shadow-inner">
         <button
           onClick={() => setViewMode('categories')}
           className={cn(
@@ -50,7 +59,7 @@ export function PlanHeader({
               : 'bg-transparent text-gray-600 hover:text-gray-800 hover:bg-white/50'
           )}
         >
-          <span className="relative z-10">Categories</span>
+          <span className="relative z-10">Kategorier</span>
         </button>
         <button
           onClick={() => setViewMode('spotlights')}
@@ -62,8 +71,9 @@ export function PlanHeader({
               : 'bg-transparent text-gray-600 hover:text-gray-800 hover:bg-white/50'
           )}
         >
-          <span className="relative z-10">All Accounts</span>
+          <span className="relative z-10">Alla konton</span>
         </button>
+        </div>
       </div>
 
       {/* Third row: Lön card (Green like YNAB) - Clickable */}

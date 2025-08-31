@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useUpdateBudgetPost, useCreateBudgetPost } from '@/hooks/useBudgetPosts';
 import { useFamilyMembers } from '@/hooks/useFamilyMembers';
 import { useQueryClient } from '@tanstack/react-query';
+import { useHuvudkategorier, useUnderkategorier } from '@/hooks/useCategories';
 
 interface Account {
   id: string;
@@ -41,9 +42,10 @@ interface BudgetPlanningProps {
   accounts: Account[];
   budgetPosts: any[];
   selectedMonth: string;
+  viewMode?: 'categories' | 'spotlights'; // From PlanHeader
   onNewTransfer: (accountIdFrom?: string) => void;
-  onNewCost: (accountId?: string) => void;
-  onNewSaving: (accountIdTo?: string) => void;
+  onNewCost: (accountId?: string, huvudkategoriId?: string, underkategoriId?: string, fromAccountId?: string, toAccountId?: string) => void;
+  onNewSaving: (accountIdTo?: string, huvudkategoriId?: string, underkategoriId?: string, fromAccountId?: string, toAccountId?: string) => void;
 }
 
 interface AccountGroup {
@@ -55,6 +57,7 @@ export function BudgetPlanningSection({
   accounts,
   budgetPosts,
   selectedMonth,
+  viewMode = 'spotlights', // Default to accounts view
   onNewTransfer,
   onNewCost,
   onNewSaving
@@ -62,6 +65,8 @@ export function BudgetPlanningSection({
   // Get transactions using the same hook as KontosaldoKopia
   const { data: allTransactions = [] } = useTransactions();
   const { data: familyMembers = [] } = useFamilyMembers();
+  const { data: huvudkategorier = [] } = useHuvudkategorier();
+  const { data: underkategorier = [] } = useUnderkategorier();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const updateBudgetPostMutation = useUpdateBudgetPost();
@@ -92,8 +97,11 @@ export function BudgetPlanningSection({
   const [dialogInputValue, setDialogInputValue] = useState<string>('');
   const [dialogSelection, setDialogSelection] = useState<'custom' | 'bank'>('custom');
   const [actionModalOpen, setActionModalOpen] = useState(false);
-  const [selectedAccountForAction, setSelectedAccountForAction] = useState<{ id: string; name: string } | null>(null);
+  const [selectedAccountForAction, setSelectedAccountForAction] = useState<{ id: string; name: string; type: 'account' | 'huvudkategori' | 'underkategori' } | null>(null);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  
+  // Map header view mode to our internal logic
+  const activeView = viewMode === 'categories' ? 'categories' : 'accounts';
 
   // Calculate bank balances from transactions (same logic as KontosaldoKopia)
   useEffect(() => {
@@ -326,13 +334,37 @@ export function BudgetPlanningSection({
     }));
   };
 
-  // Handle long press start
+  // Handle long press start for accounts
   const handleLongPressStart = (accountId: string, accountName: string) => (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     
     const timer = setTimeout(() => {
       console.log(`[Action Modal] Opening for account "${accountName}" (${accountId})`);
-      setSelectedAccountForAction({ id: accountId, name: accountName });
+      setSelectedAccountForAction({ id: accountId, name: accountName, type: 'account' });
+      setActionModalOpen(true);
+    }, 500); // 500ms hold time
+    setLongPressTimer(timer);
+  };
+
+  // Handle long press start for huvudkategorier
+  const handleHuvudkategoriLongPressStart = (hovedkategoriId: string, hovedkategoriName: string) => (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    
+    const timer = setTimeout(() => {
+      console.log(`[Action Modal] Opening for huvudkategori "${hovedkategoriName}" (${hovedkategoriId})`);
+      setSelectedAccountForAction({ id: hovedkategoriId, name: hovedkategoriName, type: 'huvudkategori' });
+      setActionModalOpen(true);
+    }, 500); // 500ms hold time
+    setLongPressTimer(timer);
+  };
+
+  // Handle long press start for underkategorier
+  const handleUnderkategoriLongPressStart = (underkategoriId: string, underkategoriName: string) => (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    
+    const timer = setTimeout(() => {
+      console.log(`[Action Modal] Opening for underkategori "${underkategoriName}" (${underkategoriId})`);
+      setSelectedAccountForAction({ id: underkategoriId, name: underkategoriName, type: 'underkategori' });
       setActionModalOpen(true);
     }, 500); // 500ms hold time
     setLongPressTimer(timer);
@@ -350,21 +382,81 @@ export function BudgetPlanningSection({
   const handleModalAction = (action: 'transfer' | 'cost' | 'saving') => {
     if (!selectedAccountForAction) return;
     
-    console.log(`[Action Modal] Action ${action} for account ${selectedAccountForAction.name} (${selectedAccountForAction.id})`);
+    console.log(`[Action Modal] Action ${action} for ${selectedAccountForAction.type} ${selectedAccountForAction.name} (${selectedAccountForAction.id})`);
     
     // Close modal
     setActionModalOpen(false);
     setSelectedAccountForAction(null);
     
+    // For accounts, pass accountId. For categories, use smart prefilling logic
+    const accountId = selectedAccountForAction.type === 'account' ? selectedAccountForAction.id : undefined;
+    
+    let huvudkategoriId: string | undefined = undefined;
+    let underkategoriIdToPass: string | undefined = undefined;
+    
+    if (selectedAccountForAction.type === 'huvudkategori') {
+      huvudkategoriId = selectedAccountForAction.id;
+    } else if (selectedAccountForAction.type === 'underkategori') {
+      underkategoriIdToPass = selectedAccountForAction.id;
+      // Find the parent huvudkategori for this underkategori
+      const underkategori = underkategorier.find(u => u.id === selectedAccountForAction.id);
+      if (underkategori) {
+        huvudkategoriId = underkategori.huvudkategoriId;
+      }
+    }
+    
+    // Smart account prefilling for category actions (same logic as handleCategoryAmountClick)
+    let prefilledAccountId: string | undefined = accountId;
+    let prefilledFromAccountId: string | undefined = undefined;
+    let prefilledToAccountId: string | undefined = undefined;
+    
+    if ((action === 'cost' || action === 'saving') && (selectedAccountForAction.type === 'huvudkategori' || selectedAccountForAction.type === 'underkategori')) {
+      // Find previous posts with the same categories
+      const matchingPosts = budgetPosts.filter(post => 
+        post.huvudkategoriId === huvudkategoriId && 
+        post.underkategoriId === underkategoriIdToPass &&
+        post.type === action &&
+        (post.accountId || post.accountIdFrom || post.accountIdTo) // Has account information
+      );
+      
+      // Sort by monthKey to get the most recent
+      const sortedPosts = matchingPosts.sort((a, b) => {
+        if (a.monthKey && b.monthKey) {
+          return b.monthKey.localeCompare(a.monthKey);
+        }
+        return (b.id || '').localeCompare(a.id || '');
+      });
+      
+      const mostRecentPost = sortedPosts[0];
+      
+      if (mostRecentPost) {
+        if (action === 'saving') {
+          prefilledAccountId = mostRecentPost.accountIdTo || mostRecentPost.accountId;
+          prefilledFromAccountId = mostRecentPost.accountIdFrom;
+          prefilledToAccountId = mostRecentPost.accountIdTo;
+          console.log(`[Modal Action] Found previous savings post, prefilling accounts - main: ${prefilledAccountId}, from: ${prefilledFromAccountId}, to: ${prefilledToAccountId}`);
+        } else {
+          prefilledAccountId = mostRecentPost.accountId || mostRecentPost.accountIdFrom;
+          prefilledFromAccountId = mostRecentPost.accountIdFrom;
+          prefilledToAccountId = mostRecentPost.accountIdTo;
+          console.log(`[Modal Action] Found previous cost post, prefilling accounts - main: ${prefilledAccountId}, from: ${prefilledFromAccountId}, to: ${prefilledToAccountId}`);
+        }
+      } else {
+        console.log(`[Modal Action] No previous posts found for ${action} in categories ${huvudkategoriId}/${underkategoriIdToPass}`);
+      }
+    }
+    
     switch (action) {
       case 'transfer':
-        onNewTransfer(selectedAccountForAction.id); // Pass accountId as "from" account
+        if (selectedAccountForAction.type === 'account') {
+          onNewTransfer(accountId); // Pass accountId as "from" account
+        }
         break;
       case 'cost':
-        onNewCost(selectedAccountForAction.id); // Pass accountId as cost account
+        onNewCost(prefilledAccountId, huvudkategoriId, underkategoriIdToPass, prefilledFromAccountId, prefilledToAccountId);
         break;
       case 'saving':
-        onNewSaving(selectedAccountForAction.id); // Pass accountId as "to" account
+        onNewSaving(prefilledAccountId, huvudkategoriId, underkategoriIdToPass, prefilledFromAccountId, prefilledToAccountId);
         break;
     }
   };
@@ -373,6 +465,67 @@ export function BudgetPlanningSection({
   const closeModal = () => {
     setActionModalOpen(false);
     setSelectedAccountForAction(null);
+  };
+
+  // Handle direct dialog opening for category amounts
+  const handleCategoryAmountClick = (underkategoriId: string, type: 'savings' | 'cost', e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the expand/collapse
+    
+    // Find the underkategori and its parent huvudkategori
+    const underkategori = underkategorier.find(u => u.id === underkategoriId);
+    const huvudkategoriId = underkategori?.huvudkategoriId;
+    
+    console.log(`[Direct Dialog] Opening ${type} dialog for underkategori "${underkategori?.name}" in huvudkategori "${huvudkategoriId}"`);
+    
+    // Find previous posts with the same huvudkategori and underkategori to prefill accounts
+    const matchingPosts = budgetPosts.filter(post => 
+      post.huvudkategoriId === huvudkategoriId && 
+      post.underkategoriId === underkategoriId &&
+      post.type === type &&
+      (post.accountId || post.accountIdFrom || post.accountIdTo) // Has account information
+    );
+    
+    // Sort by creation date or month to get the most recent
+    const sortedPosts = matchingPosts.sort((a, b) => {
+      // First try to sort by monthKey (more recent months first)
+      if (a.monthKey && b.monthKey) {
+        return b.monthKey.localeCompare(a.monthKey);
+      }
+      // Fallback to id comparison (assuming newer posts have larger ids)
+      return (b.id || '').localeCompare(a.id || '');
+    });
+    
+    const mostRecentPost = sortedPosts[0];
+    
+    let prefilledAccountId: string | undefined = undefined;
+    let prefilledFromAccountId: string | undefined = undefined;
+    let prefilledToAccountId: string | undefined = undefined;
+    
+    if (mostRecentPost) {
+      if (type === 'savings') {
+        // For savings, prefer accountIdTo (destination), fallback to accountId
+        prefilledAccountId = mostRecentPost.accountIdTo || mostRecentPost.accountId;
+        // Also prefill transfer accounts if they exist
+        prefilledFromAccountId = mostRecentPost.accountIdFrom;
+        prefilledToAccountId = mostRecentPost.accountIdTo;
+        console.log(`[Direct Dialog] Found previous savings post, prefilling accounts - main: ${prefilledAccountId}, from: ${prefilledFromAccountId}, to: ${prefilledToAccountId}`);
+      } else {
+        // For costs, prefer accountId, fallback to accountIdFrom
+        prefilledAccountId = mostRecentPost.accountId || mostRecentPost.accountIdFrom;
+        // Also prefill transfer accounts if they exist
+        prefilledFromAccountId = mostRecentPost.accountIdFrom;
+        prefilledToAccountId = mostRecentPost.accountIdTo;
+        console.log(`[Direct Dialog] Found previous cost post, prefilling accounts - main: ${prefilledAccountId}, from: ${prefilledFromAccountId}, to: ${prefilledToAccountId}`);
+      }
+    } else {
+      console.log(`[Direct Dialog] No previous posts found for ${type} in categories ${huvudkategoriId}/${underkategoriId}`);
+    }
+    
+    if (type === 'savings') {
+      onNewSaving(prefilledAccountId, huvudkategoriId, underkategoriId, prefilledFromAccountId, prefilledToAccountId);
+    } else {
+      onNewCost(prefilledAccountId, huvudkategoriId, underkategoriId, prefilledFromAccountId, prefilledToAccountId);
+    }
   };
 
   // Get display name for budget post, resolving account IDs to names
@@ -611,7 +764,10 @@ export function BudgetPlanningSection({
                     // For outgoing transfers (including sparmål) and costs, show negative amounts
                     const displayAmount = (category.type === 'transfer-out' || category.type === 'cost') ? -Math.abs(monthlyAmount) : monthlyAmount;
                     return (
-                      <div key={post.id} className="flex justify-between items-center p-2 bg-white rounded border text-xs sm:text-sm">
+                      <div key={post.id} className={cn(
+                        "flex justify-between items-center p-2 rounded border text-xs sm:text-sm",
+                        category.color || "bg-white"
+                      )}>
                         <span className="truncate mr-2">{getPostDisplayName(post)}</span>
                         <span className="font-medium flex-shrink-0">{formatOrenAsCurrency(displayAmount)}</span>
                       </div>
@@ -619,6 +775,42 @@ export function BudgetPlanningSection({
                   })}
                 </div>
               )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Render categories for underkategorier (no transfers)
+  const renderUnderkategoriCategories = (underkategoriId: string) => {
+    // Get all posts for this underkategori (excluding transfers)
+    const allPosts = budgetPosts.filter(post => 
+      post.underkategoriId === underkategoriId && (post.type === 'savings' || post.type === 'sparmål' || post.type === 'cost')
+    );
+
+    if (allPosts.length === 0) return null;
+
+    return (
+      <div className="mt-2 space-y-1 ml-4">
+        {allPosts.map(post => {
+          // Use monthly amount for sparmål, regular amount for others
+          const monthlyAmount = calculateMonthlySparmålAmount(post);
+          // For costs, show negative amounts; for savings, show positive
+          const displayAmount = post.type === 'cost' ? -Math.abs(monthlyAmount) : monthlyAmount;
+          
+          // Determine color based on post type
+          const postColor = post.type === 'cost' 
+            ? 'text-red-700 bg-red-50 border-red-200'
+            : 'text-green-700 bg-green-50 border-green-200';
+          
+          return (
+            <div key={post.id} className={cn(
+              "flex justify-between items-center p-2 rounded border text-xs sm:text-sm",
+              postColor
+            )}>
+              <span className="truncate mr-2">{getPostDisplayName(post)}</span>
+              <span className="font-medium flex-shrink-0">{formatOrenAsCurrency(displayAmount)}</span>
             </div>
           );
         })}
@@ -635,41 +827,14 @@ export function BudgetPlanningSection({
             <Target className="h-5 w-5" />
             Budgetplanering
           </CardTitle>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-blue-300 text-blue-800 hover:bg-blue-200"
-              onClick={onNewTransfer}
-            >
-              <ArrowRightLeft className="h-4 w-4 mr-2" />
-              Ny Överföring
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-red-300 text-red-800 hover:bg-red-200"
-              onClick={onNewCost}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Ny kostnadspost
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-green-300 text-green-800 hover:bg-green-200"
-              onClick={onNewSaving}
-            >
-              <PiggyBank className="h-4 w-4 mr-2" />
-              Lägg till sparandepost
-            </Button>
-          </div>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {activeView === 'accounts' ? (
+          <div className="space-y-4">
         {/* Account Table Header - Only show once at the top */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-4 px-2 sm:px-4 py-2 bg-indigo-100/50 rounded-md font-medium text-xs sm:text-sm text-indigo-800">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 px-2 sm:px-4 py-2 text-green-700 bg-green-50 border-green-200 rounded-md border font-medium text-xs sm:text-sm">
           <div className="text-left">Kontonamn</div>
           <div className="text-center sm:text-right">Banksaldo</div>
           <div className="text-right">Efter budget</div>
@@ -768,6 +933,125 @@ export function BudgetPlanningSection({
             })}
           </div>
         ))}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Category Table Header */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 px-2 sm:px-4 py-2 text-green-700 bg-green-50 border-green-200 rounded-md border font-medium text-xs sm:text-sm">
+              <div className="text-left">Kategorinamn</div>
+              <div className="text-center sm:text-right">Sparande</div>
+              <div className="text-right">Kostnader</div>
+            </div>
+
+            {huvudkategorier.map(huvudkategori => {
+              // Get underkategorier for this huvudkategori
+              const relatedUnderkategorier = underkategorier.filter(under => under.huvudkategoriId === huvudkategori.id);
+              
+              // Calculate totals for this huvudkategori
+              const huvudkategoriSavings = budgetPosts
+                .filter(post => post.huvudkategoriId === huvudkategori.id && (post.type === 'savings' || post.type === 'sparmål'))
+                .reduce((sum, post) => sum + calculateMonthlySparmålAmount(post), 0);
+              
+              const huvudkategoriCosts = budgetPosts
+                .filter(post => post.huvudkategoriId === huvudkategori.id && post.type === 'cost')
+                .reduce((sum, post) => sum + Math.abs(post.amount || 0), 0);
+
+              const isHuvudExpanded = expandedGroups[huvudkategori.id];
+
+              return (
+                <div key={huvudkategori.id} className="space-y-3">
+                  {/* Huvudkategori Header */}
+                  <div className="border-b border-indigo-200 pb-2">
+                    <button
+                      onClick={() => toggleGroupExpansion(huvudkategori.id)}
+                      onMouseDown={handleHuvudkategoriLongPressStart(huvudkategori.id, huvudkategori.name)}
+                      onMouseUp={handleLongPressEnd}
+                      onMouseLeave={handleLongPressEnd}
+                      onTouchStart={handleHuvudkategoriLongPressStart(huvudkategori.id, huvudkategori.name)}
+                      onTouchEnd={handleLongPressEnd}
+                      className="w-full text-left hover:bg-indigo-50/50 rounded-md transition-colors"
+                    >
+                      <div className="grid grid-cols-3 gap-2 sm:gap-4 px-2 sm:px-4 py-2">
+                        <div className="flex items-center gap-2">
+                          {isHuvudExpanded ? 
+                            <ChevronDown className="h-4 w-4 text-indigo-700" /> : 
+                            <ChevronRight className="h-4 w-4 text-indigo-700" />
+                          }
+                          <h3 className="font-semibold text-indigo-900 text-lg">{huvudkategori.name}</h3>
+                        </div>
+                        <div className="text-center sm:text-right font-semibold text-green-700">
+                          {formatOrenAsCurrency(huvudkategoriSavings)}
+                        </div>
+                        <div className="text-right font-semibold text-red-700">
+                          {formatOrenAsCurrency(-huvudkategoriCosts)}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Underkategorier - only show when huvudkategori is expanded */}
+                  {isHuvudExpanded && relatedUnderkategorier.map(underkategori => {
+                    // Calculate totals for this underkategori
+                    const underSavings = budgetPosts
+                      .filter(post => post.underkategoriId === underkategori.id && (post.type === 'savings' || post.type === 'sparmål'))
+                      .reduce((sum, post) => sum + calculateMonthlySparmålAmount(post), 0);
+                    
+                    const underCosts = budgetPosts
+                      .filter(post => post.underkategoriId === underkategori.id && post.type === 'cost')
+                      .reduce((sum, post) => sum + Math.abs(post.amount || 0), 0);
+
+                    const isUnderExpanded = expandedAccounts[underkategori.id];
+
+                    return (
+                      <div key={underkategori.id} className="space-y-2 ml-4">
+                        {/* Underkategori Row */}
+                        <button
+                          onClick={() => toggleAccountExpansion(underkategori.id)}
+                          onMouseDown={handleUnderkategoriLongPressStart(underkategori.id, underkategori.name)}
+                          onMouseUp={handleLongPressEnd}
+                          onMouseLeave={handleLongPressEnd}
+                          onTouchStart={handleUnderkategoriLongPressStart(underkategori.id, underkategori.name)}
+                          onTouchEnd={handleLongPressEnd}
+                          className="w-full grid grid-cols-3 gap-2 sm:gap-4 px-2 sm:px-4 py-3 bg-white rounded-md border border-indigo-200 hover:bg-indigo-50/50 transition-colors text-left"
+                        >
+                          <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+                            {isUnderExpanded ? <ChevronDown className="h-4 w-4 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 flex-shrink-0" />}
+                            <span className="font-medium text-sm sm:text-base truncate">{underkategori.name}</span>
+                          </div>
+                          <div className="flex justify-center sm:justify-end items-center">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent underkategori expansion
+                                handleCategoryAmountClick(underkategori.id, 'savings', e);
+                              }}
+                              className="font-medium text-green-700 hover:text-green-900 hover:underline cursor-pointer transition-colors text-sm sm:text-base"
+                            >
+                              {formatOrenAsCurrency(underSavings)}
+                            </button>
+                          </div>
+                          <div className="flex justify-end items-center">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent underkategori expansion
+                                handleCategoryAmountClick(underkategori.id, 'cost', e);
+                              }}
+                              className="font-medium text-red-700 hover:text-red-900 hover:underline cursor-pointer transition-colors text-sm sm:text-base"
+                            >
+                              {formatOrenAsCurrency(-underCosts)}
+                            </button>
+                          </div>
+                        </button>
+
+                        {/* Expanded Underkategori Categories */}
+                        {isUnderExpanded && renderUnderkategoriCategories(underkategori.id)}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </CardContent>
       </Card>
 
@@ -777,19 +1061,23 @@ export function BudgetPlanningSection({
           <DialogHeader>
             <DialogTitle>Välj åtgärd</DialogTitle>
             <DialogDescription>
-              {selectedAccountForAction ? `Vad vill du göra med kontot "${selectedAccountForAction.name}"?` : 'Välj en åtgärd'}
+              {selectedAccountForAction 
+                ? `Vad vill du göra med ${selectedAccountForAction.type === 'account' ? 'kontot' : selectedAccountForAction.type === 'huvudkategori' ? 'huvudkategorin' : 'underkategorin'} "${selectedAccountForAction.name}"?`
+                : 'Välj en åtgärd'}
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-3 py-4">
-            <Button
-              onClick={() => handleModalAction('transfer')}
-              className="w-full justify-start h-12 text-left bg-blue-50 hover:bg-blue-100 text-blue-800 border-blue-200"
-              variant="outline"
-            >
-              <ArrowRightLeft className="mr-3 h-5 w-5" />
-              Skapa ny överföring
-            </Button>
+            {selectedAccountForAction?.type === 'account' && (
+              <Button
+                onClick={() => handleModalAction('transfer')}
+                className="w-full justify-start h-12 text-left bg-blue-50 hover:bg-blue-100 text-blue-800 border-blue-200"
+                variant="outline"
+              >
+                <ArrowRightLeft className="mr-3 h-5 w-5" />
+                Skapa ny överföring
+              </Button>
+            )}
             
             <Button
               onClick={() => handleModalAction('cost')}

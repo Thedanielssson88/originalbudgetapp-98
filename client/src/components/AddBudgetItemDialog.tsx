@@ -44,6 +44,10 @@ interface AddBudgetItemDialogProps {
   type: 'cost' | 'savings';
   monthKey: string;
   preselectedAccountId?: string;
+  preselectedHuvudkategoriId?: string;
+  preselectedUnderkategoriId?: string;
+  preselectedFromAccountId?: string;
+  preselectedToAccountId?: string;
 }
 
 export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({ 
@@ -52,7 +56,11 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
   onSave, 
   type,
   monthKey,
-  preselectedAccountId
+  preselectedAccountId,
+  preselectedHuvudkategoriId,
+  preselectedUnderkategoriId,
+  preselectedFromAccountId,
+  preselectedToAccountId
 }) => {
   // Fetch data from SQL database
   const { data: huvudkategorier = [], isLoading: isLoadingHuvud } = useHuvudkategorier();
@@ -80,20 +88,20 @@ export const AddBudgetItemDialog: React.FC<AddBudgetItemDialogProps> = ({
   useEffect(() => {
     if (isOpen) {
       setFormData({
-        mainCategoryId: '',
-        subCategoryId: '',
+        mainCategoryId: preselectedHuvudkategoriId || '',
+        subCategoryId: preselectedUnderkategoriId || '',
         description: '',
         amount: 0,
         accountId: type === 'cost' && preselectedAccountId ? preselectedAccountId : 'none',
-        fromAccountId: 'none',
-        toAccountId: type === 'savings' && preselectedAccountId ? preselectedAccountId : 'none',
+        fromAccountId: preselectedFromAccountId || 'none',
+        toAccountId: preselectedToAccountId || (type === 'savings' && preselectedAccountId ? preselectedAccountId : 'none'),
         financedFrom: 'Löpande kostnad' as 'Löpande kostnad' | 'Enskild kostnad',
         transferType: 'monthly' as 'monthly' | 'daily',
         dailyAmount: 0,
         transferDays: [] as number[]
       });
     }
-  }, [isOpen, type, preselectedAccountId]);
+  }, [isOpen, type, preselectedAccountId, preselectedHuvudkategoriId, preselectedUnderkategoriId, preselectedFromAccountId, preselectedToAccountId]);
 
   // Filter subcategories based on selected main category
   const currentAvailableSubcategories = useMemo(() => {
