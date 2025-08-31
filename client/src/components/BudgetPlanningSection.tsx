@@ -16,13 +16,15 @@ import {
 import { ChevronDown, ChevronRight, Plus, ArrowRightLeft, PiggyBank, Target, Home, ShoppingCart, Car, Heart, Gamepad2, GraduationCap, Wallet, TrendingUp, Baby, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatOrenAsCurrency, kronoraToOren } from '@/utils/currencyUtils';
-import { useTransactions } from '@/hooks/useTransactions';
+import { useTransactions, useUpdateTransaction } from '@/hooks/useTransactions';
 import { useToast } from '@/hooks/use-toast';
 import { useUpdateBudgetPost, useCreateBudgetPost } from '@/hooks/useBudgetPosts';
 import { useFamilyMembers } from '@/hooks/useFamilyMembers';
 import { useQueryClient } from '@tanstack/react-query';
 import { useHuvudkategorier, useUnderkategorier } from '@/hooks/useCategories';
 import { getDateRangeForMonth } from '@/services/calculationService';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Edit2, Check } from 'lucide-react';
 
 interface Account {
   id: string;
@@ -122,8 +124,16 @@ export function BudgetPlanningSection({
       underkategoriId,
       budgetAmount,
       actualAmount,
-      transactions
+      transactions,
+      isUncategorized: false
     });
+  };
+
+  // Get previous month's name for Startbalans display
+  const getPreviousMonthName = (monthKey: string): string => {
+    const [year, month] = monthKey.split('-').map(Number);
+    const previousMonth = new Date(year, month - 2, 25); // month - 2 because Date months are 0-indexed and we want previous month
+    return previousMonth.toLocaleDateString('sv-SE', { month: 'long' });
   };
 
   // Calculate actual spending for a category in the selected month using payday logic
@@ -193,6 +203,7 @@ export function BudgetPlanningSection({
     budgetAmount: number;
     actualAmount: number;
     transactions: any[];
+    isUncategorized?: boolean;
   }>({
     isOpen: false,
     categoryName: '',
@@ -200,8 +211,29 @@ export function BudgetPlanningSection({
     underkategoriId: undefined,
     budgetAmount: 0,
     actualAmount: 0,
-    transactions: []
+    transactions: [],
+    isUncategorized: false
   });
+
+  // Edit state for transactions
+  const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<{
+    huvudkategoriId: string;
+    underkategoriId: string;
+  }>({
+    huvudkategoriId: '',
+    underkategoriId: ''
+  });
+  
+  const updateTransactionMutation = useUpdateTransaction();
+  
+  // Reset edit values when dialog is closed
+  useEffect(() => {
+    if (!transactionDetailsDialog.isOpen) {
+      setEditingTransaction(null);
+      setEditValues({ huvudkategoriId: '', underkategoriId: '' });
+    }
+  }, [transactionDetailsDialog.isOpen]);
   
   // Add scroll detection
   useEffect(() => {
@@ -993,7 +1025,8 @@ export function BudgetPlanningSection({
       underkategoriId: undefined,
       budgetAmount,
       actualAmount,
-      transactions
+      transactions,
+      isUncategorized: false
     });
   };
 
@@ -1213,6 +1246,68 @@ export function BudgetPlanningSection({
     );
   };
 
+  // Render budget posts for expanded account sections
+  const renderAccountPosts = (account: Account, type: string) => {
+    let posts = [];
+    
+    // Map the simplified types to the actual budget post types and filtering
+    if (type === 'income') {
+      posts = getAccountCategoryPosts(account.id, 'Inkomst');
+    } else if (type === 'cost') {
+      posts = getAccountCategoryPosts(account.id, 'cost');
+    } else if (type === 'savings') {
+      posts = getAccountCategoryPosts(account.id, 'savings');
+    } else if (type === 'transfer') {
+      // For transfers, show both incoming and outgoing
+      const incomingTransfers = budgetPosts.filter(post => 
+        post.accountId === account.id && post.type === 'transfer'
+      );
+      const outgoingTransfers = budgetPosts.filter(post => 
+        post.accountIdFrom === account.id && (post.type === 'transfer' || post.type === 'sparmål' || post.type === 'savings')
+      );
+      posts = [...incomingTransfers, ...outgoingTransfers];
+    }
+
+    if (posts.length === 0) {
+      return <div className="text-sm text-gray-500 italic">Inga poster</div>;
+    }
+
+    return (
+      <div className="space-y-2">
+        {posts.map(post => {
+          const monthlyAmount = calculateMonthlySparmålAmount(post);
+          // For costs and outgoing transfers, show negative amounts
+          const isOutgoing = post.accountIdFrom === account.id;
+          const displayAmount = (type === 'cost' || isOutgoing) ? -Math.abs(monthlyAmount) : monthlyAmount;
+          
+          // Color based on type and direction
+          let postColor = '';
+          if (type === 'income') {
+            postColor = 'text-emerald-700 bg-emerald-50 border-emerald-200';
+          } else if (type === 'cost') {
+            postColor = 'text-red-700 bg-red-50 border-red-200';
+          } else if (type === 'savings') {
+            postColor = 'text-green-700 bg-green-50 border-green-200';
+          } else if (type === 'transfer') {
+            postColor = isOutgoing 
+              ? 'text-blue-700 bg-blue-50 border-blue-200' 
+              : 'text-purple-700 bg-purple-50 border-purple-200';
+          }
+          
+          return (
+            <div key={post.id} className={cn(
+              "flex justify-between items-center p-2 rounded border text-xs sm:text-sm",
+              postColor
+            )}>
+              <span className="truncate mr-2">{getPostDisplayName(post)}</span>
+              <span className="font-medium flex-shrink-0">{formatOrenAsCurrency(displayAmount)}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <>
       <div className="mx-4 space-y-4">
@@ -1226,37 +1321,146 @@ export function BudgetPlanningSection({
               </h3>
             </div>
 
-            {accountGroups.map((group, groupIndex) => (
-              <div key={group.name} className="space-y-3">
-                {/* Group Header Card */}
-                <Card className="bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-200">
+            {accountGroups.map((group, groupIndex) => {
+              // Calculate group totals for Categories-style display
+              const groupBudgetedCosts = group.accounts.reduce((sum, acc) => sum + calculateBudgetedCosts(acc), 0);
+              const groupActualCosts = group.accounts.reduce((sum, acc) => sum + calculateAccountCosts(acc), 0);
+              const groupBudgetedSavings = group.accounts.reduce((sum, acc) => sum + calculateBudgetedSavings(acc), 0);
+              const groupActualSavings = group.accounts.reduce((sum, acc) => sum + calculateAccountSavings(acc), 0);
+              
+              // Calculate percentage for group costs (like Categories)
+              const groupCostsPercentage = groupBudgetedCosts > 0 ? (groupActualCosts / groupBudgetedCosts) * 100 : 0;
+              const groupHasUnbudgetedCosts = groupBudgetedCosts === 0 && groupActualCosts < 0;
+              
+              const groupProgressColor = groupHasUnbudgetedCosts ? 'bg-yellow-400'
+                : groupCostsPercentage > 100 ? 'bg-red-400' 
+                : groupCostsPercentage > 80 ? 'bg-yellow-400' 
+                : 'bg-emerald-400';
+              
+              const isGroupExpanded = expandedGroups[group.name];
+              
+              return (
+                <div key={group.name} className={cn(
+                  "rounded-lg p-4 border hover:shadow-sm transition-all",
+                  groupHasUnbudgetedCosts 
+                    ? "bg-yellow-50 border-yellow-200" 
+                    : "bg-white border-gray-200"
+                )}>
                   <button
                     onClick={() => toggleGroupExpansion(group.name)}
-                    className="w-full p-4 text-left"
+                    className="w-full text-left"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {expandedGroups[group.name] ? 
-                          <ChevronDown className="h-5 w-5 text-indigo-700" /> : 
-                          <ChevronRight className="h-5 w-5 text-indigo-700" />
-                        }
-                        <h3 className="font-bold text-lg text-indigo-900">{group.name}</h3>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-indigo-900">
-                          {formatOrenAsCurrency(group.accounts.reduce((sum, acc) => sum + getBankBalance(acc), 0))}
+                    <div className="space-y-3">
+                      {/* Group Header - Like Categories */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {isGroupExpanded ? 
+                            <ChevronDown className="h-4 w-4 text-gray-500" /> : 
+                            <ChevronRight className="h-4 w-4 text-gray-500" />
+                          }
+                          <h3 className="font-semibold text-lg text-gray-900 flex items-center gap-2">
+                            {group.name}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            {group.accounts.length} konton
+                          </p>
                         </div>
-                        <div className="text-sm text-indigo-700">Banksaldo</div>
+                        
+                        {/* Status Badge */}
+                        <div className="text-right">
+                          {groupHasUnbudgetedCosts && (
+                            <Badge variant="outline" className="mb-1 border-yellow-300 text-yellow-700 bg-yellow-50">
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              Saknar budget
+                            </Badge>
+                          )}
+                          {!groupHasUnbudgetedCosts && groupCostsPercentage > 100 && (
+                            <Badge variant="destructive" className="mb-1">
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              Över budget
+                            </Badge>
+                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Show combined transactions for all accounts in group
+                              const groupTransactions = group.accounts.flatMap(account => 
+                                getAccountCostTransactions(account)
+                              );
+                              const groupTotal = groupTransactions.reduce((sum, tx) => {
+                                const amount = tx.correctedAmount !== null ? tx.correctedAmount : tx.amount;
+                                return sum + Math.abs(amount);
+                              }, 0);
+                              setTransactionDetailsDialog({
+                                isOpen: true,
+                                categoryName: `${group.name} - Kostnader`,
+                                huvudkategoriId: '',
+                                underkategoriId: undefined,
+                                budgetAmount: groupBudgetedCosts,
+                                actualAmount: groupActualCosts,
+                                transactions: groupTransactions,
+                                isUncategorized: false
+                              });
+                            }}
+                            className="text-2xl font-bold text-gray-900 hover:text-blue-600 transition-colors cursor-pointer"
+                          >
+                            −{formatOrenAsCurrency(groupActualCosts)}
+                          </button>
+                          <p className="text-sm text-gray-600">
+                            av {formatOrenAsCurrency(groupBudgetedCosts)}
+                          </p>
+                        </div>
                       </div>
+
+                      {/* Progress Bar */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs text-gray-600">
+                          <span>Förbrukning</span>
+                          <span className="font-medium">−{groupCostsPercentage.toFixed(0)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                          <div 
+                            className={cn(groupProgressColor, "h-2 rounded-full transition-all duration-500 ease-out")}
+                            style={{ width: `${Math.min(100, groupCostsPercentage)}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Sparande indicator on the left - like Categories */}
+                      {(groupActualSavings > 0 || groupBudgetedSavings > 0) && (
+                        <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-100 rounded-md px-2 py-1">
+                          <PiggyBank className="h-4 w-4" />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const groupSavingsTransactions = group.accounts.flatMap(account => 
+                                getAccountSavingsTransactions(account)
+                              );
+                              setTransactionDetailsDialog({
+                                isOpen: true,
+                                categoryName: `${group.name} - Sparande`,
+                                huvudkategoriId: '',
+                                underkategoriId: undefined,
+                                budgetAmount: groupBudgetedSavings,
+                                actualAmount: groupActualSavings,
+                                transactions: groupSavingsTransactions,
+                                isUncategorized: false
+                              });
+                            }}
+                            className="hover:underline cursor-pointer"
+                          >
+                            Sparande: {formatOrenAsCurrency(groupActualSavings)} / {formatOrenAsCurrency(groupBudgetedSavings)}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </button>
-                </Card>
 
-                {/* Account Cards - only show when group is expanded */}
-                {expandedGroups[group.name] && (
-                  <div className="space-y-3 ml-4">
+                {/* Individual Accounts - only show when group is expanded */}
+                {isGroupExpanded && (
+                  <div className="mt-4 space-y-3 border-t pt-4">
                     {group.accounts.map(account => {
-                      const isExpanded = expandedAccounts[account.id];
+                      const isAccountExpanded = expandedAccounts[account.id];
                       const afterBudget = calculateAfterBudget(account);
                       const budgetedIncome = calculateBudgetedIncome(account);
                       const actualIncome = calculateAccountIncome(account);
@@ -1267,31 +1471,114 @@ export function BudgetPlanningSection({
                       const budgetedTransfers = calculateBudgetedTransfers(account);
                       const actualTransfers = calculateAccountTransfers(account);
                       
+                      // Calculate percentage for costs (like Categories)
+                      const costsPercentage = budgetedCosts > 0 ? (actualCosts / budgetedCosts) * 100 : 0;
+                      const hasUnbudgetedCosts = budgetedCosts === 0 && actualCosts < 0;
+                      
+                      const progressColor = hasUnbudgetedCosts ? 'bg-yellow-400'
+                        : costsPercentage > 100 ? 'bg-red-400' 
+                        : costsPercentage > 80 ? 'bg-yellow-400' 
+                        : 'bg-emerald-400';
+                      
                       return (
-                        <Card key={account.id} className="overflow-hidden transition-all duration-200 hover:shadow-md border-gray-200">
-                          <div className="p-4 space-y-4">
-                            {/* Header with Account Name */}
-                            <div className="flex items-center gap-3">
-                              <button
-                                onClick={() => toggleAccountExpansion(account.id)}
-                                className="flex items-center gap-2 hover:text-indigo-700 transition-colors"
-                              >
-                                {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                <span className="font-semibold text-xl text-gray-900">{account.name}</span>
-                              </button>
-                            </div>
-
-                            {/* Banksaldo Card - Like Categories */}
-                            <Card className="p-3 bg-blue-50 border-blue-200 shadow-sm cursor-pointer hover:bg-blue-100 transition-colors"
-                                  onClick={() => openEditDialog(account.id, account.name)}>
+                        <div key={account.id} className={cn(
+                          "rounded-lg p-4 border hover:shadow-sm transition-all ml-4",
+                          hasUnbudgetedCosts 
+                            ? "bg-yellow-50 border-yellow-200" 
+                            : "bg-white border-gray-200"
+                        )}>
+                          <button
+                            onClick={() => toggleAccountExpansion(account.id)}
+                            className="w-full text-left"
+                          >
+                            <div className="space-y-3">
+                              {/* Account Header - Like Categories */}
                               <div className="flex items-center justify-between">
-                                <h4 className="text-lg font-semibold text-blue-800">Banksaldo</h4>
                                 <div className="flex items-center gap-2">
-                                  <p className="text-2xl font-bold text-blue-800">
-                                    {(() => {
-                                      const balance = getBankBalance(account);
-                                      return formatOrenAsCurrency(balance);
-                                    })()}
+                                  {isAccountExpanded ? 
+                                    <ChevronDown className="h-4 w-4 text-gray-500" /> : 
+                                    <ChevronRight className="h-4 w-4 text-gray-500" />
+                                  }
+                                  <h4 className="font-semibold text-lg text-gray-900">
+                                    {account.name}
+                                  </h4>
+                                </div>
+                                
+                                {/* Status Badge and Costs */}
+                                <div className="text-right">
+                                  {hasUnbudgetedCosts && (
+                                    <Badge variant="outline" className="mb-1 border-yellow-300 text-yellow-700 bg-yellow-50">
+                                      <AlertCircle className="h-3 w-3 mr-1" />
+                                      Saknar budget
+                                    </Badge>
+                                  )}
+                                  {!hasUnbudgetedCosts && costsPercentage > 100 && (
+                                    <Badge variant="destructive" className="mb-1">
+                                      <AlertCircle className="h-3 w-3 mr-1" />
+                                      Över budget
+                                    </Badge>
+                                  )}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleAccountAmountClick(account, 'costs', budgetedCosts, actualCosts);
+                                    }}
+                                    className="text-2xl font-bold text-gray-900 hover:text-blue-600 transition-colors cursor-pointer block"
+                                  >
+                                    −{formatOrenAsCurrency(actualCosts)}
+                                  </button>
+                                  <p className="text-sm text-gray-600">
+                                    av {formatOrenAsCurrency(budgetedCosts)}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Progress Bar */}
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-xs text-gray-600">
+                                  <span>Förbrukning</span>
+                                  <span className="font-medium">−{costsPercentage.toFixed(0)}%</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                  <div 
+                                    className={cn(progressColor, "h-2 rounded-full transition-all duration-500 ease-out")}
+                                    style={{ width: `${Math.min(100, costsPercentage)}%` }}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Sparande indicator on the left - like Categories */}
+                              {(actualSavings > 0 || budgetedSavings > 0) && (
+                                <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-100 rounded-md px-2 py-1">
+                                  <PiggyBank className="h-4 w-4" />
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleAccountAmountClick(account, 'savings', budgetedSavings, actualSavings);
+                                    }}
+                                    className="hover:underline cursor-pointer"
+                                  >
+                                    Sparande: {formatOrenAsCurrency(actualSavings)} / {formatOrenAsCurrency(budgetedSavings)}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </button>
+
+                          {/* Expanded Account Details - only show when account is expanded */}
+                          {isAccountExpanded && (
+                            <div className="mt-4 space-y-3 border-t pt-4">
+                              {/* Kontobalans - Same design as Efter budget */}
+                              <Card className="p-3 bg-yellow-50 border-yellow-200 cursor-pointer hover:bg-yellow-100 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openEditDialog(account.id, account.name);
+                                  }}>
+                              <div className="flex items-center justify-between">
+                                <h5 className="font-semibold text-yellow-800">Startbalans den 25 {getPreviousMonthName(selectedMonth)}</h5>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-lg font-bold text-yellow-800">
+                                    {formatOrenAsCurrency(getBankBalance(account))}
                                   </p>
                                   {(() => {
                                     const userBalancePost = budgetPosts.find(post => 
@@ -1301,128 +1588,326 @@ export function BudgetPlanningSection({
                                     );
                                     const isManual = userBalancePost?.accountUserBalance !== null && userBalancePost?.accountUserBalance !== undefined;
                                     return isManual && (
-                                      <span className="text-xs bg-blue-700 text-white px-2 py-1 rounded font-semibold">M</span>
+                                      <span className="text-xs bg-yellow-700 text-white px-2 py-1 rounded font-semibold">M</span>
                                     );
                                   })()}
                                 </div>
                               </div>
                             </Card>
 
-                            {/* 4 Box Grid: Inkomster, Kostnader, Sparande, Överföringar */}
-                            <div className="grid grid-cols-2 gap-4">
-                              {/* Inkomster - Only show if there's income */}
-                              {(actualIncome > 0 || budgetedIncome > 0) && (
-                                <Card className="p-3 bg-emerald-50 border-emerald-200 shadow-sm">
-                                  <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                      <h4 className="text-sm font-semibold text-emerald-800">Inkomster</h4>
+                            {/* Inkomst Section */}
+                            {(actualIncome > 0 || budgetedIncome > 0) && (
+                              <Card className="p-3 bg-emerald-50 border-emerald-200">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleCategoryExpansion(`income-${account.id}`);
+                                  }}
+                                  className="w-full text-left"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      {expandedCategories[`income-${account.id}`] ? 
+                                        <ChevronDown className="h-4 w-4 text-emerald-600" /> : 
+                                        <ChevronRight className="h-4 w-4 text-emerald-600" />
+                                      }
+                                      <h5 className="font-semibold text-emerald-800">Inkomst</h5>
                                     </div>
-                                    <div className="text-center">
+                                    <div className="text-right">
                                       <button
-                                        onClick={() => handleAccountAmountClick(account, 'income', budgetedIncome, actualIncome)}
-                                        className="text-2xl font-bold text-emerald-600 hover:text-emerald-800 hover:underline transition-colors block w-full"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleAccountAmountClick(account, 'income', budgetedIncome, actualIncome);
+                                        }}
+                                        className="text-lg font-bold text-emerald-700 hover:text-emerald-900 hover:underline"
                                       >
                                         {formatOrenAsCurrency(actualIncome)}
                                       </button>
-                                      <p className="text-sm text-gray-600">
+                                      <p className="text-xs text-gray-600">
                                         av {formatOrenAsCurrency(budgetedIncome)}
                                       </p>
                                     </div>
                                   </div>
-                                </Card>
-                              )}
-
-                              {/* Kostnader */}
-                              <Card className="p-3 bg-red-50 border-red-200 shadow-sm">
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <h4 className="text-sm font-semibold text-red-800">Kostnader</h4>
+                                </button>
+                                {expandedCategories[`income-${account.id}`] && (
+                                  <div className="mt-2 pl-6">
+                                    {renderAccountPosts(account, 'income')}
                                   </div>
-                                  <div className="text-center">
+                                )}
+                              </Card>
+                            )}
+
+                            {/* Kostnader Section */}
+                            <Card className="p-3 bg-red-50 border-red-200">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleCategoryExpansion(`costs-${account.id}`);
+                                }}
+                                className="w-full text-left"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    {expandedCategories[`costs-${account.id}`] ? 
+                                      <ChevronDown className="h-4 w-4 text-red-600" /> : 
+                                      <ChevronRight className="h-4 w-4 text-red-600" />
+                                    }
+                                    <h5 className="font-semibold text-red-800">Kostnader</h5>
+                                  </div>
+                                  <div className="text-right">
                                     <button
-                                      onClick={() => handleAccountAmountClick(account, 'costs', budgetedCosts, actualCosts)}
-                                      className="text-2xl font-bold text-red-600 hover:text-red-800 hover:underline transition-colors block w-full"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleAccountAmountClick(account, 'costs', budgetedCosts, actualCosts);
+                                      }}
+                                      className="text-lg font-bold text-red-700 hover:text-red-900 hover:underline"
                                     >
                                       {formatOrenAsCurrency(actualCosts)}
                                     </button>
-                                    <p className="text-sm text-gray-600">
+                                    <p className="text-xs text-gray-600">
                                       av {formatOrenAsCurrency(budgetedCosts)}
                                     </p>
                                   </div>
                                 </div>
-                              </Card>
+                              </button>
+                              {expandedCategories[`costs-${account.id}`] && (
+                                <div className="mt-2 pl-6">
+                                  {renderAccountPosts(account, 'cost')}
+                                </div>
+                              )}
+                            </Card>
 
-                              {/* Sparande */}
-                              <Card className="p-3 bg-green-50 border-green-200 shadow-sm">
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <h4 className="text-sm font-semibold text-green-800">Sparande</h4>
+                            {/* Sparande Section */}
+                            <Card className="p-3 bg-green-50 border-green-200">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleCategoryExpansion(`savings-${account.id}`);
+                                }}
+                                className="w-full text-left"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    {expandedCategories[`savings-${account.id}`] ? 
+                                      <ChevronDown className="h-4 w-4 text-green-600" /> : 
+                                      <ChevronRight className="h-4 w-4 text-green-600" />
+                                    }
+                                    <h5 className="font-semibold text-green-800">Sparande</h5>
                                   </div>
-                                  <div className="text-center">
+                                  <div className="text-right">
                                     <button
-                                      onClick={() => handleAccountAmountClick(account, 'savings', budgetedSavings, actualSavings)}
-                                      className="text-2xl font-bold text-green-600 hover:text-green-800 hover:underline transition-colors block w-full"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleAccountAmountClick(account, 'savings', budgetedSavings, actualSavings);
+                                      }}
+                                      className="text-lg font-bold text-green-700 hover:text-green-900 hover:underline"
                                     >
                                       {formatOrenAsCurrency(actualSavings)}
                                     </button>
-                                    <p className="text-sm text-gray-600">
+                                    <p className="text-xs text-gray-600">
                                       av {formatOrenAsCurrency(budgetedSavings)}
                                     </p>
                                   </div>
                                 </div>
-                              </Card>
+                              </button>
+                              {expandedCategories[`savings-${account.id}`] && (
+                                <div className="mt-2 pl-6">
+                                  {renderAccountPosts(account, 'savings')}
+                                </div>
+                              )}
+                            </Card>
 
-                              {/* Överföringar - Only show if there are transfers */}
-                              {(actualTransfers !== 0 || budgetedTransfers !== 0) && (
-                                <Card className="p-3 bg-purple-50 border-purple-200 shadow-sm">
-                                  <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                      <h4 className="text-sm font-semibold text-purple-800">Överföringar</h4>
+                            {/* Överföringar Section */}
+                            {(actualTransfers !== 0 || budgetedTransfers !== 0) && (
+                              <Card className="p-3 bg-purple-50 border-purple-200">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleCategoryExpansion(`transfers-${account.id}`);
+                                  }}
+                                  className="w-full text-left"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      {expandedCategories[`transfers-${account.id}`] ? 
+                                        <ChevronDown className="h-4 w-4 text-purple-600" /> : 
+                                        <ChevronRight className="h-4 w-4 text-purple-600" />
+                                      }
+                                      <h5 className="font-semibold text-purple-800">Överföringar</h5>
                                     </div>
-                                    <div className="text-center">
+                                    <div className="text-right">
                                       <button
-                                        onClick={() => handleAccountAmountClick(account, 'transfers', budgetedTransfers, actualTransfers)}
-                                        className="text-2xl font-bold text-purple-600 hover:text-purple-800 hover:underline transition-colors block w-full"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleAccountAmountClick(account, 'transfers', budgetedTransfers, actualTransfers);
+                                        }}
+                                        className="text-lg font-bold text-purple-700 hover:text-purple-900 hover:underline"
                                       >
                                         {formatOrenAsCurrency(actualTransfers)}
                                       </button>
-                                      <p className="text-sm text-gray-600">
+                                      <p className="text-xs text-gray-600">
                                         av {formatOrenAsCurrency(budgetedTransfers)}
                                       </p>
                                     </div>
                                   </div>
-                                </Card>
-                              )}
-                            </div>
+                                </button>
+                                {expandedCategories[`transfers-${account.id}`] && (
+                                  <div className="mt-2 pl-6">
+                                    {renderAccountPosts(account, 'transfer')}
+                                  </div>
+                                )}
+                              </Card>
+                            )}
 
-                            {/* Efter Budget Card */}
-                            <Card className="p-3 bg-yellow-50 border-yellow-200 shadow-sm">
+                            {/* Efter Budget */}
+                            <Card className="p-3 bg-yellow-50 border-yellow-200">
                               <div className="flex items-center justify-between">
-                                <h4 className="text-lg font-semibold text-yellow-800">Efter budget</h4>
-                                <p className="text-2xl font-bold text-yellow-800">
+                                <h5 className="font-semibold text-yellow-800">Efter budget</h5>
+                                <p className="text-lg font-bold text-yellow-800">
                                   {formatOrenAsCurrency(afterBudget)}
                                 </p>
                               </div>
                             </Card>
-
-                            {/* Expanded Account Categories */}
-                            {isExpanded && (
-                              <div className="border-t pt-4 mt-4">
-                                {renderAccountCategories(account)}
-                              </div>
-                            )}
-                          </div>
-                        </Card>
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
                   </div>
                 )}
               </div>
-            ))}
+            );
+          })}
           </div>
         ) : (
           /* Categories View without Card */
           <div className="space-y-4">
+              {/* Okategoriserade Section - Only show if there are uncategorized transactions */}
+              {(() => {
+                const { startDate, endDate } = getDateRangeForMonth(selectedMonth, 25);
+                
+                // Find transactions without app underkategori (uncategorized)
+                const uncategorizedTransactions = allTransactions.filter(tx => 
+                  tx.date >= startDate && 
+                  tx.date <= endDate &&
+                  !tx.appSubCategoryId && // No app underkategori
+                  ['Transaction', 'ExpenseClaim', 'Payment'].includes(tx.type) &&
+                  tx.amount < 0 // Only costs
+                );
+                
+                if (uncategorizedTransactions.length === 0) return null;
+                
+                // Group by bank category
+                const bankCategoryGroups = uncategorizedTransactions.reduce((groups, tx) => {
+                  const bankCategory = tx.bankCategory || 'Okänd kategori';
+                  if (!groups[bankCategory]) {
+                    groups[bankCategory] = {
+                      name: bankCategory,
+                      transactions: [],
+                      total: 0
+                    };
+                  }
+                  const amount = tx.correctedAmount !== null ? tx.correctedAmount : tx.amount;
+                  groups[bankCategory].transactions.push(tx);
+                  groups[bankCategory].total += Math.abs(amount);
+                  return groups;
+                }, {} as Record<string, { name: string; transactions: any[]; total: number }>);
+                
+                const totalUncategorized = Object.values(bankCategoryGroups).reduce((sum, group) => sum + group.total, 0);
+                const isOkategoriseradeExpanded = expandedGroups['okategoriserade'];
+                
+                return (
+                  <div className="rounded-lg p-4 border bg-gray-50 border-gray-300 hover:shadow-sm transition-all">
+                    <button
+                      onClick={() => toggleGroupExpansion('okategoriserade')}
+                      className="w-full text-left"
+                    >
+                      <div className="space-y-3">
+                        {/* Header */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {isOkategoriseradeExpanded ? 
+                              <ChevronDown className="h-4 w-4 text-gray-600" /> : 
+                              <ChevronRight className="h-4 w-4 text-gray-600" />
+                            }
+                            <h3 className="font-semibold text-lg text-gray-700 flex items-center gap-2">
+                              <AlertCircle className="h-5 w-5 text-gray-600" />
+                              Okategoriserade
+                            </h3>
+                            <p className="text-sm text-gray-600">
+                              {uncategorizedTransactions.length} transaktioner
+                            </p>
+                          </div>
+                          
+                          {/* Amount */}
+                          <div className="text-right">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTransactionDetailsDialog({
+                                  isOpen: true,
+                                  categoryName: 'Okategoriserade transaktioner',
+                                  huvudkategoriId: '',
+                                  underkategoriId: undefined,
+                                  budgetAmount: 0,
+                                  actualAmount: totalUncategorized,
+                                  transactions: uncategorizedTransactions,
+                                  isUncategorized: true // Flag to auto-enable editing
+                                });
+                              }}
+                              className="text-2xl font-bold text-gray-700 hover:text-gray-900 transition-colors cursor-pointer"
+                            >
+                              −{formatOrenAsCurrency(totalUncategorized)}
+                            </button>
+                            <p className="text-sm text-gray-500">
+                              Ingen budget
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                    
+                    {/* Expanded content - Bank categories */}
+                    {isOkategoriseradeExpanded && (
+                      <div className="mt-4 pt-4 border-t border-gray-300 space-y-2">
+                        {Object.values(bankCategoryGroups)
+                          .sort((a, b) => b.total - a.total)
+                          .map(group => (
+                            <div 
+                              key={group.name}
+                              className="flex items-center justify-between p-2 bg-white rounded border border-gray-200"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-700">{group.name}</span>
+                                <span className="text-xs text-gray-500">({group.transactions.length})</span>
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTransactionDetailsDialog({
+                                    isOpen: true,
+                                    categoryName: `Okategoriserade - ${group.name}`,
+                                    huvudkategoriId: '',
+                                    underkategoriId: undefined,
+                                    budgetAmount: 0,
+                                    actualAmount: group.total,
+                                    transactions: group.transactions,
+                                    isUncategorized: true // This is also uncategorized
+                                  });
+                                }}
+                                className="text-sm font-semibold text-gray-700 hover:text-gray-900 hover:underline cursor-pointer"
+                              >
+                                −{formatOrenAsCurrency(group.total)}
+                              </button>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+              
+              {/* Regular Categories */}
               {huvudkategorier.map(huvudkategori => {
                 // Get underkategorier for this huvudkategori
                 const relatedUnderkategorier = underkategorier.filter(under => under.huvudkategoriId === huvudkategori.id);
@@ -1852,9 +2337,175 @@ export function BudgetPlanningSection({
                   const displayAmount = transaction.correctedAmount !== null ? transaction.correctedAmount : transaction.amount;
                   const amountLabel = transaction.correctedAmount !== null ? 'Korrigerat belopp' : 'Belopp';
                   
+                  const isEditing = editingTransaction === transaction.id || transactionDetailsDialog.isUncategorized;
+                  const isYellow = transaction.status === 'yellow';
+                  const isRed = transaction.status === 'red';
+                  const needsApproval = isYellow || isRed;
+                  
                   return (
-                    <div key={transaction.id || index} className="border rounded-lg p-3 bg-gray-50">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div 
+                      key={transaction.id || index} 
+                      className={cn(
+                        "border rounded-lg p-3 relative",
+                        isRed ? "bg-red-50 border-red-300" : 
+                        isYellow ? "bg-yellow-50 border-yellow-300" : 
+                        "bg-gray-50 border-gray-200"
+                      )}
+                    >
+                      {/* Edit and Approve buttons */}
+                      <div className="absolute top-3 right-3 flex gap-2">
+                        {!isEditing ? (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingTransaction(transaction.id);
+                                setEditValues({
+                                  huvudkategoriId: transaction.appCategoryId || '',
+                                  underkategoriId: transaction.appSubCategoryId || ''
+                                });
+                              }}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            {needsApproval && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={!transaction.appCategoryId || !transaction.appSubCategoryId}
+                                onClick={() => {
+                                  // Check if both categories are assigned before approving
+                                  const hasCategories = transaction.appCategoryId && transaction.appSubCategoryId;
+                                  
+                                  if (!hasCategories) {
+                                    toast({
+                                      title: "Kan inte godkänna",
+                                      description: "Både Huvudkategori och Underkategori måste vara valda innan transaktionen kan godkännas.",
+                                      variant: "destructive"
+                                    });
+                                    return;
+                                  }
+                                  
+                                  console.log('✅ Approving transaction:', transaction.id);
+                                  
+                                  updateTransactionMutation.mutate({
+                                    id: transaction.id,
+                                    data: { status: 'green' }
+                                  }, {
+                                    onSuccess: () => {
+                                      console.log('✅ Transaction approved successfully');
+                                      toast({
+                                        title: "Godkänd",
+                                        description: "Transaktionen har godkänts.",
+                                      });
+                                      // Refresh the dialog
+                                      setTransactionDetailsDialog(prev => ({
+                                        ...prev,
+                                        transactions: prev.transactions.map(tx => 
+                                          tx.id === transaction.id ? { ...tx, status: 'green' } : tx
+                                        )
+                                      }));
+                                    },
+                                    onError: (error) => {
+                                      console.error('❌ Failed to approve transaction:', error);
+                                      toast({
+                                        title: "Fel",
+                                        description: "Kunde inte godkänna transaktionen.",
+                                        variant: "destructive"
+                                      });
+                                    }
+                                  });
+                                }}
+                                className="h-8 px-3 bg-green-100 hover:bg-green-200 text-green-700 border-green-300"
+                              >
+                                <Check className="h-4 w-4 mr-1" />
+                                Godkänn
+                              </Button>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={!editValues.huvudkategoriId || !editValues.underkategoriId}
+                              onClick={() => {
+                                // Save the changes
+                                console.log('💾 Saving transaction with data:', {
+                                  id: transaction.id,
+                                  huvudkategoriId: editValues.huvudkategoriId,
+                                  underkategoriId: editValues.underkategoriId,
+                                  willAutoApprove: !!(editValues.huvudkategoriId && editValues.underkategoriId)
+                                });
+                                
+                                // Only set status to green if both categories are provided
+                                const hasBothCategories = editValues.huvudkategoriId && editValues.underkategoriId;
+                                const updateData: any = {
+                                  appCategoryId: editValues.huvudkategoriId || null,
+                                  appSubCategoryId: editValues.underkategoriId || null,
+                                };
+                                
+                                // Auto-approve to green status when both categories are set
+                                if (hasBothCategories) {
+                                  updateData.status = 'green';
+                                }
+                                
+                                updateTransactionMutation.mutate({
+                                  id: transaction.id,
+                                  data: updateData
+                                }, {
+                                  onSuccess: () => {
+                                    console.log('💾 Transaction saved successfully');
+                                    toast({
+                                      title: "Sparad",
+                                      description: "Transaktionen har uppdaterats.",
+                                    });
+                                    setEditingTransaction(null);
+                                    // Refresh the dialog
+                                    setTransactionDetailsDialog(prev => ({
+                                      ...prev,
+                                      transactions: prev.transactions.map(tx => 
+                                        tx.id === transaction.id ? { 
+                                          ...tx, 
+                                          appCategoryId: editValues.huvudkategoriId,
+                                          appSubCategoryId: editValues.underkategoriId,
+                                          status: hasBothCategories ? 'green' : tx.status // Only update status if both categories provided
+                                        } : tx
+                                      )
+                                    }));
+                                  },
+                                  onError: (error) => {
+                                    console.error('❌ Failed to save transaction:', error);
+                                    toast({
+                                      title: "Fel",
+                                      description: "Kunde inte spara transaktionen.",
+                                      variant: "destructive"
+                                    });
+                                  }
+                                });
+                              }}
+                              className="h-8 px-3 bg-green-100 hover:bg-green-200 text-green-700 border-green-300"
+                            >
+                              Spara
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingTransaction(null);
+                                setEditValues({ huvudkategoriId: '', underkategoriId: '' });
+                              }}
+                              className="h-8 px-3"
+                            >
+                              Avbryt
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 text-sm pr-24">
                         <div>
                           <div className="font-semibold text-gray-600">Datum</div>
                           <div>{new Date(transaction.date).toLocaleDateString('sv-SE', {
@@ -1888,11 +2539,63 @@ export function BudgetPlanningSection({
                         </div>
                         <div>
                           <div className="font-semibold text-gray-600">Huvudkategori</div>
-                          <div>{huvudkategori?.name || 'Ej tilldelad'}</div>
+                          {isEditing ? (
+                            <Select
+                              value={editValues.huvudkategoriId || '__none__'}
+                              onValueChange={(value) => {
+                                setEditValues(prev => ({
+                                  ...prev,
+                                  huvudkategoriId: value === '__none__' ? '' : value,
+                                  underkategoriId: '' // Reset underkategori when huvudkategori changes
+                                }));
+                              }}
+                            >
+                              <SelectTrigger className="w-full h-8">
+                                <SelectValue placeholder="Välj huvudkategori" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">Ingen</SelectItem>
+                                {huvudkategorier?.map(hk => (
+                                  <SelectItem key={hk.id} value={hk.id}>
+                                    {hk.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <div>{huvudkategori?.name || 'Ej tilldelad'}</div>
+                          )}
                         </div>
                         <div>
                           <div className="font-semibold text-gray-600">Underkategori</div>
-                          <div>{underkategori?.name || 'Ej tilldelad'}</div>
+                          {isEditing ? (
+                            <Select
+                              value={editValues.underkategoriId || '__none__'}
+                              onValueChange={(value) => {
+                                setEditValues(prev => ({
+                                  ...prev,
+                                  underkategoriId: value === '__none__' ? '' : value
+                                }));
+                              }}
+                              disabled={!editValues.huvudkategoriId}
+                            >
+                              <SelectTrigger className="w-full h-8">
+                                <SelectValue placeholder="Välj underkategori" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">Ingen</SelectItem>
+                                {underkategorier
+                                  ?.filter(uk => uk.huvudkategoriId === editValues.huvudkategoriId)
+                                  .map(uk => (
+                                    <SelectItem key={uk.id} value={uk.id}>
+                                      {uk.name}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <div>{underkategori?.name || 'Ej tilldelad'}</div>
+                          )}
                         </div>
                       </div>
                     </div>
