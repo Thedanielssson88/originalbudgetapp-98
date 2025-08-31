@@ -6981,11 +6981,11 @@ const PlanCalculator = ({ viewMode }: PlanCalculatorProps = {}) => {
             historicalData: budgetState.historicalData,
             allTransactions: transactionsFromAPI || []
           }}
-          preselectedFromAccountId={preselectedFromAccountId}
+          preselectedFromAccountId={preselectedTransferFromAccountId}
           onSubmit={handleCreateTransfer}
           onCancel={() => {
             setShowNewTransferForm(false);
-            setPreselectedFromAccountId('');
+            setPreselectedTransferFromAccountId('');
           }}
         />
       )}

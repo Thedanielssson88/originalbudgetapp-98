@@ -194,6 +194,17 @@ export function BudgetPlanningSection({
   const [isScrolling, setIsScrolling] = useState(false);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
   
+  // Popup menu state
+  const [popupData, setPopupData] = useState<{
+    isOpen: boolean;
+    accountId: string;
+    accountName: string;
+  }>({
+    isOpen: false,
+    accountId: '',
+    accountName: ''
+  });
+  
   // Transaction details popup state
   const [transactionDetailsDialog, setTransactionDetailsDialog] = useState<{
     isOpen: boolean;
@@ -215,15 +226,12 @@ export function BudgetPlanningSection({
     isUncategorized: false
   });
 
-  // Edit state for transactions
+  // Edit state for transactions - now per transaction
   const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<{
+  const [editValues, setEditValues] = useState<Record<string, {
     huvudkategoriId: string;
     underkategoriId: string;
-  }>({
-    huvudkategoriId: '',
-    underkategoriId: ''
-  });
+  }>>({});
   
   const updateTransactionMutation = useUpdateTransaction();
   
@@ -231,9 +239,23 @@ export function BudgetPlanningSection({
   useEffect(() => {
     if (!transactionDetailsDialog.isOpen) {
       setEditingTransaction(null);
-      setEditValues({ huvudkategoriId: '', underkategoriId: '' });
+      setEditValues({});
     }
   }, [transactionDetailsDialog.isOpen]);
+
+  // Initialize edit values for uncategorized transactions
+  useEffect(() => {
+    if (transactionDetailsDialog.isUncategorized && transactionDetailsDialog.isOpen) {
+      const initialValues: Record<string, { huvudkategoriId: string; underkategoriId: string }> = {};
+      transactionDetailsDialog.transactions.forEach(tx => {
+        initialValues[tx.id] = {
+          huvudkategoriId: tx.appCategoryId || '',
+          underkategoriId: tx.appSubCategoryId || ''
+        };
+      });
+      setEditValues(initialValues);
+    }
+  }, [transactionDetailsDialog.isUncategorized, transactionDetailsDialog.isOpen, transactionDetailsDialog.transactions]);
   
   // Add scroll detection
   useEffect(() => {
@@ -1489,6 +1511,48 @@ export function BudgetPlanningSection({
                         )}>
                           <button
                             onClick={() => toggleAccountExpansion(account.id)}
+                            onMouseDown={(e) => {
+                              if (isScrolling) return;
+                              const timer = setTimeout(() => {
+                                e.preventDefault();
+                                setPopupData({
+                                  isOpen: true,
+                                  accountId: account.id,
+                                  accountName: account.name
+                                });
+                              }, 500);
+                              setLongPressTimer(timer);
+                            }}
+                            onMouseUp={() => {
+                              if (longPressTimer) {
+                                clearTimeout(longPressTimer);
+                                setLongPressTimer(null);
+                              }
+                            }}
+                            onMouseLeave={() => {
+                              if (longPressTimer) {
+                                clearTimeout(longPressTimer);
+                                setLongPressTimer(null);
+                              }
+                            }}
+                            onTouchStart={(e) => {
+                              if (isScrolling) return;
+                              const timer = setTimeout(() => {
+                                e.preventDefault();
+                                setPopupData({
+                                  isOpen: true,
+                                  accountId: account.id,
+                                  accountName: account.name
+                                });
+                              }, 500);
+                              setLongPressTimer(timer);
+                            }}
+                            onTouchEnd={() => {
+                              if (longPressTimer) {
+                                clearTimeout(longPressTimer);
+                                setLongPressTimer(null);
+                              }
+                            }}
                             className="w-full text-left"
                           >
                             <div className="space-y-3">
@@ -2361,10 +2425,13 @@ export function BudgetPlanningSection({
                               variant="outline"
                               onClick={() => {
                                 setEditingTransaction(transaction.id);
-                                setEditValues({
-                                  huvudkategoriId: transaction.appCategoryId || '',
-                                  underkategoriId: transaction.appSubCategoryId || ''
-                                });
+                                setEditValues(prev => ({
+                                  ...prev,
+                                  [transaction.id]: {
+                                    huvudkategoriId: transaction.appCategoryId || '',
+                                    underkategoriId: transaction.appSubCategoryId || ''
+                                  }
+                                }));
                               }}
                               className="h-8 w-8 p-0"
                             >
@@ -2430,21 +2497,22 @@ export function BudgetPlanningSection({
                             <Button
                               size="sm"
                               variant="outline"
-                              disabled={!editValues.huvudkategoriId || !editValues.underkategoriId}
+                              disabled={!editValues[transaction.id]?.huvudkategoriId || !editValues[transaction.id]?.underkategoriId}
                               onClick={() => {
                                 // Save the changes
+                                const transactionEditValues = editValues[transaction.id] || { huvudkategoriId: '', underkategoriId: '' };
                                 console.log('💾 Saving transaction with data:', {
                                   id: transaction.id,
-                                  huvudkategoriId: editValues.huvudkategoriId,
-                                  underkategoriId: editValues.underkategoriId,
-                                  willAutoApprove: !!(editValues.huvudkategoriId && editValues.underkategoriId)
+                                  huvudkategoriId: transactionEditValues.huvudkategoriId,
+                                  underkategoriId: transactionEditValues.underkategoriId,
+                                  willAutoApprove: !!(transactionEditValues.huvudkategoriId && transactionEditValues.underkategoriId)
                                 });
                                 
                                 // Only set status to green if both categories are provided
-                                const hasBothCategories = editValues.huvudkategoriId && editValues.underkategoriId;
+                                const hasBothCategories = transactionEditValues.huvudkategoriId && transactionEditValues.underkategoriId;
                                 const updateData: any = {
-                                  appCategoryId: editValues.huvudkategoriId || null,
-                                  appSubCategoryId: editValues.underkategoriId || null,
+                                  appCategoryId: transactionEditValues.huvudkategoriId || null,
+                                  appSubCategoryId: transactionEditValues.underkategoriId || null,
                                 };
                                 
                                 // Auto-approve to green status when both categories are set
@@ -2469,8 +2537,8 @@ export function BudgetPlanningSection({
                                       transactions: prev.transactions.map(tx => 
                                         tx.id === transaction.id ? { 
                                           ...tx, 
-                                          appCategoryId: editValues.huvudkategoriId,
-                                          appSubCategoryId: editValues.underkategoriId,
+                                          appCategoryId: transactionEditValues.huvudkategoriId,
+                                          appSubCategoryId: transactionEditValues.underkategoriId,
                                           status: hasBothCategories ? 'green' : tx.status // Only update status if both categories provided
                                         } : tx
                                       )
@@ -2495,7 +2563,11 @@ export function BudgetPlanningSection({
                               variant="outline"
                               onClick={() => {
                                 setEditingTransaction(null);
-                                setEditValues({ huvudkategoriId: '', underkategoriId: '' });
+                                setEditValues(prev => {
+                                  const newValues = { ...prev };
+                                  delete newValues[transaction.id];
+                                  return newValues;
+                                });
                               }}
                               className="h-8 px-3"
                             >
@@ -2541,12 +2613,14 @@ export function BudgetPlanningSection({
                           <div className="font-semibold text-gray-600">Huvudkategori</div>
                           {isEditing ? (
                             <Select
-                              value={editValues.huvudkategoriId || '__none__'}
+                              value={(editValues[transaction.id]?.huvudkategoriId) || '__none__'}
                               onValueChange={(value) => {
                                 setEditValues(prev => ({
                                   ...prev,
-                                  huvudkategoriId: value === '__none__' ? '' : value,
-                                  underkategoriId: '' // Reset underkategori when huvudkategori changes
+                                  [transaction.id]: {
+                                    huvudkategoriId: value === '__none__' ? '' : value,
+                                    underkategoriId: '' // Reset underkategori when huvudkategori changes
+                                  }
                                 }));
                               }}
                             >
@@ -2570,14 +2644,17 @@ export function BudgetPlanningSection({
                           <div className="font-semibold text-gray-600">Underkategori</div>
                           {isEditing ? (
                             <Select
-                              value={editValues.underkategoriId || '__none__'}
+                              value={(editValues[transaction.id]?.underkategoriId) || '__none__'}
                               onValueChange={(value) => {
                                 setEditValues(prev => ({
                                   ...prev,
-                                  underkategoriId: value === '__none__' ? '' : value
+                                  [transaction.id]: {
+                                    ...prev[transaction.id],
+                                    underkategoriId: value === '__none__' ? '' : value
+                                  }
                                 }));
                               }}
-                              disabled={!editValues.huvudkategoriId}
+                              disabled={!editValues[transaction.id]?.huvudkategoriId}
                             >
                               <SelectTrigger className="w-full h-8">
                                 <SelectValue placeholder="Välj underkategori" />
@@ -2585,7 +2662,7 @@ export function BudgetPlanningSection({
                               <SelectContent>
                                 <SelectItem value="__none__">Ingen</SelectItem>
                                 {underkategorier
-                                  ?.filter(uk => uk.huvudkategoriId === editValues.huvudkategoriId)
+                                  ?.filter(uk => uk.huvudkategoriId === editValues[transaction.id]?.huvudkategoriId)
                                   .map(uk => (
                                     <SelectItem key={uk.id} value={uk.id}>
                                       {uk.name}
@@ -2603,6 +2680,53 @@ export function BudgetPlanningSection({
                 })}
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Long Press Popup Menu */}
+      <Dialog open={popupData.isOpen} onOpenChange={(open) => setPopupData(prev => ({ ...prev, isOpen: open }))}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{popupData.accountName}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Button
+              onClick={() => {
+                onNewCost(popupData.accountId);
+                setPopupData({ isOpen: false, accountId: '', accountName: '' });
+              }}
+              variant="outline"
+              className="w-full justify-start h-12 text-left"
+            >
+              <ShoppingCart className="h-5 w-5 mr-3" />
+              Skapa ny kostnadspost
+            </Button>
+            
+            <Button
+              onClick={() => {
+                // Create savings post - we need to call the appropriate function
+                onNewCost(popupData.accountId, '', '', '', '', 'Savings');
+                setPopupData({ isOpen: false, accountId: '', accountName: '' });
+              }}
+              variant="outline"
+              className="w-full justify-start h-12 text-left"
+            >
+              <PiggyBank className="h-5 w-5 mr-3" />
+              Skapa nytt sparande
+            </Button>
+            
+            <Button
+              onClick={() => {
+                onNewTransfer(popupData.accountId);
+                setPopupData({ isOpen: false, accountId: '', accountName: '' });
+              }}
+              variant="outline"
+              className="w-full justify-start h-12 text-left"
+            >
+              <ArrowRightLeft className="h-5 w-5 mr-3" />
+              Skapa ny överföring
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
