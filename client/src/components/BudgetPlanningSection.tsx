@@ -22,6 +22,7 @@ import { useUpdateBudgetPost, useCreateBudgetPost } from '@/hooks/useBudgetPosts
 import { useFamilyMembers } from '@/hooks/useFamilyMembers';
 import { useQueryClient } from '@tanstack/react-query';
 import { useHuvudkategorier, useUnderkategorier } from '@/hooks/useCategories';
+import { getDateRangeForMonth } from '@/services/calculationService';
 
 interface Account {
   id: string;
@@ -87,31 +88,120 @@ export function BudgetPlanningSection({
     return TrendingUp; // Default icon
   };
 
-  // Calculate actual spending for a category in the selected month
-  const calculateActualSpending = (huvudkategoriId: string, underkategoriId?: string) => {
-    // Get month start and end dates
-    const [year, month] = selectedMonth.split('-').map(Number);
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0);
-
-    // Filter transactions for this month and category
-    const categoryTransactions = allTransactions.filter(tx => {
-      const txDate = new Date(tx.date);
-      const inMonth = txDate >= startDate && txDate <= endDate;
+  // Get detailed transactions for a category (used for popup)
+  const getTransactionsForCategory = (huvudkategoriId: string, underkategoriId?: string) => {
+    const { startDate, endDate } = getDateRangeForMonth(selectedMonth, 25);
+    
+    return allTransactions.filter(tx => {
+      const inPeriod = tx.date >= startDate && tx.date <= endDate;
       const matchesCategory = underkategoriId 
-        ? tx.underkategoriId === underkategoriId
-        : tx.huvudkategoriId === huvudkategoriId;
-      const isExpense = tx.amount < 0;
-      return inMonth && matchesCategory && isExpense;
+        ? tx.appSubCategoryId === underkategoriId
+        : tx.appCategoryId === huvudkategoriId; // Include ALL transactions for huvudkategori
+      
+      // Exclude Savings from cost budget calculations - savings are outside cost budget
+      const isRelevantType = ['Transaction', 'ExpenseClaim', 'Payment', 'Income'].includes(tx.type);
+      
+      return inPeriod && matchesCategory && isRelevantType;
+    });
+  };
+
+  // Handle clicking on amount to show transaction details
+  const handleAmountClick = (
+    categoryName: string, 
+    huvudkategoriId: string, 
+    underkategoriId: string | undefined,
+    budgetAmount: number,
+    actualAmount: number
+  ) => {
+    const transactions = getTransactionsForCategory(huvudkategoriId, underkategoriId);
+    
+    setTransactionDetailsDialog({
+      isOpen: true,
+      categoryName,
+      huvudkategoriId,
+      underkategoriId,
+      budgetAmount,
+      actualAmount,
+      transactions
+    });
+  };
+
+  // Calculate actual spending for a category in the selected month using payday logic
+  const calculateActualSpending = (huvudkategoriId: string, underkategoriId?: string) => {
+    // Use same logic as Budget page - getDateRangeForMonth with payday 25
+    const { startDate, endDate } = getDateRangeForMonth(selectedMonth, 25);
+    
+    console.log(`[BudgetPlanningSection] Calculating actual for ${selectedMonth}:`, {
+      huvudkategoriId,
+      underkategoriId,
+      startDate,
+      endDate,
+      transactionsCount: allTransactions.length
     });
 
+    // Filter transactions for this month and category - use string comparison like Budget page
+    const categoryTransactions = allTransactions.filter(tx => {
+      const inPeriod = tx.date >= startDate && tx.date <= endDate;
+      const matchesCategory = underkategoriId 
+        ? tx.appSubCategoryId === underkategoriId
+        : tx.appCategoryId === huvudkategoriId; // Include ALL transactions for huvudkategori (sum all subcategories)
+      
+      // Exclude Savings from cost budget calculations - savings are outside cost budget  
+      const isRelevantType = ['Transaction', 'ExpenseClaim', 'Payment', 'Income'].includes(tx.type);
+      
+      // Debug logging for matching transactions
+      if (matchesCategory && isRelevantType) {
+        console.log(`[BudgetPlanningSection] Potential match:`, {
+          date: tx.date,
+          inPeriod,
+          amount: tx.amount,
+          type: tx.type,
+          description: tx.description,
+          appCategoryId: tx.appCategoryId,
+          appSubCategoryId: tx.appSubCategoryId
+        });
+      }
+      
+      return inPeriod && matchesCategory && isRelevantType;
+    });
+
+    // Calculate net total by summing positive and negative amounts:
+    // Use correctedAmount if available, otherwise use regular amount
+    const total = categoryTransactions.reduce((sum, tx) => {
+      const amount = tx.correctedAmount !== null ? tx.correctedAmount : tx.amount;
+      return sum + amount; // Sum actual amounts (positive + negative)
+    }, 0);
+    
+    if (categoryTransactions.length > 0) {
+      console.log(`[BudgetPlanningSection] Found ${categoryTransactions.length} transactions, total: ${total}`);
+    }
+
     // Sum the absolute values
-    return categoryTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+    return total;
   };
   
   // Scroll detection state
   const [isScrolling, setIsScrolling] = useState(false);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  
+  // Transaction details popup state
+  const [transactionDetailsDialog, setTransactionDetailsDialog] = useState<{
+    isOpen: boolean;
+    categoryName: string;
+    huvudkategoriId: string;
+    underkategoriId?: string;
+    budgetAmount: number;
+    actualAmount: number;
+    transactions: any[];
+  }>({
+    isOpen: false,
+    categoryName: '',
+    huvudkategoriId: '',
+    underkategoriId: undefined,
+    budgetAmount: 0,
+    actualAmount: 0,
+    transactions: []
+  });
   
   // Add scroll detection
   useEffect(() => {
@@ -169,7 +259,14 @@ export function BudgetPlanningSection({
   const [selectedAccountForAction, setSelectedAccountForAction] = useState<{ id: string; name: string; type: 'account' | 'huvudkategori' | 'underkategori' } | null>(null);
   
   // Map header view mode to our internal logic
-  const activeView = viewMode === 'categories' ? 'categories' : 'accounts';
+  const activeView = viewMode === 'categories' ? 'categories' : 'spotlights';
+  
+  console.log(`[BudgetPlanningSection] View mode debug:`, {
+    receivedViewMode: viewMode,
+    activeView,
+    isCategories: activeView === 'categories',
+    isSpotlights: activeView === 'spotlights'
+  });
 
   // Calculate bank balances from transactions (same logic as KontosaldoKopia)
   useEffect(() => {
@@ -691,6 +788,114 @@ export function BudgetPlanningSection({
     );
   };
 
+  // Calculate costs for an account in the selected month
+  const calculateAccountCosts = (account: Account): number => {
+    const { startDate, endDate } = getDateRangeForMonth(selectedMonth, 25);
+    
+    const accountTransactions = allTransactions.filter(tx => 
+      tx.accountId === account.id && 
+      tx.date >= startDate && 
+      tx.date <= endDate &&
+      ['Transaction', 'ExpenseClaim', 'Payment'].includes(tx.type) &&
+      tx.amount < 0
+    );
+    
+    return accountTransactions.reduce((sum, tx) => {
+      const amount = tx.correctedAmount !== null ? tx.correctedAmount : tx.amount;
+      return sum + Math.abs(amount);
+    }, 0);
+  };
+
+  // Calculate savings for an account in the selected month
+  const calculateAccountSavings = (account: Account): number => {
+    const { startDate, endDate } = getDateRangeForMonth(selectedMonth, 25);
+    
+    const savingsTransactions = allTransactions.filter(tx => 
+      tx.accountId === account.id && 
+      tx.date >= startDate && 
+      tx.date <= endDate &&
+      tx.type === 'Savings' &&
+      tx.amount > 0
+    );
+    
+    return savingsTransactions.reduce((sum, tx) => {
+      const amount = tx.correctedAmount !== null ? tx.correctedAmount : tx.amount;
+      return sum + amount;
+    }, 0);
+  };
+
+  // Calculate budgeted costs for an account
+  const calculateBudgetedCosts = (account: Account): number => {
+    return budgetPosts
+      .filter(post => 
+        post.accountId === account.id && 
+        post.monthKey === selectedMonth && 
+        post.type === 'cost'
+      )
+      .reduce((sum, post) => sum + Math.abs(post.amount || 0), 0);
+  };
+
+  // Calculate budgeted savings for an account  
+  const calculateBudgetedSavings = (account: Account): number => {
+    return budgetPosts
+      .filter(post => 
+        post.accountId === account.id && 
+        post.monthKey === selectedMonth && 
+        (post.type === 'savings' || post.type === 'sparmål')
+      )
+      .reduce((sum, post) => sum + (post.amount || 0), 0);
+  };
+
+  // Get cost transactions for an account (for popup)
+  const getAccountCostTransactions = (account: Account) => {
+    const { startDate, endDate } = getDateRangeForMonth(selectedMonth, 25);
+    
+    return allTransactions.filter(tx => 
+      tx.accountId === account.id && 
+      tx.date >= startDate && 
+      tx.date <= endDate &&
+      ['Transaction', 'ExpenseClaim', 'Payment'].includes(tx.type) &&
+      tx.amount < 0
+    );
+  };
+
+  // Get savings transactions for an account (for popup)
+  const getAccountSavingsTransactions = (account: Account) => {
+    const { startDate, endDate } = getDateRangeForMonth(selectedMonth, 25);
+    
+    return allTransactions.filter(tx => 
+      tx.accountId === account.id && 
+      tx.date >= startDate && 
+      tx.date <= endDate &&
+      tx.type === 'Savings' &&
+      tx.amount > 0
+    );
+  };
+
+  // Handle clicking on account costs/savings amounts
+  const handleAccountAmountClick = (
+    account: Account,
+    type: 'costs' | 'savings',
+    budgetAmount: number,
+    actualAmount: number
+  ) => {
+    const transactions = type === 'costs' 
+      ? getAccountCostTransactions(account)
+      : getAccountSavingsTransactions(account);
+    
+    const categoryName = `${account.name} - ${type === 'costs' ? 'Kostnader' : 'Sparande'}`;
+    
+    setTransactionDetailsDialog({
+      isOpen: true,
+      categoryName,
+      huvudkategoriId: account.id,
+      underkategoriId: undefined,
+      budgetAmount,
+      actualAmount,
+      transactions
+    });
+  };
+
   // Get bank balance with fallback logic using budget_posts account_user_balance
   const getBankBalance = (account: Account): number => {
     console.log(`[BudgetPlanningSection] getBankBalance called for ${account.name} (${account.id})`);
@@ -924,11 +1129,13 @@ export function BudgetPlanningSection({
 
               {/* Accounts Content */}
               <div>
-              {/* Account Table Header */}
-              <div className="grid grid-cols-3 gap-2 sm:gap-4 py-2 text-sm font-medium text-indigo-700">
-                <div className="text-left">Kontonamn</div>
-                <div className="text-center sm:text-right">Banksaldo</div>
-                <div className="text-right">Efter budget</div>
+              {/* Account Table Header - Reordered columns */}
+              <div className="grid grid-cols-5 gap-2 sm:gap-3 py-2 text-xs sm:text-sm font-medium text-indigo-700">
+                <div className="col-span-1 text-left">Konto</div>
+                <div className="text-center">Banksaldo</div>
+                <div className="text-center">Kostnader</div>
+                <div className="text-center">Sparande</div>
+                <div className="text-center">Efter budget</div>
               </div>
 
               {accountGroups.map((group, groupIndex) => (
@@ -938,18 +1145,34 @@ export function BudgetPlanningSection({
                     onClick={() => toggleGroupExpansion(group.name)}
                     className="w-full text-left hover:bg-white/50 rounded-md transition-colors p-2"
                   >
-                    <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                  <div className="flex items-center gap-2">
+                    <div className="grid grid-cols-5 gap-2 sm:gap-3">
+                  <div className="col-span-1 flex items-center gap-2">
                     {expandedGroups[group.name] ? 
                       <ChevronDown className="h-4 w-4 text-indigo-700" /> : 
                       <ChevronRight className="h-4 w-4 text-indigo-700" />
                     }
-                    <h3 className="font-semibold text-indigo-900 text-lg">{group.name}</h3>
+                    <h3 className="font-semibold text-indigo-900 text-sm sm:text-lg">{group.name}</h3>
                   </div>
-                  <div className="text-center sm:text-right font-semibold text-indigo-900">
+                  <div className="text-center font-semibold text-indigo-900 text-xs sm:text-sm">
                     {formatOrenAsCurrency(group.accounts.reduce((sum, acc) => sum + getBankBalance(acc), 0))}
                   </div>
-                  <div className="text-right font-semibold text-indigo-900">
+                  <div className="text-center font-semibold text-indigo-900 text-xs">
+                    <div className="text-gray-600">
+                      {formatOrenAsCurrency(group.accounts.reduce((sum, acc) => sum + calculateBudgetedCosts(acc), 0))} <span className="text-xs">(B)</span>
+                    </div>
+                    <div className="text-red-600">
+                      {formatOrenAsCurrency(group.accounts.reduce((sum, acc) => sum + calculateAccountCosts(acc), 0))} <span className="text-xs">(F)</span>
+                    </div>
+                  </div>
+                  <div className="text-center font-semibold text-indigo-900 text-xs">
+                    <div className="text-gray-600">
+                      {formatOrenAsCurrency(group.accounts.reduce((sum, acc) => sum + calculateBudgetedSavings(acc), 0))} <span className="text-xs">(B)</span>
+                    </div>
+                    <div className="text-green-600">
+                      {formatOrenAsCurrency(group.accounts.reduce((sum, acc) => sum + calculateAccountSavings(acc), 0))} <span className="text-xs">(F)</span>
+                    </div>
+                  </div>
+                  <div className="text-center font-semibold text-indigo-900 text-xs sm:text-sm">
                     {formatOrenAsCurrency(group.accounts.reduce((sum, acc) => sum + calculateAfterBudget(acc), 0))}
                   </div>
                 </div>
@@ -970,19 +1193,22 @@ export function BudgetPlanningSection({
                     onMouseLeave={handleLongPressEnd}
                     onTouchStart={handleLongPressStart(account.id, account.name)}
                     onTouchEnd={handleLongPressEnd}
-                    className="w-full grid grid-cols-3 gap-2 sm:gap-4 p-2 pl-8 hover:bg-white/70 rounded-md transition-colors text-left"
+                    className="w-full grid grid-cols-5 gap-2 sm:gap-3 p-2 pl-8 hover:bg-white/70 rounded-md transition-colors text-left"
                   >
-                    <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+                    {/* Account Name */}
+                    <div className="col-span-1 flex items-center gap-1 sm:gap-2 min-w-0">
                       {isExpanded ? <ChevronDown className="h-4 w-4 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 flex-shrink-0" />}
-                      <span className="font-medium text-sm sm:text-base truncate">{account.name}</span>
+                      <span className="font-medium text-xs sm:text-sm truncate">{account.name}</span>
                     </div>
-                    <div className="flex justify-center sm:justify-end items-center">
+                    
+                    {/* Banksaldo */}
+                    <div className="flex justify-center items-center">
                       <button
                         onClick={(e) => {
                           e.stopPropagation(); // Prevent account expansion
                           openEditDialog(account.id, account.name);
                         }}
-                        className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors flex items-center gap-1 text-sm sm:text-base"
+                        className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors flex items-center gap-1 text-xs sm:text-sm"
                       >
                         {(() => {
                           const balance = getBankBalance(account);
@@ -1009,7 +1235,45 @@ export function BudgetPlanningSection({
                         })()}
                       </button>
                     </div>
-                    <div className="text-right font-medium text-sm sm:text-base">
+                    
+                    {/* Kostnader - Budgeted/Actual Stacked */}
+                    <div className="text-center font-medium text-xs">
+                      <div className="text-gray-600">
+                        {formatOrenAsCurrency(calculateBudgetedCosts(account))} <span className="text-xs opacity-70">(B)</span>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const budgetedAmount = calculateBudgetedCosts(account);
+                          const actualAmount = calculateAccountCosts(account);
+                          handleAccountAmountClick(account, 'costs', budgetedAmount, actualAmount);
+                        }}
+                        className="text-red-600 hover:text-red-800 hover:underline transition-colors cursor-pointer"
+                      >
+                        {formatOrenAsCurrency(calculateAccountCosts(account))} <span className="text-xs opacity-70">(F)</span>
+                      </button>
+                    </div>
+                    
+                    {/* Sparande - Budgeted/Actual Stacked */}
+                    <div className="text-center font-medium text-xs">
+                      <div className="text-gray-600">
+                        {formatOrenAsCurrency(calculateBudgetedSavings(account))} <span className="text-xs opacity-70">(B)</span>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const budgetedAmount = calculateBudgetedSavings(account);
+                          const actualAmount = calculateAccountSavings(account);
+                          handleAccountAmountClick(account, 'savings', budgetedAmount, actualAmount);
+                        }}
+                        className="text-green-600 hover:text-green-800 hover:underline transition-colors cursor-pointer"
+                      >
+                        {formatOrenAsCurrency(calculateAccountSavings(account))} <span className="text-xs opacity-70">(F)</span>
+                      </button>
+                    </div>
+                    
+                    {/* Efter Budget */}
+                    <div className="text-center font-medium text-xs sm:text-sm">
                       {formatOrenAsCurrency(afterBudget)}
                     </div>
                   </button>
@@ -1047,9 +1311,22 @@ export function BudgetPlanningSection({
                 
                 // Calculate percentage and determine color
                 const percentage = huvudkategoriBudget > 0 ? (huvudkategoriActual / huvudkategoriBudget) * 100 : 0;
-                const progressColor = percentage > 100 ? 'bg-red-500' : percentage > 80 ? 'bg-yellow-500' : 'bg-emerald-500';
-                const borderColor = percentage > 100 ? 'border-red-200' : percentage > 80 ? 'border-yellow-200' : 'border-emerald-200';
-                const bgColor = percentage > 100 ? 'bg-red-50' : percentage > 80 ? 'bg-yellow-50' : 'bg-emerald-50';
+                const hasUnbudgetedCosts = huvudkategoriBudget === 0 && huvudkategoriActual < 0;
+                
+                const progressColor = hasUnbudgetedCosts ? 'bg-yellow-500' 
+                  : percentage > 100 ? 'bg-red-500' 
+                  : percentage > 80 ? 'bg-yellow-500' 
+                  : 'bg-emerald-500';
+                  
+                const borderColor = hasUnbudgetedCosts ? 'border-yellow-200'
+                  : percentage > 100 ? 'border-red-200' 
+                  : percentage > 80 ? 'border-yellow-200' 
+                  : 'border-emerald-200';
+                  
+                const bgColor = hasUnbudgetedCosts ? 'bg-yellow-50'
+                  : percentage > 100 ? 'bg-red-50' 
+                  : percentage > 80 ? 'bg-yellow-50' 
+                  : 'bg-emerald-50';
 
                 return (
                   <Card key={huvudkategori.id} className={cn(
@@ -1073,11 +1350,17 @@ export function BudgetPlanningSection({
                           <div className="flex items-center gap-3">
                             <div className={cn(
                               "p-2 rounded-lg",
-                              percentage > 100 ? "bg-red-100" : percentage > 80 ? "bg-yellow-100" : "bg-emerald-100"
+                              hasUnbudgetedCosts ? "bg-yellow-100" 
+                                : percentage > 100 ? "bg-red-100" 
+                                : percentage > 80 ? "bg-yellow-100" 
+                                : "bg-emerald-100"
                             )}>
                               <Icon className={cn(
                                 "h-5 w-5",
-                                percentage > 100 ? "text-red-600" : percentage > 80 ? "text-yellow-600" : "text-emerald-600"
+                                hasUnbudgetedCosts ? "text-yellow-600"
+                                  : percentage > 100 ? "text-red-600" 
+                                  : percentage > 80 ? "text-yellow-600" 
+                                  : "text-emerald-600"
                               )} />
                             </div>
                             <div>
@@ -1096,15 +1379,30 @@ export function BudgetPlanningSection({
                           
                           {/* Status Badge */}
                           <div className="text-right">
-                            {percentage > 100 && (
+                            {hasUnbudgetedCosts && (
+                              <Badge variant="outline" className="mb-1 border-yellow-300 text-yellow-700 bg-yellow-50">
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                                Saknar budget
+                              </Badge>
+                            )}
+                            {!hasUnbudgetedCosts && percentage > 100 && (
                               <Badge variant="destructive" className="mb-1">
                                 <AlertCircle className="h-3 w-3 mr-1" />
                                 Över budget
                               </Badge>
                             )}
-                            <p className="text-2xl font-bold text-gray-900">
+                            <button
+                              onClick={() => handleAmountClick(
+                                huvudkategori.name,
+                                huvudkategori.id,
+                                undefined,
+                                huvudkategoriBudget,
+                                huvudkategoriActual
+                              )}
+                              className="text-2xl font-bold text-gray-900 hover:text-blue-600 transition-colors cursor-pointer"
+                            >
                               {formatOrenAsCurrency(huvudkategoriActual)}
-                            </p>
+                            </button>
                             <p className="text-sm text-gray-600">
                               av {formatOrenAsCurrency(huvudkategoriBudget)}
                             </p>
@@ -1151,10 +1449,20 @@ export function BudgetPlanningSection({
 
                           const isUnderExpanded = expandedAccounts[underkategori.id];
                           const underPercentage = underBudget > 0 ? (underActual / underBudget) * 100 : 0;
-                          const underProgressColor = underPercentage > 100 ? 'bg-red-400' : underPercentage > 80 ? 'bg-yellow-400' : 'bg-emerald-400';
+                          const hasUnderUnbudgetedCosts = underBudget === 0 && underActual < 0;
+                          
+                          const underProgressColor = hasUnderUnbudgetedCosts ? 'bg-yellow-400'
+                            : underPercentage > 100 ? 'bg-red-400' 
+                            : underPercentage > 80 ? 'bg-yellow-400' 
+                            : 'bg-emerald-400';
 
                           return (
-                            <div key={underkategori.id} className="bg-white rounded-lg p-3 border border-gray-200 hover:shadow-sm transition-all">
+                            <div key={underkategori.id} className={cn(
+                              "rounded-lg p-3 border hover:shadow-sm transition-all",
+                              hasUnderUnbudgetedCosts 
+                                ? "bg-yellow-50 border-yellow-200" 
+                                : "bg-white border-gray-200"
+                            )}>
                               <button
                                 onClick={() => toggleAccountExpansion(underkategori.id)}
                                 onMouseDown={handleUnderkategoriLongPressStart(underkategori.id, underkategori.name)}
@@ -1175,9 +1483,18 @@ export function BudgetPlanningSection({
                                       <span className="font-medium text-gray-900">{underkategori.name}</span>
                                     </div>
                                     <div className="text-right">
-                                      <p className="text-lg font-semibold text-gray-900">
+                                      <button
+                                        onClick={() => handleAmountClick(
+                                          underkategori.name,
+                                          huvudkategori.id,
+                                          underkategori.id,
+                                          underBudget,
+                                          underActual
+                                        )}
+                                        className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors cursor-pointer"
+                                      >
                                         {formatOrenAsCurrency(underActual)}
-                                      </p>
+                                      </button>
                                       <p className="text-xs text-gray-600">
                                         av {formatOrenAsCurrency(underBudget)}
                                       </p>
@@ -1191,6 +1508,16 @@ export function BudgetPlanningSection({
                                       style={{ width: `${Math.min(100, underPercentage)}%` }}
                                     />
                                   </div>
+
+                                  {/* Status Badge for Unbudgeted Costs */}
+                                  {hasUnderUnbudgetedCosts && (
+                                    <div className="mb-2">
+                                      <Badge variant="outline" className="border-yellow-300 text-yellow-700 bg-yellow-50">
+                                        <AlertCircle className="h-3 w-3 mr-1" />
+                                        Saknar budget
+                                      </Badge>
+                                    </div>
+                                  )}
 
                                   {/* Action Buttons */}
                                   <div className="flex gap-2 justify-end">
@@ -1229,9 +1556,9 @@ export function BudgetPlanningSection({
                         })}
                       </div>
                     )}
-                </div>
-              );
-            })}
+                  </Card>
+                );
+              })}
           </div>
         )}
       </div>
@@ -1361,6 +1688,89 @@ export function BudgetPlanningSection({
           </Button>
         </DialogFooter>
       </DialogContent>
+      </Dialog>
+
+      {/* Transaction Details Dialog */}
+      <Dialog 
+        open={transactionDetailsDialog.isOpen} 
+        onOpenChange={(open) => setTransactionDetailsDialog(prev => ({ ...prev, isOpen: open }))}
+      >
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Transaktioner för {transactionDetailsDialog.categoryName}</DialogTitle>
+            <DialogDescription>
+              <div className="space-y-1">
+                <div>Budgeterat: {formatOrenAsCurrency(transactionDetailsDialog.budgetAmount)}</div>
+                <div>Faktiskt: {formatOrenAsCurrency(transactionDetailsDialog.actualAmount)}</div>
+                <div>Differens: {formatOrenAsCurrency(transactionDetailsDialog.actualAmount - transactionDetailsDialog.budgetAmount)}</div>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            {transactionDetailsDialog.transactions.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">Inga transaktioner hittades för denna kategori.</p>
+            ) : (
+              <div className="space-y-3">
+                {transactionDetailsDialog.transactions.map((transaction, index) => {
+                  // Find category names
+                  const huvudkategori = huvudkategorier?.find(hk => hk.id === transaction.appCategoryId);
+                  const underkategori = underkategorier?.find(uk => uk.id === transaction.appSubCategoryId);
+                  
+                  // Use corrected amount if available, otherwise use regular amount
+                  const displayAmount = transaction.correctedAmount !== null ? transaction.correctedAmount : transaction.amount;
+                  const amountLabel = transaction.correctedAmount !== null ? 'Korrigerat belopp' : 'Belopp';
+                  
+                  return (
+                    <div key={transaction.id || index} className="border rounded-lg p-3 bg-gray-50">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <div className="font-semibold text-gray-600">Datum</div>
+                          <div>{new Date(transaction.date).toLocaleDateString('sv-SE', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            weekday: 'long'
+                          })}</div>
+                        </div>
+                        <div>
+                          <div className="font-semibold text-gray-600">{amountLabel}</div>
+                          <div className={`font-semibold ${displayAmount < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {displayAmount < 0 ? '−' : '+'}{formatOrenAsCurrency(Math.abs(displayAmount))}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="font-semibold text-gray-600">Konto</div>
+                          <div>{accounts.find(acc => acc.id === transaction.accountId)?.name || 'Okänt konto'}</div>
+                        </div>
+                        <div>
+                          <div className="font-semibold text-gray-600">Beskrivning</div>
+                          <div>{transaction.description}</div>
+                        </div>
+                        <div>
+                          <div className="font-semibold text-gray-600">Typ</div>
+                          <div>{transaction.type}</div>
+                        </div>
+                        <div>
+                          <div className="font-semibold text-gray-600">TransaktionsID</div>
+                          <div className="font-mono text-xs">{transaction.id}</div>
+                        </div>
+                        <div>
+                          <div className="font-semibold text-gray-600">Huvudkategori</div>
+                          <div>{huvudkategori?.name || 'Ej tilldelad'}</div>
+                        </div>
+                        <div>
+                          <div className="font-semibold text-gray-600">Underkategori</div>
+                          <div>{underkategori?.name || 'Ej tilldelad'}</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </DialogContent>
       </Dialog>
     </>
   );
