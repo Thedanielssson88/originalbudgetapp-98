@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { X } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
@@ -13,7 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ChevronDown, ChevronRight, Plus, ArrowRightLeft, PiggyBank, Target, Home, ShoppingCart, Car, Heart, Gamepad2, GraduationCap, Wallet, TrendingUp, Baby, AlertCircle } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, ArrowRightLeft, PiggyBank, Target, Home, ShoppingCart, Car, Heart, Gamepad2, GraduationCap, Wallet, TrendingUp, Baby, AlertCircle, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatOrenAsCurrency, kronoraToOren } from '@/utils/currencyUtils';
 import { useTransactions, useUpdateTransaction } from '@/hooks/useTransactions';
@@ -23,8 +22,10 @@ import { useFamilyMembers } from '@/hooks/useFamilyMembers';
 import { useQueryClient } from '@tanstack/react-query';
 import { useHuvudkategorier, useUnderkategorier } from '@/hooks/useCategories';
 import { getDateRangeForMonth } from '@/services/calculationService';
+import { TransferMatchDialog } from '@/components/TransferMatchDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Edit2, Check } from 'lucide-react';
+import { Edit2, Check, Filter, Link, Link2, Edit, Save, X } from 'lucide-react';
+import { addMobileDebugLog } from '@/utils/mobileDebugLogger';
 
 interface Account {
   id: string;
@@ -72,6 +73,7 @@ export function BudgetPlanningSection({
   const { data: underkategorier = [] } = useUnderkategorier();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const updateTransactionMutation = useUpdateTransaction();
   const updateBudgetPostMutation = useUpdateBudgetPost();
   const createBudgetPostMutation = useCreateBudgetPost();
 
@@ -100,11 +102,121 @@ export function BudgetPlanningSection({
         ? tx.appSubCategoryId === underkategoriId
         : tx.appCategoryId === huvudkategoriId; // Include ALL transactions for huvudkategori
       
-      // Exclude Savings from cost budget calculations - savings are outside cost budget
-      const isRelevantType = ['Transaction', 'ExpenseClaim', 'Payment', 'Income'].includes(tx.type);
+      // Include InternalTransfer for display but exclude Savings from cost budget calculations
+      const isRelevantType = ['Transaction', 'ExpenseClaim', 'Payment', 'Income', 'InternalTransfer'].includes(tx.type);
       
       return inPeriod && matchesCategory && isRelevantType;
     });
+  };
+
+  // Helper function to get live transactions for dialog (handles both category and account dialogs)
+  const getLiveDialogTransactions = () => {
+    if (transactionDetailsDialog.accountId && !transactionDetailsDialog.huvudkategoriId) {
+      // Account-based dialog (e.g., "Överföring - Överföringar")
+      const account = accounts.find(acc => acc.id === transactionDetailsDialog.accountId);
+      if (account) {
+        if (transactionDetailsDialog.categoryName.includes('Överföringar')) {
+          return getAccountTransferTransactions(account);
+        } else if (transactionDetailsDialog.categoryName.includes('Sparande')) {
+          return getAccountSavingsTransactions(account);
+        } else if (transactionDetailsDialog.categoryName.includes('Inkomster')) {
+          return getAccountIncomeTransactions(account);
+        } else {
+          return getAccountCostTransactions(account);
+        }
+      }
+      return [];
+    } else {
+      // Category-based dialog
+      return getTransactionsForCategory(transactionDetailsDialog.huvudkategoriId, transactionDetailsDialog.underkategoriId);
+    }
+  };
+
+  // Remove linking when changing FROM InternalTransfer to something else
+  const unlinkInternalTransfer = (transaction: any) => {
+    console.log(`🔗❌ [UNLINK] Removing InternalTransfer linking for ${transaction.id}`);
+    
+    if (transaction.linkedTransactionId) {
+      console.log(`🔗❌ [UNLINK] Also unlinking linked transaction: ${transaction.linkedTransactionId}`);
+      
+      // Update edit values to remove the link and prepare for status change
+      setEditValues(prev => ({
+        ...prev,
+        [transaction.id]: {
+          ...prev[transaction.id],
+          linkedTransactionId: undefined, // Remove link
+          unlinkLinkedTransaction: transaction.linkedTransactionId // Store which transaction to unlink
+        }
+      }));
+      
+      toast({
+        title: "Länkning borttagen",
+        description: "Båda transaktionerna kommer att kopplas från varandra och markeras som gula.",
+        variant: "default"
+      });
+    }
+  };
+
+  // Find and auto-link matching transaction when changing to InternalTransfer
+  const findAndLinkMatchingTransaction = (transaction: any) => {
+    console.log(`🔍 [AUTO MATCH] Looking for matching transaction for ${transaction.id}`);
+    
+    // Find potential matches: opposite amount, same date, different account
+    const oppositeAmount = -transaction.amount;
+    const potentialMatches = allTransactions.filter(tx => 
+      tx.id !== transaction.id &&
+      tx.accountId !== transaction.accountId &&
+      tx.amount === oppositeAmount &&
+      tx.date === transaction.date &&
+      !tx.linkedTransactionId // Not already linked
+    );
+    
+    console.log(`🔍 [AUTO MATCH] Found ${potentialMatches.length} potential matches`);
+    
+    if (potentialMatches.length === 0) {
+      console.log('❌ [AUTO MATCH] No matches found');
+      return;
+    }
+    
+    let matchedTransaction = null;
+    
+    if (potentialMatches.length === 1) {
+      // Exact one match - use it
+      matchedTransaction = potentialMatches[0];
+      console.log(`✅ [AUTO MATCH] Single match found: ${matchedTransaction.id}`);
+    } else {
+      // Multiple matches - try to find one with same description
+      const exactDescriptionMatch = potentialMatches.find(tx => 
+        tx.description === transaction.description
+      );
+      
+      if (exactDescriptionMatch) {
+        matchedTransaction = exactDescriptionMatch;
+        console.log(`✅ [AUTO MATCH] Exact description match found: ${matchedTransaction.id}`);
+      } else {
+        console.log(`❌ [AUTO MATCH] Multiple matches but no exact description match - not linking automatically`);
+        return;
+      }
+    }
+    
+    if (matchedTransaction) {
+      // Auto-link the transactions
+      console.log(`🔗 [AUTO MATCH] Auto-linking ${transaction.id} ↔ ${matchedTransaction.id}`);
+      
+      // Update edit values to include the link
+      setEditValues(prev => ({
+        ...prev,
+        [transaction.id]: {
+          ...prev[transaction.id],
+          linkedTransactionId: matchedTransaction.id
+        }
+      }));
+      
+      toast({
+        title: "Automatisk länkning",
+        description: `Transaktionen länkades automatiskt med konto ${matchedTransaction.accountId.slice(0, 8)}...`,
+      });
+    }
   };
 
   // Handle clicking on amount to show transaction details
@@ -116,6 +228,18 @@ export function BudgetPlanningSection({
     actualAmount: number
   ) => {
     const transactions = getTransactionsForCategory(huvudkategoriId, underkategoriId);
+    
+    // Reset filters but pre-set based on what was clicked
+    setTransactionFilters({
+      status: 'all',
+      accountId: 'all',
+      transactionType: 'all',
+      huvudkategoriId: huvudkategoriId || 'all',
+      underkategoriId: underkategoriId || 'all',
+      bankCategory: 'all',
+      bankSubCategory: 'all',
+      description: ''
+    });
     
     setTransactionDetailsDialog({
       isOpen: true,
@@ -215,6 +339,7 @@ export function BudgetPlanningSection({
     actualAmount: number;
     transactions: any[];
     isUncategorized?: boolean;
+    accountId?: string;
   }>({
     isOpen: false,
     categoryName: '',
@@ -223,17 +348,156 @@ export function BudgetPlanningSection({
     budgetAmount: 0,
     actualAmount: 0,
     transactions: [],
-    isUncategorized: false
+    isUncategorized: false,
+    accountId: undefined
   });
 
+  // Filter state for transaction dialog
+  const [showFilters, setShowFilters] = useState(false);
+  const [showBulkActions, setShowBulkActions] = useState(false);
+  const [linkingTransaction, setLinkingTransaction] = useState<any>(null);
+  const [showLinkedTransactionDialog, setShowLinkedTransactionDialog] = useState(false);
+  const [linkedTransactionToShow, setLinkedTransactionToShow] = useState<any>(null);
+  const [transactionFilters, setTransactionFilters] = useState({
+    status: 'all' as 'all' | 'red_yellow',
+    accountId: 'all',
+    transactionType: 'all',
+    huvudkategoriId: 'all',
+    underkategoriId: 'all',
+    bankCategory: 'all',
+    bankSubCategory: 'all',
+    description: ''
+  });
+  
+  // Bulk action state
+  const [bulkActionValues, setBulkActionValues] = useState({
+    huvudkategoriId: '',
+    underkategoriId: ''
+  });
+  
+  // Handle bulk update of filtered transactions
+  const handleBulkUpdate = async () => {
+    if (!bulkActionValues.huvudkategoriId || !bulkActionValues.underkategoriId) {
+      toast({
+        title: "Ofullständiga val",
+        description: "Både huvudkategori och underkategori måste väljas.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Get currently filtered transactions - USE LIVE DATA instead of static copy
+    let filteredTransactions = [...getLiveDialogTransactions()];
+    
+    // Apply same filters as in the display logic
+    if (transactionFilters.status === 'red_yellow') {
+      filteredTransactions = filteredTransactions.filter(tx => tx.status === 'red' || tx.status === 'yellow');
+    }
+    if (transactionFilters.accountId !== 'all') {
+      filteredTransactions = filteredTransactions.filter(tx => tx.accountId === transactionFilters.accountId);
+    }
+    if (transactionFilters.transactionType !== 'all') {
+      filteredTransactions = filteredTransactions.filter(tx => tx.type === transactionFilters.transactionType);
+    }
+    if (transactionFilters.huvudkategoriId !== 'all') {
+      filteredTransactions = filteredTransactions.filter(tx => tx.appCategoryId === transactionFilters.huvudkategoriId);
+    }
+    if (transactionFilters.underkategoriId !== 'all') {
+      filteredTransactions = filteredTransactions.filter(tx => tx.appSubCategoryId === transactionFilters.underkategoriId);
+    }
+    if (transactionFilters.bankCategory !== 'all') {
+      filteredTransactions = filteredTransactions.filter(tx => tx.bankCategory === transactionFilters.bankCategory);
+    }
+    if (transactionFilters.bankSubCategory !== 'all') {
+      filteredTransactions = filteredTransactions.filter(tx => tx.bankSubCategory === transactionFilters.bankSubCategory);
+    }
+    if (transactionFilters.description) {
+      const searchTerm = transactionFilters.description.toLowerCase();
+      filteredTransactions = filteredTransactions.filter(tx => 
+        tx.description?.toLowerCase().includes(searchTerm) ||
+        tx.userDescription?.toLowerCase().includes(searchTerm) ||
+        tx.id?.toLowerCase().includes(searchTerm)
+      );
+    }
+    
+    if (filteredTransactions.length === 0) {
+      toast({
+        title: "Inga transaktioner",
+        description: "Inga transaktioner matchar de aktuella filtren.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      // Update each filtered transaction
+      const promises = filteredTransactions.map(async (transaction) => {
+        // Determine new status based on transaction type
+        const newStatus = transaction.type === 'Transaction' ? 'green' : 'yellow';
+        
+        const updateData = {
+          appCategoryId: bulkActionValues.huvudkategoriId,
+          appSubCategoryId: bulkActionValues.underkategoriId,
+          status: newStatus
+        };
+        
+        return updateTransactionMutation.mutateAsync({
+          id: transaction.id,
+          data: updateData
+        });
+      });
+      
+      await Promise.all(promises);
+      
+      toast({
+        title: "Uppdaterat",
+        description: `${filteredTransactions.length} transaktioner har uppdaterats.`,
+      });
+      
+      // Refresh the transaction list
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      
+      // Update the dialog's transaction list
+      setTransactionDetailsDialog(prev => ({
+        ...prev,
+        transactions: prev.transactions.map(tx => {
+          const wasFiltered = filteredTransactions.some(ftx => ftx.id === tx.id);
+          if (wasFiltered) {
+            return {
+              ...tx,
+              appCategoryId: bulkActionValues.huvudkategoriId,
+              appSubCategoryId: bulkActionValues.underkategoriId,
+              status: tx.type === 'Transaction' ? 'green' : 'yellow'
+            };
+          }
+          return tx;
+        })
+      }));
+      
+      // Close bulk actions panel
+      setShowBulkActions(false);
+      setBulkActionValues({ huvudkategoriId: '', underkategoriId: '' });
+      
+    } catch (error) {
+      console.error('Bulk update error:', error);
+      toast({
+        title: "Fel",
+        description: "Ett fel inträffade vid uppdatering av transaktionerna.",
+        variant: "destructive"
+      });
+    }
+  };
+  
   // Edit state for transactions - now per transaction
   const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Record<string, {
     huvudkategoriId: string;
     underkategoriId: string;
+    type?: string;
+    linkedTransactionId?: string;
+    unlinkLinkedTransaction?: string;
+    userDescription?: string;
   }>>({});
-  
-  const updateTransactionMutation = useUpdateTransaction();
   
   // Reset edit values when dialog is closed
   useEffect(() => {
@@ -246,16 +510,19 @@ export function BudgetPlanningSection({
   // Initialize edit values for uncategorized transactions
   useEffect(() => {
     if (transactionDetailsDialog.isUncategorized && transactionDetailsDialog.isOpen) {
-      const initialValues: Record<string, { huvudkategoriId: string; underkategoriId: string }> = {};
-      transactionDetailsDialog.transactions.forEach(tx => {
+      const initialValues: Record<string, { huvudkategoriId: string; underkategoriId: string; type?: string; linkedTransactionId?: string; unlinkLinkedTransaction?: string; userDescription?: string }> = {};
+      const liveTransactions = getLiveDialogTransactions();
+      liveTransactions.forEach(tx => {
         initialValues[tx.id] = {
           huvudkategoriId: tx.appCategoryId || '',
-          underkategoriId: tx.appSubCategoryId || ''
+          underkategoriId: tx.appSubCategoryId || '',
+          type: tx.type,
+          userDescription: tx.userDescription || ''
         };
       });
       setEditValues(initialValues);
     }
-  }, [transactionDetailsDialog.isUncategorized, transactionDetailsDialog.isOpen, transactionDetailsDialog.transactions]);
+  }, [transactionDetailsDialog.isUncategorized, transactionDetailsDialog.isOpen, transactionDetailsDialog.huvudkategoriId, transactionDetailsDialog.underkategoriId, transactionDetailsDialog.accountId, allTransactions]);
   
   // Add scroll detection
   useEffect(() => {
@@ -1040,15 +1307,28 @@ export function BudgetPlanningSection({
         categoryName = account.name;
     }
     
+    // Pre-filter by account
+    setTransactionFilters({
+      status: 'all',
+      accountId: account.id,
+      transactionType: 'all',
+      huvudkategoriId: 'all',
+      underkategoriId: 'all',
+      bankCategory: 'all',
+      bankSubCategory: 'all',
+      description: ''
+    });
+    
     setTransactionDetailsDialog({
       isOpen: true,
       categoryName,
-      huvudkategoriId: account.id,
+      huvudkategoriId: '',
       underkategoriId: undefined,
       budgetAmount,
       actualAmount,
       transactions,
-      isUncategorized: false
+      isUncategorized: false,
+      accountId: account.id
     });
   };
 
@@ -1908,6 +2188,17 @@ export function BudgetPlanningSection({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
+                                // Reset filters for uncategorized
+                                setTransactionFilters({
+                                  status: 'all',
+                                  accountId: 'all',
+                                  transactionType: 'all',
+                                  huvudkategoriId: 'all',
+                                  underkategoriId: 'all',
+                                  bankCategory: 'all',
+                                  bankSubCategory: 'all',
+                                  description: ''
+                                });
                                 setTransactionDetailsDialog({
                                   isOpen: true,
                                   categoryName: 'Okategoriserade transaktioner',
@@ -1936,35 +2227,123 @@ export function BudgetPlanningSection({
                       <div className="mt-4 pt-4 border-t border-gray-300 space-y-2">
                         {Object.values(bankCategoryGroups)
                           .sort((a, b) => b.total - a.total)
-                          .map(group => (
-                            <div 
-                              key={group.name}
-                              className="flex items-center justify-between p-2 bg-white rounded border border-gray-200"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-700">{group.name}</span>
-                                <span className="text-xs text-gray-500">({group.transactions.length})</span>
+                          .map(group => {
+                            // Check if this bank category is expanded
+                            const isBankCategoryExpanded = expandedGroups[`bank-${group.name}`];
+                            
+                            // Group transactions by bank subcategory
+                            const bankSubCategoryGroups = group.transactions.reduce((subGroups, tx) => {
+                              const bankSubCategory = tx.bankSubCategory || 'Okänd underkategori';
+                              if (!subGroups[bankSubCategory]) {
+                                subGroups[bankSubCategory] = {
+                                  name: bankSubCategory,
+                                  transactions: [],
+                                  total: 0
+                                };
+                              }
+                              const amount = tx.correctedAmount !== null ? tx.correctedAmount : tx.amount;
+                              subGroups[bankSubCategory].transactions.push(tx);
+                              subGroups[bankSubCategory].total += Math.abs(amount);
+                              return subGroups;
+                            }, {} as Record<string, { name: string; transactions: any[]; total: number }>);
+                            
+                            return (
+                              <div key={group.name} className="bg-white rounded border border-gray-200">
+                                <button
+                                  onClick={() => toggleGroupExpansion(`bank-${group.name}`)}
+                                  className="w-full text-left p-2 hover:bg-gray-50 transition-colors"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      {isBankCategoryExpanded ? 
+                                        <ChevronDown className="h-3 w-3 text-gray-500" /> : 
+                                        <ChevronRight className="h-3 w-3 text-gray-500" />
+                                      }
+                                      <span className="text-sm font-medium text-gray-700">{group.name}</span>
+                                      <span className="text-xs text-gray-500">({group.transactions.length})</span>
+                                    </div>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        // Pre-filter by bank category
+                                        setTransactionFilters({
+                                          status: 'all',
+                                          accountId: 'all',
+                                          transactionType: 'all',
+                                          huvudkategoriId: 'all',
+                                          underkategoriId: 'all',
+                                          bankCategory: group.name,
+                                          bankSubCategory: 'all',
+                                          description: ''
+                                        });
+                                        setTransactionDetailsDialog({
+                                          isOpen: true,
+                                          categoryName: `Okategoriserade - ${group.name}`,
+                                          huvudkategoriId: '',
+                                          underkategoriId: undefined,
+                                          budgetAmount: 0,
+                                          actualAmount: group.total,
+                                          transactions: group.transactions,
+                                          isUncategorized: true
+                                        });
+                                      }}
+                                      className="text-sm font-semibold text-gray-700 hover:text-gray-900 hover:underline"
+                                    >
+                                      −{formatOrenAsCurrency(group.total)}
+                                    </button>
+                                  </div>
+                                </button>
+                                
+                                {/* Expanded bank subcategories */}
+                                {isBankCategoryExpanded && (
+                                  <div className="px-4 pb-2 space-y-1">
+                                    {Object.values(bankSubCategoryGroups)
+                                      .sort((a, b) => b.total - a.total)
+                                      .map(subGroup => (
+                                        <div 
+                                          key={`${group.name}-${subGroup.name}`}
+                                          className="flex items-center justify-between py-1 px-2 rounded hover:bg-gray-50 transition-colors"
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs text-gray-600 pl-4">{subGroup.name}</span>
+                                            <span className="text-xs text-gray-400">({subGroup.transactions.length})</span>
+                                          </div>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              // Pre-filter by both bank category and subcategory
+                                              setTransactionFilters({
+                                                status: 'all',
+                                                accountId: 'all',
+                                                transactionType: 'all',
+                                                huvudkategoriId: 'all',
+                                                underkategoriId: 'all',
+                                                bankCategory: group.name,
+                                                bankSubCategory: subGroup.name,
+                                                description: ''
+                                              });
+                                              setTransactionDetailsDialog({
+                                                isOpen: true,
+                                                categoryName: `${group.name} - ${subGroup.name}`,
+                                                huvudkategoriId: '',
+                                                underkategoriId: undefined,
+                                                budgetAmount: 0,
+                                                actualAmount: subGroup.total,
+                                                transactions: subGroup.transactions,
+                                                isUncategorized: true
+                                              });
+                                            }}
+                                            className="text-xs font-medium text-gray-600 hover:text-gray-800 hover:underline"
+                                          >
+                                            −{formatOrenAsCurrency(subGroup.total)}
+                                          </button>
+                                        </div>
+                                      ))}
+                                  </div>
+                                )}
                               </div>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setTransactionDetailsDialog({
-                                    isOpen: true,
-                                    categoryName: `Okategoriserade - ${group.name}`,
-                                    huvudkategoriId: '',
-                                    underkategoriId: undefined,
-                                    budgetAmount: 0,
-                                    actualAmount: group.total,
-                                    transactions: group.transactions,
-                                    isUncategorized: true // This is also uncategorized
-                                  });
-                                }}
-                                className="text-sm font-semibold text-gray-700 hover:text-gray-900 hover:underline cursor-pointer"
-                              >
-                                −{formatOrenAsCurrency(group.total)}
-                              </button>
-                            </div>
-                          ))}
+                            );
+                          })}
                       </div>
                     )}
                   </div>
@@ -2377,7 +2756,29 @@ export function BudgetPlanningSection({
       >
         <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Transaktioner för {transactionDetailsDialog.categoryName}</DialogTitle>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Transaktioner för {transactionDetailsDialog.categoryName}</span>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="flex items-center gap-2"
+                >
+                  <Filter className="h-4 w-4" />
+                  Filter
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowBulkActions(!showBulkActions)}
+                  className="flex items-center gap-2"
+                >
+                  <Zap className="h-4 w-4" />
+                  Snabbhantering
+                </Button>
+              </div>
+            </DialogTitle>
             <DialogDescription>
               <div className="space-y-1">
                 <div>Budgeterat: {formatOrenAsCurrency(transactionDetailsDialog.budgetAmount)}</div>
@@ -2387,12 +2788,284 @@ export function BudgetPlanningSection({
             </DialogDescription>
           </DialogHeader>
           
+          {/* Filter section */}
+          {showFilters && (
+            <div className="border rounded-lg p-4 space-y-3 bg-gray-50">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {/* Status filter */}
+                <div>
+                  <Label className="text-xs">Visa bara status:</Label>
+                  <Select value={transactionFilters.status} onValueChange={(value) => setTransactionFilters({...transactionFilters, status: value as 'all' | 'red_yellow'})}>
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Alla</SelectItem>
+                      <SelectItem value="red_yellow">Röd + Gul</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Account filter */}
+                <div>
+                  <Label className="text-xs">Konto:</Label>
+                  <Select value={transactionFilters.accountId} onValueChange={(value) => setTransactionFilters({...transactionFilters, accountId: value})}>
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Alla</SelectItem>
+                      {accounts.map(account => (
+                        <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Transaction type filter */}
+                <div>
+                  <Label className="text-xs">Transaktionstyp:</Label>
+                  <Select value={transactionFilters.transactionType} onValueChange={(value) => setTransactionFilters({...transactionFilters, transactionType: value})}>
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Alla</SelectItem>
+                      <SelectItem value="Transaction">Transaction</SelectItem>
+                      <SelectItem value="ExpenseClaim">ExpenseClaim</SelectItem>
+                      <SelectItem value="Payment">Payment</SelectItem>
+                      <SelectItem value="InternalTransfer">InternalTransfer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Huvudkategori filter */}
+                <div>
+                  <Label className="text-xs">Huvudkategori (App):</Label>
+                  <Select value={transactionFilters.huvudkategoriId} onValueChange={(value) => setTransactionFilters({...transactionFilters, huvudkategoriId: value, underkategoriId: 'all'})}>
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Alla</SelectItem>
+                      {huvudkategorier.map(kat => (
+                        <SelectItem key={kat.id} value={kat.id}>{kat.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Underkategori filter */}
+                <div>
+                  <Label className="text-xs">Underkategori (App):</Label>
+                  <Select 
+                    value={transactionFilters.underkategoriId} 
+                    onValueChange={(value) => setTransactionFilters({...transactionFilters, underkategoriId: value})}
+                    disabled={transactionFilters.huvudkategoriId === 'all'}
+                  >
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Alla</SelectItem>
+                      {underkategorier
+                        .filter(uk => transactionFilters.huvudkategoriId === 'all' || uk.huvudkategoriId === transactionFilters.huvudkategoriId)
+                        .map(kat => (
+                          <SelectItem key={kat.id} value={kat.id}>{kat.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Bank category filter */}
+                <div>
+                  <Label className="text-xs">Bankkategori:</Label>
+                  <Select value={transactionFilters.bankCategory} onValueChange={(value) => setTransactionFilters({...transactionFilters, bankCategory: value})}>
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Alla</SelectItem>
+                      {Array.from(new Set(getLiveDialogTransactions().map(tx => tx.bankCategory).filter(Boolean))).map(cat => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Bank subcategory filter */}
+                <div>
+                  <Label className="text-xs">Bankunderkategori:</Label>
+                  <Select 
+                    value={transactionFilters.bankSubCategory} 
+                    onValueChange={(value) => setTransactionFilters({...transactionFilters, bankSubCategory: value})}
+                    disabled={transactionFilters.bankCategory === 'all'}
+                  >
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Alla</SelectItem>
+                      {Array.from(new Set(
+                        getLiveDialogTransactions()
+                          .filter(tx => transactionFilters.bankCategory === 'all' || tx.bankCategory === transactionFilters.bankCategory)
+                          .map(tx => tx.bankSubCategory)
+                          .filter(Boolean)
+                      )).map(cat => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Description search */}
+                <div className="md:col-span-2">
+                  <Label className="text-xs">Beskrivning:</Label>
+                  <Input 
+                    type="text" 
+                    placeholder="Sök i beskrivning, egen text eller UUID"
+                    value={transactionFilters.description}
+                    onChange={(e) => setTransactionFilters({...transactionFilters, description: e.target.value})}
+                    className="h-8"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Bulk Actions section */}
+          {showBulkActions && (
+            <div className="border rounded-lg p-4 space-y-3 bg-blue-50 border-blue-200">
+              <h3 className="font-medium text-blue-900">Applicera på alla filtrerade transaktioner</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Huvudkategori */}
+                <div>
+                  <Label className="text-xs">Huvudkategori (App):</Label>
+                  <Select 
+                    value={bulkActionValues.huvudkategoriId} 
+                    onValueChange={(value) => setBulkActionValues({...bulkActionValues, huvudkategoriId: value, underkategoriId: ''})}
+                  >
+                    <SelectTrigger className="h-8">
+                      <SelectValue placeholder="Välj huvudkategori" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {huvudkategorier.map(kat => (
+                        <SelectItem key={kat.id} value={kat.id}>{kat.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Underkategori */}
+                <div>
+                  <Label className="text-xs">Underkategori (App):</Label>
+                  <Select 
+                    value={bulkActionValues.underkategoriId} 
+                    onValueChange={(value) => setBulkActionValues({...bulkActionValues, underkategoriId: value})}
+                    disabled={!bulkActionValues.huvudkategoriId}
+                  >
+                    <SelectTrigger className="h-8">
+                      <SelectValue placeholder="Välj underkategori" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {underkategorier
+                        .filter(uk => uk.huvudkategoriId === bulkActionValues.huvudkategoriId)
+                        .map(kat => (
+                          <SelectItem key={kat.id} value={kat.id}>{kat.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="flex justify-between items-center pt-2">
+                <div className="text-xs text-blue-700">
+                  Kommer att uppdatera alla visade transaktioner med valda kategorier.
+                  <br />
+                  Transaction-typer blir gröna, andra typer förblir gula.
+                </div>
+                <Button
+                  onClick={() => handleBulkUpdate()}
+                  disabled={!bulkActionValues.huvudkategoriId || !bulkActionValues.underkategoriId}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Applicera
+                </Button>
+              </div>
+            </div>
+          )}
+          
           <div className="py-4">
-            {transactionDetailsDialog.transactions.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">Inga transaktioner hittades för denna kategori.</p>
-            ) : (
-              <div className="space-y-3">
-                {transactionDetailsDialog.transactions.map((transaction, index) => {
+            {(() => {
+              // Filter transactions based on current filters - USE LIVE DATA instead of static copy
+              let filteredTransactions = [...getLiveDialogTransactions()];
+              
+              // Status filter
+              if (transactionFilters.status === 'red_yellow') {
+                filteredTransactions = filteredTransactions.filter(tx => tx.status === 'red' || tx.status === 'yellow');
+              }
+              
+              // Account filter
+              if (transactionFilters.accountId !== 'all') {
+                filteredTransactions = filteredTransactions.filter(tx => tx.accountId === transactionFilters.accountId);
+              }
+              
+              // Transaction type filter
+              if (transactionFilters.transactionType !== 'all') {
+                filteredTransactions = filteredTransactions.filter(tx => tx.type === transactionFilters.transactionType);
+              }
+              
+              // Huvudkategori filter
+              if (transactionFilters.huvudkategoriId !== 'all') {
+                filteredTransactions = filteredTransactions.filter(tx => tx.appCategoryId === transactionFilters.huvudkategoriId);
+              }
+              
+              // Underkategori filter
+              if (transactionFilters.underkategoriId !== 'all') {
+                filteredTransactions = filteredTransactions.filter(tx => tx.appSubCategoryId === transactionFilters.underkategoriId);
+              }
+              
+              // Bank category filter
+              if (transactionFilters.bankCategory !== 'all') {
+                filteredTransactions = filteredTransactions.filter(tx => tx.bankCategory === transactionFilters.bankCategory);
+              }
+              
+              // Bank subcategory filter
+              if (transactionFilters.bankSubCategory !== 'all') {
+                filteredTransactions = filteredTransactions.filter(tx => tx.bankSubCategory === transactionFilters.bankSubCategory);
+              }
+              
+              // Description filter
+              if (transactionFilters.description) {
+                const searchTerm = transactionFilters.description.toLowerCase();
+                filteredTransactions = filteredTransactions.filter(tx => 
+                  tx.description?.toLowerCase().includes(searchTerm) ||
+                  tx.userDescription?.toLowerCase().includes(searchTerm) ||
+                  tx.id?.toLowerCase().includes(searchTerm)
+                );
+              }
+              
+              if (filteredTransactions.length === 0) {
+                return (
+                  <p className="text-gray-500 text-center py-8">
+                    {getLiveDialogTransactions().length === 0 
+                      ? "Inga transaktioner hittades för denna kategori."
+                      : `Inga transaktioner matchar filtren (${getLiveDialogTransactions().length} totalt)`
+                    }
+                  </p>
+                );
+              }
+              
+              return (
+                <>
+                  {/* Filter summary */}
+                  {showFilters && (
+                    <div className="text-xs text-gray-600 mb-3">
+                      Visar {filteredTransactions.length} av {getLiveDialogTransactions().length} transaktioner
+                    </div>
+                  )}
+                  <div className="space-y-3">
+                    {filteredTransactions.map((transaction, index) => {
                   // Find category names
                   const huvudkategori = huvudkategorier?.find(hk => hk.id === transaction.appCategoryId);
                   const underkategori = underkategorier?.find(uk => uk.id === transaction.appSubCategoryId);
@@ -2411,13 +3084,42 @@ export function BudgetPlanningSection({
                       key={transaction.id || index} 
                       className={cn(
                         "border rounded-lg p-3 relative",
+                        transaction.type === 'InternalTransfer' ? "bg-blue-50 border-blue-300" :
                         isRed ? "bg-red-50 border-red-300" : 
                         isYellow ? "bg-yellow-50 border-yellow-300" : 
                         "bg-gray-50 border-gray-200"
                       )}
                     >
-                      {/* Edit and Approve buttons */}
-                      <div className="absolute top-3 right-3 flex gap-2">
+                      {/* Edit, Link and Approve buttons */}
+                      <div className="absolute top-3 right-3 flex gap-2 z-10">
+                        {/* Show linked icon for linked transactions - always visible */}
+                        {transaction.linkedTransactionId && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              // Find the linked transaction
+                              const linkedTx = allTransactions.find(
+                                tx => tx.id === transaction.linkedTransactionId
+                              );
+                              
+                              if (linkedTx) {
+                                setLinkedTransactionToShow(linkedTx);
+                                setShowLinkedTransactionDialog(true);
+                              } else {
+                                toast({
+                                  title: "Länkad transaktion hittades inte",
+                                  description: `ID: ${transaction.linkedTransactionId}`,
+                                  variant: "destructive"
+                                });
+                              }
+                            }}
+                            className="h-8 w-8 p-0"
+                            title="Visa länkad transaktion"
+                          >
+                            <Link2 className="h-4 w-4 text-blue-600" />
+                          </Button>
+                        )}
                         {!isEditing ? (
                           <>
                             <Button
@@ -2437,7 +3139,22 @@ export function BudgetPlanningSection({
                             >
                               <Edit2 className="h-4 w-4" />
                             </Button>
-                            {needsApproval && (
+                            {/* Show Link button for unlinked InternalTransfer transactions */}
+                            {transaction.type === 'InternalTransfer' && !transaction.linkedTransactionId && (
+                              <Button
+                                size="sm"
+                                variant="outline" 
+                                onClick={() => {
+                                  setLinkingTransaction(transaction);
+                                  setShowTransferMatchDialog(true);
+                                }}
+                                className="h-8 px-2"
+                              >
+                                <Link className="h-4 w-4 mr-1" />
+                                Länka
+                              </Button>
+                            )}
+                            {needsApproval && (transaction.type !== 'InternalTransfer' || transaction.linkedTransactionId) && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -2457,33 +3174,62 @@ export function BudgetPlanningSection({
                                   
                                   console.log('✅ Approving transaction:', transaction.id);
                                   
-                                  updateTransactionMutation.mutate({
-                                    id: transaction.id,
-                                    data: { status: 'green' }
-                                  }, {
-                                    onSuccess: () => {
-                                      console.log('✅ Transaction approved successfully');
+                                  // Check if this is an InternalTransfer with a linked transaction
+                                  if (transaction.type === 'InternalTransfer' && transaction.linkedTransactionId) {
+                                    // Update both transactions: ensure linked transaction becomes InternalTransfer with same categories and status
+                                    const updateData = {
+                                      type: 'InternalTransfer',
+                                      appCategoryId: transaction.appCategoryId,
+                                      appSubCategoryId: transaction.appSubCategoryId,
+                                      status: 'green'
+                                    };
+                                    
+                                    Promise.all([
+                                      updateTransactionMutation.mutateAsync({
+                                        id: transaction.id,
+                                        data: { status: 'green' }
+                                      }),
+                                      updateTransactionMutation.mutateAsync({
+                                        id: transaction.linkedTransactionId,
+                                        data: updateData
+                                      })
+                                    ]).then(() => {
+                                      console.log('✅ Both linked InternalTransfer transactions approved');
                                       toast({
                                         title: "Godkänd",
-                                        description: "Transaktionen har godkänts.",
+                                        description: "Båda länkade överföringarna har godkänts.",
                                       });
-                                      // Refresh the dialog
-                                      setTransactionDetailsDialog(prev => ({
-                                        ...prev,
-                                        transactions: prev.transactions.map(tx => 
-                                          tx.id === transaction.id ? { ...tx, status: 'green' } : tx
-                                        )
-                                      }));
-                                    },
-                                    onError: (error) => {
-                                      console.error('❌ Failed to approve transaction:', error);
+                                    }).catch((error) => {
+                                      console.error('❌ Failed to approve linked transactions:', error);
                                       toast({
-                                        title: "Fel",
-                                        description: "Kunde inte godkänna transaktionen.",
+                                        title: "Fel", 
+                                        description: "Kunde inte godkänna de länkade transaktionerna.",
                                         variant: "destructive"
                                       });
-                                    }
-                                  });
+                                    });
+                                  } else {
+                                    // Regular transaction approval
+                                    updateTransactionMutation.mutate({
+                                      id: transaction.id,
+                                      data: { status: 'green' }
+                                    }, {
+                                      onSuccess: () => {
+                                        console.log('✅ Transaction approved successfully');
+                                        toast({
+                                          title: "Godkänd",
+                                          description: "Transaktionen har godkänts.",
+                                        });
+                                      },
+                                      onError: (error) => {
+                                        console.error('❌ Failed to approve transaction:', error);
+                                        toast({
+                                          title: "Fel",
+                                          description: "Kunde inte godkänna transaktionen.",
+                                          variant: "destructive"
+                                        });
+                                      }
+                                    });
+                                  }
                                 }}
                                 className="h-8 px-3 bg-green-100 hover:bg-green-200 text-green-700 border-green-300"
                               >
@@ -2497,14 +3243,25 @@ export function BudgetPlanningSection({
                             <Button
                               size="sm"
                               variant="outline"
-                              disabled={!editValues[transaction.id]?.huvudkategoriId || !editValues[transaction.id]?.underkategoriId}
+                              disabled={
+                                // Must have categories OR a description change
+                                (!editValues[transaction.id]?.huvudkategoriId || !editValues[transaction.id]?.underkategoriId) && 
+                                editValues[transaction.id]?.userDescription === undefined &&
+                                editValues[transaction.id]?.type === undefined &&
+                                editValues[transaction.id]?.linkedTransactionId === undefined
+                              }
                               onClick={() => {
                                 // Save the changes
-                                const transactionEditValues = editValues[transaction.id] || { huvudkategoriId: '', underkategoriId: '' };
+                                const transactionEditValues = editValues[transaction.id] || { 
+                                  huvudkategoriId: transaction.appCategoryId || '', 
+                                  underkategoriId: transaction.appSubCategoryId || '' 
+                                };
                                 console.log('💾 Saving transaction with data:', {
                                   id: transaction.id,
                                   huvudkategoriId: transactionEditValues.huvudkategoriId,
                                   underkategoriId: transactionEditValues.underkategoriId,
+                                  type: transactionEditValues.type,
+                                  linkedTransactionId: transactionEditValues.linkedTransactionId,
                                   willAutoApprove: !!(transactionEditValues.huvudkategoriId && transactionEditValues.underkategoriId)
                                 });
                                 
@@ -2515,44 +3272,173 @@ export function BudgetPlanningSection({
                                   appSubCategoryId: transactionEditValues.underkategoriId || null,
                                 };
                                 
-                                // Auto-approve to green status when both categories are set
-                                if (hasBothCategories) {
-                                  updateData.status = 'green';
+                                // Include userDescription only if it differs from original description
+                                if (transactionEditValues.userDescription !== undefined) {
+                                  if (transactionEditValues.userDescription === transaction.description || transactionEditValues.userDescription === '') {
+                                    // Same as original or empty -> set to empty string to use original description
+                                    updateData.userDescription = '';
+                                    console.log('💾 Setting userDescription to empty string (same as original or empty)');
+                                  } else {
+                                    // Different from original -> save custom description
+                                    updateData.userDescription = transactionEditValues.userDescription;
+                                    console.log('💾 Setting userDescription to custom value:', transactionEditValues.userDescription);
+                                  }
+                                } else {
+                                  console.log('💾 userDescription is undefined, not updating');
                                 }
                                 
-                                updateTransactionMutation.mutate({
-                                  id: transaction.id,
-                                  data: updateData
-                                }, {
-                                  onSuccess: () => {
-                                    console.log('💾 Transaction saved successfully');
+                                // Include type change if specified
+                                if (transactionEditValues.type && transactionEditValues.type !== transaction.type) {
+                                  updateData.type = transactionEditValues.type;
+                                }
+                                
+                                // Include linking if specified
+                                if (transactionEditValues.linkedTransactionId) {
+                                  updateData.linkedTransactionId = transactionEditValues.linkedTransactionId;
+                                }
+                                
+                                // Handle unlinking if specified
+                                if (transactionEditValues.unlinkLinkedTransaction) {
+                                  updateData.linkedTransactionId = null;
+                                  updateData.status = 'yellow'; // Set to yellow when unlinking
+                                } else {
+                                  // Auto-approve to green status when both categories are set (only if not unlinking)
+                                  if (hasBothCategories) {
+                                    updateData.status = 'green';
+                                  }
+                                }
+                                
+                                // Handle unlinking scenario first
+                                if (transactionEditValues.unlinkLinkedTransaction) {
+                                  const linkedTxToUnlink = transactionEditValues.unlinkLinkedTransaction;
+                                  console.log('🔗❌ [UNLINK] Unlinking both transactions:', transaction.id, 'and', linkedTxToUnlink);
+                                  
+                                  Promise.all([
+                                    // Update current transaction - remove link and set to yellow
+                                    updateTransactionMutation.mutateAsync({
+                                      id: transaction.id,
+                                      data: updateData
+                                    }),
+                                    // Update the previously linked transaction - remove link, change to Transaction, and set to yellow
+                                    updateTransactionMutation.mutateAsync({
+                                      id: linkedTxToUnlink,
+                                      data: {
+                                        type: 'Transaction', // Change back to Transaction
+                                        linkedTransactionId: null,
+                                        status: 'yellow'
+                                      }
+                                    })
+                                  ]).then(() => {
+                                    console.log('✅ Both transactions unlinked successfully');
                                     toast({
                                       title: "Sparad",
-                                      description: "Transaktionen har uppdaterats.",
+                                      description: "Båda transaktionerna har kopplats från varandra.",
+                                    });
+                                    setEditingTransaction(null);
+                                  }).catch((error) => {
+                                    console.error('❌ Failed to unlink transactions:', error);
+                                    toast({
+                                      title: "Fel",
+                                      description: "Kunde inte koppla från transaktionerna.",
+                                      variant: "destructive"
+                                    });
+                                  });
+                                  return; // Exit early for unlink scenario
+                                }
+                                
+                                // Check if this transaction is linked to another transaction (existing or new)
+                                const isLinkedTransaction = transaction.linkedTransactionId || transactionEditValues.linkedTransactionId;
+                                const linkedTxId = transaction.linkedTransactionId || transactionEditValues.linkedTransactionId;
+                                
+                                if (isLinkedTransaction && linkedTxId) {
+                                  // Update both the current transaction and its linked transaction
+                                  console.log('🔗 Updating linked transaction with same categories:', linkedTxId);
+                                  
+                                  // Prepare linked transaction update data
+                                  const linkedUpdateData = {
+                                    type: 'InternalTransfer', // Always make linked transaction InternalTransfer
+                                    linkedTransactionId: transaction.id, // Link back to current transaction
+                                    appCategoryId: transactionEditValues.huvudkategoriId || null,
+                                    appSubCategoryId: transactionEditValues.underkategoriId || null,
+                                    ...(hasBothCategories && { status: 'green' })
+                                  };
+                                  
+                                  Promise.all([
+                                    // Update the current transaction
+                                    updateTransactionMutation.mutateAsync({
+                                      id: transaction.id,
+                                      data: updateData
+                                    }),
+                                    // Update the linked transaction with same categories and ensure it's InternalTransfer
+                                    updateTransactionMutation.mutateAsync({
+                                      id: linkedTxId,
+                                      data: linkedUpdateData
+                                    })
+                                  ]).then(() => {
+                                    console.log('💾 Both linked transactions saved successfully');
+                                    toast({
+                                      title: "Sparad",
+                                      description: "Båda länkade transaktionerna har uppdaterats.",
                                     });
                                     setEditingTransaction(null);
                                     // Refresh the dialog
                                     setTransactionDetailsDialog(prev => ({
                                       ...prev,
                                       transactions: prev.transactions.map(tx => 
-                                        tx.id === transaction.id ? { 
+                                        tx.id === transaction.id || tx.id === transaction.linkedTransactionId ? { 
                                           ...tx, 
                                           appCategoryId: transactionEditValues.huvudkategoriId,
                                           appSubCategoryId: transactionEditValues.underkategoriId,
-                                          status: hasBothCategories ? 'green' : tx.status // Only update status if both categories provided
+                                          status: hasBothCategories ? 'green' : tx.status
                                         } : tx
                                       )
                                     }));
-                                  },
-                                  onError: (error) => {
-                                    console.error('❌ Failed to save transaction:', error);
+                                  }).catch((error) => {
+                                    console.error('❌ Failed to save linked transactions:', error);
                                     toast({
                                       title: "Fel",
-                                      description: "Kunde inte spara transaktionen.",
-                                      variant: "destructive"
+                                      description: "Kunde inte spara de länkade transaktionerna.",
+                                      variant: "destructive",
                                     });
-                                  }
-                                });
+                                  });
+                                } else {
+                                  // Update single transaction (not linked)
+                                  updateTransactionMutation.mutate({
+                                    id: transaction.id,
+                                    data: updateData
+                                  }, {
+                                    onSuccess: () => {
+                                      console.log('💾 Transaction saved successfully');
+                                      toast({
+                                        title: "Sparad",
+                                        description: "Transaktionen har uppdaterats.",
+                                      });
+                                      setEditingTransaction(null);
+                                      // Refresh the dialog
+                                      setTransactionDetailsDialog(prev => ({
+                                        ...prev,
+                                        transactions: prev.transactions.map(tx => 
+                                          tx.id === transaction.id ? { 
+                                            ...tx, 
+                                            appCategoryId: transactionEditValues.huvudkategoriId,
+                                            appSubCategoryId: transactionEditValues.underkategoriId,
+                                            status: hasBothCategories ? 'green' : tx.status
+                                          } : tx
+                                        )
+                                      }));
+                                    },
+                                    onError: (error) => {
+                                      console.error('❌ Failed to save transaction:', error);
+                                      console.error('❌ Update data that failed:', updateData);
+                                      console.error('❌ Transaction edit values:', transactionEditValues);
+                                      toast({
+                                        title: "Fel",
+                                        description: `Kunde inte spara transaktionen. ${error?.message || 'Okänt fel'}`,
+                                        variant: "destructive"
+                                      });
+                                    }
+                                  });
+                                }
                               }}
                               className="h-8 px-3 bg-green-100 hover:bg-green-200 text-green-700 border-green-300"
                             >
@@ -2577,112 +3463,406 @@ export function BudgetPlanningSection({
                         )}
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-4 text-sm pr-24">
-                        <div>
-                          <div className="font-semibold text-gray-600">Datum</div>
-                          <div>{new Date(transaction.date).toLocaleDateString('sv-SE', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                            weekday: 'long'
-                          })}</div>
-                        </div>
-                        <div>
-                          <div className="font-semibold text-gray-600">{amountLabel}</div>
-                          <div className={`font-semibold ${displayAmount < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                            {displayAmount < 0 ? '−' : '+'}{formatOrenAsCurrency(Math.abs(displayAmount))}
+                      <div className="relative">
+                        {/* Header Section */}
+                        <div className="mb-6 border-b border-gray-100 pb-4">
+                          <div className="text-xl font-semibold text-gray-900 mb-1 capitalize">
+                            {new Date(transaction.date).toLocaleDateString('sv-SE', {
+                              year: 'numeric',
+                              month: 'long', 
+                              day: 'numeric',
+                              weekday: 'long'
+                            })}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            <span>{accounts.find(acc => acc.id === transaction.accountId)?.name || 'Okänt konto'} - {transaction.id}</span>
                           </div>
                         </div>
-                        <div>
-                          <div className="font-semibold text-gray-600">Konto</div>
-                          <div>{accounts.find(acc => acc.id === transaction.accountId)?.name || 'Okänt konto'}</div>
-                        </div>
-                        <div>
-                          <div className="font-semibold text-gray-600">Beskrivning</div>
-                          <div>{transaction.description}</div>
-                        </div>
-                        <div>
-                          <div className="font-semibold text-gray-600">Typ</div>
-                          <div>{transaction.type}</div>
-                        </div>
-                        <div>
-                          <div className="font-semibold text-gray-600">TransaktionsID</div>
-                          <div className="font-mono text-xs">{transaction.id}</div>
-                        </div>
-                        <div>
-                          <div className="font-semibold text-gray-600">Huvudkategori</div>
-                          {isEditing ? (
-                            <Select
-                              value={(editValues[transaction.id]?.huvudkategoriId) || '__none__'}
-                              onValueChange={(value) => {
-                                setEditValues(prev => ({
-                                  ...prev,
-                                  [transaction.id]: {
-                                    huvudkategoriId: value === '__none__' ? '' : value,
-                                    underkategoriId: '' // Reset underkategori when huvudkategori changes
+
+                        {/* Main Content */}
+                        <div className="space-y-6 pr-20">
+                          {/* Transaction Type */}
+                          <div className="flex items-center gap-4">
+                            <span className="text-sm font-medium text-gray-500 w-16">Typ</span>
+                            {isEditing ? (
+                              <Select
+                                value={editValues[transaction.id]?.type || transaction.type}
+                                onValueChange={(value) => {
+                                  setEditValues(prev => ({
+                                    ...prev,
+                                    [transaction.id]: {
+                                      ...prev[transaction.id],
+                                      type: value
+                                    }
+                                  }));
+                                  
+                                  // Handle unlinking when changing FROM InternalTransfer
+                                  if (transaction.type === 'InternalTransfer' && value !== 'InternalTransfer' && transaction.linkedTransactionId) {
+                                    console.log('🔓 Unlinking InternalTransfer:', transaction.id, 'from', transaction.linkedTransactionId);
+                                    
+                                    // Update both transactions immediately
+                                    updateTransactionMutation.mutate({
+                                      id: transaction.id,
+                                      data: { 
+                                        type: value,
+                                        linkedTransactionId: null,
+                                        status: 'yellow'
+                                      }
+                                    });
+                                    
+                                    updateTransactionMutation.mutate({
+                                      id: transaction.linkedTransactionId,
+                                      data: { 
+                                        type: 'Transaction',
+                                        linkedTransactionId: null,
+                                        status: 'yellow'
+                                      }
+                                    });
                                   }
-                                }));
-                              }}
-                            >
-                              <SelectTrigger className="w-full h-8">
-                                <SelectValue placeholder="Välj huvudkategori" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="__none__">Ingen</SelectItem>
-                                {huvudkategorier?.map(hk => (
-                                  <SelectItem key={hk.id} value={hk.id}>
-                                    {hk.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <div>{huvudkategori?.name || 'Ej tilldelad'}</div>
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-semibold text-gray-600">Underkategori</div>
-                          {isEditing ? (
-                            <Select
-                              value={(editValues[transaction.id]?.underkategoriId) || '__none__'}
-                              onValueChange={(value) => {
-                                setEditValues(prev => ({
-                                  ...prev,
-                                  [transaction.id]: {
-                                    ...prev[transaction.id],
-                                    underkategoriId: value === '__none__' ? '' : value
+                                  
+                                  // Handle auto-linking when changing TO InternalTransfer
+                                  if (value === 'InternalTransfer' && transaction.type !== 'InternalTransfer') {
+                                    const matchingTransaction = findAndLinkMatchingTransaction({
+                                      ...transaction,
+                                      type: 'InternalTransfer'
+                                    });
+                                    if (matchingTransaction) {
+                                      console.log('🔗 Auto-linking to:', matchingTransaction.id);
+                                    }
                                   }
-                                }));
-                              }}
-                              disabled={!editValues[transaction.id]?.huvudkategoriId}
-                            >
-                              <SelectTrigger className="w-full h-8">
-                                <SelectValue placeholder="Välj underkategori" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="__none__">Ingen</SelectItem>
-                                {underkategorier
-                                  ?.filter(uk => uk.huvudkategoriId === editValues[transaction.id]?.huvudkategoriId)
-                                  .map(uk => (
-                                    <SelectItem key={uk.id} value={uk.id}>
-                                      {uk.name}
-                                    </SelectItem>
-                                  ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <div>{underkategori?.name || 'Ej tilldelad'}</div>
-                          )}
+                                }}
+                              >
+                                <SelectTrigger className="w-full h-8">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Transaction">Transaktion</SelectItem>
+                                  <SelectItem value="InternalTransfer">Intern Överföring</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {transaction.type === 'InternalTransfer' ? 'Intern Överföring' : 'Transaktion'}
+                              </div>
+                            )}
+                          </div>
+
+ 
+                          {/* Categories directly under Type */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                            <div>
+                              <div className="text-sm font-medium text-gray-500 mb-2">Huvudkategori</div>
+                              {isEditing ? (
+                                <Select
+                                  value={(editValues[transaction.id]?.huvudkategoriId) || '__none__'}
+                                  onValueChange={(value) => {
+                                    setEditValues(prev => ({
+                                      ...prev,
+                                      [transaction.id]: {
+                                        ...prev[transaction.id],
+                                        huvudkategoriId: value === '__none__' ? '' : value,
+                                        underkategoriId: value === '__none__' ? '' : prev[transaction.id]?.underkategoriId || ''
+                                      }
+                                    }));
+                                  }}
+                                >
+                                  <SelectTrigger className="w-full h-8">
+                                    <SelectValue placeholder="Välj huvudkategori" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="__none__">Ingen</SelectItem>
+                                    {huvudkategorier?.map(hk => (
+                                      <SelectItem key={hk.id} value={hk.id}>
+                                        {hk.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <div>{huvudkategori?.name || 'Ej tilldelad'}</div>
+                              )}
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-gray-500 mb-2">Underkategori</div>
+                              {isEditing ? (
+                                <Select
+                                  value={(editValues[transaction.id]?.underkategoriId) || '__none__'}
+                                  onValueChange={(value) => {
+                                    setEditValues(prev => ({
+                                      ...prev,
+                                      [transaction.id]: {
+                                        ...prev[transaction.id],
+                                        underkategoriId: value === '__none__' ? '' : value
+                                      }
+                                    }));
+                                  }}
+                                  disabled={!editValues[transaction.id]?.huvudkategoriId}
+                                >
+                                  <SelectTrigger className="w-full h-8">
+                                    <SelectValue placeholder="Välj underkategori" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="__none__">Ingen</SelectItem>
+                                    {underkategorier
+                                      ?.filter(uk => uk.huvudkategoriId === editValues[transaction.id]?.huvudkategoriId)
+                                      .map(uk => (
+                                        <SelectItem key={uk.id} value={uk.id}>
+                                          {uk.name}
+                                        </SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <div>{underkategori?.name || 'Ej tilldelad'}</div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Description and Amount side by side - at the end */}
+                          <div className="flex items-start gap-4">
+                            <div className="flex-1">
+                              {isEditing && transaction.userDescription && transaction.userDescription !== '' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setEditValues(prev => ({
+                                      ...prev,
+                                      [transaction.id]: {
+                                        ...prev[transaction.id],
+                                        userDescription: transaction.description
+                                      }
+                                    }));
+                                    toast({
+                                      title: "Beskrivning återställd",
+                                      description: "Beskrivningen är nu återställd till originalversionen.",
+                                    });
+                                  }}
+                                  className="h-5 px-2 text-xs mb-2"
+                                >
+                                  Återställ
+                                </Button>
+                              )}
+                            
+                              {isEditing ? (
+                                <Input
+                                  type="text"
+                                  value={editValues[transaction.id]?.userDescription !== undefined 
+                                    ? editValues[transaction.id]?.userDescription || ''
+                                    : (transaction.userDescription && transaction.userDescription !== '') ? transaction.userDescription : transaction.description}
+                                  onChange={(e) => {
+                                    setEditValues(prev => ({
+                                      ...prev,
+                                      [transaction.id]: {
+                                        ...prev[transaction.id],
+                                        userDescription: e.target.value
+                                      }
+                                    }));
+                                  }}
+                                  placeholder="Ange egen beskrivning"
+                                  className="w-full bg-white border rounded-lg p-3 text-base font-medium"
+                                />
+                              ) : (
+                                <div className="bg-white border rounded-lg p-3 text-base font-medium text-gray-900">
+                                  {transaction.userDescription || transaction.description || 'Ingen beskrivning'}
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Amount box */}
+                            <div className="bg-white border rounded-lg p-3 min-w-[120px] text-right">
+                              <div className={`text-lg font-bold ${displayAmount < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                {displayAmount < 0 ? '−' : '+'}{formatOrenAsCurrency(Math.abs(displayAmount))}
+                              </div>
+                            </div>
+                          </div>
+
+
                         </div>
                       </div>
                     </div>
                   );
-                })}
-              </div>
-            )}
+                    })}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Transfer Match Dialog for linking InternalTransfer transactions */}
+      {linkingTransaction && (
+        <TransferMatchDialog
+          isOpen={!!linkingTransaction}
+          onClose={() => {
+            setLinkingTransaction(null);
+            // Refresh transactions
+            queryClient.invalidateQueries({ queryKey: ['transactions'] });
+          }}
+          transaction={linkingTransaction}
+          onRefresh={(tx1Id, tx2Id) => {
+            addMobileDebugLog(`🔄 [DIALOG REFRESH] onRefresh called with parameters: tx1Id=${tx1Id}, tx2Id=${tx2Id}`);
+            
+            // No need to close/reopen dialog - the popup now uses live data directly!
+            addMobileDebugLog(`✅ [TRANSFER MATCH] Dialog will show updated data automatically with live data`);
+          }}
+          suggestions={(() => {
+            // Find potential matches from ALL transactions in the system, not just the filtered dialog view
+            // Use the allTransactions from useTransactions hook which contains ALL transactions
+            const transactionDate = new Date(linkingTransaction.date);
+            const sevenDaysAgo = new Date(transactionDate);
+            sevenDaysAgo.setDate(transactionDate.getDate() - 7);
+            const sevenDaysAhead = new Date(transactionDate);
+            sevenDaysAhead.setDate(transactionDate.getDate() + 7);
+            
+            // Filter for potential matches:
+            // 1. InternalTransfer type
+            // 2. EXACT opposite amount (same absolute value, opposite sign)
+            // 3. Within 7 days (TransferMatchDialog will filter for same day initially)
+            // 4. Not the same transaction
+            // 5. Not already linked (unless to each other)
+            return allTransactions.filter(t => {
+              if (t.id === linkingTransaction.id) return false;
+              if (t.type !== 'InternalTransfer') return false;
+              
+              const tDate = new Date(t.date);
+              if (tDate < sevenDaysAgo || tDate > sevenDaysAhead) return false;
+              
+              // Check for EXACT opposite amount (same absolute value, opposite sign)
+              const linkingAmount = Math.abs(linkingTransaction.amount);
+              const tAmount = Math.abs(t.amount);
+              const isExactOpposite = (linkingAmount === tAmount) && 
+                                     ((linkingTransaction.amount > 0 && t.amount < 0) || 
+                                      (linkingTransaction.amount < 0 && t.amount > 0));
+              if (!isExactOpposite) return false;
+              
+              // Include if not linked, or if linked to current transaction
+              return !t.linkedTransactionId || t.linkedTransactionId === linkingTransaction.id;
+            });
+          })()}
+          onRefresh={() => {
+            queryClient.invalidateQueries({ queryKey: ['transactions'] });
+            // No need to update dialog state - we use live data now!
+          }}
+        />
+      )}
+      
+      {/* Linked Transaction View Dialog */}
+      {showLinkedTransactionDialog && linkedTransactionToShow && (
+        <Dialog open={showLinkedTransactionDialog} onOpenChange={setShowLinkedTransactionDialog}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Länkad transaktion</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6">
+              {/* Transaction header */}
+              <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
+                <div>
+                  <h3 className="text-lg font-semibold">{linkedTransactionToShow.description}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(linkedTransactionToShow.date).toLocaleDateString('sv-SE', { 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
+                    {linkedTransactionToShow.accountId && accounts.find(a => a.id === linkedTransactionToShow.accountId) && (
+                      <> • {accounts.find(a => a.id === linkedTransactionToShow.accountId)?.name}</>
+                    )}
+                  </p>
+                </div>
+                <div className="text-right">
+                  {linkedTransactionToShow.correctedAmount !== null && linkedTransactionToShow.correctedAmount !== undefined ? (
+                    <div>
+                      <p className={cn("text-2xl font-bold", linkedTransactionToShow.correctedAmount < 0 ? "text-red-600" : "text-green-600")}>
+                        {formatOrenAsCurrency(linkedTransactionToShow.correctedAmount)}
+                      </p>
+                      <p className="text-sm text-muted-foreground line-through">
+                        Ursprungligt: {formatOrenAsCurrency(linkedTransactionToShow.amount)}
+                      </p>
+                      <p className="text-xs text-blue-600 font-medium">Korrigerat belopp</p>
+                    </div>
+                  ) : (
+                    <p className={cn("text-2xl font-bold", linkedTransactionToShow.amount < 0 ? "text-red-600" : "text-green-600")}>
+                      {formatOrenAsCurrency(linkedTransactionToShow.amount)}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Transaction details */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Typ</Label>
+                  <Badge variant="outline" className="block w-fit mt-1">
+                    {linkedTransactionToShow.type}
+                  </Badge>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Status</Label>
+                  <Badge 
+                    variant="outline" 
+                    className={cn(
+                      "block w-fit mt-1",
+                      linkedTransactionToShow.status === 'green' && "bg-green-100 text-green-700 border-green-300",
+                      linkedTransactionToShow.status === 'yellow' && "bg-yellow-100 text-yellow-700 border-yellow-300",
+                      linkedTransactionToShow.status === 'red' && "bg-red-100 text-red-700 border-red-300"
+                    )}
+                  >
+                    {linkedTransactionToShow.status === 'green' ? 'Godkänd' : 
+                     linkedTransactionToShow.status === 'yellow' ? 'Granskning' : 'Behöver åtgärd'}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* User note */}
+              {linkedTransactionToShow.userDescription && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Anteckning</Label>
+                  <p className="text-sm mt-1 p-2 bg-gray-50 rounded">{linkedTransactionToShow.userDescription}</p>
+                </div>
+              )}
+
+              {/* Categories */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Huvudkategori</Label>
+                  <p className="text-sm mt-1">
+                    {linkedTransactionToShow.appCategoryId && huvudkategorier.find(h => h.id === linkedTransactionToShow.appCategoryId)?.name || 'Ej kategoriserad'}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Underkategori</Label>
+                  <p className="text-sm mt-1">
+                    {linkedTransactionToShow.appSubCategoryId && underkategorier.find(u => u.id === linkedTransactionToShow.appSubCategoryId)?.name || 'Ej vald'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Bank Categories */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Bankkategori</Label>
+                  <p className="text-sm mt-1">{linkedTransactionToShow.bankCategory || 'Ej angiven'}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Bankunderkategori</Label>
+                  <p className="text-sm mt-1">{linkedTransactionToShow.bankSubCategory || 'Ej angiven'}</p>
+                </div>
+              </div>
+
+              {/* Transaction ID */}
+              <div>
+                <Label className="text-xs text-muted-foreground">Transaktions-ID</Label>
+                <p className="text-xs font-mono mt-1 p-2 bg-gray-50 rounded">{linkedTransactionToShow.id}</p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setShowLinkedTransactionDialog(false)}>Stäng</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Long Press Popup Menu */}
       <Dialog open={popupData.isOpen} onOpenChange={(open) => setPopupData(prev => ({ ...prev, isOpen: open }))}>

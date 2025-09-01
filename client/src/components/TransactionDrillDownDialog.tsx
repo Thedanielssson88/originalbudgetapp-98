@@ -1,14 +1,18 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Filter } from 'lucide-react';
 import { Transaction } from '@/types/budget';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { formatOrenAsCurrency } from '@/utils/currencyUtils';
 import { useAccounts } from '@/hooks/useAccounts';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useHuvudkategorier, useUnderkategorier } from '@/hooks/useCategories';
 
 interface TransactionDrillDownDialogProps {
   isOpen: boolean;
@@ -17,6 +21,13 @@ interface TransactionDrillDownDialogProps {
   categoryName: string;
   budgetAmount: number;
   actualAmount: number;
+  huvudkategoriId?: string;
+  underkategoriId?: string;
+  accountId?: string;
+  bankCategory?: string;
+  bankSubCategory?: string;
+  selectedMonth?: string;
+  isUncategorized?: boolean;
 }
 
 export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProps> = ({
@@ -25,20 +36,127 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
   transactions,
   categoryName,
   budgetAmount,
-  actualAmount
+  actualAmount,
+  huvudkategoriId,
+  underkategoriId,
+  accountId,
+  bankCategory,
+  bankSubCategory,
+  selectedMonth,
+  isUncategorized
 }) => {
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
   const [expandedTransactions, setExpandedTransactions] = useState<Set<string>>(new Set());
+  const [showFilters, setShowFilters] = useState(false);
   const isMobile = useIsMobile();
   const { data: accounts = [] } = useAccounts();
+  const { data: huvudkategorier = [] } = useHuvudkategorier();
+  const { data: underkategorier = [] } = useUnderkategorier();
+  
+  // Filter state
+  const [filters, setFilters] = useState({
+    status: 'all' as 'all' | 'red_yellow',
+    accountId: accountId || 'all',
+    transactionType: 'all',
+    transaction: 'all',
+    month: selectedMonth || 'current',
+    huvudkategoriId: huvudkategoriId || 'all',
+    underkategoriId: underkategoriId || 'all',
+    bankCategory: bankCategory || 'all',
+    bankSubCategory: bankSubCategory || 'all',
+    description: ''
+  });
+  
+  // Set initial filters based on what was clicked
+  useEffect(() => {
+    const newFilters = {
+      status: 'all' as 'all' | 'red_yellow',
+      accountId: accountId || 'all',
+      transactionType: 'all',
+      transaction: 'all',
+      month: selectedMonth || 'current',
+      huvudkategoriId: huvudkategoriId || 'all',
+      underkategoriId: underkategoriId || 'all',
+      bankCategory: 'all',
+      bankSubCategory: 'all',
+      description: ''
+    };
+    
+    // If it's from Okategoriserade and contains bank category info
+    if (isUncategorized && categoryName.includes(' - ')) {
+      const parts = categoryName.split(' - ');
+      if (parts[0] === 'Okategoriserade') {
+        // "Okategoriserade - Transport" -> bankCategory = "Transport"
+        newFilters.bankCategory = parts[1] || 'all';
+      } else if (parts.length === 2) {
+        // "Transport - SubCategory" -> both bank category and subcategory
+        newFilters.bankCategory = parts[0] || 'all';
+        newFilters.bankSubCategory = parts[1] || 'all';
+      }
+    }
+    
+    setFilters(newFilters);
+  }, [huvudkategoriId, underkategoriId, accountId, bankCategory, bankSubCategory, selectedMonth, categoryName, isUncategorized]);
   
   const difference = budgetAmount - Math.abs(actualAmount);
+  
+  // Filter transactions based on current filters
+  const filteredTransactions = useMemo(() => {
+    let filtered = [...transactions];
+    
+    // Status filter
+    if (filters.status === 'red_yellow') {
+      filtered = filtered.filter(tx => tx.status === 'red' || tx.status === 'yellow');
+    }
+    
+    // Account filter
+    if (filters.accountId !== 'all') {
+      filtered = filtered.filter(tx => tx.accountId === filters.accountId);
+    }
+    
+    // Transaction type filter
+    if (filters.transactionType !== 'all') {
+      filtered = filtered.filter(tx => tx.type === filters.transactionType);
+    }
+    
+    // Huvudkategori filter
+    if (filters.huvudkategoriId !== 'all') {
+      filtered = filtered.filter(tx => tx.appCategoryId === filters.huvudkategoriId);
+    }
+    
+    // Underkategori filter
+    if (filters.underkategoriId !== 'all') {
+      filtered = filtered.filter(tx => tx.appSubCategoryId === filters.underkategoriId);
+    }
+    
+    // Bank category filter
+    if (filters.bankCategory !== 'all') {
+      filtered = filtered.filter(tx => tx.bankCategory === filters.bankCategory);
+    }
+    
+    // Bank subcategory filter
+    if (filters.bankSubCategory !== 'all') {
+      filtered = filtered.filter(tx => tx.bankSubCategory === filters.bankSubCategory);
+    }
+    
+    // Description filter
+    if (filters.description) {
+      const searchTerm = filters.description.toLowerCase();
+      filtered = filtered.filter(tx => 
+        tx.description?.toLowerCase().includes(searchTerm) ||
+        tx.userDescription?.toLowerCase().includes(searchTerm) ||
+        tx.id?.toLowerCase().includes(searchTerm)
+      );
+    }
+    
+    return filtered;
+  }, [transactions, filters]);
 
-  // Group transactions by date
+  // Group filtered transactions by date
   const groupedTransactions = useMemo(() => {
     const groups: { [date: string]: Transaction[] } = {};
     
-    transactions.forEach(transaction => {
+    filteredTransactions.forEach(transaction => {
       const date = transaction.date;
       if (!groups[date]) {
         groups[date] = [];
@@ -54,7 +172,7 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
     });
 
     return sortedEntries;
-  }, [transactions]);
+  }, [filteredTransactions]);
 
   const toggleDateExpansion = (date: string) => {
     setExpandedDates(prev => {
@@ -118,8 +236,19 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className={`${isMobile ? 'max-w-[95vw] max-h-[90vh] m-2' : 'max-w-4xl max-h-[80vh]'} overflow-hidden flex flex-col`}>
         <DialogHeader>
-          <DialogTitle className={`${isMobile ? 'flex flex-col space-y-2' : 'flex items-center justify-between'}`}>
-            <span className="text-lg font-semibold">Transaktioner för {categoryName}</span>
+          <DialogTitle className={`${isMobile ? 'flex flex-col space-y-2' : 'flex flex-col space-y-2'}`}>
+            <div className="flex items-center justify-between">
+              <span className="text-lg font-semibold">Transaktioner för {categoryName}</span>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-2"
+              >
+                <Filter className="h-4 w-4" />
+                Filter
+              </Button>
+            </div>
             <div className={`${isMobile ? 'flex flex-col space-y-1 text-xs' : 'flex items-center space-x-4 text-sm'}`}>
               <span>Budgeterat: {formatOrenAsCurrency(budgetAmount)}</span>
               <span className="font-bold">Faktiskt: {formatOrenAsCurrency(actualAmount)}</span>
@@ -129,6 +258,156 @@ export const TransactionDrillDownDialog: React.FC<TransactionDrillDownDialogProp
             </div>
           </DialogTitle>
         </DialogHeader>
+        
+        {/* Filter section */}
+        {showFilters && (
+          <div className="border rounded-lg p-4 space-y-3 bg-gray-50">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {/* Status filter */}
+              <div>
+                <Label className="text-xs">Visa bara status:</Label>
+                <Select value={filters.status} onValueChange={(value) => setFilters({...filters, status: value as 'all' | 'red_yellow'})}>
+                  <SelectTrigger className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alla</SelectItem>
+                    <SelectItem value="red_yellow">Röd + Gul</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Account filter */}
+              <div>
+                <Label className="text-xs">Konto:</Label>
+                <Select value={filters.accountId} onValueChange={(value) => setFilters({...filters, accountId: value})}>
+                  <SelectTrigger className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alla</SelectItem>
+                    {accounts.map(account => (
+                      <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Transaction type filter */}
+              <div>
+                <Label className="text-xs">Transaktionstyp:</Label>
+                <Select value={filters.transactionType} onValueChange={(value) => setFilters({...filters, transactionType: value})}>
+                  <SelectTrigger className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alla</SelectItem>
+                    <SelectItem value="Transaction">Transaction</SelectItem>
+                    <SelectItem value="ExpenseClaim">ExpenseClaim</SelectItem>
+                    <SelectItem value="Payment">Payment</SelectItem>
+                    <SelectItem value="InternalTransfer">InternalTransfer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Huvudkategori filter */}
+              <div>
+                <Label className="text-xs">Huvudkategori (App):</Label>
+                <Select value={filters.huvudkategoriId} onValueChange={(value) => setFilters({...filters, huvudkategoriId: value, underkategoriId: 'all'})}>
+                  <SelectTrigger className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alla</SelectItem>
+                    {huvudkategorier.map(kat => (
+                      <SelectItem key={kat.id} value={kat.id}>{kat.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Underkategori filter */}
+              <div>
+                <Label className="text-xs">Underkategori (App):</Label>
+                <Select 
+                  value={filters.underkategoriId} 
+                  onValueChange={(value) => setFilters({...filters, underkategoriId: value})}
+                  disabled={filters.huvudkategoriId === 'all'}
+                >
+                  <SelectTrigger className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alla</SelectItem>
+                    {underkategorier
+                      .filter(uk => filters.huvudkategoriId === 'all' || uk.huvudkategoriId === filters.huvudkategoriId)
+                      .map(kat => (
+                        <SelectItem key={kat.id} value={kat.id}>{kat.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Bank category filter */}
+              <div>
+                <Label className="text-xs">Bankkategori:</Label>
+                <Select value={filters.bankCategory} onValueChange={(value) => setFilters({...filters, bankCategory: value})}>
+                  <SelectTrigger className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alla</SelectItem>
+                    {Array.from(new Set(transactions.map(tx => tx.bankCategory).filter(Boolean))).map(cat => (
+                      <SelectItem key={cat} value={cat!}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Bank subcategory filter */}
+              <div>
+                <Label className="text-xs">Bankunderkategori:</Label>
+                <Select 
+                  value={filters.bankSubCategory} 
+                  onValueChange={(value) => setFilters({...filters, bankSubCategory: value})}
+                  disabled={filters.bankCategory === 'all'}
+                >
+                  <SelectTrigger className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alla</SelectItem>
+                    {Array.from(new Set(
+                      transactions
+                        .filter(tx => filters.bankCategory === 'all' || tx.bankCategory === filters.bankCategory)
+                        .map(tx => tx.bankSubCategory)
+                        .filter(Boolean)
+                    )).map(cat => (
+                      <SelectItem key={cat} value={cat!}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Description search */}
+              <div className="md:col-span-2">
+                <Label className="text-xs">Beskrivning:</Label>
+                <Input 
+                  type="text" 
+                  placeholder="Sök i beskrivning, egen text eller UUID"
+                  value={filters.description}
+                  onChange={(e) => setFilters({...filters, description: e.target.value})}
+                  className="h-8"
+                />
+              </div>
+            </div>
+            
+            {/* Filter summary */}
+            <div className="text-xs text-gray-600">
+              Visar {filteredTransactions.length} av {transactions.length} transaktioner
+            </div>
+          </div>
+        )}
         
         <div className={`flex-1 overflow-y-auto space-y-2 ${isMobile ? 'pr-1' : 'pr-2'}`}>
           {transactions.length === 0 ? (

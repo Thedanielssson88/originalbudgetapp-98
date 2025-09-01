@@ -16,13 +16,14 @@ import { useUpdateTransaction } from '@/hooks/useTransactions';
 import { useAccounts } from '@/hooks/useAccounts';
 import { formatOrenAsCurrency } from '@/utils/currencyUtils';
 import { addMobileDebugLog } from '@/utils/mobileDebugLogger';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface TransferMatchDialogProps {
   isOpen: boolean;
   onClose: () => void;
   transaction?: ImportedTransaction;
   suggestions?: ImportedTransaction[];
-  onRefresh?: () => void;
+  onRefresh?: (tx1Id?: string, tx2Id?: string) => void;
 }
 
 export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
@@ -36,6 +37,7 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
   const [showAllSuggestions, setShowAllSuggestions] = React.useState<boolean>(false);
   const updateTransactionMutation = useUpdateTransaction();
   const { data: accounts = [] } = useAccounts();
+  const queryClient = useQueryClient();
   
   // Debug logging to check if accounts are loaded
   React.useEffect(() => {
@@ -127,18 +129,47 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
       addMobileDebugLog(`🏦 [TRANSFER MATCH] Account 2: ${account2Name} (${selectedTransaction.accountId})`);
       
       // === MOBILE DEBUG: API call preparation ===
+      // Determine which transaction has categories to inherit from
+      const hasCategories1 = transaction.appCategoryId || transaction.appSubCategoryId;
+      const hasCategories2 = selectedTransaction.appCategoryId || selectedTransaction.appSubCategoryId;
+      
+      let inheritedCategoryId = null;
+      let inheritedSubCategoryId = null;
+      
+      if (hasCategories1) {
+        inheritedCategoryId = transaction.appCategoryId;
+        inheritedSubCategoryId = transaction.appSubCategoryId;
+        addMobileDebugLog(`🏷️ [TRANSFER MATCH CATEGORIES] Using categories from transaction 1: ${inheritedCategoryId}/${inheritedSubCategoryId}`);
+      } else if (hasCategories2) {
+        inheritedCategoryId = selectedTransaction.appCategoryId;
+        inheritedSubCategoryId = selectedTransaction.appSubCategoryId;
+        addMobileDebugLog(`🏷️ [TRANSFER MATCH CATEGORIES] Using categories from transaction 2: ${inheritedCategoryId}/${inheritedSubCategoryId}`);
+      } else {
+        addMobileDebugLog(`🏷️ [TRANSFER MATCH CATEGORIES] No categories found on either transaction`);
+      }
+      
+      // Auto-approve if both transactions will have categories
+      const shouldAutoApprove = inheritedCategoryId && inheritedSubCategoryId;
+      addMobileDebugLog(`🔍 [TRANSFER MATCH] Auto-approve check: ${shouldAutoApprove ? 'YES' : 'NO'} (categories: ${inheritedCategoryId}/${inheritedSubCategoryId})`);
+
       const update1Data = {
         type: 'InternalTransfer',
         linkedTransactionId: selectedTransaction.id,
         userDescription: `Överföring till ${account2Name}, ${selectedTransaction.date}`,
-        isManuallyChanged: 'true'
+        isManuallyChanged: 'true',
+        ...(inheritedCategoryId && { appCategoryId: inheritedCategoryId }),
+        ...(inheritedSubCategoryId && { appSubCategoryId: inheritedSubCategoryId }),
+        ...(shouldAutoApprove && { status: 'green' })
       };
       
       const update2Data = {
         type: 'InternalTransfer', 
         linkedTransactionId: transaction.id,
         userDescription: `Överföring från ${account1Name}, ${transaction.date}`,
-        isManuallyChanged: 'true'
+        isManuallyChanged: 'true',
+        ...(inheritedCategoryId && { appCategoryId: inheritedCategoryId }),
+        ...(inheritedSubCategoryId && { appSubCategoryId: inheritedSubCategoryId }),
+        ...(shouldAutoApprove && { status: 'green' })
       };
       
       addMobileDebugLog('📡 [TRANSFER MATCH API] Preparing to call PATCH /api/transactions');
@@ -168,11 +199,24 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
       addMobileDebugLog(`✅ [TRANSFER MATCH API RESULT 1] ${JSON.stringify(apiResults[0], null, 2)}`);
       addMobileDebugLog(`✅ [TRANSFER MATCH API RESULT 2] ${JSON.stringify(apiResults[1], null, 2)}`);
       
-      // Trigger refresh to update the UI
+      // Invalidate queries to refresh all transaction data
+      addMobileDebugLog('🔄 [TRANSFER MATCH REFRESH] Invalidating transaction queries...');
+      await queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      addMobileDebugLog('✅ [TRANSFER MATCH REFRESH] Transaction queries invalidated');
+      
+      // Trigger refresh to update the UI with fresh data from API
+      addMobileDebugLog(`🔄 [TRANSFER MATCH REFRESH] onRefresh is: ${typeof onRefresh} - ${!!onRefresh}`);
       if (onRefresh) {
-        addMobileDebugLog('🔄 [TRANSFER MATCH REFRESH] Calling onRefresh to update UI...');
-        await onRefresh();
-        addMobileDebugLog('✅ [TRANSFER MATCH REFRESH] onRefresh completed');
+        addMobileDebugLog('🔄 [TRANSFER MATCH REFRESH] Calling onRefresh to fetch fresh data...');
+        addMobileDebugLog(`🔄 [TRANSFER MATCH REFRESH] Calling with IDs: ${transaction.id}, ${selectedTransaction.id}`);
+        
+        // Pass the transaction IDs to fetch fresh data from API
+        try {
+          await onRefresh(transaction.id, selectedTransaction.id);
+          addMobileDebugLog('✅ [TRANSFER MATCH REFRESH] onRefresh completed successfully');
+        } catch (error) {
+          addMobileDebugLog(`❌ [TRANSFER MATCH REFRESH] onRefresh failed: ${error}`);
+        }
       } else {
         addMobileDebugLog('⚠️ [TRANSFER MATCH REFRESH] No onRefresh callback provided');
       }
@@ -246,7 +290,8 @@ export const TransferMatchDialog: React.FC<TransferMatchDialogProps> = ({
           {suggestions.length > 0 ? (
             <div className="space-y-4">
               <RadioGroup value={selectedMatch} onValueChange={setSelectedMatch}>
-                <div className="space-y-2">
+                {/* Limit display to max 3 transactions at a time with scroll */}
+                <div className="space-y-2 max-h-[240px] overflow-y-auto pr-2 border rounded-lg p-2">
                   {filteredSuggestions.map((suggestion) => {
                     const isSelected = selectedMatch === suggestion.id;
                     const isSameDateAndAmount = transaction && suggestion.date === transaction.date && Math.abs(suggestion.amount) === Math.abs(transaction.amount);
